@@ -7,8 +7,8 @@
 > printed and before an LLM machinist review or a human sees it.
 
 Status: plan only. No code beyond the package skeleton. Rev 2, 2026-10-02,
-after the adversarial review in
-[`docs/reviews/2026-10-02-plan-rev1-adversarial.md`](docs/reviews/2026-10-02-plan-rev1-adversarial.md).
+after an adversarial review of rev 1 (findings summarized in the commit that
+introduced rev 2).
 Rev 1 claimed a gate that "proves executability"; it could not. Rev 2 narrows
 to what a checker can establish from declared inputs, names unknowns as
 unknowns, and defers geometry-heavy rules behind a kernel spike.
