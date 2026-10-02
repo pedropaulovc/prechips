@@ -131,7 +131,7 @@ features:
     axis: [0, 0, -1]
     center: {x: 50.8, y: 12.7, tolerance: {position_dia: 0.2, source: default}}
     thread: {designation: "1/4-20 UNC", class: "2B", standard: "ASME B1.1-2003", source: "zone C2"}
-    end: {condition: blind, depth: 9.5, from: entry_face}   # full-thread depth
+    end: {condition: through}     # 9.525 mm stock: a 9.5 mm blind thread would break out, so it is through
   - id: profile_outer
     kind: pocket                  # the outer profile, modelled as the complement: stock minus part
     frame: A
@@ -183,10 +183,13 @@ setups:
       - {op: 30, do: ream,  feature: pivot_bore, tool: reamers-metric/6.5-H7, holder: r8-collets-lms-4860/1-4in, rpm: 500,
          inspect: {method: pin_gauge, gauge: pin-gauges-metric/6.50-6.53, go: 6.50, nogo: 6.53}}
       - {op: 40, do: spot,  feature: rod_tap,    tool: center-drills-lms-4859/2}
-      - {op: 50, do: drill, feature: rod_tap,    tool: drill-index-115/13-64, depth_mm: 12.5}
-      - {op: 60, do: tap,   feature: rod_tap,    tool: taps/1-4-20-unc-2b-plug, method: hand_tap_guide}
-      - {op: 70, do: counterbore, feature: pivot_cbore, tool: endmills-lms-6784/3-8in-2fl, holder: r8-collets-lms-4860/3-8in, depth_mm: 2.0}
-      - {op: 80, do: profile, feature: profile_outer, tool: endmills-lms-6784/3-8in-4fl, holder: r8-collets-lms-4860/3-8in, rpm: 1800}
+      - {op: 50, do: drill, feature: rod_tap,    tool: drill-index-115/13-64}                     # through; no depth
+      - {op: 60, do: tap,   feature: rod_tap,    tool: taps/1-4-20-unc-2b-plug, method: hand_tap_guide,
+         inspect: {method: thread_gauge, gauge: thread-gauges/1-4-20-unc-2b, go: true, nogo: false}}
+      - {op: 70, do: counterbore, feature: pivot_cbore, tool: endmills-lms-6784/3-8in-2fl, holder: r8-collets-lms-4860/3-8in, depth_mm: 2.0,
+         inspect: {method: caliper, dia_range: [9.5, 9.6], depth_range: [1.9, 2.1]}}
+      - {op: 80, do: profile, feature: profile_outer, tool: endmills-lms-6784/3-8in-4fl, holder: r8-collets-lms-4860/3-8in, rpm: 1800,
+         inspect: {method: caliper, profile_tolerance: 0.1, points: [length, width, hub_od]}}
 ```
 
 Tool references are `set/item`, resolving to one physical tool with its own
@@ -206,8 +209,9 @@ invalid controls (§7).
 
 ```yaml
 policy_version: 1
-required: [schema, inventory_refs, citations_present, step_binding, sizing_tool,
-           hole_op_chain, op_order, blind_thread_depth, coverage, envelope, holder_compat]
+required: [schema, inventory_refs, citations_present, step_binding, policy_integrity,
+           sizing_tool, hole_op_chain, op_order, coordinate_table, blind_thread_depth,
+           coverage, envelope, holder_compat]
 severity: {sizing_tool: block, envelope: block, coverage: warn}
 ```
 
