@@ -1,0 +1,43 @@
+[project]
+name = "prechips"
+version = "0.0.1"
+description = "Checks before chips: deterministic validation of machining process plans against part geometry and a shop inventory."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Pedro Paulo Vezza Campos", email = "pedro@vezza.com.br" }]
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9",
+    "pyyaml>=6.0",
+]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://github.com/pedropaulovc/prechips"
+
+[project.scripts]
+prechips = "prechips.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.10"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
