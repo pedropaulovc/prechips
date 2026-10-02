@@ -16,6 +16,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: false   # release artefact must not come from a shared cache
+      - name: Tag must match the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(uv version --short)"
+          if [[ "$tag" != "$version" ]]; then
+            echo "tag v$tag does not match pyproject version $version" >&2
+            exit 1
+          fi
       - run: uv build
       - uses: actions/upload-artifact@v4
         with:
