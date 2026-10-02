@@ -45,8 +45,20 @@ machines:
   BS-0:
     kind: dividing_head
     make: Precision Matthews
+    sku: DIVIDINGHEAD-BS-0
+    source: https://www.precisionmatthews.com/products/dividinghead-bs-0
     worm_ratio: 40
-    plates: null   # list hole circles; verify
+    centre_height_in: 3.9375
+    swing_in: 7.875
+    spindle: {bore_in: 0.708, mount: "1-1/2 x 8 TPI", taper: BS-7, runout_in: 0.0006}
+    tilt_deg: {down: 10, up: 90}
+    direct_index: {positions: 24, step_deg: 15}
+    plates: 3
+    plate_holes:   # PM lists 3 plates but not the circles; standard BS-0 set — count the plates to confirm
+      A: [15, 16, 17, 18, 19, 20]
+      B: [21, 23, 27, 29, 31, 33]
+      C: [37, 39, 41, 43, 47, 49]
+    included: [chuck_3jaw_5in_inside_outside_jaws, tailstock_adjustable, spindle_centre, dog_driver]
     verify: true
 
 workholding:
@@ -106,9 +118,25 @@ tools:
   drills-metric: {kind: drill_set, present: null, verify: true}
   tap-die-set-40: {kind: tap_die_set, pieces: 40, standards: null, by: photo, verify: true}
   taps-metric-set: {kind: tap_set, note: "metric tap/drill box seen in photo (M3-M12 labels)", by: photo, verify: true}
-  reamers: {kind: reamers, sizes_mm: [], by: photo, verify: true}
+  reamers:
+    kind: reamers
+    note: "Several long chucking reamers in a bin (june-batch_aa row 2). LMS sells a 14-pc over/under set (3066: 0.1240/0.1260, 0.1865/0.1885, 0.2490/0.2510, 0.3115/0.3135, 0.3740/0.3760, 0.4365/0.4385, 0.4990/0.5010) and a 29-pc 1/16-1/2 x 64ths set (3067). Identify which."
+    candidates: {lms-3066: over_under_14pc, lms-3067: 64ths_29pc}
+    sizes_in: []
+    by: photo
+    verify: true
   countersinks: {kind: countersink_set, sizes_in: ["1/4", "3/8", "1/2", "5/8", "3/4"], by: photo, verify: true}
-  boring-head: {kind: boring_head, shank: R8, max_offset_in: null, bars: [], by: photo, verify: true}
+  boring-head-lms-3662:
+    kind: boring_head
+    shank: R8
+    drawbar: 7/16-20
+    head_in: 2
+    max_offset_in: 0.625
+    dial_in: 0.001          # radius per division
+    bars: {count: 9, type: carbide_tipped, shank_in: 0.5, min_bore_in: [0.3125, 0.4375, 0.5625], depth_in: [0.75, 3.0]}
+    note: "Wooden-block carbide-tipped bar set seen in photo matches LMS 3662 (basic R8 set); 5403 (pro, fitted case) and 6114 (indexable, 4 bars) look different."
+    source: {vendor: LittleMachineShop, sku: 3662, by: photo}
+    verify: true
   edge-finder: {kind: edge_finder, make: null, shank_in: "3/8", tip_in: 0.2, note: "LMS packages ship Starrett 827A or Fisher", present: null, verify: true}
   # Lathe
   qctp-axa-lms-2280:
