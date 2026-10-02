@@ -1,4 +1,4 @@
-# Pedro's shop — rough inventory, to be refined.
+# Sample shop inventory (Pedro's shop). prechips ships no default inventory; each user supplies their own file in this schema.
 # `verify: true` marks a value taken from a vendor page, a forum, a photo or
 # memory rather than measured/confirmed on the machine. Rules that depend on a
 # `verify: true` value report at `warn`, never `block`, until it is cleared.

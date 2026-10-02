@@ -177,7 +177,16 @@ setups:
 verification: {status: planned}    # planned | cam-verified | bench-verified(entry: …)
 ```
 
-- `inventory.yaml` — see `shop/inventory.yaml` (draft).
+- `inventory.yaml` — **supplied by the user, per shop.** prechips ships no
+  default inventory; `examples/inventory/pedro-shop.yaml` is a sample showing
+  the schema and the `verify`/`source` conventions. A rule that depends on a
+  `verify: true` value reports `warn`, never `block`.
+
+Unit mismatch is a finding, not a conversion. A metric H7 bore with only inch
+reamers in the inventory is `no_sizing_tool(feature, nearest: 0.2510 in,
+delta: +0.13 mm)` at `block`; prechips never substitutes the nearest size.
+(Expected on harmonic-analyzer today: its bores are metric, the sample
+inventory is inch. The consumer decides whether to re-dimension or buy tools.)
 
 Outputs:
 
@@ -190,7 +199,7 @@ Outputs:
 ```
 prechips/
   PLAN.md  README.md  pyproject.toml  uv.lock
-  shop/inventory.yaml            # Pedro's shop, the only inventory this repo ships
+  examples/inventory/pedro-shop.yaml   # sample inventory only; users bring their own
   prechips/
     schema/      plan.py inventory.py (pydantic)
     lint/
@@ -241,7 +250,7 @@ bore + blind tap), plus `cone-pivot-post` for the stock-form comparison.
 
 ## 9. Open items
 
-- Inventory refinement (see `shop/inventory.yaml`, fields marked `verify`).
+- Sample inventory refinement (fields marked `verify`).
 - Drawing-side permission for built-up construction where the comparison
   recommends it (a permission note is a requirement, so it passes
   harmonic-analyzer's drawing-simplicity rule 6).
