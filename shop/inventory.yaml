@@ -1,0 +1,81 @@
+# Pedro's shop — rough inventory, to be refined.
+# `verify: true` marks a value taken from a vendor page, a forum, a photo or
+# memory rather than measured/confirmed on the machine. Rules that depend on a
+# `verify: true` value report at `warn`, never `block`, until it is cleared.
+# Photo citations refer to C:/src/dt-logs/shop-photos/INVENTORY-DRAFT.md.
+
+machines:
+  PM-30MV:
+    kind: mill
+    make: Precision Matthews
+    control: cncjs over grbl-class controller; operated manually via XHC WHB04B-6 pendant + EL400 DRO emulator
+    operation_mode: manual_with_digital_positioning   # positions exact, feeds by hand
+    spindle: {taper: R8, rpm_min: null, rpm_max: 4000, hp: 1, verify: true}
+    travel_mm: {x: null, y: null, z: null, verify: true}   # measure on the machine
+    table_mm: {length: null, width: null, verify: true}
+  PM-1127VF-LB:
+    kind: lathe
+    make: Precision Matthews
+    operation_mode: manual
+    spindle:
+      ranges_rpm: [[70, 380], [380, 2200]]   # panel legible in photo 20260707_043127222
+      bore_in: 1.5                            # "large bore" model; verify
+      mount: D1-4                             # later units; verify on the machine
+      verify: true
+    swing_in: 11
+    between_centres_in: 27
+    tailstock: {taper: MT3, verify: true}
+    toolpost: {series: AXA, type: wedge, note: "QCTP marked 250-111 came off the JET; confirm it moved over", verify: true}
+    standard_kit: {note: "PM standard kit — check contents", verify: true}
+  BS-0:
+    kind: dividing_head
+    make: Precision Matthews
+    worm_ratio: 40
+    plates: null   # list hole circles; verify
+    verify: true
+
+workholding:
+  vise-pm-6:
+    kind: vise
+    make: Precision Matthews
+    jaw_width_in: 6
+    opening_in: null
+    jaw_depth_in: null
+    verify: true
+  chuck-3jaw: {kind: chuck_3jaw, diameter_in: null, fits: PM-1127VF-LB, verify: true}
+  chuck-4jaw: {kind: chuck_4jaw, diameter_in: null, fits: PM-1127VF-LB, verify: true}
+  faceplate: {kind: faceplate, diameter_in: null, present: null, verify: true}
+  steady_rest: {present: null, verify: true}
+  follow_rest: {present: null, verify: true}
+  r8-collets: {kind: collet_set, standard: R8, sizes_in: [], verify: true}
+  er-collets: {kind: collet_set, standard: null, sizes_mm: [], present: null, verify: true}
+  parallels: {kind: parallels_set, present: true, sizes: [], verify: true}
+  blocks-123: {kind: blocks_123, present: true}
+  v-blocks: {kind: v_blocks, present: true, sizes: [], verify: true}
+  drill-press-vise: {kind: vise, jaw_width_in: null, verify: true}
+
+tools:
+  # LittleMachineShop standard kits — check which kits and their contents.
+  lms-kits: {note: "LittleMachineShop standard kit(s); enumerate endmills/drills/arbors", verify: true}
+  endmill-set-tin-10pc: {kind: endmill_set, coating: TiN, flutes: [2, 4], sizes: [], verify: true}
+  drill-index-115: {kind: drill_index, pieces: 115, coverage: "fractional + letter + number; verify"}
+  tap-die-set-40: {kind: tap_die_set, pieces: 40, standards: null, verify: true}
+  reamers: {kind: reamers, sizes_mm: [], verify: true}
+  countersinks: {kind: countersink_set, sizes_in: ["1/4", "3/8", "1/2", "5/8", "3/4"], verify: true}
+  boring-head: {kind: boring_head, shank: R8, range: null, verify: true}
+  hss-lathe-bits: {kind: lathe_tool_bits, material: HSS, shank_in: null, verify: true}
+  insert-holders: {kind: insert_holders, inserts: null, shank_in: null, verify: true}
+  parting: {kind: parting_blade, width_mm: null, present: null, verify: true}
+
+measuring:
+  calipers: {kind: caliper, make: generic, range_in: 6, resolution_in: 0.0005, verify: true}
+  micrometers: {kind: micrometer_set, make: LittleMachineShop, ranges_in: ["0-1", "1-2", "2-3"], resolution_in: 0.0001, verify: true}
+  dial-indicator: {kind: dial_indicator, make: Mitutoyo, resolution_in: 0.0005, range_in: null, verify: true}
+  dti: {kind: dial_test_indicator, make: LittleMachineShop, resolution_in: null, verify: true}
+  mag-base: {kind: magnetic_base, present: true}
+  edge-finder: {present: null, verify: true}
+
+stock: []   # none on hand (2026-10-02)
+
+consumables:
+  cutting-oil: [CRC cutting oil, Tap Magic ProTap]
