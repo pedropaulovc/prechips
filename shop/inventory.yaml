@@ -47,25 +47,65 @@ workholding:
   faceplate: {kind: faceplate, diameter_in: null, present: null, verify: true}
   steady_rest: {present: null, verify: true}
   follow_rest: {present: null, verify: true}
-  r8-collets: {kind: collet_set, standard: R8, sizes_in: [], verify: true}
+  r8-collets-lms-4860:
+    kind: collet_set
+    standard: R8
+    drawbar: 7/16-20
+    sizes_in: ["1/8", "3/16", "1/4", "5/16", "3/8", "7/16", "1/2", "9/16", "5/8", "11/16", "3/4", "13/16", "7/8"]
+    runout_max_in: 0.0005
+    source: {vendor: LittleMachineShop, sku: 4860, by: user}
   er-collets: {kind: collet_set, standard: null, sizes_mm: [], present: null, verify: true}
-  parallels: {kind: parallels_set, present: true, sizes: [], verify: true}
-  blocks-123: {kind: blocks_123, present: true}
+  parallels-lms-6745:
+    kind: parallels_set
+    thickness_in: 0.125
+    length_in: 4
+    heights_in: ["1/2", "9/16", "5/8", "11/16", "3/4", "13/16", "7/8", "15/16", "1"]
+    shims_in: ["9/64", "5/32"]
+    source: {vendor: LittleMachineShop, sku: 6745, by: photo+lms-package, verify: true}
+  blocks-123-lms-2881: {kind: blocks_123, size_in: [1, 2, 3], source: {vendor: LittleMachineShop, sku: 2881, by: photo+lms-package, verify: true}}
   v-blocks: {kind: v_blocks, present: true, sizes: [], verify: true}
+  clamping-kit-lms-1144: {kind: clamping_kit, pieces: 58, stud: 3/8-16, t_slot_in: "7/16", source: {vendor: LittleMachineShop, sku: 1144, by: lms-package}, present: null, verify: true}
   drill-press-vise: {kind: vise, jaw_width_in: null, verify: true}
 
 tools:
-  # LittleMachineShop standard kits — check which kits and their contents.
-  lms-kits: {note: "LittleMachineShop standard kit(s); enumerate endmills/drills/arbors", verify: true}
-  endmill-set-tin-10pc: {kind: endmill_set, coating: TiN, flutes: [2, 4], sizes: [], verify: true}
-  drill-index-115: {kind: drill_index, pieces: 115, coverage: "fractional + letter + number; verify"}
-  tap-die-set-40: {kind: tap_die_set, pieces: 40, standards: null, verify: true}
-  reamers: {kind: reamers, sizes_mm: [], verify: true}
-  countersinks: {kind: countersink_set, sizes_in: ["1/4", "3/8", "1/2", "5/8", "3/4"], verify: true}
-  boring-head: {kind: boring_head, shank: R8, range: null, verify: true}
-  hss-lathe-bits: {kind: lathe_tool_bits, material: HSS, shank_in: null, verify: true}
-  insert-holders: {kind: insert_holders, inserts: null, shank_in: null, verify: true}
-  parting: {kind: parting_blade, width_mm: null, present: null, verify: true}
+  # LittleMachineShop items. `by: user` = named by Pedro; `by: photo` = seen in the
+  # 2025-06-28 photos; `by: lms-package` = part of an LMS Bench Mill / Bench Lathe
+  # tooling package Pedro bought — confirm each row. Everything else: verify.
+  endmills-lms-6784:
+    kind: endmill_set
+    material: HSS
+    coating: TiN
+    center_cutting: true
+    pieces: 20
+    sizes_in: {2_and_4_flute: ["3/16", "1/4", "5/16", "3/8", "7/16", "1/2", "9/16", "5/8", "11/16", "3/4"]}
+    shank_in: {"3/8": ["3/16", "1/4", "5/16", "3/8", "7/16"], "1/2": ["1/2", "9/16"], "5/8": ["5/8", "11/16"], "3/4": ["3/4"]}
+    source: {vendor: LittleMachineShop, sku: 6784, by: user}
+  endmills-tin-10pc: {kind: endmill_set, coating: TiN, pieces: 10, flutes: [2, 4], sizes: [], note: "second box seen in photo; may be a different set", by: photo, verify: true}
+  center-drills-lms-4859: {kind: center_drill_set, material: M42, sizes: [1, 2, 3, 4, 5], angle_deg: 60, source: {vendor: LittleMachineShop, sku: 4859, by: lms-package}, verify: true}
+  drill-index-115: {kind: drill_index, pieces: 115, coverage: "1/16-1/2 by 64ths + A-Z + #1-60 (standard 115-pc); verify", by: photo}
+  drills-metric: {kind: drill_set, present: null, verify: true}
+  tap-die-set-40: {kind: tap_die_set, pieces: 40, standards: null, by: photo, verify: true}
+  taps-metric-set: {kind: tap_set, note: "metric tap/drill box seen in photo (M3-M12 labels)", by: photo, verify: true}
+  reamers: {kind: reamers, sizes_mm: [], by: photo, verify: true}
+  countersinks: {kind: countersink_set, sizes_in: ["1/4", "3/8", "1/2", "5/8", "3/4"], by: photo, verify: true}
+  boring-head: {kind: boring_head, shank: R8, max_offset_in: null, bars: [], by: photo, verify: true}
+  edge-finder: {kind: edge_finder, make: null, shank_in: "3/8", tip_in: 0.2, note: "LMS packages ship Starrett 827A or Fisher", present: null, verify: true}
+  # Lathe
+  qctp-axa-lms-2280:
+    kind: qctp_set
+    series: AXA
+    holders: {"#1 turning/facing": 2, "#2 boring/turning/facing": 1, "#4 heavy boring": 1, "#7 parting (1/2 blade)": 1}
+    max_shank_in: 0.5
+    source: {vendor: LittleMachineShop, sku: 2280, by: lms-package}
+    note: "QCTP marked 250-111 seen on the JET in photos; confirm it is this set and that it moved to the PM-1127"
+    verify: true
+  turning-tools-warner-lms-4132: {kind: insert_holders, make: "A R Warner", styles: [AR, E, AL], insert: TCMT-21.51, shank_in: null, source: {vendor: LittleMachineShop, sku: 4132, by: photo+lms-package}, verify: true}
+  boring-bar-warner-lms-1721: {kind: boring_bar, shank_in: 0.5, length_in: 6, min_bore_in: 0.76, insert: TPMT-222, source: {vendor: LittleMachineShop, sku: 1721, by: lms-package}, present: null, verify: true}
+  parting-blade-lms-1728: {kind: parting_blade, size_in: "1/16 x 1/2 x 4-1/2", material: M2, source: {vendor: LittleMachineShop, sku: 1728, by: lms-package}, present: null, verify: true}
+  drill-chuck-tailstock-lms-1660: {kind: drill_chuck, capacity_in: [0.03125, 0.5], arbor: "2MT / JT33", source: {vendor: LittleMachineShop, sku: 1660, by: lms-package}, note: "PM-1127 tailstock is MT3 — needs a sleeve if this is the chuck", present: null, verify: true}
+  hss-lathe-bits: {kind: lathe_tool_bits, material: HSS, shank_in: null, by: photo, verify: true}
+  knurler: {present: null, verify: true}
+  slitting-saws: {kind: slitting_saw, arbor: null, sizes: [], note: "a slitting saw blade appears in the photos next to the mag base", by: photo, verify: true}
 
 measuring:
   calipers: {kind: caliper, make: generic, range_in: 6, resolution_in: 0.0005, verify: true}
@@ -73,7 +113,6 @@ measuring:
   dial-indicator: {kind: dial_indicator, make: Mitutoyo, resolution_in: 0.0005, range_in: null, verify: true}
   dti: {kind: dial_test_indicator, make: LittleMachineShop, resolution_in: null, verify: true}
   mag-base: {kind: magnetic_base, present: true}
-  edge-finder: {present: null, verify: true}
 
 stock: []   # none on hand (2026-10-02)
 
