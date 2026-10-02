@@ -8,25 +8,40 @@ machines:
   PM-30MV:
     kind: mill
     make: Precision Matthews
+    source: https://www.precisionmatthews.com/products/pm-30mv   # read 2026-10-02
     control: cncjs over grbl-class controller; operated manually via XHC WHB04B-6 pendant + EL400 DRO emulator
     operation_mode: manual_with_digital_positioning   # positions exact, feeds by hand
-    spindle: {taper: R8, rpm_min: null, rpm_max: 4000, hp: 1, verify: true}
-    travel_mm: {x: null, y: null, z: null, verify: true}   # measure on the machine
-    table_mm: {length: null, width: null, verify: true}
+    spindle: {taper: R8, drawbar: 7/16-20, rpm_min: 50, rpm_max: 3000, hp: 2, drive: belt_bldc, two_ranges: true}
+    travel_in: {x: 23, y: 8.75, z: 14, quill: 3}
+    spindle_to_table_max_in: 17
+    table_in: {length: 33, width: 8.25, t_slot: "9/16 (14 mm)"}
+    headstock_tilt_deg: 90
+    leadscrew: {tpi: 10, dial_in: 0.001}   # irrelevant under cncjs; kept for hand-crank fallback
+    capacity_in: {drill: 1.25, end_mill: 0.75, face_mill: 3.5}   # vendor ratings
+    note: "CNC conversion replaces leadscrews/dials; travels may differ slightly — measure soft limits in grbl ($130-$132)."
+    verify: true   # until soft limits measured
   PM-1127VF-LB:
     kind: lathe
     make: Precision Matthews
+    source: http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/   # discontinued; 2022 snapshot
     operation_mode: manual
     spindle:
-      ranges_rpm: [[70, 380], [380, 2200]]   # panel legible in photo 20260707_043127222
-      bore_in: 1.5                            # "large bore" model; verify
-      mount: D1-4                             # later units; verify on the machine
-      verify: true
-    swing_in: 11
-    between_centres_in: 27
-    tailstock: {taper: MT3, verify: true}
-    toolpost: {series: AXA, type: wedge, note: "QCTP marked 250-111 came off the JET; confirm it moved over", verify: true}
-    standard_kit: {note: "PM standard kit — check contents", verify: true}
+      ranges_rpm: [[70, 380], [380, 2200]]   # vendor (2019+ motor) and panel photo 20260707_043127222 agree
+      bore_in: 1.5
+      mount: D1-4                             # "now standard" on the 2022 page; older units threaded — confirm on the machine
+      hp: 1
+      drive: vfd
+    swing_over_bed_in: 11
+    between_centres_in: 27.55
+    cross_slide_travel_in: 6
+    compound_travel_in: 3
+    tailstock: {taper: MT3, quill_travel_in: 4}
+    leadscrew: {tpi: 8, cross_feed_ipr: [0.001, 0.0056]}
+    threads: {inch_tpi: [8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 44, 48, 52, 56], metric_pitch_mm: [0.5, 3.0]}
+    weight_lb: 575
+    toolpost: {series: AXA, type: wedge, holders: 5, included: true, note: "a second AXA QCTP (250-111) came off the JET"}
+    standard_accessories: [chuck-3jaw-6-d1-4, chuck-4jaw-6-d1-4, faceplate-d1-4, steady_rest, follow_rest, thread_dial, dead_centre_headstock, dead_centre_tailstock_mt3]
+    verify: true   # vendor page, not measured
   BS-0:
     kind: dividing_head
     make: Precision Matthews
@@ -38,15 +53,20 @@ workholding:
   vise-pm-6:
     kind: vise
     make: Precision Matthews
+    sku: VISE-6in-HIGHPREC   # assumed the standard 6" PM vise, not the Homge 8"-open; confirm
+    source: https://www.precisionmatthews.com/products/vise-6in-highprec
     jaw_width_in: 6
-    opening_in: null
-    jaw_depth_in: null
+    opening_in: 6            # jaws inside; 14 with jaws reversed
+    jaw_height_in: 1.825     # bed slideway to top of jaw
+    jaw_bolt: M10x1.5
+    swivel_base: true
     verify: true
-  chuck-3jaw: {kind: chuck_3jaw, diameter_in: null, fits: PM-1127VF-LB, verify: true}
-  chuck-4jaw: {kind: chuck_4jaw, diameter_in: null, fits: PM-1127VF-LB, verify: true}
-  faceplate: {kind: faceplate, diameter_in: null, present: null, verify: true}
-  steady_rest: {present: null, verify: true}
-  follow_rest: {present: null, verify: true}
+  chuck-3jaw-6-d1-4: {kind: chuck_3jaw, diameter_in: 6, mount: D1-4, scroll: true, fits: PM-1127VF-LB, source: pm-1127 standard accessories, verify: true}
+  chuck-4jaw-6-d1-4: {kind: chuck_4jaw, diameter_in: 6, mount: D1-4, independent: true, fits: PM-1127VF-LB, source: pm-1127 standard accessories, verify: true}
+  faceplate-d1-4: {kind: faceplate, mount: D1-4, diameter_in: null, source: pm-1127 standard accessories, verify: true}
+  steady_rest: {kind: steady_rest, fits: PM-1127VF-LB, capacity_in: null, source: pm-1127 standard accessories, verify: true}
+  follow_rest: {kind: follow_rest, fits: PM-1127VF-LB, source: pm-1127 standard accessories, verify: true}
+  lathe-collets: {kind: collet_chuck, standard: null, note: "PM offers ER-40 / 5C D1-4 chucks as options; none confirmed", present: null, verify: true}
   r8-collets-lms-4860:
     kind: collet_set
     standard: R8
