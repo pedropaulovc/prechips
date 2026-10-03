@@ -46,6 +46,26 @@ Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
 
+M4 kernel geometry reads explicit-unit dimensions only. A vise enters the
+FreeCAD job solely when `jaw_height`, `jaw_width`, `jaw_depth` and `opening`
+resolve to positive lengths through the same `_mm`-then-`_in` lookup as every
+other rule and the fixture is not `verify = true` / unknown-presence; the
+parallels fixture needs a positive `height_mm` / `height_in`, and its
+optional `length` (along the jaws) and `width` (along the clamp axis),
+resolved the same way, are what let the kernel draw the parallel solids
+once the plan declares `parallels_centres_mm`. These
+are the only sources of fixture solids: `jaw_depth_mm` / `jaw_depth_in` is the
+physical jaw-plate thickness along the gripping normal and is never synthesized
+from jaw width, jaw height, bed height or any other dimension. A tool enters an
+op's geometry job when `dia`, `flute_len` and `oal` resolve and a holder when
+`gauge_dia` and `gauge_len` resolve; the holder cylinder uses `gauge_dia`
+(`gauge_dia_mm` / `gauge_dia_in`), not `shank` or collet capacity. Any missing or
+unverified dimension is named in the job's reason text and the dependent
+geometry rules stay `?`. The shipped example vise is `verify = true` without
+`jaw_depth`, and its parallels declare `thickness_in` rather than `height`, so
+the shipped examples cannot produce a modeled fixture solid; see
+[geometry rules](rules-geometry.md).
+
 All InventoryItems share the declared field set below, regardless of category;
 category-specific usefulness is enforced by rules, not separate subclass schemas.
 Nested dictionaries such as `nominal_dia_mm`, `candidates`, `holders`,
@@ -176,7 +196,11 @@ on hand.
 | `min_bore_in` | `float` |
 | `tip_in` | `float` |
 | `jaw_width_in` | `float` |
+| `jaw_width_mm` | `float` |
+| `jaw_depth_in` | `float` |
+| `jaw_depth_mm` | `float` |
 | `opening_in` | `float` |
+| `opening_mm` | `float` |
 | `jaw_height_in` | `float` |
 | `bed_height_mm` | `float` |
 | `diameter_in` | `float` |
@@ -199,6 +223,9 @@ on hand.
 | `oal_in` | `float` |
 | `gauge_len_mm` | `float` |
 | `gauge_len_in` | `float` |
+| `gauge_dia` | `float` |
+| `gauge_dia_mm` | `float` |
+| `gauge_dia_in` | `float` |
 | `projection_in` | `float` |
 | `spindle_to_table_max_mm` | `float` |
 | `jaw_height_mm` | `float` |

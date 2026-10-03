@@ -1,0 +1,77 @@
+# rocker-jaw-occluded, failing candidate (PLAN.md rev 6 §4.2 accessibility, §6 round 2:
+# "a jaw standing beside a face"). The labelled v40 rocker arm stands on its tips in a
+# synthetic 320 mm wide vise whose jaws close on the two hub faces; the +Z strap face
+# (the exported strap_datum_b feature) the one op claims lies 2.27825 mm inside the rear
+# jaw plane, and the jaw tops reach 4.705 mm above the pivot axis. Expected: accessibility
+# error (the offset Ø8 cutter cylinder beside the strap face hits the jaw below the jaw
+# top, and the hub boss above the pivot); reach, corner, coverage, finish coverage, vise
+# and thin-wall rows pass or are not applicable. The holding is a test specification,
+# not a proposed process for this part.
+part = "rocker-arm"
+features = "features.toml"
+construction = "one_piece"
+
+[paths]
+inventory = "../inventory.toml"
+policy = "../shop-policy.toml"
+cutting_data = "../../cutting-data.toml"
+
+[stock]
+form = "finished_test_solid"
+form_verify = false
+note = "The STEP solid is the stock; only the +Z strap face is cut. No material is asserted."
+as_is_faces = [
+  "#20/ADVANCED_FACE[1]/HAF_STRAP_FACES__P01",
+  "#49/ADVANCED_FACE[2]/HAF_ROD_HOLE__P01",
+  "#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01",
+  "#166/ADVANCED_FACE[4]/HAF_HUB_OD__P01",
+  "#233/ADVANCED_FACE[5]/HAF_PIVOT_BORE__P01",
+  "#248/ADVANCED_FACE[6]/HAF_TIP_LAND_POS_X__P01",
+  "#343/ADVANCED_FACE[7]/HAF_ROD_HOLE__P01",
+  "#382/ADVANCED_FACE[8]/HAF_PIVOT_BORE__P01",
+  "#426/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02",
+  "#431/ADVANCED_FACE[10]/HAF_TIP_LAND_NEG_X__P01",
+  "#448/ADVANCED_FACE[11]/HAF_HUB_FACES__P02",
+  "#486/ADVANCED_FACE[12]/HAF_HUB_OD__P01",
+  "#495/ADVANCED_FACE[14]/HAF_HUB_OD__P02",
+  "#505/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03",
+  "#514/ADVANCED_FACE[16]/HAF_HUB_OD__P02",
+  "#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01",
+  "#553/ADVANCED_FACE[18]/HAF_HUB_FACES__P01",
+]
+
+[[setups]]
+id = "S1"
+machine = "test-mill"
+frame = "V"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "stock"
+note = "Arm on its tips on 20 mm parallels, pivot axis horizontal across the jaws; jaws along X close across frame Y onto the hub faces (width 7.0565). Jaw tops 26 mm above the parallels: z = 4.705, 3.295 mm below the outer-arc apex. The parallel pair lies end to end along the jaws under both tips."
+
+[setups.stock_state]
+top_feature = "profile_outer"
+top_z = 8.0
+bottom_z = -21.29464
+
+[setups.hold]
+fixture = "test-vise-wide"
+jaws_along = "x"
+fixed_jaw = "rear"
+parallels = "test-parallels-20"
+grip_on = "hub faces"
+grip_mm = 6.0
+jaw_above_parallels_mm = 26.0
+jaw_center_along_mm = 0.0 # jaws centred on the pivot axis: 320 mm jaws span x -160..160 around the 292.5 mm arm
+parallels_centres_mm = [[-75.0, 0.0], [75.0, 0.0]] # the two 150 x 6 parallels butt at x = 0 along the jaws (x -150..150, y -3..3) inside the hub-face jaw planes y +-3.52825; the tips at x +-145.3, y +-1.25 rest on them
+stop = "rod-end tip against the fixed-jaw stop"
+clamp = "hand snug, then quarter turn"
+
+[[setups.ops]]
+op = 10
+do = "finish_face"
+feature = "strap_datum_b"
+tool = "em-8-std"
+holder = "r8-collet-8mm"
+direction = "conventional"
+note = "Side-mill the +Z strap face (datum B, frame +Y side, the rear-jaw side) with the cutter axis vertical."

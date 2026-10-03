@@ -38,12 +38,22 @@ components defer the basis check rather than substituting an identity.
 Frames give `origin` and basis `x/y/z`; `binding = "unknown"` preserves nominal
 geometry without certifying a measured setup. Frame names are not drawing datum
 names. Drawing datums map to actual features/surfaces through `datums`,
-`datum`, `position_datums`, `coaxial_to` and `height_from`. `faces` is declarative
-manifest provenance, not M1 extraction or a kernel proof.
+`datum`, `position_datums`, `coaxial_to` and `height_from`. `faces` is the
+feature's STEP face set: a list of face references that the M4 kernel maps to
+faces of the imported solid by each referenced `ADVANCED_FACE`'s own geometry
+(surface kind, area, bounding box), never by assuming the importer preserves
+STEP ordinal order. A reference that is malformed, missing from the STEP, or
+matches zero or several imported faces is a mapping error (`✗`) on every
+geometry rule that needs the feature; an omitted, `"unknown"` or empty list
+keeps those rules `?`. The M1/M2 declared-input rules still do not read it.
+See [geometry rules](rules-geometry.md#face-identity).
 
 `step_sha256` is `"unknown"` or a lowercase 64-hex SHA-256. A known digest
 requires actual referenced STEP bytes in the bundle and must match their hash;
-the digest alone is not accepted. Shipped examples have no STEP byte stream.
+the digest alone is not accepted. Only a bundle with matching bytes reaches the
+FreeCAD kernel; three hand-authored reference bundles have no STEP byte
+stream, so their geometry rows stay `?`, and the rocker binds the consumer's
+labelled export with its exported face sets.
 `cite`, `cite_root`, and per-dimension citations identify evidence and
 are not file assets fetched or opened during the check. Hand-authored manifests
 must be cross-checked against source drawings; completeness export is M3.
@@ -57,7 +67,9 @@ Unknown exposed stations, diameters or bindings cannot fall back to bar OD.
 
 M2 adds declared lathe profiles (`z_mm` plus a nominal diameter) and angular
 settings (`angle_deg`, `angle_tol_deg`). These are sourced nominal geometry,
-not kernel-derived access proofs. A feature's `angle_tol_deg` is an angular
+not kernel-derived access proofs. `finish_ra`, listed in `requirements`, is
+what the M4 `finish_coverage` rule reads: every face in that feature's `faces`
+must be claimed by a finishing cut. A feature's `angle_tol_deg` is an angular
 landing allowance in degrees; it is not the diametral angularity zone.
 Every declared indexing position is checked against that allowance. Closure
 applies only to a full pattern (`positions >= 2`, `angle_deg` omitted, exact

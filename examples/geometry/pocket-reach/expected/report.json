@@ -1,0 +1,754 @@
+{
+  "expected_exit": 2,
+  "findings": [
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "features.pocket: faces and requirements",
+        "examples/geometry/author_solids.py: pocket_block (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions"
+      ],
+      "message": "S1:10: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 161,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 19.0,
+        "holder_gauge_len_mm": 60.0,
+        "holder_hits": 161,
+        "holder_radius_mm": 20.0,
+        "oal_mm": 63.0,
+        "projection_mm": 38.0,
+        "radius_mm": 4.0,
+        "sample_count": 513,
+        "tool_hits": 0
+      },
+      "rule": "accessibility",
+      "status": "error",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "pocket"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "pocket"
+    },
+    {
+      "cite": [
+        "PLAN.md §5 input-bundle binding"
+      ],
+      "message": "The part model and every operative input are bound to the report.",
+      "numbers": {
+        "inputs": {
+          "cutting_data": {
+            "path": "examples/cutting-data.toml",
+            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+          },
+          "features": {
+            "path": "examples/geometry/pocket-reach/features.toml",
+            "sha256": "cd12cf1c483a2633f7425745a45cfa3b2126fd9293192b77fc8c51b05fa97fb4"
+          },
+          "inventory": {
+            "path": "examples/geometry/inventory.toml",
+            "sha256": "92fa16929bfb2089bef44779aff610b61841f5e8bd480c4430be3debb07d415d"
+          },
+          "plan": {
+            "path": "examples/geometry/pocket-reach/plan.toml",
+            "sha256": "680657ab6883b5c791e5efc76ac22f3063846b980a13ea82c3a6f0b94d18a16b"
+          },
+          "shop_policy": {
+            "path": "examples/geometry/shop-policy.toml",
+            "sha256": "55f401fe220e587bcf7f0f3205d704177b4b8435de5921eadded5dc6d725b17c"
+          },
+          "step": {
+            "path": "examples/geometry/pocket-reach/pocket-block.STEP",
+            "sha256": "b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f"
+          }
+        },
+        "step_sha256": "b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f"
+      },
+      "rule": "bundle_binding",
+      "status": "pass",
+      "subject": "inputs"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.5 stock-form comparison, lines 573–577"
+      ],
+      "message": "The candidate uses one-piece construction.",
+      "numbers": {
+        "drawing_construction": "one_piece",
+        "plan_construction": "one_piece"
+      },
+      "rule": "construction",
+      "status": "pass",
+      "subject": "pocket-block"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
+      ],
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "numbers": {
+        "arc_table": [],
+        "binding": "unknown",
+        "contours": [],
+        "entry_surfaces": [
+          {
+            "op": 10
+          }
+        ],
+        "frame": "A",
+        "line_table": [],
+        "operations": [
+          {
+            "direction": "climb",
+            "do": "finish_pocket",
+            "feature": "pocket",
+            "op": 10,
+            "to_z": 15.0,
+            "tool": "em-8-std"
+          }
+        ],
+        "profiles": [],
+        "rows": []
+      },
+      "rule": "coordinates",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 coverage",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "plan.stock.as_is_faces; union of cutting-op feature face sets"
+      ],
+      "message": "pocket-block: every imported face is claimed by a cutting op or declared as-stock.",
+      "numbers": {
+        "claimed_face_count": 15,
+        "face_count": 15,
+        "unclaimed_faces": [],
+        "unclaimed_indices": []
+      },
+      "rule": "coverage",
+      "status": "pass",
+      "subject": "pocket-block"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "pocket"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S1:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "r8-collet-8mm",
+        "operation": "finish_pocket",
+        "tool": "em-8-std",
+        "tool_kind": "endmill"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "features.pocket: faces and requirements",
+        "examples/geometry/author_solids.py: pocket_block (synthetic test specification)"
+      ],
+      "message": "pocket: drawing declares no finish requirement.",
+      "numbers": {
+        "finish_ra": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "not_applicable",
+      "subject": "pocket"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "inventory: machine, fixture, support, tool and holder dimensions",
+        "plan: stock state and setup frame"
+      ],
+      "message": "S1: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
+      "numbers": {
+        "bed_height_mm": "unknown",
+        "clearance_basis": "nominal input geometry; verification flags are measurement debt",
+        "cut_tip_above_jaws_mm": {
+          "10": -5.0
+        },
+        "fixture_height_mm": 40.0,
+        "fixture_verify": false,
+        "holder_gauge_len_mm": 60.0,
+        "insertion_mm": 25,
+        "jaw_obstruction": {
+          "jaw_top_z": 20.0,
+          "requires_path_check": true
+        },
+        "parallels_mm": 20.0,
+        "retained_rail_bottom_z": 0.0,
+        "spindle_to_table_max_mm": "unknown",
+        "spindle_verify": false,
+        "stacks": [
+          {
+            "holder": "r8-collet-8mm",
+            "holder_gauge_len_mm": 60.0,
+            "margin_mm": "unknown",
+            "op": 10,
+            "sum_mm": "unknown",
+            "tool": "em-8-std",
+            "tool_oal_mm": 63.0,
+            "tool_projection_mm": 38.0,
+            "verify": false
+          }
+        ],
+        "stock_bottom_z": 0.0,
+        "stock_extent_x_mm": "unknown",
+        "stock_extent_y_mm": "unknown",
+        "stock_height_mm": 60.0,
+        "stock_top_above_jaws_mm": 40.0,
+        "stock_top_z": 60.0,
+        "sum_mm": "unknown",
+        "support_blocks_mm": 0,
+        "tool_oal_mm": 63.0,
+        "travel_checks": {
+          "x": {
+            "fixture_mm": "unknown",
+            "part_mm": "unknown",
+            "required_mm": "unknown",
+            "travel_mm": "unknown"
+          },
+          "y": {
+            "fixture_mm": "unknown",
+            "part_mm": "unknown",
+            "required_mm": "unknown",
+            "travel_mm": "unknown"
+          }
+        },
+        "travel_in": {}
+      },
+      "rule": "headroom",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields"
+      ],
+      "message": "S1: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
+      "numbers": {
+        "coolant": "none",
+        "cut_directions": {
+          "10": "climb"
+        },
+        "deburr_mm": 0.0,
+        "fixture": "test-vise",
+        "hold": {
+          "clamp": "hand snug, then quarter turn",
+          "fixed_jaw": "rear",
+          "fixture": "test-vise",
+          "grip_mm": 6.0,
+          "jaw_above_parallels_mm": 8.0,
+          "jaw_center_along_mm": 35.0,
+          "jaws_along": "x",
+          "parallels": "test-parallels-20",
+          "parallels_centres_mm": [
+            [
+              35.0,
+              5.0
+            ],
+            [
+              35.0,
+              45.0
+            ]
+          ],
+          "stop": "left end against the fixed-jaw stop"
+        },
+        "missing": [],
+        "stock_bottom_z": 0.0,
+        "stock_top_z": 60.0
+      },
+      "rule": "hold_fields",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S1: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "pocket: no tolerance requirement to inspect.",
+      "numbers": {
+        "requirements": []
+      },
+      "rule": "inspection",
+      "status": "not_applicable",
+      "subject": "pocket"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "features.pocket: faces and requirements",
+        "examples/geometry/author_solids.py: pocket_block (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions"
+      ],
+      "message": "S1:10: concave corner radii admit the selected cutter.",
+      "numbers": {
+        "corner_radii_mm": [
+          6.0
+        ],
+        "minimum_corner_radius_mm": 6.0,
+        "tool_radius_mm": 4.0
+      },
+      "rule": "internal_corner_radius",
+      "status": "pass",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "pocket: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "finish_pocket"
+        ],
+        "kind": "pocket",
+        "ops": [
+          "S1:10"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "pocket"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
+      ],
+      "message": "S1: rough/finish, face/spot, hole and release order is consistent.",
+      "numbers": {
+        "sequence": [
+          "10 finish_pocket pocket"
+        ],
+        "violations": []
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "features.pocket: faces and requirements",
+        "examples/geometry/author_solids.py: pocket_block (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions"
+      ],
+      "message": "S1:10: depth exceeds flute length and the holder intersects walls.",
+      "numbers": {
+        "flute_len_mm": 19.0,
+        "holder_wall_hits": 161,
+        "oal_mm": 63.0,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 45.0
+      },
+      "rule": "reach",
+      "status": "error",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "examples/geometry/author_solids.py: pocket_block (synthetic test specification)"
+      ],
+      "message": "pocket: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "pocket",
+        "kind": "pocket",
+        "ops": [
+          "S1:10"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "pocket"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.31496062992125984,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 100.0,
+        "rpm_range_verify": false,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.stock.dia_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+      ],
+      "message": "S1: not a lathe setup.",
+      "numbers": {
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": "unknown",
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "support_status": "unknown",
+        "supports": [],
+        "unresolved": [],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.stock.dia_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S1: selected fixture is not a collet/chuck.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "diameter_source": "plan.stock.dia_mm",
+        "fixture": "test-vise",
+        "fixture_kind": "vise",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
+      ],
+      "message": "S1: minimum wall inside the grip zone meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 50.0,
+        "thin_wall_floor_mm": 2.0
+      },
+      "rule": "thin_wall_under_clamp",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S1:10: holder interface and shank fit.",
+      "numbers": {
+        "holder": "r8-collet-8mm",
+        "holder_capacity_mm": 8.0,
+        "holder_standard": "R8",
+        "machine": "test-mill",
+        "machine_standard": "R8",
+        "shank_mm": 8.0,
+        "tool": "em-8-std"
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "em-8-std: listed inventory identity resolves.",
+      "numbers": {
+        "dia_mm": 8.0,
+        "kind": "endmill",
+        "present": true,
+        "reference": "em-8-std",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "em-8-std"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "r8-collet-8mm: listed inventory identity resolves.",
+      "numbers": {
+        "kind": "collet",
+        "present": true,
+        "reference": "r8-collet-8mm",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "r8-collet-8mm"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "test-mill: listed inventory identity resolves.",
+      "numbers": {
+        "kind": "mill",
+        "present": true,
+        "reference": "test-mill",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "test-mill"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "test-parallels-20: listed inventory identity resolves.",
+      "numbers": {
+        "kind": "parallels",
+        "present": true,
+        "reference": "test-parallels-20",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "test-parallels-20"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "test-vise: listed inventory identity resolves.",
+      "numbers": {
+        "kind": "vise",
+        "present": true,
+        "reference": "test-vise",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "test-vise"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+      ],
+      "message": "S1: not a lathe setup.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "A",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": []
+      },
+      "rule": "turned_profile",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:10: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "pocket",
+        "operation": "finish_pocket"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 vise",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions"
+      ],
+      "message": "S1: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.",
+      "numbers": {
+        "claimed_in_jaws": [],
+        "contact_grip_mm": [
+          8.0,
+          8.0
+        ],
+        "opening_mm": 100.0,
+        "parallel_pair": true,
+        "parallels_height_mm": 20.0,
+        "required_grip_mm": 6.0,
+        "width_mm": 50.0
+      },
+      "rule": "vise",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
+      ],
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
+      "numbers": {
+        "axes": {},
+        "binding": "unknown",
+        "dro": {
+          "mode": "unknown",
+          "radius_mode": "unknown"
+        },
+        "frame": "A",
+        "retouch": [],
+        "tool_touches": []
+      },
+      "rule": "zero_check",
+      "status": "unknown",
+      "subject": "S1"
+    }
+  ],
+  "hash": "87c3da5d12f22a746fd102f4fd401af5f8549b6a92eea148fc4114a81c0e5209",
+  "inputs": {
+    "cutting_data": {
+      "path": "examples/cutting-data.toml",
+      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+    },
+    "features": {
+      "path": "examples/geometry/pocket-reach/features.toml",
+      "sha256": "cd12cf1c483a2633f7425745a45cfa3b2126fd9293192b77fc8c51b05fa97fb4"
+    },
+    "inventory": {
+      "path": "examples/geometry/inventory.toml",
+      "sha256": "92fa16929bfb2089bef44779aff610b61841f5e8bd480c4430be3debb07d415d"
+    },
+    "plan": {
+      "path": "examples/geometry/pocket-reach/plan.toml",
+      "sha256": "680657ab6883b5c791e5efc76ac22f3063846b980a13ea82c3a6f0b94d18a16b"
+    },
+    "render:S1": {
+      "path": "setup-S1.png",
+      "sha256": "da19fbd677488e1f59ca10a0191547d78806ba2b9375c9f6c6658a8d9e755406"
+    },
+    "shop_policy": {
+      "path": "examples/geometry/shop-policy.toml",
+      "sha256": "55f401fe220e587bcf7f0f3205d704177b4b8435de5921eadded5dc6d725b17c"
+    },
+    "step": {
+      "path": "examples/geometry/pocket-reach/pocket-block.STEP",
+      "sha256": "b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f"
+    }
+  },
+  "prechips_version": "0.1",
+  "renders": {
+    "S1": {
+      "fixture": "modeled",
+      "path": "setup-S1.png",
+      "scene": {
+        "debts": [],
+        "jaws": "exact",
+        "parallels": "exact"
+      },
+      "sha256": "da19fbd677488e1f59ca10a0191547d78806ba2b9375c9f6c6658a8d9e755406"
+    }
+  },
+  "rules_version": "m4-rev6",
+  "step_sha256": "b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f",
+  "verification": "planned"
+}

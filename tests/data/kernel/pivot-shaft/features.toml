@@ -1,0 +1,169 @@
+# Generated from CAD drawing contracts and adjacent raw STEP bytes; do not hand edit.
+"part" = "pivot-shaft"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "pivot-shaft.STEP"
+"step_sha256" = "c78673d5ab2ac12cf04b43017f0c4f60952488bdbdbd8989ce11e769e0aa003d"
+"construction" = "one_piece"
+"cite_root" = "harmonic-analyzer"
+"cite" = { "construction" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:183-189"], "units" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "frames" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "step_sha256" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+
+["drawing"]
+"number" = "MHA-065"
+"revision" = "v40"
+"cite" = ["harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:1-9", "harmonic-analyzer/cad/config/release.yaml:1-3", "harmonic-analyzer/cad/scripts/_common.py:1751-1765"]
+
+["material"]
+"spec" = "AISI 1018 cold-finished steel bar, Ø10"
+"name" = "Plain Carbon Steel"
+"finish" = "turned, oiled"
+"thickness" = "unknown"
+"cite" = ["harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:1-9", "harmonic-analyzer/cad/config/parts/_defaults.yaml:21-27"]
+
+["notes"]
+"manufacturing" = ["STOCK 10 BAR; CENTRES OK.", "SUPPLY 175 LONG, PLAIN END UNCUT.", "NO FLATS."]
+"process" = "turned (steel) between centres from Ø10 bar; plain end cut and domed to fit"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R0.25 OR CHAMFER 0.25 MAX"
+"cite" = ["harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:1-9", "harmonic-analyzer/cad/config/title_block.yaml:43-45", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:183-189"]
+
+["general_tolerances"]
+"linear_1pl" = 0.8
+"linear_2pl" = 0.51
+"linear_3pl" = 0.13
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.25
+"chamfer_max" = 0.25
+"cite" = { "linear_1pl" = ["harmonic-analyzer/cad/config/title_block.yaml:25"], "linear_2pl" = ["harmonic-analyzer/cad/config/title_block.yaml:26"], "linear_3pl" = ["harmonic-analyzer/cad/config/title_block.yaml:27"], "angular_deg" = ["harmonic-analyzer/cad/config/title_block.yaml:28"], "drilled_hole_plus" = ["harmonic-analyzer/cad/config/title_block.yaml:66"], "drilled_hole_minus" = ["harmonic-analyzer/cad/config/title_block.yaml:66"], "edge_break_r" = ["harmonic-analyzer/cad/config/title_block.yaml:43-45"], "chamfer_max" = ["harmonic-analyzer/cad/config/title_block.yaml:43-45"] }
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+"cite" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"]
+
+["datums"]
+
+["features"]
+
+["features"."pivot_bearing"]
+"kind" = "shaft"
+"frame" = "model"
+"requirements" = ["dia", "finish_ra"]
+"at" = [0.0, 0.0, -17.5]
+"axis" = [0.0, 0.0, 1.0]
+"dia" = [6.33, 6.35]
+"dia_nominal" = 6.35
+"finish_ra" = 1.6
+"length_ref" = 156.67000000000002
+"note" = "CUT TO FIT: SPAN OVER BOTH MHA-123 EARS"
+"cite" = { "at" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "axis" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "dia" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38", "harmonic-analyzer/cad/config/title_block.yaml:27", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37"], "finish_ra" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127", "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48"], "length_ref" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52", "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107"], "note" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "dia" = 3, "finish_ra" = 1 }
+"faces" = ["#274/ADVANCED_FACE[8]/HAF_PIVOT_BEARING__P01", "#332/ADVANCED_FACE[10]/HAF_PIVOT_BEARING__P01"]
+
+["features"."pivot_journal"]
+"kind" = "shaft"
+"frame" = "model"
+"requirements" = ["dia", "finish_ra", "length"]
+"at" = [0.0, 0.0, -3.0]
+"axis" = [0.0, 0.0, 1.0]
+"dia" = [6.33, 6.35]
+"dia_nominal" = 6.35
+"finish_ra" = 1.6
+"length" = [5.2, 6.8]
+"length_nominal" = 6.0
+"cite" = { "at" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:102-102", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "axis" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "dia" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38", "harmonic-analyzer/cad/config/title_block.yaml:27", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37"], "finish_ra" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127", "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48"], "length" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "length_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "dia" = 3, "finish_ra" = 1, "length" = 1 }
+"faces" = ["#258/ADVANCED_FACE[7]/HAF_PIVOT_JOURNAL__P01", "#405/ADVANCED_FACE[15]/HAF_PIVOT_JOURNAL__P01"]
+
+["features"."shoulder_od"]
+"kind" = "boss"
+"frame" = "model"
+"requirements" = ["dia"]
+"dia" = [9.49, 10.51]
+"dia_nominal" = 10.0
+"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "dia" = 2 }
+"faces" = ["#287/ADVANCED_FACE[9]/HAF_SHOULDER_OD__P01", "#476/ADVANCED_FACE[18]/HAF_SHOULDER_OD__P01"]
+
+["features"."shoulder_north_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"length" = [0.99, 2.01]
+"length_nominal" = 1.5
+"plane" = { "frame" = "model", "axis" = "z", "value" = -6.0 }
+"cite" = { "length" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "length_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43"], "plane" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "length" = 2 }
+"faces" = ["#438/ADVANCED_FACE[16]/HAF_SHOULDER_NORTH_FACE__P01"]
+
+["features"."shoulder_thrust"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length", "finish_ra"]
+"length" = [0.99, 2.01]
+"length_nominal" = 1.5
+"upper_z" = -6.0
+"lower_z" = -7.5
+"finish_ra" = 1.6
+"plane" = { "frame" = "model", "axis" = "z", "value" = -7.5 }
+"cite" = { "length" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "length_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43"], "upper_z" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44"], "lower_z" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:110-110"], "finish_ra" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127", "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48"], "plane" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:110-110", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "length" = 2, "finish_ra" = 1 }
+"faces" = ["#355/ADVANCED_FACE[13]/HAF_SHOULDER_THRUST__P01"]
+
+["features"."north_relief"]
+"kind" = "groove"
+"frame" = "model"
+"requirements" = ["dia", "width"]
+"dia" = [5.57, 5.83]
+"dia_nominal" = 5.7
+"width" = [1.2, 2.8]
+"width_nominal" = 2.0
+"at" = [0.0, 0.0, -5.0]
+"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80", "harmonic-analyzer/cad/config/title_block.yaml:27", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80"], "width" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "width_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69"], "at" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "dia" = 3, "width" = 1 }
+"faces" = ["#337/ADVANCED_FACE[11]/HAF_NORTH_RELIEF__P01", "#210/ADVANCED_FACE[5]/HAF_NORTH_RELIEF__P02", "#242/ADVANCED_FACE[6]/HAF_NORTH_RELIEF__P02"]
+
+["features"."south_relief"]
+"kind" = "groove"
+"frame" = "model"
+"requirements" = ["dia", "width"]
+"dia" = [5.57, 5.83]
+"dia_nominal" = 5.7
+"width" = [1.2, 2.8]
+"width_nominal" = 2.0
+"at" = [0.0, 0.0, -8.5]
+"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80", "harmonic-analyzer/cad/config/title_block.yaml:27", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80"], "width" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "width_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69"], "at" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "dia" = 3, "width" = 1 }
+"faces" = ["#454/ADVANCED_FACE[17]/HAF_SOUTH_RELIEF__P01", "#50/ADVANCED_FACE[2]/HAF_SOUTH_RELIEF__P02", "#347/ADVANCED_FACE[12]/HAF_SOUTH_RELIEF__P02"]
+
+["features"."north_dome"]
+"kind" = "dome"
+"frame" = "model"
+"requirements" = ["height"]
+"height" = [0.7, 2.3]
+"height_nominal" = 1.5
+"sphere_radius" = 4.1102083333333335
+"base_z" = 0.0
+"note" = "BOTH ENDS"
+"cite" = { "height" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "height_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45"], "sphere_radius" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46"], "base_z" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23"], "note" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "height" = 1 }
+"faces" = ["#2/ADVANCED_FACE[1]/HAF_NORTH_DOME__P01", "#92/ADVANCED_FACE[3]/HAF_NORTH_DOME__P01"]
+
+["features"."south_dome"]
+"kind" = "dome"
+"frame" = "model"
+"requirements" = ["height"]
+"height" = [0.7, 2.3]
+"height_nominal" = 1.5
+"sphere_radius" = 4.1102083333333335
+"base_z" = -156.67000000000002
+"note" = "BOTH ENDS"
+"cite" = { "height" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "height_nominal" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45"], "sphere_radius" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46"], "base_z" = ["harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107"], "note" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53"], "precision" = ["harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161"], "faces" = ["harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP"] }
+"precision" = { "height" = 1 }
+"faces" = ["#114/ADVANCED_FACE[4]/HAF_SOUTH_DOME__P01", "#399/ADVANCED_FACE[14]/HAF_SOUTH_DOME__P01"]

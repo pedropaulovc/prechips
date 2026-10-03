@@ -1,0 +1,61 @@
+# pocket-reach, passing counterpart (PLAN.md rev 6 §4.2 reach rescue). Identical to
+# plan.toml except the cutter: em-8-long has the same 19 mm flute but 100 mm OAL, so with
+# the 25 mm collet grip the holder nose stands 75 mm above the tip, 30 mm clear of the
+# top face. Expected: reach pass (depth exceeds flute length but fits OAL with the holder
+# cylinder clear of walls) and every required geometry row pass / not_applicable, exit 0.
+part = "pocket-block"
+features = "features.toml"
+construction = "one_piece"
+
+[paths]
+inventory = "../inventory.toml"
+policy = "../shop-policy.toml"
+cutting_data = "../../cutting-data.toml"
+
+[stock]
+form = "finished_test_solid"
+form_verify = false
+note = "The STEP solid is the stock; only the pocket is cut. No material is asserted."
+as_is_faces = [
+  "#17/ADVANCED_FACE[1]/",
+  "#57/ADVANCED_FACE[2]/",
+  "#88/ADVANCED_FACE[3]/",
+  "#182/ADVANCED_FACE[4]/",
+  "#206/ADVANCED_FACE[5]/",
+  "#223/ADVANCED_FACE[6]/",
+]
+
+[[setups]]
+id = "S1"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "stock"
+note = "Top face up on 20 mm parallels; jaws along X clamp the 50 mm width across Y."
+
+[setups.stock_state]
+top_feature = "pocket"
+top_z = 60.0
+bottom_z = 0.0
+
+[setups.hold]
+fixture = "test-vise"
+jaws_along = "x"
+fixed_jaw = "rear"
+parallels = "test-parallels-20"
+grip_mm = 6.0
+jaw_above_parallels_mm = 8.0
+jaw_center_along_mm = 35.0 # jaw centre on the block's mid-length: 150 mm jaws span x -40..110
+parallels_centres_mm = [[35.0, 5.0], [35.0, 45.0]] # 6 mm parallels under the solid floor margins, y 2..8 and 42..48, inside the jaw planes y 0 / 50
+stop = "left end against the fixed-jaw stop"
+clamp = "hand snug, then quarter turn"
+
+[[setups.ops]]
+op = 10
+do = "finish_pocket"
+feature = "pocket"
+tool = "em-8-long"
+holder = "r8-collet-8mm"
+to_z = 15.0
+direction = "climb"

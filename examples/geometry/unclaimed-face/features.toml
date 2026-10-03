@@ -1,0 +1,56 @@
+# step-block: a designed test solid for the PLAN.md rev 6 §4.2 coverage rule.
+# 60 x 40 x 20 mm block whose +X half is stepped down 10 mm: one step floor (z = 10,
+# x 30..60), one step wall (x = 30, z 10..20) and six outer faces. Authored by
+# ../author_solids.py (FreeCAD 1.1, STEP AP214) and frozen as step-block.STEP; every
+# dimension is a fixture choice, not a drawing or inventory measurement. Face
+# references are #<entity>/ADVANCED_FACE[<1-based file-order ordinal>]/<label> read from
+# the STEP text (FreeCAD exports an empty label); the kernel matches them by surface
+# kind/area/bbox.
+part = "step-block"
+units = "mm"
+precision = "unknown"
+step = "step-block.STEP"
+step_sha256 = "6eb79bedf8985fb140b6f6bc5c4561c0c929f0f9332e124816ea752d6979caca"
+construction = "one_piece"
+
+[cite]
+part = "examples/geometry/author_solids.py: STEP_BLOCK (synthetic test specification)"
+step_sha256 = "examples/geometry/unclaimed-face/step-block.STEP"
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+note = "Block corner at the origin; X along the 60 mm length, Y across the 40 mm width, Z up through the 20 mm height. Upper land x 0..30 at z = 20; step floor x 30..60 at z = 10."
+
+[frames.A]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "unknown"
+note = "S1, upper land up, model axes; the jaws run along X and clamp across Y."
+
+# The step is one feature: its floor and its wall.
+[features.step]
+kind = "step"
+frame = "model"
+requirements = []
+faces = [
+  "#202/ADVANCED_FACE[7]/",
+  "#219/ADVANCED_FACE[8]/",
+]
+note = "Floor [7] z = 10 (x 30..60); wall [8] x = 30 (z 10..20), outward normal +X."
+cite = "examples/geometry/author_solids.py: step_block (synthetic test specification)"
+
+# The +X end face (x = 60, z 0..10) is listed here only so the manifest names every
+# face; the plan neither cuts it nor declares it as-stock, which is the coverage debt
+# this fixture exercises.
+[features.end_face]
+kind = "face"
+frame = "model"
+requirements = []
+faces = ["#185/ADVANCED_FACE[6]/"]
+note = "End face [6] x = 60, outward normal +X; claimed by no op and not in stock.as_is_faces."
+cite = "examples/geometry/author_solids.py: step_block (synthetic test specification)"

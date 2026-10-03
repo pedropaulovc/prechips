@@ -34,7 +34,17 @@
 part = "rocker-arm"
 units = "mm"
 precision = 2 # .XX: the notes print :.2f (rocker_arm_notes.py:60-76); fields override below
-step_sha256 = "unknown" # no certified STEP export is bound to this manifest
+# The bound STEP is the consumer's labelled v40 export, delivered as
+# C:/src/dt-logs/features-bundles/rocker_arm/rocker-arm.STEP and kept byte-for-byte (CRLF,
+# .gitattributes `-text`). SolidWorks inches; eighteen ADVANCED_FACE records labelled
+# HAF_<FEATURE>__P<nn>, periodic surfaces split into P01/P02 patches under one feature
+# label. Each `faces` list below is the consumer's exported face set for the feature of
+# the same name (features-bundles/rocker_arm/features.toml); the export's extra features
+# strap_datum_b (+Z broad face #492/ADVANCED_FACE[13]), tip_land_pos_x (#248/[6]) and
+# tip_land_neg_x (#431/[10]) have no counterpart in this hand-written manifest and are
+# not invented here. A reference is #<entity>/ADVANCED_FACE[<file-order ordinal>]/<label>.
+step = "rocker-arm.STEP"
+step_sha256 = "19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15"
 construction = "one_piece" # no built-up permission note exists (rocker_arm_notes.py:53-78): default, not a fabricated note
 cite_root = "harmonic-analyzer"
 
@@ -124,7 +134,7 @@ finish_ra = 1.6 # MACHINED_UM on the bore cylinder
 process = "ream" # note 6
 datum = "A"
 requirements = ["dia", "thru", "finish_ra", "process"]
-faces = "unknown" # awaiting the consumer's STEP face-set export mapping (PLAN.md §3.2, M3)
+faces = ["#233/ADVANCED_FACE[5]/HAF_PIVOT_BORE__P01", "#382/ADVANCED_FACE[8]/HAF_PIVOT_BORE__P01"] # consumer export: two periodic patches, one label
 cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:32", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:37-39", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:107", "harmonic-analyzer/cad/scripts/_surface_finish.py:48", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:436-458", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:578-582", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:60", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:71"]
 
 [features.pivot_bore.precision]
@@ -144,7 +154,7 @@ thru = true # HoleSpec end through_all; note 2 ALL HOLES THRU; 2.5 strap only
 position_dia = 0.20
 position_datums = ["A", "B", "C"]
 requirements = ["at", "dia", "thru", "position_dia"]
-faces = "unknown" # awaiting the consumer's STEP face-set export mapping (PLAN.md §3.2, M3)
+faces = ["#49/ADVANCED_FACE[2]/HAF_ROD_HOLE__P01", "#343/ADVANCED_FACE[7]/HAF_ROD_HOLE__P01"] # consumer export: two periodic patches, one label
 cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:33-35", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:57-59", "harmonic-analyzer/cad/scripts/cone_pivot_post_installation.py:19", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:509-518", "harmonic-analyzer/cad/scripts/_hole_spec.py:82", "harmonic-analyzer/cad/scripts/_hole_spec.py:104", "harmonic-analyzer/cad/config/title_block.yaml:52-66", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:124-126", "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:447-474", "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:539-549"]
 
 [features.rod_hole.precision]
@@ -162,7 +172,7 @@ dia_nominal = 10.20 # rocker_arm_spec.py:112; acceptance-band midpoint is not an
 coaxiality_dia = 0.50 # note 7: hub OD coaxial with the pivot bore
 coaxial_to = "pivot_bore"
 requirements = ["dia", "coaxiality_dia"]
-faces = "unknown" # awaiting the consumer's STEP face-set export mapping (PLAN.md §3.2, M3)
+faces = ["#166/ADVANCED_FACE[4]/HAF_HUB_OD__P01", "#486/ADVANCED_FACE[12]/HAF_HUB_OD__P01", "#495/ADVANCED_FACE[14]/HAF_HUB_OD__P02", "#514/ADVANCED_FACE[16]/HAF_HUB_OD__P02"] # consumer export: both hubs, two patches each
 cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:100-112", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:25-32", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:72-76", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:406-434"]
 
 [features.hub_od.precision]
@@ -176,7 +186,7 @@ length = [7.0565, 7.1065] # HUB_LENGTH 7.0565, band (upper 0.05, lower 0)
 upper_z = 3.52825 # mid-plane extrusion, +/- HUB_LENGTH/2
 lower_z = -3.52825
 requirements = ["length"]
-faces = "unknown" # awaiting the consumer's STEP face-set export mapping (PLAN.md §3.2, M3)
+faces = ["#553/ADVANCED_FACE[18]/HAF_HUB_FACES__P01", "#448/ADVANCED_FACE[11]/HAF_HUB_FACES__P02"] # consumer export: -Z and +Z hub end planes
 cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-432", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:570-573"]
 
 [features.hub_faces.precision]
@@ -190,7 +200,7 @@ upper_z = 1.25 # both-directions extrusion of ARM_THICKNESS about Z0
 lower_z = -1.25
 datum = "B" # one broad face; which side: datums.B.surface
 requirements = ["thickness"]
-faces = "unknown" # awaiting the consumer's STEP face-set export mapping (PLAN.md §3.2, M3)
+faces = ["#20/ADVANCED_FACE[1]/HAF_STRAP_FACES__P01"] # consumer export: the -Z broad face only; the +Z face is exported as strap_datum_b (#492/ADVANCED_FACE[13]), not bound here
 cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:60", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403"]
 
 [features.strap_faces.precision]
@@ -208,7 +218,7 @@ arc_centre = [0.0, 816.0, 0.0] # CENTER_Y = 816; not a DRO position
 centre_from_pivot_ref = 808.0 # note 3 REF: no requirement
 end = [145.24006587149398, 29.294640118904454] # +X arc endpoint, R800 at half-angle 292.1/1600; -X endpoint mirrors X
 requirements = ["height_above_pivot", "radius", "arc_len"]
-faces = "unknown" # awaiting the consumer's STEP face-set export mapping (PLAN.md §3.2, M3)
+faces = ["#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01"] # consumer export: the R800 top-edge cylinder
 cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:26", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:29", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-49", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:74-88", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:61-66", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:574-577", "harmonic-analyzer/cad/config/title_block.yaml:26"]
 
 [features.top_edge.precision]
@@ -233,7 +243,7 @@ bottom_end = [132.75725545686896, 10.871742438784054] # +X bottom-arc endpoint
 radial_tip_end = [146.25456773160636, 23.799503180135] # +X land outer end; tapered straight end runs to bottom_end
 datum = "C" # the +X radial land
 requirements = ["bottom_radius", "bottom_arc_len", "tip_land", "land_angle_deg", "mirror_symmetric"]
-faces = "unknown" # awaiting the consumer's STEP face-set export mapping (PLAN.md §3.2, M3)
+faces = ["#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01", "#426/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02", "#505/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03"] # consumer export: the two tapers and the R816 bottom arc; the radial tip lands are exported as tip_land_pos_x / tip_land_neg_x, not bound here
 cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:26-31", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-54", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:58-68", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:530-538"]
 
 [features.profile_outer.precision]

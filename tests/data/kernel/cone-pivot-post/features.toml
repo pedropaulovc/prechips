@@ -1,0 +1,245 @@
+# Generated from CAD drawing contracts and adjacent raw STEP bytes; do not hand edit.
+"part" = "cone-pivot-post"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "cone-pivot-post.STEP"
+"step_sha256" = "a3321157fc48cd8193ba81345611538d9c8c35fe7c6ba35e12fe8dc7a2416036"
+"construction" = "one_piece"
+"cite_root" = "harmonic-analyzer"
+"cite" = { "construction" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:352-358"], "units" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "frames" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "step_sha256" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+
+["drawing"]
+"number" = "MHA-016"
+"revision" = "v40"
+"cite" = ["harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:1-7", "harmonic-analyzer/cad/config/release.yaml:1-3", "harmonic-analyzer/cad/scripts/_common.py:1751-1765"]
+
+["material"]
+"spec" = "LOW-CARBON STEEL OR GRAY IRON"
+"name" = "LOW-CARBON STEEL OR GRAY IRON"
+"finish" = "RAL 6005 ALKYD; SSPC-SP 3; 50-75 um DFT; MASK MACHINED FACES; OIL BARE FACES ISO VG 32"
+"thickness" = "unknown"
+"cite" = ["harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:1-7", "harmonic-analyzer/cad/config/parts/_defaults.yaml:21-27"]
+
+["notes"]
+"manufacturing" = ["CRANK BORE CARRIES MHA-026, CONE BORE MHA-014; FOOT ON MHA-091.", "CONE BOSS END FACES ARE SYMMETRIC ABOUT THE POST AXIS.", "DRILL MOUNTING HOLES FROM TOP FACE; CHECK CONE BORE AT BREAKOUT."]
+"process" = "machined from solid stock or casting"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R0.25 OR CHAMFER 0.25 MAX"
+"cite" = ["harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:1-7", "harmonic-analyzer/cad/config/title_block.yaml:43-45", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:352-358"]
+
+["general_tolerances"]
+"linear_1pl" = 0.8
+"linear_2pl" = 0.51
+"linear_3pl" = 0.13
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.25
+"chamfer_max" = 0.25
+"cite" = { "linear_1pl" = ["harmonic-analyzer/cad/config/title_block.yaml:25"], "linear_2pl" = ["harmonic-analyzer/cad/config/title_block.yaml:26"], "linear_3pl" = ["harmonic-analyzer/cad/config/title_block.yaml:27"], "angular_deg" = ["harmonic-analyzer/cad/config/title_block.yaml:28"], "drilled_hole_plus" = ["harmonic-analyzer/cad/config/title_block.yaml:66"], "drilled_hole_minus" = ["harmonic-analyzer/cad/config/title_block.yaml:66"], "edge_break_r" = ["harmonic-analyzer/cad/config/title_block.yaml:43-45"], "chamfer_max" = ["harmonic-analyzer/cad/config/title_block.yaml:43-45"] }
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+"cite" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"]
+
+["datums"]
+
+["datums"."A"]
+"feature" = "journal_bore"
+"surface" = "cone journal bore cylinder"
+"cite" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:376-379"]
+
+["datums"."B"]
+"feature" = "foot_seat"
+"surface" = "foot seat plane"
+"cite" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:376-379"]
+
+["features"]
+
+["features"."body"]
+"kind" = "boss"
+"frame" = "model"
+"requirements" = ["dia", "height"]
+"dia" = [41.2, 42.8]
+"dia_nominal" = 42.011
+"height" = [85.2, 86.8]
+"height_nominal" = 86.0
+"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-29", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-29"], "height" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "height_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 1, "height" = 1 }
+"faces" = ["#1046/ADVANCED_FACE[26]/HAF_BODY__P01", "#1417/ADVANCED_FACE[36]/HAF_BODY__P01"]
+
+["features"."head"]
+"kind" = "boss"
+"frame" = "model"
+"requirements" = ["dia", "height"]
+"dia" = [42.0, 43.6]
+"dia_nominal" = 42.7506
+"height" = [25.8, 27.4]
+"height_nominal" = 26.6
+"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:31-31", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:31-31"], "height" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:32-32", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "height_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:32-32"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 1, "height" = 1 }
+"faces" = ["#480/ADVANCED_FACE[9]/HAF_HEAD__P01", "#1172/ADVANCED_FACE[30]/HAF_HEAD__P01", "#1238/ADVANCED_FACE[32]/HAF_HEAD__P02"]
+
+["features"."crank_boss"]
+"kind" = "boss"
+"frame" = "model"
+"requirements" = ["dia"]
+"dia" = [21.1, 22.7]
+"dia_nominal" = 21.93
+"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 1 }
+"faces" = ["#668/ADVANCED_FACE[15]/HAF_CRANK_BOSS__P01", "#977/ADVANCED_FACE[24]/HAF_CRANK_BOSS__P01", "#621/ADVANCED_FACE[13]/HAF_CRANK_BOSS__P02", "#1339/ADVANCED_FACE[34]/HAF_CRANK_BOSS__P02", "#303/ADVANCED_FACE[4]/HAF_CRANK_BOSS__P03"]
+
+["features"."crank_boss_faces"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length", "station"]
+"length" = [71.2, 72.8]
+"length_nominal" = 72.03439999999999
+"station" = [20.87, 21.89]
+"station_nominal" = 21.3753
+"cite" = { "length" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:56-56", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "length_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:56-56"], "station" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:53-53", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "station_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:53-53"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "length" = 1, "station" = 2 }
+"faces" = ["#366/ADVANCED_FACE[6]/HAF_CRANK_BOSS_FACES__P01", "#595/ADVANCED_FACE[12]/HAF_CRANK_BOSS_FACES__P02"]
+
+["features"."cone_boss"]
+"kind" = "boss"
+"frame" = "model"
+"requirements" = ["dia"]
+"dia" = [16.4, 18.0]
+"dia_nominal" = 17.2
+"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65", "harmonic-analyzer/cad/config/title_block.yaml:25", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 1 }
+"faces" = ["#903/ADVANCED_FACE[21]/HAF_CONE_BOSS__P01", "#1158/ADVANCED_FACE[29]/HAF_CONE_BOSS__P01", "#505/ADVANCED_FACE[10]/HAF_CONE_BOSS__P02", "#293/ADVANCED_FACE[3]/HAF_CONE_BOSS__P03", "#935/ADVANCED_FACE[22]/HAF_CONE_BOSS__P03", "#90/ADVANCED_FACE[1]/HAF_CONE_BOSS__P04"]
+
+["features"."cone_boss_north_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length", "finish_ra"]
+"length" = [41.5, 42.52]
+"length_nominal" = 42.011
+"cite" = { "length" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67-67", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "length_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67-67"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "finish_ra" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48"], "normal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "length" = 2, "finish_ra" = 1 }
+"normal" = [-0.21674972336567902, 0.0, -0.9762272058393484]
+"finish_ra" = 1.6
+"faces" = ["#641/ADVANCED_FACE[14]/HAF_CONE_BOSS_NORTH_FACE__P01"]
+
+["features"."cone_boss_south_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = []
+"normal" = [0.21674972336567902, -0.0, 0.9762272058393484]
+"cite" = { "normal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"faces" = ["#812/ADVANCED_FACE[19]/HAF_CONE_BOSS_SOUTH_FACE__P01"]
+
+["features"."foot_seat"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["finish_ra"]
+"normal" = [0.0, -1.0, 0.0]
+"finish_ra" = 3.2
+"datum" = "B"
+"plane" = { "frame" = "model", "axis" = "y", "value" = 0.0 }
+"cite" = { "normal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "finish_ra" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/_surface_finish.py:54-54"], "datum" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:376-379"], "plane" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "finish_ra" = 1 }
+"faces" = ["#374/ADVANCED_FACE[7]/HAF_FOOT_SEAT__P01"]
+
+["features"."journal_bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "finish_ra", "height", "unknown"]
+"at" = [0.0, 33.368, 0.0]
+"axis" = [0.21674972336567902, 0.0, 0.9762272058393484]
+"dia" = [12.2558, 12.2858]
+"nominal_dia" = 12.2808
+"thru" = true
+"finish_ra" = 1.6
+"cite" = { "at" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:64-64", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "axis" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-62", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:66-66", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:145-145", "harmonic-analyzer/cad/config/title_block.yaml:27", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "nominal_dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:66-66"], "thru" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:66-66"], "finish_ra" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "height" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:64-64", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:167-167", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "height_from" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:64-64"], "datum" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:376-379"], "note" = ["harmonic-analyzer/cad/scripts/cone_gear_shaft_spec.py:125-125", "harmonic-analyzer/cad/scripts/cone_gear_shaft_spec.py:108-110"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 3, "finish_ra" = 1, "height" = 2 }
+"height" = [33.118, 33.618]
+"height_from" = "foot_seat"
+"datum" = "A"
+"note" = "RIMS BREAK 0.1 MAX"
+"faces" = ["#858/ADVANCED_FACE[20]/HAF_JOURNAL_BORE__P01", "#1228/ADVANCED_FACE[31]/HAF_JOURNAL_BORE__P01"]
+
+["features"."crank_bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "finish_ra", "separation", "angularity_dia", "angularity_datums"]
+"at" = [0.0, 72.7, 0.0]
+"axis" = [0.0, 0.0, 1.0]
+"dia" = [11.413, 11.443]
+"nominal_dia" = 11.438
+"thru" = true
+"finish_ra" = 1.6
+"cite" = { "at" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:51-51", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "axis" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-62", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:50-50", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:145-145", "harmonic-analyzer/cad/config/title_block.yaml:27", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "nominal_dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:50-50"], "thru" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:50-50"], "finish_ra" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "separation" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:157-157", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:158-158", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "height_from" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:157-157"], "height_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:51-51"], "angularity_dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:372-372", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:380-389"], "angularity_datums" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:380-389"], "dimension_type" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:390-390"], "land_angle_nominal_deg" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-62", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:390-390"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 3, "finish_ra" = 1, "separation" = 2, "angularity_dia" = 2, "land_angle_nominal_deg" = 4 }
+"separation" = [39.332, 39.702]
+"height_from" = "journal_bore"
+"height_nominal" = 72.7
+"angularity_dia" = 0.1
+"angularity_datums" = ["A", "B"]
+"dimension_type" = "basic"
+"land_angle_nominal_deg" = 12.5182
+"faces" = ["#432/ADVANCED_FACE[8]/HAF_CRANK_BORE__P01", "#1406/ADVANCED_FACE[35]/HAF_CRANK_BORE__P01"]
+
+["features"."mount_west"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "station"]
+"at" = [-12.98, 86.0, 0.0]
+"axis" = [0.0, -1.0, 0.0]
+"dia" = [7.14248, 7.24248]
+"nominal_dia" = 7.14248
+"thru" = true
+"station" = [12.47, 13.49]
+"station_nominal" = -12.98
+"cite" = { "at" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "axis" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:116-123", "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:1269-1280", "harmonic-analyzer/cad/scripts/_drawing_common.py:1860-1874,1901,1949-1966", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "nominal_dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79"], "thru" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79"], "station" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "station_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 2, "station" = 2 }
+"faces" = ["#314/ADVANCED_FACE[5]/HAF_MOUNT_WEST__P01", "#947/ADVANCED_FACE[23]/HAF_MOUNT_WEST__P01"]
+
+["features"."mount_west_counterbore"]
+"kind" = "counterbore"
+"frame" = "model"
+"requirements" = ["dia", "depth"]
+"parent" = "mount_west"
+"dia" = [11.0, 12.02]
+"nominal_dia" = 11.50874
+"depth" = [5.51, 6.53]
+"depth_ref" = 6.0198
+"cite" = { "parent" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79"], "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:80-80", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "nominal_dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:80-80"], "depth" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:81-81", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "depth_ref" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:81-81"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 2, "depth" = 2 }
+"faces" = ["#157/ADVANCED_FACE[2]/HAF_MOUNT_WEST_COUNTERBORE__P01", "#710/ADVANCED_FACE[16]/HAF_MOUNT_WEST_COUNTERBORE__P02", "#1005/ADVANCED_FACE[25]/HAF_MOUNT_WEST_COUNTERBORE__P02"]
+
+["features"."mount_east"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "station"]
+"at" = [12.98, 86.0, 0.0]
+"axis" = [0.0, -1.0, 0.0]
+"dia" = [7.14248, 7.24248]
+"nominal_dia" = 7.14248
+"thru" = true
+"station" = [12.47, 13.49]
+"station_nominal" = 12.98
+"cite" = { "at" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "axis" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:116-123", "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:1269-1280", "harmonic-analyzer/cad/scripts/_drawing_common.py:1860-1874,1901,1949-1966", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "nominal_dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79"], "thru" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79"], "station" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "station_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 2, "station" = 2 }
+"faces" = ["#764/ADVANCED_FACE[18]/HAF_MOUNT_EAST__P01", "#1281/ADVANCED_FACE[33]/HAF_MOUNT_EAST__P01"]
+
+["features"."mount_east_counterbore"]
+"kind" = "counterbore"
+"frame" = "model"
+"requirements" = ["dia", "depth"]
+"parent" = "mount_east"
+"dia" = [11.0, 12.02]
+"nominal_dia" = 11.50874
+"depth" = [5.51, 6.53]
+"depth_ref" = 6.0198
+"cite" = { "parent" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79"], "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:80-80", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "nominal_dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:80-80"], "depth" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:81-81", "harmonic-analyzer/cad/config/title_block.yaml:26", "harmonic-analyzer/cad/config/title_block.yaml:28", "harmonic-analyzer/cad/config/title_block.yaml:66"], "depth_ref" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:81-81"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"precision" = { "dia" = 2, "depth" = 2 }
+"faces" = ["#1133/ADVANCED_FACE[28]/HAF_MOUNT_EAST_COUNTERBORE__P01", "#515/ADVANCED_FACE[11]/HAF_MOUNT_EAST_COUNTERBORE__P02", "#753/ADVANCED_FACE[17]/HAF_MOUNT_EAST_COUNTERBORE__P02"]

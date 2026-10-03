@@ -16,7 +16,10 @@ literal `"unknown"` declaration permits the environment fallback. Missing policy
 uses the shipped required-rule vocabulary only when no known path is selected.
 Plan-declared shared paths must stay inside
 the bundle root; explicit CLI/environment shop paths may be external. STEP references are read and hashed, contained
-inside the bundle, and checked against a known `step_sha256`; no kernel runs.
+inside the bundle, and checked against a known `step_sha256`. M4 geometry rules
+hand that STEP, once its bytes match the manifest digest, to one FreeCAD job per
+run; an unknown digest, a missing `step`, or mismatched bytes keeps all seven
+geometry rules `?`. See [geometry rules](rules-geometry.md).
 
 Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in
 the setup frame; `local_thickness` is per hole, not the whole bar thickness.
@@ -128,6 +131,10 @@ confirmed on-hand inventory. Missing dimensions or citations keep comparison
 waste unresolved; finished volume comes only from the manifest's explicitly
 sourced `volume_mm3`, never a bounding-box estimate.
 
+`as_is_faces` lists STEP face references (same forms as a feature's `faces`)
+that stay as supplied stock; the M4 `coverage` rule unites them with the faces
+claimed by cutting operations. An omitted list is unknown, not empty.
+
 Root `construction` declares the candidate route, independently of the
 drawing-side manifest permission. `built_up` is refused unless
 `features.construction = "built_up_permitted"`: unknown or omitted drawing
@@ -228,9 +235,42 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `grip_mm` | `Number \| Literal['not_applicable']` |
 | `jaw_above_parallels_mm` | `Number \| Literal['not_applicable']` |
 | `stickout_mm` | `Number` |
+| `jaw_center_along_mm` | `Number` |
+| `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `grip_mm_verify` | `bool` |
 | `jaw_above_parallels_mm_verify` | `bool` |
 | `index` | `Index` |
+
+M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
+`grip_mm` and `jaw_above_parallels_mm` to place the jaw solids in the setup
+frame: `jaws_along` is the jaw length axis (`x` / `y`), `fixed_jaw` picks the
+jaw on the negative or positive side of the other axis, `grip_mm` is the depth
+of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
+above the parallels. A `grip_mm_verify = true` or
+`jaw_above_parallels_mm_verify = true` flag makes that number unknown to the
+kernel; `jaw_above_parallels_mm = 0` is a known zero, any other nonpositive or
+unknown value is debt. Together with the vise's explicit `jaw_height`,
+`jaw_width`, `jaw_depth` and `opening` and the parallels' `height`, these are
+the facts behind the jaw solids and the setup findings. When any is
+missing, the setup's `vise` and `thin_wall_under_clamp` findings stay `?`
+and the render, if any, is a part-only view labelled as unresolved.
+
+Two optional authored pose fields complete the picture. `jaw_center_along_mm`
+is the centre of the jaw plates along `jaws_along` in setup-frame
+coordinates; without it the kernel draws only the jaw material certainly over
+the gripped part and a pale envelope for where the rest of each jaw may lie,
+and cutter samples inside that envelope stay `?`. `parallels_centres_mm` is
+exactly two `[x, y]` setup-frame centres of the parallels; together with the
+parallels row's measured `height`, `length` (along the jaws) and `width`
+(along the clamp axis) they place two parallel solids with tops at the part
+seat. Both are declarations the author must measure at the bench; the
+kernel never infers a jaw centre or a parallel position, and only a setup
+with both exact jaws and exact parallels is captioned as a modeled fixture.
+Either field may be `"unknown"` (any unknown coordinate is a render debt, not
+a guessed pose) and neither has a `_verify` flag: they are author coordinate
+choices, while the parallels' dimensions are gated by that inventory item's
+own `verify`. Leaving them out never adds a hold reason or blocks the
+setup's `vise` / `thin_wall_under_clamp` facts.
 
 ## Index
 
