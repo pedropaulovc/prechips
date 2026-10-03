@@ -1,0 +1,173 @@
+part: pivot-shaft
+spec_sha256: 684fca4f33c12ed4e90c13ae2a31785763d0d56753be3c1aa76d7ef0f7b43b25
+policy: policy.yaml
+quantity: 1
+note: "Hand-authored primary route: three-jaw chuck transmits drive, tailstock dead centre supports the first turning setup, then explicit rechucks expose each dome. No lathe dog, drive plate or between-centres drive is claimed. Quantity is the authored one-part lot, matching harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:6. All RPM, temporary handling lengths, rough allowance and route choices below are authored choices, not consumer dimensions or verified measurements."
+stock:
+  state: prepared_blank
+  material_spec: AISI 1018 cold-finished steel bar, Ø10
+  section_mm: {diameter: 10.0}
+  length_mm: 215.0
+  north_handling_allowance_mm: 15.0
+  south_handling_allowance_mm: 25.0
+  supply_length_mm: 175.0
+  source: "harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:4; harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:178-188; Ø10 and supply175 are sourced; 215=175+15+25 is an authored prepared-blank procurement/preparation choice"
+  note: "Blank preparation is a declared prerequisite, not an inventory measurement or a completed operation: sacrificial north centre seat for the dead centre and sacrificial south chuck grip are required. Seat geometry, engagement and actual grip are unmeasured. North allowance is removed for the north crown; south grip and centre-independent plain-end excess are removed at fitting. No centre hole survives in the specified final part, and no unlisted centre-drilling accessories are selected. Inventory.stock=[] means procurement/preparation, not stock on hand."
+rough_diameter_allowance_mm: 0.2
+setups:
+  - id: S1
+    machine: PM-1127VF-LB
+    workholding:
+      kind: chuck_with_tailstock_support
+      ref: chuck-3jaw-6-d1-4
+      support: {ref: dead_centre_tailstock_mt3}
+      grip: "South sacrificial allowance; dead centre in north sacrificial seat. Chuck supplies drive."
+      note: "Accessory identities are listed; parent machine and chuck remain verify:true. Confirm actual mounting, grip, lubricated dead-centre seat, support and clearance at bench before cutting."
+    frame: T1
+    pickup:
+      phase: "After op10 establishes shoulder north contact face; remaining listed coordinates use that contact face."
+      x: {feature: spindle_axis, side: +x, method: test_cut_and_micrometer_axis_setting, gauge: micrometers/0-1in, sets: 0.0, note: "Diameter display: measure a trial cut to set the spindle axis; no trial diameter is fabricated."}
+      y: {feature: spindle_axis, side: +y, method: centre_height_alignment, sets: 0.0, note: "Lathe has no commanded Y; align tool on spindle axis, Y cells remain blank."}
+      z: {feature: frame_origin_face, side: +z, method: direct_tool_contact, sets: 0.0, note: "Shoulder north face is T1 origin; no paper offset."}
+    holders:
+      - {ref: qctp-axa-lms-2280, item: 1-turning-facing}
+    features: [shoulder, north_journal, body, shoulder_thrust, north_relief, south_relief]
+    operations:
+      - op: 10
+        do: establish_datum
+        feature: shoulder
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        note: "Establish the shoulder north face six mm from the nominal north cylinder-base station, then perform the declared Z pickup. This is not a final-size shoulder operation."
+        inspect: {method: axial_dimension_transfer, gauge: calipers, requirement: "Confirm source journal length and leave material for the final shoulder and crown."}
+      - op: 20
+        do: rough_turn
+        feature: north_journal
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 500
+        target_diameter_mm: 6.55
+        note: "Authored rough target=6.35+0.20=6.55 mm; do not remove shoulder stock."
+        inspect: {method: micrometer, gauge: micrometers/0-1in, requirement: "Leave authored finish allowance, not final acceptance."}
+      - op: 30
+        do: finish_turn
+        feature: north_journal
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 500
+        inspect: {method: micrometer_and_surface_comparison, gauge: micrometers/0-1in, requirement: "Ø6.330–6.350 mm; full journal6.0±0.762 mm includes relief; Ra1.6 µm requires a measurement/comparator not supplied by this inventory."}
+      - op: 40
+        do: rough_turn
+        feature: body
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 500
+        target_diameter_mm: 6.55
+        extends_to_supply_end: true
+        note: "Turn the body through the sourced supply175 station; keep the authored sacrificial south grip beyond it. Final assembly span is not the supply length."
+        inspect: {method: micrometer, gauge: micrometers/0-1in, requirement: "Leave authored finish allowance; verify support through the long cut."}
+      - op: 50
+        do: finish_turn
+        feature: body
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 500
+        extends_to_supply_end: true
+        inspect: {method: micrometer_and_surface_comparison, gauge: micrometers/0-1in, requirement: "Ø6.330–6.350 mm along running body; Ra1.6 µm requires an unsupplied measurement/comparator. Supply long for fit; do not certify nominal span as fitted length."}
+      - op: 60
+        do: finish_face
+        feature: shoulder_thrust
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        inspect: {method: axial_dimension_and_surface_comparison, gauge: calipers, requirement: "Shoulder south face1.5±0.508 mm from north face, Ra1.6 µm on the thrust face; comparator absent."}
+      - op: 70
+        do: finish_turn
+        feature: shoulder
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        note: "Retain Ø10 supplied shoulder if inside its exact numeric default band; otherwise make a controlled finish cut. No assumed stock measurement."
+        inspect: {method: micrometer_and_axial_dimension, gauge: micrometers/0-1in, requirement: "ShoulderØ10.00±0.508 mm; length1.50±0.508 mm. Source numeric title-block value_in ×25.4 governs, not rounded display text."}
+      - op: 80
+        do: form_relief
+        feature: north_relief
+        tool: turning-tools-warner-lms-4132/E
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        note: "Profile the shallow source relief with the selected E-style tool; actual shank, insert nose, accessible flank and projection are unknown. Do not assume a plunging grooving-tool envelope."
+        inspect: {method: diameter_and_width_measurement, gauge: calipers, requirement: "Ø5.700±0.127 mm; width2.0±0.762 mm; groove flush to north shoulder face. No unstated final Ra."}
+      - op: 90
+        do: form_relief
+        feature: south_relief
+        tool: turning-tools-warner-lms-4132/E
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        inspect: {method: diameter_and_width_measurement, gauge: calipers, requirement: "Ø5.700±0.127 mm; width2.0±0.762 mm; groove flush to south shoulder face. No unstated final Ra."}
+  - id: S2
+    machine: PM-1127VF-LB
+    workholding:
+      kind: rechuck
+      ref: chuck-3jaw-6-d1-4
+      grip: "Rechuck near the north end on finished body, exposing the entire north journal, shoulder and crown allowance; tailstock withdrawn for dome access."
+      indicate: {gauge: dial-indicator, requirement: "Check coaxiality before finishing; no numerical runout tolerance is invented."}
+      note: "No hidden between-centres driver. Jaw contact must protect running faces; protection method and measured grip remain open inputs, not fabricated accessories."
+    frame: T2
+    pickup:
+      x: {feature: spindle_axis, side: +x, method: test_cut_and_micrometer_axis_setting, gauge: micrometers/0-1in, sets: 0.0}
+      y: {feature: spindle_axis, side: +y, method: centre_height_alignment, sets: 0.0, note: "No commanded Y."}
+      z: {feature: frame_origin_face, side: +z, method: direct_tool_contact, sets: 0.0, note: "Temporary face at north apex plane, transferred6.0+1.5=7.5 mm from shoulder north face. Touch before dome forming; paper absent."}
+    holders:
+      - {ref: qctp-axa-lms-2280, item: 1-turning-facing}
+    features: [north_dome]
+    operations:
+      - op: 10
+        do: remove_allowance_and_face
+        feature: north_dome
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        note: "Remove sacrificial north centre-seat allowance, leaving the temporary face at the crown apex plane; pick up T2 Z there."
+        inspect: {method: axial_dimension_transfer, gauge: calipers, requirement: "Keep material for source1.5 mm dome height above cylinder base."}
+      - op: 20
+        do: form_dome
+        feature: north_dome
+        tool: turning-tools-warner-lms-4132/E
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        note: "Hand-form the real spherical cap from sourced radius/height; no ball-turner or form-tool geometry is asserted."
+        inspect: {method: height_and_profile_check, gauge: calipers, requirement: "Height1.5±0.762 mm, base radius3.175 mm, derived sphere radius4.1102083333333335 mm; profile measurement method and selected insert-tool envelope must be established at bench."}
+  - id: S3
+    machine: PM-1127VF-LB
+    workholding:
+      kind: rechuck_after_fit_measurement
+      ref: chuck-3jaw-6-d1-4
+      grip: "After the installed-ear span is measured, rechuck locally on body near the plain end; expose only the plain-end excess and dome, with tailstock withdrawn."
+      indicate: {gauge: dial-indicator, requirement: "Recheck coaxiality; no numerical acceptance or actual result is fabricated."}
+      note: "This assembly-dependent setup is not ready: no measured installed-ear span or chosen fitted length is supplied."
+    frame: T3
+    pickup:
+      x: {feature: spindle_axis, side: +x, method: test_cut_and_micrometer_axis_setting, gauge: micrometers/0-1in, sets: 0.0}
+      y: {feature: spindle_axis, side: +y, method: centre_height_alignment, sets: 0.0, note: "No commanded Y."}
+      z: {feature: frame_origin_face, side: +z, method: direct_tool_contact_after_span_transfer, sets: 0.0, note: "Touch the temporary south-apex face after transferring the actual span; sets remains0. Model-to-T3 axial origin is unbound until that missing measurement exists."}
+    holders:
+      - {ref: qctp-axa-lms-2280, item: 1-turning-facing}
+    features: [plain_end, south_dome]
+    operations:
+      - op: 10
+        do: cut_to_fit
+        feature: plain_end
+        tool: turning-tools-warner-lms-4132/AR
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        note: "Choose fitted cylinder length from measured installed-ear span within source0–0.5 mm proud band; retain dome height above that base. Remove excess and sacrificial south grip by repeated facing, not an undeclared parting blade. Required span and resulting absolute cut coordinate are absent: CSV coordinates intentionally blank."
+        inspect: {method: assembly_span_transfer_and_fit_check, gauge: calipers, requirement: "Measure span over both MHA-123 ears, cut plain end to fit; do not use nominal156.67 mm as an as-built value."}
+      - op: 20
+        do: form_dome
+        feature: south_dome
+        tool: turning-tools-warner-lms-4132/E
+        holder: qctp-axa-lms-2280/1-turning-facing
+        rpm: 300
+        note: "Only after fit cut and repickup; the apex is local Z0 but its model position remains unknown until actual fit measurement."
+        inspect: {method: height_profile_and_assembly_fit_check, gauge: calipers, requirement: "Height1.5±0.762 mm, base radius3.175 mm, derived sphere radius4.1102083333333335 mm; inspect both dome and assembly fit. No final Ra requirement is sourced for this crown."}

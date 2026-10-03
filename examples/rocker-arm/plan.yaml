@@ -1,0 +1,247 @@
+part: rocker-arm
+spec_sha256: "d180a0367806eec7ca299733d5a24c4367772713a98a0927ea7e2bf42b6c8198"
+policy: policy.yaml
+quantity: 20
+stock:
+  state: prepared_blank
+  material_spec: 1018 low-carbon steel
+  section_mm: {w: 45.0, t: 16.0}
+  length_mm: 310.0
+  note: "Authored stock choice within the consumer's low-carbon-steel alternative, not a new consumer dimension or a claim of stock on hand. Saw and qualify a rectangular blank before S1, with model Z mid-plane centered in the authored 16 mm thickness. Prepared blank includes rectangular reference edges only: no finished hub, profile, or holes are waived. Retained rails stay full raw thickness during both vise setups."
+notes:
+  - "Quantity20, stock size, reference-edge offsets, roughing allowances, paper thickness and RPMs are authored process choices; they are not source spec dimensions or verified inventory measurements. RPMs are starting proposals only."
+  - "Preserve the integral hub from the original bar. No brazed boss, loose bushing, rod tap or pivot counterbore."
+  - "Retain the rectangular side rails and end ears during S1/S2. They carry vise loads while the thin strap and both hub islands are milled; do not release the thin profile in a vise roughing setup."
+  - "S1 initial face cut establishes the upper hub reference plane before the listed pickups are accepted. S2 face cut establishes the lower hub plane by measured transfer of total hub length, then repick Z. Raw-stock Z offsets are deliberately not asserted as consumer geometry."
+  - "S3 requires a dedicated support/locating fixture, explicitly absent from inventory. Its contact geometry, clamps and clearances are not fabricated here; supported grip and access require human fixture design before machining. Locate from pivot datum A, broad-face datum B and finished rod-side land datum C; hold and support the strap before removing retained rails/ears."
+  - "The consumer note recommends turning hub and reaming bore in one setup. This PM-30MV route proposes circular interpolation with hub OD and bore finishing under one unchanged S3 datum; it is a process proposal, not a claim that the note or coaxiality has been validated."
+  - "Consumer upper hub/bore dimensions and bottom hub are inspected after S3. A qualified bore-size and Ra inspection method still needs selection; no pin gauges, bore gauge or roughness instrument are invented."
+  - "The only coordinates asserted for axial features are sourced hole/hub centres. Profile rows leave X/Y blank: a contour is not its invented centroid."
+setups:
+  - id: S1
+    machine: PM-30MV
+    frame: A
+    workholding:
+      kind: vise
+      ref: vise-pm-6
+      orientation: jaws_along_x
+      parallels: {ref: parallels-lms-6745, item: 1-2in}
+      support_blocks: {ref: blocks-123-lms-2881, orientation: one_inch_height}
+      note: "Grip full-thickness rectangular rails on existing 1-2-3 blocks plus 1/2in parallels; never rest the thinned strap on an unsupported island. Nominal support heights and jaw clearance are candidate arithmetic only, inherited verify:true; measure actual jaw engagement, cutter clearance and long-overhang support before accepting the setup. Keep side rails and ears continuous."
+    pickup:
+      x: {feature: blank_left_reference, side: -x, tool: edge-finder, tool_dia_mm: 5.08, sets: -155.0, note: "Authored blank centred at pivot X; compensate 5.08/2 = 2.54 mm on -X contact. Tip is inventory nominal, unverified."}
+      y: {feature: blank_front_reference, side: -y, tool: edge-finder, tool_dia_mm: 5.08, sets: -16.0, note: "Authored blank model Y range -8 to 37; A origin Y8 gives front -16. Compensate 2.54 mm on -Y contact."}
+      z: {feature: frame_origin_face, side: +z, method: paper, paper_mm: 0.08, sets: 0.0, note: "Touch the newly qualified upper hub face, A Z0; compensate paper separately, never add it to sets."}
+    holders:
+      - {ref: r8-collets-lms-4860, item: 3-8in}
+      - {ref: drill-chuck-r8}
+    features: [hub_faces, strap_faces, hub_od, top_edge, profile_outer, pivot_bore]
+    operations:
+      - op: 10
+        do: face
+        feature: hub_faces
+        tool: endmills-lms-6784/3-8in-4fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        target_z_mm: 0.0
+        note: "Qualify upper hub contact plane from prepared overstock, then accept A Z pickup; lower face remains overstock for S2."
+        inspect: {method: flatness_and_reference_transfer, gauge: dial-indicator, note: "Proposed reference qualification, indicator verify:true; no flatness tolerance is invented."}
+      - op: 20
+        do: rough_face
+        feature: strap_faces
+        tool: endmills-lms-6784/3-8in-2fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        stock_to_leave_mm: 0.20
+        note: "Remove upper-side material around hub to strap face plus authored allowance, preserving hub and rectangular holding rails."
+        inspect: {method: thickness_trend, gauge: calipers}
+      - op: 25
+        do: finish_face
+        feature: strap_faces
+        tool: endmills-lms-6784/3-8in-4fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        target_z_mm: -2.27825
+        note: "Finish upper strap face at model Z1.25; preserve the full upper hub island and retained holding rails."
+        inspect: {method: indicated_step_height_from_upper_hub_face, gauge: dial-indicator, nominal_mm: 2.27825, source: "cad/scripts/build_rocker_arm.py:122; (7.0565-2.5)/2", note: "Indicator range and reference-transfer capability are unverified; no depth micrometer is invented."}
+      - op: 30
+        do: rough_profile
+        feature: hub_od
+        tool: endmills-lms-6784/3-8in-2fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        stock_to_leave_mm: 0.20
+        note: "Rough upper round hub island about sourced pivot axis; finish OD in S3 with bore datum unchanged."
+        inspect: {method: diameter_and_remaining_stock, gauge: calipers}
+      - op: 40
+        do: rough_profile
+        feature: top_edge
+        tool: endmills-lms-6784/3-8in-2fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        stock_to_leave_mm: 0.20
+        note: "Rough sourced R800 top arc; leave connected rails/ears."
+        inspect: {method: compare_to_sourced_profile, note: "Contour/template and clearance are not certified by this fixture."}
+      - op: 50
+        do: rough_profile
+        feature: profile_outer
+        tool: endmills-lms-6784/3-8in-2fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        stock_to_leave_mm: 0.20
+        note: "Rough bottom arc, radial lands and tapers; keep rails and ears continuous. Do not interpret 5.588 radial lands as 3D chamfers."
+        inspect: {method: compare_to_sourced_profile}
+      - op: 60
+        do: spot
+        feature: pivot_bore
+        tool: center-drills-lms-4859/2
+        holder: drill-chuck-r8
+        rpm: 800
+        note: "Shallow spotting only; no fabricated centre-drill point depth or shank."
+        inspect: {method: location_against_frame}
+      - op: 70
+        do: drill
+        feature: pivot_bore
+        tool: drill-index-115/1-4in
+        holder: drill-chuck-r8
+        rpm: 800
+        end: through
+        note: "Advertised index coverage includes 1/4 in = 6.35 mm; candidate diameter allowance 6.50-6.35 = 0.15 mm for reaming, not measured drill geometry. Break through the actual blank with clearance confirmed at the machine."
+        inspect: {method: pilot_hole_and_breakthrough, note: "Do not assert measured size from drill identity."}
+  - id: S2
+    machine: PM-30MV
+    frame: B
+    workholding:
+      kind: vise
+      ref: vise-pm-6
+      orientation: jaws_along_x
+      parallels: {ref: parallels-lms-6745, item: 1-2in}
+      support_blocks: {ref: blocks-123-lms-2881, orientation: one_inch_height}
+      note: "Flip about model X and seat the retained full-thickness rails on verified blocks/parallels. Grip the rails/ears, not the thin strap or hub rim. Requalify both transfer and actual jaw engagement/clearance; no support measurement is asserted."
+    pickup:
+      x: {feature: pivot_axis_transfer, side: +x, method: indicated_pilot_axis, gauge: dti, sets: 0.0, note: "Indicate the existing S1 pilot to establish B X0; preserve model X sign after the flip. Do not infer the pivot from a raw blank edge."}
+      y: {feature: pivot_axis_transfer, side: +y, method: indicated_pilot_axis, gauge: dti, sets: 0.0, note: "Indicate the existing S1 pilot to establish B Y0, with B Y reversed from model Y. The rear edge is only a clocking/check reference, not an assumed 45 mm width locating the hub."}
+      z: {feature: frame_origin_face, side: +z, method: paper, paper_mm: 0.08, sets: 0.0, note: "After lower hub face is qualified using total thickness transfer, B origin contact face is Z0; paper separately compensated."}
+    holders:
+      - {ref: r8-collets-lms-4860, item: 3-8in}
+    features: [hub_faces, strap_faces, hub_od, top_edge, profile_outer]
+    operations:
+      - op: 10
+        do: finish_face
+        feature: hub_faces
+        tool: endmills-lms-6784/3-8in-4fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        target_z_mm: 0.0
+        inspect: {method: total_hub_face_separation, gauge: micrometers/0-1in, lower_mm: 7.0565, upper_mm: 7.1065, source: "cad/scripts/rocker_arm_spec.py:117-121", note: "Measure, approach from long side, never cut below lower limit; gauge verify:true. No stack attestation is asserted."}
+      - op: 20
+        do: finish_face
+        feature: strap_faces
+        tool: endmills-lms-6784/3-8in-4fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        target_z_mm: -2.27825
+        note: "Finish lower strap face to symmetric 2.5 total against the S1-finished upper strap face; source proud=(7.0565-2.5)/2."
+        inspect: {method: thickness_and_broad_face_datum, gauge: micrometers/0-1in, nominal_mm: 2.5, source: "cad/scripts/rocker_arm_spec.py:28; cad/scripts/draw_rocker_arm.py:510-529"}
+      - op: 30
+        do: finish_profile
+        feature: hub_od
+        tool: endmills-lms-6784/3-8in-4fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        note: "Finish lower integral hub OD concentric with transferred pilot axis; final coaxiality inspection follows S3 bore finish."
+        inspect: {method: hub_diameter_and_coaxiality, gauge: dial-indicator, nominal_mm: 10.2, coaxiality_dia_mm: 0.50, source: "cad/scripts/rocker_arm_spec.py:112; cad/scripts/rocker_arm_notes.py:32,72-76"}
+      - op: 40
+        do: rough_profile
+        feature: top_edge
+        tool: endmills-lms-6784/3-8in-2fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        stock_to_leave_mm: 0.20
+        note: "Complete lower-side roughing with rails/ears intact; top-edge height final in S3."
+        inspect: {method: remaining_stock}
+      - op: 50
+        do: rough_profile
+        feature: profile_outer
+        tool: endmills-lms-6784/3-8in-2fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        stock_to_leave_mm: 0.20
+        note: "Complete lower-side roughing of bottom arc/lands/tapers, retain load-bearing rails/ears."
+        inspect: {method: retained_webs_and_remaining_stock}
+  - id: S3
+    machine: PM-30MV
+    frame: A
+    workholding:
+      kind: supported_profile_fixture
+      ref: rocker-profile-fixture
+      note: "Explicit missing essential fixture, not a claimed shop accessory. Must support broad face B, locate the pilot/finished bore A and clock from rod-side radial land C; clamp positions, fasteners, support heights and clearance need design/verification. Reestablish datum A after reaming before rod drilling."
+    pickup:
+      x: {feature: pivot_axis_transfer, side: +x, method: indicated_pilot_axis, gauge: dti, sets: 0.0, note: "Indicate pilot, finish OD/ream without relocation, then re-indicate finished datum A; no axis-transfer measurement supplied."}
+      y: {feature: pivot_axis_transfer, side: +y, method: indicated_pilot_axis_and_tip_clocking, gauge: dti, sets: 0.0, note: "A at pivot, B broad face, C rod-side radial land establishes model orientation; no unverified clockwise reversal."}
+      z: {feature: frame_origin_face, side: +z, method: paper, paper_mm: 0.08, sets: 0.0, note: "Finished upper hub contact face is A Z0, strap entry is -2.27825; paper compensated separately."}
+    holders:
+      - {ref: r8-collets-lms-4860, item: 3-8in}
+      - {ref: drill-chuck-r8}
+    features: [hub_od, pivot_bore, top_edge, profile_outer, rod_hole]
+    operations:
+      - op: 10
+        do: finish_profile
+        feature: hub_od
+        tool: endmills-lms-6784/3-8in-4fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        note: "Finish upper integral hub OD, no subsequent fixture relocation before pivot reaming."
+        inspect: {method: diameter_and_coaxiality_to_finished_bore, gauge: dial-indicator, nominal_mm: 10.2, coaxiality_dia_mm: 0.50, source: "cad/scripts/rocker_arm_spec.py:112; cad/scripts/rocker_arm_notes.py:32,72-76"}
+      - op: 20
+        do: ream
+        feature: pivot_bore
+        tool: reamers-metric/6.5-H7
+        holder: drill-chuck-r8
+        rpm: 300
+        end: through
+        note: "Missing selected tool: no H7 output band, shank, flute length or measured diameter is asserted. The designation is a requested procurement item, not proof of fit. Consumer still requires [6.50,6.53] and Ra1.6."
+        inspect: {method: qualified_bore_size_and_roughness_measurement, lower_mm: 6.5, upper_mm: 6.53, ra_um: 1.6, source: "cad/scripts/rocker_arm_spec.py:32,37-39,107; cad/scripts/_surface_finish.py:48", note: "Inspection instrument/method capability is unresolved; no fabricated pin-gauge set or roughness instrument."}
+      - op: 30
+        do: finish_profile
+        feature: top_edge
+        tool: endmills-lms-6784/3-8in-4fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        note: "Finish R800 top arc from datum A/B/C, release retained top-side rail only while fixture supports strap."
+        inspect: {method: top_arc_and_mirror_axis_height, lower_mm: 8.0, upper_mm: 8.5, source: "cad/scripts/rocker_arm_spec.py:26,29,87-88", note: "A setup coordinate table is not a profile or height measurement."}
+      - op: 40
+        do: finish_profile
+        feature: profile_outer
+        tool: endmills-lms-6784/3-8in-4fl
+        holder: r8-collets-lms-4860/3-8in
+        rpm: 1000
+        target_z_mm: -4.77825
+        note: "Finish R816 bottom arc, both 5.588 radial lands and straight tapers; remove remaining rails/ears only under supported fixture grip. Through strap target = -3.52825-1.25, with clearance/retract still unmeasured."
+        inspect: {method: contour_endpoints_land_perpendicularity_and_datum_C, source: "cad/scripts/rocker_arm_spec.py:26-31,42-54; cad/scripts/build_rocker_arm.py:151-166,276-300; cad/scripts/draw_rocker_arm.py:530-538"}
+      - op: 50
+        do: spot
+        feature: rod_hole
+        tool: center-drills-lms-4859/2
+        holder: drill-chuck-r8
+        rpm: 800
+        note: "Shallow spot on strap face; do not make a centre-drill counterbore or invent point depth."
+        inspect: {method: location_from_A_B_C, source: "cad/scripts/draw_rocker_arm.py:510-548"}
+      - op: 60
+        do: drill
+        feature: rod_hole
+        tool: "drill-index-115/#47"
+        holder: drill-chuck-r8
+        rpm: 1500
+        end: through
+        inspect: {method: drilled_size_and_position_in_A_B_C, nominal_mm: 1.994, lower_mm: 1.994, upper_mm: 2.094, position_dia_mm: 0.20, source: "cad/scripts/_hole_spec.py:82; cad/config/title_block.yaml:66; cad/scripts/rocker_arm_spec.py:125; cad/scripts/draw_rocker_arm.py:539-548", note: "Tool shank, cutting geometry and measurement capability are not supplied by the drill-index coverage string."}
+      - op: 70
+        do: deburr
+        feature: profile_outer
+        note: "Remove burrs without changing the radial lands, controlled top height, thin strap or bore edges. Manual finishing method to be selected; no additional inventory item is claimed."
+        inspect: {method: visual_edge_and_hole_entry_check, source: "cad/config/title_block.yaml:43-45"}
+      - op: 80
+        do: coating
+        feature: profile_outer
+        note: "Apply consumer matte black oxide after machining; qualify process and protect/remeasure bore as necessary. No outsourced vendor or bath is claimed in inventory."
+        inspect: {method: coating_and_final_requirement_review, source: "cad/config/parts/rocker-arm.yaml:4", note: "Verify pivot size/Ra, rod size/position, hub length/OD/coaxiality, strap thickness and complete contour after finishing. No attestation asserted."}

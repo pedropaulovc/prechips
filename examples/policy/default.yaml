@@ -1,0 +1,32 @@
+# Consumer-owned reference policy for the PLAN.md rev-3 M1/M1b fixtures.
+policy_version: 1
+required:
+  - schema
+  - inventory_refs
+  - citations_present
+  - step_binding
+  - policy_integrity
+  - sizing_tool
+  - hole_op_chain
+  - op_order
+  - coordinate_table
+  - coverage
+  - blind_thread_depth
+  - envelope
+  - holder_compat
+  - index_representable
+severity:
+  schema: block
+  inventory_refs: block
+  citations_present: block
+  step_binding: block
+  policy_integrity: block
+  sizing_tool: block
+  hole_op_chain: block
+  op_order: block
+  coordinate_table: block
+  coverage: warn
+  blind_thread_depth: block
+  envelope: block
+  holder_compat: block
+  index_representable: block

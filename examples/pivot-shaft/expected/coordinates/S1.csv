@@ -1,0 +1,11 @@
+frame=T1, units=mm, mode=absolute, diameter
+feature,op,x,y,z
+shoulder,10,,,0
+north_journal,20,6.55,,6
+north_journal,30,6.35,,6
+body,40,6.55,,-169
+body,50,6.35,,-169
+shoulder_thrust,60,,,-1.5
+shoulder,70,10,,-1.5
+north_relief,80,5.7,,0
+south_relief,90,5.7,,-3.5

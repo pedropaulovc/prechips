@@ -1,0 +1,7 @@
+frame=C, units=mm, mode=absolute, radius
+feature,op,x,y,z
+ear_arch,10,,,
+ear_arch,20,,,-6
+cross_bore,30,0,25.2,0
+cross_bore,40,0,25.2,0
+cross_bore,50,0,25.2,0
