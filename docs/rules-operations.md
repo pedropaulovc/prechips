@@ -55,7 +55,8 @@ setup/operation sequence plus `stock_in`/`zero.transfer`.
 
 ## `blind_depth` (tip endpoints)
 
-One subject per feature, with an `endpoints` array for its hole operations.
+One subject per feature, with an `endpoints` array for spot, drill, ream, tap,
+counterbore and bore operations.
 Stock-state facing/pocketing advances only the named or explicitly covered
 same-frame entry surfaces. Profiles never move the touched top; `top_feature`
 restricts which facing operation moves that top. Each record preserves entry
@@ -71,7 +72,10 @@ Arithmetic in mm:
   an error and that endpoint's `tip_z` is `unknown`: the tool would not break
   through, so no stop is offered.
 - Through ream: `tip_z = exit_face - lead_mm - exit_mm`.
-- Blind drill/ream: `total_depth = depth_mm + point_or_lead`;
+- Through bore/counterbore: `tip_z = exit_face - exit_mm`, with no drill-point
+  or reamer-lead addition. The named cutter's tool-zero and reach still require
+  verification; this is a nominal axial target, not certified cutter geometry.
+- Blind drill/ream/bore/counterbore: `total_depth = depth_mm + point_or_lead`;
   `tip_z = entry_z - total_depth`; total must not exceed the feature's upper
   depth limit. Unknown thru/depth/tool geometry stays unknown.
 - Tap: `tip_z = entry_z - depth`; verified flute length must cover thread depth.

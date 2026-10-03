@@ -37,9 +37,12 @@ does not hide an environment-supplied shop policy.
 
 `numbers` is a map of finite numeric values or `"unknown"`; `numbers_cite` is
 the matching citation map; `numbers_verify` maps names to booleans or unknown.
-The current datum rule consumes `refixture_budget_mm`, and a true verification
-flag suppresses its use as a measured acceptance budget. Other policy number
-names may be carried without implying their M2/M4 rules have shipped.
+The datum rule consumes `refixture_budget_mm`; M2 stick-out consumes
+`stickout_ld_max`. A true or unknown verification flag prevents either from
+certifying a measured threshold. The shipped numbers remain `"unknown"` rather
+than copying unsourced shop folklore. Required M2 physics warnings promote
+readiness to exit 4 using the existing gate; proxy warnings never invent a
+hard physical limit. Other number names do not imply deferred M4 rules shipped.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled

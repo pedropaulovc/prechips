@@ -9,7 +9,7 @@ from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
 
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
-HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore"}
+HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore", "bore"}
 
 
 def mapping(value):

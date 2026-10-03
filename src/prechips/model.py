@@ -12,7 +12,8 @@ type Number = float | Unknown
 type Vector = list[Number] | Unknown
 type Citations = str | list[str]
 TOLERANCE_REQUIREMENTS = frozenset(
-    "dia position_dia finish_ra depth length width height radius thickness coaxiality_dia "
+    "dia position_dia angularity_dia finish_ra depth length width height radius thickness "
+    "coaxiality_dia "
     "height_above_pivot arc_len bottom_radius bottom_arc_len tip_land land_angle_deg station "
     "groove_width groove_depth separation".split()
 )
@@ -84,6 +85,15 @@ Dro = record(
         "direction": Direction,
     },
 )
+StockComponent = record(
+    "StockComponent",
+    {
+        **texts("form note"),
+        **numbers("dia_mm length_mm"),
+        "section_mm": Vector,
+        "cite": Citations,
+    },
+)
 Stock = record(
     "Stock",
     {
@@ -93,6 +103,8 @@ Stock = record(
         "material_cite": Citations,
         "section_mm": Vector,
         "as_is_faces": list[str],
+        "components": list[StockComponent],
+        "cite": Citations,
     },
 )
 StockState = record(
@@ -109,7 +121,7 @@ StockState = record(
     },
 )
 Reference = record("Reference", {**texts("ref orientation note"), **numbers("height_mm")})
-Index = record("Index", {"fixture": str, "angle_deg": Number, "positions": int})
+Index = record("Index", {"fixture": str, "feature": str, "angle_deg": Number, "positions": int})
 Hold = record(
     "Hold",
     {
@@ -211,6 +223,7 @@ Setup = record(
 class Plan(InputModel):
     part: str
     features: str
+    construction: Literal["one_piece", "built_up"] | Unknown = UNKNOWN
     step: str | Unknown = UNKNOWN
     quantity: int | Unknown = UNKNOWN
     quantity_cite: Citations = UNKNOWN
@@ -280,6 +293,7 @@ Feature = record(
         "cite": Citations | dict[str, Citations],
         "precision": dict[str, int | Unknown],
         "position_datums": list[str],
+        "angularity_datums": list[str],
         "thru": bool,
         "mirror_symmetric": bool,
         "at": Vector,
@@ -292,11 +306,14 @@ Feature = record(
         "end": Vector,
         "arc_centre": Vector,
         "bottom_end": Vector,
+        "angle_deg": Number,
+        "angle_tol_deg": Number,
         "radial_tip_end": Vector,
         **{
             key: float | list[Number]
             for key in (
-                "dia position_dia finish_ra depth length width height radius thickness "
+                "dia position_dia angularity_dia finish_ra depth length width height "
+                "radius thickness "
                 "coaxiality_dia height_above_pivot arc_len bottom_radius bottom_arc_len tip_land "
                 "land_angle_deg land_angle_nominal_deg upper_z lower_z centre_from_pivot_ref "
                 "depth_ref station nominal_dia nominal_width nominal_length nominal_height "
@@ -320,6 +337,8 @@ class Features(InputModel):
     step_sha256: str = UNKNOWN
     step: str | Unknown = UNKNOWN
     construction: str | Unknown = UNKNOWN
+    volume_mm3: Number = UNKNOWN
+    volume_cite: Citations = UNKNOWN
     cite_root: str | Unknown = UNKNOWN
     cite: Citations | dict[str, Citations] = UNKNOWN
     notes: Notes | Unknown = UNKNOWN

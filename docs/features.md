@@ -48,6 +48,20 @@ the digest alone is not accepted. Shipped examples have no STEP byte stream.
 are not file assets fetched or opened during the check. Hand-authored manifests
 must be cross-checked against source drawings; completeness export is M3.
 
+M2 adds declared lathe profiles (`z_mm` plus a nominal diameter) and angular
+settings (`angle_deg`, `angle_tol_deg`). These are sourced nominal geometry,
+not kernel-derived access proofs. A feature's `angle_tol_deg` is an angular
+landing allowance in degrees; it is not the diametral angularity zone.
+`angularity_dia = [0.0, 0.10]` with `angularity_datums = ["A", "B"]`, listed in
+`requirements`, declares a drawing FCF that needs its own geometric gauge and
+datum-referenced inspection method. It does not convert Ø0.10 into degrees.
+
+The optional root `volume_mm3` and `volume_cite` hold a sourced finished-part
+volume for stock comparison. Missing or unverified volume remains `"unknown"`;
+prechips never substitutes a feature bounding box, guessed cone subtraction,
+or stock volume. Drawing `construction = "one_piece"` does not permit a
+built-up candidate; permission requires the literal `"built_up_permitted"`.
+
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
 record (`extra="forbid"`); arbitrary keys are allowed only in explicitly declared
@@ -75,6 +89,8 @@ of geometric validity; rules perform the applicable checks.
 | `step_sha256` | `str` | Optional |
 | `step` | `str \| Unknown` | Optional |
 | `construction` | `str \| Unknown` | Optional |
+| `volume_mm3` | `Number` | Optional |
+| `volume_cite` | `Citations` | Optional |
 | `cite_root` | `str \| Unknown` | Optional |
 | `cite` | `Citations \| dict[str, Citations]` | Optional |
 | `notes` | `Notes \| Unknown` | Optional |
@@ -174,6 +190,7 @@ of geometric validity; rules perform the applicable checks.
 | `cite` | `Citations \| dict[str, Citations]` |
 | `precision` | `dict[str, int \| Unknown]` |
 | `position_datums` | `list[str]` |
+| `angularity_datums` | `list[str]` |
 | `thru` | `bool` |
 | `mirror_symmetric` | `bool` |
 | `at` | `Vector` |
@@ -186,9 +203,12 @@ of geometric validity; rules perform the applicable checks.
 | `end` | `Vector` |
 | `arc_centre` | `Vector` |
 | `bottom_end` | `Vector` |
+| `angle_deg` | `Number` |
+| `angle_tol_deg` | `Number` |
 | `radial_tip_end` | `Vector` |
 | `dia` | `float \| list[Number]` |
 | `position_dia` | `float \| list[Number]` |
+| `angularity_dia` | `float \| list[Number]` |
 | `finish_ra` | `float \| list[Number]` |
 | `depth` | `float \| list[Number]` |
 | `length` | `float \| list[Number]` |

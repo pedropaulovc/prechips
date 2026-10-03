@@ -194,7 +194,7 @@
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
-            "sha256": "6b390d2939764b81f60528356c488ccf5f6780244dc41806e1ef0c0f1b1e29c9"
+            "sha256": "07a2314f75d7741231c8c5691b2d8f9160345c99a69b9c531dada1f38508e450"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -206,6 +206,19 @@
       "rule": "bundle_binding",
       "status": "unknown",
       "subject": "inputs"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.5 stock-form comparison, lines 573–577"
+      ],
+      "message": "The candidate uses one-piece construction.",
+      "numbers": {
+        "drawing_construction": "one_piece",
+        "plan_construction": "one_piece"
+      },
+      "rule": "construction",
+      "status": "pass",
+      "subject": "rocker-arm"
     },
     {
       "cite": [
@@ -8046,6 +8059,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -8060,6 +8074,7 @@
       ],
       "message": "Datum cuts or the re-fixture acceptance budget remain unresolved.",
       "numbers": {
+        "angularity_datums": [],
         "coaxial_to": "pivot_bore",
         "datum_op": "S3:20",
         "datums": {
@@ -8124,6 +8139,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "datum": "A",
         "position_datums": []
       },
@@ -8137,6 +8153,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "datum": "C",
         "position_datums": []
       },
@@ -8152,6 +8169,7 @@
       ],
       "message": "Datum cuts or the re-fixture acceptance budget remain unresolved.",
       "numbers": {
+        "angularity_datums": [],
         "datum_op": "S3:80",
         "datums": {
           "A": [
@@ -8251,6 +8269,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "datum": "B",
         "position_datums": []
       },
@@ -8266,6 +8285,7 @@
       ],
       "message": "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget.",
       "numbers": {
+        "angularity_datums": [],
         "datum_op": "S3:20",
         "datums": {
           "pivot_bore": [
@@ -8307,6 +8327,674 @@
       "rule": "datum_consistency",
       "status": "pass",
       "subject": "top_edge"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S1].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:10: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "face",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-4fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S1].ops[20].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:20: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "rough_face",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-2fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S1].ops[25].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:25: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_face",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-4fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:25"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S1].ops[30].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:30: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "rough_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-2fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S1].ops[40].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:40: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "rough_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-2fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S1].ops[50].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:50: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "rough_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-2fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit diameter/projection/OAL",
+        "inventory.holders.drill-chuck-r8: selected holder grip/verification",
+        "plan.setups[S1].ops[60].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:60: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "drill-chuck-r8",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "spot",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "center-drills-lms-4859/2",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:60"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.drill-index-115/1-4in: explicit-unit diameter/projection/OAL",
+        "inventory.holders.drill-chuck-r8: selected holder grip/verification",
+        "plan.setups[S1].ops[70].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:70: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 6.35,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "drill-chuck-r8",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "drill",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "drill-index-115/1-4in",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:70"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S2].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S2:10: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_face",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-4fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S2].ops[20].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S2:20: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_face",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-4fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S2].ops[30].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S2:30: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-4fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S2].ops[40].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S2:40: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "rough_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-2fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S2].ops[50].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S2:50: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "rough_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-2fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S3].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S3:10: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-4fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.reamers-metric/6.5-H7: explicit-unit diameter/projection/OAL",
+        "inventory.holders.drill-chuck-r8: selected holder grip/verification",
+        "plan.setups[S3].ops[20].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S3:20: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "drill-chuck-r8",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "ream",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "reamers-metric/6.5-H7",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S3].ops[30].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S3:30: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-4fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S3].ops[40].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S3:40: Engagement proxy needs positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 9.524999999999999,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_profile",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "endmills-lms-6784/3-8in-4fl",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit diameter/projection/OAL",
+        "inventory.holders.drill-chuck-r8: selected holder grip/verification",
+        "plan.setups[S3].ops[50].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S3:50: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "drill-chuck-r8",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "spot",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "center-drills-lms-4859/2",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S3:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.drill-index-115/#47: explicit-unit diameter/projection/OAL",
+        "inventory.holders.drill-chuck-r8: selected holder grip/verification",
+        "plan.setups[S3].ops[60].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S3:60: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": 1.994,
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "drill-chuck-r8",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "drill",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "drill-index-115/#47",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S3:60"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S3:70: a manual operation has no cutting-tool engagement proxy.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "deburr",
+        "tool": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:70"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S3:80: a manual operation has no cutting-tool engagement proxy.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "coating",
+        "tool": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:80"
     },
     {
       "cite": [
@@ -8823,6 +9511,36 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S1: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S2: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S3: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 inspection",
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
@@ -8858,6 +9576,7 @@
       "numbers": {
         "gauge": "dial-indicator",
         "gauge_kind": "dial_indicator",
+        "inspection_method": "unknown",
         "limits": 0.5,
         "op": "S3:10",
         "range_mm": "unknown",
@@ -10115,6 +10834,140 @@
     },
     {
       "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.stock.dia_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+      ],
+      "message": "S1: not a lathe setup.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "diameter_source": "plan.stock.dia_mm",
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "blocks_123",
+            "reference": "blocks-123-lms-2881",
+            "source": "inventory.fixtures",
+            "status": "unknown"
+          }
+        ],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.stock.dia_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+      ],
+      "message": "S2: not a lathe setup.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "diameter_source": "plan.stock.dia_mm",
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "blocks_123",
+            "reference": "blocks-123-lms-2881",
+            "source": "inventory.fixtures",
+            "status": "unknown"
+          }
+        ],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.stock.dia_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+      ],
+      "message": "S3: not a lathe setup.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "diameter_source": "plan.stock.dia_mm",
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "support_status": "unknown",
+        "supports": [],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.stock.dia_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S1: selected fixture is not a collet/chuck.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "diameter_source": "plan.stock.dia_mm",
+        "fixture": "vise-pm-6",
+        "fixture_kind": "vise",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.stock.dia_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S2: selected fixture is not a collet/chuck.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "diameter_source": "plan.stock.dia_mm",
+        "fixture": "vise-pm-6",
+        "fixture_kind": "vise",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.stock.dia_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S3: selected collet/chuck identity is unresolved.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "diameter_source": "plan.stock.dia_mm",
+        "fixture": "rocker-profile-fixture",
+        "fixture_kind": "unknown",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
@@ -10745,6 +11598,336 @@
     },
     {
       "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+      ],
+      "message": "S1: not a lathe setup.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "A",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": []
+      },
+      "rule": "turned_profile",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+      ],
+      "message": "S2: not a lathe setup.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "B",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": []
+      },
+      "rule": "turned_profile",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+      ],
+      "message": "S3: not a lathe setup.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "A",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": []
+      },
+      "rule": "turned_profile",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:10: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "hub_faces",
+        "operation": "face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:20: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "strap_faces",
+        "operation": "rough_face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:25: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "strap_faces",
+        "operation": "finish_face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:25"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:30: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "hub_od",
+        "operation": "rough_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:40: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "top_edge",
+        "operation": "rough_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:50: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "profile_outer",
+        "operation": "rough_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:60: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "pivot_bore",
+        "operation": "spot"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:60"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:70: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "pivot_bore",
+        "operation": "drill"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:70"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:10: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "hub_faces",
+        "operation": "finish_face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:20: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "strap_faces",
+        "operation": "finish_face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:30: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "hub_od",
+        "operation": "finish_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:40: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "top_edge",
+        "operation": "rough_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:50: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "profile_outer",
+        "operation": "rough_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:10: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "hub_od",
+        "operation": "finish_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:20: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "pivot_bore",
+        "operation": "ream"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:30: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "top_edge",
+        "operation": "finish_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:40: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "profile_outer",
+        "operation": "finish_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:50: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "rod_hole",
+        "operation": "spot"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:60: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "rod_hole",
+        "operation": "drill"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:60"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:70: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "profile_outer",
+        "operation": "deburr"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:70"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:80: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "profile_outer",
+        "operation": "coating"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:80"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 zero recipe",
         "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
         "plan zero and stock_state; inventory finder nominal size"
@@ -11047,7 +12230,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "638e480efedb70330e1fc6caf0e0026f725f905be4cfed733587e5874c2b6b15",
+  "hash": "004b48a650f62bb056ebbd35241469b0eaa4eb7c4499a343addfcf1c9c96f868",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -11063,7 +12246,7 @@
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
-      "sha256": "6b390d2939764b81f60528356c488ccf5f6780244dc41806e1ef0c0f1b1e29c9"
+      "sha256": "07a2314f75d7741231c8c5691b2d8f9160345c99a69b9c531dada1f38508e450"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -11071,7 +12254,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m1-rev6",
+  "rules_version": "m2-rev6",
   "step_sha256": "unknown",
   "verification": "planned"
 }

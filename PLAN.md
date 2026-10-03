@@ -797,7 +797,7 @@ sheet.
    approval gating and generated Letter HTML are implemented for the authored
    reference routes (including their setup pages and contour continuations).
    Examples remain PLANNED with expected exits shaft 4 / rocker 2 / bracket 2;
-   this does not complete M2 feasibility, M3 export or M4 kernel geometry.
+   M1 alone does not complete M2 feasibility, M3 export or M4 kernel geometry.
    Local telemetry/exporter checks are not live farm evidence. **Physical
    `rocker-paper-rehearsal` and §5.2 parented farm telemetry acceptance remain
    pending/unobserved.** The original acceptance criteria remain:
@@ -819,10 +819,26 @@ sheet.
    manifest with one `"unknown"` tolerance among known ones → `?` and exit
    4; editing `features.toml` after approval → `PLANNED` naming the input;
    an empty ops list → exit 3; the report byte-repeatable.
-2. **M2 — `pivot-shaft` and `pivot-bracket`** (lathe frame conventions: Z
-   along the spindle, X as diameter; `transfer` zero across setups; the M2
-   rows, including indexing on the BS-0 for the shaft's cross-hole;
-   `prechips compare` on `cone-pivot-post`).
+2. **M2 — local declared-input implementation completed 2026-10-03.**
+   Turned-profile monotonicity,
+   supported stick-out, collet/chuck diameter capacity, exact-first indexing,
+   turning-deflection and engagement proxies, and gated stock-form comparison
+   are implemented. Lathe Z/spindle, diameter-mode X and cross-setup `transfer`
+   conventions remain the existing shaft route's; no cross-hole is added.
+   The original “shaft's cross-hole” indexing bullet is **superseded**: rev 6
+   declares no such feature. The first BS-0 case is the cone-pivot-post's
+   12.5182° cone-journal inclination (`positions = 1`, no repeated-pattern closure),
+   with authored full-envelope one-piece and block-plus-pressed-boss alternatives.
+   The drawing is one-piece only; the built-up candidate is refused.
+   **Observed local acceptance:** Ruff check and format check; 488 pytest cases;
+   all 12 TOML inputs / five candidate goldens validated; actual CLI checks
+   repeated byte-identically with exits 4 / 2 / 2 / 4 / 2. Cone comparison
+   prints the drawing refusal beside the built-up candidate. Chromium showed
+   plate B, circle 23, 1 turn + 9 spaces; this is not physical print evidence.
+   **Unobserved/pending:** measured chuck capacities/support/BS-0 inventory,
+   sourced K_c/E and a sourced BASIC-angle landing allowance, printed traveler/operator
+   rehearsal, independent hand oracle, live farm telemetry and M3/M4 geometry
+   binding. Unknown inputs remain `?`, not a numerical machining approval.
 3. **M3 — consumer export.** harmonic-analyzer issue (filed with this rev):
    `cad/scripts/export_features.py` emitting `features.toml` beside the
    STEP as a complete manifest with provenance; `swStepExportFaceEdgeProps`

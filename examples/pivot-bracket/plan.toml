@@ -8,6 +8,7 @@
 
 part = "pivot-bracket"
 features = "features.toml"
+construction = "one_piece"   # author's route: all bracket features cut from one prepared blank
 quantity = 2
 quantity_cite = "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:6"
 

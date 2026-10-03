@@ -68,8 +68,8 @@ coordinate and fixture height is not silently assumed to be bed height.
 ## `datum_consistency`
 
 One subject per feature. Drawing datum names map to actual feature finishing
-cuts, not setup-frame labels. Relationships include position datums, coaxial
-feature and height-from feature. Reamed/bored/tapped datum finishing cuts replace
+cuts, not setup-frame labels. Relationships include position and angularity
+datums, coaxial feature and height-from feature. Reamed/bored/tapped datum finishing cuts replace
 pilots; rough/nonfinishing actions do not establish a final datum. Every feature
 finishing-cut/datum-cut pair is evaluated. Same setup passes; an indicated
 transfer passes only when it names that feature/datum and originates at or
@@ -90,3 +90,20 @@ booleans and status, tolerance, budget and transfer record. Citations: PLAN §4.
 manifest datum/tolerance references, finishing cuts and transfer, plus shop
 budget citation. A nominal frame or a pickup of an earlier pilot never proves
 a later finished drawing datum.
+
+## M2 declared workholding and indexing
+
+The [lathe rules](rules-lathe.md) check a turned profile from the actual chuck
+end, supported stick-out against the shop policy, and held diameter against a
+listed collet set or chuck capacity. A chuck's outside diameter is not its grip
+capacity. Unknown or unverified inventory and policy values stay `?`.
+
+The [indexing rule](rules-indexing.md) considers direct steps and every authored
+worm plate circle, preferring exact arithmetic before nearest alternatives.
+Each of the declared positions must land within its sourced angular tolerance.
+Closure against a whole revolution is checked **only when `positions >= 2`**:
+it proves a repeated pattern returns to its start. `positions = 1` is a single
+angular setting, such as the cone journal's 12.5182° inclination; it has no
+repeated pattern to close. The traveler prints plate, circle, turns and hole
+**spaces**, even when that arithmetic remains tentative because inventory
+confirmation is missing.

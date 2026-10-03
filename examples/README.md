@@ -1,10 +1,11 @@
 # PLAN rev 6 reference bundles
 
-These are **hand-authored input bundles** with M1 CLI-generated reference outputs,
-not certified CAD exports, toolpaths, approvals or first articles. Every example
-traveler remains **PLANNED**. The frozen input bundle for each part is `plan.toml`,
+These are **hand-authored input bundles** with CLI-generated reference-output
+contracts, not certified CAD exports, toolpaths, approvals or first articles.
+Every example traveler remains **PLANNED**. Each candidate consumes its plan,
 `features.toml`, and the three shared shop inputs. No STEP byte stream is supplied:
-`step_sha256 = "unknown"` is a finding, not a fabricated digest.
+`step_sha256 = "unknown"` is a finding, not a fabricated digest. The cone M2
+fixture has two authored candidates for the same part, not two inventory parts.
 
 ## Files and expected exits
 
@@ -33,12 +34,15 @@ Shared inputs:
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
 | `rocker-arm` | The complete three-setup route, integral hub, retained rails/ears and supported final profiling. The real rod-pin centre, bore fit, local thickness and A\|B\|C position requirement replace the layout sketch. | **2**: absent R8 chuck, 6.5 H7 reamer and supported profile fixture. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. Missing drawing contract stays explicit. | **2**: absent angle plate, R8 chuck and 6.5 mm reamer. |
+| `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece round blank; finish foot B, retain both integral bosses, drill mounting pattern, set the horizontal cone-journal yaw on BS-0, then transfer finished A/B to the crank bore. | **4**: required unknowns, not an approved route. |
+| `cone-pivot-post/built-up.toml` | Five setups for a body block plus separately turned, proposed pressed crank boss. Leaf blanks support informational stock-volume comparison. | **2**: drawing permits one-piece only; no note authorizes a pressed joint. |
 
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats
 required unknown/unsupported/warn; only clean required subjects permit exit 0.
 These expected report exits are independently recomputed by the validator. The
 validator itself exits **0** when these intentionally stopped bundles agree.
-There is no deviation from the requested 4 / 2 / 2 fixture exits.
+The existing three fixture contracts remain 4 / 2 / 2; the cone candidates add
+4 / 2. These are expected contracts, not a claim that a mid-flight run occurred.
 
 | Plan literal `"unknown"` leaves | Before restoration | After restoration |
 |---|---:|---:|
@@ -53,11 +57,14 @@ spot/exit depths, contour methods/steps and available-gauge inspection methods.
 Cutting-data-dependent RPM/feed, unmeasured tooling/holding facts, missing gauges,
 STEP/drawing binding and the shaft's actual fitted span remain unresolved.
 
-Each part directory contains `plan.toml`, `features.toml`,
-`expected/report.json` and `expected/traveler.html`. Obsolete YAML policy copies
-and all nine neutral CSVs are removed. Plans no longer request external
-coordinate files: the machine-readable numbers are in the report and the bench
-coordinates are on the sheet. No operative asset lies outside the bundle.
+Each part directory contains `plan.toml`, `features.toml` and parent-regenerated
+`expected/report.json` / `expected/traveler.html`. The cone also has
+`built-up.toml`, `expected/built-up/report.json`,
+`expected/built-up/traveler.html`, and `expected/compare.json`. Comparison rows
+retain `part = "cone-pivot-post"` and distinguish `plan.toml` from `built-up.toml`;
+there is no generated plan-text file. Plans do not request external coordinate
+files: machine-readable numbers are in the report and bench coordinates are on
+the sheet. No operative asset lies outside the bundle.
 
 ## Source facts, not the PLAN layout sketch
 
@@ -106,12 +113,89 @@ unknown until evidence exists.
   a coverage-based, unverified tool identity, not a measured size. The consumer's
   stale “Ø4.2 / ×24” description is not substituted for the current 4.572 / 24.2.
 
-Where the drawings actually adopt defaults, the bands use the exact
-`cad/config/title_block.yaml:25–27` numeric inch values × 25.4:
-0.762 / 0.508 / 0.127 mm. Rounded displayed values 0.8 / 0.51 / 0.13 are not
-silently substituted. REF geometry receives no invented acceptance band.
-Absent bracket drawing defaults are not borrowed from another part. The
-configured `next_revision: v38` is not a certified STEP/drawing revision.
+**Handwritten/general-band reconciliation:** the historical shaft/rocker M1
+bundles used the title-block numeric inch rows ×25.4: 0.762 / 0.508 / 0.127 mm.
+The new cone manifest instead follows its actual rendered metric drawing rows
+0.8 / 0.51 / 0.13 mm (`cad/config/title_block.yaml:25–27`), as the cone spec
+explicitly adopts them (`cone_pivot_post_spec.py:301–310`). This difference is
+recorded, not hidden by changing the three existing fixture contracts. General
+cone bands are anchored to their printed dimensions; original CAD nominals
+remain separate. REF geometry receives no invented acceptance band. The bracket
+does not borrow drawing defaults from another part, and a configured next
+revision is not a certified STEP/drawing revision.
+
+### Cone M2 source map and remaining stops
+
+Sources were read from the read-only harmonic-analyzer tree:
+
+- `cad/scripts/cone_pivot_post_spec.py:29–33,49–81`: body Ø42.011×86,
+  head Ø42.7506×26.6, crank boss Ø21.93×72.0344 (the corrected 2.8360 in),
+  crank bore Ø11.438, cone boss Ø17.2×42.011 and cone bore Ø12.2808. Crank
+  north face is model Z−21.3753; far end is Z+50.6591.
+- `:59–67,238–245,268–279,327,387` and
+  `cad/scripts/draw_cone_pivot_post.py:254–268,1137–1138`: **12.5182° BASIC**
+  is the horizontal plan angle between cone/crank bore axes, not bore tilt.
+  The fixture preserves four places and explicitly unknown `angle_tol_deg`;
+  neither general ±1° nor a conversion of the FCF becomes its landing allowance.
+- `spec:132–168`: exact running fit limits are crank11.413–11.443 and
+  cone12.2558–12.2858. The cone nominal prints12.281 at three places; re-anchoring
+  its limits on that rounded number would shift them0.0002mm. This hand-authored
+  fixture retains the explicit source fit limits and records that reconciliation,
+  rather than silently manufacturing a new fit. Printed height33.37±0.25 and
+  spacing39.33+0.37/0 are separate requirements; crank height72.70 is REF
+  (`draw:188–190,1134–1135`).
+- `spec:79–104,175–176,318`: the mounting station is **derived**12.98 each
+  side (25.96 pitch), not a guessed literal. Through holes retain sourced
+  7.14248 with the drilled+0.10/0 row; counterbores print11.51×6.02 with
+  rendered two-place ±0.51 bands.
+- `spec:248–280,369–387`: datum A is the finished cone journal bore, B the
+  finished foot; **Ø0.10 angularity to A|B belongs to the crank bore** and has
+  its own requirement/check. Ra3.2 foot and Ra1.6 running bores/north cone face
+  come from `_surface_finish.py:48–54`. Construction setup frames are not extra
+  drawing datums. S4 indicates finished A/B from S3, not an earlier pilot.
+- `cad/config/parts/cone-pivot-post.yaml:2–7` and `spec:349–355`: MHA-016,
+  quantity1, ferrous_noncritical family, specified paint/masking/oiling, and
+  “machined from solid stock or casting.” No note permits built-up construction.
+  A stock grade is therefore unknown; a family name is not an AISI/ASTM grade.
+- `spec:108–129`: **112300.8902mm³** is a genuinely sourced analytic feature
+  sum and its explicit authority, not an estimated or measured net volume.
+  Both comparison candidates use this volume and its citation.
+- `draw:254–264` imports the cone-rim exception from
+  `cone_gear_shaft_spec.py:79–97,111–113`: **RIMS BREAK0.1MAX**, not the
+  title block's otherwise applicable0.25 edge break.
+
+The one-piece **Ø110×120 round** is an **AUTHOR'S CHOICE**, not an inventory
+claim. With bar axis along body Y, the crank far-face radial corner is
+`hypot(50.6591,21.93/2)=51.8322mm`, within radius55. Axial blank length is
+86 body +6 foot-facing allowance +28 sacrificial grip. The cone-pad plan
+half-extent is22.3702mm, also within that round. A body-only Ø45 blank would
+exclude the integral crank boss and is deliberately **not** asserted. S1's
+declared stick-out is92/110; lower-body turning stops at Y24.5 before the cone
+pad's lowest Y24.768. Remaining profiles preserve both integral bosses.
+
+The separate built-up candidate declares two **AUTHOR'S CHOICE** leaf blanks:
+46×50×92 rectangular body and Ø25×100 boss. Its lathe declared stick-out is
+80/25; a preliminary foot setup adds the fifth setup. The proposed pressed
+joint's interface, interference, engagement, press/arbor and strength are
+unknown, and no drawing note authorizes it. A lower computed waste ratio cannot
+override the construction stop. Neither blank is on hand (`inventory stock=[]`).
+
+The BS-0 lives under inventory **machines**, with worm40, direct24×15° and all
+18 listed worm circles (`inventory/pedro-shop.toml:90–119`). The independent
+validator searches every circle and direct setting: nearest for12.5182° is
+**plate B /23, one crank turn +9 hole spaces**, actual12.5217391304°,
+signed error+0.0035391304°. One setting means **no cycle closure**. Plate
+counts remain unverified and BASIC landing acceptance remains unknown, so the
+traveler must show a tentative `?`, not an approval.
+
+STEP/drawing revision, exported face sets, setup binding, actual blank grade,
+appropriate milling nests/adapters, cutter/holder reach, bore/height/roughness
+inspection and A/B angularity inspection method remain unresolved. Existing
+lathe tool/chuck identities are retained with their verification debt; unknown
+mill/bore tools and holders are explicitly unknown, not fictitious inventory.
+RPM/feed derivation, K_c/E and Machinery's Handbook31 evidence are not supplied.
+The fixture is only an authored process/arithmetical contract: it makes **no
+physical machining, farm-build, first-article or clearance-completion claim**.
 
 ## Report binding and reference vocabulary
 
@@ -124,7 +208,7 @@ remaining object **with the same canonical form including its final LF**, and
 SHA-256 those bytes. The traveler footer uses the first eight characters:
 `prechips 0.1 · report <id>`. HTML is an output, not an input to its own report.
 `.gitattributes` pins fixture line endings to LF.
-The implemented rule vocabulary is `m1-rev6`; the report retains the reference
+The implemented rule vocabulary is `m2-rev6`; the report retains the reference
 ABI's `message` and `expected_exit` names. Finite floats use the JSON encoder's
 shortest round-trip representation, not drawing-format rounding. Drawing precision
 is applied only to the traveler.
@@ -205,6 +289,17 @@ paper/jog/mirror/retouch and speed/feed arithmetic, hashes/canonical JSON/footer
 binding and exit precedence. It rejects obsolete YAML/CSV fixtures. It validates
 these authored contracts; it is not another machining checker and does not assert
 geometry, material properties, gauge calibration, first-article evidence or telemetry.
+The cone extension also independently enumerates all inventory indexing settings,
+checks signed landing arithmetic and absence of single-setting closure, stick-out
+length/diameter/verified-ratio arithmetic, source/candidate construction facts,
+and leaf-blank stock/net/waste arithmetic in `expected/compare.json`.
+Endpoint arithmetic distinguishes spot/tap depth, blind tip depth and its drawing
+guard, and through breakthrough allowance. Reamers use sourced axial lead,
+drills use the point cone, and boring/counterboring uses zero drill-cone length;
+blind counterbores never acquire a through exit allowance.
+The two cone report/HTML pairs and comparison are regenerated only by the parent after
+the shared implementation lands; no mid-flight builds, lint, tests, formatting
+or golden generation belong to fixture authoring.
 The earlier hand-authored sheets rendered to four Letter pages for shaft/bracket
 and five for rocker. Those counts do not describe the new generated continuations.
 Scoped mutation smoke rejected all 26 named author-choice fields and nested
@@ -276,7 +371,7 @@ targets with fresh computations and the contracts above.
   declares `zero.z.edge_mm = 0` for the named ear-inner face; its raised stock top
   at 18.2 is not that touch surface. The validator derives named Z edges from
   the plan, never from a report's own answer.
-- **All three `expected/report.json` files**: use `rules_version = "m1-rev6"`,
+- **Historical M1 `expected/report.json` files**: originally used `rules_version = "m1-rev6"`,
   current input SHA-256s, generic rule sentence/citation templates and fully
   computed evidence records. Hashes change because they bind the entire report.
   All unknown tool geometry, gauges, cutting data, measurements and STEP binding
@@ -308,16 +403,16 @@ purchase was changed. Expected exits remain **4 / 2 / 2**. The generated reports
 contain 103 / 117 / 116 findings respectively; rocker and bracket each emit
 exactly three `✗` missing-reference lines.
 
-## Exhaustive `"unknown"` input ledger
+## Historical M1 `"unknown"` input ledger
 
 Paths below use setup ids and op numbers as array labels, not array offsets.
-Every literal `"unknown"` leaf in all nine TOML inputs is listed once, grouped by
-its cause. `verify = true` values with known nominal numbers are additional
-measurement debt, not missing numbers: notably the vendor machine/vise/support
-geometry, edge finder, instrument capability, and bracket candidate jaw/grip
-arithmetic. Clearing verification requires shop evidence, not an author edit.
-The ledger now has 262 true unknown leaves, down from 462; the 200 restored
-process-choice leaves are no longer listed as missing evidence.
+This is the original M1 nine-TOML restoration ledger, not an exhaustive current
+M2 count. The cone's added evidence gaps are listed in its source map above.
+`verify = true` with known nominal numbers is additional measurement debt,
+not missing numbers: notably vendor machine/vise/support geometry, edge finder,
+instrument capability and candidate jaw/grip arithmetic. Clearing verification
+requires shop evidence, not an author edit. Historical restoration removed
+process-choice omissions without converting measurements into authored facts.
 
 ### `cutting-data.toml` — 19 unknown leaves
 

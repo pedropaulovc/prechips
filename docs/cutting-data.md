@@ -15,10 +15,12 @@ An actual nonmultiple-of-50 boundary is retained. Mill feed is
 feed. Numbers are starting points, not cut-force or stability limits.
 
 `[[material]]` carries material class, `kc_n_per_mm2`, `e_gpa`, and citations for
-future force/deflection use. Carrying these fields does not implement physics
-checks. Missing source pages, values, range, tool facts or material verification
-remain unknown. The examples do not claim any verified Handbook 31 table/page
-or cutting numbers; adding a row requires real source evidence.
+M2 [turning deflection](rules-physics.md). Exactly one sourced material row is
+needed. `K_c` is N/mm² and `E` is GPa (converted explicitly to N/mm²); authored
+radial DOC and feed/revolution supply the force inputs. The shipped K_c/E values
+remain `"unknown"`: no verified Handbook 31 table/page is available. Missing
+sources, values, geometry or material verification remain unresolved, not zero
+deflection. Adding a numerical row requires real source evidence.
 Selection is `--cutting-data`, then a known `[paths].cutting_data`. There is no
 cutting-data environment fallback; an omitted or `"unknown"` path without an
 explicit override is bad input (exit 3), not a source of invented numbers.

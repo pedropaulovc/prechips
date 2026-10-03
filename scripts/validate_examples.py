@@ -21,14 +21,31 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
-PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket")
-EXPECTED_EXIT = {"pivot-shaft": 4, "rocker-arm": 2, "pivot-bracket": 2}
+PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket", "cone-pivot-post")
+EXPECTED_EXIT = {
+    "pivot-shaft": 4,
+    "rocker-arm": 2,
+    "pivot-bracket": 2,
+    "cone-pivot-post": 4,
+    "cone-pivot-post/built-up.toml": 2,
+}
 STATUSES = {"pass", "error", "warn", "info", "unknown", "unsupported", "not_applicable"}
 FEATURE_RULES = {"sizing", "op_chain", "blind_depth", "datum_consistency"}
-SETUP_RULES = {"order", "hold_fields", "headroom", "zero_check", "coordinates"}
+SETUP_RULES = {
+    "order",
+    "hold_fields",
+    "headroom",
+    "zero_check",
+    "coordinates",
+    "turned_profile",
+    "stickout",
+    "stock_diameter",
+    "indexing",
+}
 TOLERANCES = {
     "dia",
     "position_dia",
+    "angularity_dia",
     "finish_ra",
     "depth",
     "length",
@@ -147,7 +164,7 @@ def check_author_choices(plan: dict) -> None:
     walk(plan, "plan")
 
 
-def canonical(value: dict) -> bytes:
+def canonical(value: dict | list) -> bytes:
     return (
         json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
     ).encode("utf-8")
@@ -303,6 +320,20 @@ def tool_field(ref: str, key: str, entries: dict):
     return entry.get("items", {}).get(member, {}).get(key, entry.get(key, "unknown"))
 
 
+def tool_length_mm(ref: str, field: str, entries: dict):
+    value = tool_field(ref, f"{field}_mm", entries)
+    if numeric(value):
+        return value
+    inches = fraction(str(tool_field(ref, f"{field}_in", entries)))
+    if inches is not None:
+        return float(inches) * 25.4
+    value = tool_field(ref, field, entries)
+    units = tool_field(ref, "units", entries)
+    if numeric(value) and units in {"mm", "in", "inch"}:
+        return value if units == "mm" else value * 25.4
+    return "unknown"
+
+
 def frame_point(point: list, frame: dict) -> list:
     result = []
     for axis in ("x", "y", "z"):
@@ -360,6 +391,7 @@ def read_report(path: Path) -> dict:
         f"{path}: report hash mismatch",
     )
     require(report.get("verification") == "planned", f"{path}: unearned readiness")
+    require(report.get("rules_version") == "m2-rev6", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]
@@ -376,8 +408,8 @@ def read_report(path: Path) -> dict:
     return report
 
 
-def input_paths(folder: Path, plan: dict) -> dict:
-    paths = {"plan": folder / "plan.toml", "features": folder / plan["features"]}
+def input_paths(folder: Path, plan: dict, plan_filename: str = "plan.toml") -> dict:
+    paths = {"plan": folder / plan_filename, "features": folder / plan["features"]}
     for key, field in (
         ("inventory", "inventory"),
         ("shop_policy", "policy"),
@@ -463,6 +495,8 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
         for op in setup["ops"]:
             require(op["feature"] in features["features"], f"{sid}: undeclared feature")
             has("speeds_feeds", f"{sid}:{op['op']}")
+            has("turning_deflection", f"{sid}:{op['op']}")
+            has("engagement", f"{sid}:{op['op']}")
             if "tool" in op:
                 require("holder" in op, f"{sid}:{op['op']}: omitted holder")
                 has("tool_resolves", f"{sid}:{op['op']}")
@@ -542,7 +576,7 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
         near(row["axis_set"], expected, f"{setup['id']}: retouch Axis Set")
 
 
-def check_endpoints(plan: dict, findings: dict, entries: dict) -> None:
+def check_endpoints(plan: dict, features: dict, findings: dict, entries: dict) -> None:
     setups = {setup["id"]: setup for setup in plan["setups"]}
     for (rule, _), finding in findings.items():
         if rule != "blind_depth":
@@ -551,41 +585,73 @@ def check_endpoints(plan: dict, findings: dict, entries: dict) -> None:
             setup = setups[row["setup"]]
             op = next(op for op in setup["ops"] if op["op"] == row["op"])
             require(op["feature"] == row["feature"], "endpoint mismatched feature")
-            if op["do"] == "spot":
-                depth = op.get("depth_mm", "unknown")
-                tip = (
-                    row["entry_z"] - depth
-                    if all(numeric(v) for v in (row["entry_z"], depth))
-                    else "unknown"
-                )
-                near(row["tip_z"], tip, "spot endpoint")
-                continue
-            allowance = op.get("exit_mm", "unknown")
-            near(row["exit_mm"], allowance, "endpoint exit allowance")
-            diameter = tool_diameter(op.get("tool", "unknown"), entries)
-            if op["do"] == "ream":
-                point = tool_field(op["tool"], "lead_mm", entries)
-                near(row.get("lead_mm", "unknown"), point, "reamer lead")
-            else:
-                angle = tool_field(op.get("tool", "unknown"), "point_angle", entries)
-                point = (
-                    diameter / (2 * math.tan(math.radians(angle / 2)))
-                    if all(numeric(v) for v in (diameter, angle))
-                    else "unknown"
-                )
-                near(row.get("point_mm", "unknown"), point, "drill point")
-            thickness = (
-                setup["stock_state"].get("local_thickness", {}).get(op["feature"], "unknown")
-            )
+            feature = features["features"][op["feature"]]
+            action = op["do"]
             entry = row.get("entry_z", "unknown")
-            exit_face = entry - thickness if numeric(entry) and numeric(thickness) else "unknown"
-            near(row["exit_face"], exit_face, "local exit face")
-            tip = (
-                exit_face - point - allowance
-                if all(numeric(v) for v in (exit_face, point, allowance))
-                else "unknown"
-            )
-            near(row["tip_z"], tip, "tip endpoint")
+            tool = op.get("tool", "unknown")
+            if action in {"spot", "tap"}:
+                fallback = feature.get("thread_depth", feature.get("depth", "unknown"))
+                depth = op.get("depth_mm", fallback if action == "tap" else "unknown")
+                depth = depth[1] if isinstance(depth, list) else depth
+                near(row.get("depth_mm", "unknown"), depth, f"{action} cutting depth")
+                require(row["exit_face"] == "not_applicable", f"{action} has no exit face")
+                tip = entry - depth if numeric(entry) and numeric(depth) else "unknown"
+                near(row["tip_z"], tip, f"{action} endpoint")
+                if action == "tap":
+                    near(
+                        row.get("flute_len_mm", "unknown"),
+                        tool_length_mm(tool, "flute_len", entries),
+                        "tap flute length",
+                    )
+                continue
+            if action == "ream":
+                lead = tool_length_mm(tool, "lead", entries)
+                lead_field = "lead_mm"
+            elif action == "drill":
+                diameter = tool_length_mm(tool, "dia", entries)
+                if not numeric(diameter):
+                    diameter = tool_diameter(tool, entries)
+                angle = tool_field(tool, "point_angle", entries)
+                lead = (
+                    diameter / (2 * math.tan(math.radians(angle / 2)))
+                    if numeric(diameter) and diameter > 0 and numeric(angle) and 0 < angle < 180
+                    else "unknown"
+                )
+                lead_field = "point_mm"
+            else:
+                # Boring/counterboring has no twist-drill cone, even when the
+                # selected cutter identity and measured dimensions are unknown.
+                lead = 0.0
+                lead_field = "point_mm"
+            near(row.get(lead_field, "unknown"), lead, f"{action} endpoint lead")
+            if feature.get("thru") is True:
+                allowance = op.get("exit_mm", "unknown")
+                near(row.get("exit_mm", "unknown"), allowance, "endpoint exit allowance")
+                thickness = (
+                    setup["stock_state"].get("local_thickness", {}).get(op["feature"], "unknown")
+                )
+                near(row.get("local_thickness", "unknown"), thickness, "endpoint local thickness")
+                exit_face = (
+                    entry - thickness if numeric(entry) and numeric(thickness) else "unknown"
+                )
+                near(row["exit_face"], exit_face, "local exit face")
+                tip = (
+                    exit_face - lead - allowance
+                    if all(numeric(v) for v in (exit_face, lead, allowance)) and allowance >= 0
+                    else "unknown"
+                )
+                near(row["tip_z"], tip, "through tip endpoint")
+            else:
+                depth = op.get("depth_mm", "unknown")
+                limit = feature.get("depth", "unknown")
+                limit = limit[1] if isinstance(limit, list) else limit
+                near(row.get("depth_mm", "unknown"), depth, "blind cutting depth")
+                near(row.get("depth_limit_mm", "unknown"), limit, "blind depth guard")
+                total = depth + lead if numeric(depth) and numeric(lead) else "unknown"
+                near(row.get("total_depth_mm", "unknown"), total, "blind total tip depth")
+                require(row["exit_face"] == "not_applicable", "blind hole has no exit face")
+                tip = entry - total if numeric(entry) and numeric(total) else "unknown"
+                near(row["tip_z"], tip, "blind tip endpoint")
 
 
 def check_speeds(
@@ -676,8 +742,8 @@ class SheetText(HTMLParser):
             self.text.append(data)
 
 
-def check_sheet(folder: Path, report: dict) -> None:
-    html = (folder / "expected" / "traveler.html").read_text(encoding="utf-8")
+def check_sheet(folder: Path, report: dict, expected_subdir: str = "expected") -> None:
+    html = (folder / expected_subdir / "traveler.html").read_text(encoding="utf-8")
     parser = SheetText()
     parser.feed(html)
     text = " ".join(parser.text)
@@ -694,7 +760,22 @@ def check_sheet(folder: Path, report: dict) -> None:
         not re.search(r"\.(?:toml|yaml|json|py|csv)\b|cad/|examples/", text),
         "bench sheet contains file paths",
     )
-    rules = FEATURE_RULES | SETUP_RULES | {"tool_resolves", "speeds_feeds", "inspection"}
+    rules = (
+        FEATURE_RULES
+        | SETUP_RULES
+        | {
+            "tool_resolves",
+            "speeds_feeds",
+            "inspection",
+            "turned_profile",
+            "stickout",
+            "stock_diameter",
+            "indexing",
+            "turning_deflection",
+            "engagement",
+            "construction",
+        }
+    )
     machine_ids = "|".join(sorted(rule for rule in rules if "_" in rule))
     labelled_ids = "|".join(sorted(rules))
     require(
@@ -706,33 +787,300 @@ def check_sheet(folder: Path, report: dict) -> None:
         require("✗" in text, "sheet hides errors")
 
 
-def validate_fixture(part: str, documents: dict) -> tuple[int, list]:
+def check_construction(plan: dict, features: dict, finding: dict) -> None:
+    candidate = plan.get("construction", "unknown")
+    permission = features.get("construction", "unknown")
+    require(
+        finding["numbers"]
+        == {
+            "plan_construction": candidate,
+            "drawing_construction": permission,
+        },
+        "construction evidence does not identify the candidate and drawing",
+    )
+    if "unknown" in (candidate, permission):
+        expected = "unknown"
+    elif candidate == "built_up":
+        expected = "pass" if permission == "built_up_permitted" else "error"
+    else:
+        expected = "pass" if candidate == "one_piece" else "unknown"
+    require(finding["status"] == expected, "construction gate disagrees with drawing permission")
+
+
+def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) -> None:
+    declaration = setup["hold"].get("index")
+    if declaration is None:
+        require(finding["status"] == "not_applicable", "undeclared indexing must be inapplicable")
+        return
+    requested = Fraction(str(declaration["angle_deg"]))
+    item = entries[declaration["fixture"]]
+    ratio = Fraction(str(item["worm_ratio"]))
+    # Independent exhaustive oracle: search complete turns and every space on
+    # EVERY inventory circle, plus every direct slot near the desired setting.
+    # It does not use the rule's rounding or candidate-generation helpers.
+    options = []
+    for method, plate, circle, multiplier in [
+        ("worm", plate, int(circle), ratio)
+        for plate, circles in item["plate_holes"].items()
+        for circle in circles
+    ] + [("direct", "direct", int(item["direct_index"]["positions"]), Fraction(1))]:
+        central_turn = int(abs(requested) * multiplier / 360)
+        for turns in range(max(0, central_turn - 1), central_turn + 2):
+            for spaces in range(circle):
+                for sign in (-1, 1):
+                    actual = sign * Fraction(360 * (turns * circle + spaces), circle) / multiplier
+                    options.append(
+                        (
+                            abs(actual - requested),
+                            method != "direct",
+                            plate,
+                            circle,
+                            sign * (turns * circle + spaces),
+                            actual,
+                            method,
+                            turns,
+                            spaces,
+                        )
+                    )
+    chosen = min(options)
+    _, _, plate, circle, signed_count, actual, method, turns, spaces = chosen
+    row = finding["numbers"]
+    for key, expected in {
+        "fixture": declaration["fixture"],
+        "feature": declaration["feature"],
+        "positions": declaration["positions"],
+        "requested_angle_fraction": str(requested),
+        "method": method,
+        "plate": plate,
+        "circle": circle,
+        "turns": turns,
+        "spaces": spaces,
+        "direction": "reverse" if signed_count < 0 else "forward",
+        "exact": actual == requested,
+        "selection_complete": True,
+        "verified": not uncertain(declaration["fixture"], entries),
+    }.items():
+        require(row[key] == expected, f"{setup['id']}: indexing {key} disagrees with inventory")
+    near(row["requested_angle_deg"], float(requested), "indexing requested angle")
+    near(row["actual_angle_deg"], float(actual), "indexing nearest setting")
+    feature = features["features"][declaration["feature"]]
+    tolerance = feature.get("angle_tol_deg", features["general_tolerances"]["angular_deg"])
+    near(row["tolerance_deg"], tolerance, "indexing explicit feature tolerance")
+    errors = [
+        float(position * (actual - requested))
+        for position in range(1, declaration["positions"] + 1)
+    ]
+    require(len(row["position_errors_deg"]) == len(errors), "indexing landing count mismatch")
+    for observed, expected in zip(row["position_errors_deg"], errors, strict=True):
+        near(observed, expected, "indexing signed landing error")
+    near(row["max_position_error_deg"], max(map(abs, errors)), "indexing maximum landing error")
+    if declaration["positions"] == 1:
+        require(row["closure"] == "not_applicable", "one angular setting cannot claim closure")
+    if tolerance == "unknown" or uncertain(declaration["fixture"], entries):
+        require(finding["status"] == "unknown", "unverified angular setting must remain tentative")
+
+
+def check_stickout(setup: dict, plan: dict, policy: dict, finding: dict) -> None:
+    row = finding["numbers"]
+    diameter = setup["stock_state"].get("od_mm", plan["stock"].get("dia_mm", "unknown"))
+    if not numeric(diameter) or diameter <= 0:
+        diameter = "unknown"
+    length = setup["hold"].get("stickout_mm", "unknown")
+    near(row["diameter_mm"], diameter, "stick-out held diameter")
+    near(row["stickout_mm"], length, "stick-out declared length")
+    if numeric(diameter) and numeric(length):
+        near(row["stickout_mm"] / row["diameter_mm"], length / diameter, "stick-out L/D")
+    limit_ratio = policy["numbers"]["stickout_ld_max"]
+    near(row["stickout_ld_max"], limit_ratio, "stick-out shop ratio")
+    citation = policy["numbers_cite"]["stickout_ld_max"]
+    citations = citation if isinstance(citation, list) else [citation]
+    cited = any(isinstance(c, str) and c.strip() and c != "unknown" for c in citations)
+    verified = policy["numbers_verify"]["stickout_ld_max"] is False
+    limit = (
+        diameter * limit_ratio
+        if numeric(diameter) and numeric(limit_ratio) and limit_ratio > 0 and cited and verified
+        else "unknown"
+    )
+    near(row["unsupported_limit_mm"], limit, "stick-out unsupported limit")
+    if (
+        setup["machine"] == "PM-1127VF-LB"
+        and limit == "unknown"
+        and row["support_status"] != "pass"
+    ):
+        require(finding["status"] == "unknown", "uncited shop ratio cannot approve stick-out")
+
+
+def check_cone_facts(plan: dict, features: dict) -> None:
+    require(features["construction"] == "one_piece", "cone drawing has no built-up permission")
+    near(features["volume_mm3"], 112300.8902, "cone sourced analytic volume")
+    require(features["volume_cite"] != "unknown", "cone volume must retain its real source")
+    for field, expected in (
+        ("linear_1pl", 0.8),
+        ("linear_2pl", 0.51),
+        ("linear_3pl", 0.13),
+    ):
+        near(features["general_tolerances"][field], expected, "cone rendered general tolerance")
+    geometry = features["features"]
+    for name, fields in {
+        "body": {"dia_nominal": 42.011, "height_nominal": 86.0},
+        "head": {"dia_nominal": 42.7506, "height_nominal": 26.6},
+        "crank_boss": {"dia_nominal": 21.93, "length_nominal": 72.0344, "station_nominal": 21.3753},
+        "crank_bore": {"dia_nominal": 11.438},
+        "journal_boss": {"dia_nominal": 17.2, "length_nominal": 42.011},
+        "journal_bore": {"dia_nominal": 12.2808, "height_nominal": 33.368, "angle_deg": 12.5182},
+        "mount_west": {"dia_nominal": 7.14248, "station_nominal": 12.98},
+        "mount_east": {"dia_nominal": 7.14248, "station_nominal": 12.98},
+    }.items():
+        for field, expected in fields.items():
+            near(geometry[name][field], expected, f"cone source {name}.{field}")
+    require(geometry["journal_bore"]["precision"]["angle_deg"] == 4, "BASIC angle lost four places")
+    require(
+        geometry["journal_bore"]["angle_tol_deg"] == "unknown", "BASIC angle acquired a +/- band"
+    )
+    require(geometry["crank_bore"]["angularity_dia"] == [0.0, 0.10], "cone lost diametral FCF")
+    require(
+        geometry["crank_bore"]["angularity_datums"] == ["A", "B"], "cone lost ordered A/B datums"
+    )
+    require("angularity_dia" in geometry["crank_bore"]["requirements"], "FCF inspection omitted")
+    require(features["datums"]["A"]["feature"] == "journal_bore", "datum A is not the cone bore")
+    require(features["datums"]["B"]["feature"] == "foot_seat", "datum B is not the foot")
+    require(all(f["faces"] == "unknown" for f in geometry.values()), "unprovided STEP face binding")
+    require(
+        all(f["binding"] == "unknown" for f in features["frames"].values()),
+        "unverified setup binding",
+    )
+    require(plan["stock"]["on_hand"] is False, "authored cone blanks are not on-hand inventory")
+    pieces = plan["stock"].get("components", [plan["stock"]])
+    require(
+        all("AUTHOR'S CHOICE" in p["cite"] for p in pieces),
+        "blank dimensions lack author provenance",
+    )
+    if plan["construction"] == "one_piece":
+        # Radial extremum at the crank boss far end; a Ø45 body-only blank
+        # cannot contain the integral boss. This is nominal stock coverage,
+        # not a cutter sweep or verified jaw/tool clearance.
+        boss = geometry["crank_boss"]
+        radial_bound = math.hypot(boss["z_mm"][1], boss["dia_nominal"] / 2)
+        require(plan["stock"]["dia_mm"] / 2 >= radial_bound, "one-piece blank excludes crank boss")
+        require(
+            plan["stock"]["length_mm"] >= geometry["body"]["height_nominal"],
+            "one-piece blank excludes body height",
+        )
+    else:
+        require(len(pieces) == 2, "built-up candidate must declare its two real leaf blanks")
+        require(plan["stock"]["form"] == "built_up", "built-up blank form lost candidate identity")
+
+
+def blank_volume(piece: dict):
+    length = piece.get("length_mm")
+    if piece["form"] in {"round", "round_bar"} and numeric(piece.get("dia_mm")) and numeric(length):
+        return math.pi * (piece["dia_mm"] / 2) ** 2 * length
+    section = piece.get("section_mm")
+    if (
+        piece["form"] == "rectangular_blank"
+        and isinstance(section, list)
+        and len(section) == 2
+        and all(numeric(v) for v in [*section, length])
+    ):
+        return math.prod([*section, length])
+    return "unknown"
+
+
+def check_comparison(folder: Path, documents: dict) -> None:
+    path = folder / "expected" / "compare.json"
+    rows = json.loads(path.read_bytes())
+    require(path.read_bytes() == canonical(rows), "comparison is not canonical JSON")
+    require(
+        len(rows) == 2 and {row["plan"] for row in rows} == {"plan.toml", "built-up.toml"},
+        "same-part candidates must be distinguished by separate plan filenames",
+    )
+    features = documents[folder / "features.toml"]
+    for row in rows:
+        plan = documents[folder / row["plan"]]
+        expected_subdir = "expected" if row["plan"] == "plan.toml" else "expected/built-up"
+        report = read_report(folder / expected_subdir / "report.json")
+        require(row["part"] == plan["part"] == features["part"], "comparison changed part identity")
+        require(row["construction"] == plan["construction"], "comparison hid built-up construction")
+        require(row["setups"] == len(plan["setups"]), "comparison setup count is not authored")
+        pieces = plan["stock"].get("components", [plan["stock"]])
+        volumes = [blank_volume(piece) for piece in pieces]
+        stock = sum(volumes) if all(numeric(v) for v in volumes) else "unknown"
+        near(row["stock_volume_mm3"], stock, "comparison leaf blank volume")
+        source = features.get("volume_cite", "unknown")
+        net = features["volume_mm3"] if source != "unknown" and source else "unknown"
+        near(row["net_volume_mm3"], net, "comparison sourced net volume")
+        waste = 1 - net / stock if numeric(net) and numeric(stock) else "unknown"
+        near(row["waste_ratio"], waste, "comparison waste ratio")
+        evidence = row["volume_evidence"]["stock_components"]
+        require(len(evidence) == len(pieces), "comparison omitted a leaf blank")
+        for piece, volume, observed in zip(pieces, volumes, evidence, strict=True):
+            require(observed["form"] == piece["form"], "comparison changed blank form")
+            near(observed["length_mm"], piece["length_mm"], "comparison leaf blank length")
+            if "dia_mm" in piece:
+                near(observed["dia_mm"], piece["dia_mm"], "comparison leaf blank diameter")
+            if "section_mm" in piece:
+                require(observed["section_mm"] == piece["section_mm"], "comparison changed section")
+            near(observed["volume_mm3"], volume, "comparison leaf volume evidence")
+            require("AUTHOR'S CHOICE" in observed["cite"], "comparison lost blank choice citation")
+        require(row["volume_evidence"]["net_cite"] == source, "comparison lost net-volume source")
+        holds = [setup["hold"] for setup in plan["setups"]]
+        fixtures = selected_refs(holds)
+        if any(
+            hold.get(key) == "unknown"
+            for hold in holds
+            for key in ("fixture", "support", "supports", "parallels", "riser")
+        ):
+            fixtures.add("unknown")
+        require(row["fixtures"] == sorted(fixtures), "comparison fixture inventory is incomplete")
+        require(
+            row["rule_findings"] == report["findings"], "comparison lost complete rule evidence"
+        )
+        counts = {
+            status: sum(f["status"] == status for f in report["findings"])
+            for status in {f["status"] for f in report["findings"]}
+        }
+        require(row["findings"] == counts, "comparison finding counts mismatch")
+        require(row["inputs"] == report["inputs"], "comparison rebound candidate inputs")
+        require(row["exit"] == report["expected_exit"], "comparison hid candidate readiness")
+
+
+def validate_fixture(
+    part: str,
+    documents: dict,
+    plan_filename: str = "plan.toml",
+    expected_subdir: str = "expected",
+) -> tuple[int, list]:
     folder = EXAMPLES / part
-    plan = documents[folder / "plan.toml"]
+    plan = documents[folder / plan_filename]
     features = documents[folder / "features.toml"]
     require(plan["part"] == features["part"] == part, "part identity mismatch")
     require(features.get("features"), "empty manifest")
     require(features["step_sha256"] == "unknown", "unprovided STEP digest asserted")
     check_author_choices(plan)
-    paths = input_paths(folder, plan)
+    paths = input_paths(folder, plan, plan_filename)
     inventory = documents[paths["inventory"]]
     policy = documents[paths["shop_policy"]]
     cutting = documents[paths["cutting_data"]]
     entries = entries_for(inventory)
-    report = read_report(folder / "expected" / "report.json")
+    report = read_report(folder / expected_subdir / "report.json")
     require(set(report["inputs"]) == set(paths), "report input bundle incomplete")
     for key, path in paths.items():
         expected = {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256(path)}
         require(report["inputs"][key] == expected, f"{part}: stale {key} input binding")
     require(report["step_sha256"] == features["step_sha256"], "STEP binding mismatch")
     findings = {(f["rule"], f["subject"]): f for f in report["findings"]}
+    check_construction(plan, features, findings["construction", part])
+    if part == "cone-pivot-post":
+        check_cone_facts(plan, features)
     check_frames(features)
     check_subjects(plan, features, findings)
     missing = check_references(plan, entries, findings)
-    check_endpoints(plan, findings, entries)
+    check_endpoints(plan, features, findings, entries)
     for setup in plan["setups"]:
         check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
         check_coordinates(setup, features, findings["coordinates", setup["id"]])
+        check_indexing(setup, features, entries, findings["indexing", setup["id"]])
+        check_stickout(setup, plan, policy, findings["stickout", setup["id"]])
         for op in setup["ops"]:
             check_speeds(
                 setup,
@@ -743,11 +1091,12 @@ def validate_fixture(part: str, documents: dict) -> tuple[int, list]:
                 features,
             )
     exit_code = report_exit(report, policy)
+    candidate = part if plan_filename == "plan.toml" else f"{part}/{plan_filename}"
     require(
-        exit_code == report["expected_exit"] == EXPECTED_EXIT[part],
-        f"{part}: expected exit mismatch ({exit_code})",
+        exit_code == report["expected_exit"] == EXPECTED_EXIT[candidate],
+        f"{candidate}: expected exit mismatch ({exit_code})",
     )
-    check_sheet(folder, report)
+    check_sheet(folder, report, expected_subdir)
     return exit_code, missing
 
 
@@ -764,6 +1113,17 @@ def main() -> int:
         for part in PARTS:
             code, missing = validate_fixture(part, documents)
             print(f"{part}: expected exit {code}; named missing: {', '.join(missing) or 'none'}")
+        code, missing = validate_fixture(
+            "cone-pivot-post",
+            documents,
+            "built-up.toml",
+            "expected/built-up",
+        )
+        print(
+            f"cone-pivot-post/built-up.toml: expected exit {code}; named missing: "
+            f"{', '.join(missing) or 'none'}"
+        )
+        check_comparison(EXAMPLES / "cone-pivot-post", documents)
         print("All rev-6 reference bundles validate.")
         return 0
     except (OSError, ValueError, KeyError, TypeError, StopIteration) as exc:

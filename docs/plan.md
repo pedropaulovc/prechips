@@ -68,6 +68,7 @@ of geometric validity; rules perform the applicable checks.
 |---|---|---|
 | `part` | `str` | Required |
 | `features` | `str` | Required |
+| `construction` | `Literal['one_piece', 'built_up'] \| Unknown` | Optional |
 | `step` | `str \| Unknown` | Optional |
 | `quantity` | `int \| Unknown` | Optional |
 | `quantity_cite` | `Citations` | Optional |
@@ -115,6 +116,22 @@ of geometric validity; rules perform the applicable checks.
 | `material_cite` | `Citations` |
 | `section_mm` | `Vector` |
 | `as_is_faces` | `list[str]` |
+| `components` | `list[StockComponent]` |
+| `cite` | `Citations` |
+
+For a built-up stock candidate, `components` lists the separately authored
+blanks. Each `StockComponent` accepts `form`, `dia_mm`, `length_mm`,
+`section_mm`, `note`, and `cite` with the same types as the stock fields above.
+A round blank uses diameter and length; a rectangular blank uses two section
+dimensions and length. These are authored purchase/process choices, not
+confirmed on-hand inventory. Missing dimensions or citations keep comparison
+waste unresolved; finished volume comes only from the manifest's explicitly
+sourced `volume_mm3`, never a bounding-box estimate.
+
+Root `construction` declares the candidate route, independently of the
+drawing-side manifest permission. `built_up` is refused unless
+`features.construction = "built_up_permitted"`; omission is unknown rather than
+an implicit one-piece declaration. See [stock-form comparison](rules-comparison.md).
 
 ## Dro
 
@@ -127,6 +144,12 @@ of geometric validity; rules perform the applicable checks.
 | `units` | `str` |
 | `radius_mode` | `bool` |
 | `direction` | `Direction` |
+
+`radius_mode` selects the lathe X display convention: radial physical X jogs
+read once in radius mode and twice in diameter mode. It does not change a known
+mill's linear axes. In a mixed-machine route, the traveler labels the actual
+setup machine's display convention rather than applying the lathe label to all
+setups. Unknown controller/install facts remain unresolved independently.
 
 ## Direction
 
@@ -210,8 +233,21 @@ are bad input (exit 3 before output).
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `fixture` | `str` |
+| `feature` | `str` |
 | `angle_deg` | `Number` |
 | `positions` | `int` |
+
+`feature` selects the journal/pattern's angular tolerance. An omitted selector
+or absent feature allowance falls back to `general_tolerances.angular_deg`;
+an explicitly unknown selector or allowance stays unresolved. Angles are degrees
+and `positions` counts angular settings, not drilled holes inferred from a part
+name. Exactness uses the authored TOML angle value, not rounded sheet text.
+For a repeated pattern (`positions >= 2`), omitting `angle_deg` declares an
+exact `360 / positions` step; an explicit `"unknown"` angle stays unknown.
+This omission is preferred over storing a rounded approximation of a repeating
+decimal. `positions = 1` is a single setting with an explicit angle; closure is
+checked only for repeated patterns. The traveler prints plate, circle, turns
+and hole **spaces**, with angles at the drawing's declared angular precision.
 
 ## Reference
 

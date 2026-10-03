@@ -166,7 +166,7 @@
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
-            "sha256": "4a9d0f3d784371c06f28888693122664d6cf3a6861cd907578eacc3a5e54aec9"
+            "sha256": "d643139c97c1369f88c787041c1a63672f2abacb78dcdf39782a11f6fbc48037"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -178,6 +178,23 @@
       "rule": "bundle_binding",
       "status": "unknown",
       "subject": "inputs"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.5 stock-form comparison, lines 573–577",
+        "harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:1-9",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-193",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:13-18,99-208,313-457",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:105-171,342-410"
+      ],
+      "message": "The candidate uses one-piece construction.",
+      "numbers": {
+        "drawing_construction": "one_piece",
+        "plan_construction": "one_piece"
+      },
+      "rule": "construction",
+      "status": "pass",
+      "subject": "pivot-shaft"
     },
     {
       "cite": [
@@ -1399,6 +1416,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -1411,6 +1429,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -1423,6 +1442,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -1435,6 +1455,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -1447,6 +1468,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -1459,6 +1481,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -1471,6 +1494,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -1483,6 +1507,7 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
@@ -1495,11 +1520,494 @@
       ],
       "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
+        "angularity_datums": [],
         "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
       "subject": "south_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:10: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "face",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[20].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:20: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "rough_turn",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[30].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:30: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_turn",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[40].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:40: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "rough_turn",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[50].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:50: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_turn",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[60].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:60: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "face",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:60"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[70].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:70: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "finish_turn",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:70"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[80].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:80: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "form_relief",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:80"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S1].ops[90].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:90: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "form_relief",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S2].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S2:10: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "face",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S2].ops[20].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S2:20: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "form_dome",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:30: a manual operation has no cutting-tool engagement proxy.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "inspect",
+        "tool": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S3].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S3:10: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "cut_to_fit",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit diameter/projection/OAL",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
+        "plan.setups[S3].ops[20].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S3:20: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "doc_mm": "unknown",
+        "doc_scale": "unknown",
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_grip_mm": "unknown",
+        "missing_inputs": [
+          "resolved/verified selected tool",
+          "resolved/verified selected holder",
+          "explicit-unit tool diameter",
+          "positive projection or OAL minus holder grip"
+        ],
+        "operation": "form_dome",
+        "over_limit": "unknown",
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": "unknown",
+        "projection_ld_max": 4,
+        "projection_mm": "unknown",
+        "recommended_doc_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_oal_mm": "unknown"
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S3:20"
     },
     {
       "cite": [
@@ -1647,6 +2155,36 @@
       },
       "rule": "hold_fields",
       "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S1: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S2: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S3: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
       "subject": "S3"
     },
     {
@@ -2869,6 +3407,133 @@
     },
     {
       "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.setups.stock_state.od_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+      ],
+      "message": "S1: the shop stick-out ratio needs a verified cited policy value.",
+      "numbers": {
+        "diameter_mm": 10.0,
+        "diameter_source": "plan.setups.stock_state.od_mm",
+        "stickout_ld_max": "unknown",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.setups.stock_state.od_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+      ],
+      "message": "S2: the shop stick-out ratio needs a verified cited policy value.",
+      "numbers": {
+        "diameter_mm": 6.35,
+        "diameter_source": "plan.setups.stock_state.od_mm",
+        "stickout_ld_max": "unknown",
+        "stickout_mm": 27.0,
+        "support_status": "not_applicable",
+        "supports": [],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.setups.stock_state.od_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+      ],
+      "message": "S3: stick-out or held diameter is unresolved.",
+      "numbers": {
+        "diameter_mm": 6.35,
+        "diameter_source": "plan.setups.stock_state.od_mm",
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "support_status": "not_applicable",
+        "supports": [],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.setups.stock_state.od_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S1: held diameter or selected collet/chuck verification is unresolved.",
+      "numbers": {
+        "diameter_mm": 10.0,
+        "diameter_source": "plan.setups.stock_state.od_mm",
+        "fixture": "chuck-3jaw-6-d1-4",
+        "fixture_kind": "chuck_3jaw",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.setups.stock_state.od_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S2: held diameter or selected collet/chuck verification is unresolved.",
+      "numbers": {
+        "diameter_mm": 6.35,
+        "diameter_source": "plan.setups.stock_state.od_mm",
+        "fixture": "chuck-3jaw-6-d1-4",
+        "fixture_kind": "chuck_3jaw",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.setups.stock_state.od_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S3: held diameter or selected collet/chuck verification is unresolved.",
+      "numbers": {
+        "diameter_mm": 6.35,
+        "diameter_source": "plan.setups.stock_state.od_mm",
+        "fixture": "chuck-3jaw-6-d1-4",
+        "fixture_kind": "chuck_3jaw",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
@@ -3260,6 +3925,1171 @@
     },
     {
       "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160"
+      ],
+      "message": "S1: axial profile geometry or the selected grooving exception is unresolved.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": [
+          -168.5,
+          22.5
+        ],
+        "frame": "T1",
+        "intervals": [
+          {
+            "diameter_mm": 6.35,
+            "feature": "north_journal",
+            "kind": "cylinder",
+            "z_mm": [
+              0.0,
+              6.0
+            ]
+          },
+          {
+            "diameter_mm": 5.7,
+            "feature": "north_relief",
+            "kind": "groove",
+            "z_mm": [
+              0.0,
+              2.0
+            ]
+          },
+          {
+            "diameter_mm": 10.0,
+            "feature": "shoulder",
+            "kind": "cylinder",
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          },
+          {
+            "diameter_mm": 5.7,
+            "feature": "south_relief",
+            "kind": "groove",
+            "z_mm": [
+              -3.5,
+              -1.5
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "base_diameter_mm": "unknown",
+            "diameter_mm": 5.7,
+            "features": [
+              "south_relief"
+            ],
+            "z_mm": [
+              -3.5,
+              -1.5
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 10.0,
+            "features": [
+              "shoulder"
+            ],
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 5.7,
+            "features": [
+              "north_relief"
+            ],
+            "z_mm": [
+              0.0,
+              2.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "north_journal"
+            ],
+            "z_mm": [
+              2.0,
+              6.0
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "from_diameter_mm": 5.7,
+            "grooving": [
+              {
+                "feature": "south_relief",
+                "ops": [
+                  {
+                    "action": "form_relief",
+                    "op": 90,
+                    "setup": "S1"
+                  }
+                ],
+                "status": "pass"
+              }
+            ],
+            "reason": "groove_recovery",
+            "status": "unknown",
+            "to_diameter_mm": 10.0,
+            "z_mm": -1.5
+          },
+          {
+            "from_diameter_mm": 5.7,
+            "grooving": [
+              {
+                "feature": "north_relief",
+                "ops": [
+                  {
+                    "action": "form_relief",
+                    "op": 80,
+                    "setup": "S1"
+                  }
+                ],
+                "status": "pass"
+              }
+            ],
+            "reason": "groove_recovery",
+            "status": "pass",
+            "to_diameter_mm": 6.35,
+            "z_mm": 2.0
+          }
+        ],
+        "unresolved": [
+          "body"
+        ]
+      },
+      "rule": "turned_profile",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:116-122,364",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160"
+      ],
+      "message": "S2: axial profile geometry or the selected grooving exception is unresolved.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": [
+          -12.0,
+          15.0
+        ],
+        "frame": "T2",
+        "intervals": [
+          {
+            "diameter_mm": 6.35,
+            "feature": "north_journal",
+            "kind": "cylinder",
+            "z_mm": [
+              -7.5,
+              -1.5
+            ]
+          },
+          {
+            "diameter_mm": 5.7,
+            "feature": "north_relief",
+            "kind": "groove",
+            "z_mm": [
+              -7.5,
+              -5.5
+            ]
+          },
+          {
+            "diameter_mm": 10.0,
+            "feature": "shoulder",
+            "kind": "cylinder",
+            "z_mm": [
+              -9.0,
+              -7.5
+            ]
+          },
+          {
+            "diameter_mm": 5.7,
+            "feature": "south_relief",
+            "kind": "groove",
+            "z_mm": [
+              -11.0,
+              -9.0
+            ]
+          }
+        ],
+        "segments": [
+          {
+            "base_diameter_mm": "unknown",
+            "diameter_mm": 5.7,
+            "features": [
+              "south_relief"
+            ],
+            "z_mm": [
+              -11.0,
+              -9.0
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 10.0,
+            "features": [
+              "shoulder"
+            ],
+            "z_mm": [
+              -9.0,
+              -7.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 5.7,
+            "features": [
+              "north_relief"
+            ],
+            "z_mm": [
+              -7.5,
+              -5.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "north_journal"
+            ],
+            "z_mm": [
+              -5.5,
+              -1.5
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "from_diameter_mm": 5.7,
+            "grooving": [
+              {
+                "feature": "south_relief",
+                "ops": [
+                  {
+                    "action": "form_relief",
+                    "op": 90,
+                    "setup": "S1"
+                  }
+                ],
+                "status": "pass"
+              }
+            ],
+            "reason": "groove_recovery",
+            "status": "unknown",
+            "to_diameter_mm": 10.0,
+            "z_mm": -9.0
+          },
+          {
+            "from_diameter_mm": 5.7,
+            "grooving": [
+              {
+                "feature": "north_relief",
+                "ops": [
+                  {
+                    "action": "form_relief",
+                    "op": 80,
+                    "setup": "S1"
+                  }
+                ],
+                "status": "pass"
+              }
+            ],
+            "reason": "groove_recovery",
+            "status": "pass",
+            "to_diameter_mm": 6.35,
+            "z_mm": -5.5
+          }
+        ],
+        "unresolved": [
+          "body",
+          "north_dome"
+        ]
+      },
+      "rule": "turned_profile",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,433",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:101-110",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160"
+      ],
+      "message": "S3: axial profile geometry or the selected grooving exception is unresolved.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "T3",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": [
+          "body",
+          "north_journal",
+          "north_relief",
+          "shoulder",
+          "south_dome",
+          "south_relief"
+        ]
+      },
+      "rule": "turned_profile",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
+        "features.features.shoulder: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:10: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": [
+          9.492,
+          10.508
+        ],
+        "diameter_mm": 10.0,
+        "diameter_tolerance_mm": 0.5079999999999991,
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "shoulder",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none"
+        ],
+        "operation": "face",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
+        "features.features.north_journal: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:20: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": [
+          6.33,
+          6.35
+        ],
+        "diameter_mm": 6.35,
+        "diameter_tolerance_mm": 0.009999999999999787,
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "north_journal",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none"
+        ],
+        "operation": "rough_turn",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
+        "features.features.north_journal: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:30: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": [
+          6.33,
+          6.35
+        ],
+        "diameter_mm": 6.35,
+        "diameter_tolerance_mm": 0.009999999999999787,
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "north_journal",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none"
+        ],
+        "operation": "finish_turn",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[40].doc_mm/feed_mm_rev",
+        "features.features.body: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:40: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": [
+          6.33,
+          6.35
+        ],
+        "diameter_mm": 6.35,
+        "diameter_tolerance_mm": 0.009999999999999787,
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "body",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none"
+        ],
+        "operation": "rough_turn",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[50].doc_mm/feed_mm_rev",
+        "features.features.body: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:50: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": [
+          6.33,
+          6.35
+        ],
+        "diameter_mm": 6.35,
+        "diameter_tolerance_mm": 0.009999999999999787,
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "body",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none"
+        ],
+        "operation": "finish_turn",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[60].doc_mm/feed_mm_rev",
+        "features.features.shoulder_thrust: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104-110,122-126",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:395-404",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:60: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none, sourced feature diameter tolerance/acceptance threshold.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": "unknown",
+        "diameter_mm": "unknown",
+        "diameter_tolerance_mm": "unknown",
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "shoulder_thrust",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "feature nominal diameter",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none",
+          "sourced feature diameter tolerance/acceptance threshold"
+        ],
+        "operation": "face",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:60"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[70].doc_mm/feed_mm_rev",
+        "features.features.shoulder: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:70: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": [
+          9.492,
+          10.508
+        ],
+        "diameter_mm": 10.0,
+        "diameter_tolerance_mm": 0.5079999999999991,
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "shoulder",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none"
+        ],
+        "operation": "finish_turn",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:70"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[80].doc_mm/feed_mm_rev",
+        "features.features.north_relief: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:80: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": [
+          5.573,
+          5.827
+        ],
+        "diameter_mm": 5.7,
+        "diameter_tolerance_mm": 0.12699999999999978,
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "north_relief",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none"
+        ],
+        "operation": "form_relief",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:80"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[90].doc_mm/feed_mm_rev",
+        "features.features.south_relief: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "inventory selected machine accessories"
+      ],
+      "message": "S1:90: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": "unknown",
+        "dia_band_mm": [
+          5.573,
+          5.827
+        ],
+        "diameter_mm": 5.7,
+        "diameter_tolerance_mm": 0.12699999999999978,
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "south_relief",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "declared/resolved tailstock or steady support, or explicit none"
+        ],
+        "operation": "form_relief",
+        "stickout_mm": 191.0,
+        "support_status": "unknown",
+        "supports": [
+          {
+            "kind": "accessory",
+            "reference": "dead_centre_tailstock_mt3",
+            "source": "inventory selected machine accessories",
+            "status": "unknown"
+          }
+        ],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S2].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
+        "features.features.north_dome: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:116-122,364",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "S2:10: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "dia_band_mm": "unknown",
+        "diameter_mm": "unknown",
+        "diameter_tolerance_mm": "unknown",
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "north_dome",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "feature nominal diameter",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "sourced feature diameter tolerance/acceptance threshold"
+        ],
+        "operation": "face",
+        "stickout_mm": 27.0,
+        "support_status": "not_applicable",
+        "supports": [],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S2].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
+        "features.features.north_dome: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:116-122,364",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "S2:20: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "dia_band_mm": "unknown",
+        "diameter_mm": "unknown",
+        "diameter_tolerance_mm": "unknown",
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "north_dome",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "feature nominal diameter",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "sourced feature diameter tolerance/acceptance threshold"
+        ],
+        "operation": "form_dome",
+        "stickout_mm": 27.0,
+        "support_status": "not_applicable",
+        "supports": [],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:30: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "north_journal",
+        "operation": "inspect"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S3].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
+        "features.features.plain_end: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:13-16,50-52,154,182-189",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:63-69,76,86-95,103-115",
+        "harmonic-analyzer/cad/config/machine/channels.yaml:5",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117",
+        "harmonic-analyzer/cad/scripts/rocker_thrust_washer_spec.py:26-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:352-363",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110"
+      ],
+      "message": "S3:10: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, stickout_mm, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "dia_band_mm": "unknown",
+        "diameter_mm": "unknown",
+        "diameter_tolerance_mm": "unknown",
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "plain_end",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "stickout_mm",
+          "feature nominal diameter",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "sourced feature diameter tolerance/acceptance threshold"
+        ],
+        "operation": "cut_to_fit",
+        "stickout_mm": "unknown",
+        "support_status": "not_applicable",
+        "supports": [],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S3].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
+        "features.features.south_dome: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,433",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:101-110",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "S3:20: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, stickout_mm, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "dia_band_mm": "unknown",
+        "diameter_mm": "unknown",
+        "diameter_tolerance_mm": "unknown",
+        "doc_mm": "unknown",
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "south_dome",
+        "feature_units": "mm",
+        "feed_mm_rev": "unknown",
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
+        "material_class": "low_carbon_steel",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "stickout_mm",
+          "feature nominal diameter",
+          "doc_mm",
+          "feed_mm_rev",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "sourced feature diameter tolerance/acceptance threshold"
+        ],
+        "operation": "form_dome",
+        "stickout_mm": "unknown",
+        "support_status": "not_applicable",
+        "supports": [],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 zero recipe",
         "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
         "plan zero and stock_state; inventory finder nominal size"
@@ -3499,7 +5329,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "d59fdd29fb97ceebe0c9126e271556f6bb07a77bb801df4da6a098ab1422920a",
+  "hash": "1afb1cf0710ff2e18692b44aa05ae90ca72d6914adadeece63eccf0b265e47d2",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3515,7 +5345,7 @@
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
-      "sha256": "4a9d0f3d784371c06f28888693122664d6cf3a6861cd907578eacc3a5e54aec9"
+      "sha256": "d643139c97c1369f88c787041c1a63672f2abacb78dcdf39782a11f6fbc48037"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -3523,7 +5353,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m1-rev6",
+  "rules_version": "m2-rev6",
   "step_sha256": "unknown",
   "verification": "planned"
 }

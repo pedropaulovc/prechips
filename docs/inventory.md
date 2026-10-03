@@ -26,6 +26,19 @@ height are operative geometry, not values to infer from unrelated angles or
 overall dimensions. A centre drill's centre-seat angle is not its drill-point
 angle. `chart` is a source citation, never a downloaded chart.
 
+M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
+`range_mm` / `range_in` for the held stock diameter. A six-inch chuck body
+(`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
+must resolve to actual inventory or a named machine accessory; an unconfirmed
+accessory does not certify support.
+
+For indexing, a dividing head can live in `machines` (the example is `BS-0`) or
+`fixtures`. `worm_ratio`, `direct_index` and every `plate_holes` circle are
+arithmetic inputs; `verify = true` keeps the chosen setting tentative. Hole
+counts are positive integers. For engagement, `projection_mm` on the selected
+tool/holder assembly takes precedence over `oal_mm - holder.grip_mm`. Neither
+flute length nor holder gauge length substitutes for projection.
+
 All InventoryItems share the declared field set below, regardless of category;
 category-specific usefulness is enforced by rules, not separate subclass schemas.
 Nested dictionaries such as `nominal_dia_mm`, `candidates`, `holders`,
@@ -79,6 +92,13 @@ not proof of geometric validity; rules perform the applicable checks.
 | `material_cite` | `Citations` |
 | `section_mm` | `Vector` |
 | `as_is_faces` | `list[str]` |
+| `components` | `list[StockComponent]` |
+| `cite` | `Citations` |
+
+`StockComponent` is a separate authored blank with `form`, `dia_mm`,
+`length_mm`, `section_mm`, `note`, and `cite`; see [plan stock](plan.md#stock).
+Shared inventory accepting this shape does not assert an authored candidate is
+on hand.
 
 ## Source
 

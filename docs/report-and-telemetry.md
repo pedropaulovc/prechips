@@ -7,6 +7,8 @@
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
+The current catalogue is `rules_version = "m2-rev6"`; changing the operative
+rule catalogue changes the bound report and invalidates prior approvals.
 
 Canonical bytes are UTF-8 JSON, sorted keys, two-space indentation,
 `ensure_ascii=False`, finite numbers only, and **one final LF**. `hash` is the
