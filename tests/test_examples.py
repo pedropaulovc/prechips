@@ -6,6 +6,16 @@ import math
 import pytest
 from test_cli import copy_examples, run_cli, traveler
 
+_GEOMETRY_RULES = {
+    "accessibility",
+    "reach",
+    "internal_corner_radius",
+    "coverage",
+    "finish_coverage",
+    "vise",
+    "thin_wall_under_clamp",
+}
+
 
 @pytest.mark.parametrize(
     ("part", "plan_filename", "expected_subdir", "exit_code"),
@@ -37,17 +47,10 @@ def test_examples_match_reference_bytes_and_repeat(
     assert outputs[0] == outputs[1]
     expected = bundle / expected_subdir
     if any(row["numbers"].get("kernel_unavailable") for row in report["findings"]):
-        geometry = {
-            "accessibility",
-            "reach",
-            "internal_corner_radius",
-            "coverage",
-            "finish_coverage",
-            "vise",
-            "thin_wall_under_clamp",
-        }
         assert all(
-            row["status"] == "unknown" for row in report["findings"] if row["rule"] in geometry
+            row["status"] == "unknown"
+            for row in report["findings"]
+            if row["rule"] in _GEOMETRY_RULES
         )
         assert not report.get("renders")
     else:
@@ -59,7 +62,12 @@ def test_examples_match_reference_bytes_and_repeat(
         }
 
 
-def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(tmp_path):
+@pytest.mark.parametrize("without_kernel", [False, True], ids=["default-kernel", "forced-absent"])
+def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
+    tmp_path, monkeypatch, without_kernel
+):
+    if without_kernel:
+        monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "no-such-freecadcmd"))
     bundle = copy_examples(tmp_path) / "cone-pivot-post"
     outputs = []
     for run in range(2):
@@ -73,8 +81,23 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(t
         )
         assert result.returncode == 2, result.stderr
         outputs.append((out / "compare.json").read_bytes())
-    assert outputs[0] == outputs[1] == (bundle / "expected" / "compare.json").read_bytes()
+    assert outputs[0] == outputs[1]
     rows = json.loads(outputs[0])
+    if any(
+        finding["numbers"].get("kernel_unavailable")
+        for row in rows
+        for finding in row["rule_findings"]
+    ):
+        for row in rows:
+            geometry = [f for f in row["rule_findings"] if f["rule"] in _GEOMETRY_RULES]
+            assert {f["rule"] for f in geometry} == _GEOMETRY_RULES
+            assert all(
+                f["status"] == "unknown" and f["numbers"].get("kernel_unavailable")
+                for f in geometry
+            )
+        assert [row["exit"] for row in rows] == [4, 2]
+    else:
+        assert outputs[0] == (bundle / "expected" / "compare.json").read_bytes()
     assert [(row["plan"], row["part"]) for row in rows] == [
         ("plan.toml", "cone-pivot-post"),
         ("built-up.toml", "cone-pivot-post"),

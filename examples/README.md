@@ -22,6 +22,12 @@ authored candidates for the same part,
 not two inventory parts. The M4 geometry fixtures, which do carry STEP bytes,
 live under [`geometry/`](geometry/README.md) with their own inventory and policy.
 
+The frozen bytes describe an available-kernel run. Without FreeCAD, traveler
+and comparison outputs must still repeat byte-for-byte across runs, but every
+geometry family is unknown and no kernel render exists; those outputs do not
+match the installed-kernel goldens. Comparison still retains both candidates,
+the cited stock-volume arithmetic and error-before-unknown exits **4 / 2**.
+
 ## Files and expected exits
 
 Shared inputs:
