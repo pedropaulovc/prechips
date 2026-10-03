@@ -294,11 +294,14 @@ targets with fresh computations and the contracts above.
   not-applicable: no adopted drawing datum relationship is declared. Nominal
   stations do not create a positional/datum tolerance. S2 ear-side profile
   entry remains Z 27.2, rather than borrowing the free-run floor Z 0.3.
-- **All three `expected/traveler.html` files**: regenerate from the new report
-  and computed tables. Per-setup continuations replace hand-consolidated tables,
-  include sweep/axial records, apply dimension-specific precision, and show
-  unknown precision rather than inventing decimals. Footer ids bind the new
-  reports; escaped content and row-safe overflow replace hand-curated HTML.
+- **All three `expected/traveler.html` files**: regenerate from computed
+  evidence, including the PR #5 CodeRabbit precision corrections. Drawing
+  dimensions retain declared precision, or their own digits when it is absent;
+  operative tip targets, operation-derived coordinate rows, axial Z stations
+  and contour cutter-centre tables always print their own numeric values (six
+  significant digits). Only genuine unknowns print `?`. Transfer indication lists
+  print as bench-readable text rather than Python lists. Footer ids still bind
+  the reports; escaped content and row-safe overflow replace hand-curated HTML.
 
 No inventory, policy, cutting-data number, tolerance band, feature or tool
 purchase was changed. Expected exits remain **4 / 2 / 2**. The generated reports

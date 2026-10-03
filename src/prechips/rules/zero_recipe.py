@@ -27,7 +27,9 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
         contact = edge_mm + (-1 if approach == f"-{axis}" else 1) * radius_mm
     else:
         contact = UNKNOWN
-    increment = sign * scale * jog_mm if sign in {-1, 1} and number(jog_mm) else UNKNOWN
+    increment = (
+        sign * scale * jog_mm if sign in {-1, 1} and number(scale) and number(jog_mm) else UNKNOWN
+    )
     return {
         "axis_set": contact,
         "check_reading": contact + increment if number(contact) and number(increment) else UNKNOWN,
@@ -90,7 +92,12 @@ def evaluate(bundle):
                 radius /= 2
             if axis == "z" and recipe.get("face") == "top":
                 edge = mapping(setup.get("stock_state")).get("top_z", UNKNOWN)
-            scale = 2 if axis == "x" and lathe and dro.get("radius_mode") is False else 1
+            # Only an authored radius/diameter display fixes the lathe X jog scale.
+            scale = (
+                {True: 1, False: 2}.get(dro.get("radius_mode"), UNKNOWN)
+                if axis == "x" and lathe
+                else 1
+            )
             values = axis_recipe(
                 edge,
                 radius,
@@ -120,7 +127,7 @@ def evaluate(bundle):
             if method == "trial_cut_measure":
                 increment = (
                     sign * scale * recipe["check_jog_mm"]
-                    if sign in {-1, 1} and number(recipe.get("check_jog_mm"))
+                    if sign in {-1, 1} and number(scale) and number(recipe.get("check_jog_mm"))
                     else UNKNOWN
                 )
                 row["check_expression"] = f"D {increment:+g}" if number(increment) else UNKNOWN

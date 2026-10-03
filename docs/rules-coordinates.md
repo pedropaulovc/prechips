@@ -2,8 +2,13 @@
 
 Both rules produce one subject per setup. Nominal numeric recipes and tables can
 remain useful while their status is unknown; they are not cleared toolpaths or
-measured first-article evidence. Report numbers retain precision; bench tables
-use drawing precision. No STEP extraction/kernel geometry is performed.
+measured first-article evidence. Report numbers retain precision. Bench drawing
+station/feature reference points use the dimension's declared drawing precision;
+a known number without one prints its own value (six significant digits) rather
+than `?`, which stays reserved for unknown values. Operation-derived rows,
+computed tip targets, Z stations and contour cutter-centre tables always print
+their own value, never rounded to a drawing dimension's display precision. No
+STEP extraction/kernel geometry is performed.
 
 ## `coordinates`
 
@@ -84,7 +89,9 @@ axis and +1 from positive axis; indicated pickup uses radius 0. Paper Z uses
 `contact=edge + paper`; touching `top` takes the received/advanced stock top.
 Physical positive-axis jog gives `check=contact + sign*scale*jog` and
 `mirror=contact - sign*scale*jog`. The sign comes from authored DRO direction;
-lathe diameter-mode X uses scale 2 for the physical X jog, otherwise scale 1.
+lathe diameter-mode X uses scale 2 for the physical X jog and radius mode scale 1;
+an omitted or unknown lathe `radius_mode` leaves the X check/mirror readings
+unknown. Other axes use scale 1.
 Direction `right/away/up` (or lathe `away_from_spindle_axis/toward_exposed_end`)
 is positive. Reversed direction or a non-ABS known mode is an error.
 `edge_mm` explicitly locates a named pickup in the setup frame. Only Z

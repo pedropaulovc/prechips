@@ -13,6 +13,7 @@ from html import escape
 
 from .model import tolerance_requirements
 from .rules.resolution import MANUAL, resolve
+from .rules.resolution import record as _mapping
 
 _CSS = """@page { size: Letter portrait; margin: .4in; }
 * { box-sizing: border-box; }
@@ -61,15 +62,19 @@ def _text(value):
         return "?"
     if value == "not_applicable":
         return "—"
+    if isinstance(value, (list, tuple)):
+        return ", ".join(map(_text, value))
     return str(value).replace("_", " ")
 
 
-def _number(value, precision):
+def _number(value, precision=None):
+    """Declared drawing precision fixes the decimals; any other known number prints its
+    own value (six significant digits, float residue below 1e-6 dropped), never ``?``."""
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return _text(value)
-    if not math.isfinite(value) or not isinstance(precision, int):
+    if not math.isfinite(value):
         return "?"
-    result = f"{value:.{precision}f}"
+    result = f"{value:.{precision}f}" if isinstance(precision, int) else f"{round(value, 6):g}"
     return result.removeprefix("-") if float(result) == 0 else result
 
 
@@ -140,50 +145,32 @@ class _Traveler:
             return overrides.get(dimension, self.general_precision)
         return overrides
 
-    def value(self, value, feature=None, dimension=None):
+    def value(self, value, feature=None, dimension=None, drawing=True):
+        """Format with the dimension's declared drawing precision when one exists.
+
+        ``drawing=False`` ignores drawing precision: a print class for a tolerance
+        band is not the resolution of a computed machine target.
+        """
         if dimension in {"op", "before_ops", "after_op", "retouch_after", "passes"}:
-            if isinstance(value, (list, tuple)):
-                return ", ".join(map(_text, value))
             return _text(value)
-        precision = self.precision(feature, dimension)
         if isinstance(value, dict):
             return (
                 "; ".join(
-                    f"{_text(k)}: {self.value(v, feature, k)}"
+                    f"{_text(k)}: {self.value(v, feature, k, drawing)}"
                     for k, v in value.items()
                     if not self.metadata(k)
                 )
                 or "—"
             )
         if isinstance(value, (list, tuple)):
-            return " / ".join(self.value(v, feature, dimension) for v in value) or "—"
+            return " / ".join(self.value(v, feature, dimension, drawing) for v in value) or "—"
         if isinstance(value, bool):
             return "yes" if value else "no"
-        return _number(value, precision)
+        return _number(value, self.precision(feature, dimension) if drawing else None)
 
-    def recipe(self, value, feature=None, dimension=None):
-        """Manual settings stay usable when a drawing has no precision contract."""
-        if dimension in {"op", "before_ops", "after_op", "retouch_after", "passes"}:
-            return self.value(value, feature, dimension)
-        if isinstance(value, dict):
-            return (
-                "; ".join(
-                    f"{_text(k)}: {self.recipe(v, feature, k)}"
-                    for k, v in value.items()
-                    if not self.metadata(k)
-                )
-                or "—"
-            )
-        if isinstance(value, (list, tuple)):
-            return " / ".join(self.recipe(v, feature, dimension) for v in value) or "—"
-        if (
-            isinstance(value, (int, float))
-            and not isinstance(value, bool)
-            and math.isfinite(value)
-            and not isinstance(self.precision(feature, dimension), int)
-        ):
-            return f"{value:g}"
-        return self.value(value, feature, dimension)
+    def operative(self, value, feature=None, dimension=None):
+        """Tip targets, stations and cutter centres print their own computed digits."""
+        return self.value(value, feature, dimension, drawing=False)
 
     @staticmethod
     def metadata(key):
@@ -196,11 +183,11 @@ class _Traveler:
             return "?"
         item = resolve(self.bundle, category, reference)
         root, _, member = reference.partition("/")
-        raw = self.bundle.inventory.get(category, {}).get(root, {}) if category else {}
+        raw = _mapping(_mapping(self.bundle.inventory.get(category)).get(root)) if category else {}
         if not raw:
             raw = next(
                 (
-                    items[root]
+                    _mapping(items[root])
                     for items in self.bundle.inventory.values()
                     if isinstance(items, dict) and root in items
                 ),
@@ -209,14 +196,11 @@ class _Traveler:
         record = item or raw
         name = record.get("name", record.get("label"))
         if not name:
-            if category == "machines" or root in self.bundle.inventory.get("machines", {}):
+            if category == "machines" or root in _mapping(self.bundle.inventory.get("machines")):
                 name = root
             else:
-                name = (
-                    _text(root.replace("-", " "))
-                    if record.get("kind") == "accessory"
-                    else _text(record.get("kind", root.replace("-", " ")))
-                )
+                kind = record.get("kind", "unknown")
+                name = _text(root.replace("-", " ") if kind in {"accessory", "unknown"} else kind)
                 name = name.removesuffix(" set")
         if member:
             if record.get("kind") == "micrometer_set":
@@ -252,7 +236,7 @@ class _Traveler:
             text = text.replace(rule, _text(rule))
         return _text(text)
 
-    def paragraphs(self, mapping, recipes=False):
+    def paragraphs(self, mapping, formatter=None):
         parts = []
         for key, value in mapping.items():
             if self.metadata(key):
@@ -262,7 +246,7 @@ class _Traveler:
             elif key == "top_feature":
                 value = _text(value)
             else:
-                value = (self.recipe if recipes else self.value)(value, dimension=key)
+                value = (formatter or self.value)(value, dimension=key)
             parts.append(f"{_text(key)}: {value}")
         return self.bench("; ".join(parts))
 
@@ -297,7 +281,7 @@ class _Traveler:
             if key in _REFERENCE_FIELDS:
                 value = self.short_reference(value)
             else:
-                value = self.recipe(value, dimension=key)
+                value = self.value(value, dimension=key)
             parts.append(f"{names.get(key, _text(key))}: {value}")
         return _p("Hold: " + self.bench("; ".join(parts)))
 
@@ -312,7 +296,7 @@ class _Traveler:
             ):
                 return ""  # The unresolved clearance is already in Before You Start.
             return _p("? Headroom / support clearance not computed.")
-        r = self.recipe
+        r = self.value
         parts = [
             f"Stack (mm): bed {r(numbers.get('bed_height_mm'))}; "
             f"blocks {r(numbers.get('support_blocks_mm'))}; "
@@ -546,7 +530,7 @@ class _Traveler:
             feature = top_feature if axis == "z" else None
             dimension = top_dimension if axis == "z" else None
             if "edge_mm" in touch:
-                touch["edge_mm"] = self.recipe(touch["edge_mm"], feature, dimension)
+                touch["edge_mm"] = self.value(touch["edge_mm"], feature, dimension)
             contact = [
                 self.bench(touch.get("edge", touch.get("face", touch.get("feature", "? contact"))))
             ]
@@ -574,7 +558,7 @@ class _Traveler:
                     contact.append(
                         label
                         + " "
-                        + self.recipe(touch[key], feature, dimension if key == "edge_mm" else None)
+                        + self.value(touch[key], feature, dimension if key == "edge_mm" else None)
                     )
             remaining = {
                 k: v
@@ -594,9 +578,9 @@ class _Traveler:
                 }
             }
             if remaining:
-                contact.append(self.paragraphs(remaining, recipes=True))
-            expected = self.recipe(computed.get("check_reading"), feature, dimension)
-            mirrored = self.recipe(computed.get("mirrored_reading"), feature, dimension)
+                contact.append(self.paragraphs(remaining))
+            expected = self.value(computed.get("check_reading"), feature, dimension)
+            mirrored = self.value(computed.get("mirrored_reading"), feature, dimension)
             if expected == "?" and computed.get("check_expression"):
                 expected += " (" + self.bench(computed["check_expression"]) + ")"
             if mirrored == "?" and computed.get("mirrored_expression"):
@@ -607,11 +591,11 @@ class _Traveler:
                 (
                     axis.upper(),
                     "; ".join(contact),
-                    self.recipe(computed.get("axis_set"), feature, dimension),
+                    self.value(computed.get("axis_set"), feature, dimension),
                     jog_direction
                     + axis.upper()
                     + " "
-                    + self.recipe(abs(jog) if isinstance(jog, (int, float)) else jog)
+                    + self.value(abs(jog) if isinstance(jog, (int, float)) else jog)
                     + " physical",
                     expected,
                     mirrored,
@@ -648,17 +632,15 @@ class _Traveler:
                 instruction += "; " + self.paragraphs(remaining)
             if reindicate:
                 instruction += (
-                    ". After "
-                    + ", ".join(map(_text, reindicate))
-                    + ": re-indicate, repeat X/Y Axis Set / check."
+                    ". After " + _text(reindicate) + ": re-indicate, repeat X/Y Axis Set / check."
                 )
             pieces.append(_p(instruction))
         retouches = {}
         for record in numbers.get("retouch", []):
             key = (
-                self.recipe(record.get("top_z"), top_feature, top_dimension),
-                self.recipe(record.get("paper_mm")),
-                self.recipe(record.get("axis_set"), top_feature, top_dimension),
+                self.value(record.get("top_z"), top_feature, top_dimension),
+                self.value(record.get("paper_mm")),
+                self.value(record.get("axis_set"), top_feature, top_dimension),
             )
             retouches.setdefault(key, []).append(_text(record.get("op")))
         for (top, paper, axis_set), ops in retouches.items():
@@ -670,7 +652,7 @@ class _Traveler:
                 )
             )
         for touch in numbers.get("tool_touches", []):
-            pieces.append(_p("Tool touch-off: " + self.paragraphs(touch, recipes=True)))
+            pieces.append(_p("Tool touch-off: " + self.paragraphs(touch)))
         for axis in axes.values():
             if axis.get("note"):
                 pieces.append(_p(self.bench(axis["note"])))
@@ -693,7 +675,7 @@ class _Traveler:
         if endpoint:
 
             def value(key):
-                return self.value(endpoint.get(key), feature, "depth")
+                return self.operative(endpoint.get(key))
 
             parts = [f"entry {value('entry_z')} → tip {value('tip_z')}"]
             if endpoint.get("exit_face", "not_applicable") != "not_applicable":
@@ -709,17 +691,9 @@ class _Traveler:
                 parts.append("depth " + value("depth_mm"))
             return parts
         parts = []
-        dimension = next(
-            (
-                d
-                for d in ("depth", "length", "thickness", "height")
-                if d in self.features.get(feature, {})
-            ),
-            "depth",
-        )
 
         def value(key):
-            return self.recipe(op[key], feature, dimension)
+            return self.operative(op[key])
 
         if "z_from" in op and "z_to" in op:
             parts.append(value("z_from") + " → " + value("z_to"))
@@ -805,13 +779,13 @@ class _Traveler:
                         "stock_to_leave_mm": "stock left",
                         "passes": "passes",
                     }[key]
-                    action.append(f"{label} {self.recipe(op[key], feature, key)}")
+                    action.append(f"{label} {self.value(op[key], feature, key)}")
             feed = numbers.get("feed_mm_min", numbers.get("feed_mm_rev"))
             feed_units = " / rev" if "feed_mm_rev" in numbers else " / min"
             feed_text = (
                 "—"
                 if manual
-                else self.recipe(feed)
+                else self.value(feed)
                 + (" mm" + feed_units if isinstance(feed, (int, float)) else "")
             )
             direction = _text(
@@ -882,6 +856,7 @@ class _Traveler:
         numbers = self.records.get(("coordinates", setup["id"]), {})
         grouped = {}
         lathe = numbers.get("x_display") == "diameter"
+        z_dimension = "length" if lathe else "at"
         for record in numbers.get("rows", []):
             feature = record.get("feature")
             coordinates = record.get("setup", ["unknown"] * 3)
@@ -890,36 +865,32 @@ class _Traveler:
             coordinates = list(coordinates) + ["unknown"] * (3 - len(coordinates))
             x = record.get("x_target_mm", "unknown" if lathe else coordinates[0])
             x_dimension = "dia" if "x_target_mm" in record or lathe else "at"
-            note = []
-            for key in ("point", "note", "local_from"):
-                if key in record:
-                    text = self.bench(self.recipe(record[key])).replace(
+            group = grouped.setdefault(
+                (feature, tuple(coordinates), x),
+                {"x_dimension": x_dimension, "operation": False, "notes": []},
+            )
+            # An operation's authored Z is an operative target, not a drawing dimension.
+            operation = "local_from" in record or str(record.get("point")).startswith("op ")
+            group["operation"] |= operation
+            for name in ("point", "note", "local_from"):
+                if name in record:
+                    text = self.bench(self.value(record[name])).replace(
                         "drawing station", "station"
                     )
-                    note.append(text if key == "point" else f"{_text(key)}: {text}")
-            z_dimension = "length" if lathe else "at"
-            formatter = self.recipe if lathe else self.value
-            z = (
-                _number(coordinates[2], record["precision"])
-                if "precision" in record
-                else formatter(coordinates[2], feature, z_dimension)
-            )
-            key = (feature, tuple(coordinates), x, record.get("precision"))
-            cells = (
-                _text(feature),
-                self.value(x, feature, x_dimension),
-                self.value(coordinates[1], feature, "at"),
-                z,
-            )
-            existing = grouped.setdefault(key, (cells, []))[1]
-            for label in note:
-                if label not in existing:
-                    existing.append(label)
+                    label = text if name == "point" else f"{_text(name)}: {text}"
+                    if label not in group["notes"]:
+                        group["notes"].append(label)
         rows = []
-        for cells, notes in grouped.values():
-            if lathe:
-                cells = (cells[0], cells[1], cells[3])
-            rows.append((*cells, "; ".join(notes) or "—"))
+        for (feature, coordinates, x), group in grouped.items():
+            z = (
+                self.operative(coordinates[2])
+                if group["operation"]
+                else self.value(coordinates[2], feature, z_dimension)
+            )
+            cells = [_text(feature), self.value(x, feature, group["x_dimension"])]
+            if not lathe:
+                cells.append(self.value(coordinates[1], feature, "at"))
+            rows.append((*cells, z, "; ".join(group["notes"]) or "—"))
         pieces = [
             f"<h2>COORDINATES — frame {escape(_text(setup.get('frame')))}, "
             f"{escape(_text(self.units))}; feature reference points</h2>"
@@ -1005,7 +976,7 @@ class _Traveler:
         names = " / ".join("XY"[axis] for axis in axes)
         note = (
             f"Equivalent {names} reflections omitted. Mirror the listed coordinates about "
-            f"centre X {self.value(centre[0])}, Y {self.value(centre[1])}; "
+            f"centre X {self.operative(centre[0])}, Y {self.operative(centre[1])}; "
             f"not about a guessed datum. "
             "Keep the operation's cut direction and stated interpolation."
         )
@@ -1015,12 +986,13 @@ class _Traveler:
         numbers = self.records.get(("coordinates", setup["id"]), {})
         tables = []
         arc_ops = set()
+        o = self.operative
         for arc in (
             numbers.get("arc_table", []) if isinstance(numbers.get("arc_table"), list) else []
         ):
             feature = arc.get("feature")
             arc_ops.add(arc.get("op"))
-            operation = next((o for o in setup["ops"] if o["op"] == arc.get("op")), {})
+            operation = next((op for op in setup["ops"] if op["op"] == arc.get("op")), {})
             records, symmetry = self.arc_rows(arc)
             rows = []
             for record in records:
@@ -1029,14 +1001,10 @@ class _Traveler:
                 )
                 rows.append(
                     (
-                        self.value(record.get("angle_deg"), feature, "angle_deg"),
-                        self.value(xy[0], feature, "at"),
-                        self.value(xy[1], feature, "at"),
-                        self.value(
-                            record.get("tip_z", arc.get("tip_z", operation.get("to_z"))),
-                            feature,
-                            "depth",
-                        ),
+                        o(record.get("angle_deg")),
+                        o(xy[0]),
+                        o(xy[1]),
+                        o(record.get("tip_z", arc.get("tip_z", operation.get("to_z")))),
                     )
                 )
             title = f"Op {_text(arc.get('op'))} — {_text(feature)}"
@@ -1045,24 +1013,22 @@ class _Traveler:
                     k: v
                     for k, v in arc.items()
                     if k not in {"rows", "feature", "op", "centre_model_xy"}
-                }
+                },
+                o,
             )
             if arc.get("rows"):
                 angles = [r.get("angle_deg") for r in arc["rows"]]
-                description += (
-                    f"; full computed arc range: {self.value(angles[0])} "
-                    f"→ {self.value(angles[-1])}°"
-                )
+                description += f"; full computed arc range: {o(angles[0])} → {o(angles[-1])}°"
             if symmetry:
                 description += "; " + symmetry
             tables.append((title, description, ["angle °", "X", "Y", "Z tip"], rows))
         for line in numbers.get("line_table", []):
             rows = [
-                (str(i + 1), self.value(xy[0]), self.value(xy[1]), self.value(line.get("tip_z")))
+                (str(i + 1), o(xy[0]), o(xy[1]), o(line.get("tip_z")))
                 for i, xy in enumerate(line.get("setup_xy", []))
             ]
             description = self.paragraphs(
-                {k: v for k, v in line.items() if k not in {"setup_xy", "model_xy"}}
+                {k: v for k, v in line.items() if k not in {"setup_xy", "model_xy"}}, o
             )
             tables.append(
                 (
@@ -1084,34 +1050,21 @@ class _Traveler:
             feature = profile.get("feature")
             headings = ["point order", "X", "Y", "Z tip"]
             rows = []
+            z = o(profile.get("to_z"))
             for i, point in enumerate(points):
-                z = self.value(profile.get("to_z"), feature, "depth")
                 if isinstance(point, dict):
                     rows.append(
-                        (
-                            self.value(point.get("angle_deg"), feature, "angle_deg"),
-                            self.value(point.get("x"), feature, "at"),
-                            self.value(point.get("y"), feature, "at"),
-                            z,
-                        )
+                        (o(point.get("angle_deg")), o(point.get("x")), o(point.get("y")), z)
                     )
                     headings[0] = "angle °"
                 elif len(point) == 2 and all(isinstance(p, list) for p in point):
                     headings = ["pass", "X from", "Y from", "X to", "Y to", "Z tip"]
-                    rows.append(
-                        (str(i + 1), *(self.value(v, feature, "at") for p in point for v in p), z)
-                    )
+                    rows.append((str(i + 1), *(o(v) for p in point for v in p), z))
                 else:
-                    rows.append(
-                        (
-                            str(i + 1),
-                            self.value(point[0], feature, "at"),
-                            self.value(point[1], feature, "at"),
-                            z,
-                        )
-                    )
+                    rows.append((str(i + 1), o(point[0]), o(point[1]), z))
             description = self.paragraphs(
-                {k: v for k, v in profile.items() if k not in {"cutter_centre", "model", "rows"}}
+                {k: v for k, v in profile.items() if k not in {"cutter_centre", "model", "rows"}},
+                o,
             )
             tables.append(
                 (f"Op {_text(profile.get('op'))} — {_text(feature)}", description, headings, rows)
@@ -1120,14 +1073,8 @@ class _Traveler:
             if not isinstance(contour, dict) or contour.get("method") != "axial_table":
                 continue
             feature = contour.get("feature")
-            rows = [
-                (
-                    self.value(r.get("x_target_mm"), feature, "dia"),
-                    self.value(r.get("z_mm"), feature, "height"),
-                )
-                for r in contour.get("rows", [])
-            ]
-            description = self.paragraphs({k: v for k, v in contour.items() if k != "rows"})
+            rows = [(o(r.get("x_target_mm")), o(r.get("z_mm"))) for r in contour.get("rows", [])]
+            description = self.paragraphs({k: v for k, v in contour.items() if k != "rows"}, o)
             description += (
                 "; nominal profile only: apply a confirmed tool-nose compensation, never invent it."
             )
@@ -1178,11 +1125,9 @@ class _Traveler:
             header += _p("? No checked STEP / drawing pair is bound to this plan.")
         header += _p(
             "Drawing material / finish: "
-            + self.paragraphs(self.bundle.features.get("material", {}), recipes=True)
+            + self.paragraphs(self.bundle.features.get("material", {}))
         )
-        header += "<h2>STOCK AND ROUTE</h2>" + _p(
-            self.paragraphs(self.plan.get("stock", {}), recipes=True)
-        )
+        header += "<h2>STOCK AND ROUTE</h2>" + _p(self.paragraphs(self.plan.get("stock", {})))
         header += _table(
             ["setup", "starts from", "machine / fixture"],
             [
@@ -1227,14 +1172,14 @@ class _Traveler:
                 "Starts from: "
                 + _text(setup.get("stock_in"))
                 + "; stock state: "
-                + self.paragraphs(setup.get("stock_state", {}), recipes=True)
+                + self.paragraphs(setup.get("stock_state", {}))
             )
             content += self.hold(setup)
             content += _p(
                 "Coolant: "
                 + _text(setup.get("coolant"))
                 + "; deburr maximum: "
-                + self.recipe(setup.get("deburr_mm"))
+                + self.value(setup.get("deburr_mm"))
                 + " mm"
             )
             content += self.headroom(setup)

@@ -347,8 +347,8 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         table = displayed[stage]
         first_row = re.search(r"<tbody><tr>(.*?)</tr>", table, re.DOTALL).group(1)
         cells = re.findall(r"<td[^>]*>(.*?)</td>", first_row)
-        assert cells[1:3] == (
-            [f"{28.0 + allowance:.2f}", "8.00"]
+        assert [float(cell) for cell in cells[1:3]] == pytest.approx(
+            [28.0 + allowance, 8.0]
             if method == "arc_table"
-            else [f"{-8.0 - allowance:.2f}", f"{-5.0 - allowance:.2f}"]
+            else [-8.0 - allowance, -5.0 - allowance]
         )

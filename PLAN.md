@@ -10,11 +10,12 @@
 > plain words; everything else it computed goes to a machine-readable report
 > no human has to read.
 
-Status: M1 local implementation and PR #5 cross-family review corrections
-completed; physical paper rehearsal and live parented farm/App Insights acceptance
-remain pending/unobserved. Rev 6, 2026-10-03. Sections below retain design intent;
-README and docs describe the shipped schema/CLI/rules. Rev 1 was traveler-first but
-promised geometric proofs
+Status: M1 local implementation and PR #5 cross-family/CodeRabbit review
+corrections completed, including strict optional identity handling, tool-size
+comparison and operative traveler precision; physical paper rehearsal and live
+parented farm/App Insights acceptance remain pending/unobserved. Rev 6, 2026-10-03.
+Sections below retain design intent; README and docs describe the shipped
+schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial
 reviews and became correct but unusable: a 100 KB traveler of config ids,
 hashes and 15-decimal numbers. Rev 4 restored the purpose and the rule
@@ -37,8 +38,10 @@ PM-1127VF-LB lathe. They already have the drawing. They need, per setup:
 5. a short "before you start" box listing what the checker could not confirm
    or found wrong.
 
-Nothing on the sheet needs a computer to interpret. Numbers carry the
-drawing's precision (0.01 mm or 0.001 in), never more.
+Nothing on the sheet needs a computer to interpret. Drawing dimensions carry
+the drawing's precision (0.01 mm or 0.001 in). Operative targets and computed
+coordinates retain their own numeric precision, including when drawing
+precision is absent; unrelated tolerance formatting must not change a cut target.
 
 ## 2. The traveler (the product)
 

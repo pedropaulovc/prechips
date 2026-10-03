@@ -6,9 +6,10 @@ rule families, writes a canonical findings report, and renders Letter-portrait
 HTML with a header, setup pages and contour continuations. It checks declared
 facts, not a CAD model's machinability. It does not generate CAM toolpaths.
 
-The local M1 implementation is present. Physical paper rehearsal and live
-farm/App Insights acceptance remain pending; neither is evidence supplied by the
-reference fixtures. See [PLAN.md](PLAN.md) for the remaining milestones.
+The local M1 implementation and PR #5 review corrections are present. Physical
+paper rehearsal and live farm/App Insights acceptance remain pending; neither
+is evidence supplied by the reference fixtures. See [PLAN.md](PLAN.md) for the
+remaining milestones.
 
 ## Install and check
 
@@ -75,13 +76,14 @@ package version. `--json` and `--verbose` default off.
 - **compare** writes `compare.json` and a table (JSON with `--json`): part, setup
   count, declared fixtures, finding counts and exit. `waste_ratio` is explicitly
   `"unknown"`; it does not calculate stock waste or choose a route.
-- **explain** validates the stored report's canonical hash and prints matching
-  findings' message, numbers and citations. A rule alone selects every subject;
-  `rule:subject` selects that exact subject. JSON is an object for one match,
-  otherwise an array. No matching finding is exit 3.
+- **explain** validates the stored report's canonical hash and selected finding
+  records, then prints their message, numbers and citations. A rule alone selects
+  every subject; `rule:subject` selects that exact subject. JSON is an object for
+  one match, otherwise an array. Malformed selected findings or no match are exit 3.
 
-For bundle verbs, explicit shop-file flags override plan `[paths]`, then
-`PRECHIPS_INVENTORY` / `PRECHIPS_POLICY`. There is **no cutting-data environment
+For bundle verbs, explicit shop-file flags override known plan `[paths]`, then
+`PRECHIPS_INVENTORY` / `PRECHIPS_POLICY`; a plan-declared `"unknown"` does not
+hide the environment fallback. There is **no cutting-data environment
 fallback**: supply `--cutting-data` or `[paths].cutting_data`. An absent policy
 uses the built-in required-rule set. CLI/environment paths are relative to the
 working directory; plan declarations and `features` are relative to the plan.
@@ -123,11 +125,20 @@ An existing policy without `[required]`, a feature without `requirements`, or a
 Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
 Explicit empty tables/lists remain known empty; no policy file still selects the
 built-in required-rule set.
+Omitted setup `machine`, operation `do`, and feature `kind` are normalized to
+`"unknown"` by their schemas, so missing identities stay unresolved rather than
+crashing the checker.
 
 Worked located features need a complete numeric three-component centre; absent,
 unknown or two-component coordinates never clear the coordinate check. A nonrough
 mill contour carrying `rough_allowance_mm` prints distinct rough and finish cutter
 tables, with the rough allowance added to the cutter radius.
+Drawing dimensions retain their declared precision; when no precision is
+declared, known values still print their own digits rather than `?`. Operative
+targets, including operation-derived coordinate rows, and computed contours
+retain their own numeric precision even when an unrelated drawing dimension
+declares fewer decimals. A lathe X zero check remains unresolved until the DRO
+radius/diameter display mode is known.
 
 Authored bench instructions retain slash-separated text such as
 `top/bottom/sides`, `S1/S2/S3` and `1/4/20`; only recognizable repository,
