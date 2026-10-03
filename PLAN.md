@@ -328,13 +328,14 @@ contract:
   per feature lists exactly which fields are requirements, so a missing
   field that is not in the list is a generator error, not an unknown.
 - An omitted *feature* is impossible to detect from the manifest alone,
-  which is why the generator, not a hand, writes it (M3) and why the M1
-  hand-written manifest is cross-checked against the drawing's dimension
-  count.
+  which is why the generator, not a hand, writes it (M3). The historical M1
+  hand-written manifests were cross-checked against drawing dimension counts;
+  the undrawn pivot-bracket remains authored with unknown drawing requirements.
 
-Excerpt; the full source-backed manifest is
-`examples/rocker-arm/features.toml` (every value cited to the consumer;
-that file, not this excerpt, is what M1 mirrors):
+**Historical design sketch, not the current manifest.** The excerpt below
+predates M3: placeholder face names, inch-derived bands and material/profile
+assumptions are not current exported facts. The verbatim source-backed manifest
+is `examples/rocker-arm/features.toml`; that file is the operative input.
 
 ```toml
 part = "rocker-arm"
@@ -380,7 +381,7 @@ position_dia = 0.20
 precision = { dia = 2, position_dia = 2 }  # per dimension; `at` is BASIC, never gets a ± default
 requirements = ["at", "dia", "thru", "position_dia"]
 position_datums = ["A", "B", "C"]          # C clocks rotation about the pivot axis
-faces = "unknown"                          # until the face-set export (M3)
+faces = "unknown"                          # historical: before the M3 face-set export
 
 [features.hub_od]
 kind = "boss"
@@ -401,16 +402,14 @@ requirements = []                          # drawing carries no profile toleranc
 faces = ["Face2", "Face3", "Face6"]
 ```
 
-**What the generator can and cannot source today** (rocker arm): nominal
-centres and limits (`rocker_arm_spec.py:32–59,72,107`), #47 diameter and
-its default band (`_hole_spec.py:82,104`, `title_block.yaml:66`), position
-Ø0.20 to A|B (`rocker_arm_spec.py:124`), through-ness
-(`rocker_arm_notes.py:60`), the datum scheme (`draw_rocker_arm.py:447–548`),
-general tolerances (`title_block.yaml:19–27`), deburr limit
-(`title_block.yaml:43–45`). It cannot source: a profile tolerance, the
-built-up permission (no drawing note exists; `construction` defaults to
-`one_piece`), and STEP face names until the export change below. Those are
-`unknown` entries and `?` lines.
+**Historical source assessment:** the original sketch combined rocker spec
+geometry, hole defaults, notes, datum annotations and title-block tolerances.
+The current export supplies the actual A|B|C position datum chain, rendered
+metric general bands, material alternatives and all labelled face sets,
+including separate strap datum B and both tip lands. Unknown tip-land angular
+acceptance and setup binding remain unknown; no drawing note authorizes
+built-up construction. The generated manifest and its per-fact citations,
+not this sketch's field names or face ordinals, are authoritative.
 
 **Why not PMI in the STEP.** Semantic PMI needs AP242, and in SolidWorks that
 export is the MBD add-in only (`IModelDocExtension.PublishSTEP242File2`,
@@ -422,14 +421,13 @@ annotations, and harmonic-analyzer deliberately authors plain gtols
 a few GD&T frames and no dimensions. The spec scripts are the authority; a
 generated `features.toml` is the lossless route.
 
-**What the STEP should carry instead: face ids, as sets.** AP214 with
-`swStepExportFaceEdgeProps` (no MBD) names every face. A feature is a face
-*set*, not one face: the v38 `rocker-arm.STEP` already holds the pivot bore
-as two Ø6.5 cylinder patches of equal area (faces 1 and 16). The generator
-must resolve each spec feature to its native SolidWorks faces (the
-`CylinderFace`/`PlanarFace` matcher `_part_pmi.py:223–259` already uses) and
-emit the exported names of all of them, bound to that STEP's digest, failing
-loud on ambiguity. Tracked as a harmonic-analyzer issue (§8, M3).
+**What the STEP carries instead: face ids, as sets.** The consumer exports
+labelled AP214 faces without requiring semantic PMI. A feature is a face
+*set*, not one face: even the historical v38 rocker spike held the pivot bore
+as two cylindrical patches. M3 now supplies generated feature-to-face sets
+bound to each adjacent STEP digest; prechips checks references before matching
+imported geometry, never assuming imported face order. Delivery evidence is
+recorded in `examples/README.md`; integration status is in §8 M3.
 
 ### 3.3 `inventory.toml` — the shop (user-supplied; sample in `examples/inventory/`)
 
@@ -781,9 +779,9 @@ cylinder plus the holder against the actual setup material, excluding only
 a thin shell of the sampled face, and the fixture. The round-2 script
 intersected the cylinder with the jaws only, at a fixed 40 mm height, with no holder, so it
 proved jaw proximity and nothing more (§4.2); features carry face *sets*
-(§3.2); face names still need the consumer's `swStepExportFaceEdgeProps`
-export and a tested mapping (§3.2, §8 M3) — order stability across exports
-is observed once, not relied on. Required before any §4.2/4.3 verdict ships:
+(§3.2). At the time of the spike, consumer face export was still pending;
+M3 now supplies it (§8). The once-observed export order stability is not
+relied on. The original required §4.2/4.3 discriminators were:
 the cylinder against a boss (must occlude), the claimed side wall
 (offset must clear; removing the offset must fail), an oversized cutter in
 a through-groove (opposing claimed wall must occlude), holder versus jaws,
@@ -858,7 +856,7 @@ sheet.
    12.5182° cone-journal inclination (`positions = 1`, no repeated-pattern closure),
    with authored full-envelope one-piece and block-plus-pressed-boss alternatives.
    The drawing is one-piece only; the built-up candidate is refused.
-   **Observed local acceptance after PR #6 review corrections:** Ruff check and
+   **Historical local acceptance after PR #6 review corrections:** Ruff check and
    format check (67 Python files); 575 pytest cases; all 12 TOML inputs / five
    candidate goldens validated. Actual CLI travelers preserve exits
    4 / 2 / 2 / 4 / 2 and cone comparison exits 2, with canonical golden parity.
@@ -870,15 +868,55 @@ sheet.
    “Open pattern: no cycle closure.” This is not physical print evidence.
    **Unobserved/pending:** measured chuck capacities/support/BS-0 inventory,
    sourced K_c/E and a sourced BASIC-angle landing allowance, printed traveler/operator
-   rehearsal, independent hand oracle, live farm telemetry and M3/M4 geometry
-   binding. Unknown inputs remain `?`, not a numerical machining approval.
-3. **M3 — consumer export.** harmonic-analyzer issue (filed with this rev):
-   `cad/scripts/export_features.py` emitting `features.toml` beside the
-   STEP as a complete manifest with provenance; `swStepExportFaceEdgeProps`
-   on in `export_models.py`; a tested spec-feature → exported-face-set
-   mapping bound to the STEP digest, failing on ambiguity; a drawing-note
-   contract for `construction`; `check:traveler_<stem>` doit task under
-   `cad/process/`. Replaces the hand-written manifests.
+   rehearsal, independent hand oracle and live prechips farm telemetry. The
+   then-pending M3/M4 binding is superseded by the delivered exports and kernel
+   work below. Unknown inputs remain `?`, not a numerical machining approval.
+3. **M3 — consumer export delivered and consumed, done 2026-10-03.**
+   `examples/rocker-arm/`, `examples/pivot-shaft/` and
+   `examples/cone-pivot-post/` now contain verbatim generated `features.toml`
+   and their exact adjacent STEP files. Each manifest names that STEP, binds
+   its SHA-256, declares drawing revision and one-piece construction, preserves
+   sourced requirement/precision/citation records, and carries labelled
+   entity/ordinal face sets. These are actual exported inputs, not the former
+   hand-authored substitutes. Export delivery provenance and exact digests are
+   recorded only in [examples/README.md](examples/README.md#m3-export-delivery-provenance).
+   Python citations remain `file:line`; YAML citations are `file:dotted.key.path`.
+   All plans remain authored and PLANNED. The undrawn pivot-bracket remains
+   hand-authored with no STEP or invented drawing contract.
+
+   The exported contracts include expanded rocker datum/tip features, shaft
+   face splits, the cone journal's unknown requirement identity, and rendered
+   metric general bands. The cone export omits finished volume: comparison
+   retains unknown net volume/waste rather than importing the historical
+   handwritten analytic value. The exported BASIC angle supplies no landing
+   tolerance; neither title-block ±1° nor a diametral GD&T zone supplies one.
+   Shaft/cone `frames.setup` remains unknown, without invented setup transforms.
+   Corrected CLI runs retain pilot exits 4 / 2 / 2 / 4 / 2. Existing inspection
+   choices follow the split exported feature owners with unchanged gauges;
+   no inspection errors remain from the identity migration. Unknown requirement
+   identities, measurements and methods remain unresolved, not invented.
+
+   **Consumer gate evidence, observed 2026-10-03:** on implementation
+   `5f51a2c`, `uv run ruff check . && uv run ruff format --check . &&
+   uv run pytest -q && uv run python scripts/validate_examples.py` exited 0
+   with `FREECAD_CMD=C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe`
+   and `PRECHIPS_REQUIRE_KERNEL=1`: Ruff passed, 99 Python files were formatted,
+   **1042 tests passed** (519.14 s), and all 24 TOML inputs and reference bundles
+   validated. Actual CLI regeneration wrote all five report/traveler goldens,
+   the rocker S1 render and cone comparison; exits remain **4 / 2 / 2 / 4 / 2**
+   and comparison 2, with unknown cone net volume/waste. The suite reproduced
+   the frozen CLI bytes twice. FreeCAD mapped all exported references without
+   errors: rocker **18/18**, shaft **18/18**, cone **36/36**.
+   An extracted `git archive` implementation copy preserved all six delivered
+   assets byte-for-byte with matching adjacent STEP digests; its actual rocker
+   traveler exited 2 without invalid face references or inspection errors.
+   Cross-review findings about split inspection ownership and unknown-frame
+   authored Z were corrected and independently re-reviewed without findings.
+   Prior M1/M2/M4/M5 results below are historical, not this consumption gate.
+   The CAD-producing farm run is not a parented `prechips check` farm trace.
+   The original `check:traveler_<stem>` consumer invocation and §5.2 live
+   telemetry acceptance require their own observed evidence; physical paper
+   rehearsal, independent hand oracle and first-article approval remain separate.
 4. **M4 — geometry and workholding local deliverable** (§4.2–4.3).
    Seven sampled B-rep rules execute in a separate FreeCAD process. STEP
    byte identity and entity/ordinal/label references are checked before
@@ -932,19 +970,20 @@ sheet.
    without an OAL−grip fallback. M5 physical stack/envelope readiness still
    requires its separately qualified shop measurements.
 
-   The production rocker manifest remains the truthful exported face sets.
-   S1 strap operations claim the exported +Z datum-B face `#492` explicitly.
-   Its S1 image is the authored rectangular supply; S2/S3 stock stays unknown
-   naming the unprovided interrupted rail/ear profile footprint. No final
-   STEP part is substituted for that process material.
+   Historically, the pre-M3 production rocker S1 strap operations explicitly
+   claimed the then-exported +Z datum-B face `#492`. The current M3 export uses
+   its own `strap_datum_b` face identity; old entity numbers are not portable.
+   The S1 supply is still authored rectangular stock; later unprovided
+   rail/ear footprints remain debt, not a finished-STEP substitute.
    Synthetic fixtures author numeric supply allowances and earlier clearing
    setups. The synthetic rocker supply/clearance now fits the STEP global XY
    bbox, retaining its 1 mm Z allowances, so unknown preparation tooling does
    not invent a cutter-dilated footprint. Preparation tooling/holding debt stays
    visible; target checks remain required and all errors remain fatal.
 
-   **Observed scoped evidence:** archived PNG signatures and STEP/report
-   digests pass after binary restaging. A Ø10 cutter in a 6 mm through-groove
+   **Historical scoped M4 evidence (before the M3 consumption cutover):**
+   archived PNG signatures and STEP/report digests passed after binary
+   restaging. A Ø10 cutter in a 6 mm through-groove
    reports 135 tool hits. The claimed-sidewall normal-offset test passes on
    the offset engine and fails its hand-written no-offset mutant with 45
    own-wall hits. Undefined normals yield named unknowns on clear faces,
@@ -977,7 +1016,7 @@ sheet.
    a named missing jaw-depth caption and no later stock images. The long-
    reach target showed its prepared pocket, exact jaws/parallels and the
    setup-entry-stock caption; both 640 × 480 images loaded successfully.
-   **Project-wide acceptance observed after Opus r2 / CodeRabbit r1 fixes:**
+   **Historical project-wide acceptance after Opus r2 / CodeRabbit r1 fixes:**
    `uv run ruff check . && uv run ruff format --check . && uv run pytest -q
    && uv run python scripts/validate_examples.py` exited 0: 99 Python files
    formatted, 1033 tests passed and all 24 TOML inputs plus frozen
