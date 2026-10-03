@@ -48,7 +48,8 @@ def build_parser() -> argparse.ArgumentParser:
     tools = verbs.add_parser("tools")
     tools.add_argument("query", nargs="?", default="")
     tools.add_argument("--inventory")
-    tools.add_argument("--measure", action="store_true", help="List inventory measurement debt.")
+    tools.add_argument("--measure", action="store_true", help="List current-plan measurement debt.")
+    tools.add_argument("--plan", action="append", type=Path, help="Scope --measure to this plan.")
     _common(tools, bundle=False)
     compare = verbs.add_parser("compare")
     compare.add_argument("plans", nargs="+", type=Path)
@@ -240,11 +241,25 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
     )
 
     path = args.inventory or os.environ.get("PRECHIPS_INVENTORY")
-    if not path:
-        raise BadInput("tools requires --inventory or PRECHIPS_INVENTORY.")
-    inventory = load_inventory(path)
     if args.measure:
-        checklist = measurement_checklist(inventory)
+        from prechips.rules import RULES
+
+        plans = args.plan
+        if not plans:
+            examples = Path(__file__).resolve().parents[2] / "examples"
+            plans = [
+                examples / "pivot-shaft" / "plan.toml",
+                examples / "rocker-arm" / "plan.toml",
+                examples / "pivot-bracket" / "plan.toml",
+                examples / "cone-pivot-post" / "plan.toml",
+                examples / "cone-pivot-post" / "built-up.toml",
+            ]
+        findings = []
+        for plan in plans:
+            bundle = load_bundle(plan, inventory=path)
+            for rule in RULES:
+                findings.extend(rule.evaluate(bundle))
+        checklist = measurement_checklist(findings)
         if getattr(args, "json", False):
             _json_stdout(checklist)
         else:
@@ -254,6 +269,11 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                     print(f"    {citation}")
         tracing.log("debug", "Inventory measurement checklist.", measurements=len(checklist))
         return 0
+    if args.plan:
+        raise BadInput("--plan is only supported with tools --measure.")
+    if not path:
+        raise BadInput("tools requires --inventory or PRECHIPS_INVENTORY.")
+    inventory = load_inventory(path)
     words = args.query.casefold().split()
     requested = None
     text_words = []
@@ -345,8 +365,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 print(f"  Envelope {row['id']} [{row['envelope_measurement_status']}]")
                 for field, fact in row["envelope_measurements"].items():
                     marker = "measured" if fact["verified"] else "unmeasured"
-                    units = "" if field == "spindle_taper" else " mm"
-                    print(f"    {field}: {fact['value']}{units} [{marker}]")
+                    print(f"    {field}: {fact['value']} mm [{marker}]")
     tracing.log("debug", "Inventory resolved.", candidates=len(rows))
     return 0
 
