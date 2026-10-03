@@ -4553,16 +4553,23 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
+        "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": "unknown",
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "unresolved": [],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -4573,16 +4580,23 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
+        "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": "unknown",
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "unresolved": [],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -4593,16 +4607,23 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S3: not a lathe setup.",
       "numbers": {
+        "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": "unknown",
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "unresolved": [],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -5762,7 +5783,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "cd9be90570c67c39041d10367939f67aec2c54e35f5fa959d0c77520c270b695",
+  "hash": "e21e1cbc648c477b542a689f0f2022573beb543d4c5637ab391e336364ede897",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

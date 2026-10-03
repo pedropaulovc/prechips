@@ -94,9 +94,10 @@ a later finished drawing datum.
 ## M2 declared workholding and indexing
 
 The [lathe rules](rules-lathe.md) check a turned profile from the actual chuck
-end, supported stick-out against the shop policy, and held diameter against a
-listed collet set or chuck capacity. A chuck's outside diameter is not its grip
-capacity. Unknown or unverified inventory and policy values stay `?`.
+end, supported stick-out using the smallest finished diameter in the unsupported
+length, and held-stock diameter against a listed collet set or chuck capacity.
+The bar in the jaws is not the stick-out D. A chuck's outside diameter is not
+its grip capacity. Unknown exposed geometry, inventory and policy values stay `?`.
 
 The [indexing rule](rules-indexing.md) considers direct steps and every authored
 worm plate circle, preferring exact arithmetic before nearest alternatives.

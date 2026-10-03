@@ -10483,12 +10483,23 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/build_rocker_arm.py:406-434",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:25-32",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:72-76",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:100-112"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
+        "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": "unknown",
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
@@ -10499,6 +10510,9 @@
             "source": "inventory.fixtures",
             "status": "unknown"
           }
+        ],
+        "unresolved": [
+          "hub_od"
         ],
         "unsupported_limit_mm": "unknown"
       },
@@ -10510,12 +10524,23 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/build_rocker_arm.py:406-434",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:25-32",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:72-76",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:100-112"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
+        "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": "unknown",
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
@@ -10527,6 +10552,9 @@
             "status": "unknown"
           }
         ],
+        "unresolved": [
+          "hub_od"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -10537,16 +10565,30 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/build_rocker_arm.py:406-434",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:25-32",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:72-76",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:100-112"
       ],
       "message": "S3: not a lathe setup.",
       "numbers": {
+        "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": "unknown",
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "unresolved": [
+          "hub_od"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -11877,7 +11919,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "a52c6317edb88ac92ea2c4f7ba78b97e385035cd514070fb0491abaea561a0c1",
+  "hash": "cd3d07be436e3d87c7f4648539137f9000ae45800a626b788d8812fa9aacb405",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -4033,16 +4033,40 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
       ],
-      "message": "S1: the shop stick-out ratio needs a verified cited policy value.",
+      "message": "S1: the finished diameter or geometry in the exposed span is unresolved.",
       "numbers": {
-        "diameter_mm": 110.0,
-        "diameter_source": "plan.setups.stock_state.od_mm",
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": [
+          -86.0,
+          6.0
+        ],
+        "held_diameter_mm": 110.0,
+        "held_diameter_source": "plan.setups.stock_state.od_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": 92.0,
         "support_status": "not_applicable",
         "supports": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -4053,16 +4077,37 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
-        "diameter_mm": 110.0,
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": 110.0,
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -4073,16 +4118,37 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
       ],
       "message": "S3: not a lathe setup.",
       "numbers": {
-        "diameter_mm": 110.0,
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": 110.0,
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -4093,16 +4159,37 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
       ],
       "message": "S4: not a lathe setup.",
       "numbers": {
-        "diameter_mm": 110.0,
-        "diameter_source": "plan.stock.dia_mm",
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": 110.0,
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -5450,7 +5537,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "b319121fffce0c354da0cf66f86f87a77decd99eb0672d8c93ab7a1882ff289a",
+  "hash": "4050caaa2f7c94756659b7017c4b043a716200ae0149a8b334b7e41513dabab4",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

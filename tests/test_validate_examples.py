@@ -84,38 +84,40 @@ def test_rejects_cone_indexing_arithmetic_even_when_unverified(corruption):
 
 
 @pytest.mark.parametrize("plan_filename", ["plan.toml", "built-up.toml"])
-def test_rejects_finished_feature_diameter_as_held_stock_diameter(plan_filename):
-    plan, _, _, policy, report = cone_inputs(plan_filename)
+def test_rejects_unsourced_finished_diameter_in_unbound_profile(plan_filename):
+    plan, features, _, policy, report = cone_inputs(plan_filename)
     setup = next(s for s in plan["setups"] if s["id"] == "S1")
     finding = next(
         f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1"
     )
-    VALIDATOR["check_stickout"](setup, plan, policy, finding)
+    VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
     corrupted = copy.deepcopy(finding)
     corrupted["numbers"]["diameter_mm"] = 42.011 if plan_filename == "plan.toml" else 21.93
-    with pytest.raises(ValueError, match="held diameter"):
-        VALIDATOR["check_stickout"](setup, plan, policy, corrupted)
+    with pytest.raises(ValueError):
+        VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted)
 
 
-def test_stickout_numeric_limit_requires_policy_evidence_and_uses_held_blank():
-    plan, _, _, policy, report = cone_inputs()
+def test_stickout_verified_policy_cannot_certify_an_unbound_finished_profile():
+    plan, features, _, policy, report = cone_inputs()
     setup = next(s for s in plan["setups"] if s["id"] == "S1")
     finding = copy.deepcopy(
         next(f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1")
     )
-    finding["numbers"]["unsupported_limit_mm"] = 330.0
-    with pytest.raises(ValueError, match="unsupported limit"):
-        VALIDATOR["check_stickout"](setup, plan, policy, finding)
     # This is a synthetic unit-test policy, not new fixture/shop evidence.
     policy["numbers"]["stickout_ld_max"] = 3.0
     policy["numbers_cite"]["stickout_ld_max"] = "synthetic test-policy citation"
     policy["numbers_verify"]["stickout_ld_max"] = False
     finding["numbers"]["stickout_ld_max"] = 3.0
+    VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
+
+    for field, value in (("unsupported_limit_mm", 330.0), ("diameter_mm", 42.011)):
+        corrupted = copy.deepcopy(finding)
+        corrupted["numbers"][field] = value
+        with pytest.raises(ValueError):
+            VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted)
     finding["status"] = "pass"
-    VALIDATOR["check_stickout"](setup, plan, policy, finding)
-    finding["numbers"]["unsupported_limit_mm"] = 3 * 42.011
-    with pytest.raises(ValueError, match="unsupported limit"):
-        VALIDATOR["check_stickout"](setup, plan, policy, finding)
+    with pytest.raises(ValueError):
+        VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
 
 
 @pytest.mark.parametrize("corruption", ["waste", "joint_permission"])

@@ -1,7 +1,8 @@
-"""Declared held diameter and selected support; no inferred support or shop limit."""
+"""Declared exposed finished diameter and selected support; no inferred shop limit."""
 
 from ..findings import Finding
 from .resolution import UNKNOWN, number, record, resolve, uncertain
+from .turned_profile import exposed_profile
 
 SUPPORT_KINDS = {
     "tailstock",
@@ -110,7 +111,22 @@ def evaluate(bundle):
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine"))
         kind = record(machine).get("kind", UNKNOWN)
-        diameter = held_diameter(bundle, setup)
+        held = held_diameter(bundle, setup)
+        geometry = exposed_profile(bundle, setup)
+        segments = geometry["segments"]
+        diameter = (
+            min(segment["diameter_mm"] for segment in segments)
+            if geometry["complete"]
+            else UNKNOWN
+        )
+        diameter_features = sorted(
+            {
+                name
+                for segment in segments
+                if number(diameter) and segment["diameter_mm"] == diameter
+                for name in segment["features"]
+            }
+        )
         length = record(setup.get("hold")).get("stickout_mm", UNKNOWN)
         policy = record(bundle.policy.get("numbers"))
         ratio = policy.get("stickout_ld_max", UNKNOWN)
@@ -125,7 +141,13 @@ def evaluate(bundle):
         support, support_evidence = support_state(bundle, setup)
         numbers = {
             "diameter_mm": diameter,
-            "diameter_source": held_diameter_source(setup),
+            "diameter_source": "features declared finished profile in exposed setup Z",
+            "diameter_features": diameter_features,
+            "held_diameter_mm": held,
+            "held_diameter_source": held_diameter_source(setup),
+            "exposed_z_mm": geometry["exposed_z_mm"],
+            "segments": segments,
+            "unresolved": sorted(set(geometry["unresolved"])),
             "stickout_mm": length,
             "stickout_ld_max": ratio,
             "unsupported_limit_mm": limit,
@@ -135,8 +157,15 @@ def evaluate(bundle):
         if kind != "lathe":
             status = "unknown" if kind == UNKNOWN else "not_applicable"
             message = "machine kind is unresolved" if status == "unknown" else "not a lathe setup"
-        elif not number(length) or length < 0 or not number(diameter):
+        elif not number(length) or length < 0 or not number(held):
             status, message = "unknown", "stick-out or held diameter is unresolved"
+        elif length == 0 and (known_limit or support == "pass"):
+            status, message = "pass", "there is no declared unsupported length"
+        elif not number(diameter):
+            status, message = (
+                "unknown",
+                "the finished diameter or geometry in the exposed span is unresolved",
+            )
         elif support == "pass":
             status, message = (
                 "pass",
@@ -171,6 +200,14 @@ def evaluate(bundle):
                     held_diameter_source(setup),
                     "plan.setups.hold.stickout_mm; "
                     "inventory selected support identity/verification",
+                    "features declared finished diameters/z_mm/frame; "
+                    "plan.setups.frame and stock_state.north_end_z/south_end_z "
+                    "define the exposed span; 25.4 mm/in",
+                    *[
+                        f"features.features.{name}: defines exposed minimum diameter"
+                        for name in diameter_features
+                    ],
+                    *geometry["cite"],
                     *citations,
                 ],
                 f"{setup['id']}: {message}.",

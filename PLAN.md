@@ -538,7 +538,7 @@ not exist.
 | headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL, holder gauge length, machine envelope — `verify` → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
-| stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed | plan.setups.hold.stickout_mm, policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
+| stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
 
 ### 4.2 Setup geometry (on the B-rep — needs the kernel)
 

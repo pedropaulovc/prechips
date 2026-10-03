@@ -3137,12 +3137,83 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160"
       ],
-      "message": "S1: the shop stick-out ratio needs a verified cited policy value.",
+      "message": "S1: the finished diameter or geometry in the exposed span is unresolved.",
       "numbers": {
-        "diameter_mm": 10.0,
-        "diameter_source": "plan.setups.stock_state.od_mm",
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": [
+          -168.5,
+          22.5
+        ],
+        "held_diameter_mm": 10.0,
+        "held_diameter_source": "plan.setups.stock_state.od_mm",
+        "segments": [
+          {
+            "base_diameter_mm": "unknown",
+            "diameter_mm": 5.7,
+            "features": [
+              "south_relief"
+            ],
+            "z_mm": [
+              -3.5,
+              -1.5
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 10.0,
+            "features": [
+              "shoulder"
+            ],
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 5.7,
+            "features": [
+              "north_relief"
+            ],
+            "z_mm": [
+              0.0,
+              2.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "north_journal"
+            ],
+            "z_mm": [
+              2.0,
+              6.0
+            ]
+          }
+        ],
         "stickout_ld_max": "unknown",
         "stickout_mm": 191.0,
         "support_status": "unknown",
@@ -3154,6 +3225,9 @@
             "status": "unknown"
           }
         ],
+        "unresolved": [
+          "body"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -3164,16 +3238,94 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:116-122,364",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160"
       ],
-      "message": "S2: the shop stick-out ratio needs a verified cited policy value.",
+      "message": "S2: the finished diameter or geometry in the exposed span is unresolved.",
       "numbers": {
-        "diameter_mm": 6.35,
-        "diameter_source": "plan.setups.stock_state.od_mm",
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": [
+          -12.0,
+          15.0
+        ],
+        "held_diameter_mm": 6.35,
+        "held_diameter_source": "plan.setups.stock_state.od_mm",
+        "segments": [
+          {
+            "base_diameter_mm": "unknown",
+            "diameter_mm": 5.7,
+            "features": [
+              "south_relief"
+            ],
+            "z_mm": [
+              -11.0,
+              -9.0
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 10.0,
+            "features": [
+              "shoulder"
+            ],
+            "z_mm": [
+              -9.0,
+              -7.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 5.7,
+            "features": [
+              "north_relief"
+            ],
+            "z_mm": [
+              -7.5,
+              -5.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "north_journal"
+            ],
+            "z_mm": [
+              -5.5,
+              -1.5
+            ]
+          }
+        ],
         "stickout_ld_max": "unknown",
         "stickout_mm": 27.0,
         "support_status": "not_applicable",
         "supports": [],
+        "unresolved": [
+          "body",
+          "north_dome"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -3184,16 +3336,50 @@
       "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
-        "plan.setups.hold.stickout_mm; inventory selected support identity/verification"
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,433",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:101-110",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160"
       ],
       "message": "S3: stick-out or held diameter is unresolved.",
       "numbers": {
-        "diameter_mm": 6.35,
-        "diameter_source": "plan.setups.stock_state.od_mm",
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": 6.35,
+        "held_diameter_source": "plan.setups.stock_state.od_mm",
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "not_applicable",
         "supports": [],
+        "unresolved": [
+          "body",
+          "north_journal",
+          "north_relief",
+          "shoulder",
+          "south_dome",
+          "south_relief"
+        ],
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -5057,7 +5243,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "2765fce60369b96160d03874c87a658c6a4a0bbc2d622fb394ce139af8741757",
+  "hash": "bdbbcce0bf139c42e4dc8de2685a0eb2384f42a4d9d0f9362ea85e737bfeddcd",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

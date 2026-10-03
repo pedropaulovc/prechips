@@ -2,7 +2,7 @@
 
 from ..findings import Finding
 from .coordinates import frame_point, model_point
-from .resolution import UNKNOWN, number, record, resolve
+from .resolution import UNKNOWN, number, record, resolve, same_length
 
 PROFILE_OPS = {
     "turn",
@@ -42,13 +42,12 @@ def _frame_mm(frame, scale):
     return result
 
 
-def _interval(bundle, feature, setup_frame, frames, scale):
-    diameter = nominal_diameter(bundle, feature)
+def _axial_span(feature, setup_frame, frames, scale):
     stations = feature.get("z_mm")
-    source = _frame_mm(frames.get(feature.get("frame", "model")), scale)
+    source = _frame_mm(frames.get(feature.get("frame", "model")), scale or 1.0)
     source_z, setup_z = source.get("z"), setup_frame.get("z")
     if not (
-        number(diameter)
+        scale is not None
         and isinstance(stations, list)
         and len(stations) == 2
         and all(number(value) for value in stations)
@@ -71,7 +70,7 @@ def _interval(bundle, feature, setup_frame, frames, scale):
     if not all(number(value) for value in transformed) or transformed[0] == transformed[1]:
         return None
     low, high = sorted(transformed)
-    return low, high, diameter
+    return low, high
 
 
 def _grooving(setup, name, bundle):
@@ -106,12 +105,123 @@ def _citations(value):
     return []
 
 
-def evaluate(bundle):
-    findings = []
+def exposed_profile(bundle, setup):
+    """Reuse the declared setup-Z geometry for profile and unsupported-diameter checks."""
     features = bundle.features["features"]
     frames = record(bundle.features.get("frames"))
     units = bundle.features.get("units", UNKNOWN)
-    scale = 25.4 if units == "in" else 1.0
+    scale = 25.4 if units == "in" else 1.0 if units == "mm" else None
+    frame = _frame_mm(frames.get(setup.get("frame")), scale or 1.0)
+    claimed = {
+        op.get("feature", UNKNOWN) for op in setup["ops"] if op["do"] in PROFILE_OPS
+    }
+    names = {
+        name for name, feature in features.items() if feature.get("kind") in AXIAL_KINDS
+    } | claimed
+    state, hold = record(setup.get("stock_state")), record(setup.get("hold"))
+    north, south, length = (
+        state.get("north_end_z"),
+        state.get("south_end_z"),
+        hold.get("stickout_mm"),
+    )
+    exposure = UNKNOWN
+    if all(number(value) for value in (north, south, length)) and length > 0:
+        exposed_end = max(north, south)
+        exposure = [exposed_end - length, exposed_end]
+    intervals, segments, unresolved = [], [], []
+    exposed_names = set()
+    for name in sorted(names):
+        feature = record(features.get(name))
+        span = _axial_span(feature, frame, frames, scale)
+        if span is None:
+            unresolved.append(name)
+            exposed_names.add(name)
+            continue
+        low, high = span
+        if isinstance(exposure, list):
+            low, high = max(low, exposure[0]), min(high, exposure[1])
+            if low >= high:
+                continue
+        exposed_names.add(name)
+        diameter = nominal_diameter(bundle, feature)
+        if feature.get("kind") not in AXIAL_KINDS or not number(diameter):
+            unresolved.append(name)
+            continue
+        intervals.append(
+            {
+                "feature": name,
+                "kind": feature["kind"],
+                "z_mm": [low, high],
+                "diameter_mm": diameter,
+            }
+        )
+    boundaries = sorted({z for interval in intervals for z in interval["z_mm"]})
+    previous = None
+    for low, high in zip(boundaries, boundaries[1:], strict=False):
+        active = [
+            item for item in intervals if item["z_mm"][0] <= low and high <= item["z_mm"][1]
+        ]
+        cylinders = [item for item in active if item["kind"] != "groove"]
+        grooves = [item for item in active if item["kind"] == "groove"]
+        candidates = grooves or cylinders
+        ambiguous = not candidates or len({item["diameter_mm"] for item in candidates}) != 1
+        if grooves and cylinders:
+            ambiguous |= (
+                len({item["diameter_mm"] for item in cylinders}) != 1
+                or grooves[0]["diameter_mm"] > cylinders[0]["diameter_mm"]
+            )
+        if ambiguous:
+            segments.append(
+                {
+                    "z_mm": [low, high],
+                    "diameter_mm": UNKNOWN,
+                    "features": sorted(item["feature"] for item in active),
+                }
+            )
+            unresolved.append(f"interval {low:g}..{high:g}")
+            previous = None
+            continue
+        base_diameter = (
+            cylinders[0]["diameter_mm"]
+            if cylinders
+            else previous["base_diameter_mm"]
+            if previous is not None
+            else UNKNOWN
+        )
+        previous = {
+            "z_mm": [low, high],
+            "diameter_mm": candidates[0]["diameter_mm"],
+            "base_diameter_mm": base_diameter,
+            "features": sorted(item["feature"] for item in candidates),
+        }
+        segments.append(previous)
+    complete = (
+        isinstance(exposure, list)
+        and bool(segments)
+        and not unresolved
+        and same_length(segments[0]["z_mm"][0], exposure[0])
+        and same_length(segments[-1]["z_mm"][1], exposure[1])
+    )
+    return {
+        "names": exposed_names,
+        "exposed_z_mm": exposure,
+        "intervals": intervals,
+        "segments": segments,
+        "unresolved": unresolved,
+        "complete": complete,
+        "cite": sorted(
+            {
+                text
+                for name in exposed_names
+                for text in _citations(record(features.get(name)).get("cite"))
+            }
+        ),
+    }
+
+
+def evaluate(bundle):
+    findings = []
+    features = bundle.features["features"]
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine"))
         kind = record(machine).get("kind", UNKNOWN)
@@ -129,83 +239,21 @@ def evaluate(bundle):
             if unknown_action:
                 status, message = "unknown", "turning action is unresolved"
         else:
-            claimed = {op.get("feature", UNKNOWN) for op in profile_ops}
-            names = {
-                name for name, feature in features.items() if feature.get("kind") in AXIAL_KINDS
-            } | claimed
-            frame = _frame_mm(frames.get(setup.get("frame")), scale)
-            state, hold = record(setup.get("stock_state")), record(setup.get("hold"))
-            north, south, length = (
-                state.get("north_end_z"),
-                state.get("south_end_z"),
-                hold.get("stickout_mm"),
+            geometry = exposed_profile(bundle, setup)
+            names = geometry["names"]
+            exposure = geometry["exposed_z_mm"]
+            intervals, segments, unresolved = (
+                geometry["intervals"],
+                geometry["segments"],
+                geometry["unresolved"],
             )
-            if all(number(value) for value in (north, south, length)) and length > 0:
-                exposed_end = max(north, south)
-                exposure = [exposed_end - length, exposed_end]
-            for name in sorted(names):
-                feature = record(features.get(name))
-                geometry = (
-                    _interval(bundle, feature, frame, frames, scale)
-                    if feature.get("kind") in AXIAL_KINDS
-                    else None
-                )
-                if geometry is None:
-                    unresolved.append(name)
-                    continue
-                low, high, diameter = geometry
-                if isinstance(exposure, list):
-                    low, high = max(low, exposure[0]), min(high, exposure[1])
-                    if low >= high:
-                        continue
-                intervals.append(
-                    {
-                        "feature": name,
-                        "kind": feature["kind"],
-                        "z_mm": [low, high],
-                        "diameter_mm": diameter,
-                    }
-                )
-            boundaries = sorted({z for interval in intervals for z in interval["z_mm"]})
             previous = None
-            for low, high in zip(boundaries, boundaries[1:], strict=False):
-                active = [
-                    item for item in intervals if item["z_mm"][0] <= low and high <= item["z_mm"][1]
-                ]
-                cylinders = [item for item in active if item["kind"] != "groove"]
-                grooves = [item for item in active if item["kind"] == "groove"]
-                candidates = grooves or cylinders
-                ambiguous = not candidates or len({item["diameter_mm"] for item in candidates}) != 1
-                if grooves and cylinders:
-                    ambiguous |= (
-                        len({item["diameter_mm"] for item in cylinders}) != 1
-                        or grooves[0]["diameter_mm"] > cylinders[0]["diameter_mm"]
-                    )
-                if ambiguous:
-                    segments.append(
-                        {
-                            "z_mm": [low, high],
-                            "diameter_mm": UNKNOWN,
-                            "features": sorted(item["feature"] for item in active),
-                        }
-                    )
-                    unresolved.append(f"interval {low:g}..{high:g}")
+            for current in segments:
+                if not number(current["diameter_mm"]):
                     previous = None
                     continue
-                base_diameter = (
-                    cylinders[0]["diameter_mm"]
-                    if cylinders
-                    else previous["base_diameter_mm"]
-                    if previous is not None
-                    else UNKNOWN
-                )
-                current = {
-                    "z_mm": [low, high],
-                    "diameter_mm": candidates[0]["diameter_mm"],
-                    "base_diameter_mm": base_diameter,
-                    "features": sorted(item["feature"] for item in candidates),
-                }
-                segments.append(current)
+                low = current["z_mm"][0]
+                base_diameter = current["base_diameter_mm"]
                 base_increase = (
                     previous is not None
                     and number(previous["base_diameter_mm"])

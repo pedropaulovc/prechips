@@ -92,6 +92,15 @@ def setup(data):
     return data.plan["setups"][0]
 
 
+def long_stickout_bundle():
+    data = bundle()
+    setup(data)["stock_state"]["north_end_z"] = 200.0
+    setup(data)["hold"]["stickout_mm"] = 200.0
+    data.features["features"]["near"]["z_mm"] = [0.0, 100.0]
+    data.features["features"]["far"]["z_mm"] = [100.0, 200.0]
+    return data
+
+
 def groove_bundle():
     data = bundle()
     data.features["features"] = {
@@ -318,21 +327,173 @@ def test_nominal_diameter_uses_explicit_units_and_never_a_band_midpoint(units, n
     )
 
 
+def test_stickout_finished_exposed_diameter_refuses_slender_section_in_large_bar():
+    data = bundle()
+    setup(data)["stock_state"].update(od_mm=20.0, north_end_z=40.0)
+    setup(data)["hold"]["stickout_mm"] = 40.0
+    data.policy["numbers"]["stickout_ld_max"] = 4.0
+    data.features["features"]["near"].update(dia_nominal=6.0, z_mm=[0.0, 20.0])
+    data.features["features"]["far"].update(dia_nominal=6.0, z_mm=[20.0, 40.0])
+    finding = stickout.evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["diameter_mm"] == 6.0
+    assert finding.numbers["unsupported_limit_mm"] == 24.0
+    assert finding.numbers["diameter_features"] == ["far", "near"]
+    assert finding.numbers["exposed_z_mm"] == [0.0, 40.0]
+    assert "test authored near diameter/stations" in finding.cite
+    assert "test authored far diameter/stations" in finding.cite
+    assert exit_code([finding], data.policy, data) == 2
+
+
+@pytest.mark.parametrize("diameter", [1.0, "unknown", [0.9, 1.1]])
+def test_stickout_hidden_diameter_does_not_control_exposed_limit(diameter):
+    data = bundle()
+    data.features["features"]["hidden"] = {
+        "kind": "cylinder",
+        "frame": "model",
+        "dia_nominal": diameter,
+        "z_mm": [-20.0, -10.0],
+        "cite": "test authored hidden diameter/stations",
+    }
+    finding = stickout.evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["diameter_mm"] == 8.0
+    assert finding.numbers["unsupported_limit_mm"] == 24.0
+    assert finding.numbers["diameter_features"] == ["far"]
+    assert "test authored hidden diameter/stations" not in finding.cite
+
+
 @pytest.mark.parametrize(
-    "length,expected", [(36.0, "pass"), (36.1, "error"), ("unknown", "unknown"), (-1.0, "unknown")]
+    "change",
+    [
+        "nominal",
+        "band",
+        "station",
+        "frame",
+        "binding",
+        "axis",
+        "gap",
+        "near_end_gap",
+        "far_end_gap",
+        "empty_profile",
+        "missing_span",
+        "units",
+        "overlap",
+        "unsupported_form",
+    ],
+)
+def test_stickout_unresolved_exposed_geometry_never_uses_held_bar_to_pass(change):
+    data = bundle()
+    feature = data.features["features"]["far"]
+    if change == "nominal":
+        feature["dia_nominal"] = "unknown"
+    elif change == "band":
+        feature.pop("dia_nominal")
+        feature["dia"] = [7.9, 8.1]
+    elif change == "station":
+        feature["z_mm"][1] = "unknown"
+    elif change == "frame":
+        data.features["frames"]["T"]["origin"] = "unknown"
+    elif change == "binding":
+        data.features["frames"]["T"]["binding"] = "unknown"
+    elif change == "axis":
+        feature["axis"] = [1.0, 0.0, 0.0]
+    elif change == "gap":
+        feature["z_mm"][0] = 11.0
+    elif change == "near_end_gap":
+        data.features["features"]["near"]["z_mm"][0] = 1.0
+    elif change == "far_end_gap":
+        feature["z_mm"][1] = 19.0
+    elif change == "empty_profile":
+        data.features["features"] = {}
+        setup(data)["ops"] = []
+    elif change == "missing_span":
+        setup(data)["stock_state"].pop("north_end_z")
+    elif change == "units":
+        data.features["units"] = "unknown"
+    elif change == "overlap":
+        data.features["features"]["near"]["z_mm"][1] = 11.0
+    else:
+        feature["kind"] = "spherical_dome"
+        setup(data)["ops"][1]["do"] = "form_dome"
+    finding = stickout.evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["diameter_mm"] == "unknown"
+    assert finding.numbers["unsupported_limit_mm"] == "unknown"
+    assert exit_code([finding], data.policy, data) == 4
+
+
+def test_stickout_groove_is_finished_minimum_not_parent_envelope():
+    data = groove_bundle()
+    data.features["features"]["recess"]["dia_nominal"] = 6.0
+    setup(data)["ops"].append({"op": 20, "do": "groove", "feature": "recess"})
+    finding = stickout.evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["diameter_mm"] == 6.0
+    assert finding.numbers["unsupported_limit_mm"] == 18.0
+    assert finding.numbers["diameter_features"] == ["recess"]
+    assert "test groove" in finding.cite
+
+
+def test_stickout_transformed_inch_span_excludes_hidden_smaller_diameter():
+    data = bundle()
+    data.features["units"] = "in"
+    data.features["frames"]["model"]["origin"] = [0.0, 0.0, 2.0]
+    data.features["frames"]["T"].update(
+        origin=[0.0, 0.0, 3.0], y=[0.0, -1.0, 0.0], z=[0.0, 0.0, -1.0]
+    )
+    data.features["features"]["near"].update(dia_nominal=0.5, z_mm=[0.0, 0.5])
+    data.features["features"]["far"].update(dia_nominal=0.25, z_mm=[0.5, 1.0])
+    data.features["features"]["hidden"] = {
+        "kind": "cylinder",
+        "frame": "model",
+        "dia_nominal": 0.125,
+        "z_mm": [1.0, 1.5],
+    }
+    setup(data)["stock_state"].update(od_mm=20.0, north_end_z=25.4, south_end_z=-10.0)
+    setup(data)["hold"]["stickout_mm"] = 25.4
+    data.policy["numbers"]["stickout_ld_max"] = 4.0
+    finding = stickout.evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["diameter_mm"] == pytest.approx(6.35)
+    assert finding.numbers["unsupported_limit_mm"] == pytest.approx(25.4)
+    assert finding.numbers["exposed_z_mm"] == pytest.approx([0.0, 25.4])
+    assert finding.numbers["diameter_features"] == ["far"]
+    setup(data)["hold"]["stickout_mm"] = 25.5
+    setup(data)["stock_state"]["north_end_z"] = 25.5
+    data.features["features"]["near"]["z_mm"][0] = -0.1
+    assert stickout.evaluate(data)[0].status == "error"
+
+
+@pytest.mark.parametrize(
+    "length,expected", [(24.0, "pass"), (24.1, "error"), ("unknown", "unknown"), (-1.0, "unknown")]
 )
 def test_stickout_inclusive_policy_boundary_and_unknown_length(length, expected):
     data = bundle()
+    data.features["features"]["far"]["z_mm"][1] = 50.0
+    setup(data)["stock_state"]["north_end_z"] = 50.0
     setup(data)["hold"]["stickout_mm"] = length
     finding = stickout.evaluate(data)[0]
     assert finding.status == expected
-    assert finding.numbers["unsupported_limit_mm"] == 36.0
+    assert finding.numbers["unsupported_limit_mm"] == (
+        24.0 if isinstance(length, float) and length >= 0 else "unknown"
+    )
     assert "test shop measured L/D policy" in finding.cite
+
+
+def test_zero_stickout_preserves_policy_debt_and_verified_support_exception():
+    data = bundle()
+    setup(data)["hold"]["stickout_mm"] = 0.0
+    assert stickout.evaluate(data)[0].status == "pass"
+    data.policy["numbers_verify"] = {"stickout_ld_max": True}
+    assert stickout.evaluate(data)[0].status == "unknown"
+    setup(data)["hold"]["support"] = "tailstock"
+    assert stickout.evaluate(data)[0].status == "pass"
 
 
 @pytest.mark.parametrize("support", ["tailstock", "steady"])
 def test_selected_verified_fixture_support_excuses_long_stickout(support):
-    data = bundle()
+    data = long_stickout_bundle()
     setup(data)["hold"].update(stickout_mm=200.0, support=support)
     assert stickout.evaluate(data)[0].status == "pass"
     data.inventory["fixtures"][support]["verify"] = True
@@ -340,7 +501,7 @@ def test_selected_verified_fixture_support_excuses_long_stickout(support):
 
 
 def test_machine_accessory_support_must_belong_to_selected_machine_and_be_verified():
-    data = bundle()
+    data = long_stickout_bundle()
     setup(data)["hold"].update(stickout_mm=200.0, support="dead_centre_tailstock_mt3")
     data.inventory["machines"]["other"] = {
         "kind": "lathe",
@@ -360,7 +521,7 @@ def test_machine_accessory_support_must_belong_to_selected_machine_and_be_verifi
 def test_duplicate_accessory_names_use_selected_machine_verification(
     selected_verify, other_verify, expected
 ):
-    data = bundle()
+    data = long_stickout_bundle()
     setup(data)["hold"].update(stickout_mm=200.0, support="dead_centre_tailstock_mt3")
     data.inventory["machines"] = {
         "other": {
@@ -378,7 +539,7 @@ def test_duplicate_accessory_names_use_selected_machine_verification(
 
 
 def test_explicit_absent_fixture_is_not_resurrected_by_machine_accessory_listing():
-    data = bundle()
+    data = long_stickout_bundle()
     setup(data)["hold"].update(stickout_mm=200.0, support="tailstock")
     data.inventory["fixtures"]["tailstock"]["present"] = False
     data.inventory["machines"]["lathe"]["standard_accessories"] = ["tailstock"]
@@ -386,7 +547,7 @@ def test_explicit_absent_fixture_is_not_resurrected_by_machine_accessory_listing
 
 
 def test_inventory_presence_without_selected_support_does_not_excuse_stickout():
-    data = bundle()
+    data = long_stickout_bundle()
     setup(data)["hold"]["stickout_mm"] = 200.0
     assert stickout.evaluate(data)[0].status == "error"
     setup(data)["hold"].pop("support")
@@ -394,13 +555,13 @@ def test_inventory_presence_without_selected_support_does_not_excuse_stickout():
 
 
 def test_support_reference_list_can_select_verified_steady_rest():
-    data = bundle()
+    data = long_stickout_bundle()
     setup(data)["hold"].update(stickout_mm=200.0, supports=[{"ref": "steady", "note": "installed"}])
     assert stickout.evaluate(data)[0].status == "pass"
 
 
 def test_headstock_centre_or_non_support_fixture_does_not_supply_exception():
-    data = bundle()
+    data = long_stickout_bundle()
     data.inventory["fixtures"]["headstock-centre"] = {"kind": "dead_centre", "verify": False}
     setup(data)["hold"].update(stickout_mm=200.0, support="headstock-centre")
     assert stickout.evaluate(data)[0].status == "error"
@@ -424,15 +585,19 @@ def test_unresolved_policy_ratio_does_not_invent_a_limit(change):
     assert finding.numbers["unsupported_limit_mm"] == "unknown"
 
 
-def test_current_held_od_precedes_blank_diameter_and_explicit_unknown_does_not_fall_back():
+def test_held_od_controls_grip_but_finished_diameter_controls_stickout():
     data = bundle()
     data.plan["stock"]["dia_mm"] = 30.0
     setup(data)["stock_state"]["od_mm"] = 6.0
+    data.features["features"]["far"]["dia_nominal"] = 6.0
     setup(data)["hold"]["stickout_mm"] = 20.0
     assert stickout.evaluate(data)[0].status == "error"
     assert stock_diameter.evaluate(data)[0].status == "pass"
     setup(data)["stock_state"].pop("od_mm")
-    assert stickout.evaluate(data)[0].status == "pass"
+    finding = stickout.evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["diameter_mm"] == 6.0
+    assert finding.numbers["held_diameter_mm"] == 30.0
     assert stock_diameter.evaluate(data)[0].status == "error"
     setup(data)["stock_state"]["od_mm"] = "unknown"
     assert stickout.evaluate(data)[0].status == "unknown"
@@ -605,6 +770,7 @@ def test_required_unknown_and_error_exit_precedence():
     data.policy["required"].pop("stock_diameter")
     assert exit_code(findings, data.policy, data) == 0
     setup(data)["hold"]["stickout_mm"] = 200.0
+    data.features["features"]["near"]["z_mm"][0] = -180.0
     findings = (
         turned_profile.evaluate(data) + stickout.evaluate(data) + stock_diameter.evaluate(data)
     )

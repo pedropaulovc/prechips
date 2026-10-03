@@ -38,9 +38,11 @@ does not hide an environment-supplied shop policy.
 `numbers` is a map of finite numeric values or `"unknown"`; `numbers_cite` is
 the matching citation map; `numbers_verify` maps names to booleans or unknown.
 The datum rule consumes `refixture_budget_mm`; M2 stick-out consumes
-`stickout_ld_max`. A true or unknown verification flag prevents either from
-certifying a measured threshold. The shipped numbers remain `"unknown"` rather
-than copying unsourced shop folklore. Required M2 physics warnings promote
+`stickout_ld_max`, multiplied by the smallest finished diameter in the unsupported
+length (feature diameters along setup Z), not held bar OD. See PLAN §4.1 and
+[lathe rules](rules-lathe.md). A true or unknown verification flag prevents
+either from certifying a measured threshold. The shipped numbers remain `"unknown"`
+rather than copying unsourced shop folklore. Required M2 physics warnings promote
 readiness to exit 4 using the existing gate; proxy warnings never invent a
 hard physical limit. Other number names do not imply deferred M4 rules shipped.
 

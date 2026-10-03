@@ -48,6 +48,10 @@ the digest alone is not accepted. Shipped examples have no STEP byte stream.
 are not file assets fetched or opened during the check. Hand-authored manifests
 must be cross-checked against source drawings; completeness export is M3.
 
+The stick-out rule takes its D from the smallest finished profile diameter along
+setup Z in the unsupported span, using these authored axial stations and frames.
+Unknown exposed stations, diameters or bindings cannot fall back to bar OD.
+
 M2 adds declared lathe profiles (`z_mm` plus a nominal diameter) and angular
 settings (`angle_deg`, `angle_tol_deg`). These are sourced nominal geometry,
 not kernel-derived access proofs. A feature's `angle_tol_deg` is an angular

@@ -67,18 +67,35 @@ This is not a cutter-envelope or complete feature-coverage proof.
 
 For a lathe setup without a selected verified tailstock/steady exception:
 
-`hold.stickout_mm <= policy.numbers.stickout_ld_max * held_diameter_mm`.
+`hold.stickout_mm <= policy.numbers.stickout_ld_max * D`.
 
 Equality passes. The ratio is read only from the policy, accompanied by
 `numbers_cite.stickout_ld_max`; a missing, unknown, nonpositive, uncited or
-unverified ratio leaves the limit `unknown`. The source is PLAN §4.1 stick-out
-(line 541), not an unstated Handbook rule.
+unverified ratio leaves the limit `unknown`. The source is
+[PLAN §4.1 stick-out](../PLAN.md#41-plan-lint-declared-inputs-only) (line 541),
+whose example is “Ø6 × 40 past the chuck: add the tailstock centre.” This is
+not an unstated Handbook rule.
 
-Held diameter is `setup.stock_state.od_mm` when authored, otherwise
-`plan.stock.dia_mm`. Explicit unknown/nonpositive held OD, an explicitly unknown
-stock state, or unverified fallback stock form remains `unknown`; none is
-replaced with the original blank diameter. This makes a rechuck onto a finished
-journal use that journal's OD instead of the starting bar.
+**D is the smallest finished diameter in the unsupported exposed length, not
+the bar diameter held in the jaws.** It is the minimum of the declared finished
+profile segments along setup Z, using `turned_profile`'s frame transforms,
+explicit `mm`/`in` units and groove overlays. The exposed span uses the authored
+stock end stations and stick-out described above. A smaller diameter wholly
+outside that span cannot control D; even an unknown diameter can be excluded
+when its transformed stations prove it hidden. Unknown diameter in an exposed
+segment, unknown location/transform, inconsistent overlapping geometry, or a
+gap anywhere in the exposed span leaves D and the unsupported limit `unknown`.
+There is no held-bar fallback for missing finished geometry. With an authored,
+verified ratio of 4, Ø20 held with Ø6 finished over a 40 mm overhang therefore
+has a 24 mm limit and is an `error` without the support exception.
+
+Held OD remains a separate declared-input check: `setup.stock_state.od_mm` when
+authored, otherwise `plan.stock.dia_mm`. Explicit unknown/nonpositive held OD,
+an explicitly unknown stock state, or unverified fallback stock form remains
+`unknown`; none is replaced with the original blank diameter. A verified
+support does not resolve missing exposed geometry or this held-stock debt.
+An explicit zero stick-out has no unsupported length to screen, but still needs
+a verified cited ratio or the selected verified support exception.
 
 The support exception requires an explicitly selected `hold.support` or
 `hold.supports` reference. `supports` can contain strings or existing
@@ -99,13 +116,18 @@ support can establish the exception without inventing a missing policy ratio.
 This does not calculate supported bending, certify installation or relax any
 other rule.
 
-Evidence records held diameter and its input source, declared stick-out, cited
-ratio, unsupported length limit and each selected support's resolution status.
+Evidence records D, the feature(s) defining its minimum, transformed exposed
+segments/span and unresolved geometry, as well as held OD and its input source,
+declared stick-out, cited ratio, unsupported length limit and each selected
+support's resolution status. Citations retain authored feature sources and
+identify the feature dimensions/frames and authored setup stock end stations
+and stick-out used to locate the exposed geometry.
 
 ## `stock_diameter`
 
 Checks `hold.fixture` when it selects a collet/collet set, `collet_chuck`, or
-chuck. The held OD and fallback/unknown semantics are identical to `stickout`.
+chuck. It uses the held OD and fallback/unknown semantics described above, not
+the finished exposed diameter D used by `stickout`.
 
 Only actual declared gripping capacities are used:
 

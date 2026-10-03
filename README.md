@@ -173,6 +173,8 @@ Indexing checks every landing; only a full pattern (`positions >= 2` and omitted
 declare open patterns, even when their steps total a whole revolution.
 The engagement screen is for endmill-family cutting operations with an authored
 DOC; drills, reamers, taps, lathe tools and noncutting operations are not applicable.
+Stick-out uses the smallest finished diameter along setup Z in the unsupported
+length, not held bar OD; unknown exposed geometry remains unresolved.
 
 ## Limits
 

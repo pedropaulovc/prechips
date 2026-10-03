@@ -197,6 +197,11 @@ setups. Unknown controller/install facts remain unresolved independently.
 | `local_thickness_cite` | `dict[str, Citations]` |
 | `entry_z` | `dict[str, Number]` |
 
+For lathe stick-out, `north_end_z` / `south_end_z` and `hold.stickout_mm` bound
+the unsupported span. Its D is the smallest finished feature diameter in that
+span after transformation into setup Z; `od_mm` remains the held-stock diameter
+for collet/chuck capacity, not the unsupported-section diameter.
+
 ## Hold
 
 | Field | Type (also accepts `"unknown"`) |

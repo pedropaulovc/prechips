@@ -897,16 +897,97 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
         require(finding["status"] == "unknown", "unverified angular setting must remain tentative")
 
 
-def check_stickout(setup: dict, plan: dict, policy: dict, finding: dict) -> None:
+def finished_exposed_diameter(setup: dict, features: dict):
+    """Independent midpoint oracle for the fixtures' declared finished profile."""
+    units = features.get("units")
+    scale = 1 if units == "mm" else 25.4 if units == "in" else None
+    state = setup.get("stock_state", {})
+    length = setup.get("hold", {}).get("stickout_mm")
+    ends = [state.get("north_end_z"), state.get("south_end_z")]
+    if scale is None or not numeric(length) or length <= 0 or not all(map(numeric, ends)):
+        return "unknown"
+    upper = max(ends)
+    lower = upper - length
+    frames = features.get("frames", {})
+    target = frames.get(setup.get("frame"), {})
+    if target.get("binding") == "unknown" or not isinstance(target.get("z"), list):
+        return "unknown"
+    target = dict(target, origin=[v * scale for v in target["origin"]])
+    claimed = {
+        op.get("feature")
+        for op in setup["ops"]
+        if op["do"] in {
+            "turn",
+            "rough_turn",
+            "finish_turn",
+            "profile_turn",
+            "profile",
+            "form",
+            "form_dome",
+            "form_relief",
+            "groove",
+            "rough_groove",
+            "finish_groove",
+        }
+    }
+    intervals = []
+    for name, feature in features["features"].items():
+        kind = feature.get("kind")
+        if kind not in {"cylinder", "boss", "groove"} and name not in claimed:
+            continue
+        stations = feature.get("z_mm")
+        source = frames.get(feature.get("frame", "model"), {})
+        axis = source.get("z")
+        if (
+            not isinstance(stations, list)
+            or len(stations) != 2
+            or not all(map(numeric, stations))
+            or source.get("binding") == "unknown"
+            or axis not in (target["z"], [-v for v in target["z"]])
+            or feature.get("axis", [0, 0, 1]) not in ([0, 0, 1], [0, 0, -1])
+        ):
+            return "unknown"
+        source = dict(source, origin=[v * scale for v in source["origin"]])
+        span = sorted(
+            frame_point(model_point([0, 0, station * scale], source), target)[2]
+            for station in stations
+        )
+        if span[0] == span[1]:
+            return "unknown"
+        start, stop = max(lower, span[0]), min(upper, span[1])
+        if start >= stop:
+            continue
+        value = next(
+            (feature[key] for key in ("dia_nominal", "nominal_dia", "dia") if key in feature),
+            "unknown",
+        )
+        if kind not in {"cylinder", "boss", "groove"} or not numeric(value) or value <= 0:
+            return "unknown"
+        intervals.append((start, stop, kind, value * scale))
+    boundaries = sorted({lower, upper} | {z for a, b, _, _ in intervals for z in (a, b)})
+    diameters = []
+    for start, stop in zip(boundaries, boundaries[1:], strict=False):
+        middle = (start + stop) / 2
+        active = [(kind, diameter) for a, b, kind, diameter in intervals if a < middle < b]
+        base = {d for kind, d in active if kind != "groove"}
+        grooves = {d for kind, d in active if kind == "groove"}
+        chosen = grooves or base
+        if len(chosen) != 1 or len(base) > 1 or (grooves and base and min(grooves) > min(base)):
+            return "unknown"
+        diameters.append(min(chosen))
+    return min(diameters) if diameters else "unknown"
+
+
+def check_stickout(setup: dict, plan: dict, features: dict, policy: dict, finding: dict) -> None:
     row = finding["numbers"]
-    diameter = setup["stock_state"].get("od_mm", plan["stock"].get("dia_mm", "unknown"))
-    if not numeric(diameter) or diameter <= 0:
-        diameter = "unknown"
+    held = setup["stock_state"].get("od_mm", plan["stock"].get("dia_mm", "unknown"))
+    if not numeric(held) or held <= 0:
+        held = "unknown"
+    diameter = finished_exposed_diameter(setup, features)
     length = setup["hold"].get("stickout_mm", "unknown")
-    near(row["diameter_mm"], diameter, "stick-out held diameter")
+    near(row["held_diameter_mm"], held, "stick-out held diameter evidence")
+    near(row["diameter_mm"], diameter, "stick-out finished exposed diameter")
     near(row["stickout_mm"], length, "stick-out declared length")
-    if numeric(diameter) and numeric(length):
-        near(row["stickout_mm"] / row["diameter_mm"], length / diameter, "stick-out L/D")
     limit_ratio = policy["numbers"]["stickout_ld_max"]
     near(row["stickout_ld_max"], limit_ratio, "stick-out shop ratio")
     citation = policy["numbers_cite"]["stickout_ld_max"]
@@ -924,7 +1005,10 @@ def check_stickout(setup: dict, plan: dict, policy: dict, finding: dict) -> None
         and limit == "unknown"
         and row["support_status"] != "pass"
     ):
-        require(finding["status"] == "unknown", "uncited shop ratio cannot approve stick-out")
+        require(
+            finding["status"] == "unknown",
+            "unresolved exposed profile or shop ratio cannot approve stick-out",
+        )
 
 
 def check_cone_facts(plan: dict, features: dict) -> None:
@@ -1097,7 +1181,7 @@ def validate_fixture(
         check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
         check_coordinates(setup, features, findings["coordinates", setup["id"]])
         check_indexing(setup, features, entries, findings["indexing", setup["id"]])
-        check_stickout(setup, plan, policy, findings["stickout", setup["id"]])
+        check_stickout(setup, plan, features, policy, findings["stickout", setup["id"]])
         for op in setup["ops"]:
             check_speeds(
                 setup,
