@@ -3,15 +3,19 @@
 ## Canonical report
 
 `report.json` contains `expected_exit`, `findings`, `inputs`,
-`prechips_version`, `rules_version`, `step_sha256`, `verification`, and `hash`.
+`prechips_version`, `rules_version`, `step_sha256`, `verification`, `hash`,
+and, only when the kernel returned a setup render, `renders`.
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
-The current catalogue is `rules_version = "m5-rev7"` (the M5 review cutover:
-bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
+The current catalogue is `rules_version = "m5-rev8"`: the M5 review cutover
+(bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
 spindle-nose Z travel, unpadded hole centres, one `envelope` machine block,
-fact-local trust, no `holder_stack` rule); changing the operative rule
-catalogue changes the bound report and invalidates prior approvals.
+fact-local trust, no `holder_stack` rule) combined with the seven M4 kernel
+geometry rules and their hash-bound setup renders; changing the operative rule
+catalogue changes the bound report and invalidates prior approvals. Every
+report produced from the M2 (`m2-rev6`), M4-only (`m4-rev6`) or M5-only
+(`m5-rev7`) catalogue therefore has a stale hash.
 A finding's `numbers.measurements` lists the exact fact ids (set member or
 tool/holder pair included) whose measurement would resolve it; `tools --measure`
 is the sorted, deduplicated union of those lists over the current plans.
@@ -43,6 +47,40 @@ and `The part model and every operative input are bound to the report.`
 Citation: PLAN §5 input-bundle binding. This is digest bookkeeping, not kernel
 verification or proof that an author-supplied digest came from a certified CAD
 export. It blocks eligibility only if policy requires it.
+
+## Kernel renders
+
+When `prechips traveler` runs and the FreeCAD job returns `render_png_base64`
+for a setup, the decoded bytes are written as `setup-S<n>.png` beside
+`traveler.html` (`n` is the setup's 1-based authored position, not its id),
+`report.json` gains `renders.<setup id> = {path, sha256, fixture, scene}` and
+the same `{path, sha256}` record is added to `inputs` under `render:<setup id>`.
+The render is therefore part of the hashed bundle: a different PNG changes
+the report hash and stales any approval, exactly like an edited TOML.
+`fixture` is `"modeled"` when the kernel reports `fixture_rendered = true`
+for that setup (exact jaws, exact parallels, no debts) and `"unresolved"`
+otherwise; `scene` is the kernel's `render_scene` object verbatim —
+`jaws` (`absent` / `exact` / `lateral_undeclared`), `parallels` (`absent` /
+`exact` / `not_modelled`) and `debts` (a list of sentences naming what the
+picture does not establish), empty `{}` when the kernel returned none.
+Bytes that are not a PNG signature are
+a prechips failure (exit 1), not bad input. `check` records the same
+`renders` / `render:<setup id>` entries (its report hash matches the
+traveler's) but writes only `report.json`; the PNG file appears only with
+`traveler`. The PNG filenames are preflighted with
+the other outputs: an input at `setup-S1.png` is a collision (exit 3).
+Both verbs remove prior setup images not returned by the current run, including
+images from a longer route or an unavailable kernel. `check` also removes a
+same-named PNG unless its bytes match the current render, and removes any
+prior `traveler.html` so no old sheet accompanies the new report. It does not
+create PNGs or a sheet. Replacement and removal share the report transaction;
+a refusal restores every prior output, even if a stale target has already
+disappeared. No stale fixture image survives a successful run.
+The render is a deterministic software rasterization of the kernel's
+tessellation, so a cache hit and a fresh FreeCAD run give identical bytes; it
+is a view of setup-entry stock plus only fixture solids built from explicit
+inventory dimensions and declared pose, never a toolpath or CAM simulation.
+Unknown incoming stock produces no figure. See [geometry rules](rules-geometry.md#renders).
 
 
 ## Eligibility and approval
@@ -115,10 +153,11 @@ resolved path or hard link, escape by symlink, or name a directory. The output
 root cannot name a file. Approval files are included in collision protection.
 Existing regular output files are replaced. Each output is first written in
 full to a hidden temporary beside its target (`.<name>.<random>.tmp`), and no
-target is replaced until every output is staged. The prior bytes of any earlier
-target are kept until the last replacement lands. If the filesystem refuses the
-directory, a staged write or a replacement, the run exits 3. The temporaries are
-removed and every target that was already replaced gets its prior bytes back,
+target is replaced or removed until every write is staged. The prior bytes of
+any earlier changed target are kept until the last change lands. If the
+filesystem refuses the directory, staged write, replacement or stale-image
+removal, the run exits 3. Temporaries are removed and every changed target
+gets its prior bytes back,
 or is removed if it is new. A failed run therefore never leaves a new
 `report.json` next to an old `traveler.html`. An output directory created for
 the run may remain, empty. This does not cover a process kill between the two
@@ -145,6 +184,21 @@ Footers are in normal document flow, not fixed over bench content. Identical
 station positions may be grouped while retaining all provenance; diameter-mode
 lathe station tables omit nonoperative Y. Unresolved checks are grouped for
 compact bench presentation, not hidden or waived.
+Each setup page carries one figure after the Hold block. The caption follows
+the render record: `modeled` → `Kernel view: part and declared jaws /
+parallels; sampled checks are not a toolpath.`; unresolved with
+`scene.jaws = "lateral_undeclared"` → `? Kernel view: part, certain jaw
+material and a conservative possible-jaw envelope; exact fixture pose is
+unresolved.`; unresolved with `scene.jaws = "exact"` (parallels not modelled
+or another debt) → `? Kernel view: part and declared jaws; the fixture scene
+is incomplete.`; otherwise `? Kernel part view only; fixture dimensions or
+jaw pose remain unresolved.` Every `scene.debts` sentence is appended to the
+caption. With no render the paragraph `? Kernel fixture render unavailable;
+holding geometry is not confirmed.` prints instead. The header legend states
+`Kernel geometry findings use sampled tool / holder solids, not CAM
+toolpaths. An unresolved fixture is not a rendered holding proof.` The image
+is referenced by relative filename, so the HTML shows it only beside its own
+`setup-S<n>.png`.
 Unknown drawing dimensions remain explicit. Declared dimension precision controls
 drawing values, manual settings, DRO-zero values and genuine feature points when
 available; without it, every known finite number still prints its own digits.
@@ -170,7 +224,13 @@ local HTTP and gRPC export with correlated finding context.
 
 Every invocation has a `prechips.<verb>` root span (initial usage may be named
 `prechips.usage` when a global flag comes first). Inputs use `input.load`, outputs
-`output.write`, evaluations `rule.<name>` and finding records child spans.
+`output.write`, evaluations `rule.<name>` and finding records child spans. The
+single FreeCAD job of a run, including its cache lookup, runs under one
+`kernel.geometry` span opened by whichever geometry rule evaluates first.
+When no kernel is found, every geometry finding carries
+`numbers.kernel_unavailable = true`; the console prints that identical
+kernel-naming `?` sentence once per run unless `--verbose` shows the full
+table, while the report and the OTel records keep every finding.
 Records carry rule, subject, status, numbers and citations. The same Python
 logging records feed OTel and Rich stderr, so console and exported facts agree.
 `--verbose` renders the full finding table; ordinary stderr renders unresolved

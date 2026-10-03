@@ -15,7 +15,7 @@ from pathlib import Path
 from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
-from prechips.report import build_report, canonical_bytes, report_hash
+from prechips.report import build_report, canonical_bytes, render_assets, report_hash
 from prechips.rules.resolution import _citations
 
 
@@ -82,8 +82,10 @@ def _output_paths(out: Path, filenames: tuple[str, ...], inputs: list[Path]) -> 
     return result
 
 
-def _write_outputs(out: Path, outputs: dict[Path, bytes], tracing: telemetry.Telemetry) -> None:
-    """Stage every output in full beside its target before replacing any target.
+def _write_outputs(
+    out: Path, outputs: dict[Path, bytes | None], tracing: telemetry.Telemetry
+) -> None:
+    """Stage every write/deletion in full before changing any target.
 
     A failure removes the staged files and returns each already-replaced target to
     its prior bytes (or removes it when it is new); a filesystem refusal is exit 3.
@@ -102,17 +104,20 @@ def _write_outputs(out: Path, outputs: dict[Path, bytes], tracing: telemetry.Tel
         staged = []
         for target, data in outputs.items():
             with tracing.span("output.write", path=str(target)):
-                staged.append(stage(target, data))
-        # Each replacement is atomic, so only targets replaced before the last need backups.
+                staged.append(stage(target, data) if data is not None else None)
+        # Only targets changed before the last need backups; unlink is atomic too.
         targets = list(outputs)
         backups = [stage(t, t.read_bytes()) if t.exists() else None for t in targets[:-1]]
         for target, temporary, backup in zip(targets, staged, [*backups, None], strict=True):
-            os.replace(temporary, target)
+            if temporary is None:
+                target.unlink(missing_ok=True)
+            else:
+                os.replace(temporary, target)
             replaced.append((target, backup))
     except BaseException as exc:
         for target, backup in reversed(replaced):
             if backup is None:
-                target.unlink()
+                target.unlink(missing_ok=True)
             else:
                 # If restoring fails, the backup keeps the only copy of the prior bytes.
                 temporaries.remove(backup)
@@ -626,11 +631,18 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     plans = args.plans if args.verb == "compare" else [args.plan]
     bundles = [load_bundle(p, args.inventory, args.policy, args.cutting_data) for p in plans]
     out = args.out or plans[0].parent
-    names = (
-        ("compare.json",)
-        if args.verb == "compare"
-        else (("report.json", "traveler.html") if args.verb == "traveler" else ("report.json",))
-    )
+    names = ("compare.json",) if args.verb == "compare" else ("report.json", "traveler.html")
+    if args.verb == "traveler":
+        names += tuple(
+            f"setup-S{ordinal}.png" for ordinal, _ in enumerate(bundles[0].plan["setups"], start=1)
+        )
+    if args.verb in {"traveler", "check"}:
+        names += tuple(
+            path.name
+            for path in sorted(out.glob("setup-S*.png"))
+            if path.name not in names
+            and path.name.removeprefix("setup-S").removesuffix(".png").isdecimal()
+        )
     all_inputs = [path for bundle in bundles for path in bundle.paths.values()]
     if getattr(args, "approval", None):
         all_inputs.append(args.approval)
@@ -638,8 +650,15 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         destinations = _output_paths(out, names, all_inputs)
     except OSError as exc:
         raise BadInput(f"Cannot check output path: {exc}") from exc
+    from prechips.kernel import run_geometries
+
+    run_geometries(bundles)
     findings = [_evaluate(bundle, tracing) for bundle in bundles]
-    reports = [build_report(bundle, rows) for bundle, rows in zip(bundles, findings, strict=True)]
+    assets = [render_assets(bundle) for bundle in bundles]
+    reports = [
+        build_report(bundle, rows, assets=images)
+        for bundle, rows, images in zip(bundles, findings, assets, strict=True)
+    ]
     if args.verb == "compare":
         try:
             comparison_root = Path(
@@ -672,6 +691,20 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     outputs = {destinations[0]: canonical_bytes(report)}
     if html is not None:
         outputs[destinations[1]] = html.encode("utf-8")
+        outputs.update({path: assets[0].get(path.name) for path in destinations[2:]})
+    elif args.verb == "check":
+        try:
+            outputs.update(
+                {
+                    path: None
+                    for path in destinations[1:]
+                    if path.name not in assets[0]
+                    or not path.exists()
+                    or path.read_bytes() != assets[0][path.name]
+                }
+            )
+        except OSError as exc:
+            raise BadInput(f"Cannot check output path: {exc}") from exc
     _write_outputs(out, outputs, tracing)
     if getattr(args, "json", False):
         _json_stdout(report)

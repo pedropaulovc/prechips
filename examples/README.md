@@ -3,9 +3,32 @@
 These are **hand-authored input bundles** with CLI-generated reference-output
 contracts, not certified CAD exports, toolpaths, approvals or first articles.
 Every example traveler remains **PLANNED**. Each candidate consumes its plan,
-`features.toml`, and the three shared shop inputs. No STEP byte stream is supplied:
-`step_sha256 = "unknown"` is a finding, not a fabricated digest. The cone M2
-fixture has two authored candidates for the same part, not two inventory parts.
+`features.toml`, and the three shared shop inputs. Shaft, bracket and cone
+supply no STEP byte stream: `step_sha256 = "unknown"` is a finding, not a
+fabricated digest, and under M4 it keeps all seven geometry rules `?` (the
+`STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.`
+reason, or on a machine without FreeCAD the one kernel-unavailable line, which
+forces exit 4 unless an error already yields 2). `rocker-arm/` binds the
+consumer's labelled export `rocker-arm.STEP` by digest (`19070131…`, the
+bytes delivered under `C:/src/dt-logs/features-bundles/rocker_arm/`, kept
+byte-for-byte via `.gitattributes -text`; SolidWorks inches,
+`HAF_<FEATURE>__P<nn>` face labels) and preserves the exported manifest face
+sets. The S1 strap operations explicitly claim the +Z datum-B face `#492`;
+`strap_faces` truthfully remains the exported bottom face. The tip lands stay
+unclaimed. The numeric rectangular supply is the S1 stock view. Its later
+rail-and-ear/profile removals have no authored numeric lateral footprint,
+so S2/S3 incoming stock is `?` naming that debt and emits no fictitious
+finished-part renders. Fixture dimensions remain unresolved. Its exit stays 2
+for the absent tools and supported profile fixture. The cone M2 fixture has two
+authored candidates for the same part,
+not two inventory parts. The M4 geometry fixtures, which do carry STEP bytes,
+live under [`geometry/`](geometry/README.md) with their own inventory and policy.
+
+The frozen bytes describe an available-kernel run. Without FreeCAD, traveler
+and comparison outputs must still repeat byte-for-byte across runs, but every
+geometry family is unknown and no kernel render exists; those outputs do not
+match the installed-kernel goldens. Comparison still retains both candidates,
+the cited stock-volume arithmetic and error-before-unknown exits **4 / 2**.
 
 ## Files and expected exits
 
@@ -41,8 +64,10 @@ Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beat
 required unknown/unsupported/warn; only clean required subjects permit exit 0.
 These expected report exits are independently recomputed by the validator. The
 validator itself exits **0** when these intentionally stopped bundles agree.
-The existing three fixture contracts remain 4 / 2 / 2; the cone candidates add
-4 / 2. These are expected contracts, not a claim that a mid-flight run occurred.
+The pilot candidate exits remain 4 / 2 / 2 / 4 / 2. The combined catalogue
+includes seven sampled geometry families, unknown when STEP bytes, stock,
+claims, normals or required fixture dimensions are unavailable. Gate and
+regeneration evidence is recorded in PLAN §8.
 
 | Plan literal `"unknown"` leaves | Before restoration | After restoration |
 |---|---:|---:|
@@ -109,6 +134,41 @@ optional M5 `?` findings do not introduce a new gate. A shop that requires
 feasibility unless an existing error takes precedence. This is output
 reconciliation, not evidence of a machine measurement, physical rehearsal or
 first article.
+
+### M4 geometry fixtures (`geometry/`)
+
+[`geometry/README.md`](geometry/README.md) documents the discriminating
+bundles and their observed FreeCAD behavior. Their inventory contains
+authored nominal test tools, collets, vises and parallels, not shop
+measurements. Every candidate supplies a numerically placed blank with
+allowance and earlier preparation setups with bounded removals. Preparation
+tooling and holding debt remains visible; local policies focus the required
+geometry rows on the target operation/setup while retaining part-wide
+coverage and finish requirements. Errors anywhere still stop the candidate.
+Only target scenes have fully authored jaw and parallel poses.
+Clearing bounds are restricted to the claimed XY footprint plus known cutter
+radius. With unknown preparation tools, the synthetic rocker supply/clearance
+uses the STEP global XY bbox and retains only its authored 1 mm Z allowances;
+it no longer invents an unclaimed extra XY footprint.
+
+| bundle | STEP | rule it discriminates |
+|---|---|---|
+| `rocker-jaw-occluded/plan.toml` | real `rocker-arm.STEP`, the consumer's labelled export (same bytes as `../rocker-arm/`; the v38 `NONE`-label spike export was the initial discriminator) | `accessibility`: offset cutter cylinder beside the strap face hits the jaw and the hub boss; `vise` passes |
+| `pocket-reach/plan.toml` / `long-reach.toml` | synthetic `pocket-block.STEP` | `reach`: 45 mm floor against a 19 mm flute fails; the 100 mm OAL candidate passes with the holder clear |
+| `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | `internal_corner_radius`: sharp vertical pocket corners against a 1/4 in cutter |
+| `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | `coverage`: one face cut by no op and not declared as-stock |
+
+The five installed-kernel candidate exits are **2 / 2 / 0 / 2 / 2**.
+Block targets are S2; the rocker uses opposed preparation before its S3
+upright target. Each known entry-stock render is bound to its own
+`setup-S<n>.png`; preparation pictures show the raw/intermediate stock,
+not a pre-cleared final part. The long-reach target is clear; the short
+cutter hits its holder, the rocker hits jaw/boss material, the sharp
+corner fails cutter radius (and sampled accessibility), and the uncovered
+step end remains unclaimed. The project gate is recorded per PR.
+Each bundle's `features.toml` binds its STEP by `step_sha256`; `author_solids.py` is
+provenance for the three synthetic solids and is not a build step (its STEP
+header carries a timestamp).
 
 ## Source facts, not the PLAN layout sketch
 
@@ -252,7 +312,10 @@ remaining object **with the same canonical form including its final LF**, and
 SHA-256 those bytes. The traveler footer uses the first eight characters:
 `prechips 0.1 · report <id>`. HTML is an output, not an input to its own report.
 `.gitattributes` pins fixture line endings to LF.
-The implemented rule vocabulary is `m2-rev6`; the report retains the reference
+The implemented rule vocabulary is `m5-rev8` (the combined M4 geometry and M5
+measured-inventory catalogue; the `expected/` files are regenerated by the
+parent after the combined code lands, and a report still stamped `m2-rev6`,
+`m4-rev6` or `m5-rev7` has a stale hash); the report retains the reference
 ABI's `message` and `expected_exit` names. Finite floats use the JSON encoder's
 shortest round-trip representation, not drawing-format rounding. Drawing precision
 is applied only to the traveler.
@@ -314,8 +377,15 @@ precision is absent, without inventing an acceptance band. Actual unknown
 numbers remain `?`. Stock state, grip/stop/clamp, clearance, coolant, deburr,
 tool/holder, speed/feed, direction, tip and requirement checks are present or
 named unknown. No rule ids, paths or full hashes belong on the bench sheet.
-No geometry render is claimed before M4. A browser-rendered Letter PDF is a layout
-smoke proof, **not** the physical printed paper rehearsal or a first article.
+Under M4 each setup page carries one kernel figure or the explicit
+`? Kernel fixture render unavailable; holding geometry is not confirmed.`
+paragraph; the three STEP-less bundles always show the latter, and the
+rocker, whose STEP is bound but whose vise is `verify = true`, shows a
+part-only view captioned as unresolved on each of its three setup pages
+(regenerated `expected/` with three `setup-S<n>.png`, all five files
+byte-identical on the integrating agent's repeat run). A browser-rendered
+Letter PDF is a layout smoke proof, **not** the physical printed paper rehearsal
+or a first article.
 
 ## Validation
 

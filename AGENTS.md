@@ -43,10 +43,25 @@ only from justified actual rule output and source evidence, never by weakening
 stops or certifying unknowns. Keep fixture LF endings and canonical report hash.
 
 Checks must perform **no network activity except explicitly configured OTel
-export**. Inventory chart/source URLs are citations, not downloads. No CAD kernel,
-fixture renderer, CAM or geometry-certification should be implied by a declared
-input/display field. M2 rules evaluate declared profile, holding, indexing and
-physics inputs; unknown K_c/E, shop limits and verified capacity remain debt.
+export**. Inventory chart/source URLs are citations, not downloads. The only
+external process is the M4 FreeCAD kernel: one `freecadcmd.exe` job per
+check/traveler run on the bundle's own STEP, resolved through `FREECAD_CMD`,
+the installed FreeCAD 1.1, then `PATH`, with results cached under
+`PRECHIPS_KERNEL_CACHE`. A missing kernel is `?` plus exit 4, never a pass; a
+kernel failure is `✗`. No CAM, geometry certification or fixture solid is
+implied by a declared input/display field: fixture solids exist only for a
+vise whose `jaw_height`/`jaw_width`/`jaw_depth`/`opening` are explicit and not
+`verify = true`, plus a declared pose, and face identity comes only from a
+geometry-matched STEP `ADVANCED_FACE` reference, never from import order or
+the nearest face. M2 rules evaluate declared profile, holding, indexing and
+physics inputs; unknown K_c/E, shop limits, `thin_wall_floor_mm` and verified
+capacity remain debt. Unit tests that need kernel facts must inject a synthetic
+`bundle.kernel` result. Real geometry integration tests must request the shared
+`freecad_kernel` session fixture, use an isolated `PRECHIPS_KERNEL_CACHE`, and
+skip with `FreeCAD kernel not found` if discovery finds no executable.
+Absent-kernel tests must explicitly set `FREECAD_CMD` to a nonexistent path,
+never rely on the host lacking FreeCAD. Preserve discovery order and the
+product's unknown/exit-4 behavior.
 No physical rehearsal or live farm evidence is recorded merely because exporter tests pass.
 
 ## Local validation
@@ -60,6 +75,15 @@ uv run scripts/validate_examples.py
 uv run ruff check .
 uv run ruff format --check .
 ```
+
+Install FreeCAD 1.x and set `FREECAD_CMD` to its command executable if it is
+not discovered on `PATH` or at the installed Windows FreeCAD 1.1 location
+(for example `/opt/freecad/bin/freecadcmd` or
+`C:\Program Files\FreeCAD 1.1\bin\freecadcmd.exe`). An explicit invalid override
+is authoritative. `FREECAD_CMD=/nonexistent uv run pytest -q` exercises the
+kernel-free suite with geometry skips. `PRECHIPS_REQUIRE_KERNEL=1` turns a
+missing kernel into an error; CI sets it and installs the pinned, cached official
+FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
 
 The validator validates authored fixture contracts and expected report integrity;
 it does not certify machining. Its successful exit is 0, while actual example
@@ -125,7 +149,8 @@ this parented live farm path. This acceptance is unobserved/pending here.
 
 ## Documentation and scope
 
-Update README, the five input-format pages, affected rule-family pages and PLAN
+Update README, the five input-format pages, affected rule-family pages
+(including [docs/rules-geometry.md](docs/rules-geometry.md)) and PLAN
 milestone status lines when shipped behavior changes. Follow actual schema/rule
 sentences, not PLAN sketches' obsolete placeholder dimensions. Physical printed
 Letter clipping checks, operator dry-run and independent hand oracle remain

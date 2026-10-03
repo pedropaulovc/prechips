@@ -8,7 +8,8 @@ a known number without one prints its own value (six significant digits) rather
 than `?`, which stays reserved for unknown values. Operation-derived rows,
 computed tip targets, Z stations and contour cutter-centre tables always print
 their own value, never rounded to a drawing dimension's display precision. No
-STEP extraction/kernel geometry is performed.
+STEP extraction/kernel geometry is performed by these rules; contour tables use
+manifest geometry even when the M4 kernel rules run on the same bundle.
 
 ## `coordinates`
 

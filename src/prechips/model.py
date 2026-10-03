@@ -103,6 +103,9 @@ Stock = record(
         **flags("material_verify form_verify on_hand"),
         "material_cite": Citations,
         "section_mm": Vector,
+        "origin_mm": Vector,
+        "axis": Vector,
+        "section_axis": Vector,
         "as_is_faces": list[str],
         "components": list[StockComponent],
         "cite": Citations,
@@ -134,6 +137,11 @@ Hold = record(
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
+        "jaw_center_along_mm": Number,
+        "parallels_centres_mm": Annotated[
+            list[Annotated[list[Number], Field(min_length=2, max_length=2)]],
+            Field(min_length=2, max_length=2),
+        ],
         "supports": str | list[str | Reference],
         **flags("grip_mm_verify jaw_above_parallels_mm_verify"),
         "index": Index,
@@ -199,10 +207,13 @@ Operation = record(
         ),
         "to_z_cite": Citations,
         "note_cite": Citations,
+        "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
         "inspection_methods": dict[str, str],
         "to_z_band": Vector,
         "contour": Contour,
+        # Setup-frame volume (plan units) the op clears down to the finished part.
+        "stock_removal_bounds": Bounds,
     },
     indexed=("do",),
 )
@@ -450,12 +461,11 @@ InventoryItem = record(
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
-            "swing_in plates pieces angle_deg flute_len head_in max_offset_in "
-            "dial_in length_in min_bore_in tip_in jaw_width_in opening_in jaw_height_in "
+            "swing_in plates pieces angle_deg head_in max_offset_in "
+            "dial_in min_bore_in tip_in "
             "diameter_in thickness_in resolution_in runout_max_in "
             "max_shank_in sfm chip_load_mm_per_tooth "
-            "shank_mm flute_len_mm flute_len_in jaw_height_mm "
-            "length_mm width_mm width_in capacity_mm nose_radius_mm reach_mm"
+            "shank_mm capacity_mm nose_radius_mm reach_mm"
         ),
         "point_angle": MeasuredAngle,
         **dict.fromkeys(
@@ -474,6 +484,24 @@ InventoryItem = record(
                 "height_in",
                 "bed_height_mm",
                 "bed_height_in",
+                "flute_len",
+                "flute_len_mm",
+                "flute_len_in",
+                "gauge_dia",
+                "gauge_dia_mm",
+                "gauge_dia_in",
+                "jaw_height_mm",
+                "jaw_height_in",
+                "jaw_width_mm",
+                "jaw_width_in",
+                "jaw_depth_mm",
+                "jaw_depth_in",
+                "opening_mm",
+                "opening_in",
+                "length_mm",
+                "length_in",
+                "width_mm",
+                "width_in",
             ),
             MeasuredLength,
         ),
@@ -519,8 +547,9 @@ InventoryItem.model_rebuild()
 
 # Single-length facts consumed by rules; size/range lists are independent collections.
 _INVENTORY_LENGTH_STEMS = frozenset(
-    "dia oal grip gauge_len lead height bed_height projection flute_len jaw_height "
-    "shank capacity max_shank nose_radius reach tip length resolution".split()
+    "dia oal grip gauge_len gauge_dia lead height bed_height projection flute_len "
+    "jaw_height jaw_width jaw_depth opening width shank capacity max_shank "
+    "nose_radius reach tip length resolution".split()
 )
 _ENVELOPE_LENGTH_STEMS = frozenset(("spindle_to_table_max", "spindle_to_table_min", "travel"))
 _TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))

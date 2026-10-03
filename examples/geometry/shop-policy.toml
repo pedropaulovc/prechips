@@ -1,0 +1,32 @@
+# Geometry fixture policy: op/setup rules explicitly require the discriminating S2
+# target. S1's unknown preparation tool/holder/holding remain displayed debt, not
+# falsely clear on raw stock. Coverage and finish coverage remain feature-wide.
+# Any actual error anywhere still fails; these selectors waive no errors.
+revision = 6
+
+[required]
+accessibility = "S2"
+reach = "S2"
+internal_corner_radius = "S2"
+coverage = "*"
+finish_coverage = "*"
+vise = "S2"
+thin_wall_under_clamp = "S2"
+
+[numbers]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = 2.0
+stickout_ld_max = "unknown"
+
+# The thin-wall floor is a synthetic test threshold chosen so every fixture's grip-zone
+# wall clears it; it is not a measured or sourced shop limit (../shop-policy.toml keeps
+# the real one unknown).
+[numbers_cite]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "examples/geometry/README.md: synthetic test specification"
+stickout_ld_max = "unknown"
+
+[numbers_verify]
+refixture_budget_mm = true
+thin_wall_floor_mm = false
+stickout_ld_max = true

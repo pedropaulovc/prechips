@@ -5,6 +5,8 @@ import json
 import pytest
 from test_cli import copy_examples, run_cli
 
+pytestmark = pytest.mark.usefixtures("kernel_cache")
+
 
 def measurement_ids(entries):
     return {entry["id"] for entry in entries}

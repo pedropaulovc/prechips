@@ -16,7 +16,10 @@ literal `"unknown"` declaration permits the environment fallback. Missing policy
 uses the shipped required-rule vocabulary only when no known path is selected.
 Plan-declared shared paths must stay inside
 the bundle root; explicit CLI/environment shop paths may be external. STEP references are read and hashed, contained
-inside the bundle, and checked against a known `step_sha256`; no kernel runs.
+inside the bundle, and checked against a known `step_sha256`. M4 geometry rules
+hand that STEP, once its bytes match the manifest digest, to one FreeCAD job per
+run; an unknown digest, a missing `step`, or mismatched bytes keeps all seven
+geometry rules `?`. See [geometry rules](rules-geometry.md).
 
 Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in
 the setup frame; `local_thickness` is per hole, not the whole bar thickness.
@@ -115,6 +118,9 @@ of geometric validity; rules perform the applicable checks.
 | `on_hand` | `bool` |
 | `material_cite` | `Citations` |
 | `section_mm` | `Vector` |
+| `origin_mm` | `Vector` |
+| `axis` | `Vector` |
+| `section_axis` | `Vector` |
 | `as_is_faces` | `list[str]` |
 | `components` | `list[StockComponent]` |
 | `cite` | `Citations` |
@@ -127,6 +133,21 @@ dimensions and length. These are authored purchase/process choices, not
 confirmed on-hand inventory. Missing dimensions or citations keep comparison
 waste unresolved; finished volume comes only from the manifest's explicitly
 sourced `volume_mm3`, never a bounding-box estimate.
+
+M4 requires an explicitly placed envelope, not a finished-part bounding-box
+substitute. `origin_mm` is in the model frame: the rectangular blank's corner
+or the round blank's starting-face centre. `axis` is the unit length direction.
+For a rectangular blank `section_axis` is the perpendicular unit direction
+of `section_mm[0]`; `axis × section_axis` carries `section_mm[1]`. The box is
+the product of those three positive intervals; a round blank is the declared
+diameter cylinder along `axis`. Dimensions/placement describe authored material,
+not measured stock on hand. Missing placement or dimensions, unsupported
+built-up stock, and incompatible as-is surfaces keep stock-dependent geometry
+`?` with a reason. `as_is_faces` never creates a stock solid by itself.
+
+`as_is_faces` lists STEP face references (same forms as a feature's `faces`)
+that stay as supplied stock; the M4 `coverage` rule unites them with the faces
+claimed by cutting operations. An omitted list is unknown, not empty.
 
 Root `construction` declares the candidate route, independently of the
 drawing-side manifest permission. `built_up` is refused unless
@@ -228,9 +249,44 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `grip_mm` | `Number \| Literal['not_applicable']` |
 | `jaw_above_parallels_mm` | `Number \| Literal['not_applicable']` |
 | `stickout_mm` | `Number` |
+| `jaw_center_along_mm` | `Number` |
+| `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `grip_mm_verify` | `bool` |
 | `jaw_above_parallels_mm_verify` | `bool` |
 | `index` | `Index` |
+
+M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
+`grip_mm` and `jaw_above_parallels_mm` to place the jaw solids in the setup
+frame: `jaws_along` is the jaw length axis (`x` / `y`), `fixed_jaw` picks the
+jaw on the negative or positive side of the other axis, `grip_mm` is the depth
+of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
+above the parallels. A `grip_mm_verify = true` or
+`jaw_above_parallels_mm_verify = true` flag makes that number unknown to the
+kernel; `jaw_above_parallels_mm = 0` is a known zero, any other nonpositive or
+unknown value is debt. Together with the vise's explicit `jaw_height`,
+`jaw_width`, `jaw_depth` and `opening` and the parallels' `height`, these are
+the facts behind the jaw solids and the setup findings. When any is
+missing, the setup's `vise` and `thin_wall_under_clamp` findings stay `?`
+and the render, if any, is a part-only view labelled as unresolved.
+
+Two optional authored pose fields complete the picture. `jaw_center_along_mm`
+is the centre of the jaw plates along `jaws_along` in setup-frame
+coordinates; without it the kernel draws only the jaw material certainly over
+the gripped part and a pale envelope for where the rest of each jaw may lie,
+and cutter samples inside that envelope stay `?`. `parallels_centres_mm` is
+exactly two `[x, y]` setup-frame centres of the parallels; together with the
+parallels row's fact-local `height`, `length` (along the jaws) and `width`
+(along the clamp axis) they place two parallel solids with tops at the stock
+seat. Nominal numbers are usable for geometry, not evidence of a measured
+shop setup. Both poses are declarations the author must measure at the bench; the
+kernel never infers a jaw centre or a parallel position, and only a setup
+with both exact jaws and exact parallels is captioned as a modeled fixture.
+Either field may be `"unknown"` (any unknown coordinate is a render debt, not
+a guessed pose) and neither has a `_verify` flag: they are author coordinate
+choices, while each parallel dimension has its own fact-local trust; the
+inventory item's `verify` does not taint other numeric facts. Omitting the
+optional poses does not block independent `vise` / `thin_wall_under_clamp`
+facts. Missing parallel height still leaves the fixture dimensions unknown.
 
 ## Index
 
@@ -329,6 +385,7 @@ with angles at the drawing's declared angular precision.
 | `op` | `int` |
 | `do` | `str` |
 | `feature` | `str` |
+| `faces` | `list[str]` |
 | `tool` | `str` |
 | `holder` | `str` |
 | `direction` | `str` |
@@ -353,6 +410,36 @@ with angles at the drawing's declared angular precision.
 | `inspection_methods` | `dict[str, str]` |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
+| `stock_removal_bounds` | `Bounds` |
+
+`faces` explicitly declares this operation's cutting claims using bound STEP
+references. Omission uses the feature's default `faces`; `"unknown"` means
+unresolved claims; a known explicit list must be nonempty. Explicit refs need
+not be the feature's default refs: a drawing feature may require two broad surfaces even
+when its exported label names only one. The plan can claim the other exported
+surface without rewriting the manifest. Invalid/unmapped refs are geometry
+errors. A far-side face whose outward normal opposes the setup's +Z approach
+by more than 90° is an error naming the face and earns no coverage credit.
+Complementary setups can explicitly claim opposite sides; finishing coverage
+credits each face only to the direction-valid finishing cuts that claim it.
+
+`stock_removal_bounds` is an explicit setup-frame clearing box:
+`{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric
+and strictly increasing. It declares the material outside the finished part
+that this cutting operation clears inside that volume, leaving everything
+outside it unchanged. Its faces still need valid cutting claims from this
+setup. If the cutter radius is known, the box's XY extent cannot exceed the union
+XY bounding box of its direction-valid claimed faces dilated by that radius;
+an excess is a named geometry error and leaves later stock unresolved. If the
+radius is unknown, the extent check is `?` with a reason naming the missing cutter
+radius, and later stock stays unresolved. Every claim must touch the box and
+every removed piece must border a claim.
+It shapes stock passed to later setups and excludes only this operation's own
+derivable allowance from its flute obstacles; holder, reach and holding facts
+still use setup-entry stock. This is an authored process/fixture volume, not a
+measured toolpath or proof that roughing is safe. Without it, any claimed wall
+whose interior still touches overstock above `to_z` (including a drafted wall)
+needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
 
 `doc_mm` enables the engagement screen only for an endmill-family cutter on a
 cutting operation. Omitted DOC, noncutting actions and known drills, reamers,

@@ -1,3 +1,7 @@
 # Reference input digests bind bytes, not platform-specific newline conversions.
 examples/** text eol=lf
+*.png binary
+# Raw consumer STEP digests must survive checkout without newline conversion.
+examples/**/*.STEP -text
+tests/data/kernel/**/*.STEP -text
 scripts/validate_examples.py text eol=lf

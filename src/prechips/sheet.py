@@ -36,6 +36,9 @@ th, td { border: 1px solid #555; padding: 1pt 2pt; text-align: left; vertical-al
 overflow-wrap: anywhere; }
 th { background: #eee; } thead { display: table-header-group; }
 tr { break-inside: avoid; page-break-inside: avoid; } .operations { font-size: 7.5pt; }
+.fixture-render { margin: 4pt 0; break-inside: avoid; }
+.fixture-render img { display: block; width: 100%; max-height: 1.7in; object-fit: contain; }
+.fixture-render figcaption { font-size: 7pt; }
 .foot { text-align: right; font-size: 7pt; margin-top: 5pt; break-inside: avoid; }
 @media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } }
 """
@@ -1194,6 +1197,36 @@ class _Traveler:
         if content:
             self.pages.append((f"Setup {setup['id']} contour continuation", content))
 
+    def fixture_render(self, setup):
+        render = self.report.get("renders", {}).get(setup["id"])
+        if not render:
+            return _p("? Kernel fixture render unavailable; holding geometry is not confirmed.")
+        scene = render.get("scene", {})
+        if render["fixture"] == "modeled":
+            caption = (
+                "Kernel view: setup-entry stock and declared jaws / parallels; "
+                "sampled checks are not a toolpath."
+            )
+        elif scene.get("jaws") == "lateral_undeclared":
+            caption = (
+                "? Kernel view: setup-entry stock, certain jaw material and a possible-jaw "
+                "envelope; exact fixture pose is unresolved."
+            )
+        elif scene.get("jaws") == "exact":
+            caption = (
+                "? Kernel view: setup-entry stock and declared jaws; fixture scene incomplete."
+            )
+        else:
+            caption = "? Kernel stock view only; fixture dimensions or jaw pose remain unresolved."
+        if scene.get("debts"):
+            caption += " " + " ".join(scene["debts"])
+        return (
+            '<figure class="fixture-render">'
+            f'<img src="{escape(render["path"], quote=True)}" '
+            f'alt="{escape(setup["id"], quote=True)} kernel setup view">'
+            f"<figcaption>{escape(caption)}</figcaption></figure>"
+        )
+
     def render(self):
         setups = self.plan.get("setups", [])
         routed = {id(f) for setup in setups for f in self.setup_findings(setup)}
@@ -1237,7 +1270,8 @@ class _Traveler:
             ["feature", "requirement / acceptance band"], requirements
         )
         header += _p(
-            "Nominal holding / coordinates are not rendered geometry or a cutter-access proof. "
+            "Kernel geometry findings use sampled tool / holder solids, not CAM toolpaths. "
+            "An unresolved fixture is not a rendered holding proof. "
             "? = unresolved. EM = endmill; CD = centre drill; DTI = test indicator; "
             "mic = micrometer. Keep the drawing at the bench."
         )
@@ -1255,6 +1289,7 @@ class _Traveler:
                 + self.paragraphs(setup.get("stock_state", {}))
             )
             content += self.hold(setup)
+            content += self.fixture_render(setup)
             content += _p(
                 "Coolant: "
                 + _text(setup.get("coolant"))

@@ -1,4 +1,4 @@
-"""Declared-input rule catalogue; unsupported policy requests stay unresolved."""
+"""The rule catalogue; unsupported policy requests stay unresolved."""
 
 from __future__ import annotations
 
@@ -8,26 +8,33 @@ from dataclasses import dataclass
 from prechips.findings import Finding, Status
 from prechips.inputs import Bundle
 from prechips.rules import (
+    accessibility,
     construction,
     coordinates,
+    coverage,
     datum_consistency,
     engagement,
     envelope,
+    finish_coverage,
     headroom,
     hold_fields,
     indexing,
     inspection,
+    internal_corner_radius,
     op_chain,
     op_order,
+    reach,
     sizing,
     speeds_feeds,
     stickout,
     stock_diameter,
+    thin_wall_under_clamp,
     tip_endpoints,
     tool_resolves,
     travel,
     turned_profile,
     turning_deflection,
+    vise,
     zero_recipe,
 )
 
@@ -61,6 +68,17 @@ RULES: list[Rule] = [
     Rule("engagement", engagement.evaluate),
     Rule("construction", construction.evaluate),
 ]
+
+GEOMETRY_RULES = [
+    Rule("accessibility", accessibility.evaluate),
+    Rule("reach", reach.evaluate),
+    Rule("internal_corner_radius", internal_corner_radius.evaluate),
+    Rule("coverage", coverage.evaluate),
+    Rule("finish_coverage", finish_coverage.evaluate),
+    Rule("vise", vise.evaluate),
+    Rule("thin_wall_under_clamp", thin_wall_under_clamp.evaluate),
+]
+RULES.extend(GEOMETRY_RULES)
 
 
 def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:

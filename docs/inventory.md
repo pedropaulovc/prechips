@@ -7,9 +7,13 @@ modeled InventoryItem map. `source` may be a source string or Source record.
 Named set members/coverage may resolve without pretending an unlisted member
 was measured or purchased. Explicit `present = false` means missing;
 an item-level `verify = true`, an unverified `source`, or explicitly unknown
-presence makes that item's identity unresolved. Whether a particular
-dimension is *measured* is decided only by that fact's own record (see
-[M5](#measured-envelopes-and-installed-tool-stacks-m5)).
+presence makes that item's identity unresolved for the declared-input rules.
+Whether a particular dimension is *measured* is decided only by that fact's
+own record (see
+[M5](#measured-envelopes-and-installed-tool-stacks-m5)), and whether a
+nominal dimension enters M4 kernel geometry is decided the same fact-local
+way (see [kernel geometry facts](#kernel-geometry-facts-m4)); neither reads
+the item, set root, member container or source flags around the fact.
 
 A consumed single-length fact is authored once per stem: an explicit `_mm`
 key, an `_in` key converted with exactly 25.4 mm/in, or a bare key with explicit
@@ -46,19 +50,61 @@ For indexing, a dividing head can live in `machines` (the example is `BS-0`) or
 `fixtures`. `worm_ratio`, `direct_index` and every `plate_holes` circle are
 arithmetic inputs; `verify = true` keeps the chosen setting tentative. Hole
 counts are positive integers. For engagement, the selected tool's
-`projection_mm` entry for the selected holder takes precedence over
-`oal_mm - holder.grip_mm`. Neither flute length nor holder gauge length
-substitutes for projection.
+`projection_mm` / `projection_in` entry for the selected holder is the
+projection whenever that entry exists: an entry that is `"unknown"` or
+carries its own debt keeps the op unresolved rather than falling back, and
+only an absent pair uses `oal - holder.grip`. Neither flute length nor holder
+gauge length substitutes for projection.
 Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
+
+## Kernel geometry facts (M4)
+
+M4 kernel geometry reads explicit-unit length facts through the same
+fact-local lookup as the M5 screens, with shop measurement *not* required.
+Every dimension the kernel consumes is a `MeasuredLength`: a plain nominal
+number, or a `{ value, measured, verify }` record. It enters the FreeCAD job
+when it resolves to a positive length through the single-spelling `_mm` /
+`_in` lookup and its own record carries no debt — no `verify = true` or
+`verify = "unknown"`, and no incomplete `measured` record. A nominal number
+needs no `by`/`date`/`instrument`; a fact whose own record says
+`verify = true` or whose `measured` is incomplete is debt for that dimension
+only. An item's `verify`, `present` or `source` flags, a set root's or member
+container's flags and `coverage` text are identity provenance for the
+declared-input rules: they never withhold a numeric fact from the kernel, and
+nothing is inherited from them. The M5 `envelope` and `travel` screens read
+the same holder gauge/grip, tool OAL and projection facts with measurement
+required (and `headroom` the envelope limits), so an operation can be
+geometrically checked while its spindle stack is still M5 measurement debt.
+
+A vise enters the job solely when `jaw_height`, `jaw_width`, `jaw_depth` and
+`opening` all resolve that way; the parallels fixture needs a positive
+`height`, and its optional `length` (along the jaws) and `width` (along the
+clamp axis), resolved the same way, are what let the kernel draw the parallel
+solids once the plan declares `parallels_centres_mm`. These are the only
+sources of fixture solids: `jaw_depth_mm` / `jaw_depth_in` is the physical
+jaw-plate thickness along the gripping normal and is never synthesized from
+jaw width, jaw height, bed height or any other dimension. A tool enters an
+op's geometry job when `dia`, `flute_len` and `oal` resolve and a holder when
+`gauge_dia` and `gauge_len` resolve; the holder cylinder uses `gauge_dia`
+(`gauge_dia_mm` / `gauge_dia_in`), not `shank` or collet capacity. The op's
+projection is the selected pair's entry in `tools.<tool>.projection_mm` /
+`projection_in` ([below](#measured-envelopes-and-installed-tool-stacks-m5));
+only when that pair has no entry is it `oal` minus the selected holder's
+`grip`, each from its own accepted fact. Any missing dimension or fact-local
+debt is named in the job's reason text and the dependent geometry rules stay
+`?`. The shipped example vise declares no `jaw_depth`, so no shipped example
+produces a modeled fixture solid; its item-level `verify = true` is identity
+debt elsewhere, not a geometry veto. See
+[geometry rules](rules-geometry.md).
 
 ## Measured envelopes and installed tool stacks (M5)
 
 `machines.<id>.envelope` is the one home for the mill limits that rules read:
 usable X/Y/Z travel and spindle-nose-to-table maximum and minimum. M1
 `headroom` and the M5 `envelope`/`travel` screens read this same block; a mill
-carries no top-level `spindle_to_table_max_in`, `travel_in`/`travel_mm` or
+carries no top-level `spindle_to_table_max_mm/in`, `travel_in`/`travel_mm` or
 `table_in` copy, and the schema rejects one. Table length/width, T-slot pitch,
 spindle taper and R8/ER-collet-chuck/drill-chuck stack heights are not envelope
 fields: no rule reads them, so nothing asks the shop to measure them. The
@@ -103,7 +149,10 @@ fact-local `verify = true` leaves the fact unresolved even beside a complete
 `measured`. A scalar vendor nominal (`spindle_to_table_max_in = 17` or
 `{ value = 17, verify = true }`) stays in the finding's `numbers` as evidence
 and yields `?`, never a pass or a measured overrun. Clearing `verify` without
-a `measured` record is not measurement either.
+a `measured` record is not measurement either. Kernel geometry and engagement
+read the same facts with measurement *not* required, so the readiness they
+report is nominal-geometry readiness, not the physical measurement readiness
+these screens report; both honour the fact's own `verify`/`measured` debt.
 
 Each length stem has one authored unit key: `gauge_len_mm` or `gauge_len_in`,
 `oal_mm` or `oal_in`, `projection_mm` or `projection_in`, `bed_height_mm` or
@@ -119,10 +168,15 @@ Projection is **holder exit face to installed tool tip** and belongs to one
 `tools.<tool>.projection_mm` (or `_in`), a map keyed by the full exact holder
 reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`).
 A holder, fixture, machine or gauge never carries projection, and a tool never
-carries a holder-wide or tool-wide scalar projection. When the selected pair
-has no entry, the rules use measured tool OAL minus the selected holder's
-measured grip; an `"unknown"` pair entry does not fall through to another
-holder's number, and flute length never substitutes.
+carries a holder-wide or tool-wide scalar projection: the schema rejects
+`projection_mm`/`projection_in` outside `tools` and rejects a tool whose
+projection is a bare number rather than a map. When the selected pair has an
+entry, that entry alone decides: an `"unknown"` or debt-carrying entry keeps
+every consumer unresolved and never falls through to another holder's number
+or to OAL − grip. Only when the pair has no entry do the rules use the
+selected tool's OAL minus the selected holder's grip — each measured for the
+M5 screens, each an accepted nominal for kernel geometry and engagement — and
+flute length never substitutes.
 
 Fixture bed height (`bed_height_mm/in`) is the table-to-bed distance that every
 vise stack uses; jaw height (`jaw_height_in`) is the jaw's height above the bed
@@ -166,8 +220,12 @@ does not own.
 
 All envelope/travel fields are optional and accept `"unknown"`; their absence
 remains measurement debt. A date or a citation is provenance, not an automatic
-claim that a fact is measured.
-
+claim that a fact is measured. Every dimension kernel geometry consumes — tool
+`dia` / `flute_len` / `oal`, holder `gauge_dia` / `gauge_len` / `grip`, the
+projection map, vise `jaw_height` / `jaw_width` / `jaw_depth` / `opening` and
+parallels `height` / `length` / `width` — is typed `MeasuredLength`, so a shop
+can record a measurement on any of them; kernel geometry accepts the nominal
+form, the M5 screens require the measured form.
 
 All InventoryItems share the declared field set below, regardless of category;
 category-specific usefulness is enforced by rules, not separate subclass schemas.
@@ -291,17 +349,21 @@ on hand.
 | `pieces` | `float` |
 | `angle_deg` | `float` |
 | `point_angle` | `MeasuredAngle` |
-| `flute_len` | `float` |
+| `flute_len` | `MeasuredLength` |
 | `oal` | `MeasuredLength` |
 | `head_in` | `float` |
 | `max_offset_in` | `float` |
 | `dial_in` | `float` |
-| `length_in` | `float` |
+| `length_in` | `MeasuredLength` |
 | `min_bore_in` | `float` |
 | `tip_in` | `float` |
-| `jaw_width_in` | `float` |
-| `opening_in` | `float` |
-| `jaw_height_in` | `float` |
+| `jaw_width_in` | `MeasuredLength` |
+| `jaw_width_mm` | `MeasuredLength` |
+| `jaw_depth_in` | `MeasuredLength` |
+| `jaw_depth_mm` | `MeasuredLength` |
+| `opening_in` | `MeasuredLength` |
+| `opening_mm` | `MeasuredLength` |
+| `jaw_height_in` | `MeasuredLength` |
 | `bed_height_mm` | `MeasuredLength` |
 | `diameter_in` | `float` |
 | `thickness_in` | `float` |
@@ -316,19 +378,22 @@ on hand.
 | `dia_mm` | `MeasuredLength` |
 | `dia_in` | `MeasuredLength` |
 | `shank_mm` | `float` |
-| `flute_len_mm` | `float` |
-| `flute_len_in` | `float` |
+| `flute_len_mm` | `MeasuredLength` |
+| `flute_len_in` | `MeasuredLength` |
 | `oal_mm` | `MeasuredLength` |
 | `oal_in` | `MeasuredLength` |
 | `gauge_len_mm` | `MeasuredLength` |
 | `gauge_len_in` | `MeasuredLength` |
+| `gauge_dia` | `MeasuredLength` |
+| `gauge_dia_mm` | `MeasuredLength` |
+| `gauge_dia_in` | `MeasuredLength` |
 | `projection_in` | `ProjectionMap` (tools only) |
-| `jaw_height_mm` | `float` |
+| `jaw_height_mm` | `MeasuredLength` |
 | `height_mm` | `MeasuredLength` |
 | `height_in` | `MeasuredLength` |
-| `length_mm` | `float` |
-| `width_mm` | `float` |
-| `width_in` | `float` |
+| `length_mm` | `MeasuredLength` |
+| `width_mm` | `MeasuredLength` |
+| `width_in` | `MeasuredLength` |
 | `capacity_mm` | `float` |
 | `bed_height_in` | `MeasuredLength` |
 | `nose_radius_mm` | `float` |

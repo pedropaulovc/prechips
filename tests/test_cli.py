@@ -21,6 +21,11 @@ def run_cli(*args, env=None, setup=""):
         if key.startswith(("PRECHIPS_", "OTEL_")):
             environment.pop(key)
     environment["OTEL_SDK_DISABLED"] = "true"
+    if "--out" in args:
+        out = Path(args[args.index("--out") + 1])
+        environment["PRECHIPS_KERNEL_CACHE"] = str(out.parent / "kernel-cache")
+    elif "PRECHIPS_KERNEL_CACHE" in os.environ:
+        environment["PRECHIPS_KERNEL_CACHE"] = os.environ["PRECHIPS_KERNEL_CACHE"]
     environment.update(env or {})
     entry = (
         ["-c", f"{setup}\nimport sys\nfrom prechips.cli import main\nsys.exit(main(sys.argv[1:]))"]

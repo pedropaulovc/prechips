@@ -73,6 +73,8 @@ def exit_code(findings: list[Finding], policy: dict, bundle: Bundle | None = Non
     """Bad inputs are raised before this gate; errors precede unresolved required rows."""
     if any(f.status == Status.ERROR for f in findings):
         return 2
+    if any(f.numbers.get("kernel_unavailable") is True for f in findings):
+        return 4
     required = policy.get("required", "unknown")
     if required == "unknown":
         return 4

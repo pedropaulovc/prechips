@@ -22,12 +22,49 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      PRECHIPS_REQUIRE_KERNEL: "1"
+      FREECAD_VERSION: "1.1.0"
+      FREECAD_SHA256: ef85f171f2d09eec93f358bc49c1730d33f72bfbd353e6465609b30e45acf2f0
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv sync --locked
+      - uses: actions/cache@v4
+        id: freecad-cache
+        with:
+          path: ~/.cache/prechips-freecad
+          key: freecad-linux-x86_64-${{ env.FREECAD_VERSION }}-${{ env.FREECAD_SHA256 }}
+      - name: Install pinned FreeCAD kernel
+        if: steps.freecad-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.cache/prechips-freecad"
+          cd "$HOME/.cache/prechips-freecad"
+          asset="FreeCAD_${FREECAD_VERSION}-Linux-x86_64-py311.AppImage"
+          curl --fail --location --retry 3 --output "$asset" \
+            "https://github.com/FreeCAD/FreeCAD/releases/download/${FREECAD_VERSION}/${asset}"
+          echo "${FREECAD_SHA256}  ${asset}" | sha256sum --check --strict
+          chmod +x "$asset"
+          "./$asset" --appimage-extract > /dev/null
+          rm "$asset"
+          # AppRun sets the bundled Python environment only in the kernel process,
+          # not in uv/pytest, which use the project's own Python environment.
+          cat > freecadcmd <<'EOF'
+          #!/bin/bash
+          set -euo pipefail
+          root="$(dirname "$(readlink -f "$0")")/squashfs-root"
+          exec "$root/AppRun" freecadcmd "$@"
+          EOF
+          chmod +x freecadcmd
+      - name: Select FreeCAD kernel
+        shell: bash
+        run: |
+          echo "FREECAD_CMD=$HOME/.cache/prechips-freecad/freecadcmd" >> "$GITHUB_ENV"
+          "$HOME/.cache/prechips-freecad/freecadcmd" --version
       - run: uv run pytest
 
   build:

@@ -50,12 +50,19 @@ measurement debt behind the current reports.
 the matching citation map; `numbers_verify` maps names to booleans or unknown.
 The datum rule consumes `refixture_budget_mm`; M2 stick-out consumes
 `stickout_ld_max`, multiplied by the smallest finished diameter in the unsupported
-length (feature diameters along setup Z), not held bar OD. See PLAN §4.1 and
-[lathe rules](rules-lathe.md). A true or unknown verification flag prevents
-either from certifying a measured threshold. The shipped numbers remain `"unknown"`
+length (feature diameters along setup Z), not held bar OD; the M4
+`thin_wall_under_clamp` rule consumes `thin_wall_floor_mm` as the minimum
+grip-zone wall the kernel's measurement must meet. See PLAN §4.1,
+[lathe rules](rules-lathe.md) and [geometry rules](rules-geometry.md). A true
+or unknown verification flag prevents any of them from certifying a measured
+threshold. The shipped numbers remain `"unknown"`
 rather than copying unsourced shop folklore. Required M2 physics warnings promote
 readiness to exit 4 using the existing gate; proxy warnings never invent a
-hard physical limit. Other number names do not imply deferred M4 rules shipped.
+hard physical limit. Other number names are not read by any rule.
+The seven geometry rule names (`accessibility`, `reach`,
+`internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,
+`thin_wall_under_clamp`) may be required; a missing FreeCAD kernel yields exit
+4 whether or not they are, because its `?` rows carry `kernel_unavailable`.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled

@@ -1,0 +1,110 @@
+# pocket-reach, failing candidate (PLAN.md rev 6 §4.2 reach). S1 numerically clears
+# an authored blank; its unselected cutter/holder remain geometry debt. S2 finishes
+# only the vertical pocket walls/corners: the lowest boundary is 45 mm below the top.
+# em-8-std has 19 mm flute, 63 mm OAL and 25 mm collet grip, so its holder nose is
+# 7 mm below the top face. Expected: reach and accessibility errors. long-reach.toml
+# changes only the target cutter. These are synthetic choices, not shop measurements.
+part = "pocket-block"
+features = "features.toml"
+construction = "one_piece"
+
+[paths]
+inventory = "../inventory.toml"
+policy = "../shop-policy.toml"
+cutting_data = "../../cutting-data.toml"
+
+[stock]
+form = "rectangular_bar"
+form_verify = false
+section_mm = [70.0, 50.0]
+length_mm = 61.0
+origin_mm = [0.0, 0.0, 0.0]
+axis = [0.0, 0.0, 1.0]
+section_axis = [1.0, 0.0, 0.0]
+note = "Authored 70 x 50 x 61 mm supply: 1 mm top allowance over the synthetic 60 mm block; the other five outer surfaces are supplied as-is. S1 declares a numeric clearing volume, not CAM proof."
+as_is_faces = [
+  "#17/ADVANCED_FACE[1]/",
+  "#57/ADVANCED_FACE[2]/",
+  "#182/ADVANCED_FACE[4]/",
+  "#206/ADVANCED_FACE[5]/",
+  "#223/ADVANCED_FACE[6]/",
+]
+
+[[setups]]
+id = "S1"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "stock"
+note = "Synthetic rough preparation clears the top allowance and pocket before S2. Only the preparation cutter diameter is authored; its other dimensions, holder and preparation holding remain measurement debt."
+
+hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
+stock_state = { top_z = "unknown", bottom_z = "unknown" }
+
+[[setups.ops]]
+op = 10
+do = "rough_pocket"
+feature = "pocket"
+tool = "em-preparation"
+holder = "unknown"
+direction = "unknown"
+faces = [
+  "#88/ADVANCED_FACE[3]/",
+  "#431/ADVANCED_FACE[15]/",
+  "#267/ADVANCED_FACE[8]/",
+  "#316/ADVANCED_FACE[10]/",
+  "#365/ADVANCED_FACE[12]/",
+  "#414/ADVANCED_FACE[14]/",
+  "#235/ADVANCED_FACE[7]/",
+  "#291/ADVANCED_FACE[9]/",
+  "#340/ADVANCED_FACE[11]/",
+  "#389/ADVANCED_FACE[13]/",
+]
+stock_removal_bounds = { x = [0.0, 70.0], y = [0.0, 50.0], z = [15.0, 61.0] }
+note = "Remove only outside-finished material in this declared setup-frame box. Floor coverage belongs to this prep claim, not to the wall-finishing poses."
+
+[[setups]]
+id = "S2"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "S1"
+note = "Top face up on 20 mm parallels; jaws along X clamp the 50 mm width across Y."
+
+[setups.stock_state]
+top_feature = "pocket"
+top_z = 60.0
+bottom_z = 0.0
+
+[setups.hold]
+fixture = "test-vise"
+jaws_along = "x"
+fixed_jaw = "rear"
+parallels = "test-parallels-20"
+grip_mm = 6.0
+jaw_above_parallels_mm = 8.0
+jaw_center_along_mm = 35.0 # jaw centre on the block's mid-length: 150 mm jaws span x -40..110
+parallels_centres_mm = [[35.0, 5.0], [35.0, 45.0]] # 6 mm parallels under the solid floor margins, y 2..8 and 42..48, inside the jaw planes y 0 / 50
+stop = "left end against the fixed-jaw stop"
+clamp = "hand snug, then quarter turn"
+
+[[setups.ops]]
+op = 10
+do = "finish_pocket"
+feature = "pocket"
+faces = [
+  "#267/ADVANCED_FACE[8]/",
+  "#316/ADVANCED_FACE[10]/",
+  "#365/ADVANCED_FACE[12]/",
+  "#414/ADVANCED_FACE[14]/",
+  "#235/ADVANCED_FACE[7]/",
+  "#291/ADVANCED_FACE[9]/",
+  "#340/ADVANCED_FACE[11]/",
+  "#389/ADVANCED_FACE[13]/",
+]
+tool = "em-8-std"
+holder = "r8-collet-8mm"
+to_z = 15.0
+direction = "climb"
