@@ -267,10 +267,10 @@ class Telemetry:
 
 
 def configure(verb: str) -> Telemetry:
-    """Configure once per process, continuing W3C context from the environment."""
+    """Reuse a live session; each invocation after flush gets its own root."""
     global _telemetry
     with _configure_lock:
-        if _telemetry is None:
+        if _telemetry is None or _telemetry._closed:
             _telemetry = Telemetry(verb)
             atexit.register(_telemetry.flush)
         return _telemetry
