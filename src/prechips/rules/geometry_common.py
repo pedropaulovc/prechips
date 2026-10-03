@@ -1,0 +1,246 @@
+"""Shared geometry debt/provenance boundaries; no host-side geometric guesses."""
+
+from prechips.findings import Finding
+from prechips.rules.datum_consistency import _cuts
+from prechips.rules.resolution import (
+    MANUAL,
+    WORKHOLDING_CATEGORIES,
+    _citations,
+    inventory_category,
+    number,
+    operations,
+    record,
+    resolve,
+)
+
+UNKNOWN = "unknown"
+_NONCUTTING = MANUAL | {"fit_up", "transfer"}
+
+
+def cutting_action(op):
+    action = op.get("do", UNKNOWN)
+    if action == UNKNOWN:
+        return None
+    return action not in _NONCUTTING
+
+
+def finishing_subjects(bundle):
+    # Reuse the existing final datum-cut semantics, including drill→ream/bore/tap.
+    return {
+        f"{setup['id']}:{op['op']}"
+        for name in bundle.features["features"]
+        for _, setup, op in _cuts(bundle.plan["setups"], name)
+        if cutting_action(op) is True and op.get("do") != "coating"
+    }
+
+
+def provenance(bundle, rule, setup=None, op=None, feature=None):
+    cite = [f"PLAN.md §{'4.3' if rule in {'vise', 'thin_wall_under_clamp'} else '4.2'} {rule}"]
+    digest = bundle.features.get("step_sha256", UNKNOWN)
+    if digest != UNKNOWN:
+        cite.append(f"kernel: STEP SHA-256 {digest}; FreeCAD B-rep measurements")
+    if feature is not None:
+        entry = record(bundle.features["features"].get(feature))
+        cite.append(f"features.{feature}: faces and requirements")
+        cite.extend(_citations(entry.get("cite")))
+    if setup is not None:
+        cite.append(f"plan.setups.{setup['id']}: frame and hold")
+        hold = record(setup.get("hold"))
+        fixture_category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
+        for category, reference in (
+            (fixture_category, hold.get("fixture")),
+            ("fixtures", hold.get("parallels")),
+        ):
+            item = record(resolve(bundle, category, reference)) if category else {}
+            if item:
+                cite.append(f"inventory.{category}.{reference}: declared dimensions")
+                cite.extend(_citations(item.get("cite")))
+                cite.extend(_citations(record(item.get("source")).get("cite")))
+                cite.extend(
+                    _citations(item.get("source")) if isinstance(item.get("source"), str) else []
+                )
+        frame = record(record(bundle.features.get("frames")).get(setup.get("frame")))
+        cite.extend(_citations(frame.get("cite")))
+    if op is not None:
+        cite.append(f"plan.setups.{setup['id']}.ops.{op['op']}: selected action/tool/holder")
+        for category, reference in (("tools", op.get("tool")), ("holders", op.get("holder"))):
+            item = record(resolve(bundle, category, reference))
+            if item:
+                cite.append(f"inventory.{category}.{reference}: explicit-unit verified dimensions")
+                cite.extend(_citations(item.get("cite")))
+                cite.extend(_citations(item.get("dia_cite")))
+                cite.extend(_citations(record(item.get("source")).get("cite")))
+    return list(dict.fromkeys(cite))
+
+
+def unavailable(bundle, rule, subject, facts, cite):
+    status = facts.get("status")
+    if status == "ok":
+        return None
+    numbers = {"kernel_status": status or UNKNOWN}
+    if facts.get("kernel_unavailable") is True:
+        numbers["kernel_unavailable"] = True
+    return Finding(
+        rule,
+        subject,
+        "error" if status == "error" else "unknown",
+        numbers,
+        cite,
+        facts.get("reason", "FreeCAD geometry facts are unavailable."),
+    )
+
+
+def mapped_feature(bundle, facts, name):
+    feature = record(bundle.features["features"].get(name))
+    refs = feature.get("faces", UNKNOWN)
+    errors = record(facts.get("mapping_errors"))
+    if isinstance(refs, list):
+        invalid = [ref for ref in refs if ref != UNKNOWN and ref in errors]
+        if invalid:
+            return None, invalid
+    indices = record(facts.get("features")).get(name, UNKNOWN)
+    if (
+        not isinstance(refs, list)
+        or not refs
+        or UNKNOWN in refs
+        or not isinstance(indices, list)
+        or not indices
+    ):
+        return None, []
+    if len(indices) != len(set(indices)) or not all(
+        isinstance(i, int) and not isinstance(i, bool) and i >= 0 for i in indices
+    ):
+        return None, []
+    return set(indices), []
+
+
+def op_contexts(bundle, rule, required=(), fixture=False):
+    from prechips.kernel import build_job, run_geometry
+
+    facts = run_geometry(bundle)
+    job = build_job(bundle)
+    jobs = {op["subject"]: op for setup in job["setups"] for op in setup["ops"]}
+    holds = {setup["id"]: setup["hold"] for setup in job["setups"]}
+    frames = {setup["id"]: setup["frame"] for setup in job["setups"]}
+    for setup, op in operations(bundle):
+        subject = f"{setup['id']}:{op['op']}"
+        cite = provenance(bundle, rule, setup, op, op.get("feature"))
+        blocked = unavailable(bundle, rule, subject, facts, cite)
+        inputs = jobs.get(subject, {})
+        detail = record(record(facts.get("ops")).get(subject))
+        if blocked is None:
+            if cutting_action(op) is False:
+                blocked = Finding(
+                    rule,
+                    subject,
+                    "not_applicable",
+                    {},
+                    cite,
+                    f"{subject}: {op['do']} does not cut geometry.",
+                )
+            elif cutting_action(op) is None:
+                blocked = Finding(
+                    rule, subject, "unknown", {}, cite, f"{subject}: cutting action is unknown."
+                )
+            else:
+                indices, invalid = mapped_feature(bundle, facts, op.get("feature"))
+                invalid += (
+                    [ref for ref in detail.get("mapping_errors", []) if ref != UNKNOWN]
+                    if isinstance(detail.get("mapping_errors"), list)
+                    else []
+                )
+                if invalid:
+                    refs = sorted(set(invalid))
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "error",
+                        {"mapping_errors": refs},
+                        cite,
+                        f"{subject}: invalid STEP face reference(s): {', '.join(refs)}.",
+                    )
+                elif indices is None:
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unknown",
+                        {},
+                        cite,
+                        f"{subject}: feature face references are unknown or unmapped.",
+                    )
+                elif frames[setup["id"]] == UNKNOWN:
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unknown",
+                        {},
+                        cite,
+                        f"{subject}: numeric setup frame is unknown.",
+                    )
+                elif fixture and holds[setup["id"]].get("reason"):
+                    blocked = Finding(
+                        rule, subject, "unknown", {}, cite, holds[setup["id"]]["reason"]
+                    )
+                elif any(not number(inputs.get(key)) for key in required):
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unknown",
+                        {},
+                        cite,
+                        f"{subject}: selected tool/holder dimensions are unmeasured "
+                        "or unavailable.",
+                    )
+        yield setup, op, facts, detail, inputs, cite, blocked
+
+
+def setup_contexts(bundle, rule):
+    from prechips.kernel import build_job, run_geometry
+
+    facts = run_geometry(bundle)
+    job = build_job(bundle)
+    holds = {s["id"]: s["hold"] for s in job["setups"]}
+    frames = {s["id"]: s["frame"] for s in job["setups"]}
+    for setup in bundle.plan["setups"]:
+        subject = setup["id"]
+        cite = provenance(bundle, rule, setup)
+        inputs = holds[subject]
+        detail = record(record(facts.get("setups")).get(subject))
+        blocked = unavailable(bundle, rule, subject, facts, cite)
+        if blocked is None:
+            if inputs["kind"] == UNKNOWN:
+                blocked = Finding(
+                    rule, subject, "unknown", {}, cite, f"{subject}: holding identity is unknown."
+                )
+            elif inputs["kind"] != "vise":
+                status = "not_applicable" if rule == "vise" else "unsupported"
+                blocked = Finding(
+                    rule,
+                    subject,
+                    status,
+                    {},
+                    cite,
+                    f"{subject}: {rule} has no vise grip-zone facts for {inputs['kind']} holding.",
+                )
+            elif frames[subject] == UNKNOWN:
+                blocked = Finding(
+                    rule,
+                    subject,
+                    "unknown",
+                    {},
+                    cite,
+                    f"{subject}: numeric setup frame is unknown.",
+                )
+            elif inputs.get("reason"):
+                blocked = Finding(rule, subject, "unknown", {}, cite, inputs["reason"])
+        yield setup, facts, detail, inputs, cite, blocked
+
+
+def fact_reason(detail, fields, fallback):
+    reasons = record(detail.get("reasons"))
+    relevant = [
+        reasons[key] for key in fields if key in reasons and detail.get(key, UNKNOWN) == UNKNOWN
+    ]
+    if relevant:
+        return "; ".join(dict.fromkeys(relevant))
+    return fallback if reasons else detail.get("reason", fallback)

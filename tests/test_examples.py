@@ -33,12 +33,30 @@ def test_examples_match_reference_bytes_and_repeat(
         assert result.returncode == exit_code, result.stderr
         assert report["expected_exit"] == exit_code
         assert "PLANNED" in html
-        outputs.append(((out / "report.json").read_bytes(), (out / "traveler.html").read_bytes()))
+        outputs.append({path.name: path.read_bytes() for path in out.iterdir() if path.is_file()})
     assert outputs[0] == outputs[1]
-    assert outputs[0] == (
-        (bundle / expected_subdir / "report.json").read_bytes(),
-        (bundle / expected_subdir / "traveler.html").read_bytes(),
-    )
+    expected = bundle / expected_subdir
+    if any(row["numbers"].get("kernel_unavailable") for row in report["findings"]):
+        geometry = {
+            "accessibility",
+            "reach",
+            "internal_corner_radius",
+            "coverage",
+            "finish_coverage",
+            "vise",
+            "thin_wall_under_clamp",
+        }
+        assert all(
+            row["status"] == "unknown" for row in report["findings"] if row["rule"] in geometry
+        )
+        assert not report.get("renders")
+    else:
+        assert outputs[0] == {
+            path.name: path.read_bytes()
+            for path in expected.iterdir()
+            if path.is_file()
+            and (path.name in {"report.json", "traveler.html"} or path.suffix == ".png")
+        }
 
 
 def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(tmp_path):

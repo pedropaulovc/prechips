@@ -544,7 +544,7 @@ not exist.
 
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
-| accessibility: for each face an op claims, sample points; at each, stand the op's **tool cylinder** (radius, flute length) and its holder cylinder (gauge dia, gauge length) with the tool centre offset from the sample by the cutter radius along the face's outward normal (so the cylinder touches the face rather than sitting in it); intersect with (part − the claimed face's own feature) ∪ fixture solids; any hit = occluded. A zero-radius ray misses jaw-adjacent faces (measured, §6) and a cylinder centred on the sample hits the part itself on a side face, which is why the offset exists | features.faces, plan.ops (tool, holder), inventory.tools/holders, fixture solids from inventory dims + plan.hold | M4 | "Rail top within 4.8 mm of the rear jaw is unreachable with the 3/8 EM in S3." |
+| accessibility: for each face an op claims, sample points; at each, stand the op's **tool cylinder** (radius, flute length) and its holder cylinder (gauge dia, gauge length) with the tool tip at the sample's Z and the tool axis offset from the sample by the cutter radius along the in-plane (XY) component of the face's outward normal — a horizontal floor sample gets no XY offset, since a cutter stands on a floor rather than beside it (so the cylinder touches a wall rather than sitting in it, and does not float a radius above a floor); intersect with (part − the op's own region: material within r of its claimed faces, and around each sharp concave edge shared by two claimed faces the r-cylinder minus the open-corner wedge) ∪ fixture solids; any hit = that prescribed pose is occluded, not that no path reaches the face. A zero-radius ray misses jaw-adjacent faces (measured, §6) and a cylinder centred on the sample hits the part itself on a side face, which is why the offset exists | features.faces, plan.ops (tool, holder), inventory.tools/holders, fixture solids from inventory dims + plan.hold | M4 | "Rail top within 4.8 mm of the rear jaw is unreachable with the 3/8 EM in S3." |
 | reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ faces claimed by ops ∪ faces declared as-stock = all faces | features.faces, plan.ops, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no op." |
@@ -851,8 +851,82 @@ sheet.
    mapping bound to the STEP digest, failing on ambiguity; a drawing-note
    contract for `construction`; `check:traveler_<stem>` doit task under
    `cad/process/`. Replaces the hand-written manifests.
-4. **M4 — geometry and workholding** (§4.2–4.3) on the kernel, starting with
-   the discriminating fixtures §6 lists; fixture renders on the sheet.
+4. **M4 — geometry and workholding local deliverable completed** (§4.2–4.3).
+   The seven rules
+   (`accessibility`, `reach`, `internal_corner_radius`, `coverage`,
+   `finish_coverage`, `vise`, `thin_wall_under_clamp`) are registered and run
+   on one `freecadcmd.exe` job per check/traveler, memoized per bundle and
+   cached locally by STEP digest + canonical job + engine source + kernel
+   binary identity; a missing kernel is one `?` sentence on the console and
+   exit 4, a kernel failure `✗`. Feature `faces` are matched by the referenced
+   `ADVANCED_FACE`'s own surface kind/area/bbox against the imported solid,
+   never by import ordinal; a missing or ambiguous reference is a mapping
+   error. Fixture solids come only from a vise's explicit `jaw_height`,
+   `jaw_width`, `jaw_depth` (new inventory field, never synthesized) and
+   `opening`, the parallels' `height` (and `length` / `width` for drawn
+   parallels) and the plan's `fixed_jaw` / `jaws_along` / `grip_mm` /
+   `jaw_above_parallels_mm`, with optional authored `jaw_center_along_mm`
+   and `parallels_centres_mm`; without them the render is a conservative
+   certain-plus-possible jaw envelope with named debts, never a guessed
+   pose, and only exact jaws plus exact parallels count as a modeled
+   fixture. Other holding kinds
+   have no solid (`vise` not applicable, `thin_wall_under_clamp`
+   unsupported, accessibility unresolved on lathe setups). `traveler` writes
+   a deterministic `setup-S<n>.png` rasterized from the kernel tessellation
+   and binds it into the report hash; a part-only picture from an unresolved
+   fixture is labelled as such on the sheet. `rules_version` is `m4-rev6`.
+   Three reference bundles keep no STEP bytes; `examples/rocker-arm` binds
+   the consumer's labelled export (delivered under
+   `C:/src/dt-logs/features-bundles/rocker_arm/`, SHA-256 `19070131…`, kept
+   byte-for-byte with `.gitattributes -text`; `HAF_<FEATURE>__P<nn>` labels,
+   periodic surfaces split into patches under one label) with each
+   feature's `faces` taken from that export, and the export's extra
+   features without a manifest counterpart left unclaimed by design. The
+   v38 spike export (`f2408c33…`, `NONE` labels) was the initial
+   discriminator and has been cut over in both the production bundle and
+   `examples/geometry/rocker-jaw-occluded`. All reference bundles keep a
+   `verify = true` vise without
+   `jaw_depth` and an unknown `thin_wall_floor_mm`, so their setup-level
+   geometry rows (`vise`, `thin_wall_under_clamp`, fixture-dependent
+   accessibility) are `?`; the discriminating fixtures of §6 live under `examples/geometry/`
+   (its README and frozen `expected/report.json` files carry exits
+   2 / 2 / 0 / 2 / 2 for rocker-jaw-occluded, pocket-reach, long-reach,
+   sharp-corner and unclaimed-face with byte-identical repeat runs recorded by
+   the fixture author; not re-observed here). **Observed by the integrating
+   agent (scoped, pre-gate):** the five pilot candidates regenerated under
+   `m4-rev6` keep exits 4 / 2 / 2 / 4 / 2. The labelled-export rocker
+   (`examples/rocker-arm`, `19070131…`) regenerated with `traveler` twice:
+   exit 2 both times with all five output files byte-identical, the only
+   errors the three pre-existing tool/fixture absences; its frozen report
+   shows the kernel measuring the bound faces (three `internal_corner_radius`
+   passes, one `finish_coverage` pass) while fixture-dependent rows stay
+   `?` on the `verify = true` vise, `coverage` is `?` because the stock's
+   as-stock faces are unknown, and all three setup renders are part-only
+   with `jaws absent` debts. The kernel engine's own suite
+   (`tests/test_kernel_geometry.py`, 28 tests, FreeCAD required) passed for
+   the engine author, covering every-face mapping of all three labelled
+   consumer bundles with periodic splits, rejection of ordinal mapping under
+   a reversed `CLOSED_SHELL`, boss/own-wall, the air-wedge pin case, holder
+   vs jaws, the real 93-face summing-lever booleans, rotated-puck grip and
+   thin wall. For the geometry fixtures the
+   agent opened `pocket-reach/expected/long-reach/setup-S1.png` and the
+   browser-served traveler: grey pocket part, full brown jaws, green
+   parallels, 640 × 480, complete-scene caption. Earlier: `check` on
+   `pivot-shaft` with `FREECAD_CMD` naming a nonexistent executable exited 4
+   with all seven geometry families unknown, exactly one `? FreeCAD kernel
+   unavailable` console line and empty stdout; `tests/test_kernel_outputs.py`
+   (3) and the telemetry kernel-absence test (1) passed in isolation.
+   **Project-wide acceptance observed:** `uv run ruff check . && uv run ruff
+   format --check . && uv run pytest -q && uv run python
+   scripts/validate_examples.py` exited 0; 699 tests passed and all 23 TOML
+   fixture inputs plus their frozen outputs validated, with pilot exits
+   4 / 2 / 2 / 4 / 2 and geometry exits 2 / 2 / 0 / 2 / 2.
+   **Outside this M4 acceptance:** M3 consumer-side live integration and
+   farm/trace rehearsal; measured production vise/parallel dimensions and
+   a sourced thin-wall floor; and physical operator/setup checks. None is
+   certified by the synthetic fixtures or by this local gate.
+   The rules remain sampled B-rep screens, not toolpath simulation or a
+   certification that the shop's setup matches the plan.
 5. **M5 — measured inventory**: spindle stack, travel limits, holder gauge
    lengths; envelope checks leave `?`.
 

@@ -1,7 +1,8 @@
 # Holding, headroom and datum rules
 
 These are declared-field and nominal-arithmetic checks, not measured workholding
-certification or kernel collision proofs. Unknown measurement debt stays visible.
+certification or kernel collision proofs; the kernel-measured vise and thin-wall
+rules are in [geometry rules](rules-geometry.md). Unknown measurement debt stays visible.
 
 ## `hold_fields`
 

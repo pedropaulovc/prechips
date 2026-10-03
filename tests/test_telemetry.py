@@ -299,3 +299,29 @@ def test_real_otlp_transports_preserve_finding_context(protocol, monkeypatch):
         else:
             server.stop(0).wait()
             pool.shutdown()
+
+
+def test_kernel_absence_has_one_console_line_but_keeps_every_correlated_finding(exporters, capsys):
+    spans, logs = exporters
+    t = telemetry.configure("check")
+    rules = ("accessibility", "reach", "coverage", "vise")
+    for rule in rules:
+        row = SimpleNamespace(
+            rule=rule,
+            subject="S1",
+            status="unknown",
+            numbers={"kernel_unavailable": True},
+            cite=["FreeCAD executable discovery"],
+            sentence="FreeCAD kernel unavailable; geometry remains unknown.",
+        )
+        with t.span(f"rule.{rule}"):
+            t.finding(row)
+    t.flush()
+    assert capsys.readouterr().err.count("? FreeCAD") == 1
+    records = [entry.log_record for entry in logs.get_finished_logs()]
+    assert {record.attributes["rule"] for record in records} == set(rules)
+    assert len(records) == len(rules)
+    children = {
+        span.context.span_id for span in spans.get_finished_spans() if span.name != "prechips.check"
+    }
+    assert {record.span_id for record in records} == children

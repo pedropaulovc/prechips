@@ -3,6 +3,419 @@
   "findings": [
     {
       "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.seat_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.foot_profile: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.foot_profile: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.30: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.ear_relief: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.ear_relief: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.foot_top: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.30: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.ear_sides: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.40: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.ear_sides: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.50: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.hold_down_a: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.60: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.hold_down_a: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.70: selected action/tool/holder",
+        "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
+        "rev-3 pivot-bracket/plan.yaml S2:70; harmonic-analyzer/cad/scripts/_hole_spec.py:57 (#8 close clearance); #15 nominal 0.180 in × 25.4"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.hold_down_b: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.80: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.hold_down_b: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.90: selected action/tool/holder",
+        "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
+        "rev-3 pivot-bracket/plan.yaml S2:70; harmonic-analyzer/cad/scripts/_hole_spec.py:57 (#8 close clearance); #15 nominal 0.180 in × 25.4"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.ear_arch: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.ear_arch: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.30: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.40: selected action/tool/holder",
+        "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
+        "inventory declared fractional drill coverage × 25.4 mm/in"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.50: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:50"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 tip endpoints",
         "features manifest hole geometry",
         "plan stock_state and operation depth/exit",
@@ -2440,6 +2853,19 @@
     },
     {
       "cite": [
+        "PLAN.md §4.2 coverage",
+        "plan.stock.as_is_faces; union of cutting-op feature face sets"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "coverage",
+      "status": "unknown",
+      "subject": "pivot-bracket"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 datum consistency"
       ],
       "message": "No tolerance on this feature refers to another datum.",
@@ -2809,6 +3235,157 @@
       "rule": "engagement",
       "status": "not_applicable",
       "subject": "S3:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "cross_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.ear_arch: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "ear_arch"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.ear_relief: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "ear_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.ear_sides: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "ear_sides"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.foot_profile: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "foot_profile"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.foot_top: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "foot_top"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.hold_down_a: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "hold_down_a"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.hold_down_b: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "hold_down_b"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.seat_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "seat_face"
     },
     {
       "cite": [
@@ -3612,6 +4189,419 @@
     },
     {
       "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.seat_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.foot_profile: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.foot_profile: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.30: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.ear_relief: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.ear_relief: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.foot_top: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.30: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.ear_sides: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.40: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.ear_sides: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.50: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.hold_down_a: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.60: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.hold_down_a: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.70: selected action/tool/holder",
+        "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
+        "rev-3 pivot-bracket/plan.yaml S2:70; harmonic-analyzer/cad/scripts/_hole_spec.py:57 (#8 close clearance); #15 nominal 0.180 in × 25.4"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.hold_down_b: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.80: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.hold_down_b: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.90: selected action/tool/holder",
+        "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
+        "rev-3 pivot-bracket/plan.yaml S2:70; harmonic-analyzer/cad/scripts/_hole_spec.py:57 (#8 close clearance); #15 nominal 0.180 in × 25.4"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.ear_arch: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.ear_arch: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.30: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.40: selected action/tool/holder",
+        "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
+        "inventory declared fractional drill coverage × 25.4 mm/in"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.50: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:50"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 op chain",
         "plan authored route",
         "features declared process/thread"
@@ -3867,6 +4857,419 @@
       "rule": "order",
       "status": "pass",
       "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.seat_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.foot_profile: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.foot_profile: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.30: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.ear_relief: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.ear_relief: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.foot_top: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.30: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.ear_sides: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.40: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.ear_sides: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.50: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.hold_down_a: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.60: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.hold_down_a: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.70: selected action/tool/holder",
+        "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
+        "rev-3 pivot-bracket/plan.yaml S2:70; harmonic-analyzer/cad/scripts/_hole_spec.py:57 (#8 close clearance); #15 nominal 0.180 in × 25.4"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.hold_down_b: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.80: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.hold_down_b: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.90: selected action/tool/holder",
+        "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
+        "rev-3 pivot-bracket/plan.yaml S2:70; harmonic-analyzer/cad/scripts/_hole_spec.py:57 (#8 close clearance); #15 nominal 0.180 in × 25.4"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.ear_arch: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.10: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.ear_arch: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.20: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.30: selected action/tool/holder",
+        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.40: selected action/tool/holder",
+        "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
+        "inventory declared fractional drill coverage × 25.4 mm/in"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.50: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:50"
     },
     {
       "cite": [
@@ -4687,6 +6090,55 @@
         "sizes_mm": []
       },
       "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "thin_wall_under_clamp",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "thin_wall_under_clamp",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "thin_wall_under_clamp",
       "status": "unknown",
       "subject": "S3"
     },
@@ -5537,6 +6989,55 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 vise",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "vise",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 vise",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "vise",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 vise",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "vise",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 zero recipe",
         "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
         "plan zero and stock_state; inventory finder nominal size"
@@ -5783,7 +7284,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "e21e1cbc648c477b542a689f0f2022573beb543d4c5637ab391e336364ede897",
+  "hash": "585853f90705ed060fbed07b15211ff2d7ffa8a4d8bc0da01fa63405e0a685c5",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -5807,7 +7308,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m2-rev6",
+  "rules_version": "m4-rev6",
   "step_sha256": "unknown",
   "verification": "planned"
 }

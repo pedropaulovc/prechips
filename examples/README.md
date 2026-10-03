@@ -3,9 +3,24 @@
 These are **hand-authored input bundles** with CLI-generated reference-output
 contracts, not certified CAD exports, toolpaths, approvals or first articles.
 Every example traveler remains **PLANNED**. Each candidate consumes its plan,
-`features.toml`, and the three shared shop inputs. No STEP byte stream is supplied:
-`step_sha256 = "unknown"` is a finding, not a fabricated digest. The cone M2
-fixture has two authored candidates for the same part, not two inventory parts.
+`features.toml`, and the three shared shop inputs. Shaft, bracket and cone
+supply no STEP byte stream: `step_sha256 = "unknown"` is a finding, not a
+fabricated digest, and under M4 it keeps all seven geometry rules `?` (the
+`STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.`
+reason, or on a machine without FreeCAD the one kernel-unavailable line, which
+forces exit 4 unless an error already yields 2). `rocker-arm/` binds the
+consumer's labelled export `rocker-arm.STEP` by digest (`19070131…`, the
+bytes delivered under `C:/src/dt-logs/features-bundles/rocker_arm/`, kept
+byte-for-byte via `.gitattributes -text`; SolidWorks inches,
+`HAF_<FEATURE>__P<nn>` face labels) and copies each feature's `faces` from
+that export; the export's `strap_datum_b` and tip-land features have no
+manifest counterpart and are left unclaimed, not invented. Its regenerated
+`expected/` carries that digest, exit 2 (the three pre-existing tool/fixture
+absences), kernel-measured corner-radius and finish rows, `?` fixture rows
+on the `verify = true` vise and three part-only renders. The cone M2 fixture has two
+authored candidates for the same part,
+not two inventory parts. The M4 geometry fixtures, which do carry STEP bytes,
+live under [`geometry/`](geometry/README.md) with their own inventory and policy.
 
 ## Files and expected exits
 
@@ -43,6 +58,10 @@ These expected report exits are independently recomputed by the validator. The
 validator itself exits **0** when these intentionally stopped bundles agree.
 The existing three fixture contracts remain 4 / 2 / 2; the cone candidates add
 4 / 2. These are expected contracts, not a claim that a mid-flight run occurred.
+The M4 catalogue adds seven geometry rows per bundle (unknown without STEP
+bytes or mapped faces); the integrating agent's regeneration under
+`m4-rev6` kept these five exits (recorded in PLAN §8 M4; not re-run by this
+document).
 
 | Plan literal `"unknown"` leaves | Before restoration | After restoration |
 |---|---:|---:|
@@ -65,6 +84,40 @@ retain `part = "cone-pivot-post"` and distinguish `plan.toml` from `built-up.tom
 there is no generated plan-text file. Plans do not request external coordinate
 files: machine-readable numbers are in the report and bench coordinates are on
 the sheet. No operative asset lies outside the bundle.
+
+### M4 geometry fixtures (`geometry/`)
+
+[`geometry/README.md`](geometry/README.md) is the authoritative description of
+the discriminating bundles for the seven kernel rules; it is owned by the
+fixture author and records the exits that author observed with FreeCAD
+installed. The directory holds its own **synthetic** `inventory.toml`
+(`verify = false` test tools, R8 collets with `gauge_dia_mm` / `gauge_len_mm`,
+two vises with all four jaw dimensions, 150 × 6 × 20 mm parallels) and
+`shop-policy.toml` (requires only the seven geometry rules;
+`thin_wall_floor_mm = 2.0` is a test threshold, not a shop limit), and shares
+`../cutting-data.toml`. Each plan authors `jaw_center_along_mm` and
+`parallels_centres_mm`, so these are the only bundles whose render can be an
+exact modeled fixture rather than an envelope. None of those numbers is a
+measurement of the shop in `inventory/pedro-shop.toml`.
+
+| bundle | STEP | rule it discriminates |
+|---|---|---|
+| `rocker-jaw-occluded/plan.toml` | real `rocker-arm.STEP`, the consumer's labelled export (same bytes as `../rocker-arm/`; the v38 `NONE`-label spike export was the initial discriminator) | `accessibility`: offset cutter cylinder beside the strap face hits the jaw and the hub boss; `vise` passes |
+| `pocket-reach/plan.toml` / `long-reach.toml` | synthetic `pocket-block.STEP` | `reach`: 45 mm floor against a 19 mm flute fails; the 100 mm OAL candidate passes with the holder clear |
+| `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | `internal_corner_radius`: sharp vertical pocket corners against a 1/4 in cutter |
+| `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | `coverage`: one face cut by no op and not declared as-stock |
+
+The frozen `expected/report.json` of those five candidates carry
+`expected_exit` 2 / 2 / 0 / 2 / 2 under `rules_version = "m4-rev6"`, each with
+a `renders.S1` record bound to its `setup-S1.png`; the fixture README records
+the byte-identical repeat runs behind them; the `rocker-jaw-occluded`
+goldens on disk are bound to the labelled export (`19070131…`, exit 2, one
+`accessibility` error, `vise` / `reach` / `coverage` pass, exact jaws and
+parallels). This document did not re-run
+them, and the project-wide gate is recorded per PR at acceptance. `features.toml`
+in each bundle binds its STEP by `step_sha256`; `author_solids.py` is
+provenance for the three synthetic solids and is not a build step (its STEP
+header carries a timestamp).
 
 ## Source facts, not the PLAN layout sketch
 
@@ -208,7 +261,9 @@ remaining object **with the same canonical form including its final LF**, and
 SHA-256 those bytes. The traveler footer uses the first eight characters:
 `prechips 0.1 · report <id>`. HTML is an output, not an input to its own report.
 `.gitattributes` pins fixture line endings to LF.
-The implemented rule vocabulary is `m2-rev6`; the report retains the reference
+The implemented rule vocabulary is `m4-rev6` (the `expected/` files are
+regenerated by the parent after the M4 code lands; a report still stamped
+`m2-rev6` has a stale hash); the report retains the reference
 ABI's `message` and `expected_exit` names. Finite floats use the JSON encoder's
 shortest round-trip representation, not drawing-format rounding. Drawing precision
 is applied only to the traveler.
@@ -270,8 +325,15 @@ precision is absent, without inventing an acceptance band. Actual unknown
 numbers remain `?`. Stock state, grip/stop/clamp, clearance, coolant, deburr,
 tool/holder, speed/feed, direction, tip and requirement checks are present or
 named unknown. No rule ids, paths or full hashes belong on the bench sheet.
-No geometry render is claimed before M4. A browser-rendered Letter PDF is a layout
-smoke proof, **not** the physical printed paper rehearsal or a first article.
+Under M4 each setup page carries one kernel figure or the explicit
+`? Kernel fixture render unavailable; holding geometry is not confirmed.`
+paragraph; the three STEP-less bundles always show the latter, and the
+rocker, whose STEP is bound but whose vise is `verify = true`, shows a
+part-only view captioned as unresolved on each of its three setup pages
+(regenerated `expected/` with three `setup-S<n>.png`, all five files
+byte-identical on the integrating agent's repeat run). A browser-rendered
+Letter PDF is a layout smoke proof, **not** the physical printed paper rehearsal
+or a first article.
 
 ## Validation
 

@@ -1,0 +1,143 @@
+# rocker-arm (MHA-071) face manifest for the PLAN.md rev 6 §4.2 accessibility fixture.
+# The STEP is the consumer's labelled v40 export delivered as
+# C:/src/dt-logs/features-bundles/rocker_arm/rocker-arm.STEP (raw bytes, CRLF preserved,
+# SHA-256 19070131…): SolidWorks inches, eighteen ADVANCED_FACE records each labelled
+# HAF_<FEATURE>__P<nn> (periodic surfaces split into P01/P02 patches share one feature
+# label). The feature identities and `faces` lists below are the consumer's exported
+# face sets (features-bundles/rocker_arm/features.toml), restricted to the features this
+# fixture needs; a reference is #<entity>/ADVANCED_FACE[<file-order ordinal>]/<label>,
+# never FreeCAD's import ordinal. Dimensions quoted in notes are the consumer's nominal
+# source geometry, cited as in ../../rocker-arm/features.toml; nothing is measured.
+part = "rocker-arm"
+units = "mm"
+precision = "unknown"
+step = "rocker-arm.STEP"
+step_sha256 = "19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15"
+construction = "one_piece"
+cite_root = "harmonic-analyzer"
+
+[cite]
+part = "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:1-2"
+step_sha256 = "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP (delivered as C:/src/dt-logs/features-bundles/rocker_arm/rocker-arm.STEP; see examples/geometry/README.md)"
+construction = "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93 (no built-up permission note)"
+
+# Model frame as exported: X along the arm (rod end +X), Y toward the top edge, Z the
+# extrusion axis. Pivot axis at (0, 8); strap faces z = ±1.25; hub faces z = ±3.52825;
+# outer R816 arc bottoms out at y = 0, the R800 top edge ends at y = 29.2946 (the tips).
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+cite = ["harmonic-analyzer/cad/scripts/build_rocker_arm.py:42-45", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434"]
+
+# Setup frame V: the arm stands on its tips with the pivot axis horizontal. Frame z is
+# model -Y (up = toward the R816 outer arc), frame y is model +Z, origin on the pivot
+# axis at the extrusion mid-plane; x cross y = z. Model (X, Y, Z) -> V (X, Z, 8 - Y):
+# tips at z = -21.2946, outer arc apex at z = 8, hub faces at y = ±3.52825 spanning
+# z -5.1..5.1, strap faces at y = ±1.25.
+[frames.V]
+origin = [0.0, 8.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 0.0, 1.0]
+z = [0.0, -1.0, 0.0]
+binding = "unknown"
+note = "S1: vise jaws along X close across model Z onto the two hub faces; the strap faces lie 2.27825 mm inside each jaw plane."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-429"]
+
+# Only the claimed +Z strap face (the consumer's datum B face, exported as its own
+# feature) carries a cutting op; every other face is declared as-stock in plan.toml so
+# coverage is not the finding under test.
+[features.strap_datum_b]
+kind = "face"
+frame = "model"
+plane = { frame = "model", axis = "z", value = 1.25 }
+requirements = []
+faces = ["#492/ADVANCED_FACE[13]/HAF_STRAP_DATUM_B__P01"]
+note = "The +Z broad strap face (plane z = +1.25 mm, outward normal +Z), datum B. Its -Z twin is the exported strap_faces set."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28", "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:510-529"]
+
+[features.strap_faces]
+kind = "face"
+frame = "model"
+upper_z = 1.25
+lower_z = -1.25
+requirements = []
+faces = ["#20/ADVANCED_FACE[1]/HAF_STRAP_FACES__P01"]
+note = "The -Z strap face (plane z = -1.25 mm) as exported; as-stock here."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403"]
+
+[features.hub_faces]
+kind = "face"
+frame = "model"
+upper_z = 3.52825
+lower_z = -3.52825
+requirements = []
+faces = ["#553/ADVANCED_FACE[18]/HAF_HUB_FACES__P01", "#448/ADVANCED_FACE[11]/HAF_HUB_FACES__P02"]
+note = "Planes z = ±3.52825 mm; the vise jaws close on these in frame V."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-432"]
+
+[features.hub_od]
+kind = "boss"
+frame = "model"
+at = [0.0, 8.0, 0.0]
+axis = [0.0, 0.0, 1.0]
+dia_nominal = 10.20
+requirements = []
+faces = ["#166/ADVANCED_FACE[4]/HAF_HUB_OD__P01", "#486/ADVANCED_FACE[12]/HAF_HUB_OD__P01", "#495/ADVANCED_FACE[14]/HAF_HUB_OD__P02", "#514/ADVANCED_FACE[16]/HAF_HUB_OD__P02"]
+note = "Four patches of the R5.1 hub cylinder about the pivot axis (two periodic splits per hub, P01 and P02); 2.27825 mm proud of each strap face."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:100-112", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:406-434"]
+
+[features.pivot_bore]
+kind = "cylinder"
+frame = "model"
+at = [0.0, 8.0, 0.0]
+axis = [0.0, 0.0, 1.0]
+dia_nominal = 6.50
+requirements = []
+faces = ["#233/ADVANCED_FACE[5]/HAF_PIVOT_BORE__P01", "#382/ADVANCED_FACE[8]/HAF_PIVOT_BORE__P01"]
+note = "Two patches of the R3.25 through bore; kind is the face set as exported, not a hole to be made here (no drill chain is claimed)."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:32", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:436-458"]
+
+[features.rod_hole]
+kind = "cylinder"
+frame = "model"
+at = [133.0674, 16.4561, 0.0]
+axis = [0.0, 0.0, 1.0]
+dia_nominal = 1.994
+requirements = []
+faces = ["#49/ADVANCED_FACE[2]/HAF_ROD_HOLE__P01", "#343/ADVANCED_FACE[7]/HAF_ROD_HOLE__P01"]
+note = "Two patches of the #47 rod hole cylinder (STEP axis point 5.23887 in, 0.647877 in); a face set as exported, not a hole to be made here."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:33-35", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:509-518"]
+
+[features.top_edge]
+kind = "profile"
+frame = "model"
+requirements = []
+faces = ["#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01"]
+note = "R800 (31.4961 in) top-edge cylinder about (0, 816)."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:26-29", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-49"]
+
+[features.profile_outer]
+kind = "profile"
+frame = "model"
+requirements = []
+faces = ["#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01", "#426/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02", "#505/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03"]
+note = "The two straight tapers from each tip land down to the bottom arc, [17] (-X) and [15] (+X) (normals ∓0.6917, -0.7222), and the R816 (32.126 in) bottom arc [9], as exported."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:26-31", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-54", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166"]
+
+[features.tip_land_pos_x]
+kind = "face"
+frame = "model"
+requirements = []
+faces = ["#248/ADVANCED_FACE[6]/HAF_TIP_LAND_POS_X__P01"]
+note = "Rod-side (+X) radial tip land, perpendicular to the top edge (normal 0.9834, 0.1816 = the arc tangent at its end), the consumer's datum C; as-stock here."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31", "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:530-538"]
+
+[features.tip_land_neg_x]
+kind = "face"
+frame = "model"
+requirements = []
+faces = ["#431/ADVANCED_FACE[10]/HAF_TIP_LAND_NEG_X__P01"]
+note = "The -X radial tip land (normal -0.9834, 0.1816); as-stock here."
+cite = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-54"]

@@ -133,6 +133,11 @@ Hold = record(
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
+        "jaw_center_along_mm": Number,
+        "parallels_centres_mm": Annotated[
+            list[Annotated[list[Number], Field(min_length=2, max_length=2)]],
+            Field(min_length=2, max_length=2),
+        ],
         "supports": str | list[str | Reference],
         **flags("grip_mm_verify jaw_above_parallels_mm_verify"),
         "index": Index,
@@ -410,7 +415,8 @@ InventoryItem = record(
             "dia_mm dia_in shank_mm flute_len_mm flute_len_in oal_mm oal_in gauge_len_mm "
             "gauge_len_in projection_in spindle_to_table_max_mm jaw_height_mm height_mm "
             "height_in length_mm width_mm width_in capacity_mm "
-            "bed_height_in nose_radius_mm reach_mm"
+            "bed_height_in nose_radius_mm reach_mm jaw_depth_mm jaw_depth_in jaw_width_mm "
+            "opening_mm gauge_dia gauge_dia_mm gauge_dia_in"
         ),
         "dia": Number,
         "shank_in": float | str | dict[str, list[str]],
