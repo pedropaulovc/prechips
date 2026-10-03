@@ -6,8 +6,8 @@ OpenCASCADE. They compare sampled intersections and B-rep measurements with
 the selected tools, holders, fixture dimensions and declared pose. This is not
 CAM, a simulation of the cut, or certification of the physical setup.
 Everything the kernel cannot measure from explicit inputs stays `?` with a named reason;
-nothing is guessed from a bounding box, a catalogue label or an unverified
-inventory row.
+nothing is guessed from a bounding box, a catalogue label or a length fact
+that carries its own verification debt.
 
 | rule | subject | catalogue row |
 |---|---|---|
@@ -95,8 +95,9 @@ numeric input are inside), the digest of the engine's own `kernel/*.py`
 sources, and the kernel executable's resolved path, SHA-256, size and mtime.
 Changing a consumed geometry input, the STEP, the engine or the FreeCAD build
 therefore misses; moving the bundle does not. Host-only action/finishing metadata,
-tool OAL after projection is resolved, and protective hold-method text do not
-invalidate geometry. `unknown` and `error` results
+tool OAL after projection is resolved, protective hold-method text, and the
+item-level `verify` / `present` / `source` flags around a consumed fact (which
+never enter the job) do not invalidate geometry. `unknown` and `error` results
 are never cached, and a cache that cannot be written changes nothing. A hit
 reproduces the same facts and the same render bytes as the run that produced
 it. The cache is a local convenience, not an input: it is not part of the
@@ -142,17 +143,36 @@ faces that no reference names are labelled `imported face index <n>`
 
 ## Inputs the job accepts
 
-Numeric fields reach the kernel only when they resolve to a positive explicit
-length from an inventory row that is not `verify = true` (`present`/`verify`
-unknown rows count as unverified); see [inventory](inventory.md). Missing
+Numeric fields reach the kernel only when they resolve to a positive
+explicit-unit length through the M5 fact-local lookup with measurement *not*
+required: a plain nominal number, or a `{ value, measured, verify }` record
+whose own `verify` is absent/false and whose `measured`, when present, is
+complete. A fact whose own `verify` is `true`/`"unknown"` or whose `measured`
+record is incomplete is debt for that dimension only. An item-level `verify`,
+`present` or `source` flag, a set root's or member container's flags and
+`coverage` text are identity provenance for the declared-input rules; they
+never withhold a numeric fact from the kernel, and nothing is inherited from
+them. Shop measurement metadata (`by`, `date`, `instrument`) is not required
+here: the M5 `envelope` / `travel` screens impose that stricter readiness on
+the same holder gauge/grip, tool OAL and projection facts (and `headroom` on
+the envelope limits) separately, so an op can be geometrically checked while
+its spindle stack is still M5 measurement debt. See
+[inventory](inventory.md#kernel-geometry-facts-m4). Missing
 fields are listed in the job's reason text and the dependent rules are `?`.
 
 - Per cutting op (noncutting actions are `not_applicable`; an unknown `do` is
   `unknown`): `radius_mm` (tool `dia` / 2), `flute_len_mm`,
   `holder_radius_mm` (holder `gauge_dia` / 2), `holder_gauge_len_mm`,
-  `projection_mm` (tool `projection`, else `oal − holder grip`, the same
-  convention as the engagement rule). OAL and finishing-cut decisions stay
-  host-side for `reach` and `finish_coverage`; they are not engine inputs.
+  `projection_mm`. The projection is the selected pair's entry in
+  `tools.<tool>.projection_mm` / `projection_in`, keyed by the full holder
+  reference the op names; when that entry exists it alone decides, so an
+  `"unknown"` or debt-carrying entry keeps the op `?` and never falls through
+  to another holder's number or to OAL − grip. Only an absent pair uses tool
+  `oal` minus the selected holder's `grip`, each from its own accepted fact —
+  the same `tool_projection` convention the engagement rule and the M5
+  screens share. There is no scalar tool-wide projection. OAL and
+  finishing-cut decisions stay host-side for `reach` and `finish_coverage`;
+  they are not engine inputs.
 - Per setup: the numeric frame from the manifest (`origin` converted from
   inches when `units = "in"`; an unknown frame keeps every op row `unknown`
   with `numeric setup frame is unknown`), and for a `kind = "vise"` fixture
@@ -164,7 +184,8 @@ fields are listed in the job's reason text and the dependent rules are `?`.
   absent, never defaulted: `jaw_center_along_mm` (jaw centre along
   `jaws_along`, setup-frame coordinate) and `parallels_centres_mm` (exactly
   two `[x, y]` setup-frame centres); the parallels `length` (along the jaws)
-  and `width` (along the clamp axis) also pass when measured. Any other
+  and `width` (along the clamp axis) also pass when their facts are accepted.
+  Any other
   holding kind carries `Fixture solids are not declared for this holding
   kind.`: no chuck, collet, fixture-plate or clamp solid exists in M4.
 
@@ -236,7 +257,7 @@ jaws are not placed`. The engine never guesses a lateral centre.
 ### Parallels
 
 The parallels add solids only when the hold declares `parallels_centres_mm`
-and the selected parallels row measures `height`, `length` and `width`: two
+and the selected parallels row's `height`, `length` and `width` facts are accepted: two
 boxes `length` along `jaws_along` × `width` along the clamp axis × `height`
 down, tops at the part seat. They lie below every tool and holder cylinder,
 so they never enter hit counts; they exist for the picture and for the
@@ -305,8 +326,9 @@ holder radius, gauge length and projection. Numbers: `reach_depth_mm`,
   `depth exceeds flute length but fits OAL with the holder cylinder clear of walls.` (pass)
 - otherwise `entry-to-floor depth or holder wall clearance is unresolved.` (unknown)
 
-The long-tool rescue therefore requires a measured holder; an unknown holder
-never passes a beyond-flute depth.
+The long-tool rescue therefore requires accepted holder gauge-diameter,
+gauge-length and projection facts; an unknown holder never passes a
+beyond-flute depth.
 
 A sample without an evaluable surface normal makes the sampled face's
 accessibility and reach unresolved, with the face and missing-normal count
@@ -420,9 +442,9 @@ returns `render_scene = {jaws, parallels, debts}`: `jaws` is `absent`
 jaw_center_along_mm): dark jaws span only the part's <e> mm grip-zone
 extent; light strips show where the other <w−e> mm of each <w> mm jaw may
 lie`); `parallels` is `absent` (no usable hold inputs: non-vise holding or
-a vise with dimension/pose debt, as in the shipped rocker whose
-`verify = true` vise yields `jaws not drawn: Fixture pose/dimensions
-unmeasured or unavailable: …`), `exact` or
+a vise with dimension/pose debt, as in the shipped rocker whose vise declares
+no `jaw_depth` and yields `jaws not drawn: Fixture pose/dimensions
+unmeasured or unavailable: jaw_depth_mm`), `exact` or
 `not_modelled`. `fixture_rendered` is true only when the jaws are placed and
 the debt list is empty, i.e. exact jaws and exact parallels. Everything else
 is a partial picture with its debts spelled out; a stock-only or envelope
@@ -439,19 +461,23 @@ report and captioned is in
   still measure the B-rep along the declared frame's +Z when the tool
   dimensions are known; that axis is the frame's, not a lathe spindle model.
   Lathe headroom stays `unsupported` as before.
-- Only a vise with explicit `jaw_height` / `jaw_width` / `jaw_depth` /
-  `opening` and `verify` absent/false is modeled, seated at the part's
+- Only a vise whose `jaw_height` / `jaw_width` / `jaw_depth` / `opening`
+  facts each resolve without their own debt is modeled, seated at the part's
   lowest Z. The exact jaw pose along the jaws and the parallel solids exist
   only when the plan authors `jaw_center_along_mm` and
-  `parallels_centres_mm` and the parallels row measures height, length and
-  width; otherwise the render is an envelope or part-only view with named
-  debts. The shipped example vise is `verify = true` and has no `jaw_depth`,
-  and the shipped parallels have no length/width; those are debts to
-  measure, not values to invent.
+  `parallels_centres_mm` and the parallels row's height, length and width
+  facts are accepted; otherwise the render is an envelope or part-only view
+  with named debts. The shipped example vise has no `jaw_depth` (its
+  item-level `verify = true` is identity debt for the declared-input rules,
+  not a geometry veto), and the shipped parallels have no length/width;
+  those are debts to declare, not values to invent.
 - Accessibility and reach are sampled/projected measurements with a fixed
   grid, not full swept toolpath simulation; a feature narrower than the
   sampling can be missed between samples. Chatter, clamp deformation and the
   PLAN §4.6 residue remain outside every rule.
-- A `verify = true` tool, holder or fixture, an unknown frame, or an unknown
-  `thin_wall_floor_mm` keeps the corresponding rows `?`; no row is `pass`
-  without every input it names.
+- A length fact carrying its own `verify = true` / `"unknown"` or an
+  incomplete `measured` record, a missing dimension, an unknown frame, or an
+  unknown `thin_wall_floor_mm` keeps the corresponding rows `?`; an
+  item-level `verify = true` on a tool, holder or fixture does not. No row is
+  `pass` without every input it names, and no geometry pass is an M5
+  measurement claim.

@@ -6,6 +6,8 @@ Engine cases run ``freecad_job.py`` under ``freecadcmd`` on the authored solids 
 
 import shutil
 import subprocess
+import tomllib
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -222,12 +224,8 @@ def _two_sided_bundle(tmp_path, monkeypatch, s1_faces, s2_faces):
         "origin_mm": [0.0, 0.0, 0.0],
         "axis": [1.0, 0.0, 0.0],
         "section_axis": [0.0, 1.0, 0.0],
-        "as_is_faces": sorted(
-            (set(supplied_faces) | {"#185/ADVANCED_FACE[6]/"}) - {TOP, BOTTOM}
-        ),
+        "as_is_faces": sorted((set(supplied_faces) | {"#185/ADVANCED_FACE[6]/"}) - {TOP, BOTTOM}),
     }
-    import tomllib
-    from copy import deepcopy
 
     first = deepcopy(bundle.plan["setups"][-1])
     first.update(id="S1", frame="A", stock_in="stock")
@@ -387,7 +385,7 @@ def bundle(tmp_path):
                     "dia_mm": 6.0,
                     "flute_len_mm": 10.0,
                     "oal_mm": 30.0,
-                    "projection_mm": 25.0,
+                    "projection_mm": {"holder": 25.0},
                     "verify": False,
                 }
             },

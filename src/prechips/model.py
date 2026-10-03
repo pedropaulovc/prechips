@@ -461,14 +461,11 @@ InventoryItem = record(
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
-            "swing_in plates pieces angle_deg flute_len head_in max_offset_in "
-            "dial_in length_in min_bore_in tip_in jaw_width_in opening_in jaw_height_in "
+            "swing_in plates pieces angle_deg head_in max_offset_in "
+            "dial_in min_bore_in tip_in "
             "diameter_in thickness_in resolution_in runout_max_in "
             "max_shank_in sfm chip_load_mm_per_tooth "
-            "shank_mm flute_len_mm flute_len_in jaw_height_mm "
-            "length_mm width_mm width_in capacity_mm nose_radius_mm reach_mm "
-            "gauge_len spindle_to_table_max_mm jaw_depth_mm jaw_depth_in jaw_width_mm "
-            "opening_mm gauge_dia gauge_dia_mm gauge_dia_in"
+            "shank_mm capacity_mm nose_radius_mm reach_mm"
         ),
         "point_angle": MeasuredAngle,
         **dict.fromkeys(
@@ -487,6 +484,24 @@ InventoryItem = record(
                 "height_in",
                 "bed_height_mm",
                 "bed_height_in",
+                "flute_len",
+                "flute_len_mm",
+                "flute_len_in",
+                "gauge_dia",
+                "gauge_dia_mm",
+                "gauge_dia_in",
+                "jaw_height_mm",
+                "jaw_height_in",
+                "jaw_width_mm",
+                "jaw_width_in",
+                "jaw_depth_mm",
+                "jaw_depth_in",
+                "opening_mm",
+                "opening_in",
+                "length_mm",
+                "length_in",
+                "width_mm",
+                "width_in",
             ),
             MeasuredLength,
         ),
@@ -532,8 +547,9 @@ InventoryItem.model_rebuild()
 
 # Single-length facts consumed by rules; size/range lists are independent collections.
 _INVENTORY_LENGTH_STEMS = frozenset(
-    "dia oal grip gauge_len lead height bed_height projection flute_len jaw_height "
-    "shank capacity max_shank nose_radius reach tip length resolution".split()
+    "dia oal grip gauge_len gauge_dia lead height bed_height projection flute_len "
+    "jaw_height jaw_width jaw_depth opening width shank capacity max_shank "
+    "nose_radius reach tip length resolution".split()
 )
 _ENVELOPE_LENGTH_STEMS = frozenset(("spindle_to_table_max", "spindle_to_table_min", "travel"))
 _TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))

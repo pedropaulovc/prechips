@@ -1213,11 +1213,11 @@ class _Traveler:
                 "envelope; exact fixture pose is unresolved."
             )
         elif scene.get("jaws") == "exact":
-            caption = "? Kernel view: setup-entry stock and declared jaws; fixture scene incomplete."
-        else:
             caption = (
-                "? Kernel stock view only; fixture dimensions or jaw pose remain unresolved."
+                "? Kernel view: setup-entry stock and declared jaws; fixture scene incomplete."
             )
+        else:
+            caption = "? Kernel stock view only; fixture dimensions or jaw pose remain unresolved."
         if scene.get("debts"):
             caption += " " + " ".join(scene["debts"])
         return (

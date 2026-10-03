@@ -155,7 +155,9 @@ warn once and disable exporters without changing the report or checker exit.
 - [Reports, approval, renders and telemetry](docs/report-and-telemetry.md).
 
 The literal `"unknown"` never means zero, absence, approval or a pass. A
-`verify = true` inventory entry is verification debt, not certified geometry.
+`verify = true` inventory entry is verification debt, not certified geometry:
+on an item it leaves that identity unresolved for the declared-input rules,
+on one length fact it leaves only that fact unresolved.
 No invented tool dimension, Handbook page, measurement or drawing tolerance
 fills a gap. Sources are citations, never network fetches at check time. The
 only optional network activity is explicitly configured OpenTelemetry export.
@@ -174,7 +176,10 @@ the vendor nominals remain unchanged and `verify = true`, minimum clearance,
 vise bed height and every holder gauge/grip stay `"unknown"`, and no tool
 carries a projection yet. A tool's projection is a per-holder map
 (`tools.<tool>.projection_mm.<full holder ref>`), never a holder-wide or
-tool-wide number. Run `uv run prechips tools --measure` for the checklist of
+tool-wide number; when the selected pair has an entry that entry alone
+decides, so an `"unknown"` entry never falls back to OAL − grip, and only an
+absent pair uses tool OAL minus the selected holder's grip. Run `uv run
+prechips tools --measure` for the checklist of
 exactly what the current example reports are waiting on. A policy may add
 `envelope = "*"` and `travel = "*"` under `[required]`; the default required
 set is unchanged and there is no `holder_stack` rule. Mill envelope/travel
@@ -232,8 +237,19 @@ Fixture solids come only from a vise's explicit `jaw_height` / `jaw_width` /
 `jaw_depth` / `opening`, the parallels' `height` (plus `length` / `width` for
 their solids) and the plan's `fixed_jaw` / `jaws_along` / `grip_mm` /
 `jaw_above_parallels_mm`, with optional authored `jaw_center_along_mm` and
-`parallels_centres_mm` for the exact pose. A `verify = true` row or a missing
-`jaw_depth` is debt and the setup picture is a labelled part-only view; an
+`parallels_centres_mm` for the exact pose. Those fixture dimensions, the
+tool `dia` / `flute_len` / `oal`, the holder `gauge_dia` / `gauge_len` /
+`grip` and the tool/holder projection are read as M5 fact-local length
+facts with measurement not required: a plain nominal number is accepted
+geometry without `by`/`date`/`instrument`, a fact whose own record carries
+`verify = true` or an incomplete `measured` is debt for that dimension only,
+and an item-level `verify` / `present` / `source` flag never withholds that
+item's numbers from the kernel. The M5 `envelope` / `travel` screens
+separately require complete shop measurements of the same holder gauge/grip,
+tool OAL and projection facts (and `headroom` of the envelope limits), so a
+geometrically checked op can still be M5 measurement debt. A
+missing `jaw_depth` or a debt-carrying jaw fact is debt and the setup picture
+is a labelled part-only view; an
 undeclared jaw centre draws only the certain jaw material plus a pale
 possible-jaw envelope and keeps samples inside it `?`. The render is a
 deterministic rasterization of the kernel tessellation, hashed into
@@ -263,8 +279,10 @@ no STEP bytes; the rocker binds the consumer's labelled export
 (`HAF_<FEATURE>__P<nn>` face labels, kept byte-for-byte) with each
 feature's default `faces` taken from that export. S1's upper strap operations
 explicitly claim exported datum face B in the plan; the two tip lands remain
-unclaimed. All four keep a `verify = true` vise without `jaw_depth` and an unknown
-`thin_wall_floor_mm`, so their setup rows are `?`. Contour tables use
+unclaimed. All four select the shipped vise, which declares no `jaw_depth`
+(its item-level `verify = true` no longer withholds the jaw dimensions it
+does declare), and an unknown `thin_wall_floor_mm`, so their setup rows are
+`?`. Contour tables use
 explicit manifest geometry, not extracted STEP faces. Holding completeness and
 nominal clearance arithmetic are not a physical setup certification. No
 measured runtime target, printed-page rehearsal or live farm trace is claimed

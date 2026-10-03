@@ -39,7 +39,9 @@ out = sys.argv[sys.argv.index("--") + 1]
 # 60x40x20 block, +X half stepped down to z=10: floor x 30..60 and its wall at x=30.
 Part.makeBox(60, 40, 20).cut(Part.makeBox(31, 42, 11, V(30, -1, 10))).exportStep(out + "/step.step")
 # U channel: 60 long (x), rails y 0..5 and 35..40 up to z=20, floor z=10.
-Part.makeBox(60, 40, 20).cut(Part.makeBox(62, 30, 11, V(-1, 5, 10))).exportStep(out + "/channel.step")
+Part.makeBox(60, 40, 20).cut(Part.makeBox(62, 30, 11, V(-1, 5, 10))).exportStep(
+    out + "/channel.step"
+)
 """
 
 
@@ -95,7 +97,7 @@ def _bundle(tmp_path):
                     "dia_mm": 6.0,
                     "flute_len_mm": 10.0,
                     "oal_mm": 30.0,
-                    "projection_mm": 25.0,
+                    "projection_mm": {"holder": 25.0},
                     "verify": False,
                 }
             },
@@ -141,11 +143,32 @@ def _host_only(bundle):
     yield "op reason", lambda: bundle.inventory["tools"]["em"].update(oal_mm="unknown")
     yield "holder grip", lambda: bundle.inventory["holders"]["holder"].update(grip_mm=12.0)
     yield "stock material", lambda: bundle.plan["stock"].update(material="6061")
+    yield "tool metadata verification", lambda: bundle.inventory["tools"]["em"].update(verify=True)
+    yield (
+        "holder source verification",
+        lambda: bundle.inventory["holders"]["holder"].update(source={"verify": True}),
+    )
+    yield (
+        "fixture member debt",
+        lambda: bundle.inventory["fixtures"]["vise"].update(
+            members={"other": {"jaw_depth_mm": {"value": 12.0, "verify": True}}}
+        ),
+    )
 
 
 def _consumed(bundle):
     setup = bundle.plan["setups"][0]
     yield "jaw width", lambda: bundle.inventory["fixtures"]["vise"].update(jaw_width_mm=60.0)
+    yield (
+        "selected projection",
+        lambda: bundle.inventory["tools"]["em"]["projection_mm"].update(holder=30.0),
+    )
+    yield (
+        "selected projection debt",
+        lambda: bundle.inventory["tools"]["em"]["projection_mm"].update(
+            holder={"value": 30.0, "verify": True}
+        ),
+    )
     yield "stock origin", lambda: bundle.plan["stock"].update(origin_mm=[0.0, 0.0, -1.0])
     yield "op to_z", lambda: setup["ops"][0].update(to_z=4.0)
     bounds = {"x": [0.0, 30.0], "y": [0.0, 40.0], "z": [5.0, 20.0]}
@@ -393,9 +416,7 @@ def test_declared_clearing_box_derives_the_next_setup_and_keeps_unclaimed_rails(
     assert second["stock_bbox_mm"] == [0.0, -5.0, 0.0, 60.0, 45.0, 22.0]
     assert second["width_mm"] == 50.0 and second["min_wall_mm"] == 5.0
     # A box stopping above the floor leaves that 5 mm web behind as well.
-    assert webbed["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
-        60 * 50 * 22 - 30 * 40 * 7
-    )
+    assert webbed["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(60 * 50 * 22 - 30 * 40 * 7)
     finished = engine.run(engine.job(step, features, [target], stock=PART))["ops"]
     ops = full["ops"]
     # The wall is buried in S1, exposed in S2, yet its end poses still meet the kept rails.
@@ -450,8 +471,11 @@ def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, sol
 
 def _variants(engine, step):
     top = engine.refs(step, (0, 0, 20), (30, 40, 20))
-    yield {"reason": "plan stock is unknown; in-process stock cannot be derived"}, (), {}, (
-        "plan stock is unknown"
+    yield (
+        {"reason": "plan stock is unknown; in-process stock cannot be derived"},
+        (),
+        {},
+        ("plan stock is unknown"),
     )
     yield {**BOX, "section_mm": [40.0, 25.0]}, top, {}, "as-is face(s) do not lie"
     yield {**BOX, "origin_mm": [0.0, 0.0, 1.0]}, (), {}, "outside the authored stock envelope"

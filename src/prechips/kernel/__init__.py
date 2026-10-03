@@ -11,15 +11,9 @@ import tempfile
 from contextlib import nullcontext
 from pathlib import Path
 
-from prechips.rules.resolution import (
-    WORKHOLDING_CATEGORIES,
-    inventory_category,
-    length_mm,
-    measured,
-    number,
-    record,
-    resolve,
-)
+from prechips.measurements import length_fact
+from prechips.rules._envelope import measurement_item, tool_projection
+from prechips.rules.resolution import WORKHOLDING_CATEGORIES, inventory_category, number, record
 
 UNKNOWN = "unknown"
 _INSTALLED = Path("C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe")
@@ -42,28 +36,26 @@ def discover_kernel():
     )
 
 
+def _accepted_length(item, field):
+    fact = length_fact(item, field, require_measured=False)
+    return fact["value"] if fact["verified"] else UNKNOWN
+
+
 def op_inputs(bundle, setup, op, finishing=None):
     from prechips.rules.geometry_common import finishing_subjects
 
     subject = f"{setup['id']}:{op['op']}"
-    tool = resolve(bundle, "tools", op.get("tool"))
-    holder = resolve(bundle, "holders", op.get("holder"))
+    tool = measurement_item(bundle, "tools", op.get("tool"))
+    holder = measurement_item(bundle, "holders", op.get("holder"))
+    projection = tool_projection(bundle, op, {}, [], require_measured=False)
     values = {
-        "radius_mm": measured(tool, length_mm(tool, "dia")) if tool else UNKNOWN,
-        "flute_len_mm": measured(tool, length_mm(tool, "flute_len")) if tool else UNKNOWN,
-        "oal_mm": measured(tool, length_mm(tool, "oal")) if tool else UNKNOWN,
-        "holder_radius_mm": measured(holder, length_mm(holder, "gauge_dia")) if holder else UNKNOWN,
-        "holder_gauge_len_mm": measured(holder, length_mm(holder, "gauge_len"))
-        if holder
-        else UNKNOWN,
+        "radius_mm": _accepted_length(tool, "dia"),
+        "flute_len_mm": _accepted_length(tool, "flute_len"),
+        "oal_mm": _accepted_length(tool, "oal"),
+        "holder_radius_mm": _accepted_length(holder, "gauge_dia"),
+        "holder_gauge_len_mm": _accepted_length(holder, "gauge_len"),
+        "projection_mm": projection["value"] if projection["verified"] else UNKNOWN,
     }
-    projection = measured(tool, length_mm(tool, "projection")) if tool else UNKNOWN
-    if not number(projection):
-        grip = measured(holder, length_mm(holder, "grip")) if holder else UNKNOWN
-        projection = (
-            values["oal_mm"] - grip if number(values["oal_mm"]) and number(grip) else UNKNOWN
-        )
-    values["projection_mm"] = projection
     for key in ("radius_mm", "holder_radius_mm"):
         if number(values[key]):
             values[key] /= 2
@@ -125,7 +117,7 @@ def removal_bounds(bounds, units):
 def hold_inputs(bundle, setup):
     hold = record(setup.get("hold"))
     category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
-    fixture = resolve(bundle, category, hold.get("fixture")) if category else None
+    fixture = measurement_item(bundle, category, hold.get("fixture")) if category else {}
     kind = record(fixture).get("kind", UNKNOWN)
     result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
     if kind != "vise":
@@ -161,19 +153,19 @@ def hold_inputs(bundle, setup):
     ):
         result["parallels_centres_mm"] = centres
     for key in ("jaw_height", "jaw_width", "jaw_depth", "opening"):
-        value = measured(fixture, length_mm(fixture, key))
+        value = _accepted_length(fixture, key)
         if number(value) and value > 0:
             result[key + "_mm"] = value
         else:
             missing.append(key + "_mm")
-    parallels = resolve(bundle, "fixtures", hold.get("parallels"))
-    height = measured(parallels, length_mm(parallels, "height")) if parallels else UNKNOWN
+    parallels = measurement_item(bundle, "fixtures", hold.get("parallels"))
+    height = _accepted_length(parallels, "height")
     if number(height) and height > 0:
         result["parallels_height_mm"] = height
     else:
         missing.append("parallels_height_mm")
     for dimension in ("length", "width"):
-        value = measured(parallels, length_mm(parallels, dimension)) if parallels else UNKNOWN
+        value = _accepted_length(parallels, dimension)
         if number(value) and value > 0:
             result["parallels_" + dimension + "_mm"] = value
     if missing:
@@ -255,8 +247,10 @@ def stock_inputs(bundle):
     else:
         missing.append("length_mm")
     if shape == "box":
-        if isinstance(section, list) and len(section) == 2 and all(
-            number(v) and v > 0 for v in section
+        if (
+            isinstance(section, list)
+            and len(section) == 2
+            and all(number(v) and v > 0 for v in section)
         ):
             result["section_mm"] = section
         else:
@@ -321,9 +315,7 @@ def _engine_hold(hold):
     if hold["kind"] != "vise":
         return {"kind": hold["kind"]}
     result = {"kind": "vise"}
-    result.update(
-        {key: hold[key] for key in _ENGINE_HOLD if key in hold and hold[key] != UNKNOWN}
-    )
+    result.update({key: hold[key] for key in _ENGINE_HOLD if key in hold and hold[key] != UNKNOWN})
     missing = [key for key in _ENGINE_HOLD_REQUIRED if key not in result]
     if missing:
         result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(

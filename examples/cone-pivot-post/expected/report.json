@@ -1447,7 +1447,7 @@
     {
       "cite": [
         "PLAN.md §4.2 coverage",
-        "plan.stock.as_is_faces; union of cutting-op feature face sets"
+        "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims"
       ],
       "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
       "numbers": {
@@ -2764,6 +2764,191 @@
       "rule": "envelope",
       "status": "unknown",
       "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "body"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.cbore_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "cbore_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.cbore_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "cbore_west"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.cone_north_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67,268-279",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "cone_north_face"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "crank_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.crank_boss: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "crank_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.foot_seat: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:252,373-376",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:49-54"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "foot_seat"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.head: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "head"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "journal_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.journal_boss: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "journal_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.mount_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "mount_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.mount_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "mount_west"
     },
     {
       "cite": [
@@ -9199,7 +9384,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "705c11d21dc062bcd4eb5931a51f4c9f3b294069aed16db045c384b70562ddb1",
+  "hash": "5576928257aa328a796c20953c928eff540951dc0606477e3f386a2b59527155",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -9223,7 +9408,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m5-rev7",
+  "rules_version": "m5-rev8",
   "step_sha256": "unknown",
   "verification": "planned"
 }

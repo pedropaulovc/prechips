@@ -59,10 +59,6 @@ def uncertain(item):
     )
 
 
-def measured(item, value):
-    return UNKNOWN if uncertain(item) else value
-
-
 def record(value):
     return value if isinstance(value, dict) else {}
 

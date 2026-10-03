@@ -82,7 +82,7 @@ def bundle(tmp_path):
                     "dia_mm": 6.0,
                     "flute_len_mm": 10.0,
                     "oal_mm": 30.0,
-                    "projection_mm": 25.0,
+                    "projection_mm": {"holder": 25.0},
                     "verify": False,
                 }
             },
@@ -143,8 +143,8 @@ def bundle(tmp_path):
     )
 
 
-def finding(rule, bundle):
-    [row] = rule.evaluate(bundle)
+def finding(rule, bundle, subject=None):
+    [row] = [row for row in rule.evaluate(bundle) if subject is None or row.subject == subject]
     return row
 
 
@@ -196,16 +196,22 @@ def test_unknown_feature_refs_never_use_stale_numeric_facts(bundle, rule):
 
 
 @pytest.mark.parametrize("rule", [accessibility, vise, thin_wall_under_clamp])
-def test_unverified_fixture_never_passes_or_fails_from_nominal_dimensions(bundle, rule):
-    bundle.inventory["fixtures"]["vise"]["verify"] = True
+@pytest.mark.parametrize(
+    "debt",
+    [
+        {"verify": True},
+        {"verify": "unknown"},
+        {"measured": {"by": "test", "date": "2026-10-03"}},
+    ],
+)
+def test_fixture_fact_debt_never_certifies_nominal_dimensions(bundle, rule, debt):
+    bundle.inventory["fixtures"]["vise"]["jaw_depth_mm"] = {"value": 12.0, **debt}
     bundle.kernel["ops"]["S1:10"].update(tool_hits=4, holder_hits=4)
     bundle.kernel["setups"]["S1"].update(width_mm=1000.0, min_wall_mm=0.1)
     assert finding(rule, bundle).status == "unknown"
-    hold = kernel.build_job(bundle)["setups"][0]["hold"]
-    assert "jaw_depth_mm" not in hold and "opening_mm" not in hold
 
 
-def test_legacy_holder_gauge_length_resolves_with_explicit_units(bundle):
+def test_holder_gauge_length_uses_explicit_inch_units(bundle):
     holder = bundle.inventory["holders"]["holder"]
     holder.pop("gauge_len_mm")
     holder.update(gauge_len=1.0, units="in")
@@ -234,9 +240,9 @@ def test_long_reach_requires_oal_and_holder_wall_clearance(bundle, depth, oal, h
 
 
 @pytest.mark.parametrize("holder_hits", [0, 1])
-def test_unverified_holder_cannot_rescue_or_fail_beyond_flute(bundle, holder_hits):
+def test_holder_fact_debt_cannot_rescue_or_fail_beyond_flute(bundle, holder_hits):
     bundle.kernel["ops"]["S1:10"].update(reach_depth_mm=28.0, holder_wall_hits=holder_hits)
-    bundle.inventory["holders"]["holder"]["verify"] = True
+    bundle.inventory["holders"]["holder"]["gauge_dia_mm"] = {"value": 20.0, "verify": True}
     assert finding(reach, bundle).status == "unknown"
 
 
@@ -451,13 +457,18 @@ def test_literal_unknown_inside_face_set_is_debt_not_invalid_identity(bundle, ru
     assert finding(rule, bundle).status == "unknown"
 
 
-def test_projection_is_derived_only_from_verified_oal_and_holder_grip(bundle):
+@pytest.mark.parametrize(
+    "category,identity,field",
+    [("tools", "em", "oal_mm"), ("holders", "holder", "grip_mm")],
+)
+def test_projection_fallback_requires_each_own_length_fact(bundle, category, identity, field):
     bundle.inventory["tools"]["em"].pop("projection_mm")
     bundle.inventory["holders"]["holder"]["grip_mm"] = 5.0
-    job = kernel.build_job(bundle)["setups"][0]["ops"][0]
-    assert job["projection_mm"] == 25.0
-    bundle.inventory["holders"]["holder"]["verify"] = True
-    assert "projection_mm" not in kernel.build_job(bundle)["setups"][0]["ops"][0]
+    bundle.inventory["tools"]["em"]["verify"] = True
+    bundle.inventory["holders"]["holder"]["source"] = {"verify": True}
+    assert finding(accessibility, bundle).status == "pass"
+    item = bundle.inventory[category][identity]
+    item[field] = {"value": item[field], "verify": True}
     assert finding(accessibility, bundle).status == "unknown"
 
 
@@ -500,10 +511,94 @@ def test_certain_accessibility_hit_fails_even_when_other_extent_is_unresolved(
     assert finding(accessibility, bundle).status == status
 
 
-def test_certain_hits_do_not_certify_unverified_fixture_dimensions(bundle):
-    bundle.inventory["fixtures"]["vise"]["verify"] = True
+def test_certain_hits_do_not_certify_fixture_fact_with_own_debt(bundle):
+    bundle.inventory["fixtures"]["vise"]["jaw_depth_mm"] = {"value": 12.0, "verify": True}
     bundle.kernel["ops"]["S1:10"].update(tool_hits="unknown", min_hits={"tool": 4})
     assert finding(accessibility, bundle).status == "unknown"
+
+
+def _select_geometry_members(bundle):
+    setup = bundle.plan["setups"][0]
+    op, hold = setup["ops"][0], setup["hold"]
+    for category, identity, reference, field, container in (
+        ("tools", "em", "cutters/selected", "tool", op),
+        ("holders", "holder", "collets/selected", "holder", op),
+        ("fixtures", "vise", "vises/selected", "fixture", hold),
+        ("fixtures", "parallels", "supports/selected", "parallels", hold),
+    ):
+        item = bundle.inventory[category].pop(identity)
+        item.update(verify=True, source={"verify": True})
+        root, _, member = reference.partition("/")
+        bundle.inventory[category][root] = {
+            "kind": "set",
+            "verify": True,
+            "source": {"verify": True},
+            "members": {member: item, "other": {"height_mm": {"value": 1.0, "verify": True}}},
+        }
+        container[field] = reference
+    bundle.inventory["tools"]["cutters"]["members"]["selected"]["projection_mm"] = {
+        "collets/selected": 25.0
+    }
+
+
+@pytest.mark.parametrize("members", [False, True])
+@pytest.mark.parametrize("rule", [accessibility, reach, vise, thin_wall_under_clamp])
+def test_unrelated_item_source_and_member_debt_do_not_taint_lengths(bundle, members, rule):
+    if members:
+        _select_geometry_members(bundle)
+    else:
+        for category in ("tools", "holders", "fixtures"):
+            for item in bundle.inventory[category].values():
+                item.update(
+                    verify=True,
+                    source={"verify": True},
+                    members={"other": {"height_mm": {"value": 1.0, "verify": True}}},
+                )
+    assert finding(rule, bundle).status == "pass"
+
+
+@pytest.mark.parametrize(
+    "projection",
+    [
+        "unknown",
+        {"value": 25.0, "verify": True},
+        {"value": 25.0, "measured": {"by": "test", "date": "2026-10-03"}},
+    ],
+)
+def test_selected_projection_debt_never_falls_back_to_known_oal_and_grip(bundle, projection):
+    bundle.inventory["tools"]["em"]["projection_mm"] = {"holder": projection}
+    bundle.inventory["holders"]["holder"]["grip_mm"] = 5.0
+    bundle.kernel["ops"]["S1:10"]["reach_depth_mm"] = 28.0
+    assert finding(accessibility, bundle).status == "unknown"
+    assert finding(reach, bundle).status == "unknown"
+
+
+@pytest.mark.parametrize(
+    "category,identity,fields",
+    [
+        ("tools", "em", ("flute_len_mm",)),
+        ("holders", "holder", ("gauge_dia_mm",)),
+        ("fixtures", "vise", ("jaw_height_mm", "jaw_width_mm", "jaw_depth_mm", "opening_mm")),
+        ("fixtures", "parallels", ("height_mm", "length_mm", "width_mm")),
+    ],
+)
+def test_geometry_accepts_measured_dimensions_without_inherited_debt(
+    bundle, category, identity, fields
+):
+    item = bundle.inventory[category][identity]
+    item.update(verify=True, source={"verify": True})
+    if identity == "parallels":
+        item.update(length_mm=50.0, width_mm=6.0)
+    for field in fields:
+        item[field] = {
+            "value": item[field],
+            "measured": {"by": "test", "date": "2026-10-03", "instrument": "synthetic calipers"},
+        }
+    parsed = Inventory.model_validate(deepcopy(bundle.inventory)).model_dump(exclude_unset=True)
+    object.__setattr__(bundle, "inventory", parsed)
+    assert finding(accessibility, bundle).status == "pass"
+    assert finding(reach, bundle).status == "pass"
+    assert finding(vise, bundle).status == "pass"
 
 
 @pytest.mark.parametrize(
@@ -541,50 +636,109 @@ def test_actual_fixture_scene_distinguishes_author_pose_and_measurement_debt(tmp
         pytest.skip("FreeCAD is required for the actual fixture-scene consumer boundary")
     path = Path(__file__).resolve().parents[1] / "examples/geometry/pocket-reach/long-reach.toml"
     exact = load_bundle(path)
-    exact.plan["stock"].update(
-        section_mm=[50.0, 60.0],
-        length_mm=70.0,
-        origin_mm=[0.0, 0.0, 0.0],
-        axis=[1.0, 0.0, 0.0],
-        section_axis=[0.0, 1.0, 0.0],
-    )
     # Authored synthetic render specification, not a physical shop measurement:
     # this committed test solid is 70×50; two 70×6 parallels stay inside its footprint.
-    hold = exact.plan["setups"][0]["hold"]
+    hold = exact.plan["setups"][1]["hold"]
     hold.update(jaw_center_along_mm=35.0, parallels_centres_mm=[[35.0, 10.0], [35.0, 40.0]])
     parsed = Hold.model_validate(hold).model_dump(exclude_unset=True)
-    exact.plan["setups"][0]["hold"] = parsed
+    exact.plan["setups"][1]["hold"] = parsed
     exact.inventory["fixtures"]["test-parallels-20"].update(length_mm=70.0, width_mm=6.0)
     unknown_pose = deepcopy(exact)
-    unknown_pose.plan["setups"][0]["hold"].update(
+    unknown_pose.plan["setups"][1]["hold"].update(
         jaw_center_along_mm="unknown", parallels_centres_mm=[[35.0, "unknown"], [35.0, 40.0]]
     )
     unknown_support = deepcopy(exact)
     unknown_support.inventory["fixtures"]["test-parallels-20"]["length_mm"] = "unknown"
     unverified_support = deepcopy(exact)
-    unverified_support.inventory["fixtures"]["test-parallels-20"]["verify"] = True
+    unverified_support.inventory["fixtures"]["test-parallels-20"]["height_mm"] = {
+        "value": 20.0,
+        "verify": True,
+    }
     monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
     kernel.run_geometries([exact, unknown_pose, unknown_support, unverified_support])
-    exact_scene = exact.kernel["setups"]["S1"]
+    exact_scene = exact.kernel["setups"]["S2"]
+    assert exact.kernel["setups"]["S1"]["stock_bbox_mm"][-1] == pytest.approx(61.0)
+    assert exact_scene["stock_bbox_mm"] == pytest.approx([0.0, 0.0, 0.0, 70.0, 50.0, 60.0])
     assert exact_scene["render_scene"]["jaws"] == "exact"
     assert exact_scene["render_scene"]["parallels"] == "exact"
     assert not exact_scene["render_scene"]["debts"]
     assert exact_scene["fixture_rendered"] is True
-    pose_scene = unknown_pose.kernel["setups"]["S1"]
+    pose_scene = unknown_pose.kernel["setups"]["S2"]
     assert pose_scene["render_scene"]["jaws"] == "lateral_undeclared"
     assert pose_scene["render_scene"]["parallels"] != "exact"
     assert pose_scene["render_scene"]["debts"]
     assert pose_scene["fixture_rendered"] is False
-    support_scene = unknown_support.kernel["setups"]["S1"]
+    support_scene = unknown_support.kernel["setups"]["S2"]
     assert support_scene["render_scene"]["jaws"] == "exact"
     assert support_scene["render_scene"]["parallels"] != "exact"
     assert support_scene["fixture_rendered"] is False
     # Missing below-seat render dimensions do not invalidate independent collisions.
-    assert finding(vise, unknown_support).status == "pass"
-    # The incoming box still fills the pocket: its collision cannot be cleared
-    # by missing below-seat render dimensions or by a current-setup removal.
-    assert finding(accessibility, unknown_support).status == "error"
-    unverified_scene = unverified_support.kernel["setups"]["S1"]
+    assert finding(vise, unknown_support, "S2").status == "pass"
+    assert finding(accessibility, unknown_support, "S2:10").status == "pass"
+    assert finding(reach, unknown_support, "S2:10").status == "pass"
+    unverified_scene = unverified_support.kernel["setups"]["S2"]
     assert unverified_scene["fixture_rendered"] is False
     assert unverified_scene["render_scene"]["debts"]
-    assert finding(vise, unverified_support).status == "unknown"
+    assert finding(vise, unverified_support, "S2").status == "unknown"
+    assert finding(accessibility, unverified_support, "S2:10").status == "unknown"
+
+
+def test_actual_selected_projection_precedence_and_fact_local_trust(tmp_path, monkeypatch):
+    from prechips.inputs import load_bundle
+
+    if kernel.discover_kernel() is None:
+        pytest.skip("FreeCAD is required for the selected-pair geometry consumer boundary")
+    path = Path(__file__).resolve().parents[1] / "examples/geometry/pocket-reach/long-reach.toml"
+    known = load_bundle(path)
+    op = known.plan["setups"][1]["ops"][0]
+    tool = known.inventory["tools"].pop(op["tool"])
+    holder = known.inventory["holders"].pop(op["holder"])
+    holder_ref, tool_ref = "collets/8mm", "cutters/long"
+    op.update(tool=tool_ref, holder=holder_ref)
+    tool.update(projection_mm={holder_ref: 75.0}, verify=True, source={"verify": True})
+    # The fallback would place the holder in the pocket. The selected pair clears it.
+    holder.update(grip_mm=65.0, verify=True, source={"verify": True})
+    for category, root, member, item in (
+        ("tools", "cutters", "long", tool),
+        ("holders", "collets", "8mm", holder),
+    ):
+        known.inventory[category][root] = {
+            "kind": "set",
+            "verify": True,
+            "source": {"verify": True},
+            "members": {member: item, "other": {"height_mm": {"value": 1.0, "verify": True}}},
+        }
+    for item in known.inventory["fixtures"].values():
+        item.update(verify=True, source={"verify": True})
+    variants = [known]
+    for projection in (
+        "unknown",
+        {"value": 75.0, "verify": True},
+        {"value": 75.0, "measured": {"by": "test", "date": "2026-10-03"}},
+    ):
+        candidate = deepcopy(known)
+        candidate.inventory["tools"]["cutters"]["members"]["long"]["projection_mm"] = {
+            holder_ref: projection
+        }
+        # All three could otherwise use a known, clear OAL minus grip.
+        candidate.inventory["holders"]["collets"]["members"]["8mm"]["grip_mm"] = 25.0
+        variants.append(candidate)
+    ambiguous = deepcopy(variants[1])
+    ambiguous.inventory["tools"]["cutters"]["members"]["long"].update(
+        projection_mm={holder_ref: 75.0}, projection_in={holder_ref: 75.0 / 25.4}
+    )
+    variants.append(ambiguous)
+    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
+    kernel.run_geometries(variants)
+    clear = finding(accessibility, known, "S2:10")
+    assert clear.status == "pass"
+    assert clear.numbers["sample_count"] > 0
+    assert clear.numbers["tool_hits"] == 0 and clear.numbers["holder_hits"] == 0
+    assert clear.numbers["projection_mm"] == pytest.approx(75.0)
+    reached = finding(reach, known, "S2:10")
+    assert reached.status == "pass"
+    assert reached.numbers["reach_depth_mm"] == pytest.approx(45.0)
+    assert reached.numbers["holder_wall_hits"] == 0
+    for candidate in variants[1:]:
+        assert finding(accessibility, candidate, "S2:10").status == "unknown"
+        assert finding(reach, candidate, "S2:10").status == "unknown"

@@ -280,8 +280,6 @@ def _concave_edge(part, edge, face_a, face_b):
     return part.isInside(probe, 1e-9, False)
 
 
-
-
 def _edge_direction(edge):
     """'vertical', 'horizontal' or 'skew' with respect to the tool axis."""
     if isinstance(edge.Curve, Part.Line):
@@ -1003,13 +1001,12 @@ class _Setup:
         if not valid:
             return None, "stock_removal_bounds has no claimed face to clear"
         outside = [
-            labels[index]
-            for index in valid
-            if self.faces[index].distToShape(box)[0] >= STOCK_TOL
+            labels[index] for index in valid if self.faces[index].distToShape(box)[0] >= STOCK_TOL
         ]
         if outside:
             return None, (
-                "claimed face(s) lie outside its stock_removal_bounds: " + ", ".join(sorted(outside))
+                "claimed face(s) lie outside its stock_removal_bounds: "
+                + ", ".join(sorted(outside))
             )
         removed = stock.common(box).cut(self.finished)
         if to_z is not None:
@@ -1735,9 +1732,9 @@ class _Setup:
             facts["holder_wall_hits"] = UNKNOWN
             reasons["holder_wall_hits"] = sample_reason
         regions = {index: self._region(index) for index in indices}
-        region_reason = "; ".join(
-            reason for _, reason in regions.values() if reason is not None
-        ) or None
+        region_reason = (
+            "; ".join(reason for _, reason in regions.values() if reason is not None) or None
+        )
         tool_ready = flute is not None and region_reason is None
         holder_ready = not holder_missing and region_reason is None
         # Per kind: certain hits, hits only in the undeclared jaw extension, labels, refs.

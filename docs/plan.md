@@ -275,16 +275,18 @@ coordinates; without it the kernel draws only the jaw material certainly over
 the gripped part and a pale envelope for where the rest of each jaw may lie,
 and cutter samples inside that envelope stay `?`. `parallels_centres_mm` is
 exactly two `[x, y]` setup-frame centres of the parallels; together with the
-parallels row's measured `height`, `length` (along the jaws) and `width`
-(along the clamp axis) they place two parallel solids with tops at the part
-seat. Both are declarations the author must measure at the bench; the
+parallels row's fact-local `height`, `length` (along the jaws) and `width`
+(along the clamp axis) they place two parallel solids with tops at the stock
+seat. Nominal numbers are usable for geometry, not evidence of a measured
+shop setup. Both poses are declarations the author must measure at the bench; the
 kernel never infers a jaw centre or a parallel position, and only a setup
 with both exact jaws and exact parallels is captioned as a modeled fixture.
 Either field may be `"unknown"` (any unknown coordinate is a render debt, not
 a guessed pose) and neither has a `_verify` flag: they are author coordinate
-choices, while the parallels' dimensions are gated by that inventory item's
-own `verify`. Leaving them out never adds a hold reason or blocks the
-setup's `vise` / `thin_wall_under_clamp` facts.
+choices, while each parallel dimension has its own fact-local trust; the
+inventory item's `verify` does not taint other numeric facts. Omitting the
+optional poses does not block independent `vise` / `thin_wall_under_clamp`
+facts. Missing parallel height still leaves the fixture dimensions unknown.
 
 ## Index
 

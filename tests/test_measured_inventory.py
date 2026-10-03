@@ -75,6 +75,7 @@ def mill(**envelope):
         # One authored unit per length stem.
         {"holders": {"holder": {"gauge_len": 40, "units": "mm"}}},
         {"holders": {"holder": {"gauge_len_mm": 40, "gauge_len_in": measured(2)}}},
+        {"fixtures": {"parallels": {"kind": "parallels", "width_mm": 6, "width_in": 0.25}}},
         {"tools": {"drill": {"dia": 3, "units": "mm", "dia_in": 0.125}}},
         {"tools": {"set": {"members": {"a": {"oal_mm": 50, "oal_in": 2}}}}},
         mill(travel_mm={"x": measured(500)}, travel_in={"x": measured(20)}),
@@ -139,12 +140,6 @@ def test_inventory_range_lists_in_both_units_are_not_a_single_length():
     values = inventory({"gauges": {"gauge": {"range_mm": [0, 25.4], "range_in": [0, 1]}}})
     assert values["gauges"]["gauge"]["range_mm"] == [0, 25.4]
     assert values["gauges"]["gauge"]["range_in"] == [0, 1]
-
-
-def test_inventory_widths_in_both_units_validate():
-    values = inventory({"fixtures": {"vise": {"width_mm": 100, "width_in": 4}}})
-    assert values["fixtures"]["vise"]["width_mm"] == 100
-    assert values["fixtures"]["vise"]["width_in"] == 4
 
 
 @pytest.mark.parametrize(

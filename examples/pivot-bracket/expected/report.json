@@ -2854,7 +2854,7 @@
     {
       "cite": [
         "PLAN.md §4.2 coverage",
-        "plan.stock.as_is_faces; union of cutting-op feature face sets"
+        "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims"
       ],
       "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
       "numbers": {
@@ -4049,6 +4049,157 @@
       "rule": "envelope",
       "status": "unknown",
       "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.cross_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "cross_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.ear_arch: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "ear_arch"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.ear_relief: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "ear_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.ear_sides: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "ear_sides"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.foot_profile: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "foot_profile"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.foot_top: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "foot_top"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.hold_down_a: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "hold_down_a"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.hold_down_b: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "hold_down_b"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "features.seat_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "unknown",
+      "subject": "seat_face"
     },
     {
       "cite": [
@@ -9430,7 +9581,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "c219a895d267b15995aeedbcdff9c3a9932d4fe4c2ddb24bcb5dc916ee99bc0a",
+  "hash": "7a28116c055b0600715538db1059b33215c977d7abd810ec042944ba7954b129",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -9454,7 +9605,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m5-rev7",
+  "rules_version": "m5-rev8",
   "step_sha256": "unknown",
   "verification": "planned"
 }

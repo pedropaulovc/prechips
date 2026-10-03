@@ -695,13 +695,9 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     outputs = {destinations[0]: canonical_bytes(report)}
     if html is not None:
         outputs[destinations[1]] = html.encode("utf-8")
-        outputs.update(
-            {path: assets[0].get(path.name) for path in destinations[2:]}
-        )
+        outputs.update({path: assets[0].get(path.name) for path in destinations[2:]})
     elif args.verb == "check":
-        outputs.update(
-            {path: None for path in destinations[1:] if path.name not in assets[0]}
-        )
+        outputs.update({path: None for path in destinations[1:] if path.name not in assets[0]})
     _write_outputs(out, outputs, tracing)
     if getattr(args, "json", False):
         _json_stdout(report)

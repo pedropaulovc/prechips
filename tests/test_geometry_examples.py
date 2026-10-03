@@ -69,9 +69,7 @@ def test_numeric_preparation_changes_only_the_next_setup_stock(
         # Measured from the frozen source STEP, not an invented production blank.
         "rocker-jaw-occluded": 11522.665862419535,
     }[name]
-    assert stocks[target_sid]["stock_volume_mm3"] == pytest.approx(
-        expected_volume, abs=1e-6, rel=0
-    )
+    assert stocks[target_sid]["stock_volume_mm3"] == pytest.approx(expected_volume, abs=1e-6, rel=0)
     assert raw_volume > stocks[target_sid]["stock_volume_mm3"]
     assert all("stock_reason" not in stock for stock in stocks.values())
     if target_sid == "S3":
@@ -221,7 +219,13 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    assert set(report["renders"]) == {"S1", "S2", "S3"}
+    assert set(report["renders"]) == {"S1"}
+    for setup in ("S2", "S3"):
+        row = finding(report, "accessibility", setup + ":10")
+        assert row["status"] == "unknown"
+        assert "S1:40" in row["message"]
+        assert "#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01" in row["message"]
+        assert not (tmp_path / "ref" / f"setup-{setup}.png").exists()
     assert all(render["fixture"] != "modeled" for render in report["renders"].values())
     assert not any(
         row["status"] == "error" for row in report["findings"] if row["rule"] in GEOMETRY_RULES
@@ -232,7 +236,6 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
     assert coverage["numbers"]["unclaimed_faces"] == [
         "#248/ADVANCED_FACE[6]/HAF_TIP_LAND_POS_X__P01",
         "#431/ADVANCED_FACE[10]/HAF_TIP_LAND_NEG_X__P01",
-        "#492/ADVANCED_FACE[13]/HAF_STRAP_DATUM_B__P01",
     ]
     corner = {
         row["subject"]: row for row in report["findings"] if row["rule"] == "internal_corner_radius"

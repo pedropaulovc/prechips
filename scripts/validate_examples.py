@@ -472,7 +472,8 @@ def required_finding(finding: dict, policy: dict, plan: dict, features: dict) ->
                 and len(value) == 2
                 and all(
                     item == "unknown"
-                    or isinstance(item, (int, float)) and not isinstance(item, bool)
+                    or isinstance(item, (int, float))
+                    and not isinstance(item, bool)
                     for item in value
                 )
             )

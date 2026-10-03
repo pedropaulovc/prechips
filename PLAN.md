@@ -910,8 +910,16 @@ sheet.
    `-text`. Successful `traveler`/`check` runs transactionally remove
    unreferenced old setup images, including absent-kernel runs, and a
    refusal restores every prior output. The geometry cache hashes only
-   fields consumed by the engine, not host-only finishing, OAL-with-explicit-
-   projection, operation wording, stock material or fixture-grip policy.
+   fields consumed by the engine, not host-only finishing, OAL when a
+   selected projection exists, operation wording, material or grip policy.
+
+   The combined catalogue is `m5-rev8`. Geometry reuses M5 fact-local length
+   lookup with nominal facts allowed: only that dimension's own verification
+   or incomplete measurement record withholds it. Item/source/container
+   flags never taint other dimensions. Projection maps use the full selected
+   holder reference; an explicitly unknown selected pair stays unknown,
+   without an OAL−grip fallback. M5 physical stack/envelope readiness still
+   requires its separately qualified shop measurements.
 
    The production rocker manifest remains the truthful exported face sets.
    S1 strap operations claim the exported +Z datum-B face `#492` explicitly.
@@ -939,6 +947,21 @@ sheet.
    fail the cutter radius; the step's +X end remains deliberately unclaimed.
    Numeric preparation tests verify raw/intermediate/target material volumes,
    exact target fixture scenes and bound render bytes.
+   All ten actual travelers and the cone comparison repeated byte-identically
+   through independent cache roots before the corrected outputs were frozen.
+   Installed-kernel pilot exits stay 4 / 2 / 2 / 4 / 2. Seeded obsolete S1,
+   S2 and S99 images disappeared under both absent-kernel `traveler` and
+   `check`. Browser-served production S1 showed the raw grey rectangular bar,
+   a named missing jaw-depth caption and no later stock images. The long-
+   reach target showed its prepared pocket, exact jaws/parallels and the
+   setup-entry-stock caption; both 640 × 480 images loaded successfully.
+   **Project-wide acceptance observed after the M5 rebase:** `uv run ruff
+   check . && uv run ruff format --check . && uv run pytest -q && uv run
+   python scripts/validate_examples.py` exited 0: 98 Python files formatted,
+   999 tests passed and all 24 TOML inputs plus frozen report/sheet/render
+   contracts validated. The focused measured-inventory integration suite
+   also passed 86 cases. Corrected goldens retain pilot exits
+   4 / 2 / 2 / 4 / 2 and geometry exits 2 / 2 / 0 / 2 / 2 under `m5-rev8`.
 
    These are local sampled-solid checks, not CAM simulation, a measured
    production fixture, physical operator/setup verification or approval.
