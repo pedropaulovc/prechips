@@ -10,8 +10,11 @@
 > plain words; everything else it computed goes to a machine-readable report
 > no human has to read.
 
-Status: plan only. Rev 6, 2026-10-03. Rev 1 was traveler-first but promised
-geometric proofs it could not deliver. Revs 2–3 absorbed two adversarial
+Status: M1 local implementation deliverable completed; physical paper rehearsal
+and live parented farm/App Insights acceptance remain pending/unobserved. Rev 6,
+2026-10-03. Sections below retain design intent; README and docs describe the
+shipped schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
+it could not deliver. Revs 2–3 absorbed two adversarial
 reviews and became correct but unusable: a 100 KB traveler of config ids,
 hashes and 15-decimal numbers. Rev 4 restored the purpose and the rule
 catalogue. Rev 5 folded the third adversarial round. Rev 6 folds the fourth:
@@ -778,14 +781,16 @@ sheet.
 ## 8. Milestones
 
 0. **M0 — kernel spike** (§6). Done 2026-10-03, two rounds.
-1. **M1 — the sheet, for one `rocker-arm` finishing setup** on a prepared
-   blank (S3 of the rev-3 fixture; S1/S2/S4 are out of scope and the sheet
-   says so, with the S2 stock state it starts from). `plan.toml`, a
-   hand-written `features.toml` mirroring what the generator will emit
-   (real values and real unknowns from the sources in §3.2, cross-checked
-   against the drawing's dimension count), inventory, policy,
-   `cutting-data.toml` rev 1 → `traveler.html` + `report.json`. All §4.1
-   rows marked M1, and §5.2 telemetry on the farm path. **Acceptance test
+1. **M1 — local implementation deliverable completed.** Five strict TOML
+   formats, all twelve §4.1 M1 rules, five CLI verbs, canonical bound reports,
+   approval gating and generated Letter HTML are implemented for the authored
+   reference routes (including their setup pages and contour continuations).
+   Examples remain PLANNED with expected exits shaft 4 / rocker 2 / bracket 2;
+   this does not complete M2 feasibility, M3 export or M4 kernel geometry.
+   Local telemetry/exporter checks are not live farm evidence. **Physical
+   `rocker-paper-rehearsal` and §5.2 parented farm telemetry acceptance remain
+   pending/unobserved.** The original acceptance criteria remain:
+   **Acceptance test
    `rocker-paper-rehearsal`:** a frozen bundle → CLI → printed Letter page
    (printed, to catch clipping); someone who has not read the plan
    dry-runs the setup on the PM-30MV from the page and the drawing alone

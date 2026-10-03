@@ -1,0 +1,155 @@
+# Report binding, approval, output safety and telemetry
+
+## Canonical report
+
+`report.json` contains `expected_exit`, `findings`, `inputs`,
+`prechips_version`, `rules_version`, `step_sha256`, `verification`, and `hash`.
+Findings sort lexicographically by `(rule, subject)` and contain `rule`,
+`subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
+severity). No clock timestamp enters the report.
+
+Canonical bytes are UTF-8 JSON, sorted keys, two-space indentation,
+`ensure_ascii=False`, finite numbers only, and **one final LF**. `hash` is the
+SHA-256 of that same canonical serialization after removing **only** the root
+`hash` member, including the final LF. Every read operative TOML/STEP asset has
+its exact file-byte SHA-256. Input record keys are `plan`, `features`,
+`inventory`, `shop_policy`, `cutting_data` plus referenced assets such as `step`.
+Paths are root-relative POSIX labels; external explicit shop files use stable
+`external/{kind}/{filename}` labels instead of machine-specific absolute roots.
+The manifest STEP digest is also recorded separately; unknown does not become a
+fabricated digest. An absent policy fallback has no file-byte digest.
+
+Citations are evidence pointers, not operative assets loaded at runtime. HTML
+and approval records are not inputs to their own report hash. A content/format
+change to an input resets its digest even when it seems semantically identical.
+`explain` verifies report integrity before selecting rows; a matching hash is
+not proof of machining safety or source truth.
+The CLI also emits `bundle_binding:inputs`: unknown when the manifest STEP
+digest is unknown, otherwise pass, with the full input records as evidence.
+Its exact messages are `The part model is not bound to verified STEP bytes.`
+and `The part model and every operative input are bound to the report.`
+Citation: PLAN §5 input-bundle binding. This is digest bookkeeping, not kernel
+verification or proof that an author-supplied digest came from a certified CAD
+export. It blocks eligibility only if policy requires it.
+
+
+## Eligibility and approval
+
+Any error wins (exit 2). Required warn/unknown/unsupported or a missing required
+rule/subject yields 4; an explicitly unknown required policy also yields 4.
+Otherwise the report has exit 0 and `verification = "checked"`.
+The implemented gate does not block required `info` or `not_applicable`. Without
+approval the traveler still prints `PLANNED — NOT CHECKED, NO FIRST ARTICLE`.
+The footer text is `prechips <version> · report <first 8 hash chars>`.
+That short id is only a paper lookup aid, never the approval's full binding.
+The renderer additionally requires the normalized approval `approved = true`,
+no approval warnings, a lowercase 64-hex report hash, and first-article text
+other than literal `unknown` (case-insensitive). These are renderer guards, not
+extra keys to write in the TOML approval record.
+
+
+Supply `--approval approvals.toml`. A normalized record permits only `hash`,
+`first_article`, and optional `inputs`:
+
+```toml
+hash = "<full current report hash>"
+first_article = "<actual logbook/evidence reference from the cut first article>"
+
+[inputs]
+plan = "<prior SHA-256>"
+features = { sha256 = "<prior SHA-256>" }
+```
+
+Alternatively use a history of array tables:
+
+```toml
+[[approvals]]
+hash = "<full report hash>"
+first_article = "<actual evidence reference>"
+
+[approvals.inputs]
+plan = "<prior SHA-256>"
+```
+
+These placeholder strings illustrate shape, not supplied approval evidence.
+`inputs` can contain digest strings or tables carrying `sha256` (report-style
+path metadata may accompany a digest table). The parser selects the first
+record with the exact current hash; if none match it uses the last record to
+explain changed inputs. `hash` and `first_article` must be strings. Only a full
+hash match, a **nonblank** first-article string, and an eligible report remove
+PLANNED. Neither a matching short id nor a stale record nor an empty evidence
+string suffices. Approval parsing does not authenticate evidence or perform
+the first article; the shop owns its truth.
+
+Stale record warning: `Approval no longer matches: {changed input names} changed.
+Repeat the first article.` When no digest comparison identifies a change it
+names `the operative bundle`. A matching record for an ineligible report warns:
+`The report still has unresolved shop-required checks; approval cannot waive them.`
+Approval never changes the checker exit. `check` also parses/warns on approval,
+but does not produce a sheet.
+
+## Output safety
+
+All input bundles and output targets are preflighted before evaluation/writing.
+Manifest, plan-declared shop files and STEP assets must stay inside the bundle
+root. Explicit CLI/environment shop paths may be external. `--out` may be an
+authored directory anywhere; every
+fixed output filename must resolve inside it. No output can alias an input by
+resolved path or hard link, escape by symlink, or name a directory. The output
+root cannot name a file. Approval files are included in collision protection.
+Existing regular output files may be overwritten. Preflight/bad input writes
+nothing, but a later filesystem failure is not an atomic multi-file rollback.
+No verb reads expected fixtures as runtime answers.
+
+## Generated traveler
+
+The bench document uses Letter portrait print CSS, a header, each authored
+setup, and per-setup contour continuations. Logical continuation groups are
+not a count or proof of physical printed pages. Reflection compression is used
+only when the fresh computed table contains every counterpart checkpoint, not
+from presumed symmetry.
+Footers are in normal document flow, not fixed over bench content. Identical
+station positions may be grouped while retaining all provenance; diameter-mode
+lathe station tables omit nonoperative Y. Unresolved checks are grouped for
+compact bench presentation, not hidden or waived.
+Unknown drawing dimensions or display precision remain explicit, but missing
+drawing precision does not erase a known operative/manual coordinate. Such
+settings retain their supplied numeric form; explicit dimension precision wins,
+and actual unknown numeric values remain `?`. No acceptance band or display
+precision is invented, and numeric presentation never changes PLANNED readiness.
+Bench text excludes rule ids, source paths and full hashes; the footer short id
+is the report lookup. Generated logical sections and print CSS are not physical
+clipping/dry-run proof. The paper acceptance remains pending.
+
+
+## Telemetry and console
+
+Every invocation has a `prechips.<verb>` root span (initial usage may be named
+`prechips.usage` when a global flag comes first). Inputs use `input.load`, outputs
+`output.write`, evaluations `rule.<name>` and finding records child spans.
+Records carry rule, subject, status, numbers and citations. The same Python
+logging records feed OTel and Rich stderr, so console and exported facts agree.
+`--verbose` renders the full finding table; ordinary stderr renders unresolved
+and error glyphs. Non-TTY/`NO_COLOR` disables color, not the glyphs. Unexpected
+failures render tracebacks with locals; avoid secrets in authored inputs.
+
+Resource identity: `service.name=prechips`, package `service.version`, optional
+`service.namespace` from `OTEL_SERVICE_NAMESPACE`. Valid W3C `TRACEPARENT` and
+optional `TRACESTATE` continue the parent context. No endpoint means no exporter,
+collector discovery, network request or missing-endpoint warning.
+Each configure-after-flush invocation starts a fresh root/span pipeline; a live
+session is reused only until its idempotent flush closes it. A known STEP digest
+cannot replace the actual referenced bytes: the loader requires and hashes them.
+
+Standard `OTEL_EXPORTER_OTLP_ENDPOINT`/`PROTOCOL` configure both signals;
+signal-specific `OTEL_EXPORTER_OTLP_TRACES_*` and `OTEL_EXPORTER_OTLP_LOGS_*`
+override them. Protocol is `http/protobuf` (default) or `grpc`; SDK headers/TLS
+follow standard exporter environment variables. Timeout is milliseconds in the
+environment, converted to exporter seconds. Batch processors flush/shut down on
+exit, including bad input. Invalid protocol/exporter configuration is not an
+optional machining-data fallback.
+
+See [AGENTS.md](../AGENTS.md) for local collector and farm acceptance procedures.
+Local exporter tests do not substitute for a real parented farm run observed in
+App Insights by `operation_Id`. That live acceptance and physical print/dry-run
+rehearsal remain **unobserved/pending**.
