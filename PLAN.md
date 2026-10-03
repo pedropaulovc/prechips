@@ -891,10 +891,11 @@ sheet.
    derivable removals. Current-setup cuts shape output stock, while the flute
    alone excludes its own op's derivable allowance; holder, reach, holding and
    image facts still use setup-entry stock. `stock_removal_bounds` is restricted
-   to the claimed faces' union XY bbox plus cutter radius (zero if unknown),
-   outside the finished solid and above `to_z`. Over-wide boxes error by name
-   and cannot certify the next setup. Interior contact with retained overstock
-   is checked for every claimed lateral face, including drafted walls.
+   to the claimed faces' union XY bbox plus a known cutter radius,
+   outside the finished solid and above `to_z`. Over-wide boxes error by name.
+   An unknown radius leaves the extent check `?` with a missing-cutter-radius
+   reason; neither case can certify the next setup. Interior contact with retained
+   overstock is checked for every claimed lateral face, including drafted walls.
    Invalid supply, unbound as-stock faces or a non-derivable retained
    rail/profile mask yields a named unknown and no stock picture.
 
