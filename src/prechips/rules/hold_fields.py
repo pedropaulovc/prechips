@@ -1,26 +1,11 @@
 """Declared holding completeness, not certification of fixture geometry (PLAN §4.1)."""
 
 from prechips.findings import Finding
-from prechips.rules.resolution import MANUAL, resolve
+from prechips.rules.resolution import MANUAL, UNKNOWN, resolve
+from prechips.rules.tip_endpoints import HOLE_OPS
 
-_DIRECTION = {
-    "face",
-    "rough_face",
-    "finish_face",
-    "profile",
-    "rough_profile",
-    "finish_profile",
-    "turn",
-    "rough_turn",
-    "finish_turn",
-    "dome",
-    "groove",
-    "part",
-    "part_off",
-    "form_relief",
-    "form_dome",
-    "cut_to_fit",
-}
+# Point/hole actions plunge on the spindle axis; every other machine cut needs a direction.
+_POINT = HOLE_OPS | {"center"}
 
 
 def evaluate(bundle):
@@ -78,9 +63,11 @@ def evaluate(bundle):
             if op["do"] in MANUAL:
                 continue
             required[f"ops.{op['op']}.holder"] = op.get("holder")
-            if op["do"] in _DIRECTION or "direction" in op:
+            if op["do"] not in _POINT or "direction" in op:
+                # An explicitly unknown action cannot establish whether it needs a direction.
+                fallback = UNKNOWN if op["do"] == UNKNOWN else None
                 directions[str(op["op"])] = op.get("direction", "unknown")
-                required[f"ops.{op['op']}.direction"] = op.get("direction")
+                required[f"ops.{op['op']}.direction"] = op.get("direction", fallback)
         for key, value in required.items():
             if value is None and (
                 (unknown_hold and key.startswith("hold."))

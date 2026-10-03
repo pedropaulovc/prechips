@@ -9,8 +9,11 @@ One subject per setup. Requires fixture, stop, grip, clamp, coolant, deburr,
 and holders for nonmanual ops. A vise/nonlathe setup needs fixed-jaw declaration
 unless explicitly not applicable. Lathe setups need OD, support, grip-on and a
 known end station; mill setups need top/bottom Z. Authored supports, orientation,
-parallels, jaws direction and locator are checked when supplied. Relevant cuts
-need direction; an explicitly supplied direction is also checked. Missing/empty
+parallels, jaws direction and locator are checked when supplied. Every nonmanual
+cut needs `direction` (face, profile, pocket, turn, form and parting actions
+included) except point/hole actions (`spot`, `drill`, `ream`, `tap`,
+`counterbore`, `center`); an explicitly supplied direction is also checked, and
+an explicitly unknown action without one is unknown. Missing/empty
 fields are errors; explicit unknown values are unknown. It does not compare
 all holding dimensions or certify the fixture was physically installed.
 
@@ -27,8 +30,9 @@ limit appears as a fallback.
 
 One subject per setup. Lathe is explicitly unsupported. Mill stack in mm is
 `fixture bed + parallels + support blocks + physical stock height + tool
-projection + holder gauge length + 25 mm insertion`. Physical stock height is
-`top_z - retained_rail_bottom_z` if authored, otherwise `top_z - bottom_z`.
+projection + holder gauge length + 25 mm insertion`. Physical stock height
+(`stock_height_mm`) is `top_z - retained_rail_bottom_z` if authored, otherwise
+`top_z - bottom_z`.
 Projection is explicit, or `tool OAL - holder grip` when both are known.
 The 25 mm insertion allowance is from PLAN §4.1, not holder grip. Support-block
 orientation must explicitly identify a listed height; do not pick an arbitrary
@@ -38,8 +42,10 @@ Jaw height is not a stack layer: `jaw_top_z = bottom + jaw_height -
 (parallels + supports)`; cut clearance is `to_z - jaw_top_z`. Below-jaw cuts
 require geometric path checks and therefore remain unknown rather than being
 invented collision errors. Travel uses transformed stock box extents
-`sum(abs(setup_axis[i])*stock_extent[i])`, and per axis requires
-`max(part_extent, fixture_extent) <= machine_travel`. Inch inventory lengths
+(`stock_extent_x_mm`/`stock_extent_y_mm`)
+`sum(abs(setup_axis[i])*stock_extent[i])`, and per axis `travel_checks` requires
+`max(stock_extent, fixture_extent) <= machine_travel`; no separate radial tip
+envelope is computed. Inch inventory lengths
 convert explicitly by 25.4; no STEP bbox is extracted. Unverified dimensions
 cannot establish a verified stack/travel pass or measured clearance violation.
 
@@ -53,8 +59,9 @@ Templates:
   `part/fixture envelope exceeds {X|Y} travel`.
 
 Evidence: per-op stacks, projection, OAL, gauge length, margin/verification,
-stock/support dimensions, maximum full stack, jaw obstruction and axis travel
-checks. Citations: PLAN §4.1 headroom; inventory machine/fixture/support/tool/
+`stock_height_mm`, stock/support dimensions, maximum full stack, jaw obstruction,
+stock extents and per-axis `travel_checks`. Citations: PLAN §4.1 headroom;
+inventory machine/fixture/support/tool/
 holder dimensions; plan stock-state/setup frame. Raw rail height is not a
 coordinate and fixture height is not silently assumed to be bed height.
 

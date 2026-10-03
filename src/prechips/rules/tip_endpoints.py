@@ -113,6 +113,7 @@ def evaluate(bundle):
     endpoints = {name: [] for name in features}
     unresolved = set()
     errors = set()
+    negative_exit = set()
     for setup in bundle.plan["setups"]:
         for op, before, _ in stock_states(setup, features):
             name = op.get("feature")
@@ -172,11 +173,15 @@ def evaluate(bundle):
                 )
                 exit_face = _subtract(entry, thickness)
                 allowance = op.get("exit_mm", UNKNOWN)
+                negative = number(allowance) and allowance < 0
+                if negative:
+                    # A negative allowance stops short of breaking through; no stop is offered.
+                    negative_exit.add(name)
                 row.update(
                     local_thickness=thickness,
                     exit_face=exit_face,
                     exit_mm=allowance,
-                    tip_z=_subtract(exit_face, lead, allowance),
+                    tip_z=UNKNOWN if negative else _subtract(exit_face, lead, allowance),
                 )
                 row["lead_mm" if action == "ream" else "point_mm"] = lead
             else:
@@ -212,11 +217,16 @@ def evaluate(bundle):
         rows = endpoints[name]
         if feature.get("kind") not in {"hole", "counterbore", "thread", "threaded_hole"}:
             status, sentence = "not_applicable", "Not a hole; no tip endpoint applies."
-        elif name in errors:
-            status, sentence = (
-                "error",
-                "The blind tip or tap flute length exceeds the declared depth guard.",
+        elif name in errors or name in negative_exit:
+            sentence = " ".join(
+                text
+                for flagged, text in (
+                    (negative_exit, "A through exit allowance is negative; exit_mm must be >= 0."),
+                    (errors, "The blind tip or tap flute length exceeds the declared depth guard."),
+                )
+                if name in flagged
             )
+            status = "error"
         elif not rows or name in unresolved:
             status, sentence = (
                 "unknown",

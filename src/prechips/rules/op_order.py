@@ -44,6 +44,12 @@ def evaluate(bundle):
                     for _, prev in before
                 ):
                     errors.append(f"op {op['op']} {action} precedes its drill")
+            if (
+                action == "drill"
+                and any(o.get("feature") == feature and o["do"] == "spot" for _, o in after)
+                and not any(o.get("feature") == feature and o["do"] == "spot" for _, o in before)
+            ):
+                errors.append(f"op {op['op']} drills before its spot")
             if action == "spot":
                 # Face the entry surface in this setup, or explicitly receive a prior setup's
                 # faced stock.
@@ -61,8 +67,9 @@ def evaluate(bundle):
                     for s, prev in before
                 ):
                     errors.append(f"op {op['op']} roughs after finishing {feature}")
+            # Release/part-off ends this holding; the next setup may cut the released part.
             if action in {"release", "part_off"} and any(
-                later["do"] not in MANUAL for _, later in after
+                s["id"] == sid and later["do"] not in MANUAL for s, later in after
             ):
                 errors.append(f"op {op['op']} releases before the final cutting operation")
             if action in {"ream", "tap", "counterbore"}:

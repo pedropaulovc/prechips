@@ -29,9 +29,11 @@ Evidence: feature kind, route operation ids and actions, expected/selected tap
 
 ## `order`
 
-One subject per setup. Across the route, ream/tap/counterbore must follow drill;
-spots follow facing when that setup includes facing; rough must not follow the
-same setup/feature's finish; release/part-off must follow all remaining cutting.
+One subject per setup. Across the route, ream/tap/counterbore must follow drill,
+and a drill must not precede its feature's only spot (a spot already before the
+drill is its spot); spots follow facing when that setup includes facing; rough
+must not follow the same setup/feature's finish; release/part-off must follow all
+remaining cutting in the same setup, while later setups may cut the released part.
 A finishing hole op in another setup must have incoming `stock_in` or transfer
 from an earlier setup. This is route order, not physical fixture continuity.
 An unknown action in the setup makes its order unknown.
@@ -41,7 +43,8 @@ Templates:
 - `{setup}: rough/finish, face/spot, hole and release order is consistent.`
 - `{setup}: operation order cannot be established while an action is explicitly unknown.`
 - `{setup}: {violations}.`, joining `op {n} {action} precedes its drill`,
-  `op {n} spots before facing`, `op {n} roughs after finishing {feature}`,
+  `op {n} drills before its spot`, `op {n} spots before facing`,
+  `op {n} roughs after finishing {feature}`,
   `op {n} releases before the final cutting operation`, and
   `op {n} has no incoming route from the drilled setup`.
 
@@ -62,7 +65,9 @@ Arithmetic in mm:
   0 < angle < 180 degrees. Centre-seat angle is not drill point geometry.
 - Spot: `tip_z = entry_z - depth_mm` (point is recorded, not added to spot depth).
 - Through drill: `exit_face = advanced entry_z - local_thickness[feature]`;
-  `tip_z = exit_face - P - exit_mm`.
+  `tip_z = exit_face - P - exit_mm`. A negative `exit_mm` (through ream too) is
+  an error and that endpoint's `tip_z` is `unknown`: the tool would not break
+  through, so no stop is offered.
 - Through ream: `tip_z = exit_face - lead_mm - exit_mm`.
 - Blind drill/ream: `total_depth = depth_mm + point_or_lead`;
   `tip_z = entry_z - total_depth`; total must not exceed the feature's upper
@@ -72,7 +77,9 @@ Arithmetic in mm:
 Exact sentence alternatives:
 
 - `Not a hole; no tip endpoint applies.`
-- `The blind tip or tap flute length exceeds the declared depth guard.`
+- `A through exit allowance is negative; exit_mm must be >= 0.`
+- `The blind tip or tap flute length exceeds the declared depth guard.` (both
+  error sentences are joined when both apply)
 - `Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.`
 - `Hole tip endpoints and blind-depth guards are computed from the advanced local entry surfaces.`
 
