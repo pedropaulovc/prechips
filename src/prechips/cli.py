@@ -1,22 +1,468 @@
-"""Command-line entry point. Subcommands land with the milestones in PLAN.md."""
+"""Five noninteractive verbs sharing validation, findings and bundle binding."""
 
 from __future__ import annotations
 
 import argparse
+import json
+import logging
+import math
+import os
 import sys
+import tomllib
+import uuid
+from pathlib import Path
 
-from prechips import __version__
+from prechips import __version__, telemetry
+from prechips.findings import Finding, exit_code
+from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
+from prechips.report import build_report, canonical_bytes, report_hash
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        raise BadInput(message)
+
+
+def _common(parser: argparse.ArgumentParser, *, bundle: bool = True) -> None:
+    parser.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+    parser.add_argument("--verbose", action="store_true", default=argparse.SUPPRESS)
+    if bundle:
+        parser.add_argument("--inventory")
+        parser.add_argument("--policy")
+        parser.add_argument("--cutting-data")
+        parser.add_argument("--out", type=Path)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="prechips", description="Checks before chips.")
+    parser = Parser(prog="prechips", description="Checks before chips.")
     parser.add_argument("--version", action="version", version=f"prechips {__version__}")
+    _common(parser, bundle=False)
+    verbs = parser.add_subparsers(dest="verb", required=True)
+    for verb in ("traveler", "check"):
+        command = verbs.add_parser(verb)
+        command.add_argument("plan", type=Path)
+        _common(command)
+        command.add_argument("--approval", type=Path)
+    tools = verbs.add_parser("tools")
+    tools.add_argument("query", nargs="?", default="")
+    tools.add_argument("--inventory")
+    _common(tools, bundle=False)
+    compare = verbs.add_parser("compare")
+    compare.add_argument("plans", nargs="+", type=Path)
+    _common(compare)
+    explain = verbs.add_parser("explain")
+    explain.add_argument("report", type=Path)
+    explain.add_argument("finding", help="rule[:subject]")
+    _common(explain, bundle=False)
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
-    build_parser().parse_args(argv)
+def _output_paths(out: Path, filenames: tuple[str, ...], inputs: list[Path]) -> list[Path]:
+    root = out.resolve()
+    if root.exists() and not root.is_dir():
+        raise BadInput("The output directory names a file.")
+    input_paths = {path.resolve() for path in inputs}
+    result = []
+    for filename in filenames:
+        target = root / filename
+        resolved = target.resolve()
+        if not resolved.is_relative_to(root):
+            raise BadInput("An output path escapes the output directory.")
+        if resolved in input_paths or any(
+            resolved.exists() and path.exists() and resolved.samefile(path) for path in input_paths
+        ):
+            raise BadInput("An output path is also an input; nothing was written.")
+        if resolved.exists() and not resolved.is_file():
+            raise BadInput("An output file names a directory.")
+        result.append(target)
+    return result
+
+
+def _write_outputs(out: Path, outputs: dict[Path, bytes], tracing: telemetry.Telemetry) -> None:
+    """Stage every output in full beside its target before replacing any target.
+
+    A failure removes the staged files and returns each already-replaced target to
+    its prior bytes (or removes it when it is new); a filesystem refusal is exit 3.
+    """
+    temporaries: list[Path] = []
+
+    def stage(target: Path, data: bytes) -> Path:
+        temporaries.append(target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp"))
+        with temporaries[-1].open("xb") as handle:
+            handle.write(data)
+        return temporaries[-1]
+
+    replaced: list[tuple[Path, Path | None]] = []
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+        staged = []
+        for target, data in outputs.items():
+            with tracing.span("output.write", path=str(target)):
+                staged.append(stage(target, data))
+        # Each replacement is atomic, so only targets replaced before the last need backups.
+        targets = list(outputs)
+        backups = [stage(t, t.read_bytes()) if t.exists() else None for t in targets[:-1]]
+        for target, temporary, backup in zip(targets, staged, [*backups, None], strict=True):
+            os.replace(temporary, target)
+            replaced.append((target, backup))
+    except BaseException as exc:
+        for target, backup in reversed(replaced):
+            if backup is None:
+                target.unlink()
+            else:
+                # If restoring fails, the backup keeps the only copy of the prior bytes.
+                temporaries.remove(backup)
+                os.replace(backup, target)
+        if isinstance(exc, OSError):
+            raise BadInput(f"Cannot write output: {exc}") from exc
+        raise
+    finally:
+        for temporary in temporaries:
+            temporary.unlink(missing_ok=True)
+
+
+def _evaluate(bundle: Bundle, tracing: telemetry.Telemetry):
+    from prechips.rules import RULES, required_coverage
+
+    findings = []
+    for rule in RULES:
+        with tracing.span(f"rule.{rule.name}.evaluate"):
+            rows = rule.evaluate(bundle)
+        for finding in rows:
+            with tracing.span(
+                f"rule.{rule.name}",
+                subject=finding.subject,
+                status=str(finding.status),
+                numbers=finding.numbers,
+            ):
+                tracing.finding(finding)
+        findings.extend(rows)
+    step = bundle.features.get("step_sha256", "unknown")
+    binding = Finding(
+        "bundle_binding",
+        "inputs",
+        "unknown" if step == "unknown" else "pass",
+        {"step_sha256": step, "inputs": bundle.input_records},
+        ["PLAN.md §5 input-bundle binding"],
+        "The part model is not bound to verified STEP bytes."
+        if step == "unknown"
+        else "The part model and every operative input are bound to the report.",
+    )
+    with tracing.span("rule.bundle_binding", subject="inputs"):
+        tracing.finding(binding)
+    findings.append(binding)
+    for finding in required_coverage(bundle, findings):
+        with tracing.span(f"rule.{finding.rule}", subject=finding.subject):
+            tracing.finding(finding)
+        findings.append(finding)
+    keys = [(f.rule, f.subject) for f in findings]
+    if len(keys) != len(set(keys)):
+        raise RuntimeError("A rule returned duplicate subjects.")
+    return findings
+
+
+def _read_approval(path: Path | None, report: dict, tracing: telemetry.Telemetry) -> dict | None:
+    if path is None:
+        return None
+    try:
+        with tracing.span("input.load", kind="approval", path=str(path)):
+            document = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise BadInput(f"Cannot read approval record: {exc}") from exc
+    if "approvals" in document and set(document) != {"approvals"}:
+        raise BadInput("Unknown approval document key.")
+    records = document.get("approvals", [document])
+    if (
+        not isinstance(records, list)
+        or not records
+        or any(not isinstance(r, dict) for r in records)
+    ):
+        raise BadInput("Approval records must be TOML tables.")
+    exact = next((entry for entry in records if entry.get("hash") == report["hash"]), None)
+    record = exact or records[-1]
+    if not isinstance(record.get("hash"), str) or not isinstance(record.get("first_article"), str):
+        raise BadInput("An approval must name its report hash and first-article evidence.")
+    allowed = {"hash", "first_article", "inputs"}
+    if set(record) - allowed:
+        raise BadInput("Unknown approval record key.")
+    warnings = []
+    if exact is None:
+        old_inputs = record.get("inputs", {})
+        if not isinstance(old_inputs, dict):
+            raise BadInput("Approval inputs must be a table of input digests.")
+        changed = []
+        for name, current in report["inputs"].items():
+            if name not in old_inputs:
+                continue
+            prior = old_inputs.get(name)
+            digest = prior.get("sha256") if isinstance(prior, dict) else prior
+            if digest != current["sha256"]:
+                changed.append(name.replace("_", " "))
+        description = ", ".join(changed) or "the operative bundle"
+        warnings.append(
+            f"Approval no longer matches: {description} changed. Repeat the first article."
+        )
+    approved = (
+        exact is not None
+        and bool(record["first_article"].strip())
+        and report["verification"] == "checked"
+    )
+    if exact is not None and not record["first_article"].strip():
+        warnings.append("No first-article evidence is recorded; the traveler remains planned.")
+    elif exact is not None and report["verification"] != "checked":
+        warnings.append(
+            "The report still has unresolved shop-required checks; approval cannot waive them."
+        )
+    for warning in warnings:
+        tracing.log("warn", f"! {warning}")
+    return {**record, "approved": approved, "warnings": warnings}
+
+
+def _json_stdout(value) -> None:
+    sys.stdout.buffer.write(canonical_bytes(value))
+
+
+def _tools(args, tracing: telemetry.Telemetry) -> int:
+    from prechips.rules.resolution import (
+        candidate_refs,
+        length_mm,
+        number,
+        record,
+        resolve,
+        uncertain,
+    )
+
+    path = args.inventory or os.environ.get("PRECHIPS_INVENTORY")
+    if not path:
+        raise BadInput("tools requires --inventory or PRECHIPS_INVENTORY.")
+    inventory = load_inventory(path)
+    words = args.query.casefold().split()
+    requested = None
+    text_words = []
+    for word in words:
+        try:
+            requested = float(word.removesuffix("mm"))
+        except ValueError:
+            text_words.append(word)
+    if requested is not None and (not math.isfinite(requested) or requested <= 0):
+        raise BadInput("A tool query diameter must be a finite positive millimetre size.")
+    rows = []
+    for category, identity in candidate_refs(inventory):
+        item = resolve(inventory, category, identity)
+        if item is None:
+            item = record(record(inventory.get(category)).get(identity))
+        searchable = json.dumps({"id": identity, **item}, ensure_ascii=False).casefold()
+        if text_words and not all(word in searchable for word in text_words):
+            continue
+        diameter = length_mm(item, "dia")
+        verdict = "unknown"
+        reason = "No confirmed diameter is listed."
+        if requested is not None and number(diameter):
+            verdict = (
+                "unknown"
+                if uncertain(item)
+                else "pass"
+                if abs(diameter - requested) < 1e-9
+                else "error"
+            )
+            reason = (
+                "Nominal diameter matches."
+                if abs(diameter - requested) < 1e-9
+                else "Nominal diameter differs from requested size."
+            )
+            if uncertain(item):
+                reason += " Verify the inventory measurement."
+        size = diameter
+        if not number(size):
+            size = next(
+                (
+                    value
+                    for field in ("capacity", "height", "range")
+                    if number(value := length_mm(item, field))
+                ),
+                "unknown",
+            )
+        if size == "unknown" and isinstance(item.get("range_mm"), list):
+            size = item["range_mm"]
+        if number(size):
+            size_in = size / 25.4
+        elif isinstance(size, list) and all(number(value) for value in size):
+            size_in = [value / 25.4 for value in size]
+        else:
+            size_in = "unknown"
+        row = {
+            "category": category,
+            "id": identity,
+            **item,
+            "dia_mm": diameter,
+            "dia_in": diameter / 25.4 if number(diameter) else "unknown",
+            "verify": uncertain(item),
+            "size_mm": size,
+            "size_in": size_in,
+            "holder_chain": item.get("standard", item.get("shank", item.get("series", "unknown"))),
+        }
+        if requested is not None:
+            row.update(requested_dia_mm=requested, sizing=verdict, reason=reason)
+        rows.append(row)
+    if getattr(args, "json", False):
+        _json_stdout(rows)
+    else:
+        print("ID | Kind | Size mm / in | Holder chain | Verification | Sizing")
+        for row in rows:
+            print(
+                f"{row['id']} | {row.get('kind', 'unknown')} | "
+                f"{row['size_mm']} / {row['size_in']} | "
+                f"{row['holder_chain']} | {'verify' if row.get('verify') else 'listed'} | "
+                f"{row.get('reason', '—')}"
+            )
+    tracing.log("debug", "Inventory resolved.", candidates=len(rows))
     return 0
+
+
+def _explain(args, tracing: telemetry.Telemetry) -> int:
+    try:
+        with tracing.span("input.load", kind="report", path=str(args.report)):
+            report = json.loads(args.report.read_text(encoding="utf-8"))
+        if not isinstance(report, dict) or report.get("hash") != report_hash(report):
+            raise BadInput("The report hash does not match its canonical content.")
+        rule, separator, subject = args.finding.partition(":")
+        rows = [
+            f
+            for f in report["findings"]
+            if f["rule"] == rule and (not separator or f["subject"] == subject)
+        ]
+        if not rows:
+            raise BadInput("No finding matches that rule and subject.")
+        parsed = []
+        for row in rows:
+            if not all(isinstance(row[key], str) for key in ("rule", "subject", "message")):
+                raise ValueError("Finding rule, subject and message must be strings.")
+            if not isinstance(row["numbers"], dict):
+                raise ValueError("Finding numbers must be an object.")
+            if not isinstance(row["cite"], list) or not all(
+                isinstance(cite, str) for cite in row["cite"]
+            ):
+                raise ValueError("Finding cite must be a list of strings.")
+            parsed.append(
+                Finding(
+                    row["rule"],
+                    row["subject"],
+                    row["status"],
+                    row["numbers"],
+                    row["cite"],
+                    row["message"],
+                )
+            )
+    except (OSError, UnicodeError, ValueError, KeyError, TypeError) as exc:
+        raise BadInput(f"Cannot explain report: {exc}") from exc
+    for finding in parsed:
+        tracing.finding(finding)
+    if getattr(args, "json", False):
+        _json_stdout(rows[0] if len(rows) == 1 else rows)
+    else:
+        for finding in rows:
+            print(f"{finding['rule']}:{finding['subject']} — {finding['status']}")
+            print(json.dumps(finding["numbers"], ensure_ascii=False, sort_keys=True, indent=2))
+            print("Cite: " + "; ".join(finding["cite"]))
+    return 0
+
+
+def _run(args, tracing: telemetry.Telemetry) -> int:
+    if args.verb == "tools":
+        return _tools(args, tracing)
+    if args.verb == "explain":
+        return _explain(args, tracing)
+    plans = args.plans if args.verb == "compare" else [args.plan]
+    bundles = [load_bundle(p, args.inventory, args.policy, args.cutting_data) for p in plans]
+    out = args.out or plans[0].parent
+    names = (
+        ("compare.json",)
+        if args.verb == "compare"
+        else (("report.json", "traveler.html") if args.verb == "traveler" else ("report.json",))
+    )
+    all_inputs = [path for bundle in bundles for path in bundle.paths.values()]
+    if getattr(args, "approval", None):
+        all_inputs.append(args.approval)
+    try:
+        destinations = _output_paths(out, names, all_inputs)
+    except OSError as exc:
+        raise BadInput(f"Cannot check output path: {exc}") from exc
+    findings = [_evaluate(bundle, tracing) for bundle in bundles]
+    reports = [build_report(bundle, rows) for bundle, rows in zip(bundles, findings, strict=True)]
+    if args.verb == "compare":
+        rows = []
+        for bundle, report in zip(bundles, reports, strict=True):
+            counts = {}
+            for finding in report["findings"]:
+                counts[finding["status"]] = counts.get(finding["status"], 0) + 1
+            rows.append(
+                {
+                    "part": bundle.plan["part"],
+                    "setups": len(bundle.plan["setups"]),
+                    "fixtures": sorted(
+                        {s.get("hold", {}).get("fixture", "unknown") for s in bundle.plan["setups"]}
+                    ),
+                    "waste_ratio": "unknown",
+                    "findings": counts,
+                    "exit": report["expected_exit"],
+                }
+            )
+        _write_outputs(out, {destinations[0]: canonical_bytes(rows)}, tracing)
+        if getattr(args, "json", False):
+            _json_stdout(rows)
+        else:
+            print("Part | Setups | Fixtures required | Findings")
+            for row in rows:
+                print(
+                    f"{row['part']} | {row['setups']} | "
+                    f"{', '.join(row['fixtures'])} | {row['findings']}"
+                )
+        codes = {report["expected_exit"] for report in reports}
+        return 2 if 2 in codes else 4 if 4 in codes else 0
+    report = reports[0]
+    approval = _read_approval(getattr(args, "approval", None), report, tracing)
+    html = None
+    if args.verb == "traveler":
+        from prechips.sheet import render_traveler
+
+        html = render_traveler(bundles[0], findings[0], report, approval)
+    outputs = {destinations[0]: canonical_bytes(report)}
+    if html is not None:
+        outputs[destinations[1]] = html.encode("utf-8")
+    _write_outputs(out, outputs, tracing)
+    if getattr(args, "json", False):
+        _json_stdout(report)
+    return exit_code(findings[0], bundles[0].policy, bundles[0])
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    verb = next(
+        (value for value in argv if value in {"traveler", "check", "tools", "compare", "explain"}),
+        "usage",
+    )
+    tracing = telemetry.configure(verb)
+    verbose_handler = None
+    try:
+        args = build_parser().parse_args(argv)
+        if getattr(args, "verbose", False):
+            logger = logging.getLogger("prechips")
+            for handler in list(logger.handlers):
+                if hasattr(handler, "verbose"):
+                    logger.removeHandler(handler)
+                    handler.close()
+            verbose_handler = telemetry.console_handler(True)
+            logger.addHandler(verbose_handler)
+        return _run(args, tracing)
+    except BadInput as exc:
+        tracing.log("error", f"Bad input: {exc}")
+        return 3
+    finally:
+        if verbose_handler is not None:
+            logging.getLogger("prechips").removeHandler(verbose_handler)
+            verbose_handler.close()
+        tracing.flush()
 
 
 if __name__ == "__main__":
