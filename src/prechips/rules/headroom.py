@@ -38,6 +38,10 @@ def _height(item, orientation=None):
     return _UNKNOWN
 
 
+def _mapping(value):
+    return value if isinstance(value, dict) else {}
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
@@ -45,7 +49,8 @@ def evaluate(bundle):
         if machine.get("kind") == "lathe":
             findings.append(Finding("headroom", setup["id"], "unsupported", {}, ["PLAN.md §4.1 headroom"], "Lathe headroom is outside the mill-only M1 envelope rule."))
             continue
-        hold, state = setup.get("hold", {}), setup.get("stock_state", {})
+        hold = _mapping(setup.get("hold"))
+        state = _mapping(setup.get("stock_state"))
         fixture = resolve(bundle, "fixtures", hold.get("fixture")) or {}
         parallels_ref = hold.get("parallels")
         parallels = resolve(bundle, "fixtures", parallels_ref) or {}
@@ -118,21 +123,21 @@ def evaluate(bundle):
         # A below-jaw endpoint is not proof of a collision: lateral keep-outs
         # require geometry. Report separately without pretending the stack fails.
         unknown |= any(value < 0 for value in cuts.values())
-        stock = bundle.plan.get("stock", {})
+        stock = _mapping(bundle.plan.get("stock"))
         section = stock.get("section_mm", [])
         stock_x, stock_y = stock.get("length_mm", _UNKNOWN), section[0] if isinstance(section, list) and section else _UNKNOWN
-        frame = bundle.features.get("frames", {}).get(setup.get("frame"), {})
+        frame = _mapping(_mapping(bundle.features.get("frames")).get(setup.get("frame")))
         axes = [frame.get("x"), frame.get("y")]
         extents = [stock_x, stock_y, section[1] if isinstance(section, list) and len(section) > 1 else _UNKNOWN]
         # Transform the stock box dimensions into the actual setup frame.
-        if all(_numeric(value) for value in extents) and all(isinstance(axis, list) and len(axis) == 3 for axis in axes):
+        if all(_numeric(value) for value in extents) and all(isinstance(axis, list) and len(axis) == 3 and all(_numeric(value) for value in axis) for axis in axes):
             stock_x, stock_y = [sum(abs(axis[i]) * extents[i] for i in range(3)) for axis in axes]
         numbers.update({"stock_extent_x_mm": stock_x, "stock_extent_y_mm": stock_y})
         travels = {}
         for axis, extent in (("x", stock_x), ("y", stock_y)):
-            travel = machine.get("travel_mm", {}).get(axis, _UNKNOWN)
+            travel = _mapping(machine.get("travel_mm")).get(axis, _UNKNOWN)
             if not _numeric(travel):
-                inches = machine.get("travel_in", {}).get(axis, _UNKNOWN)
+                inches = _mapping(machine.get("travel_in")).get(axis, _UNKNOWN)
                 travel = inches * 25.4 if _numeric(inches) else _UNKNOWN
             fixture_extent = length_mm(fixture, "length" if axis == "x" else "width")
             required = max(extent, fixture_extent) if _numeric(extent) and _numeric(fixture_extent) else _UNKNOWN

@@ -12,7 +12,13 @@ def evaluate(bundle):
     for setup in bundle.plan["setups"]:
         hold = setup.get("hold", {})
         state = setup.get("stock_state", {})
-        machine = bundle.inventory.get("machines", {}).get(setup["machine"], {})
+        unknown_hold = hold == "unknown"
+        unknown_state = state == "unknown"
+        hold = hold if isinstance(hold, dict) else {}
+        state = state if isinstance(state, dict) else {}
+        machines = bundle.inventory.get("machines", {})
+        machine = machines.get(setup["machine"], {}) if isinstance(machines, dict) else {}
+        machine = machine if isinstance(machine, dict) else {}
         lathe = machine.get("kind") == "lathe"
         required = {"hold.fixture": hold.get("fixture"),
                     "hold.stop": hold.get("stop"), "hold.grip_mm": hold.get("grip_mm"),
@@ -43,6 +49,13 @@ def evaluate(bundle):
             if op["do"] in _DIRECTION or "direction" in op:
                 directions[str(op["op"])] = op.get("direction", "unknown")
                 required[f"ops.{op['op']}.direction"] = op.get("direction")
+        for key, value in required.items():
+            if value is None and (
+                (unknown_hold and key.startswith("hold."))
+                or (unknown_state and key.startswith("stock_state."))
+                or (machine.get("kind", "unknown") == "unknown" and key.startswith("stock_state."))
+            ):
+                required[key] = "unknown"
         absent = [key for key, value in required.items() if value is None or value == ""]
         unresolved = [key for key, value in required.items() if value == "unknown"]
         numbers = {"fixture": hold.get("fixture", "unknown"), "hold": dict(hold),

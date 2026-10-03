@@ -10,6 +10,10 @@ from prechips.findings import Finding
 _NONFINISH = {"spot", "inspect", "release", "fit_up", "scribe", "transfer", "deburr"}
 
 
+def _mapping(value):
+    return value if isinstance(value, dict) else {}
+
+
 def _number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
@@ -33,7 +37,7 @@ def _label(cut):
 
 def _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name):
     _, setup, _ = feature_cut
-    transfer = setup.get("zero", {}).get("transfer", {})
+    transfer = _mapping(_mapping(setup.get("zero")).get("transfer"))
     selected = transfer.get("indicate", [])
     if isinstance(selected, str):
         selected = [selected]
@@ -48,9 +52,9 @@ def _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name):
 def evaluate(bundle):
     setups = bundle.plan["setups"]
     features = bundle.features["features"]
-    datum_map = {name: datum.get("feature") for name, datum in bundle.features.get("datums", {}).items()}
+    datum_map = {name: _mapping(datum).get("feature") for name, datum in _mapping(bundle.features.get("datums")).items()}
     datum_map.update({feature["datum"]: name for name, feature in features.items() if isinstance(feature.get("datum"), str) and feature["datum"] != "unknown"})
-    budget = bundle.policy.get("numbers", {}).get("refixture_budget_mm", "unknown")
+    budget = _mapping(bundle.policy.get("numbers")).get("refixture_budget_mm", "unknown")
     verified = bundle.policy.get("numbers_verify", False)
     if isinstance(verified, dict):
         verified = verified.get("refixture_budget_mm", False)
@@ -112,11 +116,15 @@ def evaluate(bundle):
                                                        "same_setup": same_setup, "indicated_transfer": indicated,
                                                        "tolerance_mm": tolerance, "status": verdict})
         numbers["same_setup"] = not cross_setup and bool(feature_cuts) and not unknown
-        numbers["transfer"] = [setup.get("zero", {}).get("transfer") for _, setup, _ in feature_cuts if setup.get("zero", {}).get("transfer")]
+        numbers["transfer"] = [
+            _mapping(setup.get("zero")).get("transfer")
+            for _, setup, _ in feature_cuts
+            if _mapping(setup.get("zero")).get("transfer")
+        ]
         status = "error" if failed else "unknown" if unknown else "pass"
         message = ("Re-fixtured datum tolerance is below the measured shop budget: " + ", ".join(sorted(set(failed))) + ".") if failed else "Datum cuts or the re-fixture acceptance budget remain unresolved." if unknown else "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget."
         cite = ["PLAN.md §4.1 datum consistency", "features: datum references and tolerance", "plan: finishing cuts and zero.transfer"]
-        budget_cite = bundle.policy.get("numbers_cite", {}).get("refixture_budget_mm")
+        budget_cite = _mapping(bundle.policy.get("numbers_cite")).get("refixture_budget_mm")
         if isinstance(budget_cite, str) and budget_cite != "unknown":
             cite.append(budget_cite)
         findings.append(Finding("datum_consistency", name, status, numbers, cite, message))

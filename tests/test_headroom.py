@@ -124,3 +124,25 @@ def test_inch_envelope_and_holder_dimensions_convert_once():
     assert finding.status == "pass"
     assert finding.numbers["spindle_to_table_max_mm"] == pytest.approx(203.2)
     assert finding.numbers["sum_mm"] == pytest.approx(176.8)
+
+
+@pytest.mark.parametrize(
+    "section",
+    ["stock", "hold", "stock_state", "machines", "fixtures", "travel_mm"],
+)
+def test_structural_unknown_cannot_certify_physical_envelope(section):
+    data = bundle()
+    if section == "stock":
+        data.plan["stock"] = "unknown"
+    elif section in {"hold", "stock_state"}:
+        data.plan["setups"][0][section] = "unknown"
+    elif section == "travel_mm":
+        data.inventory["machines"]["mill"]["travel_mm"] = "unknown"
+    else:
+        data.inventory[section] = "unknown"
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    if section in {"hold", "stock_state", "fixtures"}:
+        assert finding.numbers["sum_mm"] == "unknown"
+    if section == "stock":
+        assert finding.numbers["travel_checks"]["x"]["required_mm"] == "unknown"
