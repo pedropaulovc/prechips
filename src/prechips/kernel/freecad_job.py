@@ -21,14 +21,15 @@ Measurement conventions (setup frame, tool axis +Z):
   would float it r*n_z above floors and clear walls shorter than that.  Tool
   cylinder r x flute_len from the tip, holder cylinder holder_radius x
   holder_gauge_len from tip + projection; both shrink/lift by ``LIFT``.
-  Downward-facing samples are occluded by the part.
-* Obstacles: (part - own region) and the placed jaw boxes.  The own region is the
-  material within r of the op's claimed faces: per-face thick offsets by r into
-  material plus, around every sharp concave line edge shared by two claimed
-  faces, the r-cylinder minus the open-corner wedge in front of both faces.
+  Far-side faces cannot be claimed from that setup; undefined normals remain debt.
+* Obstacles: (setup-entry stock - sampled face's own surface) and placed jaws.
+  The exclusion is only a ``LIFT``-thick inward shell of that one finished face;
+  every other face, including another claimed face of its feature, stays material.
+  Supply and earlier setups' derivable removals determine each setup's held stock;
+  an op's ``stock_removal_bounds`` is an authored clearing box, not a toolpath proof.
 * Modelled placement only: each sample gets one prescribed tool pose, so a hit
   means that pose collides, not that no other pose reaches the face.
-* Vise: part seated at its lowest z; jaw zone z in [seat, seat +
+* Vise: stock seated at its lowest z; jaw zone z in [seat, seat +
   jaw_above_parallels], limited along ``jaws_along`` to the jaw span when
   ``jaw_center_along_mm`` declares it; inner jaw planes at the zone material's
   extremes along the clamp axis; jaw boxes jaw_width along ``jaws_along``
@@ -62,7 +63,11 @@ UNKNOWN = "unknown"
 LIFT = 1e-3  # mm: cylinders shrink radially and lift off the sample by this clearance
 GRID = 5  # cell-centred UV samples per face direction
 EDGE_SAMPLES = (2, 12)  # per boundary edge
+AWAY = -1e-3  # outward normal z below which a face points away from the tool approach
 HIT_MM3 = 1e-6  # common volume that counts as an intersection
+STOCK_TOL = 1e-3  # mm: as-is face distance to the envelope, claimed-face contact
+COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is not cleared
+STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached stock piece
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
 REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
@@ -275,27 +280,6 @@ def _concave_edge(part, edge, face_a, face_b):
     return part.isInside(probe, 1e-9, False)
 
 
-def _half_space(point, normal, size):
-    """A cube of edge ``size`` standing on the plane through ``point`` on the side of ``normal``."""
-    cube = Part.makeBox(size, size, size, V(-size / 2, -size / 2, 0))
-    cube.Placement = FreeCAD.Placement(point, FreeCAD.Rotation(Z, normal))
-    return cube
-
-
-def _edge_material(edge, face_a, face_b, radius):
-    """The r-cylinder around a sharp concave line edge minus the air wedge in front of both faces.
-
-    The wedge in front of both faces (n_a.d > 0 and n_b.d > 0) is the open corner, where
-    unrelated material such as a pin may stand; only the rest is the faces' own material.
-    """
-    start, end = edge.Vertexes[0].Point, edge.Vertexes[-1].Point
-    middle = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
-    cylinder = Part.makeCylinder(radius, (end - start).Length, start, end - start)
-    size = 4 * ((end - start).Length + 2 * radius)
-    air = _half_space(middle, _normal_at(face_a, middle), size).common(
-        _half_space(middle, _normal_at(face_b, middle), size)
-    )
-    return cylinder.cut(air)
 
 
 def _edge_direction(edge):
@@ -371,10 +355,7 @@ class _Culled:
 
     def __init__(self, shape):
         self.shape = shape
-        self.boxes = []
-        for face in shape.Faces:
-            box = face.optimalBoundingBox(False, True)  # exact, grown by the shape tolerance
-            self.boxes.append((box.XMin, box.YMin, box.ZMin, box.XMax, box.YMax, box.ZMax))
+        self.boxes = [_tolerant_box(face) for face in shape.Faces]
 
     def common(self, cx, cy, radius, z0, z1):
         """The solid's material inside the cylinder, or None when there is none."""
@@ -385,6 +366,115 @@ class _Culled:
             return Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
         common = self.shape.common(Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0)))
         return common if common.Volume > HIT_MM3 else None
+
+
+def _tolerant_box(face):
+    box = face.optimalBoundingBox(False, True)  # exact, grown by the shape tolerance
+    return (box.XMin, box.YMin, box.ZMin, box.XMax, box.YMax, box.ZMax)
+
+
+# --------------------------------------------------------------------------- stock
+
+
+def _stock_vector(stock, key, unit):
+    value = stock.get(key)
+    if not (isinstance(value, list) and len(value) == 3 and all(_number(v) for v in value)):
+        raise ValueError(f"stock {key} is not a numeric 3-vector")
+    vector = V(*map(float, value))
+    if unit and abs(vector.Length - 1) > 1e-6:
+        raise ValueError(f"stock {key} is not a unit vector")
+    return vector
+
+
+def _envelope(stock):
+    """The authored supplied-stock solid in model mm: a placed box or round bar."""
+    shape = stock.get("shape")
+    length = _positive(stock, "length_mm")
+    if length is None:
+        raise ValueError("stock length_mm is not a positive number")
+    origin = _stock_vector(stock, "origin_mm", False)
+    axis = _stock_vector(stock, "axis", True)
+    if shape == "round":
+        dia = _positive(stock, "dia_mm")
+        if dia is None:
+            raise ValueError("stock dia_mm is not a positive number")
+        return Part.makeCylinder(dia / 2, length, origin, axis)
+    if shape != "box":
+        raise ValueError(f"stock shape {shape!r} is neither box nor round")
+    section = stock.get("section_mm")
+    if not (
+        isinstance(section, list)
+        and len(section) == 2
+        and all(_number(v) and v > 0 for v in section)
+    ):
+        raise ValueError("stock section_mm is not two positive numbers")
+    across = _stock_vector(stock, "section_axis", True)
+    if abs(axis.dot(across)) > 1e-6:
+        raise ValueError("stock axis and section_axis are not orthogonal")
+    third = axis.cross(across)
+    solid = Part.makeBox(length, float(section[0]), float(section[1]))
+    solid.transformShape(
+        FreeCAD.Matrix(
+            axis.x,
+            across.x,
+            third.x,
+            origin.x,
+            axis.y,
+            across.y,
+            third.y,
+            origin.y,
+            axis.z,
+            across.z,
+            third.z,
+            origin.z,
+            0,
+            0,
+            0,
+            1,
+        )
+    )
+    return solid
+
+
+def _clearing_box(bounds):
+    """(setup-frame solid of an op's ``stock_removal_bounds`` in mm, or None, and why not)."""
+    if isinstance(bounds, dict) and bounds.get("reason"):
+        return None, str(bounds["reason"])
+    if not isinstance(bounds, dict):
+        return None, "stock_removal_bounds is unknown"
+    spans, bad = [], []
+    for axis in ("x", "y", "z"):
+        span = bounds.get(axis)
+        if (
+            isinstance(span, list)
+            and len(span) == 2
+            and all(_number(v) for v in span)
+            and span[0] < span[1]
+        ):
+            spans.append((float(span[0]), float(span[1])))
+        else:
+            bad.append(axis)
+    if bad:
+        return None, (
+            "stock_removal_bounds " + ", ".join(bad) + " not a numeric [lo, hi] span with lo < hi"
+        )
+    return _box_shape(tuple(lo for lo, _ in spans) + tuple(hi for _, hi in spans)), None
+
+
+def _inner_point(face):
+    """A point exactly on ``face`` (not on its boundary when avoidable), or None."""
+    u0, u1, v0, v1 = face.ParameterRange
+    for i, j in ((1, 1), (0, 0), (2, 2), (0, 2), (2, 0), (1, 0), (0, 1), (2, 1), (1, 2)):
+        u, v = u0 + (2 * i + 1) * (u1 - u0) / 6, v0 + (2 * j + 1) * (v1 - v0) / 6
+        if face.isPartOfDomain(u, v):
+            return face.valueAt(u, v)
+    return None
+
+
+def _vertical(face, axis):
+    """Whether every sampled normal of ``face`` is perpendicular to ``axis`` (no sweep volume)."""
+    samples, skipped = _face_samples(face, 1.0)
+    return not skipped and all(abs(normal.dot(axis)) < 1e-9 for _, normal in samples)
 
 
 # --------------------------------------------------------------------------- PNG
@@ -587,19 +677,108 @@ class _Job:
         setups = job.get("setups", [])
         if not isinstance(setups, list):
             raise ValueError("job setups is not a list")
+        stock, reason = self._supply()
+        result["stock"] = (
+            {"bbox_mm": [_r(v) for v in _bbox(stock)], "volume_mm3": _r(stock.Volume)}
+            if reason is None
+            else {"reason": reason}
+        )
+        previous = None
         for setup in setups:
-            facts, ops = _Setup(self, setup).run()
+            held, held_reason = self._held(setup, stock, reason, previous)
+            runner = _Setup(self, setup, held, held_reason)
+            facts, ops = runner.run()
             result["setups"][str(setup.get("id"))] = facts
             result["ops"].update(ops)
+            stock, reason = runner.stock_out, runner.stock_out_reason
+            previous = str(setup.get("id"))
         return result
+
+    def _supply(self):
+        """The authored supplied stock in model mm, or why it cannot be derived."""
+        stock = self.job.get("stock")
+        if not isinstance(stock, dict):
+            return None, "plan stock envelope is unknown; in-process stock cannot be derived"
+        if stock.get("reason"):
+            return None, str(stock["reason"])
+        if stock.get("shape") == "part":
+            # Explicit declaration that the supply is the imported solid itself (an already
+            # finished blank); never inferred, and never emitted for a production plan.
+            solid = self.solid.copy()
+        else:
+            try:
+                solid = _envelope(stock)
+            except ValueError as exc:
+                return None, f"{exc}; in-process stock cannot be derived"
+            outside = self.solid.cut(solid).Volume
+            if outside > STOCK_MM3:
+                return None, (
+                    f"the finished part extends {_r(outside)} mm^3 outside the authored stock "
+                    "envelope; in-process stock cannot be derived"
+                )
+        box = _bbox(solid)
+        self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
+        refs = self.job.get("as_is_faces")
+        if isinstance(refs, list):
+            unmapped = sorted(
+                str(ref) for ref in refs if not isinstance(ref, str) or ref not in self.mapping
+            )
+            if unmapped:
+                return None, (
+                    "as-is face reference(s) unmapped, so their supplied-stock surfaces cannot "
+                    "be checked: " + ", ".join(unmapped)
+                )
+            shell = solid.Shells[0]
+            off = []
+            for ref in refs:
+                samples, _ = _face_samples(self.solid.Faces[self.mapping[ref]], 1.0)
+                if not samples or any(
+                    shell.distToShape(Part.Vertex(point))[0] > STOCK_TOL for point, _ in samples
+                ):
+                    off.append(ref)
+            if off:
+                return None, (
+                    "as-is face(s) do not lie on the authored stock envelope, so the supplied "
+                    "stock is not that envelope: " + ", ".join(sorted(set(off)))
+                )
+        return solid, None
+
+    @staticmethod
+    def _held(setup, stock, reason, previous):
+        """Stock a setup receives: the supply first, then the previous setup's output only."""
+        stock_in = setup.get("stock_in", UNKNOWN) if isinstance(setup, dict) else UNKNOWN
+        if previous is None and stock_in != "stock":
+            why = f"stock_in {stock_in!r} of the first setup is not the supplied 'stock'"
+        elif previous is not None and stock_in == "stock":
+            why = f"stock_in 'stock' restarts from the supplied stock after setup {previous}"
+        elif previous is not None and stock_in != previous:
+            why = (
+                f"stock_in {stock_in!r} is not the previous setup {previous!r}; "
+                "only a linear route is derived"
+            )
+        else:
+            return stock, reason
+        return None, why + "; in-process stock cannot be derived"
 
     def _declared(self):
         features = self.job.get("features", {})
         return features if isinstance(features, dict) else {}
 
+    def _claims(self):
+        """Explicit ``faces`` lists of every op in the job."""
+        setups = self.job.get("setups")
+        return [
+            op["faces"]
+            for setup in (setups if isinstance(setups, list) else ())
+            if isinstance(setup, dict) and isinstance(setup.get("ops"), list)
+            for op in setup["ops"]
+            if isinstance(op, dict) and isinstance(op.get("faces"), list)
+        ]
+
     def _job_refs(self, step, mapping, errors):
         refs = []
-        for value in list(self._declared().values()) + [self.job.get("as_is_faces")]:
+        declared = list(self._declared().values()) + self._claims()
+        for value in declared + [self.job.get("as_is_faces")]:
             if isinstance(value, list):
                 refs.extend(ref for ref in value if isinstance(ref, str) and ref != UNKNOWN)
         mapping, errors = dict(mapping), dict(errors)
@@ -626,18 +805,28 @@ class _Job:
 
 
 class _Setup:
-    def __init__(self, owner, setup):
+    def __init__(self, owner, setup, held=None, stock_reason="in-process stock was not derived"):
         self.owner = owner
         self.setup = setup if isinstance(setup, dict) else {}
         self.ops = [op for op in self.setup.get("ops", []) if isinstance(op, dict)]
         self.reasons = {}
-        self.part = None
+        # Model-frame stock this setup receives, or why it is unknown.
+        self.held, self.stock_reason = (None, stock_reason) if held is None else (held, None)
+        # Model-frame stock this setup leaves for the next one, or why it is unknown.
+        self.stock_out, self.stock_out_reason = None, self.stock_reason
+        self.matrix = None
+        self.finished = None  # the finished solid in the setup frame
+        self.faces = []  # its faces: every face index/label refers to these
+        self.face_boxes = []
+        self.part = None  # material present for the current fact: in-process stock
+        self.box = None  # bounding box of the stock as held (seat, top)
         # certain jaw boxes {"fixed", "moving"} plus "possible": [(fixed side?, box)] once placed
         self.jaws = None
         self.hold = None  # the vise hold, once it is declared without a reason
         self.fixture_reason = None
         self.regions = {}
         self.culled_part = None
+        self.directions = {}  # finished face index -> direction verdict cache
 
     # ------------------------------------------------------------------ setup facts
 
@@ -653,17 +842,21 @@ class _Setup:
             "reasons": {},
         }
         if matrix is not None:
-            part = self.owner.solid.copy()
+            finished = self.owner.solid.copy()
             try:
-                part.transformShape(matrix)
+                finished.transformShape(matrix)
             except Exception as exc:
                 matrix, frame_reason = None, f"setup frame transform failed: {exc}"
             else:
-                self.part = part
-                self.faces = part.Faces
-                self.box = _bbox(part)
-                self.face_boxes = self._culled_part().boxes
+                self.matrix = matrix
+                self.finished = finished
+                self.faces = finished.Faces
+                self.face_boxes = [_tolerant_box(face) for face in self.faces]
         if matrix is None:
+            self.stock_out_reason = (
+                f"setup {self.setup.get('id')} frame is unusable ({frame_reason}); "
+                "in-process stock after it cannot be derived"
+            )
             facts["reason"] = frame_reason
             facts["fixture_reason"] = frame_reason
             for key in (
@@ -676,12 +869,40 @@ class _Setup:
                 facts["reasons"][key] = frame_reason
             ops = {self._subject(op): self._op_unknown(op, frame_reason) for op in self.ops}
             return facts, ops
-        self._vise(facts)
-        ops = {self._subject(op): self._op(op) for op in self.ops}
-        png, scene = self._render()
-        facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
-        facts["render_scene"] = scene
-        facts["fixture_rendered"] = scene["jaws"] != "absent" and not scene["debts"]
+        if self.stock_reason is None:
+            self._use(self._placed(self.held))
+            self.box = _bbox(self.part)
+            facts["stock_bbox_mm"] = [_r(v) for v in self.box]
+            facts["stock_volume_mm3"] = _r(self.part.Volume)
+            self._vise(facts)
+        else:
+            # Finished material is a subset of any real stock: hits on it stay sound, but
+            # nothing measured on it may pass or be drawn as the held part.
+            self._use(self.finished)
+            self.box = _bbox(self.finished)
+            facts["stock_reason"] = self.fixture_reason = self.stock_reason
+            for key in (
+                "parallel_pair",
+                "width_mm",
+                "contact_grip_mm",
+                "claimed_in_jaws",
+                "min_wall_mm",
+            ):
+                facts["reasons"][key] = self.stock_reason
+        # Every op and the render see the stock as it enters the setup; this setup's own
+        # removals only shape the stock handed to the next one.
+        ops = {}
+        for op in self.ops:
+            result = self._op(op)
+            if self.stock_reason is not None:
+                self._unproven(result, self.stock_reason)
+            ops[self._subject(op)] = result
+        if self.stock_reason is None:
+            png, scene = self._render()
+            facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
+            facts["render_scene"] = scene
+            facts["fixture_rendered"] = scene["jaws"] != "absent" and not scene["debts"]
+            self.stock_out, self.stock_out_reason = self._output()
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -691,21 +912,274 @@ class _Setup:
             facts["reason"] = unknown[0]
         return facts, ops
 
+    # ------------------------------------------------------------------ in-process stock
+
+    def _placed(self, shape):
+        """A setup-frame copy of a model-frame shape."""
+        placed = shape.copy()
+        placed.transformShape(self.matrix)
+        return placed
+
+    def _use(self, solid):
+        """Make ``solid`` the material present for the following facts."""
+        self.part = solid
+        self.culled_part = None
+        self.regions = {}
+
+    def _output(self):
+        """(model-frame stock this setup leaves, or None, and why it cannot be derived).
+
+        An op declaring ``stock_removal_bounds`` removes all stock outside the finished
+        part inside that setup-frame box (and above its ``to_z``); its claims must all face
+        the approach, lie on the box, and border every piece it removes.  Any other op
+        removes the stock its direction-valid claimed faces sweep along the setup approach
+        (+Z), outside the finished part, connected to a claimed face and above its
+        ``to_z``; unclaimed material (rails, ears, webs, overstock) stays.  A wall the
+        approach sweeps no volume from has no derivable cleared footprint: if overstock
+        still touches it above ``to_z`` the next setup's stock is unknown, never unchanged.
+        """
+        where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
+        stock, walls = self.part, []
+        try:
+            for op in self.ops:
+                subject = self._subject(op)
+                valid, away, why = self._claims(op)
+                if not isinstance(valid, list):
+                    return None, f"{subject} claimed faces are unresolved ({why}); {where}"
+                to_z = op.get("to_z")
+                if to_z is not None and not _number(to_z):
+                    return None, f"{subject} to_z is unknown; {where}"
+                if "stock_removal_bounds" in op:
+                    removal, why = self._bounded(
+                        op["stock_removal_bounds"], stock, valid, away, to_z
+                    )
+                    if why is not None:
+                        return None, f"{subject} {why}; {where}"
+                else:
+                    removal, unswept = self._removal(valid, to_z)
+                    walls.append((subject, unswept, to_z))
+                if removal is None:
+                    continue
+                pieces = [p for p in stock.cut(removal).Solids if p.Volume > STOCK_MM3]
+                if len(pieces) != 1 or not pieces[0].isValid():
+                    return None, (
+                        f"{subject}: removing its claimed clearance leaves {len(pieces)} valid "
+                        f"stock piece(s); {where}"
+                    )
+                stock = pieces[0]
+            overstock = stock.cut(self.finished)
+            for subject, unswept, to_z in walls:
+                covered = self._covered(overstock, unswept, to_z)
+                if covered:
+                    return None, (
+                        f"{subject}: overstock still touches claimed wall(s) "
+                        f"{', '.join(covered)} above its to_z; the setup approach sweeps no "
+                        "volume from a profile wall and the op declares no "
+                        "stock_removal_bounds (cleared XY footprint, retained rail/ear volume "
+                        f"of an interrupted profile) for it; {where}"
+                    )
+            model = stock.copy()
+            model.transformShape(self.matrix.inverse())
+        except Exception as exc:
+            return None, f"in-process stock boolean failed ({exc}); {where}"
+        return model, None
+
+    def _bounded(self, bounds, stock, valid, away, to_z):
+        """(stock outside the finished part inside the declared box or None, or why not).
+
+        The box is an authored clearing volume, not a toolpath: it removes nothing unless
+        every claim faces the approach, each claimed face lies on the box and each removed
+        piece borders a claimed face, so no claim manufactures clearance away from it.
+        """
+        box, why = _clearing_box(bounds)
+        if box is None:
+            return None, why
+        labels = self.owner.labels
+        if away:
+            return None, (
+                "stock_removal_bounds cannot clear claimed face(s) facing away from the setup "
+                "approach: " + ", ".join(away)
+            )
+        if not valid:
+            return None, "stock_removal_bounds has no claimed face to clear"
+        outside = [
+            labels[index]
+            for index in valid
+            if self.faces[index].distToShape(box)[0] >= STOCK_TOL
+        ]
+        if outside:
+            return None, (
+                "claimed face(s) lie outside its stock_removal_bounds: " + ", ".join(sorted(outside))
+            )
+        removed = stock.common(box).cut(self.finished)
+        if to_z is not None:
+            removed = removed.common(self._above(to_z))
+        pieces = [piece for piece in removed.Solids if piece.Volume > HIT_MM3]
+        claimed = [self.faces[index] for index in valid]
+        stray = [
+            piece
+            for piece in pieces
+            if not any(piece.distToShape(face)[0] < STOCK_TOL for face in claimed)
+        ]
+        if stray:
+            return None, (
+                f"stock_removal_bounds removes {_r(sum(p.Volume for p in stray))} mm^3 in "
+                f"{len(stray)} piece(s) bordering none of its claimed faces"
+            )
+        if not pieces:
+            return None, None
+        return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
+
+    def _removal(self, valid, to_z):
+        """(stock removed by sweeping claimed faces along +Z or None, unswept wall indices)."""
+        up = V(0, 0, 1)
+        faces, prisms, unswept = [], [], []
+        for index in valid:
+            face = self.faces[index]
+            if _vertical(face, up):
+                # A wall wholly below the op's floor keeps its overstock by design.
+                if to_z is None or self.face_boxes[index][5] > to_z + STOCK_TOL:
+                    unswept.append(index)
+                continue
+            prism = face.extrude(up * self.owner.sweep_mm)
+            if prism.Volume > HIT_MM3:
+                faces.append(face)
+                prisms.append(prism)
+            else:
+                unswept.append(index)
+        if not prisms:
+            return None, unswept
+        sweep = prisms[0].fuse(prisms[1:]) if len(prisms) > 1 else prisms[0]
+        kept = [
+            piece
+            for piece in sweep.cut(self.finished).Solids
+            if piece.Volume > HIT_MM3 and any(piece.distToShape(f)[0] < STOCK_TOL for f in faces)
+        ]
+        if not kept:
+            return None, unswept
+        removal = kept[0].fuse(kept[1:]) if len(kept) > 1 else kept[0]
+        if to_z is not None:
+            removal = removal.common(self._above(to_z))
+            if removal.Volume <= HIT_MM3:
+                return None, unswept
+        return removal, unswept
+
+    def _above(self, z):
+        """A box holding everything in this setup at or above height ``z``."""
+        size = 4 * self.owner.sweep_mm
+        x, y = ((self.box[i] + self.box[i + 3]) / 2 - size / 2 for i in range(2))
+        return Part.makeBox(size, size, size, V(x, y, z))
+
+    def _covered(self, overstock, unswept, to_z):
+        """Labels of unswept claimed walls that overstock above ``to_z`` still touches."""
+        if not unswept:
+            return []
+        if to_z is not None:
+            overstock = overstock.common(self._above(to_z + COVER_MM))
+        if overstock.Volume <= HIT_MM3:
+            return []
+        return sorted(
+            self.owner.labels[index]
+            for index in unswept
+            if self.faces[index].distToShape(overstock)[0] < COVER_MM
+        )
+
+    @staticmethod
+    def _unproven(facts, reason):
+        """No op fact may pass on unknown stock; finished-material hits stay as minimums."""
+        why = f"in-process stock unknown: {reason}"
+        facts["stock_reason"] = reason
+        facts["reason"] = why
+        reasons = facts.setdefault("reasons", {})
+        for kind in ("tool", "holder"):
+            value = facts.get(kind + "_hits")
+            if _number(value):
+                facts.setdefault("min_hits", {}).setdefault(kind, value)
+        for key in (
+            "tool_hits",
+            "holder_hits",
+            "reach_depth_mm",
+            "holder_wall_hits",
+            "corner_radii_mm",
+        ):
+            facts[key] = UNKNOWN
+            reasons[key] = why
+
     @staticmethod
     def _subject(op):
         return str(op.get("subject"))
 
+    # ------------------------------------------------------------------ claims
+
+    def _claim_refs(self, op):
+        """(refs, what) an op claims: its explicit ``faces``, else its feature's faces."""
+        if "faces" in op:
+            return op["faces"], f"op {self._subject(op)} faces"
+        name = op.get("feature")
+        declared = self.owner._declared()
+        if not isinstance(name, str) or name not in declared:
+            return None, f"feature {name!r} is not declared"
+        return declared[name], f"feature {name!r}"
+
+    def _indices(self, op):
+        """Sorted finished-face indices an op claims, or unknown while any ref is unresolved."""
+        refs, _ = self._claim_refs(op)
+        indices = self.owner._feature(refs)
+        return indices if indices != UNKNOWN and indices else UNKNOWN
+
+    def _direction(self, index):
+        """(faces away, undefined normal count) for a finished face in the setup frame.
+
+        A face points away as soon as one evaluable normal has z below ``AWAY``: the
+        tool approaches along -Z and no cutter dimension changes that.
+        """
+        if index not in self.directions:
+            samples, skipped = _face_samples(self.faces[index], 1.0)
+            away = any(normal.z < AWAY for _, normal in samples)
+            self.directions[index] = (away, skipped if samples else max(skipped, 1))
+        return self.directions[index]
+
+    def _split(self, indices):
+        """Claimed indices by verdict: cuttable, facing away, (index, undefined normals)."""
+        valid, away, undefined = [], [], []
+        for index in indices:
+            facing_away, skipped = self._direction(index)
+            if facing_away:
+                away.append(index)
+            elif skipped:
+                undefined.append((index, skipped))
+            else:
+                valid.append(index)
+        return valid, away, undefined
+
+    def _undefined(self, undefined):
+        labels = self.owner.labels
+        return "face normal undefined at " + ", ".join(
+            f"{skipped} sample(s) of {labels[index]}" for index, skipped in undefined
+        )
+
+    def _claims(self, op):
+        """(direction-valid indices or unknown, labels facing away, reason) for an op."""
+        indices = self._indices(op)
+        if indices == UNKNOWN:
+            return UNKNOWN, [], "claimed face references are unknown or unmapped"
+        valid, away, undefined = self._split(indices)
+        labels = self.owner.labels
+        if undefined:
+            return UNKNOWN, sorted(labels[i] for i in away), self._undefined(undefined)
+        return sorted(valid), sorted(labels[i] for i in away), None
+
     def _claimed(self):
-        """Indices claimed by this setup's ops, or the reason they are not all known."""
+        """Direction-valid indices claimed by this setup's ops, or why they are not all known."""
         indices, missing = set(), []
         for op in self.ops:
-            value = self.owner.features.get(op.get("feature"), UNKNOWN)
-            if value == UNKNOWN:
-                missing.append(self._subject(op))
+            valid, _, reason = self._claims(op)
+            if valid == UNKNOWN:
+                missing.append(f"{self._subject(op)} ({reason})")
             else:
-                indices.update(value)
+                indices.update(valid)
         if missing:
-            return None, "claimed faces unknown or unmapped for " + ", ".join(missing)
+            return None, "claimed faces unresolved for " + "; ".join(missing)
         return sorted(indices), None
 
     def _vise(self, facts):
@@ -850,7 +1324,7 @@ class _Setup:
 
     def _contact(self, zone, c_axis, plane, outward, seat, top):
         """z-intervals of planar zone faces on the jaw plane, and the part faces they come from."""
-        intervals = []
+        intervals, stock = [], False
         for face in zone.Faces:
             if not isinstance(face.Surface, Part.Plane):
                 continue
@@ -862,7 +1336,9 @@ class _Setup:
             if normal[c_axis] * outward < PARALLEL or face.Area <= CONTACT_MM2:
                 continue
             intervals.append((box[2], box[5]))
-        labels = []
+            if not stock and self._source(face) is None:
+                stock = True
+        labels = ["in-process stock"] if stock else []
         a_axis, (a0, a1) = self.clamp["a_axis"], self.clamp["jaw_a"]
         for index, face in enumerate(self.faces):
             if not isinstance(face.Surface, Part.Plane):
@@ -874,6 +1350,18 @@ class _Setup:
                 continue
             labels.append(self.owner.labels[index])
         return intervals, sorted(labels) if intervals else []
+
+    def _source(self, face):
+        """Index of the finished face that a stock face lies on, or None for stock surface."""
+        point = _inner_point(face)
+        if point is None:
+            return None
+        vertex = Part.Vertex(point)
+        for index, box in enumerate(self.face_boxes):
+            if all(box[i] - STOCK_TOL <= point[i] <= box[i + 3] + STOCK_TOL for i in range(3)):
+                if self.faces[index].distToShape(vertex)[0] < STOCK_TOL:
+                    return index
+        return None
 
     def _line_contact(self, zone, c_axis, plane):
         size = (
@@ -947,18 +1435,19 @@ class _Setup:
             facts["min_wall_mm"] = _r(thinnest)
 
     def _render(self):
-        """PNG of the part (claimed faces tinted) and the declared fixture, and its debts."""
+        """PNG of the stock entering the setup (claimed surfaces tinted) and the fixture."""
         claimed = set()
         for op in self.ops:
-            value = self.owner.features.get(op.get("feature"), UNKNOWN)
-            if value != UNKNOWN:
-                claimed.update(value)
+            valid = self._claims(op)[0]
+            if isinstance(valid, list):
+                claimed.update(valid)
         size = max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
         tolerance = max(0.01, size / 400)
         meshes = []
-        for index, face in enumerate(self.faces):
+        for face in self.part.Faces:
             points, triangles = face.tessellate(tolerance)
-            meshes.append((points, triangles, _COLOURS["claimed" if index in claimed else "part"]))
+            colour = "claimed" if self._source(face) in claimed else "part"
+            meshes.append((points, triangles, _COLOURS[colour]))
         debts, solids = [], []
         if self.jaws is None:
             jaws = "absent"
@@ -1047,70 +1536,82 @@ class _Setup:
 
     # ------------------------------------------------------------------ op facts
 
+    _MEASURED = (
+        "sample_count",
+        "tool_hits",
+        "holder_hits",
+        "reach_depth_mm",
+        "holder_wall_hits",
+    )
+
     def _op_unknown(self, op, reason):
         facts = {"reason": reason, "reasons": {}}
-        for key in (
-            "sample_count",
-            "tool_hits",
-            "holder_hits",
-            "reach_depth_mm",
-            "holder_wall_hits",
-            "corner_radii_mm",
-        ):
+        for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm"):
             facts[key] = UNKNOWN
             facts["reasons"][key] = reason
         return facts
 
     def _op(self, op):
         owner = self.owner
-        name = op.get("feature")
-        declared = owner._declared()
-        refs = declared.get(name, UNKNOWN) if isinstance(name, str) else UNKNOWN
-        if not isinstance(name, str) or name not in declared:
-            return self._op_unknown(op, f"feature {name!r} is not declared")
-        if not isinstance(refs, list):
-            return self._op_unknown(op, f"feature {name!r} face references are unknown")
+        refs, what = self._claim_refs(op)
+        if refs is None:
+            return self._op_unknown(op, what)
+        if (
+            not isinstance(refs, list)
+            or not refs
+            or any(not isinstance(ref, str) or ref == UNKNOWN for ref in refs)
+        ):
+            return self._op_unknown(op, f"{what}: face references are unknown")
         invalid = sorted({ref for ref in refs if ref in owner.errors})
         if invalid:
             facts = self._op_unknown(
-                op,
-                f"feature {name!r} has invalid or unmapped face reference(s): "
-                + ", ".join(invalid),
+                op, f"{what}: invalid or unmapped face reference(s): " + ", ".join(invalid)
             )
             facts["mapping_errors"] = invalid
             return facts
-        indices = owner.features.get(name, UNKNOWN)
-        if indices == UNKNOWN or not indices:
-            return self._op_unknown(op, f"feature {name!r} face references are unknown")
+        indices = self._indices(op)
+        if indices == UNKNOWN:
+            return self._op_unknown(op, f"{what}: face references are unknown")
+        valid, away, undefined = self._split(indices)
         facts = {"reasons": {}}
         reasons = facts["reasons"]
-        corner = self._corners(indices)
-        facts["corner_radii_mm"] = corner if isinstance(corner, list) else UNKNOWN
-        if not isinstance(corner, list):
-            reasons["corner_radii_mm"] = corner
-        radius = _positive(op, "radius_mm")
-        if radius is None:
-            for key in (
-                "sample_count",
-                "tool_hits",
-                "holder_hits",
-                "reach_depth_mm",
-                "holder_wall_hits",
-            ):
-                facts[key] = UNKNOWN
-                reasons[key] = "op lacks a measured cutter radius_mm"
+        facts["claim_errors"] = sorted(owner.labels[index] for index in away)
+        if undefined:
+            facts["claimed_indices"] = UNKNOWN
+            reasons["claimed_indices"] = self._undefined(undefined)
         else:
-            self._sample_facts(op, indices, radius, facts)
+            facts["claimed_indices"] = sorted(valid)
+        # Faces whose normals are only partly evaluable are still sampled: a hit on them
+        # is a definite hit (``min_hits``), but no measured fact may pass on them while
+        # the claim verdict itself stays unknown.
+        sampled = sorted(valid + [index for index, _ in undefined])
+        if not sampled:
+            reason = "every claimed face points away from the setup approach: " + ", ".join(
+                facts["claim_errors"]
+            )
+            for key in (*self._MEASURED, "corner_radii_mm"):
+                facts[key] = UNKNOWN
+                reasons[key] = reason
+        else:
+            corner = self._corners(sampled) if not undefined else reasons["claimed_indices"]
+            facts["corner_radii_mm"] = corner if isinstance(corner, list) else UNKNOWN
+            if not isinstance(corner, list):
+                reasons["corner_radii_mm"] = corner
+            radius = _positive(op, "radius_mm")
+            if radius is None:
+                for key in self._MEASURED:
+                    facts[key] = UNKNOWN
+                    reasons[key] = "op lacks a measured cutter radius_mm"
+            else:
+                self._sample_facts(op, sampled, radius, facts)
+                if undefined:
+                    for key in self._MEASURED:
+                        if facts.get(key) != UNKNOWN:
+                            facts[key] = UNKNOWN
+                            reasons[key] = reasons["claimed_indices"]
         unknown = [
             reasons[key]
-            for key in (
-                "sample_count",
-                "tool_hits",
-                "holder_hits",
-                "reach_depth_mm",
-                "holder_wall_hits",
-                "corner_radii_mm",
-            )
+            for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm")
             if key in reasons
         ]
         if unknown:
@@ -1119,7 +1620,7 @@ class _Setup:
 
     def _corners(self, indices):
         """Sorted concave corner radii around the tool axis, or the reason they are unknown."""
-        part, faces, labels = self.part, self.faces, self.owner.labels
+        part, faces, labels = self.finished, self.faces, self.owner.labels
         radii, problems = set(), []
         for index in indices:
             face = faces[index]
@@ -1156,53 +1657,42 @@ class _Setup:
             return "; ".join(problems[:3]) + extra
         return sorted(radii)
 
-    def _region(self, indices, radius):
-        """Part material within ``radius`` of the claimed faces (own-feature exclusion)."""
-        key = (tuple(indices), radius)
-        if key in self.regions:
-            return self.regions[key]
-        faces, labels = self.faces, self.owner.labels
-        pieces = []
-        for index in indices:
-            try:
-                slab = Part.Shell([faces[index]]).makeOffsetShape(
-                    -radius, 1e-6, False, False, 0, 0, True
-                )
-                if slab.Volume <= HIT_MM3 or not slab.isValid():
-                    raise ValueError("empty or invalid offset solid")
-            except Exception as exc:
-                self.regions[key] = (
-                    None,
-                    f"own-feature region: offsetting {labels[index]} by {_r(radius)} mm "
-                    f"into material failed ({exc})",
-                )
-                return self.regions[key]
-            pieces.append(slab)
-        for edge, a, b in _shared_edges(faces, indices):
-            if not isinstance(edge.Curve, Part.Line) or not _concave_edge(
-                self.part, edge, faces[a], faces[b]
-            ):
-                continue
-            pieces.append(_edge_material(edge, faces[a], faces[b], radius))
+    def _region(self, index):
+        """Stock minus a tolerance-thick shell of only the sampled finished face."""
+        if index in self.regions:
+            return self.regions[index]
+        label = self.owner.labels[index]
         try:
-            region = pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
-            obstacle = self.part.cut(region)
+            shell = Part.Shell([self.faces[index]]).makeOffsetShape(
+                -LIFT, 1e-6, False, False, 0, 0, True
+            )
+            if shell.Volume <= HIT_MM3 or not shell.isValid():
+                raise ValueError("empty or invalid offset solid")
+            obstacle = self.part.cut(shell)
         except Exception as exc:
-            self.regions[key] = (None, f"own-feature region boolean failed ({exc})")
-            return self.regions[key]
-        self.regions[key] = (_Culled(obstacle), None)
-        return self.regions[key]
+            self.regions[index] = (
+                None,
+                f"own-face surface shell for {label} failed ({exc})",
+            )
+        else:
+            self.regions[index] = (_Culled(obstacle), None)
+        return self.regions[index]
 
     def _sample_facts(self, op, indices, radius, facts):
         reasons = facts["reasons"]
-        samples, skipped = [], 0
+        samples, sample_problems = [], []
         for index in indices:
             found, missed = _face_samples(self.faces[index], max(radius, 1.0))
             samples.extend((index, point, normal) for point, normal in found)
-            skipped += missed
-        facts["sample_count"] = len(samples)
-        if skipped:
-            reasons["sample_count"] = f"{skipped} sample point(s) had no defined surface normal"
+            if missed:
+                sample_problems.append(
+                    f"{self.owner.labels[index]}: {missed} sample point(s) "
+                    "had no defined surface normal"
+                )
+        sample_reason = "; ".join(sample_problems) if sample_problems else None
+        facts["sample_count"] = UNKNOWN if sample_reason else len(samples)
+        if sample_reason:
+            reasons["sample_count"] = sample_reason
         flute = _positive(op, "flute_len_mm")
         keys = ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
         holder = {key: _positive(op, key) for key in keys}
@@ -1229,7 +1719,9 @@ class _Setup:
             common = part.common(ax, ay, radius + REACH_BAND, tip, top + 1.0)
             if common is not None:
                 reach = max(reach, _bbox(common)[5] - point.z)
-        facts["reach_depth_mm"] = _r(reach)
+        facts["reach_depth_mm"] = UNKNOWN if sample_reason else _r(reach)
+        if sample_reason:
+            reasons["reach_depth_mm"] = sample_reason
         if holder_missing:
             facts["holder_wall_hits"] = UNKNOWN
             reasons["holder_wall_hits"] = "op lacks " + ", ".join(holder_missing)
@@ -1239,17 +1731,23 @@ class _Setup:
                 for _, _, ax, ay, tip, downward in placed
                 if not downward and part.common(*self._holder(ax, ay, tip, holder)) is not None
             )
-        obstacle, region_reason = self._region(indices, radius)
-        tool_ready = flute is not None and obstacle is not None
-        holder_ready = not holder_missing and obstacle is not None
-        # per kind: certain hits, hits only in the undeclared jaw extension, labels, refs
+        if sample_reason:
+            facts["holder_wall_hits"] = UNKNOWN
+            reasons["holder_wall_hits"] = sample_reason
+        regions = {index: self._region(index) for index in indices}
+        region_reason = "; ".join(
+            reason for _, reason in regions.values() if reason is not None
+        ) or None
+        tool_ready = flute is not None and region_reason is None
+        holder_ready = not holder_missing and region_reason is None
+        # Per kind: certain hits, hits only in the undeclared jaw extension, labels, refs.
         counters = {"tool": [0, 0, set(), set()], "holder": [0, 0, set(), set()]}
-        own = set(indices)
-        for _, _, ax, ay, tip, downward in placed if obstacle is not None else ():
+        for index, _, ax, ay, tip, downward in placed:
+            obstacle = regions[index][0]
             checks = []
-            if tool_ready:
+            if flute is not None:
                 checks.append(("tool", (ax, ay, radius - LIFT, tip, tip + flute)))
-            if holder_ready:
+            if not holder_missing:
                 checks.append(("holder", self._holder(ax, ay, tip, holder)))
             for kind, cylinder in checks:
                 counter = counters[kind]
@@ -1259,10 +1757,10 @@ class _Setup:
                         counter[2].add("part")
                     continue
                 labels = set()
-                common = obstacle.common(*cylinder)
+                common = obstacle.common(*cylinder) if obstacle is not None else None
                 if common is not None:
                     labels.add("part")
-                    counter[3].update(self._hit_refs(common, cylinder, own))
+                    counter[3].update(self._hit_refs(common, cylinder, index))
                 if self.jaws is not None:
                     for side in ("fixed", "moving"):
                         if _cylinder_hits_box(*cylinder, self.jaws[side]):
@@ -1286,12 +1784,14 @@ class _Setup:
         ):
             key = kind + "_hits"
             certain, uncertain = counters[kind][0], counters[kind][1]
-            if not ready:
+            facts["min_hits"][kind] = certain
+            if sample_reason:
+                facts[key] = UNKNOWN
+                reasons[key] = sample_reason
+            elif not ready:
                 facts[key] = UNKNOWN
                 reasons[key] = missing
-                continue
-            facts["min_hits"][kind] = certain
-            if self.jaws is None:
+            elif self.jaws is None:
                 facts[key] = UNKNOWN
                 reasons[key] = (
                     f"fixture solids unresolved ({self.fixture_reason}); "
@@ -1323,11 +1823,11 @@ class _Setup:
         return self.culled_part
 
     def _hit_refs(self, common, cylinder, own):
-        """Labels of non-claimed faces that bound the hit material inside the cylinder."""
+        """Finished face refs bounding a hit, excluding only the sampled face itself."""
         refs = set()
         solid = None
         for index, face in enumerate(self.faces):
-            if index in own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
+            if index == own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
                 continue
             if solid is None:
                 ax, ay, radius, z0, z1 = cylinder

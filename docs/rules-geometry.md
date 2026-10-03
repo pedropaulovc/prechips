@@ -1,11 +1,11 @@
 # Geometry and workholding rules (M4, FreeCAD kernel)
 
-The seven PLAN §4.2–4.3 kernel rules measure the authored STEP B-rep with
-FreeCAD's bundled OpenCASCADE and compare the measurements with the selected
-tools, holders, fixture dimensions and declared pose. They are sampled solid
-intersections and B-rep measurements, not CAM toolpaths, a simulation of the
-cut, or a certification that the physical setup matches the plan. Everything
-the kernel cannot measure from explicit inputs stays `?` with a named reason;
+The seven PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
+against the material present at each authored setup, using FreeCAD's bundled
+OpenCASCADE. They compare sampled intersections and B-rep measurements with
+the selected tools, holders, fixture dimensions and declared pose. This is not
+CAM, a simulation of the cut, or certification of the physical setup.
+Everything the kernel cannot measure from explicit inputs stays `?` with a named reason;
 nothing is guessed from a bounding box, a catalogue label or an unverified
 inventory row.
 
@@ -32,9 +32,9 @@ measurements only; it never emits citations.
 ## One job, one kernel, no network
 
 A run evaluates geometry at most once per bundle. The CLI builds a canonical
-JSON job per candidate (STEP path and manifest digest, every feature's `faces`
-list, `stock.as_is_faces`, and per setup the numeric frame, the hold inputs
-and the cutting operations' tool/holder dimensions), sends every job that is
+JSON job per candidate (STEP path/digest, feature and explicit op face claims,
+authored stock envelope and `stock.as_is_faces`, setup order/frames/stock chain,
+hold geometry and cutting dimensions/endpoints), sends every job that is
 not already cached to **one** `freecadcmd.exe <freecad_job.py> -- INPUT_JSON
 OUTPUT_JSON` subprocess as a batch (`compare` therefore spawns one process for
 all its candidates), and memoizes each result on its bundle so the seven rules
@@ -66,12 +66,11 @@ installed. `examples/rocker-arm` binds the consumer's labelled export
 (`HAF_<FEATURE>__P<nn>` labels; a periodic surface arrives as several
 `ADVANCED_FACE` patches under one feature label, each bound by its own
 entity/ordinal) with each feature's `faces` copied from that export; the
-export's extra features (`strap_datum_b`, the two tip lands) have no
-manifest counterpart and are deliberately left unclaimed rather than
-invented. Its frozen report has the kernel measuring the bound faces
-(`internal_corner_radius` passes where tool dimensions resolve) while
-`coverage` stays `?` because the stock's as-stock faces are unknown and
-every fixture-dependent row stays `?` on the `verify = true` vise.
+export's `strap_faces` names only the −Z broad face. S1's upper strap operations
+explicitly claim the exported `strap_datum_b` face in the plan; they do not
+rewrite the manifest's face identity. The two exported tip lands remain
+unclaimed. Unmeasured stock/fixture inputs remain named geometry debts, not
+finished-solid clearance passes.
 
 The engine itself answers `unknown` for a STEP that imports as anything but
 exactly one valid solid (`STEP import yields <n> solids; the kernel measures
@@ -94,8 +93,10 @@ Successful (`status = "ok"`) results are cached as JSON under
 of the canonical job without its `step_path` (the STEP digest and every
 numeric input are inside), the digest of the engine's own `kernel/*.py`
 sources, and the kernel executable's resolved path, SHA-256, size and mtime.
-Changing any input dimension, the STEP, the engine or the FreeCAD build
-therefore misses; moving the bundle does not. `unknown` and `error` results
+Changing a consumed geometry input, the STEP, the engine or the FreeCAD build
+therefore misses; moving the bundle does not. Host-only action/finishing metadata,
+tool OAL after projection is resolved, and protective hold-method text do not
+invalidate geometry. `unknown` and `error` results
 are never cached, and a cache that cannot be written changes nothing. A hit
 reproduces the same facts and the same render bytes as the run that produced
 it. The cache is a local convenience, not an input: it is not part of the
@@ -147,19 +148,19 @@ unknown rows count as unverified); see [inventory](inventory.md). Missing
 fields are listed in the job's reason text and the dependent rules are `?`.
 
 - Per cutting op (noncutting actions are `not_applicable`; an unknown `do` is
-  `unknown`): `radius_mm` (tool `dia` / 2), `flute_len_mm`, `oal_mm`,
+  `unknown`): `radius_mm` (tool `dia` / 2), `flute_len_mm`,
   `holder_radius_mm` (holder `gauge_dia` / 2), `holder_gauge_len_mm`,
   `projection_mm` (tool `projection`, else `oal − holder grip`, the same
-  convention as the engagement rule), and whether the op is a finishing cut
-  (the same final-cut semantics as the datum rule: a feature's last cutting
-  op, with drill → ream / bore / tap).
+  convention as the engagement rule). OAL and finishing-cut decisions stay
+  host-side for `reach` and `finish_coverage`; they are not engine inputs.
 - Per setup: the numeric frame from the manifest (`origin` converted from
   inches when `units = "in"`; an unknown frame keeps every op row `unknown`
   with `numeric setup frame is unknown`), and for a `kind = "vise"` fixture
-  the hold inputs listed under [plan hold](plan.md#hold): `fixed_jaw`,
-  `jaws_along`, `grip_mm`, `jaw_above_parallels_mm`, the vise `jaw_height`,
-  `jaw_width`, `jaw_depth`, `opening`, and the parallels `height`. Two
-  optional authored pose fields pass through when numeric and are otherwise
+  the hold geometry listed under [plan hold](plan.md#hold): `fixed_jaw`,
+  `jaws_along`, `jaw_above_parallels_mm`, vise `jaw_height`,
+  `jaw_width`, `jaw_depth` and parallels `height`. `grip_mm`, `opening` and
+  protective `method` stay host-side. Two optional authored pose fields
+  pass through when numeric and are otherwise
   absent, never defaulted: `jaw_center_along_mm` (jaw centre along
   `jaws_along`, setup-frame coordinate) and `parallels_centres_mm` (exactly
   two `[x, y]` setup-frame centres); the parallels `length` (along the jaws)
@@ -169,6 +170,41 @@ fields are listed in the job's reason text and the dependent rules are `?`.
 
 Tool axis is the setup frame's +Z. The part is transformed into the declared
 setup frame; the frame is the author's declaration, not a measured setup.
+
+## In-process stock
+
+Each setup's checks and image use the material entering that setup: the
+authored box/round supply minus the derivable claimed regions removed by
+**earlier setups**, in authored order. Current-setup removals are calculated
+separately for the next setup; they never make the current cutter or holder
+appear clear. The first `stock_in` must be `"stock"`; later setups name the
+immediately previous setup. Finished face indices stay bound to the original
+STEP even when booleans change the stock's face order.
+
+The supply needs the positive dimensions and model-frame placement described
+under [plan stock](plan.md#stock). As-is face references do not define a stock
+volume: when supplied, they must map and lie on that envelope. Unknown
+dimensions/placement, incompatible as-is faces, unresolved earlier claims,
+or an unrepresentable removal are named stock debt. Stock-dependent geometry
+for that setup is `?` and no stock picture is drawn. `stock_state` values name
+local received/touched surfaces; retained rails can extend beyond them, so
+they are not silently treated as the stock's global bounding-box extrema.
+
+For a derivable face footprint, removal is clipped to the authored `to_z`
+endpoint and to material outside the finished solid. A wall tangent to setup
++Z does not define a cleared volume just by extrusion; remaining overstock
+requires an authored lateral clearing/interrupt footprint. An operation can
+declare numeric `stock_removal_bounds` (one setup-frame box) to clear only
+outside-finished material inside that volume. Synthetic geometry fixtures
+author these preparation volumes and numeric supply allowances; their target
+setup checks the derived material. Preparation tool/fixture debt stays visible,
+and the fixture policy explicitly requires the target, not fabricated roughing
+clearance. The reference rocker declares its raw 310 × 45 × 16 mm S1 supply explicitly, so S1 is drawn
+as that blank. Its rough-profile notes retain rails, ears and a 0.40 mm web,
+but provide no numeric lateral interruption mask. S2/S3 therefore name the
+unresolved S1 profile removal rather than drawing the finished arm or
+inventing rail dimensions. A known current setup remains checkable/drawable
+even when its output stock is unresolved for the next setup.
 
 ### Jaw placement
 
@@ -209,7 +245,7 @@ any of those inputs missing the scene records `parallels not drawn: … undeclar
 
 ## `accessibility`
 
-Needs the six tool/holder dimensions (radius, flute length, OAL, projection,
+Needs the five tool/holder dimensions (radius, flute length, projection,
 holder radius, holder gauge length) and a vise without input debt; otherwise `unknown`
 (`selected tool/holder dimensions are unmeasured or unavailable` or the
 fixture reason). On the claimed face set the kernel samples a cell-centred
@@ -222,20 +258,24 @@ sample gets a cylinder touching the wall and a horizontal floor sample gets
 no XY offset (a cutter stands on a floor; shifting it along the full 3-D
 normal would float it a radius above the floor). The holder cylinder (gauge
 diameter, gauge length) starts `projection_mm` above the tip. Both are
-intersected with the part minus the op's own region plus the jaw boxes. The
-own region is the material within one radius of the op's claimed faces and,
-around every sharp concave edge shared by two of them, the radius cylinder
-minus the open-corner air wedge in front of both faces (a full cylinder
-there used to carve away a neighbouring pin near the corner and hide a real
-hit). Downward-facing samples count as occluded. The engine's own tests
-(`tests/test_kernel_geometry.py`, FreeCAD required) pin the discriminations:
-a boss beside a claimed plate top is a hit naming the boss's cylinder face
-while the boss's own side wall is not; a wall claimed together with its
-floor is excluded, the same wall claimed by another feature occludes; the
-dimensioned jaws occlude the holder only when they stand high enough.
-Numbers: `sample_count`, `tool_hits`, `holder_hits`, the six inputs, and
-`certain_tool_hits` / `certain_holder_hits` when the engine reports the samples
-that hit regardless of the undeclared jaw overhang.
+intersected with the setup's material minus a thin inward offset shell of
+**that sampled face only**, plus the jaw boxes. The shell removes numerical
+self-contact, not a cutter-radius slab and not another face of the same
+feature. A cutter wider than a claimed groove therefore still intersects
+the opposite claimed wall. A far-side face (outward normal opposing setup
++Z by more than 90°) is an invalid cutting claim, reported as an error naming
+the face before tool-dimension debt can hide it.
+
+The kernel tests pin the discriminations: a boss beside a claimed plate top
+is a hit naming the boss face; an offset cutter tangent to its claimed side
+wall clears while the sample-centred mutant intersects the wall; a Ø10 cutter
+in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the
+holder only when they stand high enough. Floor poses remain centred on their
+samples, including boundary samples: a wall can block such a prescribed pose
+even when some other cutter centre could cut that point. There is no pose search.
+Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
+`certain_tool_hits` / `certain_holder_hits` when observed hits are definite
+despite unresolved poses or undeclared jaw overhang.
 
 - `{subject}: selected cutter or holder is certainly occluded by part/fixture material.` (error: any hit; also raised from `certain_*_hits` while the aggregate counts are unknown because other samples fall in the undeclared jaw overhang)
 - `{subject}: sampled claimed faces clear the selected cutter and holder cylinders.` (pass)
@@ -267,6 +307,11 @@ holder radius, gauge length and projection. Numbers: `reach_depth_mm`,
 
 The long-tool rescue therefore requires a measured holder; an unknown holder
 never passes a beyond-flute depth.
+
+A sample without an evaluable surface normal makes the sampled face's
+accessibility and reach unresolved, with the face and missing-normal count
+named. It is never silently dropped to produce a clearance or reach pass.
+Definite observed accessibility hits can still establish an error.
 
 ## `internal_corner_radius`
 
@@ -361,9 +406,9 @@ The shipped policy keeps `thin_wall_floor_mm = "unknown"` with
 
 ## Renders
 
-For each setup with a numeric frame the kernel returns a 640×480 PNG: an
-orthographic, z-buffered, flat-shaded software rasterization of its own
-tessellation of the transformed part (grey, claimed faces blue), the certain
+For each setup with a numeric frame and derivable incoming stock the kernel
+returns a 640×480 PNG: an orthographic, z-buffered, flat-shaded software
+rasterization of that stock (grey, exposed claimed surfaces blue), the certain
 fixed and moving jaw boxes (two browns), the possible-jaw strips when the
 lateral centre is undeclared (two pale tints) and the parallels when drawn
 (grey-green). It is written by the engine's own PNG encoder with no
@@ -380,8 +425,9 @@ a vise with dimension/pose debt, as in the shipped rocker whose
 unmeasured or unavailable: …`), `exact` or
 `not_modelled`. `fixture_rendered` is true only when the jaws are placed and
 the debt list is empty, i.e. exact jaws and exact parallels. Everything else
-is a partial picture with its debts spelled out; a part-only or envelope
-picture is not a holding proof. How the file is named, hashed into the
+is a partial picture with its debts spelled out; a stock-only or envelope
+picture is not a holding proof. Non-derivable stock produces no figure. How
+the file is named, hashed into the
 report and captioned is in
 [report binding](report-and-telemetry.md#kernel-renders).
 

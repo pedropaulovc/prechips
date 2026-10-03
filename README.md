@@ -225,10 +225,10 @@ length, not held bar OD; unknown exposed geometry remains unresolved.
 rows are `?` with one kernel-naming sentence on the console and exit 4; a
 kernel failure is `✗`. Successful facts are cached locally under
 `PRECHIPS_KERNEL_CACHE` (default `%LOCALAPPDATA%\prechips\geometry`) keyed by
-the STEP digest, every numeric input, the engine source and the kernel binary.
-Feature `faces` are matched by each STEP `ADVANCED_FACE`'s own geometry, never
-by import order; a missing or ambiguous reference is `✗`, not a guess. Fixture
-solids come only from a vise's explicit `jaw_height` / `jaw_width` /
+the STEP digest, consumed geometry inputs, engine source and kernel binary.
+Feature and explicit per-op `faces` are matched by each STEP `ADVANCED_FACE`'s
+own geometry, never import order; invalid or far-side cutting claims are `✗`.
+Fixture solids come only from a vise's explicit `jaw_height` / `jaw_width` /
 `jaw_depth` / `opening`, the parallels' `height` (plus `length` / `width` for
 their solids) and the plan's `fixed_jaw` / `jaws_along` / `grip_mm` /
 `jaw_above_parallels_mm`, with optional authored `jaw_center_along_mm` and
@@ -238,6 +238,12 @@ undeclared jaw centre draws only the certain jaw material plus a pale
 possible-jaw envelope and keeps samples inside it `?`. The render is a
 deterministic rasterization of the kernel tessellation, hashed into
 `report.json` with its scene record so an approval binds to it.
+Each setup is checked and drawn on its authored stock envelope after earlier
+setups' claimed removals, not silently on the finished solid. Non-derivable
+stock is named `?` and produces no misleading setup image. Cutter exclusion is
+only a thin shell of the sampled face; another claimed groove wall remains an
+obstacle. Missing surface normals never become clearance or reach passes.
+Kernel-absent runs remove stale setup PNGs in the same output transaction.
 Nothing here is a toolpath or a certification of the physical setup. See
 [docs/rules-geometry.md](docs/rules-geometry.md).
 
@@ -255,9 +261,9 @@ solid (`vise` not applicable, `thin_wall_under_clamp` unsupported,
 accessibility unresolved). Shaft, bracket and cone reference bundles carry
 no STEP bytes; the rocker binds the consumer's labelled export
 (`HAF_<FEATURE>__P<nn>` face labels, kept byte-for-byte) with each
-feature's `faces` taken from that export, while the export's extra features
-with no manifest counterpart stay unclaimed by design; all four keep a
-`verify = true` vise without `jaw_depth` and an unknown
+feature's default `faces` taken from that export. S1's upper strap operations
+explicitly claim exported datum face B in the plan; the two tip lands remain
+unclaimed. All four keep a `verify = true` vise without `jaw_depth` and an unknown
 `thin_wall_floor_mm`, so their setup rows are `?`. Contour tables use
 explicit manifest geometry, not extracted STEP faces. Holding completeness and
 nominal clearance arithmetic are not a physical setup certification. No

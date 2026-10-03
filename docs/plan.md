@@ -118,6 +118,9 @@ of geometric validity; rules perform the applicable checks.
 | `on_hand` | `bool` |
 | `material_cite` | `Citations` |
 | `section_mm` | `Vector` |
+| `origin_mm` | `Vector` |
+| `axis` | `Vector` |
+| `section_axis` | `Vector` |
 | `as_is_faces` | `list[str]` |
 | `components` | `list[StockComponent]` |
 | `cite` | `Citations` |
@@ -130,6 +133,17 @@ dimensions and length. These are authored purchase/process choices, not
 confirmed on-hand inventory. Missing dimensions or citations keep comparison
 waste unresolved; finished volume comes only from the manifest's explicitly
 sourced `volume_mm3`, never a bounding-box estimate.
+
+M4 requires an explicitly placed envelope, not a finished-part bounding-box
+substitute. `origin_mm` is in the model frame: the rectangular blank's corner
+or the round blank's starting-face centre. `axis` is the unit length direction.
+For a rectangular blank `section_axis` is the perpendicular unit direction
+of `section_mm[0]`; `axis × section_axis` carries `section_mm[1]`. The box is
+the product of those three positive intervals; a round blank is the declared
+diameter cylinder along `axis`. Dimensions/placement describe authored material,
+not measured stock on hand. Missing placement or dimensions, unsupported
+built-up stock, and incompatible as-is surfaces keep stock-dependent geometry
+`?` with a reason. `as_is_faces` never creates a stock solid by itself.
 
 `as_is_faces` lists STEP face references (same forms as a feature's `faces`)
 that stay as supplied stock; the M4 `coverage` rule unites them with the faces
@@ -369,6 +383,7 @@ with angles at the drawing's declared angular precision.
 | `op` | `int` |
 | `do` | `str` |
 | `feature` | `str` |
+| `faces` | `list[str]` |
 | `tool` | `str` |
 | `holder` | `str` |
 | `direction` | `str` |
@@ -393,6 +408,29 @@ with angles at the drawing's declared angular precision.
 | `inspection_methods` | `dict[str, str]` |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
+| `stock_removal_bounds` | `Bounds` |
+
+`faces` explicitly declares this operation's cutting claims using bound STEP
+references. Omission uses the feature's default `faces`; `"unknown"` means
+unresolved claims; a known explicit list must be nonempty. Explicit refs need
+not be the feature's default refs: a drawing feature may require two broad surfaces even
+when its exported label names only one. The plan can claim the other exported
+surface without rewriting the manifest. Invalid/unmapped refs are geometry
+errors. A far-side face whose outward normal opposes the setup's +Z approach
+by more than 90° is an error naming the face and earns no coverage credit.
+Complementary setups can explicitly claim opposite sides; finishing coverage
+credits each face only to the direction-valid finishing cuts that claim it.
+
+`stock_removal_bounds` is an explicit setup-frame clearing box:
+`{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric
+and strictly increasing. It declares the material outside the finished part
+that this cutting operation clears inside that volume, leaving everything
+outside it unchanged. Its faces still need valid cutting claims from this
+setup. It affects stock passed to later setups, never the current operation's
+own-face exclusion or clearance check. This is an authored process/fixture
+volume, not a measured toolpath or a claim that the roughing setup was proved
+safe. Without it, an unswept profile with retained overstock needs a named
+stock-out debt; a contour checkpoint bounding box is not a clearing volume.
 
 `doc_mm` enables the engagement screen only for an endmill-family cutter on a
 cutting operation. Omitted DOC, noncutting actions and known drills, reamers,

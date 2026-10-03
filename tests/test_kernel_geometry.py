@@ -208,15 +208,23 @@ class Engine:
     def run(self, payload):
         return json.loads(self.raw(payload))
 
-    def job(self, step, features=None, setups=(), as_is=()):
+    def job(self, step, features=None, setups=(), as_is=(), stock=None):
+        """A job whose supply is declared explicitly: by default the authored solid itself
+        (``shape="part"``: these probes measure an already finished test solid), with each
+        setup receiving the previous setup's stock unless it names its own ``stock_in``."""
         data = Path(step).read_bytes()
+        chained, previous = [], "stock"
+        for setup in setups:
+            chained.append({"stock_in": previous, **setup})
+            previous = setup["id"]
         return {
             "version": 1,
             "step_path": str(step),
             "step_sha256": hashlib.sha256(data).hexdigest(),
             "features": features or {},
             "as_is_faces": list(as_is),
-            "setups": list(setups),
+            "stock": {"shape": "part"} if stock is None else stock,
+            "setups": chained,
         }
 
     def faces(self, step):
@@ -312,7 +320,7 @@ def test_boss_occludes_a_face_but_its_own_side_wall_does_not(engine, solids):
 
 
 @needs_freecad
-def test_own_feature_wall_is_excluded_but_another_features_wall_occludes(engine, solids):
+def test_floor_edge_pose_keeps_adjacent_wall_even_when_the_wall_is_claimed(engine, solids):
     step = solids["step"]
     floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
@@ -321,13 +329,13 @@ def test_own_feature_wall_is_excluded_but_another_features_wall_occludes(engine,
     features = {"floor_and_wall": floor + wall, "floor": floor}
     result = engine.run(engine.job(step, features, [_setup(ops, _vise(5.0))]))
     together, alone = result["ops"]["S1:10"], result["ops"]["S1:20"]
-    assert together["tool_hits"] == 0
-    assert alone["tool_hits"] > 0 and wall[0] in alone["hit_refs"]["tool"]
-    assert floor[0] not in alone["hit_refs"]["tool"]
+    for detail in (together, alone):
+        assert detail["tool_hits"] > 0 and wall[0] in detail["hit_refs"]["tool"]
+        assert floor[0] not in detail["hit_refs"]["tool"]
 
 
 @needs_freecad
-def test_open_corner_keeps_an_unclaimed_pin_while_corner_material_stays_own(engine, solids):
+def test_corner_samples_keep_claimed_walls_and_unclaimed_pin_as_obstacles(engine, solids):
     step = solids["slot-pin"]
     pin_top = engine.refs(step, (15, 14, 20), (45, 26, 20))
     slot = [
@@ -339,9 +347,10 @@ def test_open_corner_keeps_an_unclaimed_pin_while_corner_material_stays_own(engi
     assert len(slot) == 5 and len(pin) == 2  # floor and four walls; the pin's side and top
     ops = [_op("S1:10", "slot", 3.0, 10.0, 20.0)]
     op = engine.run(engine.job(step, {"slot": slot}, [_setup(ops, _vise(5.0))]))["ops"]["S1:10"]
-    # The pin stands within r of a claimed sharp corner but in the open corner, not behind
-    # its walls.
-    assert op["tool_hits"] > 0 and op["hit_refs"]["tool"] == sorted(pin)
+    # A pin in the corner opening and adjacent claimed walls both remain obstacles;
+    # only the sampled face's tolerance shell is removed.
+    assert op["tool_hits"] > 0 and set(pin).issubset(op["hit_refs"]["tool"])
+    assert set(slot).intersection(op["hit_refs"]["tool"])
     assert op["corner_radii_mm"] == [0.0]
 
 
@@ -357,7 +366,6 @@ def test_holder_hits_the_dimensioned_jaws_only_when_they_stand_high_enough(engin
         for above in (30.0, 12.0)
     )
     for result in (high, low):
-        assert result["ops"]["S1:10"]["tool_hits"] == 0
         assert result["setups"]["S1"]["render_scene"]["jaws"] == "exact"
     standing = high["ops"]["S1:10"]
     assert standing["obstacles"]["holder"] == ["fixed_jaw", "moving_jaw"]
@@ -416,11 +424,11 @@ def test_jaw_centre_places_a_part_longer_than_the_jaws(engine, solids):
         setup[key] == "unknown"
         for key in ("parallel_pair", "width_mm", "contact_grip_mm", "min_wall_mm")
     )
-    assert op["tool_hits"] == "unknown" and op["min_hits"]["tool"] == 0
+    assert op["tool_hits"] == "unknown"
     assert "fixture solids unresolved" in op["reasons"]["tool_hits"]
     placed = declared["setups"]["S1"]
     assert placed["width_mm"] == 40.0 and placed["contact_grip_mm"] == [12.0, 12.0]
-    assert placed["render_scene"]["jaws"] == "exact" and declared["ops"]["S1:10"]["tool_hits"] == 0
+    assert placed["render_scene"]["jaws"] == "exact"
 
 
 @needs_freecad
@@ -467,7 +475,6 @@ def test_pocket_reach_needs_long_projection_and_reports_corner_radius(engine, so
     for op in (short, long):
         assert op["reach_depth_mm"] == 45.0
         assert op["corner_radii_mm"] == [6.0]
-        assert op["tool_hits"] == 0
     assert short["holder_wall_hits"] > 0 and short["holder_hits"] > 0
     assert long["holder_wall_hits"] == 0 and long["holder_hits"] == 0
 
@@ -481,7 +488,6 @@ def test_corner_radii_sharp_corners_and_unanalysed_floor_fillets(engine, solids)
         "ops"
     ]["S1:10"]
     assert slot["corner_radii_mm"] == [0.0]
-    assert slot["tool_hits"] == 0  # the sharp corner wedge is own material
     rounded = engine.run(
         engine.job(solids["floor-fillet"], {"slot": fillet}, [_setup(ops, _vise(5.0))])
     )
@@ -627,7 +633,7 @@ def test_unknown_inputs_stay_unknown_with_reasons(engine, solids):
     ]
     result = engine.run(engine.job(step, {"pocket": pocket}, setups))
     op = result["ops"]["S1:10"]
-    assert op["tool_hits"] == 0 and op["reach_depth_mm"] == 45.0
+    assert op["reach_depth_mm"] == 45.0
     assert op["holder_hits"] == op["holder_wall_hits"] == "unknown"
     assert "projection_mm" in op["reasons"]["holder_hits"]
     unresolved = result["setups"]["S2"]
@@ -661,10 +667,10 @@ def test_setup_frame_turns_the_part_over_without_moving_model_faces(engine, soli
         )
     )
     up, down = result["ops"]["S1:10"], result["ops"]["S1:20"]
-    assert up["min_hits"]["tool"] == 0 and up["reach_depth_mm"] == 0.0
-    assert (
-        down["min_hits"]["tool"] == down["sample_count"] > 0
-    )  # the model floor now faces the table
+    assert up["claim_errors"] == [] and up["min_hits"]["tool"] == 0
+    # The model floor now faces the table: a claim error, not a sampled collision.
+    assert down["claim_errors"] == floor and down["claimed_indices"] == []
+    assert down["tool_hits"] == "unknown" and "points away" in down["reasons"]["tool_hits"]
     assert result["faces"] == engine.faces(step)
 
 
@@ -728,7 +734,7 @@ def test_booleans_on_the_real_filleted_summing_lever(engine):
     assert "tool_hits" not in op["reasons"]  # offsets and booleans on the filleted solid succeeded
     assert op["corner_radii_mm"] == [pytest.approx(hole_radius, abs=1e-5)]
     hits = set(op["hit_refs"]["tool"])
-    assert {face["ref"] for face in hub} <= hits and not hits & set(claimed)
+    assert {face["ref"] for face in hub} <= hits
     assert setup["width_mm"] == pytest.approx(2 * outer)
     assert setup["parallel_pair"] is True and setup["contact_grip_mm"] == [8.0, 8.0]
     assert sorted(setup["contact_faces"]["fixed"] + setup["contact_faces"]["moving"]) == sorted(

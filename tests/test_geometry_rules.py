@@ -126,6 +126,8 @@ def bundle(tmp_path):
                     "reach_depth_mm": 8.0,
                     "holder_wall_hits": 0,
                     "corner_radii_mm": [3.0],
+                    "claimed_indices": [1],
+                    "claim_errors": [],
                 }
             },
             "setups": {
@@ -335,6 +337,7 @@ def test_scalar_inventory_geometry_inputs_validate_without_measurement_records(b
 
 def test_zero_based_first_imported_face_is_valid_and_unmatched_face_is_named_without_guess(bundle):
     bundle.kernel["features"]["pocket"] = [0]
+    bundle.kernel["ops"]["S1:10"]["claimed_indices"] = [0]
     bundle.kernel["mapping"] = {"#1": 0}
     bundle.kernel["faces"] = [{"ref": "#1", "index": 0}, {"ref": None, "index": 1}]
     bundle.plan["stock"]["as_is_faces"] = []
@@ -538,6 +541,13 @@ def test_actual_fixture_scene_distinguishes_author_pose_and_measurement_debt(tmp
         pytest.skip("FreeCAD is required for the actual fixture-scene consumer boundary")
     path = Path(__file__).resolve().parents[1] / "examples/geometry/pocket-reach/long-reach.toml"
     exact = load_bundle(path)
+    exact.plan["stock"].update(
+        section_mm=[50.0, 60.0],
+        length_mm=70.0,
+        origin_mm=[0.0, 0.0, 0.0],
+        axis=[1.0, 0.0, 0.0],
+        section_axis=[0.0, 1.0, 0.0],
+    )
     # Authored synthetic render specification, not a physical shop measurement:
     # this committed test solid is 70×50; two 70×6 parallels stay inside its footprint.
     hold = exact.plan["setups"][0]["hold"]
@@ -556,7 +566,9 @@ def test_actual_fixture_scene_distinguishes_author_pose_and_measurement_debt(tmp
     monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
     kernel.run_geometries([exact, unknown_pose, unknown_support, unverified_support])
     exact_scene = exact.kernel["setups"]["S1"]
-    assert exact_scene["render_scene"] == {"jaws": "exact", "parallels": "exact", "debts": []}
+    assert exact_scene["render_scene"]["jaws"] == "exact"
+    assert exact_scene["render_scene"]["parallels"] == "exact"
+    assert not exact_scene["render_scene"]["debts"]
     assert exact_scene["fixture_rendered"] is True
     pose_scene = unknown_pose.kernel["setups"]["S1"]
     assert pose_scene["render_scene"]["jaws"] == "lateral_undeclared"
@@ -569,7 +581,9 @@ def test_actual_fixture_scene_distinguishes_author_pose_and_measurement_debt(tmp
     assert support_scene["fixture_rendered"] is False
     # Missing below-seat render dimensions do not invalidate independent collisions.
     assert finding(vise, unknown_support).status == "pass"
-    assert finding(accessibility, unknown_support).status == "pass"
+    # The incoming box still fills the pocket: its collision cannot be cleared
+    # by missing below-seat render dimensions or by a current-setup removal.
+    assert finding(accessibility, unknown_support).status == "error"
     unverified_scene = unverified_support.kernel["setups"]["S1"]
     assert unverified_scene["fixture_rendered"] is False
     assert unverified_scene["render_scene"]["debts"]

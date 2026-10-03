@@ -12,12 +12,14 @@ forces exit 4 unless an error already yields 2). `rocker-arm/` binds the
 consumer's labelled export `rocker-arm.STEP` by digest (`19070131…`, the
 bytes delivered under `C:/src/dt-logs/features-bundles/rocker_arm/`, kept
 byte-for-byte via `.gitattributes -text`; SolidWorks inches,
-`HAF_<FEATURE>__P<nn>` face labels) and copies each feature's `faces` from
-that export; the export's `strap_datum_b` and tip-land features have no
-manifest counterpart and are left unclaimed, not invented. Its regenerated
-`expected/` carries that digest, exit 2 (the three pre-existing tool/fixture
-absences), kernel-measured corner-radius and finish rows, `?` fixture rows
-on the `verify = true` vise and three part-only renders. The cone M2 fixture has two
+`HAF_<FEATURE>__P<nn>` face labels) and preserves the exported manifest face
+sets. The S1 strap operations explicitly claim the +Z datum-B face `#492`;
+`strap_faces` truthfully remains the exported bottom face. The tip lands stay
+unclaimed. The numeric rectangular supply is the S1 stock view. Its later
+rail-and-ear/profile removals have no authored numeric lateral footprint,
+so S2/S3 incoming stock is `?` naming that debt and emits no fictitious
+finished-part renders. Fixture dimensions remain unresolved. Its exit stays 2
+for the absent tools and supported profile fixture. The cone M2 fixture has two
 authored candidates for the same part,
 not two inventory parts. The M4 geometry fixtures, which do carry STEP bytes,
 live under [`geometry/`](geometry/README.md) with their own inventory and policy.
@@ -62,12 +64,10 @@ Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beat
 required unknown/unsupported/warn; only clean required subjects permit exit 0.
 These expected report exits are independently recomputed by the validator. The
 validator itself exits **0** when these intentionally stopped bundles agree.
-The existing three fixture contracts remain 4 / 2 / 2; the cone candidates add
-4 / 2. These are expected contracts, not a claim that a mid-flight run occurred.
-The M4 catalogue adds seven geometry rows per bundle (unknown without STEP
-bytes or mapped faces); the integrating agent's regeneration under
-`m4-rev6` kept these five exits (recorded in PLAN §8 M4; not re-run by this
-document).
+The pilot candidate exits remain 4 / 2 / 2 / 4 / 2. The combined catalogue
+includes seven sampled geometry families, unknown when STEP bytes, stock,
+claims, normals or required fixture dimensions are unavailable. Gate and
+regeneration evidence is recorded in PLAN §8.
 
 | Plan literal `"unknown"` leaves | Before restoration | After restoration |
 |---|---:|---:|
@@ -137,18 +137,15 @@ first article.
 
 ### M4 geometry fixtures (`geometry/`)
 
-[`geometry/README.md`](geometry/README.md) is the authoritative description of
-the discriminating bundles for the seven kernel rules; it is owned by the
-fixture author and records the exits that author observed with FreeCAD
-installed. The directory holds its own **synthetic** `inventory.toml`
-(`verify = false` test tools, R8 collets with `gauge_dia_mm` / `gauge_len_mm`,
-two vises with all four jaw dimensions, 150 × 6 × 20 mm parallels) and
-`shop-policy.toml` (requires only the seven geometry rules;
-`thin_wall_floor_mm = 2.0` is a test threshold, not a shop limit), and shares
-`../cutting-data.toml`. Each plan authors `jaw_center_along_mm` and
-`parallels_centres_mm`, so these are the only bundles whose render can be an
-exact modeled fixture rather than an envelope. None of those numbers is a
-measurement of the shop in `inventory/pedro-shop.toml`.
+[`geometry/README.md`](geometry/README.md) documents the discriminating
+bundles and their observed FreeCAD behavior. Their inventory contains
+authored nominal test tools, collets, vises and parallels, not shop
+measurements. Every candidate supplies a numerically placed blank with
+allowance and earlier preparation setups with bounded removals. Preparation
+tooling and holding debt remains visible; local policies focus the required
+geometry rows on the target operation/setup while retaining part-wide
+coverage and finish requirements. Errors anywhere still stop the candidate.
+Only target scenes have fully authored jaw and parallel poses.
 
 | bundle | STEP | rule it discriminates |
 |---|---|---|
@@ -157,15 +154,15 @@ measurement of the shop in `inventory/pedro-shop.toml`.
 | `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | `internal_corner_radius`: sharp vertical pocket corners against a 1/4 in cutter |
 | `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | `coverage`: one face cut by no op and not declared as-stock |
 
-The frozen `expected/report.json` of those five candidates carry
-`expected_exit` 2 / 2 / 0 / 2 / 2 under `rules_version = "m4-rev6"`, each with
-a `renders.S1` record bound to its `setup-S1.png`; the fixture README records
-the byte-identical repeat runs behind them; the `rocker-jaw-occluded`
-goldens on disk are bound to the labelled export (`19070131…`, exit 2, one
-`accessibility` error, `vise` / `reach` / `coverage` pass, exact jaws and
-parallels). This document did not re-run
-them, and the project-wide gate is recorded per PR at acceptance. `features.toml`
-in each bundle binds its STEP by `step_sha256`; `author_solids.py` is
+The five installed-kernel candidate exits are **2 / 2 / 0 / 2 / 2**.
+Block targets are S2; the rocker uses opposed preparation before its S3
+upright target. Each known entry-stock render is bound to its own
+`setup-S<n>.png`; preparation pictures show the raw/intermediate stock,
+not a pre-cleared final part. The long-reach target is clear; the short
+cutter hits its holder, the rocker hits jaw/boss material, the sharp
+corner fails cutter radius (and sampled accessibility), and the uncovered
+step end remains unclaimed. The project gate is recorded per PR.
+Each bundle's `features.toml` binds its STEP by `step_sha256`; `author_solids.py` is
 provenance for the three synthetic solids and is not a build step (its STEP
 header carries a timestamp).
 

@@ -69,15 +69,16 @@ a prechips failure (exit 1), not bad input. `check` records the same
 traveler's) but writes only `report.json`; the PNG file appears only with
 `traveler`. The PNG filenames are preflighted with
 the other outputs: an input at `setup-S1.png` is a collision (exit 3).
-Any prior `setup-S<n>.png` not returned by this run is removed, including
-images from a longer prior route or a now-unavailable kernel. Replacement
-and removal share the report/sheet transaction: a refusal restores every
-prior output, so no unreferenced stale fixture image survives a successful run.
+Both `traveler` and `check` remove prior `setup-S<n>.png` files whose names
+are not returned by the current run, including images from a longer prior
+route or a now-unavailable kernel. Replacement and removal share the
+report/sheet transaction: a refusal restores every prior output, so no
+unreferenced stale fixture image survives a successful run.
 The render is a deterministic software rasterization of the kernel's
 tessellation, so a cache hit and a fresh FreeCAD run give identical bytes; it
-is a view of the part plus only the fixture solids built from explicit
-inventory dimensions and the declared pose, never a toolpath or a CAM
-simulation. See [geometry rules](rules-geometry.md#renders).
+is a view of setup-entry stock plus only fixture solids built from explicit
+inventory dimensions and declared pose, never a toolpath or CAM simulation.
+Unknown incoming stock produces no figure. See [geometry rules](rules-geometry.md#renders).
 
 
 ## Eligibility and approval

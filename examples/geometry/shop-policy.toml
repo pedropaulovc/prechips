@@ -1,17 +1,17 @@
-# Policy for the examples/geometry fixtures: the seven PLAN.md rev 6 §4.2-4.3 geometry
-# rules are required on every subject, nothing else. M1/M2 rows still run and print as
-# ? lines, but only an error anywhere or a required geometry row that is not pass /
-# not_applicable changes the exit. This isolates the discriminating rule of each fixture.
+# Geometry fixture policy: op/setup rules explicitly require the discriminating S2
+# target. S1's unknown preparation tool/holder/holding remain displayed debt, not
+# falsely clear on raw stock. Coverage and finish coverage remain feature-wide.
+# Any actual error anywhere still fails; these selectors waive no errors.
 revision = 6
 
 [required]
-accessibility = "*"
-reach = "*"
-internal_corner_radius = "*"
+accessibility = "S2"
+reach = "S2"
+internal_corner_radius = "S2"
 coverage = "*"
 finish_coverage = "*"
-vise = "*"
-thin_wall_under_clamp = "*"
+vise = "S2"
+thin_wall_under_clamp = "S2"
 
 [numbers]
 refixture_budget_mm = "unknown"

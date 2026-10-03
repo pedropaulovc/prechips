@@ -92,7 +92,8 @@ def test_refused_image_replacement_rolls_back_report_sheet_and_prior_image(tmp_p
     assert {path: path.read_bytes() for path in tmp_path.iterdir()} == prior
 
 
-def test_kernel_absent_traveler_removes_stale_setup_image(tmp_path):
+@pytest.mark.parametrize("verb", ["traveler", "check"])
+def test_kernel_absent_run_removes_stale_setup_images(tmp_path, verb):
     import json
 
     from test_cli import copy_examples, run_cli
@@ -104,7 +105,7 @@ def test_kernel_absent_traveler_removes_stale_setup_image(tmp_path):
     # A previous route can also have had more setups than this one.
     (out / "setup-S2.png").write_bytes(_png((120, 100, 80)))
     result = run_cli(
-        "traveler",
+        verb,
         plan,
         "--out",
         out,
@@ -113,7 +114,8 @@ def test_kernel_absent_traveler_removes_stale_setup_image(tmp_path):
     assert result.returncode == 4, result.stderr
     report = json.loads((out / "report.json").read_bytes())
     assert not report.get("renders")
-    assert {path.name for path in out.iterdir()} == {"report.json", "traveler.html"}
+    expected = {"report.json", "traveler.html"} if verb == "traveler" else {"report.json"}
+    assert {path.name for path in out.iterdir()} == expected
 
 
 def test_refused_stale_image_deletion_restores_every_prior_output(tmp_path, monkeypatch):

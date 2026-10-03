@@ -30,11 +30,11 @@ EXPECTED_EXIT = {
     "cone-pivot-post/built-up.toml": 2,
 }
 GEOMETRY_CASES = (
-    ("rocker-jaw-occluded", "plan.toml", "expected", 2, "accessibility"),
-    ("pocket-reach", "plan.toml", "expected", 2, "reach"),
-    ("pocket-reach", "long-reach.toml", "expected/long-reach", 0, None),
-    ("sharp-corner", "plan.toml", "expected", 2, "internal_corner_radius"),
-    ("unclaimed-face", "plan.toml", "expected", 2, "coverage"),
+    ("rocker-jaw-occluded", "plan.toml", "expected", 2, "accessibility", "S3"),
+    ("pocket-reach", "plan.toml", "expected", 2, "reach", "S2"),
+    ("pocket-reach", "long-reach.toml", "expected/long-reach", 0, None, "S2"),
+    ("sharp-corner", "plan.toml", "expected", 2, "internal_corner_radius", "S2"),
+    ("unclaimed-face", "plan.toml", "expected", 2, "coverage", "S2"),
 )
 STATUSES = {"pass", "error", "warn", "info", "unknown", "unsupported", "not_applicable"}
 FEATURE_RULES = {"sizing", "op_chain", "blind_depth", "datum_consistency"}
@@ -444,14 +444,56 @@ def input_paths(folder: Path, plan: dict, plan_filename: str = "plan.toml") -> d
     return paths
 
 
-def report_exit(report: dict, policy: dict) -> int:
+def required_finding(finding: dict, policy: dict, plan: dict, features: dict) -> bool:
+    """Match policy subjects, including an explicit setup's operation subjects."""
+    selector = policy["required"].get(finding["rule"])
+    subject = finding["subject"]
+    if selector is None:
+        return False
+    if subject == "*" and finding["numbers"].get("required") == selector:
+        return True
+    if selector == "*":
+        return True
+    if isinstance(selector, list):
+        return subject in selector
+    if selector == "setups":
+        return subject in {setup["id"] for setup in plan["setups"]}
+    if selector in {"holes", "toleranced_features"}:
+        feature = features["features"].get(subject.split(":", 1)[0], {})
+        if selector == "holes":
+            return feature.get("kind") in {"hole", "counterbore", "thread"}
+        requirements = feature.get("requirements", "unknown")
+        if requirements == "unknown":
+            return True
+        for requirement in requirements:
+            value = feature.get(requirement)
+            band = (
+                isinstance(value, list)
+                and len(value) == 2
+                and all(
+                    item == "unknown"
+                    or isinstance(item, (int, float)) and not isinstance(item, bool)
+                    for item in value
+                )
+            )
+            if (
+                requirement == "unknown"
+                or requirement in TOLERANCES | {"groove_width", "groove_depth"}
+                or band
+            ):
+                return True
+        return False
+    return subject == selector or subject.startswith(selector + ":")
+
+
+def report_exit(report: dict, policy: dict, plan: dict, features: dict) -> int:
     if any(f["status"] == "error" for f in report["findings"]):
         return 2
     if any(f["numbers"].get("kernel_unavailable") for f in report["findings"]):
         return 4
-    required = policy["required"]
     if any(
-        f["rule"] in required and f["status"] in {"unknown", "unsupported", "warn"}
+        required_finding(f, policy, plan, features)
+        and f["status"] in {"unknown", "unsupported", "warn"}
         for f in report["findings"]
     ):
         return 4
@@ -1236,7 +1278,7 @@ def validate_fixture(
                 cutting,
                 features,
             )
-    exit_code = report_exit(report, policy)
+    exit_code = report_exit(report, policy, plan, features)
     candidate = part if plan_filename == "plan.toml" else f"{part}/{plan_filename}"
     require(
         exit_code == report["expected_exit"] == EXPECTED_EXIT[candidate],
@@ -1247,7 +1289,7 @@ def validate_fixture(
 
 
 def validate_geometry_fixture(case: tuple, documents: dict) -> None:
-    name, plan_filename, expected_subdir, expected_exit, failing_rule = case
+    name, plan_filename, expected_subdir, expected_exit, failing_rule, target_sid = case
     folder = EXAMPLES / "geometry" / name
     plan = documents[(folder / plan_filename).resolve()]
     features = documents[(folder / plan["features"]).resolve()]
@@ -1268,6 +1310,10 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
     for feature in features["features"].values():
         if isinstance(feature.get("faces"), list):
             refs.update(feature["faces"])
+    for setup in plan["setups"]:
+        for op in setup["ops"]:
+            if isinstance(op.get("faces"), list):
+                refs.update(op["faces"])
     for ref in refs:
         match = re.fullmatch(r"#(\d+)/ADVANCED_FACE\[(\d+)\]/(.*)", ref)
         require(match is not None, f"{name}: malformed face reference {ref}")
@@ -1284,13 +1330,22 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
             == {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256(path)},
             f"{name}: stale input binding {kind}",
         )
-    require(report.get("renders"), f"{name}: kernel fixture render missing")
+    require(
+        set(report.get("renders", {})) == {setup["id"] for setup in plan["setups"]},
+        f"{name}: numeric in-process stock render missing",
+    )
     for sid, asset in report["renders"].items():
-        require(
-            asset.get("fixture") == "modeled"
-            and asset.get("scene") == {"jaws": "exact", "parallels": "exact", "debts": []},
-            f"{name}: authored full fixture scene is unresolved",
-        )
+        if sid == target_sid:
+            require(
+                asset.get("fixture") == "modeled"
+                and asset.get("scene") == {"jaws": "exact", "parallels": "exact", "debts": []},
+                f"{name}: authored target fixture scene is unresolved",
+            )
+        else:
+            require(
+                asset.get("fixture") != "modeled" and asset.get("scene", {}).get("debts"),
+                f"{name}: unknown preparation holding is falsely modeled as clear",
+            )
         image = (folder / expected_subdir / asset["path"]).resolve()
         require(image.is_relative_to((folder / expected_subdir).resolve()), "render path escapes")
         require(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), "invalid fixture PNG")
@@ -1301,12 +1356,16 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         )
     policy = documents[paths["shop_policy"]]
     require(
-        report_exit(report, policy) == report["expected_exit"] == expected_exit, "geometry exit"
+        report_exit(report, policy, plan, features) == report["expected_exit"] == expected_exit,
+        "geometry exit",
     )
     if failing_rule:
         require(
             any(
-                row["rule"] == failing_rule and row["status"] == "error"
+                row["rule"] == failing_rule
+                and row["status"] == "error"
+                and row["subject"]
+                == (plan["part"] if failing_rule == "coverage" else f"{target_sid}:10")
                 for row in report["findings"]
             ),
             f"{name}: missing discriminating {failing_rule} error",
@@ -1316,7 +1375,7 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
             all(
                 row["status"] in {"pass", "not_applicable"}
                 for row in report["findings"]
-                if row["rule"] in policy["required"]
+                if required_finding(row, policy, plan, features)
             ),
             f"{name}: successful geometry counterpart retains a required debt",
         )

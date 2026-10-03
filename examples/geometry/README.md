@@ -1,57 +1,60 @@
 # M4 geometry fixtures
 
-Discriminating bundles for the seven PLAN.md rev 6 §4.2–4.3 geometry rules
-(`accessibility`, `reach`, `internal_corner_radius`, `coverage`,
-`finish_coverage`, `vise`, `thin_wall_under_clamp`) on the FreeCAD kernel. Each
-failing candidate errors on **one named rule only**; its other geometry rows
-pass or are not applicable, and the M1/M2 rows it does not exercise print as
-`?` lines (the policy here requires only the geometry rules). Every traveler
-stays **PLANNED**. Nothing in this directory is a shop process, a measured
-inventory item or a drawing requirement.
+Discriminating bundles for the seven geometry rules (`accessibility`, `reach`,
+`internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,
+`thin_wall_under_clamp`) on the FreeCAD kernel. Every traveler remains
+**PLANNED**. These are authored test processes, not measured shop inventory,
+approved toolpaths or drawing requirements.
+
+Each candidate starts from a numerically placed blank with stock allowance.
+One or two preparation setups declare the removed volumes with
+`stock_removal_bounds`; the target setup therefore receives stock derived from
+**earlier** setups, rather than silently borrowing the finished STEP solid.
+Preparation tooling and holding remain explicit measurement debt. The local
+policy requires target operation/setup geometry and the part-wide coverage
+and finish checks; it does not certify the preparation operations.
 
 | bundle | STEP | expected exit | discriminating finding |
 |---|---|---|---|
-| `rocker-jaw-occluded/plan.toml` | real labelled v40 `rocker-arm.STEP` | 2 | `accessibility S1:10` error: 56 of 65 strap-face samples occluded by the jaw standing beside the face and the hub boss; `vise S1` pass |
-| `pocket-reach/plan.toml` | synthetic `pocket-block.STEP` | 2 | `reach S1:10` error: 45 mm floor, 19 mm flute, holder nose 7 mm below the top face hits the walls (161 samples); the same holder occlusion also errors `accessibility S1:10` |
-| `pocket-reach/long-reach.toml` | synthetic `pocket-block.STEP` | 0 | same pocket, same holder, 100 mm OAL cutter: `reach S1:10` pass (depth beyond flute, within OAL, holder clear); every required row pass / not applicable |
-| `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | 2 | `internal_corner_radius S1:10` error: claimed corner radius 0 against the 1/4 in cutter's 3.175 mm |
-| `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | 2 | `coverage step-block` error naming `#185/ADVANCED_FACE[6]/`, cut by no op and not declared as-stock |
+| `rocker-jaw-occluded/plan.toml` | real labelled v40 `rocker-arm.STEP` | 2 | target `accessibility S3:10` error: the cutter beside the strap face meets the jaw and hub boss; `vise S3` pass |
+| `pocket-reach/plan.toml` | synthetic `pocket-block.STEP` | 2 | target `reach S2:10` error: 45 mm depth exceeds the 19 mm flute and the holder hits the pocket; accessibility also errors on the holder |
+| `pocket-reach/long-reach.toml` | synthetic `pocket-block.STEP` | 0 | same prepared pocket, holder and claims; the 100 mm OAL cutter clears the holder and passes target accessibility and reach |
+| `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | 2 | `internal_corner_radius S2:10` error: sharp claimed corners against the 1/4 in cutter's 3.175 mm radius |
+| `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | 2 | `coverage step-block` error naming `#185/ADVANCED_FACE[6]/`, claimed by no operation and not supplied as-stock |
 
-Exits are the observed CLI exits of the frozen `expected/` outputs; two
-consecutive runs, and runs from two empty kernel caches, were byte-identical for
-`report.json`, `traveler.html` and `setup-S1.png`. `pocket-reach/plan.toml`
-carries two errors on the same subject because a holder inside the pocket is
-both a reach failure and an occlusion; `reach` is the rule the pair
-discriminates (only the cutter's OAL differs between the two candidates).
+The short/long pocket pair differs only in the target cutter. Its target
+claims the vertical pocket walls and corners, while preparation claims the
+floor. A centred tool pose on a floor boundary point would genuinely meet
+the adjacent wall under the strict own-face exclusion; omitting that pose
+from this side-wall discriminator is not a claim that the kernel searches
+alternative floor-machining paths. The sharp-corner candidate can also
+report accessibility collisions at its corners.
 
 ## Shared inputs
 
-- `inventory.toml`: a **synthetic test shop**. Every number is an authored
-  fixture choice, flagged `verify = false` so the rules read it, and none is a
-  measurement of Pedro's shop (`../inventory/pedro-shop.toml`), a catalogue fact
-  or a purchase. Standalone cutters (`kind = "endmill"`: `dia_mm`,
-  `flute_len_mm`, `oal_mm`, `shank_mm`), R8 collets with the holder cylinder
-  (`gauge_dia_mm`, `gauge_len_mm`) and shank engagement (`grip_mm`, so a cutter
-  projects `oal_mm − grip_mm`), two vises with all four jaw dimensions
-  (`jaw_width_mm`, `opening_mm`, `jaw_height_mm`, `jaw_depth_mm`; the kernel
-  never synthesizes a missing one) and one pair of 150 × 6 × 20 mm parallels
-  (`kind = "parallels"`: `length_mm` along the jaws, `width_mm` along the clamp
-  axis, `height_mm`). The 320 mm `test-vise-wide` covers the arm's whole span.
-  Without an authored jaw centre, a part longer than the jaws leaves their pose
-  unresolved; an exact centre instead bounds the grip zone to the declared span.
-- Every plan declares the **exact scene**: `hold.jaw_center_along_mm` puts the
-  jaw centre on the block's mid-length (35 or 30) or on the rocker's pivot axis
-  (0), so the full jaw width is drawn rather than the undeclared envelope, and
-  `hold.parallels_centres_mm` places the two parallel prisms by their
-  setup-frame XY centres under the seat: 2–8 mm inside each jaw plane for the
-  blocks, end to end along the jaws (x −150..150, y ±3) under the rocker's two
-  tips. Every frozen report therefore carries `renders.S1.fixture =
-  "modeled"` and `scene = {jaws: "exact", parallels: "exact", debts: []}`,
-  and the sheet caption describes a complete fixture view. These are designed
-  poses for a synthetic vise, not measured production setups.
-- `shop-policy.toml`: requires the seven geometry rules and nothing else;
-  `thin_wall_floor_mm = 2.0` is a synthetic threshold (`numbers_verify = false`)
-  chosen so each fixture's grip-zone wall clears it, not a sourced shop limit.
+- `inventory.toml` is a **synthetic test shop**. Its nominal values can be
+  consumed by the kernel, but are not measurements of Pedro's shop
+  (`../inventory/pedro-shop.toml`), catalogue facts or purchases. Cutters have
+  numeric diameter, flute, OAL and shank dimensions; collets have numeric
+  gauge cylinders and grip. Projection falls back to OAL minus grip when no
+  selected tool/holder projection is authored.
+- Target setups declare `hold.jaw_center_along_mm` and
+  `hold.parallels_centres_mm`. The block targets centre their jaws on the
+  stock's length; the rocker target centres its 320 mm jaws on the pivot
+  and places the parallels under its tips. These target scenes have exact
+  brown jaws and green parallels. Preparation setups have unresolved
+  holding, so their known-stock pictures do not claim a complete fixture.
+- Every setup checks and draws its immutable **entry stock**. The block
+  blanks are one millimetre taller than their finished outer envelopes;
+  their preparation boxes clear the top allowance and the pocket/step
+  material. Rocker preparation uses opposed +Z/-Z setups to clear the
+  numeric supply before the upright target. Missing or invalid numeric
+  removal information would leave the next setup unknown, without a
+  finished-part fallback.
+- `shop-policy.toml` and the bundle-local policies require the seven
+  geometry families on the focused target subjects and the part-wide
+  claims. `thin_wall_floor_mm = 2.0` is an authored test threshold, not a
+  sourced shop limit.
 - Cutting data is the shared `../cutting-data.toml`; the speeds/feeds rows are
   `?` lines in every fixture and are not under test.
 
@@ -112,34 +115,30 @@ face, datum B) and `strap_faces` is the −Z face only; the tip lands are the
 export's `tip_land_pos_x` / `tip_land_neg_x`. Nominal dimensions quoted in the
 notes are the consumer's source geometry, cited as in
 `../rocker-arm/features.toml`; nothing is measured. The M1 reference bundle
-`../rocker-arm` binds the same bytes and the exported face sets of its seven
-existing features; the export's three extra features have no counterpart
-there and are left unbound rather than invented, so its `coverage` row stays
-`?` naming them and its renders are part-only views (the shipped shop vise
-and parallels lack the jaw/parallel dimensions).
+`../rocker-arm` binds the same bytes and preserves its exported manifest.
+Its S1 strap operations explicitly claim the top datum-B face `#492` instead
+of changing `strap_faces`, whose truthful exported face is the bottom. The
+tip lands remain unclaimed. Its numeric rectangular supply is drawn in S1;
+the later stock is unknown because the production route does not author
+the interrupted profile/retained rail-and-ear removal footprint. It therefore
+does not emit fictitious S2/S3 finished-part stock views.
 
-The setup is a test specification, not a process: the arm stands on its tips
-(frame V: model −Y up, pivot axis horizontal across the jaws) on the parallel
-pair laid end to end along the jaws, with the synthetic 320 mm vise centred on
-the pivot closing on the two hub faces (`width_mm` 7.0565, a parallel planar
-pair, so `vise` passes) and the jaw tops 26 mm above the parallels, 3.3 mm
-below the outer arc. The one op side-mills the +Z strap face,
-which lies 2.278 mm inside the rear jaw plane. The offset Ø8 cutter cylinder
-beside that face hits the jaw and, above the pivot, the 2.278 mm proud hub
-boss; the kernel excludes only the claimed face's own feature from the
-obstacle. Dropping the jaw tops to the tips (`jaw_above_parallels_mm = 1.0`,
-which also fails `vise`) leaves 9 of the 65 samples occluded, so at least 47
-hits are the jaws: the §6 round-2 observation that a zero-radius ray cannot see
-a jaw standing beside a face, but the cutter cylinder can.
+The target setup is a test specification, not a production process: after
+opposed preparation the arm stands on its tips (frame V: model −Y up,
+pivot axis horizontal across the jaws). The synthetic 320 mm vise closes on
+the hub's planar faces, and the jaw tops stand beside the strap. The target
+operation side-mills the +Z strap face with the prescribed offset Ø8 cutter
+pose. The jaw and proud hub material remain obstacles; only the sampled
+face's thin inward shell is excluded.
 
 ## Kernel conventions the fixtures rely on
 
 As implemented in `src/prechips/kernel/freecad_job.py` and documented in
 `docs/rules-geometry.md`:
 
-- **Seat and jaw zone.** The part is seated with its lowest setup-frame z at
+- **Seat and jaw zone.** Entry stock is seated with its lowest setup-frame z at
   the parallels' top; the jaw zone runs from that seat up to
-  `jaw_above_parallels_mm` and, because every plan here declares
+  `jaw_above_parallels_mm` and, because the target setups declare
   `jaw_center_along_mm`, is limited along `jaws_along` to the jaw span. The
   inner jaw planes sit at the zone material's extremes along the clamp axis
   (the horizontal axis that is not `jaws_along`; `fixed_jaw = "rear"` is +Y
@@ -168,25 +167,25 @@ As implemented in `src/prechips/kernel/freecad_job.py` and documented in
   each claimed face; at every sample one prescribed pose: the cutter cylinder
   (radius, flute length) with its axis offset by the radius along the
   horizontal part of the outward normal, tip at the sample height, and the
-  holder cylinder from `projection_mm` above the tip. The obstacle is the part
-  minus the op's own region plus the jaw boxes; the own region is the material
-  within the radius of the claimed faces, with each sharp concave edge shared
-  by two claimed faces carved by the radius cylinder minus the open-corner air
-  wedge in front of both faces. A hit means that pose collides, not that no
-  other pose reaches the face; downward-facing samples are occluded.
-- **`reach`.** `reach_depth_mm` is the highest part material within the
-  cutter radius above each floor sample minus the sample height;
-  `holder_wall_hits` counts samples whose holder cylinder meets the **full**
-  part, which is the rescue a long cutter must prove.
+  holder cylinder from `projection_mm` above the tip. The obstacle is entry
+  stock, less only a 0.001 mm inward shell of the **sampled face**, plus the
+  jaw boxes. Other claimed faces remain obstacles. No cutter-radius slab,
+  full-feature union or sharp-corner air wedge is removed. A hit means that
+  prescribed pose collides, not that no other pose reaches the face.
+  Far-side claims error by STEP reference; missing normals leave the face
+  unknown rather than counting it clear.
+- **`reach`.** `reach_depth_mm` is the highest entry-stock material within the
+  cutter radius above each sample minus the sample height;
+  `holder_wall_hits` counts holder intersections with the full entry stock.
 - **`internal_corner_radius`.** Concave vertical edges shared by two claimed
   faces count as radius 0; claimed concave cylinders whose axis is parallel to
   the tool report their radius; floor-to-wall edges are ignored.
-- **Render.** `setup-S1.png` is a 640 × 480 orthographic flat-shaded
-  rasterization of the kernel's own tessellation (part grey, claimed faces
-  blue, fixed and moving jaw boxes two browns, parallels green) with no
-  timestamp or machine metadata, so its bytes repeat. The report binds it as
-  `renders.S1 = {path, sha256, fixture, scene}` and `inputs["render:S1"]`;
-  `fixture = "modeled"` only with exact jaws, exact parallels and no debts.
+- **Render.** `setup-S<n>.png` is a 640 × 480 orthographic rasterization of
+  entry stock (grey), exposed claimed faces (blue), jaws (brown) and
+  parallels (green), without timestamps or machine metadata. The report
+  binds each picture's path, SHA-256 and scene state. Unknown entry stock
+  produces no picture; unresolved holding is named in the caption.
+  `*.png binary` preserves frozen image bytes through Git checkout/archive.
 
 ## Regeneration
 

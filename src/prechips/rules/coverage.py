@@ -1,7 +1,7 @@
 """All imported faces need a cutting claim or explicit as-stock declaration."""
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import cutting_action, mapped_feature, provenance, unavailable
+from prechips.rules.geometry_common import cutting_action, op_claims, provenance, unavailable
 from prechips.rules.resolution import operations, record
 
 
@@ -11,7 +11,7 @@ def evaluate(bundle):
     facts = run_geometry(bundle)
     subject = bundle.plan["part"]
     cite = provenance(bundle, "coverage") + [
-        "plan.stock.as_is_faces; union of cutting-op feature face sets"
+        "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims"
     ]
     blocked = unavailable(bundle, "coverage", subject, facts, cite)
     if blocked:
@@ -30,14 +30,15 @@ def evaluate(bundle):
         ]
     all_faces = {face["index"] for face in faces}
     claimed, errors, debt = set(), [], False
-    for _, op in operations(bundle):
+    for setup, op in operations(bundle):
         action = cutting_action(op)
         if action is False:
             continue
         if action is None:
             debt = True
             continue
-        indices, invalid = mapped_feature(bundle, facts, op.get("feature"))
+        # Faces an op names but which point away from its setup are never credited.
+        indices, _, invalid = op_claims(bundle, facts, setup, op)
         errors.extend(invalid)
         if indices is None:
             debt = True
@@ -73,7 +74,7 @@ def evaluate(bundle):
     elif debt:
         status, message = (
             "unknown",
-            "cutting claims or as-stock face references are unknown or unmapped",
+            "cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown",
         )
     elif unclaimed:
         names = [

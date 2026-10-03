@@ -5,6 +5,7 @@ from prechips.rules.geometry_common import (
     cutting_action,
     finishing_subjects,
     mapped_feature,
+    op_claims,
     provenance,
     unavailable,
 )
@@ -22,7 +23,9 @@ def evaluate(bundle):
             debt = True
         if f"{setup['id']}:{op['op']}" not in finishers:
             continue
-        indices, invalid = mapped_feature(bundle, facts, op.get("feature"))
+        # A finishing cut credits only the faces it can reach from its own setup; the
+        # far side of a two-sided feature needs its own finishing cut in another setup.
+        indices, _, invalid = op_claims(bundle, facts, setup, op)
         invalid_refs.extend(invalid)
         if indices is None:
             debt = True

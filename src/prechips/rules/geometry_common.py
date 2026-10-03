@@ -114,6 +114,45 @@ def mapped_feature(bundle, facts, name):
     return set(indices), []
 
 
+def claim_refs(bundle, op):
+    """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``."""
+    if "faces" in op:
+        return op["faces"]
+    return record(bundle.features["features"].get(op.get("feature"))).get("faces", UNKNOWN)
+
+
+def known_refs(refs):
+    return isinstance(refs, list) and bool(refs) and UNKNOWN not in refs
+
+
+def op_claims(bundle, facts, setup, op):
+    """(valid claimed indices or None, far-side refs, invalid refs) from the op's kernel facts.
+
+    Claims are the engine's verdict on the faces the op names: only faces that face the
+    setup approach are credited; faces pointing away are claim errors; unresolved
+    directions leave the claim unknown.
+    """
+    refs = claim_refs(bundle, op)
+    errors = record(facts.get("mapping_errors"))
+    detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
+    reported = detail.get("mapping_errors")
+    named = [ref for ref in (refs if isinstance(refs, list) else []) if ref != UNKNOWN]
+    invalid = sorted(
+        {ref for ref in named if ref in errors}
+        | {ref for ref in (reported if isinstance(reported, list) else []) if ref != UNKNOWN}
+    )
+    if invalid or not known_refs(refs):
+        return None, [], invalid
+    away = detail.get("claim_errors")
+    away = sorted(ref for ref in away if isinstance(ref, str)) if isinstance(away, list) else []
+    indices = detail.get("claimed_indices", UNKNOWN)
+    if not isinstance(indices, list) or not all(
+        isinstance(i, int) and not isinstance(i, bool) and i >= 0 for i in indices
+    ):
+        return None, away, []
+    return set(indices), away, []
+
+
 def op_contexts(bundle, rule, required=(), fixture=False):
     from prechips.kernel import build_job, run_geometry
 
@@ -143,30 +182,24 @@ def op_contexts(bundle, rule, required=(), fixture=False):
                     rule, subject, "unknown", {}, cite, f"{subject}: cutting action is unknown."
                 )
             else:
-                indices, invalid = mapped_feature(bundle, facts, op.get("feature"))
-                invalid += (
-                    [ref for ref in detail.get("mapping_errors", []) if ref != UNKNOWN]
-                    if isinstance(detail.get("mapping_errors"), list)
-                    else []
-                )
+                _, away, invalid = op_claims(bundle, facts, setup, op)
                 if invalid:
-                    refs = sorted(set(invalid))
                     blocked = Finding(
                         rule,
                         subject,
                         "error",
-                        {"mapping_errors": refs},
+                        {"mapping_errors": invalid},
                         cite,
-                        f"{subject}: invalid STEP face reference(s): {', '.join(refs)}.",
+                        f"{subject}: invalid STEP face reference(s): {', '.join(invalid)}.",
                     )
-                elif indices is None:
+                elif not known_refs(claim_refs(bundle, op)):
                     blocked = Finding(
                         rule,
                         subject,
                         "unknown",
                         {},
                         cite,
-                        f"{subject}: feature face references are unknown or unmapped.",
+                        f"{subject}: claimed face references are unknown or unmapped.",
                     )
                 elif frames[setup["id"]] == UNKNOWN:
                     blocked = Finding(
@@ -176,6 +209,25 @@ def op_contexts(bundle, rule, required=(), fixture=False):
                         {},
                         cite,
                         f"{subject}: numeric setup frame is unknown.",
+                    )
+                elif away:
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "error",
+                        {"claim_errors": away},
+                        cite,
+                        f"{subject}: claimed face(s) point away from the setup approach and "
+                        f"cannot be cut from it: {', '.join(away)}.",
+                    )
+                elif detail.get("stock_reason"):
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unknown",
+                        {},
+                        cite,
+                        f"{subject}: in-process stock unknown: {detail['stock_reason']}.",
                     )
                 elif fixture and holds[setup["id"]].get("reason"):
                     blocked = Finding(
@@ -230,6 +282,15 @@ def setup_contexts(bundle, rule):
                     {},
                     cite,
                     f"{subject}: numeric setup frame is unknown.",
+                )
+            elif detail.get("stock_reason"):
+                blocked = Finding(
+                    rule,
+                    subject,
+                    "unknown",
+                    {},
+                    cite,
+                    f"{subject}: in-process stock unknown: {detail['stock_reason']}.",
                 )
             elif inputs.get("reason"):
                 blocked = Finding(rule, subject, "unknown", {}, cite, inputs["reason"])

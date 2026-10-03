@@ -1,7 +1,7 @@
-# sharp-corner, failing candidate (PLAN.md rev 6 §4.2 internal corner radius). One setup
-# finishes the sharp-cornered pocket with the 1/4 in end mill (R3.175). Expected:
-# internal_corner_radius error (claimed corner radius 0 < cutter radius); the other
-# geometry rows pass. Everything here is a synthetic test specification.
+# sharp-corner, failing candidate (PLAN.md rev 6 §4.2 internal corner radius).
+# S1 numerically clears the authored supply with unknown preparation tooling. S2
+# finishes the vertical sharp-cornered pocket walls with the 1/4 in end mill (R3.175).
+# Expected: internal_corner_radius error; prescribed corner poses may also collide.
 part = "slot-block"
 features = "features.toml"
 construction = "one_piece"
@@ -12,13 +12,17 @@ policy = "../shop-policy.toml"
 cutting_data = "../../cutting-data.toml"
 
 [stock]
-form = "finished_test_solid"
+form = "rectangular_bar"
 form_verify = false
-note = "The STEP solid is the stock; only the pocket is cut. No material is asserted."
+section_mm = [60.0, 40.0]
+length_mm = 21.0
+origin_mm = [0.0, 0.0, 0.0]
+axis = [0.0, 0.0, 1.0]
+section_axis = [1.0, 0.0, 0.0]
+note = "Authored 60 x 40 x 21 mm supply: 1 mm top allowance over the synthetic 20 mm block; the other five outer surfaces are supplied as-is. S1's numeric clearance is not CAM proof."
 as_is_faces = [
   "#17/ADVANCED_FACE[1]/",
   "#57/ADVANCED_FACE[2]/",
-  "#88/ADVANCED_FACE[3]/",
   "#146/ADVANCED_FACE[4]/",
   "#170/ADVANCED_FACE[5]/",
   "#187/ADVANCED_FACE[6]/",
@@ -31,6 +35,36 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
+note = "Synthetic rough preparation clears top allowance and pocket before S2. Preparation cutter, holder and holding remain intentionally unknown."
+
+hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
+stock_state = { top_z = "unknown", bottom_z = "unknown" }
+
+[[setups.ops]]
+op = 10
+do = "rough_pocket"
+feature = "pocket"
+tool = "unknown"
+holder = "unknown"
+direction = "unknown"
+faces = [
+  "#88/ADVANCED_FACE[3]/",
+  "#295/ADVANCED_FACE[11]/",
+  "#199/ADVANCED_FACE[7]/",
+  "#230/ADVANCED_FACE[8]/",
+  "#254/ADVANCED_FACE[9]/",
+  "#278/ADVANCED_FACE[10]/",
+]
+stock_removal_bounds = { x = [0.0, 60.0], y = [0.0, 40.0], z = [14.0, 21.0] }
+note = "Only outside-finished material inside this box is cleared; the prep floor claim supplies coverage without a centred floor boundary pose at S2."
+
+[[setups]]
+id = "S2"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "S1"
 note = "Top face up on 20 mm parallels; jaws along X clamp the 40 mm width across Y."
 
 [setups.stock_state]
@@ -54,6 +88,12 @@ clamp = "hand snug, then quarter turn"
 op = 10
 do = "finish_pocket"
 feature = "pocket"
+faces = [
+  "#199/ADVANCED_FACE[7]/",
+  "#230/ADVANCED_FACE[8]/",
+  "#254/ADVANCED_FACE[9]/",
+  "#278/ADVANCED_FACE[10]/",
+]
 tool = "em-1-4in"
 holder = "r8-collet-1-4in"
 to_z = 14.0

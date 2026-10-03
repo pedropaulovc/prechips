@@ -73,6 +73,15 @@ def op_inputs(bundle, setup, op, finishing=None):
         "do": op.get("do", UNKNOWN),
         "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
     }
+    if "faces" in op:
+        result["faces"] = op["faces"]
+    units = bundle.features.get("units", UNKNOWN)
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    if "to_z" in op:
+        # The op's floor in its setup frame bounds the material it removes from the stock.
+        result["to_z"] = op["to_z"] * scale if number(op["to_z"]) and scale else UNKNOWN
+    if "stock_removal_bounds" in op:
+        result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
     missing = []
     for key, value in values.items():
         if number(value) and value > 0:
@@ -83,6 +92,33 @@ def op_inputs(bundle, setup, op, finishing=None):
         result["reason"] = (
             "Selected tool/holder dimensions unmeasured or unavailable: " + ", ".join(missing)
         )
+    return result
+
+
+def removal_bounds(bounds, units):
+    """An op's declared setup-frame clearing box in mm, or why it is not one."""
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    if scale is None:
+        return {"reason": f"stock_removal_bounds units {units!r} are not mm or in"}
+    bounds = record(bounds)
+    result, bad = {}, []
+    for axis in ("x", "y", "z"):
+        span = bounds.get(axis, UNKNOWN)
+        if (
+            isinstance(span, list)
+            and len(span) == 2
+            and all(number(v) for v in span)
+            and span[0] < span[1]
+        ):
+            result[axis] = [span[0] * scale, span[1] * scale]
+        else:
+            bad.append(axis)
+    if bad:
+        return {
+            "reason": "stock_removal_bounds "
+            + ", ".join(bad)
+            + " not a numeric [lo, hi] span with lo < hi"
+        }
     return result
 
 
@@ -174,6 +210,7 @@ def build_job(bundle):
                     for op in setup["ops"]
                     if cutting_action(op) is not False
                 ],
+                "stock_in": setup.get("stock_in", UNKNOWN),
             }
         )
     return {
@@ -187,7 +224,133 @@ def build_job(bundle):
             for name, feature in bundle.features["features"].items()
         },
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
+        "stock": stock_inputs(bundle),
         "setups": setups,
+    }
+
+
+def _vector(value):
+    return isinstance(value, list) and len(value) == 3 and all(number(v) for v in value)
+
+
+def stock_inputs(bundle):
+    """The authored supplied-stock envelope in model mm, or why it cannot be built."""
+    stock = record(bundle.plan.get("stock"))
+    if not stock:
+        return {"reason": "plan stock is unknown; in-process stock cannot be derived"}
+    components = stock.get("components", UNKNOWN)
+    if isinstance(components, list) and components:
+        return {"reason": "built-up stock components are not one authored stock envelope"}
+    section, dia = stock.get("section_mm", UNKNOWN), stock.get("dia_mm", UNKNOWN)
+    if section != UNKNOWN and dia != UNKNOWN:
+        return {"reason": "stock declares both section_mm and dia_mm; its envelope is ambiguous"}
+    shape = "box" if section != UNKNOWN else "round" if dia != UNKNOWN else None
+    if shape is None:
+        return {"reason": "stock declares neither section_mm nor dia_mm; no envelope is authored"}
+    result = {"shape": shape}
+    missing = []
+    length = stock.get("length_mm", UNKNOWN)
+    if number(length) and length > 0:
+        result["length_mm"] = length
+    else:
+        missing.append("length_mm")
+    if shape == "box":
+        if isinstance(section, list) and len(section) == 2 and all(
+            number(v) and v > 0 for v in section
+        ):
+            result["section_mm"] = section
+        else:
+            missing.append("section_mm")
+    elif number(dia) and dia > 0:
+        result["dia_mm"] = dia
+    else:
+        missing.append("dia_mm")
+    for key in ("origin_mm", "axis") + (("section_axis",) if shape == "box" else ()):
+        value = stock.get(key, UNKNOWN)
+        if _vector(value):
+            result[key] = value
+        else:
+            missing.append(key)
+    if missing:
+        return {
+            "reason": f"{shape} stock placement/dimensions undeclared: "
+            + ", ".join(missing)
+            + "; in-process stock cannot be derived"
+        }
+    return result
+
+
+_ENGINE_OP = (
+    "subject",
+    "feature",
+    "faces",
+    "radius_mm",
+    "flute_len_mm",
+    "holder_radius_mm",
+    "holder_gauge_len_mm",
+    "projection_mm",
+    "to_z",
+    "stock_removal_bounds",
+)
+_ENGINE_HOLD = (
+    "fixed_jaw",
+    "jaws_along",
+    "jaw_above_parallels_mm",
+    "jaw_center_along_mm",
+    "parallels_centres_mm",
+    "jaw_height_mm",
+    "jaw_width_mm",
+    "jaw_depth_mm",
+    "parallels_height_mm",
+    "parallels_length_mm",
+    "parallels_width_mm",
+)
+# Vise inputs whose absence stops jaw placement in the engine.
+_ENGINE_HOLD_REQUIRED = (
+    "fixed_jaw",
+    "jaws_along",
+    "jaw_above_parallels_mm",
+    "jaw_height_mm",
+    "jaw_width_mm",
+    "jaw_depth_mm",
+    "parallels_height_mm",
+)
+
+
+def _engine_hold(hold):
+    if hold["kind"] != "vise":
+        return {"kind": hold["kind"]}
+    result = {"kind": "vise"}
+    result.update(
+        {key: hold[key] for key in _ENGINE_HOLD if key in hold and hold[key] != UNKNOWN}
+    )
+    missing = [key for key in _ENGINE_HOLD_REQUIRED if key not in result]
+    if missing:
+        result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
+            missing
+        )
+    return result
+
+
+def engine_job(job):
+    """Only the fields freecad_job.py reads; host-only inputs never key the geometry cache."""
+    return {
+        "version": job["version"],
+        "step_path": job["step_path"],
+        "step_sha256": job["step_sha256"],
+        "features": job["features"],
+        "as_is_faces": job["as_is_faces"],
+        "stock": job["stock"],
+        "setups": [
+            {
+                "id": setup["id"],
+                "frame": setup["frame"],
+                "hold": _engine_hold(setup["hold"]),
+                "ops": [{key: op[key] for key in _ENGINE_OP if key in op} for op in setup["ops"]],
+                "stock_in": setup["stock_in"],
+            }
+            for setup in job["setups"]
+        ],
     }
 
 
@@ -329,7 +492,7 @@ def run_geometries(bundles):
                     )
             if identity is not None:
                 for bundle in pending:
-                    job = build_job(bundle)
+                    job = engine_job(build_job(bundle))
                     if job["step_path"] == UNKNOWN or job["step_sha256"] == UNKNOWN:
                         object.__setattr__(
                             bundle,

@@ -1,8 +1,8 @@
-# unclaimed-face, failing candidate (PLAN.md rev 6 §4.2 coverage). One setup finishes
-# the step (floor + wall) with em-8-std; the six outer faces other than the +X end face
-# are declared as-stock. The +X end face #185/ADVANCED_FACE[6]/ is cut by no op and
-# declared by nothing. Expected: coverage error naming that face; the per-op geometry
-# rows pass. Everything here is a synthetic test specification.
+# unclaimed-face, failing candidate (PLAN.md rev 6 §4.2 coverage). S1 numerically
+# clears top allowance and the step, claiming only the final top, floor and wall.
+# S2 finishes the vertical wall. The +X end face #185/ADVANCED_FACE[6]/ is never
+# claimed or declared as-stock, even though prep physically exposes it.
+# Expected: coverage error naming that face. All dimensions are synthetic choices.
 part = "step-block"
 features = "features.toml"
 construction = "one_piece"
@@ -13,13 +13,17 @@ policy = "../shop-policy.toml"
 cutting_data = "../../cutting-data.toml"
 
 [stock]
-form = "finished_test_solid"
+form = "rectangular_bar"
 form_verify = false
-note = "The STEP solid is the stock; only the step is cut. No material is asserted."
+section_mm = [60.0, 40.0]
+length_mm = 21.0
+origin_mm = [0.0, 0.0, 0.0]
+axis = [0.0, 0.0, 1.0]
+section_axis = [1.0, 0.0, 0.0]
+note = "Authored 60 x 40 x 21 mm supply: 1 mm top allowance over the synthetic 20 mm block. Four outer surfaces are supplied as-is; the deliberate +X end-face coverage omission stays undeclared."
 as_is_faces = [
   "#17/ADVANCED_FACE[1]/",
   "#57/ADVANCED_FACE[2]/",
-  "#104/ADVANCED_FACE[3]/",
   "#128/ADVANCED_FACE[4]/",
   "#168/ADVANCED_FACE[5]/",
 ]
@@ -31,6 +35,33 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
+note = "Synthetic rough preparation clears the top allowance and step before S2. Preparation cutter, holder and holding remain intentionally unknown."
+
+hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
+stock_state = { top_z = "unknown", bottom_z = "unknown" }
+
+[[setups.ops]]
+op = 10
+do = "rough_profile"
+feature = "step"
+tool = "unknown"
+holder = "unknown"
+direction = "unknown"
+faces = [
+  "#104/ADVANCED_FACE[3]/",
+  "#202/ADVANCED_FACE[7]/",
+  "#219/ADVANCED_FACE[8]/",
+]
+stock_removal_bounds = { x = [0.0, 60.0], y = [0.0, 40.0], z = [10.0, 21.0] }
+note = "Only outside-finished material inside this box is cleared. Do not credit the unclaimed +X end face: it is intentionally absent from these claims."
+
+[[setups]]
+id = "S2"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "S1"
 note = "Upper land up on 20 mm parallels; jaws along X clamp the 40 mm width across Y, 8 mm above the parallels so the jaws stay below the step floor."
 
 [setups.stock_state]
@@ -54,6 +85,7 @@ clamp = "hand snug, then quarter turn"
 op = 10
 do = "finish_profile"
 feature = "step"
+faces = ["#219/ADVANCED_FACE[8]/"]
 tool = "em-8-std"
 holder = "r8-collet-8mm"
 to_z = 10.0

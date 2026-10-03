@@ -1,9 +1,9 @@
-# pocket-reach, failing candidate (PLAN.md rev 6 §4.2 reach). One setup finishes the
-# 45 mm deep pocket with em-8-std: 19 mm of flute, 63 mm OAL, 25 mm collet grip, so the
-# holder nose sits 38 mm above the cutter tip, 7 mm below the top face, inside the pocket
-# walls. Expected: reach error (depth exceeds flute and the holder intersects walls);
-# the same holder occlusion also fails accessibility. long-reach.toml swaps only the
-# cutter. Everything here is a synthetic test specification, not a shop process.
+# pocket-reach, failing candidate (PLAN.md rev 6 §4.2 reach). S1 numerically clears
+# an authored blank; its unselected cutter/holder remain geometry debt. S2 finishes
+# only the vertical pocket walls/corners: the lowest boundary is 45 mm below the top.
+# em-8-std has 19 mm flute, 63 mm OAL and 25 mm collet grip, so its holder nose is
+# 7 mm below the top face. Expected: reach and accessibility errors. long-reach.toml
+# changes only the target cutter. These are synthetic choices, not shop measurements.
 part = "pocket-block"
 features = "features.toml"
 construction = "one_piece"
@@ -14,13 +14,17 @@ policy = "../shop-policy.toml"
 cutting_data = "../../cutting-data.toml"
 
 [stock]
-form = "finished_test_solid"
+form = "rectangular_bar"
 form_verify = false
-note = "The STEP solid is the stock; only the pocket is cut. No material is asserted."
+section_mm = [70.0, 50.0]
+length_mm = 61.0
+origin_mm = [0.0, 0.0, 0.0]
+axis = [0.0, 0.0, 1.0]
+section_axis = [1.0, 0.0, 0.0]
+note = "Authored 70 x 50 x 61 mm supply: 1 mm top allowance over the synthetic 60 mm block; the other five outer surfaces are supplied as-is. S1 declares a numeric clearing volume, not CAM proof."
 as_is_faces = [
   "#17/ADVANCED_FACE[1]/",
   "#57/ADVANCED_FACE[2]/",
-  "#88/ADVANCED_FACE[3]/",
   "#182/ADVANCED_FACE[4]/",
   "#206/ADVANCED_FACE[5]/",
   "#223/ADVANCED_FACE[6]/",
@@ -33,6 +37,40 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
+note = "Synthetic rough preparation clears the top allowance and pocket before S2. Cutter, holder and preparation holding are intentionally unselected; those checks remain visible debt."
+
+hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
+stock_state = { top_z = "unknown", bottom_z = "unknown" }
+
+[[setups.ops]]
+op = 10
+do = "rough_pocket"
+feature = "pocket"
+tool = "unknown"
+holder = "unknown"
+direction = "unknown"
+faces = [
+  "#88/ADVANCED_FACE[3]/",
+  "#431/ADVANCED_FACE[15]/",
+  "#267/ADVANCED_FACE[8]/",
+  "#316/ADVANCED_FACE[10]/",
+  "#365/ADVANCED_FACE[12]/",
+  "#414/ADVANCED_FACE[14]/",
+  "#235/ADVANCED_FACE[7]/",
+  "#291/ADVANCED_FACE[9]/",
+  "#340/ADVANCED_FACE[11]/",
+  "#389/ADVANCED_FACE[13]/",
+]
+stock_removal_bounds = { x = [0.0, 70.0], y = [0.0, 50.0], z = [15.0, 61.0] }
+note = "Remove only outside-finished material in this declared setup-frame box. Floor coverage belongs to this prep claim, not to the wall-finishing poses."
+
+[[setups]]
+id = "S2"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "S1"
 note = "Top face up on 20 mm parallels; jaws along X clamp the 50 mm width across Y."
 
 [setups.stock_state]
@@ -56,6 +94,16 @@ clamp = "hand snug, then quarter turn"
 op = 10
 do = "finish_pocket"
 feature = "pocket"
+faces = [
+  "#267/ADVANCED_FACE[8]/",
+  "#316/ADVANCED_FACE[10]/",
+  "#365/ADVANCED_FACE[12]/",
+  "#414/ADVANCED_FACE[14]/",
+  "#235/ADVANCED_FACE[7]/",
+  "#291/ADVANCED_FACE[9]/",
+  "#340/ADVANCED_FACE[11]/",
+  "#389/ADVANCED_FACE[13]/",
+]
 tool = "em-8-std"
 holder = "r8-collet-8mm"
 to_z = 15.0

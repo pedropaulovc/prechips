@@ -640,6 +640,7 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         names += tuple(
             f"setup-S{ordinal}.png" for ordinal, _ in enumerate(bundles[0].plan["setups"], start=1)
         )
+    if args.verb in {"traveler", "check"}:
         names += tuple(
             path.name
             for path in sorted(out.glob("setup-S*.png"))
@@ -696,6 +697,10 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         outputs[destinations[1]] = html.encode("utf-8")
         outputs.update(
             {path: assets[0].get(path.name) for path in destinations[2:]}
+        )
+    elif args.verb == "check":
+        outputs.update(
+            {path: None for path in destinations[1:] if path.name not in assets[0]}
         )
     _write_outputs(out, outputs, tracing)
     if getattr(args, "json", False):

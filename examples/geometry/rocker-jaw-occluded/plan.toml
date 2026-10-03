@@ -1,26 +1,89 @@
 # rocker-jaw-occluded, failing candidate (PLAN.md rev 6 §4.2 accessibility, §6 round 2:
-# "a jaw standing beside a face"). The labelled v40 rocker arm stands on its tips in a
-# synthetic 320 mm wide vise whose jaws close on the two hub faces; the +Z strap face
-# (the exported strap_datum_b feature) the one op claims lies 2.27825 mm inside the rear
-# jaw plane, and the jaw tops reach 4.705 mm above the pivot axis. Expected: accessibility
-# error (the offset Ø8 cutter cylinder beside the strap face hits the jaw below the jaw
-# top, and the hub boss above the pivot); reach, corner, coverage, finish coverage, vise
-# and thin-wall rows pass or are not applicable. The holding is a test specification,
-# not a proposed process for this part.
+# "a jaw standing beside a face"). S1/A and S2/B numerically clear opposite halves
+# of an authored rectangular supply; preparation tool/holder/holding stay unknown.
+# S3/V receives the derived arm and stands it on its tips in a synthetic 320 mm vise.
+# The claimed +Z strap face (exported strap_datum_b) lies 2.27825 mm inside the rear
+# jaw plane; jaw tops reach 4.705 mm above the pivot axis. Expected: accessibility
+# error when the Ø8 cutter cylinder beside the strap hits the jaw and the hub boss.
+# The numeric preparation is a fixture declaration, not CAM proof or a proposed route.
 part = "rocker-arm"
 features = "features.toml"
 construction = "one_piece"
 
 [paths]
 inventory = "../inventory.toml"
-policy = "../shop-policy.toml"
+policy = "shop-policy.toml"
 cutting_data = "../../cutting-data.toml"
 
 [stock]
-form = "finished_test_solid"
+form = "rectangular_bar"
 form_verify = false
-note = "The STEP solid is the stock; only the +Z strap face is cut. No material is asserted."
-as_is_faces = [
+section_mm = [296.0, 32.0]
+length_mm = 9.0565
+origin_mm = [-148.0, -1.0, -4.52825]
+axis = [0.0, 0.0, 1.0]
+section_axis = [1.0, 0.0, 0.0]
+as_is_faces = []
+note = "Authored synthetic supply, x -148..148, y -1..31, z +/-4.52825 mm: 1 mm allowance beyond each hub end in Z, at least 1 mm beyond the exported profile in X/Y. This is our fixture choice, not measured shop stock; no curved or inset source face is falsely declared as-is on this box."
+
+[[setups]]
+id = "S1"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "stock"
+note = "Authored +Z half preparation. Cutter, holder and holding are intentionally unknown; only the declared numeric clearance derives material for the next setup."
+
+hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
+stock_state = { top_z = "unknown", bottom_z = "unknown" }
+
+[[setups.ops]]
+op = 10
+do = "rough_profile"
+feature = "profile_outer"
+tool = "unknown"
+holder = "unknown"
+direction = "unknown"
+faces = [
+  "#49/ADVANCED_FACE[2]/HAF_ROD_HOLE__P01",
+  "#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01",
+  "#233/ADVANCED_FACE[5]/HAF_PIVOT_BORE__P01",
+  "#248/ADVANCED_FACE[6]/HAF_TIP_LAND_POS_X__P01",
+  "#343/ADVANCED_FACE[7]/HAF_ROD_HOLE__P01",
+  "#382/ADVANCED_FACE[8]/HAF_PIVOT_BORE__P01",
+  "#426/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02",
+  "#431/ADVANCED_FACE[10]/HAF_TIP_LAND_NEG_X__P01",
+  "#448/ADVANCED_FACE[11]/HAF_HUB_FACES__P02",
+  "#492/ADVANCED_FACE[13]/HAF_STRAP_DATUM_B__P01",
+  "#495/ADVANCED_FACE[14]/HAF_HUB_OD__P02",
+  "#505/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03",
+  "#514/ADVANCED_FACE[16]/HAF_HUB_OD__P02",
+  "#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01",
+]
+stock_removal_bounds = { x = [-148.0, 148.0], y = [-1.0, 31.0], z = [0.0, 4.52825] }
+note = "Claim only +Z-facing planes and vertical faces touching this half. Separate bore/rod-hole removal pieces explicitly touch their own claims."
+
+[[setups]]
+id = "S2"
+machine = "test-mill"
+frame = "B"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "S1"
+note = "Opposed -Z half preparation, in authored frame B. All preparation geometry debt stays visible; S3 uses the actual resulting material."
+
+hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
+stock_state = { top_z = "unknown", bottom_z = "unknown" }
+
+[[setups.ops]]
+op = 10
+do = "rough_profile"
+feature = "profile_outer"
+tool = "unknown"
+holder = "unknown"
+direction = "unknown"
+faces = [
   "#20/ADVANCED_FACE[1]/HAF_STRAP_FACES__P01",
   "#49/ADVANCED_FACE[2]/HAF_ROD_HOLE__P01",
   "#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01",
@@ -31,22 +94,21 @@ as_is_faces = [
   "#382/ADVANCED_FACE[8]/HAF_PIVOT_BORE__P01",
   "#426/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02",
   "#431/ADVANCED_FACE[10]/HAF_TIP_LAND_NEG_X__P01",
-  "#448/ADVANCED_FACE[11]/HAF_HUB_FACES__P02",
   "#486/ADVANCED_FACE[12]/HAF_HUB_OD__P01",
-  "#495/ADVANCED_FACE[14]/HAF_HUB_OD__P02",
   "#505/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03",
-  "#514/ADVANCED_FACE[16]/HAF_HUB_OD__P02",
   "#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01",
   "#553/ADVANCED_FACE[18]/HAF_HUB_FACES__P01",
 ]
+stock_removal_bounds = { x = [-148.0, 148.0], y = [-31.0, 1.0], z = [0.0, 4.52825] }
+note = "Frame B flips model Y/Z. Clear only outside-finished material in the remaining half, with -Z planes and vertical faces valid for this approach."
 
 [[setups]]
-id = "S1"
+id = "S3"
 machine = "test-mill"
 frame = "V"
 coolant = "none"
 deburr_mm = 0.0
-stock_in = "stock"
+stock_in = "S2"
 note = "Arm on its tips on 20 mm parallels, pivot axis horizontal across the jaws; jaws along X close across frame Y onto the hub faces (width 7.0565). Jaw tops 26 mm above the parallels: z = 4.705, 3.295 mm below the outer-arc apex. The parallel pair lies end to end along the jaws under both tips."
 
 [setups.stock_state]

@@ -103,6 +103,9 @@ Stock = record(
         **flags("material_verify form_verify on_hand"),
         "material_cite": Citations,
         "section_mm": Vector,
+        "origin_mm": Vector,
+        "axis": Vector,
+        "section_axis": Vector,
         "as_is_faces": list[str],
         "components": list[StockComponent],
         "cite": Citations,
@@ -204,10 +207,13 @@ Operation = record(
         ),
         "to_z_cite": Citations,
         "note_cite": Citations,
+        "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
         "inspection_methods": dict[str, str],
         "to_z_band": Vector,
         "contour": Contour,
+        # Setup-frame volume (plan units) the op clears down to the finished part.
+        "stock_removal_bounds": Bounds,
     },
     indexed=("do",),
 )

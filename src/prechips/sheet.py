@@ -1204,18 +1204,20 @@ class _Traveler:
         scene = render.get("scene", {})
         if render["fixture"] == "modeled":
             caption = (
-                "Kernel view: part and declared jaws / parallels; "
+                "Kernel view: setup-entry stock and declared jaws / parallels; "
                 "sampled checks are not a toolpath."
             )
         elif scene.get("jaws") == "lateral_undeclared":
             caption = (
-                "? Kernel view: part, certain jaw material and a conservative possible-jaw "
+                "? Kernel view: setup-entry stock, certain jaw material and a possible-jaw "
                 "envelope; exact fixture pose is unresolved."
             )
         elif scene.get("jaws") == "exact":
-            caption = "? Kernel view: part and declared jaws; the fixture scene is incomplete."
+            caption = "? Kernel view: setup-entry stock and declared jaws; fixture scene incomplete."
         else:
-            caption = "? Kernel part view only; fixture dimensions or jaw pose remain unresolved."
+            caption = (
+                "? Kernel stock view only; fixture dimensions or jaw pose remain unresolved."
+            )
         if scene.get("debts"):
             caption += " " + " ".join(scene["debts"])
         return (

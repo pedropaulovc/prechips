@@ -31,6 +31,24 @@ y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 cite = ["harmonic-analyzer/cad/scripts/build_rocker_arm.py:42-45", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434"]
 
+# A/B are authored synthetic preparation orientations, not exported bindings.
+# They change no source feature value, face set, STEP identity or production manifest.
+[frames.A]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "unknown"
+note = "Authored fixture S1 preparation, approaching model +Z; no production setup binding is asserted."
+
+[frames.B]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "unknown"
+note = "Authored fixture S2 preparation, approaching model -Z; no production setup binding is asserted."
+
 # Setup frame V: the arm stands on its tips with the pivot axis horizontal. Frame z is
 # model -Y (up = toward the R816 outer arc), frame y is model +Z, origin on the pivot
 # axis at the extrusion mid-plane; x cross y = z. Model (X, Y, Z) -> V (X, Z, 8 - Y):
