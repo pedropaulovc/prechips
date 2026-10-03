@@ -24,7 +24,7 @@ def evaluate(bundle):
         machine = resolve(bundle, "machines", setup["machine"])
         nums = {"tool": op.get("tool", "unknown"), "holder": op.get("holder", "unknown"), "machine": setup["machine"]}
         problems = []
-        unknown = tool is None or holder is None or machine is None
+        unknown = op["do"] == "unknown" or tool is None or holder is None or machine is None
         if not unknown:
             spindle = machine.get("spindle", {})
             toolpost = machine.get("toolpost", {})

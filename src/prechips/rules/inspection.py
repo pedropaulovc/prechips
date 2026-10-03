@@ -8,6 +8,11 @@ def evaluate(bundle):
     for name, feature in bundle.features["features"].items():
         requirements = sorted(set(feature.get("requirements", [])) & TOLERANCES)
         cite = ["PLAN.md §4.1 inspection", "features requirement manifest", "inventory gauge range/resolution/verification"]
+        if feature["kind"] == "unknown" or any(o["do"] == "unknown" for _, o in operations(bundle, name)):
+            for requirement in requirements or [None]:
+                subject = f"{name}:{requirement}" if requirement else name
+                result.append(Finding("inspection", subject, "unknown", {"requirement": requirement or "unknown"}, cite, f"{name}: inspection applicability or finishing action is explicitly unknown."))
+            continue
         if not requirements:
             result.append(Finding("inspection", name, "not_applicable", {"requirements": []}, cite, f"{name}: no tolerance requirement to inspect."))
         route = operations(bundle, name)

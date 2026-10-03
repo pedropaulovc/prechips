@@ -10,6 +10,9 @@ def evaluate(bundle):
         actions = [op["do"] for _, op in route]
         nums = {"kind": feature["kind"], "ops": [f"{s['id']}:{o['op']}" for s, o in route], "chain": actions}
         cite = ["PLAN.md §4.1 op chain", "plan authored route", "features declared process/thread"]
+        if feature["kind"] == "unknown" or "unknown" in actions:
+            result.append(Finding("op_chain", name, "unknown", nums, cite, f"{name}: feature kind or hole-chain action is explicitly unknown."))
+            continue
         if feature["kind"] not in {"hole", "thread", "threaded_hole", "counterbore"}:
             result.append(Finding("op_chain", name, "not_applicable", nums, cite, f"{name}: not a hole chain."))
             continue

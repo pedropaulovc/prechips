@@ -11,6 +11,9 @@ def evaluate(bundle):
         source = source if isinstance(source, list) else [source]
         cite = ["PLAN.md §4.1 sizing"] + [text for entry in source for text in (entry if isinstance(entry, list) else [entry]) if isinstance(text, str)]
         nums = {"kind": feature["kind"], "feature_kind": feature["kind"], "ops": [f"{s['id']}:{o['op']}" for s, o in operations(bundle, name)]}
+        if feature["kind"] == "unknown" or any(o["do"] == "unknown" for _, o in operations(bundle, name)):
+            result.append(Finding("sizing", name, "unknown", nums, cite, f"{name}: feature kind or finishing action is explicitly unknown."))
+            continue
         if feature["kind"] == "groove":
             route = operations(bundle, name)
             selected = [op for _, op in route if op.get("tool")]

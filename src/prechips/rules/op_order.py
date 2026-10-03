@@ -10,6 +10,10 @@ def evaluate(bundle):
         errors = []
         sid = setup["id"]
         own = setup["ops"]
+        if any(o["do"] == "unknown" for o in own):
+            nums = {"sequence": [f"{o['op']} {o['do']} {o.get('feature', '')}" for o in own]}
+            result.append(Finding("order", sid, "unknown", nums, ["PLAN.md §4.1 order", "plan authored operation actions"], f"{sid}: operation order cannot be established while an action is explicitly unknown."))
+            continue
         for index, (current_setup, op) in enumerate(route):
             if current_setup["id"] != sid:
                 continue
