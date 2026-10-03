@@ -135,7 +135,10 @@ def evaluate(bundle):
         count_known = (
             isinstance(positions, int) and not isinstance(positions, bool) and positions >= 1
         )
-        derived = "angle_deg" not in declaration and count_known and positions >= 2
+        # Only an omitted angle requests the full pattern whose cycle must close;
+        # an authored (or explicitly unknown) step declares an open pattern.
+        omitted = "angle_deg" not in declaration
+        derived = omitted and count_known and positions >= 2
         requested = Fraction(360, positions) if derived else _rational(declaration.get("angle_deg"))
         numbers = {
             "fixture": reference,
@@ -158,7 +161,7 @@ def evaluate(bundle):
             "tolerance_source": UNKNOWN,
             "position_errors_deg": [],
             "max_position_error_deg": UNKNOWN,
-            "closure": "not_applicable" if positions == 1 else UNKNOWN,
+            "closure": "not_applicable" if not omitted or positions == 1 else UNKNOWN,
         }
         source = f"plan.setups.{setup['id']}.hold.index"
         cite = [_CITE, source]
@@ -259,7 +262,7 @@ def evaluate(bundle):
                         ]
                         numbers["position_errors_deg"] = [float(error) for error in landing_errors]
                         numbers["max_position_error_deg"] = float(max(map(abs, landing_errors)))
-                        if positions >= 2:
+                        if derived:
                             total = positions * actual
                             revolutions = _nearest(total / 360)
                             closure_error = total - 360 * revolutions
@@ -295,9 +298,11 @@ def evaluate(bundle):
             message = "Indexing exceeds the angular tolerance at " + ", ".join(failed) + "."
         else:
             message = "Indexing landings fit the angular tolerance; " + (
-                "one angular setting has no cycle closure."
+                "the full pattern closes within tolerance."
+                if derived
+                else "one angular setting has no cycle closure."
                 if positions == 1
-                else "the repeated pattern closes within tolerance."
+                else "the open pattern has no cycle closure."
             )
         findings.append(
             Finding(

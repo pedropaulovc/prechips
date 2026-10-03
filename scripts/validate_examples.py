@@ -810,7 +810,11 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
     if declaration is None:
         require(finding["status"] == "not_applicable", "undeclared indexing must be inapplicable")
         return
-    requested = Fraction(str(declaration["angle_deg"]))
+    requested = (
+        Fraction(360, declaration["positions"])
+        if "angle_deg" not in declaration
+        else Fraction(str(declaration["angle_deg"]))
+    )
     item = entries[declaration["fixture"]]
     ratio = Fraction(str(item["worm_ratio"]))
     # Independent exhaustive oracle: search complete turns and every space on
@@ -872,8 +876,23 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
     for observed, expected in zip(row["position_errors_deg"], errors, strict=True):
         near(observed, expected, "indexing signed landing error")
     near(row["max_position_error_deg"], max(map(abs, errors)), "indexing maximum landing error")
-    if declaration["positions"] == 1:
-        require(row["closure"] == "not_applicable", "one angular setting cannot claim closure")
+    full_pattern = declaration["positions"] >= 2 and "angle_deg" not in declaration
+    if not full_pattern:
+        require(row["closure"] == "not_applicable", "open or single indexing has no closure")
+    else:
+        total = declaration["positions"] * actual
+        lower = total // 360
+        revolutions = min((lower, lower + 1), key=lambda k: (abs(total - 360 * k), k))
+        closure = row["closure"]
+        near(closure["target_angle_deg"], 360 * revolutions, "indexing full-pattern target")
+        near(closure["actual_angle_deg"], float(total), "indexing full-pattern total")
+        near(closure["error_deg"], float(total - 360 * revolutions), "indexing closure error")
+        expected = (
+            abs(total - 360 * revolutions) <= Fraction(str(tolerance))
+            if numeric(tolerance)
+            else "unknown"
+        )
+        require(closure["within_tolerance"] == expected, "indexing closure allowance mismatch")
     if tolerance == "unknown" or uncertain(declaration["fixture"], entries):
         require(finding["status"] == "unknown", "unverified angular setting must remain tentative")
 

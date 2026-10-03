@@ -52,6 +52,9 @@ M2 adds declared lathe profiles (`z_mm` plus a nominal diameter) and angular
 settings (`angle_deg`, `angle_tol_deg`). These are sourced nominal geometry,
 not kernel-derived access proofs. A feature's `angle_tol_deg` is an angular
 landing allowance in degrees; it is not the diametral angularity zone.
+Every declared indexing position is checked against that allowance. Closure
+applies only to a full pattern (`positions >= 2`, `angle_deg` omitted, exact
+step `360 / positions`); an authored angle declares an open pattern with no closure.
 `angularity_dia = [0.0, 0.10]` with `angularity_datums = ["A", "B"]`, listed in
 `requirements`, declares a drawing FCF that needs its own geometric gauge and
 datum-referenced inspection method. It does not convert Ø0.10 into degrees.

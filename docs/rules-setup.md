@@ -101,9 +101,11 @@ capacity. Unknown or unverified inventory and policy values stay `?`.
 The [indexing rule](rules-indexing.md) considers direct steps and every authored
 worm plate circle, preferring exact arithmetic before nearest alternatives.
 Each of the declared positions must land within its sourced angular tolerance.
-Closure against a whole revolution is checked **only when `positions >= 2`**:
-it proves a repeated pattern returns to its start. `positions = 1` is a single
-angular setting, such as the cone journal's 12.5182° inclination; it has no
-repeated pattern to close. The traveler prints plate, circle, turns and hole
+Closure against a whole revolution is checked **only for a full pattern**:
+`positions >= 2` with `angle_deg` omitted, deriving the step exactly as
+`360 / positions`. An authored `angle_deg` with `positions >= 2` is an open
+pattern: every position is checked against `angle_tol_deg`, with no closure.
+`positions = 1` is one angular setting, such as the cone journal's 12.5182°
+inclination, with no closure. The traveler prints plate, circle, turns and hole
 **spaces**, even when that arithmetic remains tentative because inventory
 confirmation is missing.

@@ -18,7 +18,7 @@ This angle is the cone example's authored inclination, not a default for another
 
 `feature` is optional and selects the manifest feature's `angle_tol_deg`. No feature is inferred from operations. With an **omitted** selector, or with a selected feature that omits `angle_tol_deg`, the rule uses `features.general_tolerances.angular_deg`. Explicit `feature = "unknown"` leaves the controlling feature and its tolerance unresolved; it must not inherit a general class that could be looser than the unknown feature's requirement. An explicitly unknown feature tolerance likewise stays unknown. A selector naming no manifest feature is an `error`. The report cites the input field and any authored feature/title-block citation.
 
-`positions` must be a positive integer. For `positions >= 2`, **omitting** `angle_deg` requests a complete evenly spaced pattern: the requested step is the exact rational `360 / positions`, as specified by PLAN §4.3. Explicit `angle_deg = "unknown"` never requests that derivation. A single setting must supply its angle or remain unknown.
+`positions` must be a positive integer. For `positions >= 2`, **omitting** `angle_deg` requests a complete evenly spaced pattern: the requested step is the exact rational `360 / positions`, as specified by PLAN §4.3, and only this full pattern is held to cycle closure. An **authored** `angle_deg` with `positions >= 2` declares an open pattern (an arc of repeated steps), whether or not `positions × angle_deg` happens to reach a whole number of revolutions; closure is never inferred from a near-full or exactly-full authored product. Explicit `angle_deg = "unknown"` never requests the derivation and is likewise not a closed pattern. A single setting must supply its angle or remain unknown. There is no separate "closed" input field.
 
 ## Exact-first selection
 
@@ -37,7 +37,9 @@ The constant `360°` and the formulas above come from PLAN §4.3, not an invento
 
 For requested step `a`, selected actual step `b`, and `N` positions, each cumulative landing `i = 1 … N` has signed error `i × (b − a)`. Every absolute landing error must be at most the selected angular tolerance. The comparison is rational and inclusive at the tolerance boundary, without an invented floating-point epsilon.
 
-For `N >= 2`, the actual total `N × b` is also compared to the nearest integral revolution `360 × k`. Equal-distance revolutions choose the lower signed `k`. The absolute closure error must fit the same tolerance. Exact individual steps do not waive a non-closing declared pattern; multiple-revolution patterns are allowed.
+For a **full pattern** (`N >= 2` with an omitted `angle_deg`), the actual total `N × b` is also compared to the nearest integral revolution `360 × k`. Equal-distance revolutions choose the lower signed `k`. The absolute closure error must fit the same tolerance, inclusively. Because the requested total is exactly `360°`, the closure error of a full pattern equals its last landing error; the closure object still reports the revolution and totals the operator will see.
+
+An **open pattern** (`N >= 2` with an authored `angle_deg`) checks every accumulated landing `1 … N` against the tolerance and nothing else: `closure = "not_applicable"`, and three exact 30° holes are not refused because 90° is not a revolution. Exact individual steps never waive a failed landing.
 
 **`positions = 1` is one angular setting, not a cycle.** Only the landing tolerance applies, and `closure = "not_applicable"`. In particular, a cone's single inclination must not be rejected because that angle is not a full revolution.
 
@@ -62,12 +64,12 @@ Stable `Finding.numbers` fields:
 | `selection_complete`, `verified` | Whether the candidate search inputs are complete and the selected fixture is verified. |
 | `tolerance_deg`, `tolerance_source` | Acceptance tolerance and manifest input field used; both are `"unknown"` when an explicit unknown selector prevents selecting the controlling tolerance. |
 | `position_errors_deg`, `max_position_error_deg` | Signed cumulative errors for steps `1 … N`, and largest absolute error. |
-| `closure` | `"not_applicable"` for one setting; otherwise an object or `"unknown"`. |
+| `closure` | `"not_applicable"` for one setting or an open authored pattern; an object for a full derived pattern once computed, otherwise `"unknown"`. |
 | `unresolved`, `invalid`, `failed` | Sorted unresolved/invalid input descriptions and failed landing/closure labels. |
 
 A closure object carries `revolutions`, `target_angle_deg`, `actual_angle_deg`, signed `error_deg`, and `within_tolerance` (boolean or `"unknown"`). Missing arithmetic fields are explicitly `"unknown"`; missing per-position calculations have an empty error list, not invented zeros.
 
-The traveler prints plate, circle, full turns and hole **spaces**, also for pass findings. Requested and actual step angles use the selected feature's `precision.angle_deg` or the general drawing precision; the report retains the full computed values. Tolerance and cumulative error retain their computed digits rather than being rounded to drawing precision. Unknown rows are visibly `? Tentative`; report-only exactness cannot promote them.
+The traveler prints plate, circle, full turns and hole **spaces**, also for pass findings. Requested and actual step angles use the selected feature's `precision.angle_deg` or the general drawing precision; the report retains the full computed values. Tolerance and cumulative error retain their computed digits rather than being rounded to drawing precision. The closure sentence is `Single setting: no cycle closure.` for one setting, `Open pattern: no cycle closure.` for an authored multi-position pattern, the computed `Cycle closure: … against …; error …` for a full pattern, and `Cycle closure: ?` only while a full pattern's closure is unresolved. Unknown rows are visibly `? Tentative`; report-only exactness cannot promote them.
 
 Accepted traveler declarations `zero = "unknown"` and operation `checks = "unknown"` likewise print explicit unresolved `?` instructions. They are not treated as known empty recipes, and must not prevent an otherwise stopped plan from writing its traveler and reporting the original rule-error exit.
 
@@ -76,8 +78,10 @@ For the declared BS-0 circles in [the shop inventory](../examples/inventory/pedr
 Typical finding sentences:
 
 - `S3: Indexing landings fit the angular tolerance; one angular setting has no cycle closure.`
+- `S1: Indexing landings fit the angular tolerance; the open pattern has no cycle closure.`
+- `S1: Indexing landings fit the angular tolerance; the full pattern closes within tolerance.`
 - `S1: Indexing exceeds the angular tolerance at landing 4, landing 5, landing 6, landing 7.`
-- `S1: Indexing exceeds the angular tolerance at cycle closure.`
+- `S1: Indexing exceeds the angular tolerance at landing 7, cycle closure.`
 - `S3: Indexing remains tentative: features.features.journal_bore.angle_tol_deg, inventory.machines.BS-0.verify.`
 
-The isolated tests in `tests/test_indexing_m2.py` cover later exact circles, direct indexing, global nearest selection, accumulated errors, inclusive tolerance boundaries, closure, absent versus explicitly unknown angles, a single cone inclination, unknown/verified inventory, deterministic ties and readiness precedence. Integration validation and example golden regeneration belong to the parent M2 acceptance run.
+The isolated tests in `tests/test_indexing_m2.py` cover later exact circles, direct indexing, global nearest selection, accumulated errors, inclusive tolerance boundaries, full-pattern closure, open authored patterns, absent versus explicitly unknown angles, a single cone inclination, unknown/verified inventory, deterministic ties and readiness precedence. Integration validation and example golden regeneration belong to the parent M2 acceptance run.

@@ -331,7 +331,11 @@ class _Traveler:
         )
         closure = numbers.get("closure")
         if closure == "not_applicable":
-            parts.append("Single setting: no cycle closure.")
+            parts.append(
+                "Single setting: no cycle closure."
+                if positions == 1
+                else "Open pattern: no cycle closure."
+            )
         elif isinstance(closure, dict):
             parts.append(
                 f"Cycle closure: {r(closure.get('actual_angle_deg'))}° against "

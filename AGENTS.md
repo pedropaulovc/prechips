@@ -57,8 +57,10 @@ cone built-up 2. Use the CLI examples in
 The cone's one-piece and built-up candidates also remain PLANNED; comparison
 must refuse built-up construction unless the drawing manifest explicitly permits
 it. Indexing uses one angular setting for the inclined journal, never a fictional
-shaft cross-hole. Repeated patterns (`positions >= 2`) additionally need closure;
-one setting does not.
+shaft cross-hole. Closure is checked only for a full pattern: `positions >= 2`
+with `angle_deg` omitted (step exactly `360 / positions`). Authored angles are
+open patterns: every landing is checked, with no closure. One setting also has
+no closure.
 Keep regression tests about consumer-visible boundaries, not exact incidental
 prose or copied wiring. Tests must use temporary files and local telemetry
 collectors, not real shop state or production services. During parallel work,

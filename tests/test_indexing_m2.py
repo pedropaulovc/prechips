@@ -102,7 +102,7 @@ def test_exact_later_circle_beats_earlier_near_circle(tmp_path, category):
         "worm_ratio": 40.0,
         "plate_holes": {"A": [15.0], "B": [18.0]},
     }
-    finding = result(bundle(tmp_path, angle=40.0, positions=9, item=item, category=category))
+    finding = result(bundle(tmp_path, angle=_ABSENT, positions=9, item=item, category=category))
     assert finding.status == "pass"
     assert (finding.numbers["plate"], finding.numbers["circle"]) == ("B", 18)
     assert (finding.numbers["turns"], finding.numbers["spaces"]) == (4, 8)
@@ -156,40 +156,75 @@ def test_all_cumulative_landings_are_checked_not_only_the_first(tmp_path):
         [1 / 35, 2 / 35, 3 / 35, 4 / 35, 5 / 35, 6 / 35, 7 / 35]
     )
     assert finding.numbers["failed"] == ["landing 4", "landing 5", "landing 6", "landing 7"]
-    assert finding.numbers["closure"]["within_tolerance"] is True
+    assert finding.numbers["closure"] == "not_applicable"
 
 
-def test_exact_landings_do_not_waive_pattern_closure(tmp_path):
+@pytest.mark.parametrize(
+    "angle,positions,item,selection",
+    [
+        # Review #3 probe: three exact 30° holes on a 40:1 head are an open arc.
+        (30.0, 3, {"worm_ratio": 40.0, "plate_holes": {"A": [15.0], "B": [18.0]}}, ("A", 15, 3, 5)),
+        # 8 × 40° = 320° never closes; exact landings are not a failed cycle.
+        (40.0, 8, {"worm_ratio": 40.0, "plate_holes": {"B": [18.0]}}, ("B", 18, 4, 8)),
+        # 4 × 90° and 16 × 45° reach 360·k, yet an authored step is never inferred full.
+        (90.0, 4, {"direct_index": {"positions": 24.0}, "plate_holes": {}}, ("direct", 24, 0, 6)),
+        (45.0, 16, {"direct_index": {"positions": 24.0}, "plate_holes": {}}, ("direct", 24, 0, 3)),
+    ],
+)
+def test_authored_step_pattern_is_open_and_never_closed(
+    tmp_path, angle, positions, item, selection
+):
+    item = {"kind": "dividing_head", "verify": False, **item}
+    subject = bundle(tmp_path, angle=angle, positions=positions, item=item)
+    finding = result(subject)
+    assert finding.status == "pass"
+    assert finding.numbers["requested_angle_source"] == "declared"
+    assert (
+        finding.numbers["plate"],
+        finding.numbers["circle"],
+        finding.numbers["turns"],
+        finding.numbers["spaces"],
+    ) == selection
+    assert finding.numbers["position_errors_deg"] == [0.0] * positions
+    assert finding.numbers["closure"] == "not_applicable"
+    assert finding.numbers["failed"] == []
+    assert exit_code([finding], subject.policy, subject) == 0
+    html = render_traveler(subject, [finding], {"verification": "checked"})
+    assert "Open pattern: no cycle closure." in html
+    assert "Cycle closure: ?" not in html
+
+
+@pytest.mark.parametrize(
+    "tolerance,status,failed",
+    [(1.2, "pass", []), (1.1, "error", ["landing 7", "cycle closure"])],
+)
+def test_full_pattern_closure_is_checked_inclusively_against_tolerance(
+    tmp_path, tolerance, status, failed
+):
+    # 360/7 on circle 15 (0.6° spaces) rounds to 86 spaces = 51.6°, so the full
+    # pattern reaches 361.2° and must return to its start within the tolerance.
     item = {
         "kind": "dividing_head",
         "verify": False,
         "worm_ratio": 40.0,
-        "plate_holes": {"B": [18.0]},
+        "plate_holes": {"A": [15.0]},
     }
-    finding = result(bundle(tmp_path, angle=40.0, positions=8, item=item))
-    assert finding.status == "error"
-    assert finding.numbers["position_errors_deg"] == [0.0] * 8
-    assert finding.numbers["failed"] == ["cycle closure"]
+    subject = bundle(tmp_path, angle=_ABSENT, positions=7, tolerance=tolerance, item=item)
+    finding = result(subject)
+    assert finding.status == status
+    assert finding.numbers["requested_angle_source"] == "360/positions"
+    assert finding.numbers["actual_angle_deg"] == 51.6
+    assert (finding.numbers["turns"], finding.numbers["spaces"]) == (5, 11)
     assert finding.numbers["closure"] == {
         "revolutions": 1,
         "target_angle_deg": 360,
-        "actual_angle_deg": 320.0,
-        "error_deg": -40.0,
-        "within_tolerance": False,
+        "actual_angle_deg": 361.2,
+        "error_deg": 1.2,
+        "within_tolerance": status == "pass",
     }
-
-
-def test_closure_may_span_multiple_revolutions(tmp_path):
-    item = {
-        "kind": "dividing_head",
-        "verify": False,
-        "direct_index": {"positions": 24.0},
-        "plate_holes": {},
-    }
-    finding = result(bundle(tmp_path, angle=45.0, positions=16, item=item))
-    assert finding.status == "pass"
-    assert finding.numbers["closure"]["revolutions"] == 2
-    assert finding.numbers["closure"]["actual_angle_deg"] == 720.0
+    assert finding.numbers["failed"] == failed
+    html = render_traveler(subject, [finding], {"verification": "checked"})
+    assert "Cycle closure: 361.2° against 360°; error 1.2°." in html
 
 
 @pytest.mark.parametrize("tolerance,status", [(0.01, "pass"), (0.009999, "error")])
@@ -216,10 +251,12 @@ def test_absent_pattern_angle_derives_exact_rational_but_explicit_unknown_does_n
         derived.numbers["spaces"],
     ) == ("B", 21, 5, 15)
     assert derived.numbers["position_errors_deg"] == [0.0] * 7
+    assert derived.numbers["closure"]["within_tolerance"] is True
     unknown = result(bundle(tmp_path, angle="unknown"))
     assert unknown.status == "unknown"
     assert unknown.numbers["actual_angle_deg"] == "unknown"
     assert unknown.numbers["exact"] == "unknown"
+    assert unknown.numbers["closure"] == "not_applicable"
 
 
 def test_single_cone_tilt_checks_landing_without_cycle_closure_and_prints_spaces(tmp_path):
@@ -264,17 +301,17 @@ def test_unverified_inventory_retains_tentative_arithmetic_not_a_certification(t
         "kind": "dividing_head",
         "verify": True,
         "worm_ratio": 40.0,
-        "plate_holes": {"B": [18.0]},
+        "plate_holes": {"A": [15.0]},
     }
-    subject = bundle(tmp_path, angle=40.0, positions=8, item=item)
+    subject = bundle(tmp_path, angle=_ABSENT, positions=7, tolerance=1.1, item=item)
     finding = result(subject)
     assert finding.status == "unknown"
-    assert finding.numbers["actual_angle_deg"] == 40.0
+    assert finding.numbers["actual_angle_deg"] == 51.6
     assert finding.numbers["verified"] is False
-    assert finding.numbers["failed"] == ["cycle closure"]
+    assert finding.numbers["failed"] == ["landing 7", "cycle closure"]
     html = render_traveler(subject, [finding], {"verification": "checked"})
     assert "Index: ? Tentative" in html
-    assert "circle 18: 4 crank turns + 8 hole spaces" in html
+    assert "circle 15: 5 crank turns + 11 hole spaces" in html
 
 
 @pytest.mark.parametrize(
@@ -440,7 +477,7 @@ def test_unknown_inventory_category_is_not_a_known_missing_fixture(tmp_path):
 
 
 def test_explicit_unknown_selector_cannot_inherit_a_looser_general_class(tmp_path):
-    subject = bundle(tmp_path, feature="unknown", tolerance=0.0, general=1.0)
+    subject = bundle(tmp_path, angle=_ABSENT, feature="unknown", tolerance=0.0, general=1.0)
     finding = result(subject)
     assert finding.status == "unknown"
     assert finding.numbers["tolerance_deg"] == "unknown"

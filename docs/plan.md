@@ -233,24 +233,26 @@ The `hold.index` record is strict: only the fields below are accepted.
 Each field is optional and also accepts literal `"unknown"`; arbitrary keys
 are bad input (exit 3 before output).
 
-| Field | Type (also accepts `"unknown"`) |
-|---|---|
-| `fixture` | `str` |
-| `feature` | `str` |
-| `angle_deg` | `Number` |
-| `positions` | `int` |
+| Field | Type (also accepts `"unknown"`) | Meaning |
+|---|---|---|
+| `fixture` | `str` | Selected dividing-head identity in inventory. |
+| `feature` | `str` | Feature owning the angular landing allowance. |
+| `angle_deg` | `Number` | Authored step declares an open pattern with no closure; omitted with `positions >= 2` declares a full pattern at exact `360 / positions`. Explicit `"unknown"` stays unresolved. |
+| `positions` | `int` | Number of checked landings; `1` is a single setting. Closure requires both `positions >= 2` and omitted `angle_deg`. |
 
 `feature` selects the journal/pattern's angular tolerance. An omitted selector
 or absent feature allowance falls back to `general_tolerances.angular_deg`;
 an explicitly unknown selector or allowance stays unresolved. Angles are degrees
 and `positions` counts angular settings, not drilled holes inferred from a part
 name. Exactness uses the authored TOML angle value, not rounded sheet text.
-For a repeated pattern (`positions >= 2`), omitting `angle_deg` declares an
-exact `360 / positions` step; an explicit `"unknown"` angle stays unknown.
-This omission is preferred over storing a rounded approximation of a repeating
-decimal. `positions = 1` is a single setting with an explicit angle; closure is
-checked only for repeated patterns. The traveler prints plate, circle, turns
-and hole **spaces**, with angles at the drawing's declared angular precision.
+For a full pattern (`positions >= 2` with `angle_deg` omitted), the step is
+exactly `360 / positions`, and both every landing and cycle closure are checked.
+An authored `angle_deg` with `positions >= 2` declares an **open pattern**:
+every position is checked against `angle_tol_deg`, but closure is not applicable,
+even when the authored steps happen to total a whole revolution. Explicit
+`"unknown"` is not omission. `positions = 1` is one explicit angular setting
+with no closure. The traveler prints plate, circle, turns and hole **spaces**,
+with angles at the drawing's declared angular precision.
 
 ## Reference
 
