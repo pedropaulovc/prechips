@@ -305,11 +305,15 @@ class Features(InputModel):
     def complete_requirements(self) -> Features:
         for name, feature in self.features.items():
             requirements = feature.requirements
+            if requirements == UNKNOWN:
+                continue
             if not isinstance(requirements, list):
                 raise ValueError(f"{name}: requirements must enumerate drawing requirements")
             if len(set(requirements)) != len(requirements):
                 raise ValueError(f"{name}: duplicate requirement")
             for requirement in requirements:
+                if requirement == UNKNOWN:
+                    continue
                 if requirement not in feature.model_fields_set:
                     raise ValueError(f"{name}: missing required field {requirement}")
         return self
