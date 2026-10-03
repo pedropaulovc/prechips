@@ -158,3 +158,140 @@ def test_approval_stales_when_feature_input_changes(tmp_path):
     assert "CHECKED" not in html
     assert "features" in result.stderr.lower()
     assert "features" in html.lower()
+
+
+@pytest.mark.parametrize(
+    ("state", "declaration", "expected_exit"),
+    [
+        ("absent", "", 4),
+        ("unknown", 'required = "unknown"\n', 4),
+        ("empty", "[required]\n", 0),
+    ],
+)
+def test_missing_required_policy_is_unknown_not_empty(
+    tmp_path, state, declaration, expected_exit
+):
+    plan = clean_inspection_bundle(tmp_path)
+    policy = plan.parent.parent / "shop-policy.toml"
+    policy.write_text("revision = 1\n" + declaration + "[numbers]\n", encoding="utf-8")
+    result, report, html = traveler(plan, tmp_path / "out")
+    unresolved = [row for row in report["findings"] if row["status"] == "unknown"]
+    assert result.returncode == expected_exit, {
+        "state": state,
+        "verification": report["verification"],
+        "unknown_count": len(unresolved),
+    }
+    if state == "empty":
+        assert report["verification"] == "checked"
+        assert unresolved  # Nonrequired unknowns do not override a known empty policy.
+    else:
+        assert report["verification"] != "checked"
+        assert finding(report, "required_policy", "*")["status"] == "unknown"
+        assert "PLANNED" in html
+
+
+@pytest.mark.parametrize(
+    ("state", "declaration", "expected_exit"),
+    [
+        ("absent", "", 4),
+        ("unknown", 'requirements = "unknown"\n', 4),
+        ("empty", "requirements = []\n", 0),
+    ],
+)
+def test_missing_requirements_are_unknown_not_known_absence(
+    tmp_path, state, declaration, expected_exit
+):
+    plan = clean_inspection_bundle(tmp_path)
+    features = plan.with_name("features.toml")
+    features.write_text(
+        features.read_text(encoding="utf-8").replace(
+            'requirements = ["dia", "length"]\n', declaration
+        ),
+        encoding="utf-8",
+    )
+    result, report, html = traveler(plan, tmp_path / "out")
+    rows = [row for row in report["findings"] if row["rule"] == "inspection"]
+    assert result.returncode == expected_exit, {
+        "state": state,
+        "verification": report["verification"],
+        "inspection": rows,
+    }
+    if state == "empty":
+        assert report["verification"] == "checked"
+        assert finding(report, "inspection", "hub_faces")["status"] == "not_applicable"
+    else:
+        assert report["verification"] != "checked"
+        assert finding(report, "inspection", "hub_faces:unknown")["status"] == "unknown"
+        assert not any(row["status"] == "not_applicable" for row in rows)
+        assert "PLANNED" in html
+
+
+@pytest.mark.parametrize(
+    ("state", "declaration", "expected_exit", "expected_retouch"),
+    [
+        ("absent", "", 4, []),
+        ("unknown", 'retouch_after = "unknown"\n', 4, []),
+        ("empty", "retouch_after = []\n", 0, []),
+        ("listed", "retouch_after = [10, 20]\n", 0, [10, 20]),
+    ],
+)
+def test_missing_retouch_schedule_is_unknown_after_facing(
+    tmp_path, state, declaration, expected_exit, expected_retouch
+):
+    plan = clean_inspection_bundle(tmp_path)
+    prefix = plan.read_text(encoding="utf-8").split("[[setups.ops]]", 1)[0]
+    prefix = (
+        prefix.replace("top_z = 4.47175", "top_z = 0.5")
+        .replace('tool = "edge-finder"', 'tool = "control-finder"')
+        .replace('tool = "endmills-lms-6784/3-8in-4fl"', 'tool = "control-face"')
+        .replace("[setups.zero.x]", "[setups.zero]\ntool_touches = []\n\n[setups.zero.x]")
+        .replace("retouch_after = []", declaration.rstrip("\n"))
+    )
+    ops = "".join(
+        f'\n[[setups.ops]]\nop = {op}\ndo = "face"\nfeature = "hub_faces"\n'
+        f'tool = "{tool}"\nholder = "r8-collets-lms-4860/3-8in"\n'
+        'to_z = 0.0\ndirection = "conventional"\n'
+        for op, tool in [(10, "control-face"), (20, "control-second"), (30, "control-third")]
+    )
+    plan.write_text(prefix + ops, encoding="utf-8")
+    features = plan.with_name("features.toml")
+    features.write_text(
+        features.read_text(encoding="utf-8")
+        .replace('requirements = ["dia", "length"]', "requirements = []")
+        .replace("z = [0.0, 0.0, 1.0]", 'z = [0.0, 0.0, 1.0]\nbinding = "control-measured"'),
+        encoding="utf-8",
+    )
+    inventory = plan.parent.parent / "inventory" / "pedro-shop.toml"
+    with inventory.open("a", encoding="utf-8") as stream:
+        for tool, kind in [
+            ("control-finder", "edge_finder"),
+            ("control-face", "endmill"),
+            ("control-second", "endmill"),
+            ("control-third", "endmill"),
+        ]:
+            stream.write(
+                f'\n[tools.{tool}]\nkind = "{kind}"\nverify = false\n'
+                'dia_mm = 6.0\nshank_mm = 9.525\nunits = "mm"\n'
+            )
+    (plan.parent.parent / "shop-policy.toml").write_text(
+        '[required]\nzero_check = "setups"\n', encoding="utf-8"
+    )
+    result, report, html = traveler(plan, tmp_path / "out")
+    row = finding(report, "zero_check", "S1")
+    assert row["numbers"]["axes"]["z"]["axis_set"] == pytest.approx(0.55)
+    assert [touch["op"] for touch in row["numbers"]["retouch"]] == expected_retouch
+    assert result.returncode == expected_exit, {
+        "state": state,
+        "verification": report["verification"],
+        "zero_check": row,
+    }
+    if expected_exit:
+        assert row["status"] == "unknown"
+        assert report["verification"] != "checked"
+        assert "PLANNED" in html
+    else:
+        assert row["status"] == "pass"
+        assert report["verification"] == "checked"
+        for touch in row["numbers"]["retouch"]:
+            assert touch["top_z"] == pytest.approx(0.0)
+            assert touch["axis_set"] == pytest.approx(0.05)

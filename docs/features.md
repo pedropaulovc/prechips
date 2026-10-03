@@ -3,16 +3,18 @@
 `part`, `frames`, and `features` are required. The loader rejects an empty
 feature map. `frames` must be supplied but may be literal `"unknown"`; individual
 frame/datum entries can also be `"unknown"`. Unknown is not an identity basis.
-Each feature must explicitly supply `requirements`: a list or literal
-`"unknown"`. Known list entries must be unique, must name modeled fields, and
-must have their own explicitly supplied field values. A literal `"unknown"`
-list element means the requirement identity is unresolved; it is not an extra
-field name that the author must fabricate. An explicitly supplied unknown
-dimension value satisfies presence but never proves the requirement.
-Absence from a known requirements list represents known absence; an unknown
-whole list cannot establish absence. An empty known list is legal, but does not
-prove drawing completeness. Unknown lists/identities yield an unresolved
-`inspection` subject `feature:unknown`, not a fictional tolerance or N/A.
+Each feature's `requirements` is a list or literal `"unknown"`. Omitting the
+field leaves requirement identities unknown; it is not shorthand for `[]`.
+Known list entries must be unique, must name modeled fields, and must have their
+own explicitly supplied field values. A literal `"unknown"` list element means
+the requirement identity is unresolved; it is not an extra field name that the
+author must fabricate. An explicitly supplied unknown dimension value satisfies
+presence but never proves the requirement. Absence from a known requirements
+list represents known absence; an omitted or unknown whole list cannot establish
+absence. An explicit `requirements = []` is legal and known empty, but does not
+prove drawing completeness. Omitted/unknown lists or identities yield an
+unresolved `inspection` subject `feature:unknown`, not a fictional tolerance or
+N/A. This same selection keeps them required under policy `toleranced_features`.
 
 `units` accepts only `"mm"`, `"in"`, or `"unknown"`. Feature geometry coordinates
 use that unit; M1 does not silently convert drawing tolerance limits into mm.
@@ -50,9 +52,11 @@ booleans are not numeric substitutes. `Number` means a numeric float or the lite
 a string or a list of strings. Text fields also accept `"unknown"`.
 
 Every `record()` field below is optional and accepts `"unknown"` in addition to
-the displayed type. Omitted fields are not filled into the loaded bundle; rules
-decide whether missing information is an error, unknown or not applicable. Root
-fields marked required must be present. A model accepting a value is not proof
+the displayed type. Omitted fields are not filled into the loaded bundle;
+inspection and policy selection read an omitted `requirements` declaration as
+unknown, never as a known empty list. Other optional fields retain their
+applicability semantics in the rules.
+Root fields marked required must be present. A model accepting a value is not proof
 of geometric validity; rules perform the applicable checks.
 
 ## Root fields

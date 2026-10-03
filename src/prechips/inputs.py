@@ -55,6 +55,8 @@ def _load(path: Path, model: type[InputModel], kind: str) -> tuple[dict, str]:
             raw = path.read_bytes()
             values = tomllib.loads(raw.decode("utf-8"))
             parsed = model.model_validate(values)
+            # Retain optional-field presence; policy/requirements/retouch consumers
+            # distinguish absent declarations from known empty collections.
             return parsed.model_dump(exclude_unset=True), hashlib.sha256(raw).hexdigest()
         except (OSError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as exc:
             raise BadInput(f"Cannot load {kind} {path.name}: {exc}") from exc

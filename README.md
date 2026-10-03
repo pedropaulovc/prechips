@@ -115,6 +115,10 @@ The literal `"unknown"` never means zero, absence, approval or a pass. A
 No invented tool dimension, Handbook page, measurement or drawing tolerance
 fills a gap. Sources are citations, never network fetches at check time. The
 only optional network activity is explicitly configured OpenTelemetry export.
+An existing policy without `[required]`, a feature without `requirements`, or a
+Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
+Explicit empty tables/lists remain known empty; no policy file still selects the
+built-in required-rule set.
 
 Authored bench instructions retain slash-separated text such as
 `top/bottom/sides`, `S1/S2/S3` and `1/4/20`; only recognizable repository,

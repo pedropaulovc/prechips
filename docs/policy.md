@@ -19,12 +19,18 @@ Any error yields exit 2 regardless of policy. A required `warn`, `unknown`, or
 `unsupported` yields 4. Required `pass`, `info`, and `not_applicable` do not block
 the implemented gate. A missing required rule or named subject gets
 an unknown coverage finding: “The shop requires a check with no matching supported
-subject.” A wholly unknown required policy also yields exit 4. Thus policy cannot
-make an unimplemented check silently pass.
+subject.” A present policy file with no `required` declaration is treated like
+`required = "unknown"`: it creates an unknown `required_policy` coverage finding
+and yields exit 4 unless an error takes precedence (exit 2). It cannot authorize
+`verification = "checked"`. An explicitly empty `[required]` table is different:
+it is a known empty requirement map, so nonrequired unknowns do not block the
+gate. Any error still yields exit 2. Policy cannot make an unimplemented required
+check silently pass.
 
 When no policy path is supplied, the loader requires `tool_resolves`, `sizing`,
 `op_chain`, `blind_depth`, `inspection`, `coordinates`, and `zero_check` on `"*"`.
 The fallback is not an extra file and therefore has no file digest in inputs.
+This no-file fallback is not used for a supplied policy that omits `[required]`.
 
 `numbers` is a map of finite numeric values or `"unknown"`; `numbers_cite` is
 the matching citation map; `numbers_verify` maps names to booleans or unknown.
@@ -41,9 +47,11 @@ booleans are not numeric substitutes. `Number` means a numeric float or the lite
 a string or a list of strings. Text fields also accept `"unknown"`.
 
 Every `record()` field below is optional and accepts `"unknown"` in addition to
-the displayed type. Omitted fields are not filled into the loaded bundle; rules
-decide whether missing information is an error, unknown or not applicable. Root
-fields marked required must be present. A model accepting a value is not proof
+the displayed type. Omitted fields are not filled into the loaded bundle;
+policy gates read an omitted `required` declaration as unknown rather than
+inventing a known empty map. Other optional fields retain their applicability
+semantics in the rules.
+Root fields marked required must be present. A model accepting a value is not proof
 of geometric validity; rules perform the applicable checks.
 
 ## Root fields

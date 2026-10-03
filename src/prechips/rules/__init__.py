@@ -50,7 +50,7 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
     from prechips.model import tolerance_requirements
 
     rows = []
-    required = bundle.policy.get("required", {})
+    required = bundle.policy.get("required", "unknown")
     if required == "unknown":
         required = {"required_policy": "*"}
     for name, selector in required.items():

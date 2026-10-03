@@ -37,9 +37,10 @@ a string or a list of strings. Text fields also accept `"unknown"`.
 
 Every `record()` field below is optional and accepts `"unknown"` in addition to
 the displayed type. Omitted fields are not filled into the loaded bundle; rules
-decide whether missing information is an error, unknown or not applicable. Root
-fields marked required must be present. A model accepting a value is not proof
-of geometric validity; rules perform the applicable checks.
+decide whether missing information is an error, unknown or not applicable.
+Missing facts needed by an applicable check cannot establish known absence or a
+pass. Root fields marked required must be present. A model accepting a value is
+not proof of geometric validity; rules perform the applicable checks.
 
 ## Root fields
 

@@ -10,13 +10,15 @@ each declared requirement in the recognized scalar/unknown tolerance set:
 `station`, `arc_len`, `bottom_radius`, `bottom_arc_len`, `tip_land`,
 `land_angle_deg`, `groove_width`, `groove_depth`. This shared model selection also
 drives policy `toleranced_features`; unknown generic dimensions cannot evade it.
-A wholly unknown requirements list or an unknown list element creates
-`feature:unknown` with unknown status. A feature with a known list containing no
-banded or recognized tolerance requirement gets a bare-feature not-applicable
-finding. Unknown recognized dimension values still need an explicit check;
-absence from a known requirements list is known absence. Bands outside the
-tolerance set do not get invented defaults: the author must explicitly declare
-the requirement and its limits.
+An omitted or wholly unknown requirements list, or an unknown list element,
+creates `feature:unknown` with unknown status and remains selected by policy
+`toleranced_features`. A feature with an explicitly known list containing no
+banded or recognized tolerance requirement (including `requirements = []`) gets
+a bare-feature not-applicable finding. A missing list must not receive that
+not-applicable finding. Unknown recognized dimension values still need an explicit
+check; absence from a known requirements list is known absence. Bands outside
+the tolerance set do not get invented defaults: the author must explicitly
+declare the requirement and its limits.
 An explicitly unknown kind or finishing action produces unknown for each
 requirement (or the bare feature if there are none), not not-applicable.
 

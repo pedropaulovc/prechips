@@ -25,6 +25,13 @@ Every zero recipe's `edge_mm` is the authored pickup coordinate in the setup
 frame. A Z recipe with `face = "top"` uses the stock state's top; other named
 faces require their own explicit `edge_mm`, not the stock top or a value copied
 from report output. X/Y raw-overhang pickups likewise use their authored edges.
+The Z pickup's `retouch_after` may declare a known operation list or `"unknown"`.
+Omission and literal `"unknown"` leave the schedule unresolved, so a required
+`zero_check` cannot pass merely because no rows were declared. An explicit
+`retouch_after = []` means a known empty schedule; a known nonempty list produces
+retouch rows using the stock top after each listed operation, including a face
+cut that changes the touched top. A known list does not certify that the authored
+schedule is physically sufficient.
 
 `checks` maps tolerance requirement names to inventory gauge references;
 `inspection_methods` supplies a method for datum/geometric checks. A missing
@@ -43,9 +50,11 @@ booleans are not numeric substitutes. `Number` means a numeric float or the lite
 a string or a list of strings. Text fields also accept `"unknown"`.
 
 Every `record()` field below is optional and accepts `"unknown"` in addition to
-the displayed type. Omitted fields are not filled into the loaded bundle; rules
-decide whether missing information is an error, unknown or not applicable. Root
-fields marked required must be present. A model accepting a value is not proof
+the displayed type. Omitted fields are not filled into the loaded bundle;
+`zero_check` preserves an omitted `retouch_after` declaration as unknown rather
+than treating it as an empty list. Other optional fields retain their
+applicability semantics in the rules.
+Root fields marked required must be present. A model accepting a value is not proof
 of geometric validity; rules perform the applicable checks.
 
 ## Root fields

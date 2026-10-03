@@ -20,7 +20,7 @@ TOLERANCE_REQUIREMENTS = frozenset(
 
 def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
     """Preserve unknown identities and every authored numeric requirement band."""
-    requirements = feature.get("requirements", [])
+    requirements = feature.get("requirements", UNKNOWN)
     if requirements == UNKNOWN:
         return [UNKNOWN]
     result = []

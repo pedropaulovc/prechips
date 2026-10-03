@@ -44,7 +44,7 @@ class Finding:
 
 
 def is_required(finding: Finding, policy: dict, bundle: Bundle | None = None) -> bool:
-    required = policy.get("required", {})
+    required = policy.get("required", "unknown")
     if required == "unknown":
         return True
     selector = required.get(finding.rule)
@@ -73,13 +73,14 @@ def exit_code(findings: list[Finding], policy: dict, bundle: Bundle | None = Non
     """Bad inputs are raised before this gate; errors precede unresolved required rows."""
     if any(f.status == Status.ERROR for f in findings):
         return 2
-    if policy.get("required") == "unknown":
+    required = policy.get("required", "unknown")
+    if required == "unknown":
         return 4
     unresolved = {Status.WARN, Status.UNKNOWN, Status.UNSUPPORTED}
     if any(f.status in unresolved and is_required(f, policy, bundle) for f in findings):
         return 4
     # Calling the gate directly must not silently waive an absent required rule.
     found_rules = {f.rule for f in findings}
-    if any(rule not in found_rules for rule in policy.get("required", {})):
+    if any(rule not in found_rules for rule in required):
         return 4
     return 0

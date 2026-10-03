@@ -138,7 +138,9 @@ def evaluate(bundle):
         retouch = []
         recipe = mapping(zero.get("z"))
         paper = recipe.get("paper_mm", UNKNOWN)
-        unknown |= recipe.get("retouch_after") == UNKNOWN or zero.get("tool_touches") == UNKNOWN
+        unknown |= (
+            recipe.get("retouch_after", UNKNOWN) == UNKNOWN or zero.get("tool_touches") == UNKNOWN
+        )
         for op, _, after in stock_states(setup, bundle.features["features"]):
             if op["op"] in records(recipe.get("retouch_after")):
                 top = after["top_z"]
