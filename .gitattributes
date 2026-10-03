@@ -1,0 +1,3 @@
+# Reference input digests bind bytes, not platform-specific newline conversions.
+examples/** text eol=lf
+scripts/validate_examples.py text eol=lf
