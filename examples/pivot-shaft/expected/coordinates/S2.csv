@@ -1,4 +1,0 @@
-frame=T2, units=mm, mode=absolute, diameter
-feature,op,x,y,z
-north_dome,10,,,0
-north_dome,20,0,,0

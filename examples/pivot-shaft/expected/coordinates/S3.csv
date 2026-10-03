@@ -1,4 +1,0 @@
-frame=T3, units=mm, mode=absolute, diameter
-feature,op,x,y,z
-plain_end,10,,,
-south_dome,20,0,,0

@@ -1,426 +1,894 @@
-# prechips — plan (rev 3)
+# prechips — plan (rev 6)
 
-> Checks before chips. A deterministic checker that takes a certified part
-> export (STEP + feature specification sidecar, produced together by the CAD
-> side), a proposed process plan (YAML), a consumer-owned rule policy (YAML)
-> and one specific shop's inventory (YAML), and reports what it can prove,
-> what it refutes, and what it cannot know — before a traveler is printed and
-> before a machinist review or a human sees it.
+> Checks before chips. prechips turns a part plus a short process plan into a
+> **validated traveler a machinist can work from**: one page per setup saying
+> how to hold it, where zero is, what the DRO should read for each feature,
+> which tool, what speed and feed to start at, and what to measure. Every
+> setup is validated for feasibility against the current shop inventory, the
+> machines' operating ranges, the setup geometry, the workholding and the
+> physics of the cut. What the checker found goes at the top of the sheet in
+> plain words; everything else it computed goes to a machine-readable report
+> no human has to read.
 
-Status: plan only. No code beyond the package skeleton. Rev 3, 2026-10-02.
-Rev 1 claimed a gate that "proves executability"; two rounds of adversarial
-review (findings carried in the rev-2 and rev-3 commit messages) narrowed it
-to what a checker can establish from declared inputs, with unknowns named as
-unknowns, policy outside the plan author's hands, and geometry-heavy rules
-behind a kernel spike.
+Status: plan only. Rev 6, 2026-10-03. Rev 1 was traveler-first but promised
+geometric proofs it could not deliver. Revs 2–3 absorbed two adversarial
+reviews and became correct but unusable: a 100 KB traveler of config ids,
+hashes and 15-decimal numbers. Rev 4 restored the purpose and the rule
+catalogue. Rev 5 folded the third adversarial round. Rev 6 folds the fourth:
+stock state per operation, the DRO recipe written against the EL400
+manual, inspection per requirement, one `unknown` contract, the
+error/warn/info vocabulary, and the telemetry requirements.
 
-## 1. Why this exists
+## 1. Who this is for
 
-The harmonic-analyzer CAD pipeline produces 103 part drawings and 8 assembly
-drawings, each gated by a blind, image-only LLM machinist review
-(`machinist_review.py` enforces that isolation). Process knowledge — stock,
-setups, workholding, order of operations — exists only as prose
-(`cad/config/parts/*.yaml` `process:` strings; `cad/docs/machining-dfm.md`,
-itself stale: it discusses a brass knife-mount while the registry specifies
-hardened O1). There is no traveler, and nothing checks a proposed plan against
-the part's dimensions or against the shop that will run it.
+A hobby machinist (initially: one person, one shop) making 1–20 of a part on a
+PM-30MV mill run by hand through a DRO (EL400 emulator over cncjs) and a manual
+PM-1127VF-LB lathe. They already have the drawing. They need, per setup:
 
-prechips sits *beside* the blind drawing review, not inside it: the drawing
-review stays image-only and answers "is this sheet makeable from what it
-shows"; prechips answers "is this plan, on this shop, consistent with the
-declared features" and its findings feed a separate, informed process review.
-Two verdicts, never merged.
+1. a picture of the part in the fixture,
+2. a zero-setting recipe for the DRO, with a check move that proves the sign,
+3. a coordinate list in the DRO's own frame and units,
+4. an operation list with tool, holder, RPM, feed, depth, direction, coolant
+   and the inspection that closes the feature,
+5. a short "before you start" box listing what the checker could not confirm
+   or found wrong.
 
-Two things shape the design:
+Nothing on the sheet needs a computer to interpret. Numbers carry the
+drawing's precision (0.01 mm or 0.001 in), never more.
 
-- **The shop is manual-with-digital-positioning.** PM-30MV with a CNC
-  conversion driven by cncjs, operated by hand through an XHC WHB04B-6 pendant
-  and the EL400 DRO emulator (`pedropaulovc/el400`). Feeds are human; positions
-  are read off a DRO. The lathe (PM-1127VF-LB) is manual. So the artefact to
-  validate is a **per-setup coordinate table**, not a toolpath.
-- **No CAM dependency.** Fusion is out (personal licence is non-commercial, the
-  book/Kickstarter are commercial; GUI-bound; weak API signal). FreeCAD is the
-  B-rep kernel, headless, behind a thin JSON adapter — and only once a spike on
-  the consumer's real STEP exports shows it can do the job (§7, M2).
+## 2. The traveler (the product)
 
-## 2. Findings, policy, exit codes
+Letter, portrait, printable; one header page plus one page per setup; HTML
+with print CSS (PDF via the browser). Sketch for `rocker-arm`, setup S3 (mill,
+finish the hub and profile on a prepared blank). **Layout sketch only: the
+coordinates, revision and tool list below are placeholders, not the part's
+geometry** (the real numbers live in `examples/rocker-arm/spec.yaml` and the
+harmonic-analyzer build scripts; the rod hole is at ~146 mm, not 85). The
+RPMs do follow from the cited 90 sfm (§2 rules).
 
-Every rule yields exactly one status per subject:
+```
+ROCKER ARM  MHA-071  rev v21             qty 20    1018 CRS, black oxide
+Traveler  2026-10-03                                        sheet 3 of 4
 
-| status | meaning |
-|---|---|
-| `pass` | the declared inputs satisfy the rule |
-| `fail` | the declared inputs violate the rule; severity `block` or `warn` |
-| `unknown` | a required input is absent, or carries `verify: true` (directly or through a referenced entry — verification is inherited down `ref:` chains); the rule could not run |
-| `not_applicable` | the rule's applicability predicate is false for this subject (e.g. `blind_thread_depth` on a through thread). An *unsupported* subject class is `unknown`, never `not_applicable` |
+BEFORE YOU START
+  ✗  No 6.50 mm reamer in the shop. Nearest: 0.2510 in (6.375 mm), 0.125 mm
+     under the bore's low limit. Buy a 6.5 H7 reamer or re-dimension.
+  ✗  No R8 drill chuck listed; ops 30 and 50 need one. Confirm or add.
+  ?  Vise bed-to-table height not measured — spindle clearance not checked.
+  ?  Travel limits not measured — part + vise assumed inside 23 × 8.75 in.
 
-**Policy is a separate, consumer-owned input** (`policy.yaml`, versioned,
-hashed into the report). It lists the required rules and per-rule severity.
-A plan may *add* required rules; it cannot remove or downgrade one. A rule id
-the checker does not know is a `schema` block. The default policy shipped in
-`examples/policy/default.yaml` requires every rank-1 and rank-2 rule in §4
-plus `envelope` and `holder_compat`, so an unverified machine or fixture
-measurement can never produce a green exit — it produces a list of
-measurements to take.
+SETUP S3 — PM-30MV, PM 6 in vise, jaws along X, part on 3/4 in parallels
+  Starts from: S2 blank, top face at 10.03 above the bottom (0.50 to face).
+  Fixed jaw: rear (+Y).  Stop: against the left end of the fixed jaw.
+  Hold: 10 mm of both rails in the jaws, 3 mm of jaw above the parallels;
+        strap sits on the parallels. Tighten by hand plus a quarter turn.
+  Clear: 7.0 mm from the jaw top to the blank top; 3/8 EM holder clears by 4.
+  Coolant: WD-40 brushed on, drilling and reaming.  Deburr: 0.2 max, file.
 
-Exit codes: `2` if any rule is `fail/block`; else `4` ("not ready") if any
-required rule is `unknown`; else `0`. `2` takes precedence over `4`.
+  DRO ZERO  (frame A = bottom face / left end / front edge, mm, ABS,
+             radius mode; X+ right, Y+ away from you, Z+ up. EL400 manual
+             §6.2 Direction, §7.4 Axis Set — set before S1, same every sheet)
+    X  touch left end with 0.200 in finder from −X     → ABS, Axis Set −2.54
+       then, without touching again, jog +X 10.00: DRO must read +7.46.
+       −12.54 means X counts backwards: stop, set Direction for X, redo.
+    Y  touch front edge, finder from −Y                → ABS, Axis Set −2.54
+       then jog +Y 10.00 without touching: DRO must read +7.46.
+    Z  0.05 paper on the blank top, 1/2 in EM (op 10)  → ABS, Axis Set 10.08
+       after op 10 the top is at 9.53: every later tool touches the FACED
+       top with paper → Axis Set 9.58 before its op. Jog +Z 10.00 without
+       touching after the first set: must read +20.08.
 
-A rule specification is testable or it does not ship: units, applicability
-predicate, exact inequality with boundary behaviour, source (edition/page or
-URL+date), uncertainty treatment, one valid and one invalid example. A bare
-"see Machinery's Handbook" is not a citation. Rule specs live in
-`docs/rules/<rule>.md` and are versioned together as `rules_version`.
+  COORDINATES (mm, frame A, cutter centre; Z is the tool tip)
+    feature        X       Y      Z            note
+    pivot bore    25.40   12.70   tip to −3.86  Ø6.50 +0.03/0; 6.2 drill point 1.86 + 2.0 exit
+    rod hole      85.12   18.23   tip to −2.10  #47 (2.00 mm); point 0.60 + 1.5 exit
+    hub OD        25.40   12.70   0 → 9.53      Ø14.00 ±0.1; cutter R 4.76 outside
 
-## 3. Inputs and contracts
+  OPERATIONS
+    op  do        feature     tool / holder          rpm  feed       Z (tip)          dir   check
+    10  face      top         1/2 4-fl EM, R8 1/2    700  140 mm/min 10.03 → 9.53     conv  —
+    20  spot      pivot bore  #2 CD, R8 1/4          2000 hand       9.53 → 7.5       —     —
+    30  drill     pivot bore  6.2 mm, R8 chuck       1400 hand       → −3.86          —     —
+    40  ream      pivot bore  6.5 H7, R8 1/4          450 hand       → −3.00 (lead 1) —     6.50 go / 6.53 no-go; position: see 50
+    45  spot      rod hole    #2 CD, R8 1/4          2000 hand       9.53 → 7.5       —     —
+    50  drill     rod hole    #47, R8 chuck          2000 hand       → −2.10          —     2.00 pin; position Ø0.20 to A|B: pin + height gauge from bore
+    60  profile   hub OD      3/8 4-fl EM, R8 3/8     900  180 mm/min 9.53 → 0, 2 pass climb 14.00 ±0.1 caliper
+       60: rough to Ø14.6 (centre at 25.40/12.70 ± 12.06), finish Ø14.0
+       (± 11.76). Coordinates for every 10° of the arc are on sheet 3a.
+    70  release   rails       —                      —    —          —                —     —
+       70: loosen, lift the part onto the fixture plate before cutting the
+       rails free (S4). Do not cut the rails in the vise.
+  RPM/feed: HSS, 1018 CRS, 90 sfm; 0.05 mm/tooth — layout placeholders;
+  the shipped cutting-data.toml rev 1 cites no page yet, so the real
+  sheet prints `?` here until a row is transcribed. Starting points, not limits.
 
-### 3.1 Certified export: `part.step` + `spec.yaml`, produced together
-
-The consumer exports the STEP and generates the sidecar in **one step**
-(harmonic-analyzer: a new `cad/scripts/export_process_spec.py` run after
-`export_models.py`), so the sidecar's `step_sha256` always names the bytes it
-describes. AP214 repeat-export byte determinism is unmeasured; the lifecycle
-therefore is: every re-export regenerates the sidecar; a plan names the
-`spec_sha256` it was written against; `step_binding` blocks a plan whose spec
-hash no longer matches the certified pair. Rebinding a plan to a new export is
-an explicit edit of `spec_sha256` (a diff a reviewer sees), never silent. A
-semantic-equivalence policy ("only metadata changed, keep the attestation")
-is a future open question (§9), not something the checker infers.
-
-**No PMI is read from the STEP** (the consumer's export contract is AP214
-colours, not semantic PMI). Everything dimensional comes from the sidecar.
-
-### 3.2 `spec.yaml` — feature specification sidecar
-
-```yaml
-part: rocker-arm
-step_sha256: "…"
-drawing: {number: MHA-071, revision: v21, sheet: 1}
-units: mm
-decimal_precision: 2              # drawing's implied precision for untoleranced values
-default_tolerances:               # from the title block; provenance for every untoleranced value
-  linear: {source: "title block: ±0.1 unless noted"}
-  angular: {source: "title block: ±0.5°"}
-material: {spec: "1018 CRS", thickness: 9.525}    # stock-direction thickness for breakout checks
-frames:
-  model: {note: "STEP coordinate system"}
-  A:
-    parent: model
-    transform: {origin: [0, 0, 0], x: [1,0,0], y: [0,1,0], z: [0,0,1]}   # A → model; validated right-handed, orthonormal
-    note: "bottom face, left end, front edge"
-features:
-  - id: pivot_bore
-    kind: hole                    # hole | bore | counterbore | shaft | slot | pocket | face | thread | fillet
-    frame: A
-    entry_face: top               # named face in the frame; depth is measured from it along -axis
-    axis: [0, 0, -1]
-    center: {x: 25.4, y: 12.7, tolerance: {position_dia: 0.1, source: "zone B3"}}
-    diameter: {nominal: 6.5, upper: 0.03, lower: 0.0, source: "zone B3, explicit"}
-    end: {condition: through}     # through | blind: {depth: <mm>, from: entry_face}
-    finish: {kind: roughness, ra_um: 1.6, source: "zone B3"}   # kind: roughness | coating
-    datum_refs: []
-  - id: pivot_cbore
-    kind: counterbore
-    parent: pivot_bore            # a counterbore always names the hole it sits on, shares its axis/centre
-    diameter: {nominal: 9.5, upper: 0.1, lower: 0.0, source: default}
-    end: {condition: blind, depth: 2.0, from: entry_face}
-  - id: rod_tap
-    kind: thread
-    frame: A
-    entry_face: top
-    axis: [0, 0, -1]
-    center: {x: 50.8, y: 12.7, tolerance: {position_dia: 0.2, source: default}}
-    thread: {designation: "1/4-20 UNC", class: "2B", standard: "ASME B1.1-2003", source: "zone C2"}
-    end: {condition: through}     # 9.525 mm stock: a 9.5 mm blind thread would break out, so it is through
-  - id: profile_outer
-    kind: pocket                  # the outer profile, modelled as the complement: stock minus part
-    frame: A
-    tolerance: {profile: 0.1, source: default}
+  Sign off: ________  first article: ________  pivot bore reads ______
+                                            prechips 0.1 · report 7f3a9c2e
 ```
 
-What a rule can rely on: typed kinds; one end-condition model for every
-axial feature; explicit entry face and axis direction; position tolerance
-with provenance; default-tolerance provenance for untoleranced values; thread
-designation + class + standard; finish kind separated from coating; material
-thickness along the feature axis for breakout checks; the drawing identity the
-values were read from. Anything a generator cannot source from the consumer's
-own spec modules (harmonic-analyzer: `rocker_arm_spec.py`, `_hole_spec.py`,
-`_gtol_spec.py`, the title-block defaults) is left out, and the rule that
-needs it reports `unknown`.
+Rules for the sheet:
 
-### 3.3 `plan.yaml` (author: machinist / agent; reviewed by the checker)
+- **Plain words, drawing precision.** A finding is one or two sentences with
+  the number that matters; no rule ids, no hashes, no file paths. The three
+  glyphs are `✗` error, `!` warning, `?` could not check.
+- **Everything the machinist would otherwise invent is on the page.** Fixed
+  jaw side, stop, grip, clamp method, clearance under the holder, coolant,
+  deburr limit, cut direction, what the setup starts from, the tip endpoint
+  of every hole (point length or reamer lead + exit allowance), the Z the
+  top is at after each op and the number to set after each tool touch,
+  cutter-centre coordinates for a manual contour (the arc table on a
+  continuation sheet), the step that releases a held feature. Each comes
+  from a `plan.toml` field (§3.1) or a rule's computation; none is free text
+  the generator makes up. A field the author left blank is a `?` line, not
+  a blank cell.
+- **The zero recipe proves its own sign, per axis, against the manual.**
+  The DRO is described in the terms of the Electronica EL400 Operation
+  Manual (linked in the README): `Direction Left/Right` per axis (§6.2),
+  `Axis Set` in ABS (§7.4, "alters the datum"), radius/diameter (§6.2),
+  `Preset` is distance-to-go and is never used for zero (§8.1). For every
+  axis: touch, Axis Set the compensated value, then jog a stated distance
+  **without touching again** and compare the reading; the sheet prints the
+  expected reading and the mirrored one. The emulator is expected to match
+  the manual; where it does not, that is an emulator bug, not a prechips
+  input.
+- **Speeds and feeds appear on the sheet**, computed from a shipped,
+  versioned `cutting-data.toml` (§3.5), rounded to the nearest 50 rpm,
+  then clamped to the machine's range, labelled as starting points. Source order:
+  the tool vendor's chart when the inventory entry names one
+  (`chart = "<url or doc>"`), otherwise Machinery's Handbook 31. The
+  citation is one line per setup, not per cell.
+- **Units: coordinates in the drawing's unit, tool sizes as bought.** The
+  harmonic-analyzer drawings are mm; the DRO and the tooling are inch. Both
+  appear only where they meet, on the sizing line ("0.2510 in (6.375 mm)").
+- **Feature names, not balloon numbers.** The sheet says `pivot bore`, never
+  "bore ③": balloon numbers are not stable across drawing revisions.
+- **The DRO block is a recipe, not a file.** It says which edge, which
+  finder, which direction, what to Axis Set. It uses only functions the
+  manual documents (ABS/INC, radius/diameter, Axis Set, bolt-circle/linear
+  patterns); prechips does not emit EL400 files until the emulator has an
+  import path.
+- **Footer**: `prechips <version> · report <8-char id>` so the sheet can be
+  matched to its `report.json`. That is the only identifier on the page.
 
-```yaml
-part: rocker-arm
-spec_sha256: "…"                  # the certified pair this plan was written against
-policy: policy.yaml
-stock:
-  state: prepared_blank           # raw_bar | prepared_blank — what the plan starts from
-  material_spec: "1018 CRS"
-  section_mm: {w: 25.4, t: 9.525}
-  length_mm: 60
-setups:
-  - id: S1
-    machine: PM-30MV
-    workholding:
-      kind: vise
-      ref: vise-pm-6
-      orientation: jaws_along_x
-      parallels: {ref: parallels-lms-6745, item: "3/4in"}
-      part_top_above_jaws_mm: 4.0
-    frame: A
-    pickup:                         # structured, so the sign/offset check is computable
-      x: {feature: left_end, side: -x, tool: edge-finder-lms-1853, tool_dia_mm: 5.08, sets: 0.0}
-      y: {feature: front_edge, side: -y, tool: edge-finder-lms-1853, tool_dia_mm: 5.08, sets: 0.0}
-      z: {feature: top, side: +z, method: paper, paper_mm: 0.08, sets: 9.525}   # Z0 is A's origin (bottom face)
-    holders:
-      - {ref: r8-collets-lms-4860, item: "1/4in"}
-      - {ref: r8-collets-lms-4860, item: "3/8in"}
-    features: [pivot_bore, pivot_cbore, rod_tap, profile_outer]
-    operations:
-      - {op: 10, do: spot,  feature: pivot_bore, tool: center-drills-lms-4859/2, holder: r8-collets-lms-4860/1-4in}
-      - {op: 20, do: drill, feature: pivot_bore, tool: drill-index-115/6.2mm, holder: r8-collets-lms-4860/1-4in, rpm: 1500}
-      - {op: 30, do: ream,  feature: pivot_bore, tool: reamers-metric/6.5-H7, holder: r8-collets-lms-4860/1-4in, rpm: 500,
-         inspect: {method: pin_gauge, gauge: pin-gauges-metric/6.50-6.53, go: 6.50, nogo: 6.53}}
-      - {op: 40, do: spot,  feature: rod_tap,    tool: center-drills-lms-4859/2}
-      - {op: 50, do: drill, feature: rod_tap,    tool: drill-index-115/13-64}                     # through; no depth
-      - {op: 60, do: tap,   feature: rod_tap,    tool: taps/1-4-20-unc-2b-plug, method: hand_tap_guide,
-         inspect: {method: thread_gauge, gauge: thread-gauges/1-4-20-unc-2b, go: true, nogo: false}}
-      - {op: 70, do: counterbore, feature: pivot_cbore, tool: endmills-lms-6784/3-8in-2fl, holder: r8-collets-lms-4860/3-8in, depth_mm: 2.0,
-         inspect: {method: caliper, dia_range: [9.5, 9.6], depth_range: [1.9, 2.1]}}
-      - {op: 80, do: profile, feature: profile_outer, tool: endmills-lms-6784/3-8in-4fl, holder: r8-collets-lms-4860/3-8in, rpm: 1800,
-         inspect: {method: caliper, profile_tolerance: 0.1, points: [length, width, hub_od]}}
+## 3. Inputs (what the author writes)
+
+All inputs are **TOML**. Deeply nested YAML was the readability failure of
+rev 3; TOML's `[[setups]]` / `[[setups.ops]]` tables keep each record flat and
+self-labelled, and `tomllib` is in the standard library. The merged rev-3
+fixtures under `examples/` are YAML and will be converted when M1 lands.
+No text format carries decimal precision (TOML, YAML and JSON all read
+`25.40` back as `25.4`), so a manifest states it: `precision = N` at file
+level is the drawing's general class, and a feature with a tighter
+dimension overrides it (`precision = { at = 3 }`), which is how the title block's
+`linear_2pl` / `linear_3pl` classes attach to one dimension and not the
+whole sheet.
+
+### 3.1 `plan.toml` — short, per part
+
+```toml
+part = "rocker-arm"
+drawing = { number = "MHA-071", revision = "v21" }
+quantity = 20
+features = "features.toml"                # the bundle the plan was written against
+
+[stock]
+form = "flat_bar"
+material = "1018 CRS"
+section_mm = [45, 16]
+length_mm = 310
+
+[dro]                                     # set once, in S1; printed on every sheet
+controller = "el400"
+manual = "Electronica EL400 Operation Manual"   # README links it; sections cited on the sheet
+mode = "abs"
+radius_mode = true
+direction = { x = "right", y = "away", z = "up" }   # manual 6.2 Direction, as the sheet reads it
+
+[[setups]]
+id = "S3"
+machine = "pm-30mv"
+frame = "A"                               # named in features.toml
+coolant = "wd40_brush"
+deburr_mm = 0.2
+stock_in = "S2"                           # what this setup starts from
+
+[setups.stock_state]                      # surfaces as this setup receives them, frame A
+top_z = 10.03                             # S2 leaves 0.50 to face
+bottom_z = 0.0
+local_thickness = { pivot_bore = 7.06, rod_hole = 2.5 }   # from features.toml faces; here hand-written
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"
+fixed_jaw = "rear"
+parallels = "parallels-lms-6745/0.75in"
+grip_mm = 10
+jaw_above_parallels_mm = 3
+stop = "left end against fixed jaw"
+clamp = "hand plus quarter turn"
+
+[setups.zero]
+x = { edge = "left_end", from = "-x", tool = "edge-finder-0.200", check_jog_mm = 10.0 }
+y = { edge = "front",    from = "-y", tool = "edge-finder-0.200", check_jog_mm = 10.0 }
+
+[setups.zero.z]
+face = "top"
+method = "paper"
+paper_mm = 0.05
+tool = "em-1/2-4fl"
+check_jog_mm = 10.0
+retouch_after = [10]                      # ops that change the touched surface
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "top"
+tool = "em-1/2-4fl"
+holder = "r8-1/2"
+to_z = 9.53                               # the top after this op; stock_state advances
+direction = "conventional"
+
+[[setups.ops]]
+op = 20
+do = "spot"
+feature = "pivot_bore"
+tool = "cd-2"
+holder = "r8-1/4"
+depth_mm = 2.0
+
+[[setups.ops]]
+op = 30
+do = "drill"
+feature = "pivot_bore"
+tool = "drill-6.2mm"
+holder = "r8-chuck"
+exit_mm = 2.0                             # full diameter this far past the exit face;
+                                          # tip endpoint = exit face − point length − exit_mm
+
+[[setups.ops]]
+op = 40
+do = "ream"
+feature = "pivot_bore"
+tool = "reamer-6.5-h7"
+holder = "r8-1/4"
+exit_mm = 2.0                             # tip endpoint = exit face − reamer lead − exit_mm
+checks = { dia = "pin-gauge-6.50-6.53" }
+
+[[setups.ops]]
+op = 45
+do = "spot"
+feature = "rod_hole"
+tool = "cd-2"
+holder = "r8-1/4"
+depth_mm = 2.0
+
+[[setups.ops]]
+op = 50
+do = "drill"
+feature = "rod_hole"
+tool = "drill-47"
+holder = "r8-chuck"
+exit_mm = 1.5
+checks = { dia = "pin-2.00", position = "pin-and-height-gauge-from-bore" }
+
+[[setups.ops]]
+op = 60
+do = "profile"
+feature = "hub_od"
+tool = "em-3/8-4fl"
+holder = "r8-3/8"
+to_z = 0.0
+direction = "climb"
+rough_allowance_mm = 0.3
+contour = { method = "arc_table", step_deg = 10 }
+checks = { dia = "caliper" }
+
+[[setups.ops]]
+op = 70
+do = "release"
+feature = "rails"
+note = "lift onto the fixture plate before S4 cuts the rails free"
 ```
 
-Tool references are `set/item`, resolving to one physical tool with its own
-flute length, OAL, shank. `sizing_tool` checks the tool the operation
-*selects*, not whether any suitable tool exists somewhere in the inventory.
-Permitted chains are enumerated per kind (`hole`: spot→drill, spot→drill→ream,
-spot→drill→bore; `bore`: drill→bore; `thread`: spot→drill→tap) — a chain
-outside the list is a `fail`, not an inferred alternative.
+The author writes the route and every holding/cutting decision above.
+prechips fills in RPM/feed, tip endpoints (from the stock state, the tool's
+point angle or reamer lead, and `exit_mm`), the Z of the top after each op
+and the per-tool touch value, cutter-centre coordinates and the arc table,
+holder clearance, and resolves tool, holder and fixture ids against the
+shop. `checks` is keyed by requirement (`dia`, `position`, `finish`,
+`depth`), one gauge per requirement, so a feature with two tolerances needs
+two entries. Tool ids are short and human (`em-3/8-4fl`), set by the
+inventory. A later setup declares how it re-finds zero
+(`[setups.zero] transfer = { from = "S1", indicate = "pivot_bore" }`).
 
-The example is a *valid control*: every referenced feature exists, every
-feature has operations, the selected reamer matches the 6.50–6.53 band, the
-pickup's Z offset equals the material thickness so A's bottom-face origin is
-consistent with touching the top. `examples/rocker-arm/` will also carry the
-invalid controls (§7).
+### 3.2 `features.toml` — the drawing, in numbers (generated by the CAD side)
 
-### 3.4 `policy.yaml` (consumer-owned)
+Exported beside the STEP by the consumer (harmonic-analyzer: from
+`rocker_arm_spec.py`, `_hole_spec.py`, `rocker_arm_notes.py`,
+`draw_rocker_arm.py`'s datum scheme and `title_block.yaml`'s general
+tolerances). prechips never reads PMI from the STEP and never invents a
+tolerance. It is a **complete requirement manifest** under one `unknown`
+contract:
 
-```yaml
-policy_version: 1
-required: [schema, inventory_refs, citations_present, step_binding, policy_integrity,
-           sizing_tool, hole_op_chain, op_order, coordinate_table, blind_thread_depth,
-           coverage, envelope, holder_compat]
-severity: {sizing_tool: block, envelope: block, coverage: warn}
+- A requirement the drawing carries whose value the generator cannot source
+  is the string `"unknown"` in that field (`dia = "unknown"`,
+  `position_dia = "unknown"`). It is still a requirement: it enumerates a
+  subject for every rule that reads that field, and each such rule returns
+  `unknown` for it. The sheet prints a `?` line naming the feature and the
+  field.
+- A requirement the drawing does **not** carry is absent. Absence is known
+  absence, and the generator asserts it: `requirements = ["dia", "thru"]`
+  per feature lists exactly which fields are requirements, so a missing
+  field that is not in the list is a generator error, not an unknown.
+- An omitted *feature* is impossible to detect from the manifest alone,
+  which is why the generator, not a hand, writes it (M3) and why the M1
+  hand-written manifest is cross-checked against the drawing's dimension
+  count.
+
+Excerpt; the full source-backed manifest is
+`examples/rocker-arm/features.toml` (every value cited to the consumer;
+that file, not this excerpt, is what M1 mirrors):
+
+```toml
+part = "rocker-arm"
+units = "mm"
+precision = 2                              # .XX general class; a feature may override
+step_sha256 = "…"                          # the STEP this manifest was exported with
+construction = "one_piece"                 # or "built_up_permitted" (drawing note)
+
+[frames.model]
+note = "SolidWorks part origin: pivot axis, mid-thickness"
+
+[frames.A]                                 # numeric, in model coordinates
+origin = [0.0, 8.0, 3.52825]
+x = [1, 0, 0]
+y = [0, 1, 0]
+z = [0, 0, 1]
+note = "bottom face / left end / front edge (draw_rocker_arm.py datums A=bore, B=broad face, C=tip)"
+
+[material]
+spec = "1018 CRS"
+thickness = 16.0
+
+[general_tolerances]                       # title_block.yaml value_in x 25.4
+linear_2pl = 0.508
+linear_3pl = 0.127
+angular_deg = 1.0
+
+[features.pivot_bore]
+kind = "hole"
+at = [0.0, 8.0]                            # model frame; the plan's frame A is derived
+dia = [6.50, 6.53]
+thru = true
+faces = ["Face1", "Face16"]                # STEP face SET; a bore is two patches
+datum = "A"
+
+[features.rod_hole]
+kind = "hole"
+at = [133.06740213488345, 16.456064115939025] # on the R816 arc; BASIC from the pivot
+drill = "#47"
+dia = [1.994, 2.094]                       # #47 + drilled-hole general band +0.10/0
+thru = true
+position_dia = 0.20
+precision = { dia = 2, position_dia = 2 }  # per dimension; `at` is BASIC, never gets a ± default
+requirements = ["at", "dia", "thru", "position_dia"]
+position_datums = ["A", "B", "C"]          # C clocks rotation about the pivot axis
+faces = "unknown"                          # until the face-set export (M3)
+
+[features.hub_od]
+kind = "boss"
+at = [0.0, 8.0]
+dia = [9.692, 10.708]                      # HUB DIA 10.20 under the .XX general band
+coaxiality_dia = 0.50
+coaxial_to = "pivot_bore"
+requirements = ["dia", "coaxiality_dia"]
+
+[features.top]
+kind = "face"
+faces = ["Face15"]
+finish_ra = 1.6
+
+[features.profile_outer]
+kind = "profile"
+requirements = []                          # drawing carries no profile tolerance: known absence
+faces = ["Face2", "Face3", "Face6"]
 ```
 
-### 3.5 `inventory.yaml` (user-supplied; sample in `examples/inventory/`)
+**What the generator can and cannot source today** (rocker arm): nominal
+centres and limits (`rocker_arm_spec.py:32–59,72,107`), #47 diameter and
+its default band (`_hole_spec.py:82,104`, `title_block.yaml:66`), position
+Ø0.20 to A|B (`rocker_arm_spec.py:124`), through-ness
+(`rocker_arm_notes.py:60`), the datum scheme (`draw_rocker_arm.py:447–548`),
+general tolerances (`title_block.yaml:19–27`), deburr limit
+(`title_block.yaml:43–45`). It cannot source: a profile tolerance, the
+built-up permission (no drawing note exists; `construction` defaults to
+`one_piece`), and STEP face names until the export change below. Those are
+`unknown` entries and `?` lines.
 
-Per-tool entries, not only sets. A set entry (`endmills-lms-6784`) expands to
-items with per-item geometry (`diameter`, `flute_length`, `oal`, `shank`,
-`flutes`, `center_cutting`) — vendor-page values flagged `verify: true` until
-measured. `present: null` is `unknown`, not absent.
+**Why not PMI in the STEP.** Semantic PMI needs AP242, and in SolidWorks that
+export is the MBD add-in only (`IModelDocExtension.PublishSTEP242File2`,
+`swPublishStep242_MBDLicenseNotAvailable`); the 2026 help says MBD "is not
+part of any role" and needs a stand-alone licence, and the R2026x Makers
+seat has no MBD add-in registered. Even licensed, AP242 carries DimXpert
+annotations, and harmonic-analyzer deliberately authors plain gtols
+(`_part_pmi.py`) with every size on the 2D drawing, so the export would hold
+a few GD&T frames and no dimensions. The spec scripts are the authority; a
+generated `features.toml` is the lossless route.
 
-Fields the `envelope` rule needs that the current sample lacks (each a
-measurement to take before the rule leaves `unknown`):
-`machine.travel_measured_in` (soft-limit extents), `machine.spindle_nose_to_table_max_in`,
-`vise.bed_above_table_in` (not jaw height), `parallels[].height_in`,
-`holder.gauge_length_in` and `holder.insertion_in` (so OAL is not
-double-counted), `tool.projection_in` once mounted, `chuck.jaw_swing_dia_in`,
-`parting_blade.reach_in`, `tailstock.quill_in`.
+**What the STEP should carry instead: face ids, as sets.** AP214 with
+`swStepExportFaceEdgeProps` (no MBD) names every face. A feature is a face
+*set*, not one face: the v38 `rocker-arm.STEP` already holds the pivot bore
+as two Ø6.5 cylinder patches of equal area (faces 1 and 16). The generator
+must resolve each spec feature to its native SolidWorks faces (the
+`CylinderFace`/`PlanarFace` matcher `_part_pmi.py:223–259` already uses) and
+emit the exported names of all of them, bound to that STEP's digest, failing
+loud on ambiguity. Tracked as a harmonic-analyzer issue (§8, M3).
 
-Unit handling: comparisons normalize to mm with the delta reported in both
-units; substitution never happens. Example: spec Ø6.500 +0.03/0 vs selected
-inch reamer 0.2510 in = 6.3754 mm → `sizing_tool(pivot_bore, selected: reamers/0.2510, delta: −0.125 mm, outside: [6.50, 6.53])` at `block`.
+### 3.3 `inventory.toml` — the shop (user-supplied; sample in `examples/inventory/`)
 
-### 3.6 `attestation.yaml` — bench verification, separate from the plan
+Machines with ranges and (when measured) envelopes; holders with gauge
+length; tools by short id with diameter, flutes, flute length, OAL, shank,
+material, point angle for drills, and an optional `chart`; gauges; fixtures
+with the dimensions the rules read (vise: jaw width, opening, jaw height
+above the bed; parallels: heights; collet set: sizes; chuck: range; dividing
+head: `worm_ratio`, `direct_index.positions`, `plate_holes` per plate —
+the sample's BS-0 carries all three, circles `verify = true`). A value copied from a vendor page is
+`verify = true` and anything that depends on it is a `?` on the sheet, never
+a silent pass. The sample inventory already carries the PM 6 in vise
+(`jaw_height_in = 1.825`, `opening_in = 6`) and the PM-30MV envelope
+(`travel_in`, `spindle_to_table_max_in`), all `verify = true`.
 
-Bench verification is a first-article cut, not prose. It is recorded outside
-the plan, by a human, as a file the checker only *reads*:
+### 3.4 `shop-policy.toml` — what must be confirmed (user-supplied, optional)
 
-```yaml
-part: rocker-arm
-first_article: {logbook_entry: "logbook/entries/2026-10-14.md", measured: {pivot_bore: 6.512}}
-bound_to: {spec_sha256: "…", plan_sha256: "…", inventory_sha256: "…", policy_sha256: "…"}
+Which `(rule, subject)` pairs must come back clean before a sheet is
+**checked**, plus the shop's own numbers that rules read:
+
+```toml
+[required]                      # rule = subjects; "*" = every feature/setup/op
+tool_resolves = "*"
+sizing = "toleranced_features"
+op_chain = "holes"
+blind_depth = "holes"
+inspection = "toleranced_features"
+coordinates = "*"
+zero_check = "setups"
+
+[numbers]
+refixture_budget_mm = 0.05      # what a re-indicated pickup repeats to; measured, else verify
+thin_wall_floor_mm = 2.0        # below this under a jaw, name a method
+stickout_ld_max = 3.0           # collet/chuck without support (cite)
 ```
 
-`plan_sha256` is the digest of the plan file itself (the plan carries no
-verification field, so the digest is not self-referential). Any input hash
-that no longer matches makes the attestation stale: the report says
-`verification: planned` and names which hash moved. A stateless checker can
-enforce exactly this and nothing more; "re-approval after an equivalent
-re-export" is consumer workflow (§9).
+Subjects are enumerated from `features.toml` (`requirements` lists) and
+`plan.toml`, not from what the plan happens to mention: a required rule with
+no subject in a non-empty manifest is `unknown`, and a plan with no setups
+or no ops, or a manifest with no features, is rejected before any rule runs.
+A required rule whose result is `warn` keeps the sheet `PLANNED` and exits
+4, the same as a required `unknown`: "required" means the shop wants a
+clean answer, and a warning is not one. `unsupported` (prechips has no rule
+for this feature kind yet) and `not_applicable` (the rule has nothing to
+say about this subject) are distinct statuses; only `not_applicable` is a
+pass. Lives with the inventory, not in the plan, so a plan cannot waive it.
+The shipped default requires the first seven rules on `*`.
 
-### 3.7 Outputs
+### 3.5 `cutting-data.toml` — shipped with prechips, versioned
 
-- `report.json`: canonical JSON — sorted object keys; findings sorted by
-  `(rule, subject)`; evidence arrays in declaration order; floats as shortest
-  round-trip repr, no NaN/Inf; no timestamps. Shape:
-  `{inputs: {step_sha256, spec_sha256, plan_sha256, inventory_sha256, policy_sha256, rules_version, tables_version, prechips_version}, verification, findings: [{rule, subject, status, severity, evidence, cite}], hash}`.
-  `hash` is SHA-256 of the canonical JSON with the `hash` member omitted;
-  rendered bytes are excluded.
-- `coordinates/<setup>.csv`: per-setup coordinate table — header row names
-  the frame and units (`frame=A, units=mm, mode=absolute, diameter`), rows
-  `feature, op, x, y, z`. Derived from the sidecar through the setup's pickup
-  transform, so a reversed pickup side or wrong Z offset moves the numbers and
-  is caught by `coordinate_table` against the sidecar's own values. **No
-  EL400 preset format** (EL400 mirrors cncjs position state and discards SDM
-  sessions on exit; it has no import contract). An adapter is added only after
-  a neutral table has been used at the machine.
-- `traveler.html` (PDF via the browser's print, no PDF dependency in M1):
-  setups, operations, coordinate tables, findings inline, headed
-  "PLANNED — scoped checks only" until an attestation binds.
-- `setup-<n>.png`: optional, M3+.
+The only numeric table prechips ships. Two tables. `[[cut]]` keyed
+`(material_class, tool_material, operation, diameter_range)` →
+`sfm`, `chip_load_mm_per_tooth`, `cite`. `[[material]]` keyed
+`material_class` → `kc_n_per_mm2` (specific cutting force at 1 mm chip),
+`e_gpa`, `cite` — the only source the §4.4 proxies may read. `material_class` maps from the
+inventory/plan material string through a small alias table (`"1018 CRS"` →
+`low_carbon_steel`). RPM = 12·sfm / (π·D_in), rounded to the nearest 50,
+then clamped to the machine's range (so a 70 rpm floor never prints 50);
+feed = rpm·flutes·chip_load. An inventory tool with `chart = …`
+overrides the row with its own `sfm`/`chip_load`, citing the chart. A
+missing row is a `?` line, never a guessed number. Content grows with the
+routes that ship: rev 1 carries only the rows M1's rocker setup selects
+(HSS × low-carbon steel × face/profile/drill/ream), each transcribed and
+page-cited from Machinery's Handbook 31 Table 1 or left `"unknown"`; a row
+is added when a shipped route first needs it.
 
-CLI: `prechips check <plan.yaml> --inventory <inv> [--policy <p>] [--attestation <a>] --out <dir>`
-(exit per §2); `prechips render <report.json>` (traveler); `prechips rules`
-(lists rule ids, versions, citations). The consumer enrolls `report.json` +
-`traveler.html` in its release bundle (`cut_release.py:stage_*`), M4.
+## 4. What the checker validates (the rule catalogue)
 
-## 4. Rule catalogue, ranked by expected signal
+Every rule is deterministic: same inputs, same verdict. Each produces one
+status per `(rule, subject)`: `pass`, `error`, `warn`, `info`, `unknown`
+(an input missing or `verify = true`), `unsupported` or `not_applicable`.
+The sheet shows `error` (`✗`), `warn` (`!`) and `unknown` (`?`) as
+sentences; `info` goes to the report and the log only. Exit precedence:
+3 (bad input, nothing written) > 2 (any `error`) > 4 (a required `unknown`,
+`unsupported` or `warn`) > 0 — so the consumer can wrap it as a doit gate.
+Every numeric threshold carries a `cite`; an uncited number is a lint error
+in this repo.
 
-Ranks are engineering judgment for lots of 1–20, to be re-measured on the
-pilot plans. Column *needs* names the inputs; a rule whose inputs include a
-field the sidecar cannot source reports `unknown`.
+Each row names **where its inputs come from** (`plan`, `features`,
+`inventory`, `policy`, `cutting-data`, `kernel`) and its tier: **M1** ships
+in the first slice, **M4** needs the kernel, **deferred** is kept as intent
+with no code until a pilot needs it. A row whose inputs are not in §3 does
+not exist.
 
-| rank | rule | needs | status |
+### 4.1 Plan lint (declared inputs only)
+
+| rule | inputs | tier | on the sheet it reads like |
 |---|---|---|---|
-| 1 | `schema`, `inventory_refs`, `citations_present`, `step_binding`, `policy_integrity` (plan adds, never subtracts) | plan, inventory, spec, policy | M1 |
-| 1 | `sizing_tool` — the *selected* finishing tool for every toleranced hole/bore/thread produces a size inside the band; unit mismatch reported, never converted | spec, inventory, plan | M1 |
-| 2 | `hole_op_chain` — per kind, one of the enumerated permitted chains; counterbore after its parent, tool ≥ its diameter | spec, plan | M1 |
-| 2 | `op_order` — rough before finish, drill before ream/tap, spot before drill | plan | M1 |
-| 2 | `coordinate_table` — sidecar centre → setup frame through the structured pickup; checks pickup side/offset consistency with the frame definition and material thickness | spec, plan | M1 |
-| 2 | `coverage` — every sidecar feature has ≥1 operation and every toleranced feature has an `inspect` entry; this is requirement-to-operation coverage, not geometric proof | spec, plan | M1 |
-| 2 | `blind_thread_depth` — drill depth ≥ full-thread depth + tap chamfer lead (plug/bottoming from the tap item) + drill-point allowance (118°/135° from the drill item); tap flute ≥ full-thread depth; drill depth + point < `material.thickness` unless `through` | spec (`end`, `material.thickness`), inventory (tap/drill geometry), plan | M1b: `unknown` until the tap/drill items carry geometry |
-| 3 | `envelope` — assembled stack against reference planes: table → vise bed → parallels → part top; spindle nose → holder gauge length → tool projection; `≤ spindle_nose_to_table_max` with clearance for insertion/retract; drill depth ≤ quill stroke or declared head move; chuck jaw swing vs swing-over-bed; bar stick-out behind headstock; parting reach ≥ stock radius; tailstock quill vs declared reach | plan, inventory fields of §3.5, spec | M1b: `unknown` until measured |
-| 3 | `holder_compat` — each operation's tool shank fits its declared holder, and the holder fits the machine (R8 collet sizes, QCTP shank cap, MT3 sleeve for the 2MT chuck) | plan, inventory | M1 |
-| 3 | `index_representable` — angle reachable with the listed plates within the feature's angular tolerance; needs `angle` + `tolerance.angular` on the feature | spec (angular fields), inventory | M1b |
-| 5 | `tool_reach`, `fixture_collision`, `internal_corner_radius` — restricted to named milling operation classes with measured cutter/holder envelopes and explicit intermediate stock | STEP + kernel | M3 |
-| 6 | `grip`, `thin_wall_in_grip`, `part_off_last`, `tiny_part_method`, `slender_support` — advisory | STEP + kernel, plan | M3 |
-| 7 | `rpm_from_sfm`, `stickout_ld`, `engagement` — advisory with cited tables; RPM clamped to machine range | plan, inventory, tables | M3 |
-| 8 | `axial_accessibility`, geometric coverage — advisory; "as-stock" waiver must name faces | STEP + kernel | M3, maybe never |
-| — | datum/re-fixture budget | semantic datum scheme | dropped (the drawing policy removes most formal datums) |
-| — | deflection-vs-tolerance gate, tool-life counter, stock "winner" | calibrated force/clamp models | dropped as gates; see §5 |
+| tool resolves; holder's taper = machine spindle; shank fits holder | plan.ops.tool, inventory.tools/holders/machines | M1 | "No R8 drill chuck listed." |
+| sizing: selected finishing tool's size within the feature's limits; unit mismatch reported, never converted | plan.ops.tool, features.dia, inventory.tools.dia | M1 | "Nearest reamer 6.375 mm, 0.125 under the low limit." |
+| op chain per feature kind: hole = spot→drill→(ream\|tap); counterbore after its hole; tap drill from thread spec | plan.ops, features.kind/thread | M1 | "Pivot bore is reamed without a drill op." |
+| order: rough→finish, drill→ream/tap, face→spot, release last | plan.ops | M1 | "Op 40 reams before op 30 drills." |
+| tip endpoints from stock state: the setup's `stock_state` advances per op (`to_z`); a through hole's tip endpoint = exit face − point length (`point_angle`, D) − `exit_mm`, reamer: − `lead_mm` − `exit_mm`; blind: depth + point ≤ `features.depth`; tap flute ≥ thread depth; exit face from `local_thickness[feature]`, never the stock section | plan.setups.stock_state, plan.ops.exit_mm/depth_mm/to_z, features.thru/depth, inventory.tools.point_angle/lead_mm/flute_len | M1 | fills the Z column; "6.2 drill to −2.0 leaves 0.14 of cone in the bore; go to −3.86." |
+| speeds/feeds from cutting-data, rounded, then clamped | plan.ops, inventory.tools (material, flutes, chart), machine rpm range, cutting-data | M1 | fills the columns; "? no row for O1 hardened" |
+| zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + paper; the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
+| coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; the arc table for `contour.method = "arc_table"`) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia | M1 | silent when right; prints sheet 3a |
+| inspection per requirement: every entry in a feature's `requirements` that is a tolerance (any `*_dia`, `dia`, `finish_ra`, `depth`, `coaxiality_dia` — every requirement that carries a band, not a fixed list) has a `checks.<requirement>` on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
+| hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
+| headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL, holder gauge length, machine envelope — `verify` → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
+| datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
+| turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
+| stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed | plan.setups.hold.stickout_mm, policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
 
-Mutation controls: for each shipped rule, one known-bad plan that must `fail`
-*and* the valid control that must `pass`.
+### 4.2 Setup geometry (on the B-rep — needs the kernel)
 
-## 5. What stays advisory or deferred, and why
+| rule | inputs | tier | on the sheet |
+|---|---|---|---|
+| accessibility: for each face an op claims, sample points; at each, stand the op's **tool cylinder** (radius, flute length) and its holder cylinder (gauge dia, gauge length) with the tool centre offset from the sample by the cutter radius along the face's outward normal (so the cylinder touches the face rather than sitting in it); intersect with (part − the claimed face's own feature) ∪ fixture solids; any hit = occluded. A zero-radius ray misses jaw-adjacent faces (measured, §6) and a cylinder centred on the sample hits the part itself on a side face, which is why the offset exists | features.faces, plan.ops (tool, holder), inventory.tools/holders, fixture solids from inventory dims + plan.hold | M4 | "Rail top within 4.8 mm of the rear jaw is unreachable with the 3/8 EM in S3." |
+| reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
+| internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
+| coverage: ⋃ faces claimed by ops ∪ faces declared as-stock = all faces | features.faces, plan.ops, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no op." |
+| finish coverage: every `finish_ra` face is claimed by a finishing op | features.finish_ra/faces, plan.ops | M4 | "Ra 1.6 on the bore; no op touches it." |
 
-- **Physics proxies.** The rev-1 `F·L³/(3EI)` / `F·L³/(48EI)` forms assume a
-  prismatic beam with an end/central load; `cone-gear-shaft` is stepped, the
-  tool load moves, the tailstock is compliant, and Sandvik's specific cutting
-  force is the tangential component, not the radial one that sets diameter
-  error (and a radial deflection doubles diametrally). No clamping-force
-  input exists. Kept only as an advisory estimate with a stated model and its
-  assumptions, never a gate. Chatter/FRF: out.
-- **Stock-form comparison.** Geometry can compute a declared blank's waste; it
-  cannot synthesize setup routes, casting allowances, brazing acceptance or
-  procurement cost. Replaced by an *authored* candidate table: the plan author
-  lists candidate routes with their setups and fixtures; prechips reports waste
-  volume, setup count, findings and unknowns per candidate as an unweighted
-  table. No winner is declared; "indexed on a BS-0" is 3+1 indexing, never
-  "4-axis". A built-up construction (brazed boss) is a design change needing
-  CAD-side approval, not a drawing note.
-- **FreeCAD kernel.** Candidate APIs: `Part.Shape.read`, `Face.Surface`
-  descriptors, `distToShape`/`common` against placed fixture solids, `section`
-  against finite ray edges. OCC documents tangency/tolerance failures on
-  booleans; face ordering is not stable across versions. The M2 spike's
-  acceptance cases: invalid/unhealed shape → `unknown` with the OCC check
-  result; ambiguous descriptor match (two faces fit) → `unknown`, never
-  first-match; split/seam faces on cylinders resolved to one feature; a
-  re-export of the same model resolves every sidecar feature to the same
-  geometry; bounding boxes agree with the sidecar's `material` extents. If
-  the spike fails, M3 is cut and prechips stays a declared-input checker.
-- **Determinism.** Pinned: FreeCAD version *and bundled OCC*, importer
-  settings, sampling algorithm and seed, numerical tolerances, `rules_version`,
-  `tables_version` (cited speed/feed/tap-drill tables), canonical JSON per
-  §3.7. Feature identity comes from sidecar ids, never OCC object hashes.
-- **CAM simulation, EL400 adapter, cncjs macros, every fixture family.**
-  After a neutral traveler has been used at the machine.
+### 4.3 Workholding (geometry + inventory — needs the kernel for the solids)
 
-## 6. Architecture
+| rule | inputs | tier | on the sheet |
+|---|---|---|---|
+| vise: gripped faces are a parallel pair; width ≤ opening; grip ≥ `grip_mm` on both jaws; no claimed face inside a jaw solid; parallels exist | plan.hold, inventory.fixtures.vise (jaw_height, opening, width), parallels, STEP | M4 | "Strap is 2.5 mm under the jaw with a 4 mm floor; use the fixture plate." |
+| collet/chuck: stock Ø in the set or range; stick-out (4.1) | plan.hold, inventory | M2 | "No ER collet set confirmed." |
+| thin wall under clamp: wall thickness inside the grip zone < `thin_wall_floor_mm` ⇒ `hold.method` must name soft jaws / mandrel / tape / wax | STEP thickness map, plan.hold, policy.numbers | M4 | "1.2 mm wall under the jaw; name soft jaws or a mandrel." |
+| indexing: for `hold.index = { fixture, angle_deg, positions }` and the feature's `angle_tol_deg` (default: the general angular class): prefer an **exact** representation (direct plate step, or a circle `h` with `angle_deg·R·h/360` an integer, R = `worm_ratio`); otherwise the nearest, and then check every one of the `positions` and the closure (positions × step vs 360·k) against `angle_tol_deg`, not just one step; the sheet prints plate, circle, turns and hole *spaces* | plan.hold.index, features.angle_tol_deg / general_tolerances.angular_deg, inventory dividing_head (`worm_ratio`, `direct_index`, `plate_holes`) | M2 | "51.43° × 7: plate B, circle 21, 5 turns + 15 spaces (exact); plate circles not confirmed (?)" |
+| tiny parts: part-off last below the collet minimum; profile below footprint threshold declares tabs or a plate | plan.ops, inventory, policy | deferred | — |
+
+### 4.4 Physics proxies (`!` lines only; policy may promote)
+
+| rule | inputs | tier | on the sheet |
+|---|---|---|---|
+| turning deflection: δ = F·L³/(3EI) (cantilever) or /(48EI) (supported), F = K_c·a_p·f, K_c and E from `cutting-data.[[material]]` | plan.hold.stickout_mm, plan.ops (DOC, feed), features.dia, cutting-data.material | M2 | "Expected deflection 0.04 against ±0.1; take the last pass at 0.2." |
+| engagement: tool projection from the holder (inventory `projection_mm` per tool+holder, else OAL − holder grip) / D ≤ 4 else halve DOC | inventory.tools (OAL), inventory.holders (grip_mm), plan.ops.holder | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
+| tool life | needs a calibrated life table nobody ships | deferred | — |
+
+### 4.5 Stock-form comparison (authored candidates, counted by prechips)
+
+The author lists candidate stock forms as alternative plans; prechips emits
+setups, waste ratio, fixtures required and the rules each candidate trips,
+side by side. It does not pick a winner, and a built-up candidate is marked
+`✗ drawing permits one-piece only` unless `features.construction =
+"built_up_permitted"`. First case: `cone-pivot-post`. Tier: M2.
+
+### 4.6 Non-deterministic residue, named
+
+Chatter, clamp deformation, whip, tiny-part gripping, cutter wear. No rule
+in this project claims to decide these, and the reason is not effort: each
+depends on a quantity the inputs do not declare or measure. Geometric
+interference and reach are not on this list; they are §4.2–4.3.
+
+| residue | what decides it | why prechips cannot compute it |
+|---|---|---|
+| chatter | the tool–holder–spindle–part–fixture stiffness and damping at the cutting frequency | a modal property of the assembled stack; needs a tap test or a cut on *this* machine, not a catalogue number — a stability lobe diagram is per spindle, per holder, per overhang |
+| clamp deformation | vise torque, jaw and part contact geometry, part wall stiffness | the torque is uncalibrated ("hand plus a quarter turn"); the contact is a frictional, nonlinear problem the thin-wall proxy only screens |
+| whip (turning) | stick-out, speed, stock straightness, bar residual stress | the deflection proxy gives static sag; whip is dynamic and depends on how straight the bar was when bought |
+| tiny-part gripping | surface condition, burr, oil, operator's hand | not a geometric property |
+| cutter wear | cumulative cut length, coating, coolant, workpiece batch hardness | needs a life model calibrated on this shop's tools and steel; no vendor table ships one for HSS hobby tooling |
+
+The proxies (§4.4) and the fixturing rules (§4.3) screen the cases that
+are decidable from geometry; the first-article cut and the logbook entry
+are the evidence for the rest. If a residue turns out to be a repeat
+offender on one part, the fix is a shop-policy number measured on that
+part (`numbers.max_stickout_mm_for_6mm = …`, cited to the logbook entry),
+not a general model.
+
+## 5. Outputs, binding and readiness
+
+- `traveler.html` — §2. The product.
+- `report.json` — every `(rule, subject)` with status, numbers and citation;
+  sorted, canonical, hashed (hash excludes itself); carries the SHA-256 of
+  each input file (`plan`, `features`, `inventory`, `shop-policy`,
+  `cutting-data`) and the STEP digest the manifest names. For doit stamps
+  and for the informed machinist review, never for humans at the bench.
+- `setup-S<n>.png` — the fixture render, once M4 exists; until then the
+  "Hold" text is the whole description. (A hand-drawn sketch referenced
+  from the plan was dropped: it would be operative content outside the
+  hashed bundle.)
+
+The hashed bundle is every file the run read: the five inputs, the STEP
+named by the manifest, and any asset a plan field references. A path in
+the plan that is not in the bundle is a bad input (exit 3).
+
+**Readiness has two halves and both bind to the report hash.** A sheet is
+*checked* when every required `(rule, subject)` is `pass` or
+`not_applicable`. It drops the `PLANNED` banner only when a first-article
+line in the logbook names the report hash it was cut from. **Approval and
+first-article evidence bind to the report's full input-bundle digest; any
+operative change resets readiness.** `prechips traveler` refuses to print a
+`CHECKED` sheet whose report hash differs from the approval record it is
+given (`--approval approvals.toml`), and prints `PLANNED` with a `!` line
+naming which input changed. The paper copy carries only the short id; the
+binding is enforced where the files are.
+
+### 5.1 CLI shape
+
+One executable, five verbs. Every verb reads the same inputs, resolves
+them the same way, and prints the same finding sentences; the verbs differ
+in what they write. No verb, or an unknown one, prints usage and exits 3
+without writing anything.
 
 ```
-uv venv (prechips)                                FreeCADCmd (M2+, optional)
----------------------------------------           ------------------------------
-spec.yaml + plan.yaml + policy.yaml               STEP load, face descriptors,
-+ inventory.yaml [+ attestation.yaml]             bounding boxes, fixture solids,
-      │                                            distance & collision
-      ├─► schema / policy / rank 1–3 rules    ◄──► JSON job / JSON facts
-      ├─► coordinate tables (csv)
-      ├─► report.json (canonical, hashed)
-      └─► traveler.html (not hashed)
+prechips traveler <plan.toml> [--inventory <toml>] [--policy <toml>]
+                  [--approval <toml>] [--out <dir>]
+    Writes traveler.html, report.json (and setup-S<n>.png once M4
+    exists) under --out (default: beside the plan). Prints the "before
+    you start" lines to stderr. Exit 3 bad input (unparsable TOML, unknown
+    key, plan feature not in the manifest, empty plan, an output path that
+    is also an input, --out escaping its directory) > 2 any error >
+    4 required unknown / unsupported / warn > 0 checked.
+
+prechips check <plan.toml> [...]
+    Same as traveler without writing the sheet; the doit-gate form.
+
+prechips tools [--inventory <toml>] [<query>]
+    The inventory as prechips resolved it: ids, sizes in both units,
+    holder chain, what is verify = true. With a query ("reamer 6.5",
+    "R8") the candidates the sizing rule would consider and why each
+    passes or fails.
+
+prechips compare <plan.toml>... [--inventory ...] [--policy ...]
+    §4.5: one row per candidate plan — setups, waste ratio, fixtures
+    required, findings — to stdout as a table and <out>/compare.json.
+
+prechips explain <report.json> <rule>[:<subject>]
+    The numbers behind one finding, for the informed review: inputs,
+    citation, the computation. Never on the sheet.
 ```
 
-- The uv side never imports a CAD kernel; it shells to `FreeCADCmd` with a
-  JSON job and reads JSON facts. Absent kernel ⇒ kernel-backed rules are
-  `unknown`, the rest run.
-- Booleans stay local; state crosses boundaries as enums (`status`,
-  `workholding.kind`, `end.condition`, `verification`).
+Conventions: inventory and policy default from `[paths]` in the plan or
+from `PRECHIPS_INVENTORY` / `PRECHIPS_POLICY`; `--out` never writes
+outside itself and never over an input (a `report.json` that is also the
+inventory path is exit 3 before any write); nothing is interactive; stdout
+is the human table, `--json` switches it to the machine form; stderr
+carries findings and `?` lines. Determinism is a CLI contract: same inputs,
+byte-identical `report.json`, checked in CI by running twice.
 
-## 7. Milestones
+### 5.2 Non-functional requirements
 
-Pilots (current revisions; the rev-1 `pivot-bushing` was retired 2026-09-02
-when the rocker and lever got integral hubs):
+- **Telemetry is OpenTelemetry, from M1.** Every verb runs under a root
+  span (`prechips.<verb>`), each rule evaluation is a child span
+  (`rule.<name>`, attributes: subject, status, the numbers it compared),
+  each input load and each output write is a span, and every finding is a
+  log record correlated to its span. Resource: `service.name = prechips`,
+  `service.version` = the package version, `service.namespace` from
+  `OTEL_SERVICE_NAMESPACE` when set (harmonic-analyzer sets
+  `harmonic-analyzer`), so prechips rows sit beside the consumer's in the
+  same App Insights workspace.
+- **Exporters by the standard environment, nothing else.** OTLP over
+  HTTP/protobuf and gRPC, selected and pointed by the stock
+  `OTEL_EXPORTER_OTLP_*` variables (`_ENDPOINT`, `_PROTOCOL`,
+  `_TRACES_ENDPOINT`, `_LOGS_ENDPOINT`, `_HEADERS`, `_TIMEOUT`); batch
+  processors; flush on exit including the exit-3 path. No endpoint
+  configured means no exporter and no warning. `TRACEPARENT` in the
+  environment is honoured, so a `check:traveler_<stem>` leaf launched by
+  harmonic-analyzer's `dodo._exec` continues the doit task's trace.
+- **M1 acceptance for telemetry: the farm path.** The consumer's farm
+  workers export through the Azure Monitor Agent's local OTLP/gRPC endpoint
+  (`OTEL_EXPORTER_OTLP_PROTOCOL=grpc` plus the signal endpoints the farm
+  already sets for the build). M1 is not done until a `prechips check` run
+  as a doit subprocess on a farm worker shows its `prechips.check` span and
+  its finding log records in the same App Insights instance as the
+  harmonic-analyzer build that launched it, parented to that build's task
+  span, queried by `operation_Id`. Locally, the same run against the Aspire
+  dashboard on `127.0.0.1:18890` shows the same tree.
+- **Rich console.** stderr is a `rich` console: the "before you start"
+  lines with their glyphs, the rule table on `--verbose` (one row per
+  `(rule, subject)`, status-coloured), tracebacks with locals on a crash,
+  progress only when a kernel job runs. Plain text when stderr is not a
+  TTY or `NO_COLOR` is set; the glyphs survive both. Console output is a
+  rendering of the same records the OTel logger receives, never a second
+  channel of facts.
+- **Determinism and speed.** `report.json` byte-identical across runs and
+  machines for the same bundle; a kernel-free `check` on the rocker-arm
+  bundle under one second; the kernel job, when used, is the only process
+  prechips spawns and its JSON result is cached by bundle hash.
+- **No network at check time** except telemetry export; the inventory's
+  `chart` URLs are citations, not fetches.
+- **Docs are part of the milestone.** A milestone is not done until
+  `README.md` (what prechips does today, the CLI as it actually behaves,
+  how to run the examples), `AGENTS.md` (how an agent works in this repo:
+  uv, the no-invented-numbers rule, where fixtures and cites live, how to
+  run the validator and the telemetry check) and the feature docs under
+  `docs/` (one page per input file format and one per rule family,
+  matching the shipped schema and statuses, with the sheet sentences each
+  rule prints) describe the shipped state. A PR that closes a milestone
+  and leaves any of them describing the previous one is not mergeable;
+  the examples README and this plan's milestone list are updated in the
+  same PR.
 
-- `rocker-arm` — ×20, 1018, integral hub with Ø6.5 +0.03/0 pivot bore
-  (`rocker_arm_spec.py`), profile from flat bar (mill).
-- `amplitude-bar` — ×20, steel bar with slide features (mill).
-- `cone-gear-shaft` — ×1, stepped shaft between centres (lathe).
-- `knife-mount` — ×2, O1 hardened 58–60 HRC: machine soft → heat-treat →
-  finish; the plan must sequence the heat-treat and name the post-HT ops.
+## 6. The kernel: what the spike measured
 
-1. **M1 — vertical slice: rocker-arm pivot-bore setup.** One pilot, one
-   setup (the pivot-bore finishing on a prepared blank), one real consumer
-   exporter (`cad/scripts/export_process_spec.py` emitting `spec.yaml` from
-   `rocker_arm_spec.py`/`_hole_spec.py`/title-block defaults beside the STEP —
-   no stub, no hard-coded values). Rules: rank 1, `hole_op_chain`,
-   `op_order`, `coordinate_table`, `coverage`, `holder_compat`. Files:
-   `src/prechips/{cli,schema,rules/*,report,render}.py`,
-   `examples/rocker-arm/{spec,plan,policy}.yaml`, `examples/policy/default.yaml`,
-   a measured pilot inventory. Controls: wrong selected reamer size, missing
-   tool, unverified tool (`unknown`), policy subtraction attempt, stale
-   `spec_sha256`, reversed pickup side, feature without operation, toleranced
-   feature without inspection. Acceptance: one `prechips check` produces the
-   canonical report, the CSV and the traveler; exit precedence verified;
-   two runs give byte-identical reports; CSV coordinates compared by hand
-   against the drawing.
-2. **M1b — measured-input rules.** `blind_thread_depth`, `envelope`,
-   `index_representable` once the inventory carries the §3.5 fields and the
-   tap/drill items carry geometry; then the remaining three pilots and the
-   warning-burden measurement.
-3. **M2 — kernel spike** per §5's acceptance cases. Go/no-go for M3.
-4. **M3 — fixtures + restricted geometry rules** (rank 5–7), only if M2 passes.
-5. **M4 — harmonic-analyzer integration.** Process files under `cad/process/`
-   (outside the `_buildgraph` whole-config fallback, so no `check:*` re-runs);
-   a flat `check:process_<stem>` doit task with `file_dep` on spec, plan,
-   policy, inventory, cited tables and the prechips version; report +
-   traveler enrolled in the release bundle; a second, informed machinist
-   review that receives the report, separate from the blind drawing review.
-6. **M5 — advisory physics and adapters**, each behind its own citation.
+§4.2–4.3 need a B-rep. FreeCAD's bundled OCC is the only candidate (Fusion
+rejected; no OCP/CadQuery dependency), driven as a `freecadcmd.exe`
+subprocess that takes a JSON job and returns JSON facts.
 
-## 8. Risks
+**Round 1 (API smoke test, 2026-10-03, FreeCAD 1.1.4 via winget, v38 release
+STEPs).** `rocker-arm`, `pivot-shaft`, `pivot-bracket` load as one valid
+solid each (18/18/16 faces); bbox and volume read; a −Z ray returns the
+first face; a box boolean returns a volume; two runs are byte-identical
+JSON. This proves the API works, not any §4 verdict: the ray went through
+the bbox centre, not the bore, and the jaw test's "0 above the grip" was
+true by construction.
 
-- Sidecar generation is consumer work and must source from the consumer's
-  spec modules; the fields it cannot source leave rules `unknown`. Without
-  any sidecar, prechips runs only `schema`/`inventory_refs`/`holder_compat`/
-  `op_order` — honest but thin.
-- Inventory measurement debt: every `verify: true` is an `unknown` until
-  measured; the first run's output is a measuring list, not a verdict.
-- FreeCAD/OCC behaviour on SolidWorks AP214 exports is unproven here (M2).
-- Byte-bound attestation means every re-export invalidates bench status until
-  a human rebinds; this is the conservative choice until §9 decides an
-  equivalence policy.
+**Round 2 (discriminating tests, same day, `rocker-arm`).**
 
-## 9. Open questions
+| test | result |
+|---|---|
+| bore as a face set | Ø6.5 cylinder patches: faces 1 and 16, equal area 72.05 mm² — a feature is a set |
+| ray down the bore axis (0, 8); ray at r − 0.1 | no hit (through bore), both |
+| ray at r + 0.1 | hub top (face 15) at t = 10.0, then hub bottom (face 12) at t = 17.06 = 10 + 7.06 ✓ |
+| PM 6 in vise from inventory (jaw height 1.825 in), jaws flush with the rails, grip 3 mm vs 20 mm | strap top face (52 samples): zero-radius +Z ray occluded **0 / 0**; 3/8 in end-mill cylinder occluded **0 / 4** — the ray test cannot see a jaw standing beside a face, the tool-cylinder test can |
+| face order across independent exports | v37 vs v38 `rocker-arm.STEP` (different bytes): 18 faces, same order, same (type, area, bbox) list — one data point, not a guarantee |
+| determinism | two runs byte-identical (`7df25936…`) |
 
-- Who owns `policy.yaml` and the human approval step in harmonic-analyzer?
-- Which fields does `export_process_spec.py` treat as authoritative for
-  default tolerances, thread class and roughness — registry, `_gtol_spec`,
-  or the drawing script?
-- Should a re-export that changes only STEP metadata bytes keep the
-  attestation (equivalence review), or always require a rebind?
-- Which inventory measurements must be taken before the first pilot run
-  (mill soft limits, vise bed height, actual flute/holder lengths)?
+Consequences, now in the rules: accessibility uses the tool cylinder offset
+by its radius from the face, plus the holder cylinder, against (part −
+the claimed feature) ∪ fixture — the round-2 script intersected the
+cylinder with the jaws only, at a fixed 40 mm height, with no holder, so it
+proved jaw proximity and nothing more (§4.2); features carry face *sets*
+(§3.2); face names still need the consumer's `swStepExportFaceEdgeProps`
+export and a tested mapping (§3.2, §8 M3) — order stability across exports
+is observed once, not relied on. Not yet tested, and required before any
+§4.2/4.3 verdict ships: the offset-cylinder predicate against a part boss
+(must occlude) and against the claimed face's own side wall (must not),
+holder cylinders against real jaw geometry, booleans on the filleted parts
+(`summing-lever`), the thin-wall thickness map. Those are M4's first
+fixtures. Kernel scripts and runs: `C:/src/dt-logs/prechips-spike/` (not
+committed; they become `prechips/kernel/freecad_job.py` and its tests in
+M4).
+
+## 7. Kept from the reviews, and why
+
+- **Unknown is not a pass.** Unmeasured inventory shows as `?`, and a required
+  `?` keeps the `PLANNED` banner and exits 4.
+- **The drawing's numbers come from a generated, complete manifest**, not
+  PMI, not a hand-typed file, with explicit unknowns.
+- **Policy lives with the shop, not in the plan**, and names its subjects.
+- **Selected tool, not "some tool".** The sizing check reads the op's tool.
+- **Readiness binds to the report hash** (§5). The one line restored from
+  rev 3; the machinist sees only the short id.
+- **Physics as `!` lines, not gates**, and only where every input is
+  declared (K_c and E from the shipped table, stick-out from the plan).
+- **No EL400 file format.** A DRO recipe on the sheet, with a check move.
+- **Stock-form comparison lists, it does not choose.**
+- **Pilots**: `pivot-shaft` (lathe, simple), `rocker-arm` (mill, medium),
+  `pivot-bracket` (mill, 3 setups, hard), `cone-pivot-post` (stock-form
+  comparison); the rev-1 `pivot-bushing` is retired.
+
+Dropped from revs 2–3: hashes on the sheet, rule ids on the sheet, per-finding
+citations on the sheet, 15-decimal evidence strings, `attestation.yaml` as a
+separate file (the approval record and the logbook line are the
+attestation), the 14-rule policy vocabulary. Dropped from rev 4: the
+"expected deflection" line on a mill sheet (no inputs for it), tool-life
+scheduling, the one-feature-one-face assumption, the plan pathname on the
+sheet.
+
+## 8. Milestones
+
+0. **M0 — kernel spike** (§6). Done 2026-10-03, two rounds.
+1. **M1 — the sheet, for one `rocker-arm` finishing setup** on a prepared
+   blank (S3 of the rev-3 fixture; S1/S2/S4 are out of scope and the sheet
+   says so, with the S2 stock state it starts from). `plan.toml`, a
+   hand-written `features.toml` mirroring what the generator will emit
+   (real values and real unknowns from the sources in §3.2, cross-checked
+   against the drawing's dimension count), inventory, policy,
+   `cutting-data.toml` rev 1 → `traveler.html` + `report.json`. All §4.1
+   rows marked M1, and §5.2 telemetry on the farm path. **Acceptance test
+   `rocker-paper-rehearsal`:** a frozen bundle → CLI → printed Letter page
+   (printed, to catch clipping); someone who has not read the plan
+   dry-runs the setup on the PM-30MV from the page and the drawing alone
+   (hold, zero + check moves, tool changes, depths, inspections) and writes
+   down every instruction they had to invent — the list must be empty —
+   **and** an independently worked oracle (by hand, from the drawing and
+   the manual: every Axis Set value, the retouch value after facing, every
+   tip endpoint, the four quadrant offsets) matches the page to the
+   drawing's precision. Controls, each a committed bad bundle that must
+   produce the prescribed stop, not merely different output: removing the
+   reamer or chuck from the inventory → `✗`; the EL400 Direction for X
+   actually reversed on the emulator (not the plan edited) → the printed
+   check move reads the mirrored value and the operator stops; removing
+   `checks.position` while leaving the pin → `✗` for the rod hole; a
+   manifest with one `"unknown"` tolerance among known ones → `?` and exit
+   4; editing `features.toml` after approval → `PLANNED` naming the input;
+   an empty ops list → exit 3; the report byte-repeatable.
+2. **M2 — `pivot-shaft` and `pivot-bracket`** (lathe frame conventions: Z
+   along the spindle, X as diameter; `transfer` zero across setups; the M2
+   rows, including indexing on the BS-0 for the shaft's cross-hole;
+   `prechips compare` on `cone-pivot-post`).
+3. **M3 — consumer export.** harmonic-analyzer issue (filed with this rev):
+   `cad/scripts/export_features.py` emitting `features.toml` beside the
+   STEP as a complete manifest with provenance; `swStepExportFaceEdgeProps`
+   on in `export_models.py`; a tested spec-feature → exported-face-set
+   mapping bound to the STEP digest, failing on ambiguity; a drawing-note
+   contract for `construction`; `check:traveler_<stem>` doit task under
+   `cad/process/`. Replaces the hand-written manifests.
+4. **M4 — geometry and workholding** (§4.2–4.3) on the kernel, starting with
+   the discriminating fixtures §6 lists; fixture renders on the sheet.
+5. **M5 — measured inventory**: spindle stack, travel limits, holder gauge
+   lengths; envelope checks leave `?`.
+
+## 9. Decisions from review
+
+**2026-10-03, rev 4 questions.** §2 density as sketched, ops and coordinates
+separate tables. Units: drawing unit for coordinates, as-bought for tools,
+both on the sizing line. No balloon numbers. Vendor chart first, Machinery's
+Handbook 31 otherwise. Built-up construction needs a drawing-side permission
+note, carried as `features.construction` and enforced by `prechips compare`.
+
+**2026-10-03, third adversarial round (GPT-6 Astra), disposition.** Folded:
+sheet carries hold/stop/clamp/clearance/coolant/deburr/direction/
+breakthrough/per-tool Z/contour/release (1); DRO settings recorded, check
+move printed, sign derived not assumed (2); approval and first article bind
+to the report hash (3); policy names subjects, empty plans rejected,
+`unsupported` ≠ `not_applicable`, block before unknown (5); explicit
+`precision`, numeric frames, real TOML for `construction` (9);
+`cutting-data.toml` shipped with its key and rounding, sketch RPMs
+recomputed (10); every catalogue row names its inputs and tier, rows
+without inputs are deferred, hole/thread row merged into chain + depth, tool
+life deferred (6); spike reported as smoke test + round-2 discriminating
+tests, accessibility switched to tool cylinder, features carry face sets
+(7). Routed to harmonic-analyzer as an issue: complete manifest export with
+provenance and the face-set mapping (4, 8).
+
+Where the inputs Astra asked about come from (6): commanded depths →
+`plan.ops.depth_mm/exit_mm` plus computed point length; placed extents →
+`plan.hold` + inventory fixture dimensions + the STEP bbox (stock section
+until M4); K_c and E → `cutting-data.toml`, cited; re-fixture budget and
+thin-wall floor → `shop-policy.numbers`, measured or `verify`; jaw pose →
+`plan.hold.fixed_jaw/jaws_along/grip_mm/jaw_above_parallels_mm` with the
+vise's `jaw_height`; tool life → nobody ships a calibrated table, so the
+rule is deferred rather than faked.
+
+**2026-10-03, fourth adversarial round (GPT-6 Astra on rev 5),
+disposition.** Folded: the DRO recipe written against the EL400 Operation
+Manual's own functions (Direction §6.2, Axis Set §7.4, Preset §8.1 never
+used for zero) with an unretouched check jog per axis and the sign
+equation in the rule (1 — the plan does not pin an emulator commit; an
+emulator that disagrees with the manual is an emulator bug); stock state
+per setup advanced per op, tip endpoints from point length / reamer lead +
+exit, local thickness per feature, sketch Z and depths recomputed (2);
+`checks` keyed by requirement, inspection rule per requirement (3); the
+referenced sketch removed and the bundle defined as every file read (4);
+one `unknown` contract — the string `"unknown"` in a field, `requirements`
+lists for known absence (5); round 2 of the spike reported as jaw
+proximity, the accessibility predicate rewritten with the radius offset
+and the part/holder obstruction, M4 fixtures named (6); per-dimension
+`precision`, BASIC never gets a ± default (7); indexing exact-first with
+closure over all positions, hole spaces (8); `[[material]]` table for
+K_c/E, holder per op, projection from inventory, headroom sum completed
+(9); exit precedence 3 > 2 > 4 > 0, required `warn` exits 4, output/input
+collision and missing verb are exit 3 (10); rough offset 12.06, op 45
+spot added, arc table on a continuation sheet, §4.6 "does not declare or
+measure". Vocabulary: `error` / `warn` / `info` replaces `block`. Added
+§5.2 non-functional requirements (OpenTelemetry with OTLP exporters by
+standard env, farm-path App Insights acceptance at M1, rich console).
+
+**2026-10-04, fifth adversarial round (GPT-6 Astra on rev 6 + the
+regenerated fixtures), disposition.** Four findings, all folded: the zero
+rule's contact-side sign separated from the jog polarity (`from` gives the
+side; the sketch's reversed X reading is −12.54); headroom uses the stock's
+physical height (`top_z − bottom_z`), jaw height is an obstruction check,
+not a stack layer; the §3 manifest excerpt re-pointed at
+`examples/rocker-arm/features.toml` with its cited values (rod hole on the
+R816 arc, hub Ø10.20 under the .XX band, datums A|B|C); the cutting-data
+pilot matrix cut to the rows M1 selects. Verdict after folding: approved
+for implementation.
+
+Open: who authors the rocker finishing fixture and the rail-release method
+(the plan author, as an S4 with its own sheet — before M1 ships the S3
+sheet names it); which measured prepared-blank surfaces define the M1
+fixture (S2's `stock_state`, measured on the first blank and written into
+the plan); where the approval record lives (`approvals.toml` beside the
+plan, one line per report hash, written by hand after the first article).

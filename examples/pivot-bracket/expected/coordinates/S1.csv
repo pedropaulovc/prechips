@@ -1,5 +1,0 @@
-frame=A, units=mm, mode=absolute, radius
-feature,op,x,y,z
-seat_face,10,,,0
-foot_profile,20,,,-6
-foot_profile,30,,,-6

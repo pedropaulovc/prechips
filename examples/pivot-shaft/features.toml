@@ -1,0 +1,340 @@
+# Hand-written M1 manifest for MHA-065 pivot shaft, mirroring what the
+# harmonic-analyzer generator (PLAN rev 6 §3.2, M3) will emit. Not a certified
+# export and not a measured part. Consumer citations are to
+# C:/src/harmonic-analyzer at 325c56a0 (read 2026-10-02), written as
+# "harmonic-analyzer/<path>:<line>".
+#
+# Drawing dimension cross-check (draw_pivot_shaft.py:105-123,161-171,
+# pivot_shaft_spec.py:132-142): 8 printed dimensions — ShaftDia, ShoulderDia,
+# ShaftLength (REF), ShoulderLength, JournalLength, DomeHeight ("BOTH ENDS"),
+# ReliefWidth and ReliefDia ("BOTH SHOULDER FACES"); 3 Ra symbols
+# (draw_pivot_shaft.py:375-404); 2 property notes (manufacturing notes,
+# isometric scale note, draw_pivot_shaft.py:409-410). Every one is mapped below:
+#   ShaftDia       -> body.dia, north_journal.dia (one O.D. by sketch constraint)
+#   ShoulderDia    -> shoulder.dia
+#   ShaftLength    -> plain_end.length_reference (REF; the callout governs)
+#   ShoulderLength -> shoulder.length
+#   JournalLength  -> north_journal.length
+#   DomeHeight     -> north_dome.height, south_dome.height (BOTH ENDS)
+#   ReliefWidth    -> north_relief.width, south_relief.width (BOTH SHOULDER FACES)
+#   ReliefDia      -> north_relief.dia, south_relief.dia (BOTH SHOULDER FACES)
+#   Ra 1.6 x3      -> body, north_journal, shoulder_thrust finish_ra
+#   notes          -> stock/centres/supply/no-flats facts below and in plan.toml
+part = "pivot-shaft"
+units = "mm"
+# No sheet-wide class: every printed dimension carries its own places
+# ("Decimal places are the tolerance", pivot_shaft_spec.py:144-161), set per
+# feature below.
+precision = "unknown"
+step_sha256 = "unknown"     # no STEP was supplied with this bundle
+construction = "one_piece"  # no drawing note permits built-up construction
+cite = [
+  "harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:1-9",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-193",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:13-18,99-208,313-457",
+  "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:105-171,342-410",
+]
+
+[drawing]
+number = "MHA-065"          # harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:2
+revision = "unknown"        # no certified STEP/drawing pair supplied
+
+[material]
+spec = "AISI 1018 cold-finished steel bar, Ø10"  # parts/pivot-shaft.yaml:4
+name = "Plain Carbon Steel"                      # parts/pivot-shaft.yaml:3
+finish = "turned, oiled"                         # parts/pivot-shaft.yaml:5
+cite = [
+  "harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:3-5",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:185",
+]
+
+# Exact numeric title-block values (value_in x 25.4); the drawing adopts them
+# by decimal places (pivot_shaft_spec.py:144-149). The rounded display strings
+# (±0.8 / ±0.51 / ±0.13, title_block.yaml:25-27) and the spec's sizing constant
+# LINEAR_1PL = 0.8 (pivot_shaft_spec.py:70) are presentation/design context,
+# not the adopted band. No angular dimension is printed, so no angular class.
+[general_tolerances]
+linear_1pl = 0.762   # title_block.yaml:25 value_in 0.03
+linear_2pl = 0.508   # title_block.yaml:26 value_in 0.02
+linear_3pl = 0.127   # title_block.yaml:27 value_in 0.005
+cite = ["harmonic-analyzer/cad/config/title_block.yaml:25-27"]
+
+# Drawing notes (pivot_shaft_spec.py:182-189), carried verbatim.
+[notes]
+manufacturing = ["STOCK 10 BAR; CENTRES OK.", "SUPPLY 175 LONG, PLAIN END UNCUT.", "NO FLATS."]
+process = "turned (steel) between centres from Ø10 bar; plain end cut and domed to fit"  # parts/pivot-shaft.yaml:9
+edge_break = "R0.25 OR CHAMFER 0.25 MAX"  # title_block.yaml:45
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189",
+  "harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:9",
+  "harmonic-analyzer/cad/config/title_block.yaml:45",
+]
+
+# Part frame: axis along Z, origin on the axis at the north (shouldered) end of
+# the cylinder, body toward -Z (pivot_shaft_spec.py:18-22,
+# build_pivot_shaft.py:13-18; sketch +u -> model -Z). A shaft carries no
+# drawing datums (pivot_shaft_spec.py:104), so these are construction frames.
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "SolidWorks part origin: on the axis at the north end of the cylinder (dome base); body toward -Z"
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:18-22",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:13-18",
+]
+
+# S1: origin on the shoulder north face, z = -JournalLength = -6.0.
+[frames.T1]
+origin = [0.0, 0.0, -6.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"   # the face is cut in S1 op 10 and the DRO set on it
+note = "shoulder north face (seats on the north ear); +Z toward the north end"
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+  "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
+]
+
+# S2: origin at the north apex plane, z = +DomeHeight = +1.5.
+[frames.T2]
+origin = [0.0, 0.0, 1.5]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"   # found by touching the shoulder north face (T2 z = -7.5)
+note = "north apex plane; +Z toward the north end"
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+]
+
+# S3: origin at the scribe the fitter makes at the south ear's outer face,
+# +Z toward the plain end. Nominal model position = -ShaftLength REF
+# (-156.67); the real position is the installed-ear span, which no input
+# supplies.
+[frames.T3]
+origin = [0.0, 0.0, -156.67]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "unknown"   # awaiting the measured span over both installed MHA-123 ears
+note = "scribe at the south ear outer face, shoulder pushed north; +Z toward the plain end"
+cite = [
+  "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+  "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+]
+
+[features.north_journal]
+kind = "cylinder"
+frame = "model"
+axis = [0.0, 0.0, 1.0]
+z_mm = [-6.0, 0.0]            # end to shoulder north face; includes the north relief
+dia = [6.33, 6.35]            # ShaftDia 0.25 in = 6.35, SHAFT_H +0/-0.020; journal = body O.D. by constraint
+dia_nominal = 6.35
+length = [5.238, 6.762]       # JournalLength 6.0 at .X: ±0.762
+length_nominal = 6.0
+finish_ra = 1.6               # pivot_journal, MACHINED_UM
+requirements = ["dia", "length", "finish_ra"]
+faces = "unknown"             # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+  "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+  "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+  "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+  "harmonic-analyzer/cad/config/title_block.yaml:25",
+]
+
+[features.north_journal.precision]
+dia = 3          # pivot_shaft_spec.py:152
+length = 1       # pivot_shaft_spec.py:156
+finish_ra = 1    # _surface_finish.py:57-66 renders one decimal
+
+[features.shoulder]
+kind = "cylinder"
+frame = "model"
+axis = [0.0, 0.0, 1.0]
+z_mm = [-7.5, -6.0]
+dia = [9.492, 10.508]         # ShoulderDia 10.00 at .XX: ±0.508; the Ø10 bar left as supplied
+dia_nominal = 10.0
+length = [0.992, 2.008]       # ShoulderLength 1.50 at .XX: ±0.508
+length_nominal = 1.5
+requirements = ["dia", "length"]
+faces = "unknown"             # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+  "harmonic-analyzer/cad/config/title_block.yaml:26",
+]
+
+[features.shoulder.precision]
+dia = 2          # pivot_shaft_spec.py:153
+length = 2       # pivot_shaft_spec.py:155
+
+[features.shoulder_thrust]
+kind = "face"
+frame = "model"
+at = [0.0, 0.0, -7.5]         # shoulder south face centre, SHOULDER_SOUTH_Z_MM
+normal = [0.0, 0.0, -1.0]
+finish_ra = 1.6               # shoulder_thrust, MACHINED_UM; hub 19 rocks on it
+requirements = ["finish_ra"]
+faces = "unknown"             # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104-110,122-126",
+  "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+  "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:395-404",
+]
+
+[features.shoulder_thrust.precision]
+finish_ra = 1    # _surface_finish.py:57-66
+
+[features.body]
+kind = "cylinder"
+frame = "model"
+axis = [0.0, 0.0, 1.0]
+z_mm = ["unknown", -7.5]      # south end is the cut-to-fit plain end
+z_south_reference = -156.67   # ShaftLength REF only (rocker_bank_layout.py:107)
+dia = [6.33, 6.35]            # ShaftDia 6.350 +0/-0.020 (the dimensioned line)
+dia_nominal = 6.35
+finish_ra = 1.6               # pivot_bearing, MACHINED_UM; the 20 hubs rock on it
+requirements = ["dia", "finish_ra"]
+faces = "unknown"             # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+  "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+  "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+  "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384",
+]
+
+[features.body.precision]
+dia = 3          # pivot_shaft_spec.py:152
+finish_ra = 1    # _surface_finish.py:57-66
+
+[features.north_relief]
+kind = "groove"
+frame = "model"
+axis = [0.0, 0.0, 1.0]
+z_mm = [-6.0, -4.0]           # flush against the shoulder north face
+dia = [5.573, 5.827]          # ReliefDia 5.700 at .XXX: ±0.127
+dia_nominal = 5.7
+width = [1.238, 2.762]        # ReliefWidth 2.0 at .X: ±0.762
+width_nominal = 2.0
+corner_radius_max_design = 0.25  # spec sizing assumption, not a printed dimension
+requirements = ["dia", "width"]
+faces = "unknown"             # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+  "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+  "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+]
+
+[features.north_relief.precision]
+dia = 3          # pivot_shaft_spec.py:160
+width = 1        # pivot_shaft_spec.py:160
+
+[features.south_relief]
+kind = "groove"
+frame = "model"
+axis = [0.0, 0.0, 1.0]
+z_mm = [-9.5, -7.5]           # flush against the shoulder south face
+dia = [5.573, 5.827]          # ReliefDia, "BOTH SHOULDER FACES"
+dia_nominal = 5.7
+width = [1.238, 2.762]        # ReliefWidth, "BOTH SHOULDER FACES"
+width_nominal = 2.0
+corner_radius_max_design = 0.25
+requirements = ["dia", "width"]
+faces = "unknown"             # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+  "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+  "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+]
+
+[features.south_relief.precision]
+dia = 3
+width = 1
+
+[features.north_dome]
+kind = "dome"
+frame = "model"
+axis = [0.0, 0.0, 1.0]
+at = [0.0, 0.0, -2.6102083333333335]  # sphere centre: base 0.0 - (R - h)
+apex_z = 1.5
+base_z = 0.0
+base_radius = 3.175            # ShaftDia / 2
+sphere_radius = 4.1102083333333335  # ((6.35/2)^2 + 1.5^2) / (2 x 1.5); driven, not printed
+height = [0.738, 2.262]        # DomeHeight 1.5 at .X: ±0.762
+height_nominal = 1.5
+requirements = ["height"]
+faces = "unknown"              # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+  "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:116-122,364",
+  "harmonic-analyzer/cad/config/title_block.yaml:25",
+]
+
+[features.north_dome.precision]
+height = 1       # pivot_shaft_spec.py:158
+
+[features.south_dome]
+kind = "dome"
+frame = "model"
+axis = [0.0, 0.0, -1.0]
+at = "unknown"                 # depends on the fitted cut; nominal below is REF only
+at_reference = [0.0, 0.0, -154.05979166666668]
+apex_z_reference = -158.17
+base_z_reference = -156.67
+base_radius = 3.175
+sphere_radius = 4.1102083333333335
+height = [0.738, 2.262]        # DomeHeight, "BOTH ENDS"
+height_nominal = 1.5
+requirements = ["height"]
+faces = "unknown"              # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,433",
+  "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:101-110",
+  "harmonic-analyzer/cad/config/title_block.yaml:25",
+]
+
+[features.south_dome.precision]
+height = 1
+
+# The plain end. Print: ShaftLength 156.7 REF under "CUT TO FIT: SPAN OVER BOTH
+# MHA-123 EARS"; note "SUPPLY 175 LONG, PLAIN END UNCUT." Fit-up step: shoulder
+# pushed north, scribe at the south ear's outer face, cut the plain end 1.5 TO
+# 2.0 past the scribe and dome it 1.5 (cylinder end 0 to 0.5 proud).
+[features.plain_end]
+kind = "cut_end"
+frame = "T3"
+axis = [0.0, 0.0, 1.0]
+length = "unknown"             # absolute value = measured installed-ear span (+0..0.5); not supplied
+length_reference = 156.67      # 20 x 7.0565 + 1.5 + 2 x 6.0 + 1.59 + 0.45 (feeler); REF only
+cut_past_scribe = [1.5, 2.0]   # fit-up step, frame T3 z of the cut plane
+end_past_scribe = [0.0, 0.5]   # PLAIN_END_CUT_BAND (upper 0.5, lower 0.0)
+supply_length = 175            # drawing note; no tolerance class, start datum not stated
+requirements = ["length"]
+faces = "unknown"              # awaiting export face-set mapping (PLAN §3.2, M3)
+cite = [
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:13-16,50-52,154,182-189",
+  "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:63-69,76,86-95,103-115",
+  "harmonic-analyzer/cad/config/machine/channels.yaml:5",
+  "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117",
+  "harmonic-analyzer/cad/scripts/rocker_thrust_washer_spec.py:26-29",
+  "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+  "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:352-363",
+  "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+]
+
+[features.plain_end.precision]
+length = 1       # ShaftLength prints at one place (pivot_shaft_spec.py:154); cut band printed .1f
