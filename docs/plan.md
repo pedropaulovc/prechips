@@ -9,9 +9,12 @@ numeric sorting of operation ids.
 
 `features` is relative to the plan; it must stay inside the bundle root. The
 root is the repository above `examples` or the first ancestor with
-`pyproject.toml`, otherwise the plan's parent. `[paths]` selects shared inventory,
-policy and cutting data, with CLI flags taking precedence; only inventory and
-policy have environment fallbacks. Plan-declared shared paths must stay inside
+`pyproject.toml`, otherwise the plan's parent. Shared input precedence is CLI
+override, then a known `[paths]` declaration, then `PRECHIPS_INVENTORY` or
+`PRECHIPS_POLICY`; cutting data has no environment fallback. An omitted or
+literal `"unknown"` declaration permits the environment fallback. Missing policy
+uses the shipped required-rule vocabulary only when no known path is selected.
+Plan-declared shared paths must stay inside
 the bundle root; explicit CLI/environment shop paths may be external. STEP references are read and hashed, contained
 inside the bundle, and checked against a known `step_sha256`; no kernel runs.
 
@@ -50,10 +53,12 @@ booleans are not numeric substitutes. `Number` means a numeric float or the lite
 a string or a list of strings. Text fields also accept `"unknown"`.
 
 Every `record()` field below is optional and accepts `"unknown"` in addition to
-the displayed type. Omitted fields are not filled into the loaded bundle;
-`zero_check` preserves an omitted `retouch_after` declaration as unknown rather
-than treating it as an empty list. Other optional fields retain their
-applicability semantics in the rules.
+the displayed type. The schema defaults omitted `Setup.machine` and
+`Operation.do` to `"unknown"` and retains those keys in the loaded bundle so
+rules can report unresolved identity/applicability rather than crash. Other
+omitted fields stay absent: `zero_check` reads an omitted `retouch_after` as
+unknown rather than an empty list, and other rules retain optional-field
+applicability semantics.
 Root fields marked required must be present. A model accepting a value is not proof
 of geometric validity; rules perform the applicable checks.
 
@@ -194,7 +199,19 @@ of geometric validity; rules perform the applicable checks.
 | `stickout_mm` | `Number` |
 | `grip_mm_verify` | `bool` |
 | `jaw_above_parallels_mm_verify` | `bool` |
-| `index` | `dict[str, Any]` |
+| `index` | `Index` |
+
+## Index
+
+The `hold.index` record is strict: only the fields below are accepted.
+Each field is optional and also accepts literal `"unknown"`; arbitrary keys
+are bad input (exit 3 before output).
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `fixture` | `str` |
+| `angle_deg` | `Number` |
+| `positions` | `int` |
 
 ## Reference
 

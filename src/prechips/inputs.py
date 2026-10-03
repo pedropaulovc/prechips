@@ -55,8 +55,8 @@ def _load(path: Path, model: type[InputModel], kind: str) -> tuple[dict, str]:
             raw = path.read_bytes()
             values = tomllib.loads(raw.decode("utf-8"))
             parsed = model.model_validate(values)
-            # Retain optional-field presence; policy/requirements/retouch consumers
-            # distinguish absent declarations from known empty collections.
+            # Sparse dumps retain authored presence for semantic optional fields;
+            # record serializers also retain defaults for keys rules directly index.
             return parsed.model_dump(exclude_unset=True), hashlib.sha256(raw).hexdigest()
         except (OSError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as exc:
             raise BadInput(f"Cannot load {kind} {path.name}: {exc}") from exc
@@ -135,6 +135,8 @@ def load_bundle(
     )
     for kind, override, field, variable, model in choices:
         declared = declarations.get(field)
+        if declared == "unknown":
+            declared = None
         value = override or declared or (os.environ.get(variable) if variable else None)
         if not value or value == "unknown":
             if kind == "shop_policy":

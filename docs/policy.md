@@ -31,6 +31,9 @@ When no policy path is supplied, the loader requires `tool_resolves`, `sizing`,
 `op_chain`, `blind_depth`, `inspection`, `coordinates`, and `zero_check` on `"*"`.
 The fallback is not an extra file and therefore has no file digest in inputs.
 This no-file fallback is not used for a supplied policy that omits `[required]`.
+Selection is `--policy`, then a known `[paths].policy`, then
+`PRECHIPS_POLICY`, before that no-file fallback. A plan-declared `"unknown"`
+does not hide an environment-supplied shop policy.
 
 `numbers` is a map of finite numeric values or `"unknown"`; `numbers_cite` is
 the matching citation map; `numbers_verify` maps names to booleans or unknown.

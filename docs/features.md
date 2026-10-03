@@ -22,6 +22,11 @@ use that unit; M1 does not silently convert drawing tolerance limits into mm.
 dimension to its decimal places. Nominal/reference dimensions and BASIC
 coordinates do not acquire invented acceptance bands. Dimension fields accept
 a scalar or list of Numbers; list limits conventionally mean `[low, high]`.
+`separation` is a supported dimension/tolerance field: for example,
+`requirements = ["separation"]` with `separation = [9.9, 10.1]` declares a band
+that needs its own `checks.separation` inspection gauge. Supplying
+`separation = "unknown"` preserves the requirement without inventing its limits;
+omitting a listed `separation` value is bad input.
 General vectors conventionally have three components and bands two; the model
 does not enforce every vector length or dimension-band ordering. Frame vectors
 are stricter: each supplied numeric/list origin or basis has exactly three
@@ -52,10 +57,11 @@ booleans are not numeric substitutes. `Number` means a numeric float or the lite
 a string or a list of strings. Text fields also accept `"unknown"`.
 
 Every `record()` field below is optional and accepts `"unknown"` in addition to
-the displayed type. Omitted fields are not filled into the loaded bundle;
-inspection and policy selection read an omitted `requirements` declaration as
-unknown, never as a known empty list. Other optional fields retain their
-applicability semantics in the rules.
+the displayed type. The schema defaults omitted `Feature.kind` to `"unknown"`
+and retains it in the loaded bundle so kind-dependent rules remain unresolved.
+Other omitted fields stay absent: inspection and policy selection read an
+omitted `requirements` declaration as unknown, never as a known empty list.
+Other optional fields retain their applicability semantics in the rules.
 Root fields marked required must be present. A model accepting a value is not proof
 of geometric validity; rules perform the applicable checks.
 
@@ -235,6 +241,7 @@ of geometric validity; rules perform the applicable checks.
 | `supply_length` | `float \| list[Number]` |
 | `tap_drill_mm` | `float \| list[Number]` |
 | `bottom_radius_nominal` | `float \| list[Number]` |
+| `separation` | `float \| list[Number]` |
 
 ## Plane
 

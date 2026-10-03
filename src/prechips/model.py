@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
+from pydantic import BaseModel, ConfigDict, Field, create_model, model_serializer, model_validator
 
 type Unknown = Literal["unknown"]
 UNKNOWN: Unknown = "unknown"
@@ -43,11 +43,20 @@ class InputModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
 
 
-def record(name: str, fields: dict[str, Any]) -> type[InputModel]:
-    """Declare flat TOML records compactly; every declared field accepts unknown."""
+def record(name: str, fields: dict[str, Any], *, indexed: tuple[str, ...] = ()) -> type[InputModel]:
+    """Optional unknown defaults; retain rule-indexed defaults in sparse dumps."""
+
+    @model_serializer(mode="wrap")
+    def include_indexed_defaults(self, handler):
+        values = handler(self)
+        for key in indexed:
+            values[key] = getattr(self, key)
+        return values
+
     return create_model(
         name,
         __base__=InputModel,
+        __validators__={"include_indexed_defaults": include_indexed_defaults} if indexed else {},
         **{key: (annotation | Unknown, UNKNOWN) for key, annotation in fields.items()},
     )
 
@@ -182,6 +191,7 @@ Operation = record(
         "to_z_band": Vector,
         "contour": Contour,
     },
+    indexed=("do",),
 )
 Setup = record(
     "Setup",
@@ -194,6 +204,7 @@ Setup = record(
         "zero": Zero,
         "ops": list[Operation],
     },
+    indexed=("machine",),
 )
 
 
@@ -294,10 +305,11 @@ Feature = record(
                 "radius_nominal station_nominal through_thickness z_south_reference "
                 "corner_radius_max_design apex_z base_z base_radius sphere_radius "
                 "apex_z_reference base_z_reference length_reference cut_past_scribe "
-                "end_past_scribe supply_length tap_drill_mm bottom_radius_nominal"
+                "end_past_scribe supply_length tap_drill_mm bottom_radius_nominal separation"
             ).split()
         },
     },
+    indexed=("kind",),
 )
 
 

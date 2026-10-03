@@ -19,6 +19,9 @@ future force/deflection use. Carrying these fields does not implement physics
 checks. Missing source pages, values, range, tool facts or material verification
 remain unknown. The examples do not claim any verified Handbook 31 table/page
 or cutting numbers; adding a row requires real source evidence.
+Selection is `--cutting-data`, then a known `[paths].cutting_data`. There is no
+cutting-data environment fallback; an omitted or `"unknown"` path without an
+explicit override is bad input (exit 3), not a source of invented numbers.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
