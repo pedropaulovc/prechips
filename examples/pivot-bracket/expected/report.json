@@ -2,7 +2,7 @@
   "findings": [
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:24,31,33",
         "cad/scripts/build_pivot_bracket.py:193-210"
       ],
@@ -17,7 +17,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:23-35",
         "cad/scripts/build_pivot_bracket.py:168-188"
       ],
@@ -32,7 +32,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:22-35,57"
       ],
       "evidence": [
@@ -46,7 +46,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:22-35"
       ],
       "evidence": [
@@ -60,7 +60,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:21-30"
       ],
       "evidence": [
@@ -74,7 +74,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:22,57"
       ],
       "evidence": [
@@ -88,7 +88,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235"
@@ -104,7 +104,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235"
@@ -120,7 +120,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 blind_thread_depth",
+        "PLAN.md §4 blind_thread_depth",
         "cad/scripts/pivot_bracket_spec.py:7,21-22"
       ],
       "evidence": [
@@ -134,7 +134,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.2",
+        "PLAN.md §3.2",
         "cad/scripts/pivot_bracket_spec.py:7-41,43,77-103",
         "cad/scripts/_hole_spec.py:44-57,111-130",
         "cad/config/parts/pivot-bracket.yaml:2-7"
@@ -150,7 +150,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
+        "PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
         "spec.yaml:frames.A",
         "expected/coordinates/S1.csv",
         "cad/scripts/pivot_bracket_spec.py:7-35,43,77-103",
@@ -168,7 +168,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
+        "PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
         "spec.yaml:frames.B",
         "expected/coordinates/S2.csv",
         "cad/scripts/pivot_bracket_spec.py:7-35,43,77-103",
@@ -186,7 +186,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
+        "PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
         "spec.yaml:frames.C",
         "expected/coordinates/S3.csv",
         "cad/scripts/pivot_bracket_spec.py:7-35,43,77-103",
@@ -204,7 +204,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:24,31,33",
         "cad/scripts/build_pivot_bracket.py:193-210",
         "plan.yaml"
@@ -220,7 +220,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:23-35",
         "cad/scripts/build_pivot_bracket.py:168-188",
         "plan.yaml"
@@ -236,7 +236,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:22-35,57",
         "plan.yaml"
       ],
@@ -251,7 +251,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:22-35",
         "plan.yaml"
       ],
@@ -266,7 +266,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:21-30",
         "plan.yaml"
       ],
@@ -281,7 +281,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:22,57",
         "plan.yaml"
       ],
@@ -296,7 +296,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235",
@@ -313,7 +313,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235",
@@ -330,7 +330,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 coverage",
+        "PLAN.md §4 coverage",
         "cad/scripts/pivot_bracket_spec.py:7,21-22",
         "plan.yaml"
       ],
@@ -345,7 +345,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.5, §4 envelope",
+        "PLAN.md §3.5, §4 envelope",
         "examples/inventory/pedro-shop.yaml:8-22,65-99,106-140",
         "plan.yaml:S1.workholding"
       ],
@@ -361,7 +361,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.5, §4 envelope",
+        "PLAN.md §3.5, §4 envelope",
         "examples/inventory/pedro-shop.yaml:8-22,65-99,106-140",
         "plan.yaml:S2.workholding"
       ],
@@ -376,7 +376,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.5, §4 envelope",
+        "PLAN.md §3.5, §4 envelope",
         "examples/inventory/pedro-shop.yaml:8-22,65-99,106-140",
         "plan.yaml:S3.workholding"
       ],
@@ -391,7 +391,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S1:10"
       ],
@@ -406,7 +406,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S1:20"
       ],
@@ -421,7 +421,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S1:30"
       ],
@@ -436,7 +436,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S2:10"
       ],
@@ -451,7 +451,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S2:20"
       ],
@@ -466,7 +466,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S2:30"
       ],
@@ -481,7 +481,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S2:40"
       ],
@@ -496,7 +496,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S2:50"
       ],
@@ -511,7 +511,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
         "plan.yaml:S2:60"
       ],
@@ -526,7 +526,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
         "plan.yaml:S2:70"
       ],
@@ -541,7 +541,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
         "plan.yaml:S2:80"
       ],
@@ -556,7 +556,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
         "plan.yaml:S2:90"
       ],
@@ -571,7 +571,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S3:10"
       ],
@@ -586,7 +586,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
         "plan.yaml:S3:20"
       ],
@@ -601,7 +601,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
         "plan.yaml:S3:30"
       ],
@@ -616,7 +616,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
         "plan.yaml:S3:40"
       ],
@@ -631,7 +631,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §4 holder_compat",
+        "PLAN.md §2, §4 holder_compat",
         "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
         "plan.yaml:S3:50"
       ],
@@ -646,7 +646,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:24,31,33",
         "cad/scripts/build_pivot_bracket.py:193-210"
       ],
@@ -661,7 +661,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:23-35",
         "cad/scripts/build_pivot_bracket.py:168-188"
       ],
@@ -676,7 +676,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:22-35,57"
       ],
       "evidence": [
@@ -690,7 +690,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:22-35"
       ],
       "evidence": [
@@ -704,7 +704,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:21-30"
       ],
       "evidence": [
@@ -718,7 +718,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:22,57"
       ],
       "evidence": [
@@ -732,7 +732,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235"
@@ -748,7 +748,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235"
@@ -764,7 +764,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.3, §4 hole_op_chain",
+        "PLAN.md §3.3, §4 hole_op_chain",
         "cad/scripts/pivot_bracket_spec.py:7,21-22"
       ],
       "evidence": [
@@ -778,7 +778,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:24,31,33",
         "cad/scripts/build_pivot_bracket.py:193-210",
         "plan.yaml:S1-S3.workholding"
@@ -794,7 +794,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:23-35",
         "cad/scripts/build_pivot_bracket.py:168-188",
         "plan.yaml:S1-S3.workholding"
@@ -810,7 +810,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:22-35,57",
         "plan.yaml:S1-S3.workholding"
       ],
@@ -825,7 +825,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:22-35",
         "plan.yaml:S1-S3.workholding"
       ],
@@ -840,7 +840,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:21-30",
         "plan.yaml:S1-S3.workholding"
       ],
@@ -855,7 +855,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:22,57",
         "plan.yaml:S1-S3.workholding"
       ],
@@ -870,7 +870,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235",
@@ -887,7 +887,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235",
@@ -904,7 +904,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 index_representable",
+        "PLAN.md §4 index_representable",
         "cad/scripts/pivot_bracket_spec.py:7,21-22",
         "plan.yaml:S1-S3.workholding"
       ],
@@ -919,7 +919,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:8-22"
       ],
       "evidence": [
@@ -933,7 +933,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:45-62,64-100",
         "plan.yaml:S3.workholding"
       ],
@@ -948,7 +948,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:97"
       ],
       "evidence": [
@@ -962,7 +962,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:158-159"
       ],
       "evidence": [
@@ -976,7 +976,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:116"
       ],
       "evidence": [
@@ -990,7 +990,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:99",
         "cad/scripts/_hole_spec.py:57",
         "plan.yaml:S3.workholding"
@@ -1006,7 +1006,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:82-89,102-156",
         "examples/inventory/pedro-shop.yaml:153"
       ],
@@ -1021,7 +1021,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:117",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/pivot_bracket_spec.py:40-41"
@@ -1037,7 +1037,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:117",
         "cad/scripts/pivot_bracket_spec.py:33",
         "plan.yaml:S3:40"
@@ -1053,7 +1053,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:140"
       ],
       "evidence": [
@@ -1067,7 +1067,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:106-114"
       ],
       "evidence": [
@@ -1081,7 +1081,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:90-96"
       ],
       "evidence": [
@@ -1095,7 +1095,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:90-96",
         "plan.yaml:S1.workholding"
       ],
@@ -1110,7 +1110,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:90-96"
       ],
       "evidence": [
@@ -1124,7 +1124,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:82-88"
       ],
       "evidence": [
@@ -1138,7 +1138,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:121-127",
         "cad/config/parts/pivot-bracket.yaml:7",
         "cad/scripts/pivot_bracket_spec.py:33"
@@ -1154,7 +1154,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.3, §3.5",
+        "PLAN.md §2, §3.3, §3.5",
         "examples/inventory/pedro-shop.yaml:65-75"
       ],
       "evidence": [
@@ -1168,7 +1168,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 op_order",
+        "PLAN.md §4 op_order",
         "plan.yaml:S1"
       ],
       "evidence": [
@@ -1182,7 +1182,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 op_order",
+        "PLAN.md §4 op_order",
         "plan.yaml:S2"
       ],
       "evidence": [
@@ -1196,7 +1196,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 op_order",
+        "PLAN.md §4 op_order",
         "plan.yaml:S3"
       ],
       "evidence": [
@@ -1210,7 +1210,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.4",
+        "PLAN.md §2, §3.4",
         "examples/policy/default.yaml",
         "policy.yaml"
       ],
@@ -1225,7 +1225,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.2-3.5",
+        "PLAN.md §3.2-3.5",
         "spec.yaml",
         "plan.yaml"
       ],
@@ -1240,7 +1240,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.5, §4 sizing_tool",
+        "PLAN.md §2, §3.5, §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:24,31,33",
         "cad/scripts/build_pivot_bracket.py:193-210",
         "examples/inventory/pedro-shop.yaml:121-127"
@@ -1256,7 +1256,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 sizing_tool",
+        "PLAN.md §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:23-35",
         "cad/scripts/build_pivot_bracket.py:168-188"
       ],
@@ -1271,7 +1271,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 sizing_tool",
+        "PLAN.md §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:22-35,57"
       ],
       "evidence": [
@@ -1285,7 +1285,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 sizing_tool",
+        "PLAN.md §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:22-35"
       ],
       "evidence": [
@@ -1299,7 +1299,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 sizing_tool",
+        "PLAN.md §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:21-30"
       ],
       "evidence": [
@@ -1313,7 +1313,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 sizing_tool",
+        "PLAN.md §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:22,57"
       ],
       "evidence": [
@@ -1327,7 +1327,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.5, §4 sizing_tool",
+        "PLAN.md §2, §3.5, §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235",
@@ -1344,7 +1344,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §2, §3.5, §4 sizing_tool",
+        "PLAN.md §2, §3.5, §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
         "cad/scripts/_hole_spec.py:57",
         "cad/scripts/build_pivot_bracket.py:215-235",
@@ -1361,7 +1361,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §4 sizing_tool",
+        "PLAN.md §4 sizing_tool",
         "cad/scripts/pivot_bracket_spec.py:7,21-22"
       ],
       "evidence": [
@@ -1375,7 +1375,7 @@
     },
     {
       "cite": [
-        "C:/src/prechips/PLAN.md §3.1, §3.6",
+        "PLAN.md §3.1, §3.6",
         "spec.yaml:step_sha256",
         "plan.yaml:spec_sha256"
       ],
