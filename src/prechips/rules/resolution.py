@@ -22,26 +22,6 @@ SET_KINDS = {
     "micrometer_set",
     "lathe_tool_bits",
 }
-TOLERANCES = {
-    "dia",
-    "position_dia",
-    "finish_ra",
-    "depth",
-    "length",
-    "width",
-    "height",
-    "thickness",
-    "separation",
-    "coaxiality_dia",
-    "height_above_pivot",
-    "radius",
-    "station",
-    "arc_len",
-    "bottom_radius",
-    "bottom_arc_len",
-    "tip_land",
-    "land_angle_deg",
-}
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"}
 
 

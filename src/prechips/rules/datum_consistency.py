@@ -27,8 +27,6 @@ def _cuts(setups, feature):
             and op["do"] not in _NONFINISH
             and not op["do"].startswith("rough")
         ]
-        if any(op["do"] in ("ream", "tap", "bore") for op in ops):
-            ops = [op for op in ops if op["do"] != "drill"]
         cuts.extend((index, setup, op) for op in ops)
     # A pilot is not the final datum when reaming happens in a later setup.
     if any(op["do"] in ("ream", "tap", "bore") for _, _, op in cuts):

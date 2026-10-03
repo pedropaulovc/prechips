@@ -92,7 +92,6 @@ def evaluate(bundle):
             "stock_bottom_z": state.get("bottom_z", _UNKNOWN),
             "retained_rail_bottom_z": bottom,
             "stock_height_mm": stock_height,
-            "raw_rail_thickness_mm": stock_height,
             "insertion_mm": 25,
             "spindle_to_table_max_mm": spindle,
             "spindle_verify": uncertain(machine),
@@ -233,16 +232,6 @@ def evaluate(bundle):
             ):
                 errors.append(f"part/fixture envelope exceeds {axis.upper()} travel")
         numbers["travel_checks"] = travels
-        profile_extents = [
-            2 * abs(feature["radial_tip_end"][0])
-            for feature in bundle.features.get("features", {}).values()
-            if feature.get("mirror_symmetric") is True
-            and isinstance(feature.get("radial_tip_end"), list)
-            and feature["radial_tip_end"]
-            and _numeric(feature["radial_tip_end"][0])
-        ]
-        if profile_extents:
-            numbers["part_extent_x_mm"] = max(profile_extents)
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
             f"{setup['id']}: "

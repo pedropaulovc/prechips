@@ -116,6 +116,12 @@ No invented tool dimension, Handbook page, measurement or drawing tolerance
 fills a gap. Sources are citations, never network fetches at check time. The
 only optional network activity is explicitly configured OpenTelemetry export.
 
+Authored bench instructions retain slash-separated text such as
+`top/bottom/sides`, `S1/S2/S3` and `1/4/20`; only recognizable repository,
+drive-path and URL citations are removed from the sheet. Headroom evidence uses
+one `stock_height_mm` value and compares the transformed stock/fixture envelope
+with machine travel, not an unused nominal profile extent.
+
 A report with exit 0 is eligible, but its traveler still needs a matching report
 hash and nonblank first-article evidence to remove **PLANNED**. Approval cannot
 waive errors or required unresolved findings.

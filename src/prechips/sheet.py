@@ -48,13 +48,11 @@ _REFERENCE_FIELDS = {
 
 
 def _status(finding):
-    status = finding.get("status") if isinstance(finding, dict) else finding.status
+    status = finding.status
     return getattr(status, "value", status)
 
 
 def _field(finding, name, default=None):
-    if isinstance(finding, dict):
-        return finding.get(name, default)
     return getattr(finding, "sentence" if name == "message" else name, default)
 
 
@@ -250,9 +248,6 @@ class _Traveler:
             text,
         )
         text = text.replace("PLAN.md", "approved plan")
-        text = re.sub(
-            r"(?<!\w)(?:[A-Za-z]:[\\/]|(?:\.{1,2}[\\/])|(?:[\w.-]+[\\/]){2,})[^\s;,]+", "", text
-        )
         for rule in {key[0] for key in self.records}:
             text = text.replace(rule, _text(rule))
         return _text(text)
