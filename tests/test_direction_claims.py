@@ -539,7 +539,7 @@ def _unproven_stock(bundle):
     op["stock_reason"] = STOCK_REASON
     op["reason"] = f"in-process stock unknown: {STOCK_REASON}"
     op["reasons"] = {}
-    measured = ("tool_hits", "holder_hits", "reach_depth_mm", "holder_wall_hits", "corner_radii_mm")
+    measured = ("tool_hits", "holder_hits", "reach_depth_mm", "holder_wall_hits")
     for key in measured:
         op[key] = "unknown"
         op["reasons"][key] = op["reason"]
@@ -553,7 +553,7 @@ def _unproven_stock(bundle):
     bundle.inventory["fixtures"]["vise"]["verify"] = True
 
 
-@pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
+@pytest.mark.parametrize("rule", [accessibility, reach])
 def test_unknown_stock_is_named_before_tool_and_holding_debt(bundle, rule):
     _unproven_stock(bundle)
     row = _rows(rule, bundle)["S1:10"]
@@ -572,15 +572,6 @@ def test_far_side_claims_outrank_unknown_stock(bundle):
     bundle.kernel["ops"]["S1:10"]["claim_errors"] = ["#2"]
     row = _rows(accessibility, bundle)["S1:10"]
     assert row.status == "error" and "#2" in row.sentence
-
-
-def test_unknown_stock_blocks_accessibility_even_with_certain_hits(bundle):
-    _unproven_stock(bundle)
-    bundle.inventory["tools"]["em"]["verify"] = False
-    bundle.inventory["fixtures"]["vise"]["verify"] = False
-    bundle.kernel["ops"]["S1:10"]["min_hits"] = {"tool": 2, "holder": 0}
-    row = _rows(accessibility, bundle)["S1:10"]
-    assert row.status == "unknown" and STOCK_REASON in row.sentence
 
 
 def test_stale_claim_facts_are_not_used_when_the_claimed_refs_are_unknown(bundle):

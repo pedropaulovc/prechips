@@ -146,6 +146,10 @@ tooling and holding debt remains visible; local policies focus the required
 geometry rows on the target operation/setup while retaining part-wide
 coverage and finish requirements. Errors anywhere still stop the candidate.
 Only target scenes have fully authored jaw and parallel poses.
+Clearing bounds are restricted to the claimed XY footprint plus known cutter
+radius. With unknown preparation tools, the synthetic rocker supply/clearance
+uses the STEP global XY bbox and retains only its authored 1 mm Z allowances;
+it no longer invents an unclaimed extra XY footprint.
 
 | bundle | STEP | rule it discriminates |
 |---|---|---|

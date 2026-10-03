@@ -66,11 +66,12 @@ cone built-up 2**. The shaft and one-piece cone retain required unknowns; the
 rocker and bracket lack named tooling/fixtures; the built-up cone is explicitly
 unauthorized by the drawing. Outputs are still written for exits 2 and 4.
 All example sheets remain **PLANNED**. They are
-hand-authored references, not first articles or certified CAD exports. No STEP
-bytes or verified cutting-table numbers are supplied; unknown RPM/feed cells
-stay unknown, and without STEP bytes every geometry rule row is `?`. See
-[examples/README.md](examples/README.md) for source provenance and
-reconciliation details and for the geometry fixtures that do carry STEP bytes.
+hand-authored references, not first articles or certified CAD exports. No
+verified cutting-table numbers are supplied; unknown RPM/feed cells stay
+unknown. The shaft, bracket and cone bundles carry no STEP bytes, so every
+geometry rule row of theirs is `?`; the rocker binds the consumer's labelled
+STEP export. See [examples/README.md](examples/README.md) for source provenance,
+reconciliation details and the synthetic geometry fixtures that also carry STEP bytes.
 
 The cone candidates are authored **full-envelope one-piece blank** and **block
 plus pressed boss** alternatives, not route generation or a recommendation. The

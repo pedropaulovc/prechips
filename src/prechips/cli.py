@@ -117,7 +117,7 @@ def _write_outputs(
     except BaseException as exc:
         for target, backup in reversed(replaced):
             if backup is None:
-                target.unlink()
+                target.unlink(missing_ok=True)
             else:
                 # If restoring fails, the backup keeps the only copy of the prior bytes.
                 temporaries.remove(backup)
@@ -631,11 +631,7 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     plans = args.plans if args.verb == "compare" else [args.plan]
     bundles = [load_bundle(p, args.inventory, args.policy, args.cutting_data) for p in plans]
     out = args.out or plans[0].parent
-    names = (
-        ("compare.json",)
-        if args.verb == "compare"
-        else (("report.json", "traveler.html") if args.verb == "traveler" else ("report.json",))
-    )
+    names = ("compare.json",) if args.verb == "compare" else ("report.json", "traveler.html")
     if args.verb == "traveler":
         names += tuple(
             f"setup-S{ordinal}.png" for ordinal, _ in enumerate(bundles[0].plan["setups"], start=1)
@@ -697,7 +693,18 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         outputs[destinations[1]] = html.encode("utf-8")
         outputs.update({path: assets[0].get(path.name) for path in destinations[2:]})
     elif args.verb == "check":
-        outputs.update({path: None for path in destinations[1:] if path.name not in assets[0]})
+        try:
+            outputs.update(
+                {
+                    path: None
+                    for path in destinations[1:]
+                    if path.name not in assets[0]
+                    or not path.exists()
+                    or path.read_bytes() != assets[0][path.name]
+                }
+            )
+        except OSError as exc:
+            raise BadInput(f"Cannot check output path: {exc}") from exc
     _write_outputs(out, outputs, tracing)
     if getattr(args, "json", False):
         _json_stdout(report)

@@ -60,7 +60,6 @@
         "holder_gauge_len_mm": 60.0,
         "holder_hits": 0,
         "holder_radius_mm": 20.0,
-        "oal_mm": 63.0,
         "projection_mm": 38.0,
         "radius_mm": 4.0,
         "sample_count": 65,
@@ -251,7 +250,7 @@
           },
           "plan": {
             "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
-            "sha256": "3866300ee9463721995513fb80abbaaa3ca7524b549fc41170b33c0f5cf59fd0"
+            "sha256": "88d9a95b04856bf2eddd6dc3d820a2cabdd83897b370bcb3f63bdd584177f851"
           },
           "shop_policy": {
             "path": "examples/geometry/rocker-jaw-occluded/shop-policy.toml",
@@ -1115,7 +1114,7 @@
         ],
         "stock_bottom_z": "unknown",
         "stock_extent_x_mm": 9.0565,
-        "stock_extent_y_mm": 296.0,
+        "stock_extent_y_mm": 292.509136,
         "stock_height_mm": "unknown",
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": "unknown",
@@ -1131,7 +1130,7 @@
           },
           "y": {
             "fixture_mm": "unknown",
-            "part_mm": 296.0,
+            "part_mm": 292.509136,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -1207,7 +1206,7 @@
         ],
         "stock_bottom_z": "unknown",
         "stock_extent_x_mm": 9.0565,
-        "stock_extent_y_mm": 296.0,
+        "stock_extent_y_mm": 292.509136,
         "stock_height_mm": "unknown",
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": "unknown",
@@ -1223,7 +1222,7 @@
           },
           "y": {
             "fixture_mm": "unknown",
-            "part_mm": 296.0,
+            "part_mm": 292.509136,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -1299,7 +1298,7 @@
         ],
         "stock_bottom_z": -21.29464,
         "stock_extent_x_mm": 9.0565,
-        "stock_extent_y_mm": 32.0,
+        "stock_extent_y_mm": 29.29464,
         "stock_height_mm": 29.29464,
         "stock_top_above_jaws_mm": 9.294640000000001,
         "stock_top_z": 8.0,
@@ -1315,7 +1314,7 @@
           },
           "y": {
             "fixture_mm": "unknown",
-            "part_mm": 32.0,
+            "part_mm": 29.29464,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -3222,7 +3221,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "581e96639efefa10182db0b74df4c77e4a0917092132b7347bda16421242ab78",
+  "hash": "a737a238af150b3b04e38c266089f56e69095586b9c409a51ec4a6472ef2ca47",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3238,19 +3237,19 @@
     },
     "plan": {
       "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
-      "sha256": "3866300ee9463721995513fb80abbaaa3ca7524b549fc41170b33c0f5cf59fd0"
+      "sha256": "88d9a95b04856bf2eddd6dc3d820a2cabdd83897b370bcb3f63bdd584177f851"
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "54c90d12f0e650c590d03f5426d941223c521e5d13fe235554e3f1a12a0c29f2"
+      "sha256": "f86357dd6b7fca8b4f7b0800a5b3c0ba01ebc96f0d9078b6eeccde8cd7b66292"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "7911dd3e1876fab0ebad7ffa390f5c4e276ff393ddd9347ddde9807edbf60b55"
+      "sha256": "09e087a9c2a4304d05fdec7fe44fd632cdc8263257c6f035361d67c3c2e27328"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "76f5dac7a3017212d20137f2735366ab16d88ec4e789080c8a064d2fed144fa5"
+      "sha256": "e7091ad90e97b8126d2c89006d5f9755b8a5df56b969a8990aab6adaf4ae50ec"
     },
     "shop_policy": {
       "path": "examples/geometry/rocker-jaw-occluded/shop-policy.toml",
@@ -3273,7 +3272,7 @@
         "jaws": "absent",
         "parallels": "absent"
       },
-      "sha256": "54c90d12f0e650c590d03f5426d941223c521e5d13fe235554e3f1a12a0c29f2"
+      "sha256": "f86357dd6b7fca8b4f7b0800a5b3c0ba01ebc96f0d9078b6eeccde8cd7b66292"
     },
     "S2": {
       "fixture": "unresolved",
@@ -3285,7 +3284,7 @@
         "jaws": "absent",
         "parallels": "absent"
       },
-      "sha256": "7911dd3e1876fab0ebad7ffa390f5c4e276ff393ddd9347ddde9807edbf60b55"
+      "sha256": "09e087a9c2a4304d05fdec7fe44fd632cdc8263257c6f035361d67c3c2e27328"
     },
     "S3": {
       "fixture": "modeled",
@@ -3295,7 +3294,7 @@
         "jaws": "exact",
         "parallels": "exact"
       },
-      "sha256": "76f5dac7a3017212d20137f2735366ab16d88ec4e789080c8a064d2fed144fa5"
+      "sha256": "e7091ad90e97b8126d2c89006d5f9755b8a5df56b969a8990aab6adaf4ae50ec"
     }
   },
   "rules_version": "m5-rev8",

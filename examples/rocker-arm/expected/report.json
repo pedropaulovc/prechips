@@ -240,7 +240,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -266,7 +266,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -293,7 +293,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -322,7 +322,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -350,7 +350,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -374,7 +374,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -399,7 +399,7 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-429",
         "plan.setups.S3.ops.20: selected action/tool/holder"
       ],
-      "message": "S3:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -425,7 +425,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -450,7 +450,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -478,7 +478,7 @@
         "plan.setups.S3.ops.50: selected action/tool/holder",
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
       ],
-      "message": "S3:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -506,7 +506,7 @@
         "plan.setups.S3.ops.60: selected action/tool/holder",
         "inventory.tools.drill-index-115/#47: explicit-unit verified dimensions"
       ],
-      "message": "S3:60: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:60: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -11472,10 +11472,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:10: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.762499999999999
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:10"
     },
     {
@@ -11498,10 +11501,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:20: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.762499999999999
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:20"
     },
     {
@@ -11525,10 +11531,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:30: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.762499999999999
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:30"
     },
     {
@@ -11554,10 +11563,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:40: concave corner radii admit the selected cutter.",
+      "numbers": {
+        "corner_radii_mm": [
+          800.0
+        ],
+        "minimum_corner_radius_mm": 800.0,
+        "tool_radius_mm": 4.762499999999999
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:40"
     },
     {
@@ -11582,10 +11597,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:50: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.762499999999999
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:50"
     },
     {
@@ -11606,10 +11624,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:10: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.762499999999999
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S3:10"
     },
     {
@@ -11631,7 +11652,7 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-429",
         "plan.setups.S3.ops.20: selected action/tool/holder"
       ],
-      "message": "S3:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:20: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "internal_corner_radius",
       "status": "unknown",
@@ -11657,10 +11678,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:30: concave corner radii admit the selected cutter.",
+      "numbers": {
+        "corner_radii_mm": [
+          800.0
+        ],
+        "minimum_corner_radius_mm": 800.0,
+        "tool_radius_mm": 4.762499999999999
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:30"
     },
     {
@@ -11682,10 +11709,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:40: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.762499999999999
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S3:40"
     },
     {
@@ -11710,7 +11740,7 @@
         "plan.setups.S3.ops.50: selected action/tool/holder",
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
       ],
-      "message": "S3:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:50: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "internal_corner_radius",
       "status": "unknown",
@@ -11738,10 +11768,16 @@
         "plan.setups.S3.ops.60: selected action/tool/holder",
         "inventory.tools.drill-index-115/#47: explicit-unit verified dimensions"
       ],
-      "message": "S3:60: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:60: concave corner radii admit the selected cutter.",
+      "numbers": {
+        "corner_radii_mm": [
+          0.99695
+        ],
+        "minimum_corner_radius_mm": 0.99695,
+        "tool_radius_mm": 0.997
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:60"
     },
     {
@@ -12263,7 +12299,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12289,7 +12325,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12316,7 +12352,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12345,7 +12381,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12373,7 +12409,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12397,7 +12433,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:10: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12422,7 +12458,7 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-429",
         "plan.setups.S3.ops.20: selected action/tool/holder"
       ],
-      "message": "S3:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:20: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12448,7 +12484,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:30: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12473,7 +12509,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:40: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12501,7 +12537,7 @@
         "plan.setups.S3.ops.50: selected action/tool/holder",
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
       ],
-      "message": "S3:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:50: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -12529,7 +12565,7 @@
         "plan.setups.S3.ops.60: selected action/tool/holder",
         "inventory.tools.drill-index-115/#47: explicit-unit verified dimensions"
       ],
-      "message": "S3:60: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:60: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -13526,7 +13562,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-429"
       ],
-      "message": "S2: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "thin_wall_under_clamp",
       "status": "unknown",
@@ -16079,7 +16115,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-429"
       ],
-      "message": "S2: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach sweeps no volume from a profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2: in-process stock unknown: S1:40: overstock still touches claimed wall(s) #163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01 above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "vise",
       "status": "unknown",
@@ -16404,7 +16440,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "45858940d9de70a663d1bc456e9f46ac2ac8bdfee59dd6ad66fe4cf4dbadf2bc",
+  "hash": "934922cd0daea01fcc501506c0c6fb0d6a92139f1eebd2b69213728c77534bea",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

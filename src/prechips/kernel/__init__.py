@@ -16,7 +16,6 @@ from prechips.rules._envelope import measurement_item, tool_projection
 from prechips.rules.resolution import WORKHOLDING_CATEGORIES, inventory_category, number, record
 
 UNKNOWN = "unknown"
-_INSTALLED = Path("C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe")
 
 
 def _json(value):
@@ -29,8 +28,11 @@ def discover_kernel():
     if override:
         path = Path(override)
         return path.resolve() if path.is_file() else shutil.which(override)
-    if _INSTALLED.is_file():
-        return _INSTALLED
+    base = os.environ.get("LOCALAPPDATA")
+    if base:
+        installed = Path(base) / "Programs" / "FreeCAD 1.1" / "bin" / "freecadcmd.exe"
+        if installed.is_file():
+            return installed
     return (
         shutil.which("freecadcmd.exe") or shutil.which("FreeCADCmd") or shutil.which("freecadcmd")
     )
@@ -78,7 +80,7 @@ def op_inputs(bundle, setup, op, finishing=None):
     for key, value in values.items():
         if number(value) and value > 0:
             result[key] = value
-        else:
+        elif key != "oal_mm":
             missing.append(key)
     if missing:
         result["reason"] = (

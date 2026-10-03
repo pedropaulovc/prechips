@@ -22,11 +22,11 @@ Measurement conventions (setup frame, tool axis +Z):
   cylinder r x flute_len from the tip, holder cylinder holder_radius x
   holder_gauge_len from tip + projection; both shrink/lift by ``LIFT``.
   Far-side faces cannot be claimed from that setup; undefined normals remain debt.
-* Obstacles: (setup-entry stock - sampled face's own surface) and placed jaws.
-  The exclusion is only a ``LIFT``-thick inward shell of that one finished face;
-  every other face, including another claimed face of its feature, stays material.
-  Supply and earlier setups' derivable removals determine each setup's held stock;
-  an op's ``stock_removal_bounds`` is an authored clearing box, not a toolpath proof.
+* Obstacles: setup-entry stock minus the sampled face's ``LIFT``-thick inward
+  shell, plus placed jaws. The flute alone also excludes its op's own derivable
+  outside-finished allowance; other claimed finished faces remain obstacles.
+  Supply and earlier setups' removals determine the held stock and holder/reach
+  obstacles. Authored clearing boxes cannot exceed claimed XY bounds plus cutter radius.
 * Modelled placement only: each sample gets one prescribed tool pose, so a hit
   means that pose collides, not that no other pose reaches the face.
 * Vise: stock seated at its lowest z; jaw zone z in [seat, seat +
@@ -239,8 +239,8 @@ def _normal_at(face, point):
     return face.normalAt(u, v)
 
 
-def _face_samples(face, spacing):
-    """(point, outward normal) pairs inside and along the boundary of ``face``."""
+def _face_samples(face, spacing, interior_only=False):
+    """(point, outward normal) pairs inside and, unless excluded, on the boundary."""
     samples, skipped = [], 0
     u0, u1, v0, v1 = face.ParameterRange
     for i in range(GRID):
@@ -253,6 +253,8 @@ def _face_samples(face, spacing):
                 samples.append((face.valueAt(u, v), face.normalAt(u, v)))
             except Exception:
                 skipped += 1
+    if interior_only:
+        return samples, skipped
     for edge in face.Edges:
         if edge.Degenerated or edge.Length < 1e-7:
             continue
@@ -927,14 +929,12 @@ class _Setup:
     def _output(self):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
 
-        An op declaring ``stock_removal_bounds`` removes all stock outside the finished
-        part inside that setup-frame box (and above its ``to_z``); its claims must all face
-        the approach, lie on the box, and border every piece it removes.  Any other op
-        removes the stock its direction-valid claimed faces sweep along the setup approach
-        (+Z), outside the finished part, connected to a claimed face and above its
-        ``to_z``; unclaimed material (rails, ears, webs, overstock) stays.  A wall the
-        approach sweeps no volume from has no derivable cleared footprint: if overstock
-        still touches it above ``to_z`` the next setup's stock is unknown, never unchanged.
+        An authored clearing box removes outside-finished material only within the
+        claimed faces' XY bounds dilated by the cutter radius, above ``to_z``. Other
+        ops sweep direction-valid claims along +Z, keeping unclaimed rails, ears,
+        webs and overstock. Every claimed face with a horizontal normal component
+        must be clear of overstock at its interior after the setup's removals;
+        merely sweeping a sliver from a drafted wall does not prove it cleared.
         """
         where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
         stock, walls = self.part, []
@@ -949,13 +949,18 @@ class _Setup:
                     return None, f"{subject} to_z is unknown; {where}"
                 if "stock_removal_bounds" in op:
                     removal, why = self._bounded(
-                        op["stock_removal_bounds"], stock, valid, away, to_z
+                        op["stock_removal_bounds"],
+                        stock,
+                        valid,
+                        away,
+                        to_z,
+                        _positive(op, "radius_mm"),
                     )
                     if why is not None:
                         return None, f"{subject} {why}; {where}"
                 else:
-                    removal, unswept = self._removal(valid, to_z)
-                    walls.append((subject, unswept, to_z))
+                    removal = self._removal(valid, to_z)
+                    walls.append((subject, self._indices(op), to_z))
                 if removal is None:
                     continue
                 pieces = [p for p in stock.cut(removal).Solids if p.Volume > STOCK_MM3]
@@ -966,13 +971,13 @@ class _Setup:
                     )
                 stock = pieces[0]
             overstock = stock.cut(self.finished)
-            for subject, unswept, to_z in walls:
-                covered = self._covered(overstock, unswept, to_z)
+            for subject, claimed, to_z in walls:
+                covered = self._covered(overstock, claimed, to_z)
                 if covered:
                     return None, (
                         f"{subject}: overstock still touches claimed wall(s) "
-                        f"{', '.join(covered)} above its to_z; the setup approach sweeps no "
-                        "volume from a profile wall and the op declares no "
+                        f"{', '.join(covered)} above its to_z; the setup approach does not "
+                        "fully clear this profile wall and the op declares no "
                         "stock_removal_bounds (cleared XY footprint, retained rail/ear volume "
                         f"of an interrupted profile) for it; {where}"
                     )
@@ -982,12 +987,12 @@ class _Setup:
             return None, f"in-process stock boolean failed ({exc}); {where}"
         return model, None
 
-    def _bounded(self, bounds, stock, valid, away, to_z):
+    def _bounded(self, bounds, stock, valid, away, to_z, radius):
         """(stock outside the finished part inside the declared box or None, or why not).
 
-        The box is an authored clearing volume, not a toolpath: it removes nothing unless
-        every claim faces the approach, each claimed face lies on the box and each removed
-        piece borders a claimed face, so no claim manufactures clearance away from it.
+        Its XY extent is limited to the claimed faces' union bbox plus cutter radius
+        (zero when unknown). Every claim must face the approach and touch the box;
+        every removed piece must border a claim.
         """
         box, why = _clearing_box(bounds)
         if box is None:
@@ -1008,6 +1013,9 @@ class _Setup:
                 "claimed face(s) lie outside its stock_removal_bounds: "
                 + ", ".join(sorted(outside))
             )
+        why = self._bounds_error(box, valid, radius)
+        if why is not None:
+            return None, why
         removed = stock.common(box).cut(self.finished)
         if to_z is not None:
             removed = removed.common(self._above(to_z))
@@ -1027,25 +1035,42 @@ class _Setup:
             return None, None
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
+    def _bounds_error(self, box, valid, radius):
+        """Reject authored clearance beyond the claims' cutter-dilated XY footprint."""
+        if not valid:
+            return None
+        radius = radius or 0.0
+        bounds = _bbox(box)
+        excess = max(
+            max(
+                min(self.face_boxes[index][axis] for index in valid) - radius - bounds[axis],
+                bounds[axis + 3]
+                - max(self.face_boxes[index][axis + 3] for index in valid)
+                - radius,
+            )
+            for axis in (0, 1)
+        )
+        if excess > STOCK_TOL:
+            return (
+                f"stock_removal_bounds extends {_r(excess)} mm beyond its claimed faces' "
+                f"XY footprint dilated by {_r(radius)} mm cutter radius"
+            )
+        return None
+
     def _removal(self, valid, to_z):
-        """(stock removed by sweeping claimed faces along +Z or None, unswept wall indices)."""
+        """Stock outside the finished solid swept by direction-valid claims along +Z."""
         up = V(0, 0, 1)
-        faces, prisms, unswept = [], [], []
+        faces, prisms = [], []
         for index in valid:
             face = self.faces[index]
             if _vertical(face, up):
-                # A wall wholly below the op's floor keeps its overstock by design.
-                if to_z is None or self.face_boxes[index][5] > to_z + STOCK_TOL:
-                    unswept.append(index)
                 continue
             prism = face.extrude(up * self.owner.sweep_mm)
             if prism.Volume > HIT_MM3:
                 faces.append(face)
                 prisms.append(prism)
-            else:
-                unswept.append(index)
         if not prisms:
-            return None, unswept
+            return None
         sweep = prisms[0].fuse(prisms[1:]) if len(prisms) > 1 else prisms[0]
         kept = [
             piece
@@ -1053,13 +1078,13 @@ class _Setup:
             if piece.Volume > HIT_MM3 and any(piece.distToShape(f)[0] < STOCK_TOL for f in faces)
         ]
         if not kept:
-            return None, unswept
+            return None
         removal = kept[0].fuse(kept[1:]) if len(kept) > 1 else kept[0]
         if to_z is not None:
             removal = removal.common(self._above(to_z))
             if removal.Volume <= HIT_MM3:
-                return None, unswept
-        return removal, unswept
+                return None
+        return removal
 
     def _above(self, z):
         """A box holding everything in this setup at or above height ``z``."""
@@ -1067,9 +1092,9 @@ class _Setup:
         x, y = ((self.box[i] + self.box[i + 3]) / 2 - size / 2 for i in range(2))
         return Part.makeBox(size, size, size, V(x, y, z))
 
-    def _covered(self, overstock, unswept, to_z):
-        """Labels of unswept claimed walls that overstock above ``to_z`` still touches."""
-        if not unswept:
+    def _covered(self, overstock, claimed, to_z):
+        """Labels whose lateral face interior still borders overstock, not just neighbours."""
+        if not claimed:
             return []
         if to_z is not None:
             overstock = overstock.common(self._above(to_z + COVER_MM))
@@ -1077,13 +1102,52 @@ class _Setup:
             return []
         return sorted(
             self.owner.labels[index]
-            for index in unswept
-            if self.faces[index].distToShape(overstock)[0] < COVER_MM
+            for index in claimed
+            if any(
+                math.hypot(normal.x, normal.y) > 1e-9
+                for _, normal in _face_samples(self.faces[index], 1.0, interior_only=True)[0]
+            )
+            and self._interior_contact(self.faces[index], overstock)
         )
 
     @staticmethod
+    def _interior_contact(face, overstock):
+        """Exact contact catches small ears; inset near-edge probes ignore boundary-only contact."""
+        distance, pairs, _ = face.distToShape(overstock)
+        if distance >= COVER_MM:
+            return False
+        if face.common(overstock).Area > CONTACT_MM2:
+            return True
+        inner = _inner_point(face)
+        if inner is None:
+            # Without an interior point the face cannot establish that close stock is a neighbour.
+            return True
+        boundary = Part.makeCompound(face.Wires)
+        inner_u, inner_v = face.Surface.parameter(inner)
+        for point, _ in pairs:
+            if boundary.distToShape(Part.Vertex(point))[0] > COVER_MM:
+                return True
+            length = (inner - point).Length
+            fraction = min(1.0, 2 * COVER_MM / length) if length else 1.0
+            contact_u, contact_v = face.Surface.parameter(point)
+            while True:
+                u = contact_u + fraction * (inner_u - contact_u)
+                v = contact_v + fraction * (inner_v - contact_v)
+                if face.isPartOfDomain(u, v):
+                    inset = Part.Vertex(face.valueAt(u, v))
+                    if boundary.distToShape(inset)[0] > 2 * COVER_MM:
+                        if inset.distToShape(overstock)[0] < COVER_MM:
+                            return True
+                        break
+                if fraction == 1.0:
+                    break
+                # A corner on a wide/short face needs more travel than an edge midpoint.
+                fraction = min(1.0, 2 * fraction)
+        return False
+
+    @staticmethod
     def _unproven(facts, reason):
-        """No op fact may pass on unknown stock; finished-material hits stay as minimums."""
+        """Unknown stock blocks clearance; finished-solid hits and corner radii survive."""
         why = f"in-process stock unknown: {reason}"
         facts["stock_reason"] = reason
         facts["reason"] = why
@@ -1097,7 +1161,6 @@ class _Setup:
             "holder_hits",
             "reach_depth_mm",
             "holder_wall_hits",
-            "corner_radii_mm",
         ):
             facts[key] = UNKNOWN
             reasons[key] = why
@@ -1573,6 +1636,12 @@ class _Setup:
         facts = {"reasons": {}}
         reasons = facts["reasons"]
         facts["claim_errors"] = sorted(owner.labels[index] for index in away)
+        if "stock_removal_bounds" in op and valid and not away and not undefined:
+            box, _ = _clearing_box(op["stock_removal_bounds"])
+            if box is not None:
+                error = self._bounds_error(box, valid, _positive(op, "radius_mm"))
+                if error:
+                    facts["stock_removal_error"] = error
         if undefined:
             facts["claimed_indices"] = UNKNOWN
             reasons["claimed_indices"] = self._undefined(undefined)
@@ -1675,6 +1744,32 @@ class _Setup:
             self.regions[index] = (_Culled(obstacle), None)
         return self.regions[index]
 
+    def _flute_regions(self, op, regions, radius):
+        """Only this op's derivable allowance is cutting material, not a flute obstacle."""
+        if self.stock_reason is not None:
+            return regions
+        valid, away, why = self._claims(op)
+        to_z = op.get("to_z")
+        if not isinstance(valid, list) or away or why or (to_z is not None and not _number(to_z)):
+            return regions
+        if "stock_removal_bounds" in op:
+            removal, why = self._bounded(
+                op["stock_removal_bounds"], self.part, valid, away, to_z, radius
+            )
+            if why:
+                return regions
+        else:
+            removal = self._removal(valid, to_z)
+        if removal is None:
+            return regions
+        removal = self.part.common(removal)
+        if removal.Volume <= HIT_MM3:
+            return regions
+        return {
+            index: (_Culled(region.shape.cut(removal)), None) if region is not None else (None, why)
+            for index, (region, why) in regions.items()
+        }
+
     def _sample_facts(self, op, indices, radius, facts):
         reasons = facts["reasons"]
         samples, sample_problems = [], []
@@ -1732,6 +1827,7 @@ class _Setup:
             facts["holder_wall_hits"] = UNKNOWN
             reasons["holder_wall_hits"] = sample_reason
         regions = {index: self._region(index) for index in indices}
+        flute_regions = self._flute_regions(op, regions, radius)
         region_reason = (
             "; ".join(reason for _, reason in regions.values() if reason is not None) or None
         )
@@ -1740,7 +1836,6 @@ class _Setup:
         # Per kind: certain hits, hits only in the undeclared jaw extension, labels, refs.
         counters = {"tool": [0, 0, set(), set()], "holder": [0, 0, set(), set()]}
         for index, _, ax, ay, tip, downward in placed:
-            obstacle = regions[index][0]
             checks = []
             if flute is not None:
                 checks.append(("tool", (ax, ay, radius - LIFT, tip, tip + flute)))
@@ -1754,6 +1849,7 @@ class _Setup:
                         counter[2].add("part")
                     continue
                 labels = set()
+                obstacle = (flute_regions if kind == "tool" else regions)[index][0]
                 common = obstacle.common(*cylinder) if obstacle is not None else None
                 if common is not None:
                     labels.add("part")

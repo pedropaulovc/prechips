@@ -146,3 +146,81 @@ def test_refused_stale_image_deletion_restores_every_prior_output(tmp_path, monk
             tracing,
         )
     assert {path: path.read_bytes() for path in tmp_path.iterdir()} == prior
+
+
+def test_absent_deletion_does_not_interrupt_rollback_of_earlier_outputs(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    import prechips.cli as cli
+
+    report = tmp_path / "report.json"
+    report.write_bytes(b"earlier report")
+    absent = tmp_path / "setup-S1.png"
+    refused = tmp_path / "setup-S2.png"
+    original_replace = cli.os.replace
+
+    def refuse_image(source, target):
+        if target == refused:
+            raise OSError("Synthetic later output failure")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(cli.os, "replace", refuse_image)
+    tracing = SimpleNamespace(span=lambda *args, **kwargs: nullcontext())
+    with pytest.raises(BadInput, match="Synthetic later output failure"):
+        _write_outputs(
+            tmp_path,
+            {report: b"new report", absent: None, refused: _png((80, 100, 120))},
+            tracing,
+        )
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == {
+        "report.json": b"earlier report"
+    }
+
+
+@pytest.mark.parametrize("changed", [True, False], ids=["changed-render", "matching-render"])
+def test_check_after_traveler_removes_stale_assets_and_binds_current_render(
+    tmp_path, monkeypatch, changed
+):
+    import json
+
+    import prechips.cli as cli
+    import prechips.kernel as kernel
+
+    monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
+    current_png = _png((80, 100, 120))
+
+    def render_bundles(bundles):
+        for index, bundle in enumerate(bundles):
+            rendered_kernel = {
+                "status": "ok",
+                "setups": {
+                    bundle.plan["setups"][0]["id"]: {
+                        "render_png_base64": base64.b64encode(current_png).decode("ascii"),
+                        "fixture_reason": "Synthetic unresolved fixture for output regression.",
+                    }
+                },
+            }
+            bundles[index] = replace(bundle, kernel=rendered_kernel)
+        return [bundle.kernel for bundle in bundles]
+
+    monkeypatch.setattr(kernel, "run_geometries", render_bundles)
+    plan = "examples/pivot-shaft/plan.toml"
+    args = [plan, "--out", str(tmp_path)]
+    assert cli.main(["traveler", *args]) in {0, 2, 4}
+    prior_report = json.loads((tmp_path / "report.json").read_bytes())
+    assert (tmp_path / "traveler.html").is_file()
+    prior_image = tmp_path / prior_report["inputs"]["render:S1"]["path"]
+    assert prior_image.read_bytes() == current_png
+    if changed:
+        current_png = _png((120, 100, 80))
+
+    assert cli.main(["check", *args]) in {0, 2, 4}
+    report = json.loads((tmp_path / "report.json").read_bytes())
+    assert report["inputs"]["render:S1"]["sha256"] == hashlib.sha256(current_png).hexdigest()
+    if changed:
+        assert report["hash"] != prior_report["hash"]
+        assert not prior_image.exists()
+    else:
+        assert prior_image.read_bytes() == current_png
+    assert not (tmp_path / "traveler.html").exists()

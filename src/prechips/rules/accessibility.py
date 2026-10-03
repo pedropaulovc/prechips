@@ -10,7 +10,6 @@ def evaluate(bundle):
     required = (
         "radius_mm",
         "flute_len_mm",
-        "oal_mm",
         "projection_mm",
         "holder_radius_mm",
         "holder_gauge_len_mm",
@@ -18,8 +17,29 @@ def evaluate(bundle):
     for setup, op, _, detail, inputs, cite, blocked in op_contexts(
         bundle, "accessibility", required, fixture=True
     ):
+        minimum = detail.get("min_hits", {})
+        certain = {
+            "certain_" + key + "_hits": minimum[key]
+            for key in ("tool", "holder")
+            if isinstance(minimum, dict) and key in minimum
+        }
         if blocked:
-            rows.append(blocked)
+            if blocked.status == "unknown" and any(
+                number(value) and value > 0 for value in certain.values()
+            ):
+                rows.append(
+                    Finding(
+                        "accessibility",
+                        blocked.subject,
+                        "error",
+                        certain,
+                        cite,
+                        f"{blocked.subject}: selected cutter or holder is certainly "
+                        "occluded by part/fixture material.",
+                    )
+                )
+            else:
+                rows.append(blocked)
             continue
         subject = f"{setup['id']}:{op['op']}"
         values = {
@@ -46,11 +66,7 @@ def evaluate(bundle):
                 if status == "error"
                 else "sampled claimed faces clear the selected cutter and holder cylinders"
             )
-        minimum = detail.get("min_hits", {})
-        if isinstance(minimum, dict):
-            for key in ("tool", "holder"):
-                if key in minimum:
-                    values["certain_" + key + "_hits"] = minimum[key]
+        values.update(certain)
         if any(
             number(values.get(key)) and values[key] > 0
             for key in ("tool_hits", "holder_hits", "certain_tool_hits", "certain_holder_hits")

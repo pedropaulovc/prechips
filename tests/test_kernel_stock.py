@@ -33,6 +33,7 @@ PART = {"shape": "part"}  # explicit: the supply is the authored solid itself
 
 _AUTHOR = r"""
 import sys
+import math
 import Part
 from FreeCAD import Vector as V
 out = sys.argv[sys.argv.index("--") + 1]
@@ -42,6 +43,17 @@ Part.makeBox(60, 40, 20).cut(Part.makeBox(31, 42, 11, V(30, -1, 10))).exportStep
 Part.makeBox(60, 40, 20).cut(Part.makeBox(62, 30, 11, V(-1, 5, 10))).exportStep(
     out + "/channel.step"
 )
+Part.makeBox(60, 40, 20).exportStep(out + "/block.step")
+# A 1-degree drafted wall in the review's retained wedge (the wall faces down).
+draft = 10 * math.tan(math.radians(1))
+points = [V(30, 0, 20), V(30 + draft, 0, 10), V(61, 0, 10), V(61, 0, 21),
+          V(30, 0, 21), V(30, 0, 20)]
+cut = Part.Face(Part.makePolygon(points)).extrude(V(0, 40, 0))
+Part.makeBox(60, 40, 20).common(cut).exportStep(out + "/draftstep.step")
+# The actual stepped block with an upward-facing drafted wall: +Z clears only a sliver.
+Part.makeBox(60, 40, 20).cut(cut).exportStep(out + "/updraftstep.step")
+wide_cut = Part.Face(Part.makePolygon(points)).extrude(V(0, 200, 0))
+Part.makeBox(60, 200, 20).cut(wide_cut).exportStep(out + "/wideupdraftstep.step")
 """
 
 
@@ -288,7 +300,7 @@ def solids(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 2, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 6, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -322,8 +334,8 @@ def test_later_setup_sees_material_an_earlier_setup_removed(engine, solids):
     finished = engine.run(
         engine.job(step, {"floor": floor}, [_setup("S2", [_floor_op("S2:10")])], stock=PART)
     )["ops"]["S2:10"]["tool_hits"]
-    # The raw block still covers the floor in S1; edge samples also meet the kept wall.
-    assert result["ops"]["S1:10"]["tool_hits"] > finished
+    # Own allowance is cutting material, but boundary poses still meet the kept wall.
+    assert result["ops"]["S1:10"]["tool_hits"] == finished > 0
     # S2 receives the block minus the region S1's floor claim swept away.
     assert second["stock_volume_mm3"] == pytest.approx(48000.0 - 30 * 40 * 10)
     assert second["render_png_base64"] and "stock_reason" not in second
@@ -339,12 +351,15 @@ def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
             engine.job(
                 step,
                 {"floor": floor},
-                [_setup("S1", [_floor_op("S1:10", to_z)]), _setup("S2", [_floor_op("S2:10")])],
+                [
+                    _setup("S1", [_floor_op("S1:10", to_z)]),
+                    _setup("S2", [_floor_op("S2:10", to_z)]),
+                ],
             )
         )
         for to_z in (15.0, None)
     )
-    # A 5 mm web above the floor stays as overstock and still collides.
+    # A 5 mm web above the floor stays as overstock; a target retaining it still collides.
     assert webbed["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(48000.0 - 60 * 30 * 5)
     finished = engine.run(
         engine.job(step, {"floor": floor}, [_setup("S2", [_floor_op("S2:10")])], stock=PART)
@@ -395,26 +410,35 @@ def test_declared_clearing_box_derives_the_next_setup_and_keeps_unclaimed_rails(
     target = _setup("S2", [_floor_op("S2:10"), _op("S2:20", "wall", 3.0, 15.0, 30.0)])
     full, webbed = (
         engine.run(
-            engine.job(step, features, [_setup("S1", [_clearing(box)]), target], (), ALLOWED)
+            engine.job(
+                step,
+                features,
+                [
+                    _setup("S1", [_clearing(CLEAR, faces=wall + floor, to_z=to_z)]),
+                    _setup("S2", [_floor_op("S2:10", to_z), _op("S2:20", "wall", 3.0, 15.0, 30.0)]),
+                ],
+                (),
+                ALLOWED,
+            )
         )
-        for box in (CLEAR, {**CLEAR, "z": [15.0, 22.0]})
+        for to_z in (10.0, 15.0)
     )
     first, second = full["setups"]["S1"], full["setups"]["S2"]
-    # S1 is still checked and drawn on the raw blank; its clearance only shapes S2's stock.
+    # Holding, rendering, reach and holder checks still use the raw setup-entry stock.
     assert first["stock_volume_mm3"] == pytest.approx(60 * 50 * 22)
     assert first["render_png_base64"] and "stock_reason" not in first
-    # A vertical wall sweeps nothing, but the declared box clears the step down to the part
-    # and nothing outside it: the rails and the top allowance over the high half stay.
+    # The floor and wall jointly bound the claimed clearing footprint. Rails and
+    # top allowance over the unclaimed high half stay.
     assert "stock_reason" not in second and second["render_png_base64"]
     assert second["stock_volume_mm3"] == pytest.approx(60 * 50 * 22 - 30 * 40 * 12)
     assert second["stock_bbox_mm"] == [0.0, -5.0, 0.0, 60.0, 45.0, 22.0]
     assert second["width_mm"] == 50.0 and second["min_wall_mm"] == 5.0
-    # A box stopping above the floor leaves that 5 mm web behind as well.
+    # A to_z endpoint above the floor leaves a 5 mm web behind as well.
     assert webbed["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(60 * 50 * 22 - 30 * 40 * 7)
     finished = engine.run(engine.job(step, features, [target], stock=PART))["ops"]
     ops = full["ops"]
-    # The wall is buried in S1, exposed in S2, yet its end poses still meet the kept rails.
-    assert ops["S1:10"]["tool_hits"] > ops["S2:20"]["tool_hits"] > finished["S2:20"]["tool_hits"]
+    # Wall end poses still meet retained rails, even though the op cuts its own allowance.
+    assert ops["S2:20"]["tool_hits"] > finished["S2:20"]["tool_hits"]
     assert webbed["ops"]["S2:10"]["tool_hits"] > ops["S2:10"]["tool_hits"]
 
 
@@ -431,10 +455,10 @@ def _refused(engine, step):
     yield _clearing(CLEAR, faces=wall + bottom), ALLOWED, away
     outside = f"outside its stock_removal_bounds: {wall[0]}"
     yield _clearing({**CLEAR, "x": [40.0, 60.0]}), ALLOWED, outside
-    # A 5 mm end overstock (x -5..0) inside the box borders no claimed face.
+    # End overstock outside the wall's cutter-dilated footprint cannot be claimed cleared.
     end = {**BOX, "origin_mm": [-5.0, 0.0, 0.0], "length_mm": 65.0}
     box = {"x": [-5.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 20.0]}
-    yield _clearing(box), end, "removes 2000.0 mm^3 in 1 piece(s) bordering none of its claimed"
+    yield _clearing(box), end, "stock_removal_bounds extends"
 
 
 def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, solids):
@@ -511,3 +535,98 @@ def test_rocker_s1_holds_the_raw_blank_and_s2_names_the_missing_profile_footprin
         for subject in result["ops"]
         if not subject.startswith("S1:")
     )
+
+
+@pytest.mark.parametrize("radius", [3.0, None])
+def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearance(
+    engine, solids, radius
+):
+    step = solids["step"]
+    wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
+    wide = {"x": [0.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 22.0]}
+    op = {**_clearing(wide), "radius_mm": radius}
+    target = _op("S2:10", "wall", 3.0, 10.0, 10.5, holder_radius=6.0, gauge=10.0)
+    result = engine.run(
+        engine.job(
+            step,
+            {"wall": wall},
+            [_setup("S1", [op]), _setup("S2", [target])],
+            stock={**BOX, "section_mm": [40.0, 22.0]},
+        )
+    )
+    reason = result["ops"]["S1:10"].get("stock_removal_error", "")
+    assert "stock_removal_bounds extends" in reason and "claimed faces" in reason
+    second = result["setups"]["S2"]
+    assert reason in second["stock_reason"]
+    assert "stock_volume_mm3" not in second and "render_png_base64" not in second
+    assert result["ops"]["S2:10"]["holder_hits"] == "unknown"
+    assert result["ops"]["S2:10"]["reach_depth_mm"] == "unknown"
+
+
+@pytest.mark.parametrize("name", ["draftstep", "updraftstep", "wideupdraftstep"])
+def test_drafted_claimed_wall_keeps_named_stock_debt(engine, solids, name):
+    step = solids[name]
+    width = 200.0 if name == "wideupdraftstep" else 40.0
+    wall = engine.refs(step, (30, 0, 10), (30.2, width, 20))
+    assert len(wall) == 1
+    result = engine.run(
+        engine.job(
+            step,
+            {"wall": wall},
+            [
+                _setup("S1", [_op("S1:10", "wall", 3.0, 15.0, 30.0)]),
+                _setup("S2", [_op("S2:10", "wall", 3.0, 15.0, 30.0)]),
+            ],
+            stock={**BOX, "section_mm": [width, 20.0]},
+        )
+    )
+    second = result["setups"]["S2"]
+    reason = second.get("stock_reason", "")
+    assert "overstock still touches claimed wall" in reason and wall[0] in reason
+    assert second["width_mm"] == "unknown" and second["min_wall_mm"] == "unknown"
+    assert "render_png_base64" not in second
+
+
+def test_a_retained_ear_between_sample_rows_keeps_stock_unknown(engine, solids):
+    step = solids["step"]
+    wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
+    clear = _clearing({**CLEAR, "y": [3.0, 40.0]}, faces=wall + floor, subject="S1:20")
+    result = engine.run(
+        engine.job(
+            step,
+            {"wall": wall},
+            [
+                _setup("S1", [_op("S1:10", "wall", 3.0, 15.0, 30.0), clear]),
+                _setup("S2", [_op("S2:10", "wall", 3.0, 15.0, 30.0)]),
+            ],
+        )
+    )
+    assert wall[0] in result["setups"]["S2"].get("stock_reason", "")
+    assert "stock_volume_mm3" not in result["setups"]["S2"]
+
+
+def test_facing_own_allowance_is_not_a_flute_obstacle_but_still_hits_a_low_holder(engine, solids):
+    step = solids["block"]
+    top = engine.refs(step, (0, 0, 20), (60, 40, 20))
+    stock = {**BOX, "section_mm": [40.0, 25.0]}
+    clear = _op("S1:10", "top", 5.0, 20.0, 40.0)
+    low = _op("S1:20", "top", 5.0, 20.0, 2.0)
+    result = engine.run(engine.job(step, {"top": top}, [_setup("S1", [clear, low])], stock=stock))
+    clear_facts, low_facts = result["ops"]["S1:10"], result["ops"]["S1:20"]
+    assert clear_facts["tool_hits"] == 0 and clear_facts["holder_hits"] == 0
+    assert clear_facts["reach_depth_mm"] == 5.0
+    assert low_facts["tool_hits"] == 0 and low_facts["holder_hits"] > 0
+
+
+def test_another_ops_removal_and_a_retained_web_do_not_clear_the_current_flute(engine, solids):
+    step = solids["block"]
+    top = engine.refs(step, (0, 0, 20), (60, 40, 20))
+    stock = {**BOX, "section_mm": [40.0, 25.0]}
+    leave_web = {**_op("S1:10", "top", 5.0, 20.0, 40.0), "to_z": 23.0}
+    clear_later = _op("S1:20", "top", 5.0, 20.0, 40.0)
+    result = engine.run(
+        engine.job(step, {"top": top}, [_setup("S1", [leave_web, clear_later])], stock=stock)
+    )
+    assert result["ops"]["S1:10"]["tool_hits"] > 0
+    assert result["ops"]["S1:20"]["tool_hits"] == 0

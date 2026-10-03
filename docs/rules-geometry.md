@@ -43,9 +43,9 @@ writes its output file and prints nothing. No network activity is involved;
 the STEP is the bundle's own file.
 
 Kernel resolution: `FREECAD_CMD` when set (an override that does not exist is
-an unavailable kernel, not a fallback), otherwise the installed
-`FreeCAD 1.1/bin/freecadcmd.exe` under the user's local programs, otherwise
-`freecadcmd.exe` / `FreeCADCmd` / `freecadcmd` on `PATH`.
+an unavailable kernel, not a fallback), otherwise
+`%LOCALAPPDATA%/Programs/FreeCAD 1.1/bin/freecadcmd.exe` when `LOCALAPPDATA`
+is set, otherwise `freecadcmd.exe` / `FreeCADCmd` / `freecadcmd` on `PATH`.
 
 Without a kernel every geometry row — including rows that would otherwise be
 `not_applicable`, such as a lathe setup's `vise` — is `unknown` with the
@@ -170,9 +170,10 @@ fields are listed in the job's reason text and the dependent rules are `?`.
   to another holder's number or to OAL − grip. Only an absent pair uses tool
   `oal` minus the selected holder's `grip`, each from its own accepted fact —
   the same `tool_projection` convention the engagement rule and the M5
-  screens share. There is no scalar tool-wide projection. OAL and
-  finishing-cut decisions stay host-side for `reach` and `finish_coverage`;
-  they are not engine inputs.
+  screens share. There is no scalar tool-wide projection. OAL stays host-side
+  for `reach`, and finishing-cut decisions stay host-side for `finish_coverage`;
+  neither is an engine input. Accessibility does not require OAL when the
+  selected projection is known.
 - Per setup: the numeric frame from the manifest (`origin` converted from
   inches when `units = "in"`; an unknown frame keeps every op row `unknown`
   with `numeric setup frame is unknown`), and for a `kind = "vise"` fixture
@@ -196,27 +197,38 @@ setup frame; the frame is the author's declaration, not a measured setup.
 
 Each setup's checks and image use the material entering that setup: the
 authored box/round supply minus the derivable claimed regions removed by
-**earlier setups**, in authored order. Current-setup removals are calculated
-separately for the next setup; they never make the current cutter or holder
-appear clear. The first `stock_in` must be `"stock"`; later setups name the
-immediately previous setup. Finished face indices stay bound to the original
-STEP even when booleans change the stock's face order.
+**earlier setups**, in authored order. Current-setup removals determine the
+next setup's stock, not the current holding facts, image, reach or holder
+obstacles. The flute alone excludes the current op's own derivable allowance
+above the sampled finished face within its claimed clearing footprint: that
+material is being cut, not an obstacle. No other op's removal is borrowed.
+The first `stock_in` must be `"stock"`; later setups name the immediately
+previous setup. Finished face indices stay bound to the original STEP even
+when booleans change the stock's face order.
 
 The supply needs the positive dimensions and model-frame placement described
 under [plan stock](plan.md#stock). As-is face references do not define a stock
 volume: when supplied, they must map and lie on that envelope. Unknown
 dimensions/placement, incompatible as-is faces, unresolved earlier claims,
 or an unrepresentable removal are named stock debt. Stock-dependent geometry
-for that setup is `?` and no stock picture is drawn. `stock_state` values name
-local received/touched surfaces; retained rails can extend beyond them, so
+for that setup is `?`, but observed finished-material collisions and known
+finished-solid corner radii still establish errors (exit 2 takes precedence
+over required unknowns' exit 4). No stock picture is drawn.
+`stock_state` values name local received/touched surfaces; retained rails can extend beyond them, so
 they are not silently treated as the stock's global bounding-box extrema.
 
 For a derivable face footprint, removal is clipped to the authored `to_z`
-endpoint and to material outside the finished solid. A wall tangent to setup
-+Z does not define a cleared volume just by extrusion; remaining overstock
-requires an authored lateral clearing/interrupt footprint. An operation can
-declare numeric `stock_removal_bounds` (one setup-frame box) to clear only
-outside-finished material inside that volume. Synthetic geometry fixtures
+endpoint and to material outside the finished solid. Every claimed face with
+a horizontal normal component is checked for remaining overstock above `to_z`,
+including drafted walls whose +Z sweep is nonzero. Exact face contact catches
+small retained ears; nearest-contact probes inset from the face boundary
+distinguish a drafted sliver from legitimately retained neighbours.
+An operation can declare numeric `stock_removal_bounds` (one setup-frame box)
+to clear only outside-finished material inside that volume. Its XY extent
+must fit the union XY bounding box of its direction-valid claimed faces,
+dilated by the measured cutter radius (zero if unknown). Excess is a named
+`stock_removal_error`, not clearance for a later setup. Each claim must touch
+the box and every removed piece must border a claim. Synthetic geometry fixtures
 author these preparation volumes and numeric supply allowances; their target
 setup checks the derived material. Preparation tool/fixture debt stays visible,
 and the fixture policy explicitly requires the target, not fabricated roughing
@@ -267,9 +279,11 @@ any of those inputs missing the scene records `parallels not drawn: … undeclar
 ## `accessibility`
 
 Needs the five tool/holder dimensions (radius, flute length, projection,
-holder radius, holder gauge length) and a vise without input debt; otherwise `unknown`
-(`selected tool/holder dimensions are unmeasured or unavailable` or the
-fixture reason). On the claimed face set the kernel samples a cell-centred
+holder radius, holder gauge length) and a vise without input debt for a pass.
+Missing inputs normally yield `unknown`, but positive observed minimum tool
+or holder hits still error despite unknown stock, fixture or dimensions.
+Invalid face claims and rejected clearing bounds remain errors first.
+On the claimed face set the kernel samples a cell-centred
 5×5 UV grid per face plus 2–12 points along every boundary edge and gives
 each sample one prescribed tool pose (the PLAN §4.2 convention, confirmed
 with the user): the cutter cylinder (radius, flute length) stands with its
@@ -280,10 +294,12 @@ no XY offset (a cutter stands on a floor; shifting it along the full 3-D
 normal would float it a radius above the floor). The holder cylinder (gauge
 diameter, gauge length) starts `projection_mm` above the tip. Both are
 intersected with the setup's material minus a thin inward offset shell of
-**that sampled face only**, plus the jaw boxes. The shell removes numerical
-self-contact, not a cutter-radius slab and not another face of the same
-feature. A cutter wider than a claimed groove therefore still intersects
-the opposite claimed wall. A far-side face (outward normal opposing setup
+**that sampled face only**, plus the jaw boxes. The flute also excludes only
+this op's derivable outside-finished allowance; the holder still sees it.
+The shell removes numerical self-contact, not a cutter-radius slab and not
+another finished face of the same feature. A cutter wider than a claimed
+groove therefore still intersects the opposite claimed wall. A far-side face
+(outward normal opposing setup
 +Z by more than 90°) is an invalid cutting claim, reported as an error naming
 the face before tool-dimension debt can hide it.
 
@@ -296,9 +312,9 @@ samples, including boundary samples: a wall can block such a prescribed pose
 even when some other cutter centre could cut that point. There is no pose search.
 Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
 `certain_tool_hits` / `certain_holder_hits` when observed hits are definite
-despite unresolved poses or undeclared jaw overhang.
+despite unresolved stock, inputs, poses or undeclared jaw overhang.
 
-- `{subject}: selected cutter or holder is certainly occluded by part/fixture material.` (error: any hit; also raised from `certain_*_hits` while the aggregate counts are unknown because other samples fall in the undeclared jaw overhang)
+- `{subject}: selected cutter or holder is certainly occluded by part/fixture material.` (error: any hit; also raised from positive `certain_*_hits` while aggregate counts or other inputs are unknown)
 - `{subject}: sampled claimed faces clear the selected cutter and holder cylinders.` (pass)
 - `{subject}: offset-cylinder sampling is unresolved.` or the kernel's per-fact reason (unknown; includes samples in the undeclared jaw overhang with no certain hit, an own-region boolean that failed, or a sample without a defined normal)
 
@@ -347,6 +363,14 @@ A concave cylinder with an off-axis axis, an oblique concave edge, or any
 other concave curved claimed surface cannot be reduced to one radius and
 makes the row `unknown` with that face/edge named. Numbers:
 `corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`.
+These are finished-solid facts, independent of unknown in-process stock;
+a known sharp corner remains an error even when reach cannot be measured.
+The comparison uses a 0.005 mm numeric tolerance: a concave radius admits the
+cutter when it is at least `tool_radius_mm - 0.005`. STEP coordinates commonly
+write only 5–6 significant digits, so sub-tolerance import/kernel rounding
+must not turn a nominally equal radius into an error. This is numeric tolerance,
+not a machining allowance: a 0.004 mm deficit passes; a 0.006 mm deficit errors,
+and a genuinely sharp corner still fails.
 
 - no such corners: `claimed faces have no concave edges perpendicular to the tool axis.` (not_applicable)
 - `concave corner radii admit the selected cutter.` (pass)

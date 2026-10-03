@@ -30,8 +30,8 @@ engine = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(engine)
 if missing == "missing":
     original = engine._face_samples
-    def incomplete(face, spacing):
-        samples, skipped = original(face, spacing)
+    def incomplete(face, spacing, interior_only=False):
+        samples, skipped = original(face, spacing, interior_only=interior_only)
         return samples[1:], skipped + 1
     engine._face_samples = incomplete
 with open(source, encoding="utf-8") as stream:

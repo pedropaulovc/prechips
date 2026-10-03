@@ -566,7 +566,7 @@ not exist.
 
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
-| accessibility: for each face an op claims, sample points; stand the selected cutter and holder cylinders with tip at sample Z, axis offset by cutter radius along the horizontal outward normal (horizontal floors stay centred). Intersect with (material present at this setup − a 0.001 mm inward shell of this sampled face only) ∪ fixture solids. Other claimed faces remain obstacles. Any hit means the prescribed pose is occluded, not that no pose cuts the point. Missing normals or non-derivable stock are `?`; far-side claims are errors naming the face | STEP faces, plan stock/setup order/op face claims, tool/holder dimensions, fixture dimensions and pose | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
+| accessibility: for each face an op claims, sample points; stand cutter and holder cylinders with tip at sample Z, axis offset by cutter radius along the horizontal outward normal (floors stay centred). Obstacles are setup-entry stock minus a 0.001 mm inward shell of this sampled face, plus fixture solids; the flute also excludes only this op's derivable outside-finished allowance. Other finished faces remain obstacles. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing normals/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims and over-wide clearing bounds error by name | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), fixture dimensions and pose | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
 | reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default | features.faces, plan.ops.faces, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no valid op." |
@@ -888,30 +888,40 @@ sheet.
 
    Geometry checks and rasterized pictures use **setup-entry stock**:
    a numerically placed box/round supply minus only earlier setups'
-   derivable removals. Current-setup cuts affect its output stock, not its
-   own checks. `stock_removal_bounds` supplies a numeric setup-frame clearing
-   volume when a face sweep cannot specify the process footprint; it removes
-   only material outside the finished solid and must touch the valid claims.
+   derivable removals. Current-setup cuts shape output stock, while the flute
+   alone excludes its own op's derivable allowance; holder, reach, holding and
+   image facts still use setup-entry stock. `stock_removal_bounds` is restricted
+   to the claimed faces' union XY bbox plus cutter radius (zero if unknown),
+   outside the finished solid and above `to_z`. Over-wide boxes error by name
+   and cannot certify the next setup. Interior contact with retained overstock
+   is checked for every claimed lateral face, including drafted walls.
    Invalid supply, unbound as-stock faces or a non-derivable retained
    rail/profile mask yields a named unknown and no stock picture.
 
-   The cutter keeps its radius-normal offset. Only a 0.001 mm inward shell
-   of the sampled face is excluded: no full-feature union, cutter-radius
-   slab or sharp-edge air wedge. Other claimed walls remain obstacles.
+   The cutter keeps its radius-normal offset and only a 0.001 mm inward shell
+   of the sampled finished face is excluded. Its own outside-finished allowance
+   is excluded from flute obstacles only: no full-feature union, cutter-radius
+   slab or sharp-edge air wedge removes neighbouring finished walls.
    Explicit nonempty `op.faces` overrides the feature face set. A far-side
    face errors by reference and never credits coverage/finish; missing
-   normals leave the face unknown, while a definite sampled collision can
-   still error accessibility. Fixed boundary-centred poses are collision
-   screens, not a search for alternate machinable poses.
+   normals leave the face unknown. Certain observed collisions error even with
+   unknown stock/fixture/dimensions, and finished corner radii survive stock
+   debt; exit 2 beats 4. Accessibility needs projection, not unused OAL.
+   Fixed boundary-centred poses screen collisions, not alternate machinable poses.
+   Corner comparisons allow 0.005 mm numeric STEP/kernel round-off, not a
+   shop machining allowance: a 0.004 mm radius deficit passes, 0.006 mm errors.
+   The rocker's 0.99695 mm corner against a 0.997 mm cutter therefore passes.
 
    Fixture pictures use only numeric jaw/parallels dimensions and declared
    poses; a certain/possible jaw envelope is labelled unresolved. Raster
    PNGs are bound by hash and preserved by `*.png binary`; STEP files retain
    `-text`. Successful `traveler`/`check` runs transactionally remove
-   unreferenced old setup images, including absent-kernel runs, and a
-   refusal restores every prior output. The geometry cache hashes only
-   fields consumed by the engine, not host-only finishing, OAL when a
-   selected projection exists, operation wording, material or grip policy.
+   unreferenced old setup images, including absent-kernel runs. `check` also
+   removes same-named PNGs whose bytes differ and any prior traveler sheet;
+   matching images may stay. A refusal restores every prior output even after
+   an absent deletion. Kernel discovery checks the current user's LOCALAPPDATA,
+   never a developer's hard-coded home. The cache hashes only engine inputs,
+   not host-only finishing, resolved-projection OAL, wording or grip policy.
 
    The combined catalogue is `m5-rev8`. Geometry reuses M5 fact-local length
    lookup with nominal facts allowed: only that dimension's own verification
@@ -926,10 +936,11 @@ sheet.
    Its S1 image is the authored rectangular supply; S2/S3 stock stays unknown
    naming the unprovided interrupted rail/ear profile footprint. No final
    STEP part is substituted for that process material.
-   Synthetic geometry fixtures instead author numeric supply allowances and
-   one/two earlier clearing setups. Preparation tooling/holding debt is
-   visible; local policies focus required operation/setup checks on the target
-   while all errors remain fatal and coverage/finish stay part-wide.
+   Synthetic fixtures author numeric supply allowances and earlier clearing
+   setups. The synthetic rocker supply/clearance now fits the STEP global XY
+   bbox, retaining its 1 mm Z allowances, so unknown preparation tooling does
+   not invent a cutter-dilated footprint. Preparation tooling/holding debt stays
+   visible; target checks remain required and all errors remain fatal.
 
    **Observed scoped evidence:** archived PNG signatures and STEP/report
    digests pass after binary restaging. A Ø10 cutter in a 6 mm through-groove
@@ -937,31 +948,44 @@ sheet.
    the offset engine and fails its hand-written no-offset mutant with 45
    own-wall hits. Undefined normals yield named unknowns on clear faces,
    while a definite wall collision retains an accessibility error.
-   A two-setup bounded clearing test keeps 5 mm side rails: entry volume
-   66000 mm³, prepared volume 51600 mm³, and the raw/prepared/finished-only
-   wall-hit counts differ 57 / 12 / 4. Complementary top/bottom finishing
-   claims pass; swapped far-side claims fail finish and coverage.
+   A two-setup bounded clearing test jointly claims wall and floor and keeps
+   5 mm side rails: entry volume 66000 mm³, prepared volume 51600 mm³.
+   Opposing finished walls/retained rails remain obstacles after own-allowance
+   exclusion. Complementary finishing claims pass; swapped far-side claims fail.
    Actual geometry-fixture CLI exits remain 2 / 2 / 0 / 2 / 2:
    rocker target S3:10 has 56/65 jaw/boss hits; short pocket target S2:10
    has 45 mm reach and 104 holder hits, while long-reach clears; sharp corners
    fail the cutter radius; the step's +X end remains deliberately unclaimed.
    Numeric preparation tests verify raw/intermediate/target material volumes,
    exact target fixture scenes and bound render bytes.
-   All ten actual travelers and the cone comparison repeated byte-identically
-   through independent cache roots before the corrected outputs were frozen.
+   Review regressions rejected a clearing box 27 mm outside its claimed
+   footprint; the following setup retained unknown reach/holding. A 1° drafted
+   wall (including a 200 mm-wide face) and a small retained ear named stock
+   debt. A fully specified facing operation reported 0 tool/holder hits,
+   5 mm entry-stock reach and 65 samples; reducing projection still hit the
+   holder. Certain collisions and a finished sharp corner remained errors
+   under unknown stock; explicit projection with unknown OAL still allowed
+   accessibility to pass while reach stayed unknown.
+   All ten actual travelers repeated byte-identically through independent
+   fresh cache roots before the corrected outputs were frozen. Regeneration
+   changed only rocker report/sheet, all five geometry report/sheets and the
+   synthetic rocker's three stock PNGs; other pilot bytes stayed unchanged.
    Installed-kernel pilot exits stay 4 / 2 / 2 / 4 / 2. Seeded obsolete S1,
    S2 and S99 images disappeared under both absent-kernel `traveler` and
    `check`. Browser-served production S1 showed the raw grey rectangular bar,
    a named missing jaw-depth caption and no later stock images. The long-
    reach target showed its prepared pocket, exact jaws/parallels and the
    setup-entry-stock caption; both 640 × 480 images loaded successfully.
-   **Project-wide acceptance observed after the M5 rebase:** `uv run ruff
-   check . && uv run ruff format --check . && uv run pytest -q && uv run
-   python scripts/validate_examples.py` exited 0: 98 Python files formatted,
-   999 tests passed and all 24 TOML inputs plus frozen report/sheet/render
-   contracts validated. The focused measured-inventory integration suite
-   also passed 86 cases. Corrected goldens retain pilot exits
-   4 / 2 / 2 / 4 / 2 and geometry exits 2 / 2 / 0 / 2 / 2 under `m5-rev8`.
+   **Project-wide acceptance observed after Opus r2 / CodeRabbit r1 fixes:**
+   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+   && uv run python scripts/validate_examples.py` exited 0: 99 Python files
+   formatted, 1033 tests passed and all 24 TOML inputs plus frozen
+   report/sheet/render contracts validated. The first review gate exposed one
+   obsolete test requiring unknown stock to suppress certain hits; that test
+   and the obsolete stock-dependent corner parameter were removed, not re-pinned.
+   The new stock-debt/finished-fact regressions cover their correct precedence.
+   Corrected goldens retain pilot exits 4 / 2 / 2 / 4 / 2 and geometry exits
+   2 / 2 / 0 / 2 / 2 under `m5-rev8`.
 
    These are local sampled-solid checks, not CAM simulation, a measured
    production fixture, physical operator/setup verification or approval.

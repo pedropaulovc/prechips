@@ -428,11 +428,16 @@ credits each face only to the direction-valid finishing cuts that claim it.
 and strictly increasing. It declares the material outside the finished part
 that this cutting operation clears inside that volume, leaving everything
 outside it unchanged. Its faces still need valid cutting claims from this
-setup. It affects stock passed to later setups, never the current operation's
-own-face exclusion or clearance check. This is an authored process/fixture
-volume, not a measured toolpath or a claim that the roughing setup was proved
-safe. Without it, an unswept profile with retained overstock needs a named
-stock-out debt; a contour checkpoint bounding box is not a clearing volume.
+setup. The box's XY extent cannot exceed the union XY bounding box of its
+direction-valid claimed faces dilated by the cutter radius (zero if unknown);
+an excess is a named geometry error and leaves later stock unresolved. Every
+claim must touch the box and every removed piece must border a claim.
+It shapes stock passed to later setups and excludes only this operation's own
+derivable allowance from its flute obstacles; holder, reach and holding facts
+still use setup-entry stock. This is an authored process/fixture volume, not a
+measured toolpath or proof that roughing is safe. Without it, any claimed wall
+whose interior still touches overstock above `to_z` (including a drafted wall)
+needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
 
 `doc_mm` enables the engagement screen only for an endmill-family cutter on a
 cutting operation. Omitted DOC, noncutting actions and known drills, reamers,

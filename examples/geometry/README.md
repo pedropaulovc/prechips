@@ -14,6 +14,12 @@ Preparation tooling and holding remain explicit measurement debt. The local
 policy requires target operation/setup geometry and the part-wide coverage
 and finish checks; it does not certify the preparation operations.
 
+Clearing boxes must fit the claimed faces' union XY bbox plus cutter radius
+(zero for unknown tooling). The synthetic rocker therefore uses the STEP's
+measured global XY bbox, `x = ±146.254568`, `y = 0..29.29464` mm, for both
+its rectangular supply and opposed clearance boxes; its 1 mm allowance on
+each Z end remains. The former extra XY margins had no claimed cutter radius.
+
 | bundle | STEP | expected exit | discriminating finding |
 |---|---|---|---|
 | `rocker-jaw-occluded/plan.toml` | real labelled v40 `rocker-arm.STEP` | 2 | target `accessibility S3:10` error: the cutter beside the strap face meets the jaw and hub boss; `vise S3` pass |
@@ -44,13 +50,13 @@ report accessibility collisions at its corners.
   and places the parallels under its tips. These target scenes have exact
   brown jaws and green parallels. Preparation setups have unresolved
   holding, so their known-stock pictures do not claim a complete fixture.
-- Every setup checks and draws its immutable **entry stock**. The block
-  blanks are one millimetre taller than their finished outer envelopes;
-  their preparation boxes clear the top allowance and the pocket/step
-  material. Rocker preparation uses opposed +Z/-Z setups to clear the
-  numeric supply before the upright target. Missing or invalid numeric
-  removal information would leave the next setup unknown, without a
-  finished-part fallback.
+- Holding, renders, reach and holder obstacles use immutable **entry stock**.
+  Only a cutter's flute excludes its own operation's derivable outside-finished
+  allowance, never another operation's removal or a neighbouring finished wall.
+  Block blanks are one millimetre taller than their finished outer envelopes;
+  preparation clears the top allowance and pocket/step material. The rocker
+  uses opposed +Z/-Z preparations before the upright target. Invalid bounds
+  or non-derivable stock never fall back to a finished-part clearance pass.
 - `shop-policy.toml` and the bundle-local policies require the seven
   geometry families on the focused target subjects and the part-wide
   claims. `thin_wall_floor_mm = 2.0` is an authored test threshold, not a
@@ -168,8 +174,9 @@ As implemented in `src/prechips/kernel/freecad_job.py` and documented in
   (radius, flute length) with its axis offset by the radius along the
   horizontal part of the outward normal, tip at the sample height, and the
   holder cylinder from `projection_mm` above the tip. The obstacle is entry
-  stock, less only a 0.001 mm inward shell of the **sampled face**, plus the
-  jaw boxes. Other claimed faces remain obstacles. No cutter-radius slab,
+  stock, less a 0.001 mm inward shell of the **sampled face**, plus jaws.
+  The flute also excludes only its own op's outside-finished allowance.
+  Other finished faces remain obstacles. No cutter-radius slab,
   full-feature union or sharp-corner air wedge is removed. A hit means that
   prescribed pose collides, not that no other pose reaches the face.
   Far-side claims error by STEP reference; missing normals leave the face

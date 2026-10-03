@@ -2,13 +2,13 @@
 
 from prechips.findings import Finding
 from prechips.rules.geometry_common import fact_reason, op_contexts
-from prechips.rules.resolution import number, same_length
+from prechips.rules.resolution import number
 
 
 def evaluate(bundle):
     rows = []
     for setup, op, _, detail, inputs, cite, blocked in op_contexts(
-        bundle, "internal_corner_radius", ("radius_mm",)
+        bundle, "internal_corner_radius", ("radius_mm",), stock=False
     ):
         if blocked:
             rows.append(blocked)
@@ -30,7 +30,8 @@ def evaluate(bundle):
             else:
                 smallest = min(radii)
                 values["minimum_corner_radius_mm"] = smallest
-                status = "pass" if smallest >= radius or same_length(smallest, radius) else "error"
+                # STEP exports round radii to 5–6 significant digits.
+                status = "pass" if smallest >= radius - 0.005 else "error"
                 message = (
                     "concave corner radii admit the selected cutter"
                     if status == "pass"

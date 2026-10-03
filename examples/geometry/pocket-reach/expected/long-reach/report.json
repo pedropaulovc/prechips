@@ -37,7 +37,6 @@
         "holder_gauge_len_mm": 60.0,
         "holder_hits": 0,
         "holder_radius_mm": 20.0,
-        "oal_mm": 100.0,
         "projection_mm": 75.0,
         "radius_mm": 4.0,
         "sample_count": 456,
@@ -1663,7 +1662,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "fc475ee407fb00c68b50964f1915ae9696257895d3db8d405dc94d94dd2515a4",
+  "hash": "8575123f9c61444068b35c5857f84fb561ceb9e2d68a5a211e44c821551ebf44",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -153,7 +153,7 @@ def op_claims(bundle, facts, setup, op):
     return set(indices), away, []
 
 
-def op_contexts(bundle, rule, required=(), fixture=False):
+def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
     from prechips.kernel import build_job, run_geometry
 
     facts = run_geometry(bundle)
@@ -220,7 +220,16 @@ def op_contexts(bundle, rule, required=(), fixture=False):
                         f"{subject}: claimed face(s) point away from the setup approach and "
                         f"cannot be cut from it: {', '.join(away)}.",
                     )
-                elif detail.get("stock_reason"):
+                elif detail.get("stock_removal_error"):
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "error",
+                        {},
+                        cite,
+                        f"{subject}: {detail['stock_removal_error']}.",
+                    )
+                elif stock and detail.get("stock_reason"):
                     blocked = Finding(
                         rule,
                         subject,

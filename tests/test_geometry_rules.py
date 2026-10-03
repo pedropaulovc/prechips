@@ -247,7 +247,8 @@ def test_holder_fact_debt_cannot_rescue_or_fail_beyond_flute(bundle, holder_hits
 
 
 @pytest.mark.parametrize(
-    "radius,status", [(0.0, "error"), (2.9, "error"), (3.0, "pass"), (3.1, "pass")]
+    "radius,status",
+    [(0.0, "error"), (2.9, "error"), (2.994, "error"), (2.996, "pass"), (3.1, "pass")],
 )
 def test_corner_radius_boundary_includes_sharp_concave_edges(bundle, radius, status):
     bundle.kernel["ops"]["S1:10"]["corner_radii_mm"] = [radius]
@@ -511,10 +512,82 @@ def test_certain_accessibility_hit_fails_even_when_other_extent_is_unresolved(
     assert finding(accessibility, bundle).status == status
 
 
-def test_certain_hits_do_not_certify_fixture_fact_with_own_debt(bundle):
-    bundle.inventory["fixtures"]["vise"]["jaw_depth_mm"] = {"value": 12.0, "verify": True}
-    bundle.kernel["ops"]["S1:10"].update(tool_hits="unknown", min_hits={"tool": 4})
-    assert finding(accessibility, bundle).status == "unknown"
+@pytest.mark.parametrize("debt", ["stock", "fixture", "tool"])
+@pytest.mark.parametrize("kind", ["tool", "holder"])
+@pytest.mark.parametrize("hits,status", [(0, "unknown"), (4, "error")])
+def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
+    detail = bundle.kernel["ops"]["S1:10"]
+    detail.update(tool_hits="unknown", holder_hits="unknown", min_hits={kind: hits})
+    if debt == "stock":
+        detail["stock_reason"] = "earlier clearing bounds invalid"
+    elif debt == "fixture":
+        bundle.inventory["fixtures"]["vise"]["jaw_depth_mm"] = {"value": 12.0, "verify": True}
+    else:
+        bundle.inventory["tools"]["em"]["flute_len_mm"] = "unknown"
+    row = finding(accessibility, bundle)
+    assert row.status == status
+    if hits:
+        assert row.numbers["certain_" + kind + "_hits"] == hits
+        assert exit_code([row], {"required": {}}, bundle) == 2
+
+
+@pytest.mark.parametrize("rule", [accessibility, internal_corner_radius])
+@pytest.mark.parametrize("context", ["invalid", "away", "bounds"])
+def test_context_errors_take_precedence_over_finished_facts(bundle, rule, context):
+    detail = bundle.kernel["ops"]["S1:10"]
+    detail.update(min_hits={"tool": 4}, corner_radii_mm=[0.0], stock_reason="unknown stock")
+    bundle.inventory["tools"]["em"]["flute_len_mm"] = "unknown"
+    if context == "invalid":
+        bundle.kernel["mapping_errors"]["#1"] = "invalid face"
+    elif context == "away":
+        detail["claim_errors"] = ["#1"]
+    else:
+        detail["stock_removal_error"] = "bounds extend beyond claimed faces"
+    row = finding(rule, bundle)
+    assert row.status == "error"
+    assert "certainly occluded" not in row.sentence
+    assert "smaller than" not in row.sentence
+
+
+@pytest.mark.parametrize(
+    "radii,status", [([0.0], "error"), ([3.0], "pass"), ("unknown", "unknown")]
+)
+def test_finished_corner_radii_ignore_unknown_stock(bundle, radii, status):
+    bundle.kernel["ops"]["S1:10"].update(stock_reason="invalid clearing box", corner_radii_mm=radii)
+    assert finding(internal_corner_radius, bundle).status == status
+
+
+def test_missing_oal_does_not_block_accessibility_but_retains_reach_debt(bundle):
+    bundle.inventory["tools"]["em"]["oal_mm"] = "unknown"
+    bundle.kernel["ops"]["S1:10"].update(reach_depth_mm=28.0, holder_wall_hits=0)
+    assert finding(accessibility, bundle).status == "pass"
+    assert finding(reach, bundle).status == "unknown"
+
+
+def test_kernel_discovery_uses_current_local_appdata(tmp_path, monkeypatch):
+    base = tmp_path / "another-user"
+    executable = base / "Programs" / "FreeCAD 1.1" / "bin" / "freecadcmd.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"kernel")
+    monkeypatch.delenv("FREECAD_CMD", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(base))
+    monkeypatch.setattr(kernel.shutil, "which", lambda name: None)
+    assert kernel.discover_kernel() == executable
+
+
+@pytest.mark.parametrize("base", [None, ""])
+def test_kernel_discovery_without_local_appdata_uses_path_only(tmp_path, monkeypatch, base):
+    executable = tmp_path / "Programs" / "FreeCAD 1.1" / "bin" / "freecadcmd.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"not installed in a user base")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("FREECAD_CMD", raising=False)
+    if base is None:
+        monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    else:
+        monkeypatch.setenv("LOCALAPPDATA", base)
+    monkeypatch.setattr(kernel.shutil, "which", lambda name: "path-kernel")
+    assert kernel.discover_kernel() == "path-kernel"
 
 
 def _select_geometry_members(bundle):

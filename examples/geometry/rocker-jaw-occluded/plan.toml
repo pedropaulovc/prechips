@@ -18,13 +18,13 @@ cutting_data = "../../cutting-data.toml"
 [stock]
 form = "rectangular_bar"
 form_verify = false
-section_mm = [296.0, 32.0]
+section_mm = [292.509136, 29.29464]
 length_mm = 9.0565
-origin_mm = [-148.0, -1.0, -4.52825]
+origin_mm = [-146.254568, 0.0, -4.52825]
 axis = [0.0, 0.0, 1.0]
 section_axis = [1.0, 0.0, 0.0]
 as_is_faces = []
-note = "Authored synthetic supply, x -148..148, y -1..31, z +/-4.52825 mm: 1 mm allowance beyond each hub end in Z, at least 1 mm beyond the exported profile in X/Y. This is our fixture choice, not measured shop stock; no curved or inset source face is falsely declared as-is on this box."
+note = "Authored synthetic rectangular supply at the STEP's measured global XY bbox, x +/-146.254568, y 0..29.29464 mm, with 1 mm allowance beyond each hub end in Z (+/-4.52825 mm). No XY cutter allowance is invented while preparation tooling is unknown. This is a fixture choice, not measured shop stock; curved and inset source faces are not declared as-is."
 
 [[setups]]
 id = "S1"
@@ -61,7 +61,7 @@ faces = [
   "#514/ADVANCED_FACE[16]/HAF_HUB_OD__P02",
   "#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01",
 ]
-stock_removal_bounds = { x = [-148.0, 148.0], y = [-1.0, 31.0], z = [0.0, 4.52825] }
+stock_removal_bounds = { x = [-146.254568, 146.254568], y = [0.0, 29.29464], z = [0.0, 4.52825] }
 note = "Claim only +Z-facing planes and vertical faces touching this half. Separate bore/rod-hole removal pieces explicitly touch their own claims."
 
 [[setups]]
@@ -99,7 +99,7 @@ faces = [
   "#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01",
   "#553/ADVANCED_FACE[18]/HAF_HUB_FACES__P01",
 ]
-stock_removal_bounds = { x = [-148.0, 148.0], y = [-31.0, 1.0], z = [0.0, 4.52825] }
+stock_removal_bounds = { x = [-146.254568, 146.254568], y = [-29.29464, 0.0], z = [0.0, 4.52825] }
 note = "Frame B flips model Y/Z. Clear only outside-finished material in the remaining half, with -Z planes and vertical faces valid for this approach."
 
 [[setups]]
