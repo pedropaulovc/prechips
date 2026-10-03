@@ -8,7 +8,7 @@ def evaluate(bundle):
     for ref in sorted(selected_references(bundle.plan)):
         item = resolve(bundle, None, ref)
         status = "error" if item is None else "unknown" if uncertain(item) else "pass"
-        numbers = {"present": item is not None, "verified": item is not None and not uncertain(item)}
+        numbers = {"reference": ref, "present": item is not None, "verified": item is not None and not uncertain(item)}
         if item:
             numbers["kind"] = item.get("kind", "unknown")
             dia = length_mm(item, "dia")
