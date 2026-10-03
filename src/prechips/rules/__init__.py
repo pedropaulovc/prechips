@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from prechips.findings import Finding, Status
 from prechips.inputs import Bundle
@@ -61,9 +61,13 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
             subjects = [s["id"] for s in bundle.plan["setups"]]
         elif selector in {"holes", "toleranced_features"}:
             subjects = [
-                feature for feature, item in bundle.features["features"].items()
-                if (item.get("kind") in {"hole", "counterbore", "thread"} if selector == "holes"
-                    else bool(tolerance_requirements(item)))
+                feature
+                for feature, item in bundle.features["features"].items()
+                if (
+                    item.get("kind") in {"hole", "counterbore", "thread"}
+                    if selector == "holes"
+                    else bool(tolerance_requirements(item))
+                )
             ]
         elif selector == "*":
             subjects = [] if actual else ["*"]
@@ -76,7 +80,10 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
                 continue
             rows.append(
                 Finding(
-                    name, subject, Status.UNKNOWN, {"required": selector},
+                    name,
+                    subject,
+                    Status.UNKNOWN,
+                    {"required": selector},
                     ["PLAN.md §3.4 required subjects"],
                     "The shop requires a check with no matching supported subject.",
                 )

@@ -3,8 +3,24 @@
 from prechips.findings import Finding
 from prechips.rules.resolution import MANUAL, resolve
 
-
-_DIRECTION = {"face", "rough_face", "finish_face", "profile", "rough_profile", "finish_profile", "turn", "rough_turn", "finish_turn", "dome", "groove", "part", "part_off", "form_relief", "form_dome", "cut_to_fit"}
+_DIRECTION = {
+    "face",
+    "rough_face",
+    "finish_face",
+    "profile",
+    "rough_profile",
+    "finish_profile",
+    "turn",
+    "rough_turn",
+    "finish_turn",
+    "dome",
+    "groove",
+    "part",
+    "part_off",
+    "form_relief",
+    "form_dome",
+    "cut_to_fit",
+}
 
 
 def evaluate(bundle):
@@ -20,23 +36,39 @@ def evaluate(bundle):
         machine = machines.get(setup["machine"], {}) if isinstance(machines, dict) else {}
         machine = machine if isinstance(machine, dict) else {}
         lathe = machine.get("kind") == "lathe"
-        required = {"hold.fixture": hold.get("fixture"),
-                    "hold.stop": hold.get("stop"), "hold.grip_mm": hold.get("grip_mm"),
-                    "hold.clamp": hold.get("clamp"), "coolant": setup.get("coolant"),
-                    "deburr_mm": setup.get("deburr_mm")}
+        required = {
+            "hold.fixture": hold.get("fixture"),
+            "hold.stop": hold.get("stop"),
+            "hold.grip_mm": hold.get("grip_mm"),
+            "hold.clamp": hold.get("clamp"),
+            "coolant": setup.get("coolant"),
+            "deburr_mm": setup.get("deburr_mm"),
+        }
         fixture = resolve(bundle, "fixtures", hold.get("fixture")) or {}
-        if fixture.get("kind") == "vise" or (not lathe and hold.get("fixed_jaw") != "not_applicable"):
+        if fixture.get("kind") == "vise" or (
+            not lathe and hold.get("fixed_jaw") != "not_applicable"
+        ):
             required["hold.fixed_jaw"] = hold.get("fixed_jaw")
         if lathe:
-            required.update({"stock_state.od_mm": state.get("od_mm"), "hold.support": hold.get("support"),
-                             "hold.grip_on": hold.get("grip_on")})
+            required.update(
+                {
+                    "stock_state.od_mm": state.get("od_mm"),
+                    "hold.support": hold.get("support"),
+                    "hold.grip_on": hold.get("grip_on"),
+                }
+            )
             for key in ("plain_end_z", "north_end_z", "south_end_z"):
                 if key in state:
                     required[f"stock_state.{key}"] = state[key]
             if not any(key in state for key in ("plain_end_z", "north_end_z", "south_end_z")):
                 required["stock_state.end_station"] = None
         else:
-            required.update({"stock_state.top_z": state.get("top_z"), "stock_state.bottom_z": state.get("bottom_z")})
+            required.update(
+                {
+                    "stock_state.top_z": state.get("top_z"),
+                    "stock_state.bottom_z": state.get("bottom_z"),
+                }
+            )
         # Fixture-specific declarations already present in the schema remain operative.
         for key in ("supports", "support_orientation", "parallels", "jaws_along", "locate"):
             if key in hold:
@@ -58,11 +90,34 @@ def evaluate(bundle):
                 required[key] = "unknown"
         absent = [key for key, value in required.items() if value is None or value == ""]
         unresolved = [key for key, value in required.items() if value == "unknown"]
-        numbers = {"fixture": hold.get("fixture", "unknown"), "hold": dict(hold),
-                   "coolant": setup.get("coolant", "unknown"), "deburr_mm": setup.get("deburr_mm", "unknown"),
-                   "cut_directions": directions, "missing": absent + unresolved}
-        numbers.update({f"stock_{key}": value for key, value in state.items() if key in ("top_z", "bottom_z", "od_mm", "north_end_z", "south_end_z", "plain_end_z")})
+        numbers = {
+            "fixture": hold.get("fixture", "unknown"),
+            "hold": dict(hold),
+            "coolant": setup.get("coolant", "unknown"),
+            "deburr_mm": setup.get("deburr_mm", "unknown"),
+            "cut_directions": directions,
+            "missing": absent + unresolved,
+        }
+        numbers.update(
+            {
+                f"stock_{key}": value
+                for key, value in state.items()
+                if key
+                in ("top_z", "bottom_z", "od_mm", "north_end_z", "south_end_z", "plain_end_z")
+            }
+        )
         status = "error" if absent else "unknown" if unresolved else "pass"
-        message = (f"{setup['id']}: holding declarations need " + ", ".join(absent + unresolved) + ".") if absent or unresolved else f"{setup['id']}: holding and cutting decisions are declared; this does not approve measured fixture clearance."
-        findings.append(Finding("hold_fields", setup["id"], status, numbers, ["PLAN.md §4.1 hold fields"], message))
+        message = (
+            (f"{setup['id']}: holding declarations need " + ", ".join(absent + unresolved) + ".")
+            if absent or unresolved
+            else (
+                f"{setup['id']}: holding and cutting decisions are declared; "
+                "this does not approve measured fixture clearance."
+            )
+        )
+        findings.append(
+            Finding(
+                "hold_fields", setup["id"], status, numbers, ["PLAN.md §4.1 hold fields"], message
+            )
+        )
     return findings

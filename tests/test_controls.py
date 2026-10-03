@@ -3,14 +3,12 @@
 import json
 
 import pytest
-
 from test_cli import copy_examples, traveler
 
 
 def finding(report, rule, subject):
     return next(
-        row for row in report["findings"]
-        if row["rule"] == rule and row["subject"] == subject
+        row for row in report["findings"] if row["rule"] == rule and row["subject"] == subject
     )
 
 
@@ -47,7 +45,9 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     assert before["axis_set"] == pytest.approx(-157.54)
     assert before["check_reading"] == pytest.approx(-147.54)
     assert before["mirrored_reading"] == pytest.approx(-167.54)
-    plan.write_text(plan.read_text(encoding="utf-8").replace('x = "right"', 'x = "left"', 1), encoding="utf-8")
+    plan.write_text(
+        plan.read_text(encoding="utf-8").replace('x = "right"', 'x = "left"', 1), encoding="utf-8"
+    )
     result, reversed_report, _ = traveler(plan, tmp_path / "reversed")
     row = finding(reversed_report, "zero_check", "S1")
     after = row["numbers"]["axes"]["x"]
@@ -85,7 +85,8 @@ def clean_inspection_bundle(tmp_path):
     features = plan.with_name("features.toml")
     features.write_text(
         'part = "rocker-arm"\nunits = "mm"\nprecision = 2\nstep_sha256 = "unknown"\n'
-        '[frames.A]\norigin = [0.0, 0.0, 0.0]\nx = [1.0, 0.0, 0.0]\ny = [0.0, 1.0, 0.0]\nz = [0.0, 0.0, 1.0]\n'
+        "[frames.A]\norigin = [0.0, 0.0, 0.0]\nx = [1.0, 0.0, 0.0]\ny = [0.0, 1.0, 0.0]\n"
+        "z = [0.0, 0.0, 1.0]\n"
         '[features.hub_faces]\nkind = "boss"\nframe = "A"\nat = [0.0, 0.0, 0.0]\n'
         'dia = [6.50, 6.53]\nlength = [5.0, 6.0]\nrequirements = ["dia", "length"]\n',
         encoding="utf-8",
@@ -93,7 +94,8 @@ def clean_inspection_bundle(tmp_path):
     inventory = examples / "inventory" / "pedro-shop.toml"
     with inventory.open("a", encoding="utf-8") as stream:
         stream.write(
-            '\n[gauges.control-micrometer]\nkind = "micrometer"\nrange_mm = [0.0, 25.0]\nresolution_mm = 0.001\nverify = false\n'
+            '\n[gauges.control-micrometer]\nkind = "micrometer"\nrange_mm = [0.0, 25.0]\n'
+            "resolution_mm = 0.001\nverify = false\n"
         )
     (examples / "shop-policy.toml").write_text(
         '[required]\ninspection = "toleranced_features"\n', encoding="utf-8"
@@ -132,11 +134,13 @@ def test_approval_stales_when_feature_input_changes(tmp_path):
         'first_article = "Control first article accepted"',
     ]
     for kind, record in baseline["inputs"].items():
-        lines.extend([
-            f'[inputs."{kind}"]',
-            f'path = {json.dumps(record["path"])}',
-            f'sha256 = "{record["sha256"]}"',
-        ])
+        lines.extend(
+            [
+                f'[inputs."{kind}"]',
+                f"path = {json.dumps(record['path'])}",
+                f'sha256 = "{record["sha256"]}"',
+            ]
+        )
     approval.write_text("\n".join(lines) + "\n", encoding="utf-8")
     result, _, html = traveler(plan, tmp_path / "approved", "--approval", approval)
     assert result.returncode == 0, result.stderr

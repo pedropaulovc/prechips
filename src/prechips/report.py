@@ -14,13 +14,15 @@ from prechips.inputs import Bundle
 
 def canonical_bytes(data: Any) -> bytes:
     """Python's shortest round-trip finite float form, sorted keys, two spaces, LF."""
-    return (json.dumps(data, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n").encode(
-        "utf-8"
-    )
+    return (
+        json.dumps(data, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
+    ).encode("utf-8")
 
 
 def report_hash(report: dict) -> str:
-    return hashlib.sha256(canonical_bytes({k: v for k, v in report.items() if k != "hash"})).hexdigest()
+    return hashlib.sha256(
+        canonical_bytes({k: v for k, v in report.items() if k != "hash"})
+    ).hexdigest()
 
 
 def build_report(bundle: Bundle, findings: list[Finding]) -> dict:

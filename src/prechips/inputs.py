@@ -114,7 +114,11 @@ def load_bundle(
             if op.get("feature") not in features["features"]:
                 raise BadInput(f"{setup['id']}:{op['op']}: feature is not in the manifest.")
         frame = setup.get("frame", "unknown")
-        if isinstance(features["frames"], dict) and frame != "unknown" and frame not in features["frames"]:
+        if (
+            isinstance(features["frames"], dict)
+            and frame != "unknown"
+            and frame not in features["frames"]
+        ):
             raise BadInput(f"{setup['id']}: frame {frame!r} is not in the manifest.")
     declarations = plan.get("paths", {})
     if not isinstance(declarations, dict):
@@ -135,7 +139,15 @@ def load_bundle(
                 # Shop absence uses the shipped required vocabulary, never plan-owned overrides.
                 resolved[kind] = {
                     "required": dict.fromkeys(
-                        ("tool_resolves", "sizing", "op_chain", "blind_depth", "inspection", "coordinates", "zero_check"),
+                        (
+                            "tool_resolves",
+                            "sizing",
+                            "op_chain",
+                            "blind_depth",
+                            "inspection",
+                            "coordinates",
+                            "zero_check",
+                        ),
                         "*",
                     )
                 }
@@ -144,7 +156,9 @@ def load_bundle(
         from_plan = not override and bool(declared)
         path = _resolve(value, plan_path.parent if from_plan else Path.cwd())
         if from_plan and not path.is_relative_to(root):
-            raise BadInput(f"The declared {kind.replace('_', ' ')} path escapes the bundle directory.")
+            raise BadInput(
+                f"The declared {kind.replace('_', ' ')} path escapes the bundle directory."
+            )
         resolved[kind], hashes[kind] = _load(path, model, kind)
         paths[kind] = path
     # Every referenced asset is read, hashed and contained. Citations are never assets.
@@ -172,6 +186,12 @@ def load_bundle(
         if "step" not in paths:
             raise BadInput("A known STEP digest requires its STEP bytes in the bundle.")
     return Bundle(
-        plan, features, resolved["inventory"], resolved["shop_policy"], resolved["cutting_data"],
-        paths, hashes, root,
+        plan,
+        features,
+        resolved["inventory"],
+        resolved["shop_policy"],
+        resolved["cutting_data"],
+        paths,
+        hashes,
+        root,
     )

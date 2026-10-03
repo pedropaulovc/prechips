@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 
-Unknown: TypeAlias = Literal["unknown"]
+type Unknown = Literal["unknown"]
 UNKNOWN: Unknown = "unknown"
-Number: TypeAlias = float | Unknown
-Vector: TypeAlias = list[Number] | Unknown
-Citations: TypeAlias = str | list[str]
+type Number = float | Unknown
+type Vector = list[Number] | Unknown
+type Citations = str | list[str]
 TOLERANCE_REQUIREMENTS = frozenset(
     "dia position_dia finish_ra depth length width height radius thickness coaxiality_dia "
     "height_above_pivot arc_len bottom_radius bottom_arc_len tip_land land_angle_deg station "
@@ -69,7 +69,11 @@ Paths = record("Paths", texts("inventory policy cutting_data step"))
 Direction = record("Direction", texts("x y z"))
 Dro = record(
     "Dro",
-    {**texts("controller manual manual_url mode units"), "radius_mode": bool, "direction": Direction},
+    {
+        **texts("controller manual manual_url mode units"),
+        "radius_mode": bool,
+        "direction": Direction,
+    },
 )
 Stock = record(
     "Stock",
@@ -86,7 +90,9 @@ StockState = record(
     "StockState",
     {
         **texts("top_feature note"),
-        **numbers("top_z bottom_z retained_rail_bottom_z od_mm north_end_z south_end_z plain_end_z"),
+        **numbers(
+            "top_z bottom_z retained_rail_bottom_z od_mm north_end_z south_end_z plain_end_z"
+        ),
         "bottom_z_cite": Citations,
         "local_thickness": dict[str, Number],
         "local_thickness_cite": dict[str, Citations],
@@ -124,8 +130,12 @@ AxisZero = record(
 Transfer = record(
     "Transfer",
     {
-        "from": str, "indicate": str | list[str], "tool": str, "gauge": str,
-        "runout_limit_mm": Number, "reindicate_after": list[int],
+        "from": str,
+        "indicate": str | list[str],
+        "tool": str,
+        "gauge": str,
+        "runout_limit_mm": Number,
+        "reindicate_after": list[int],
     },
 )
 ToolTouch = record(
@@ -139,7 +149,13 @@ ToolTouch = record(
 )
 Zero = record(
     "Zero",
-    {"x": AxisZero, "y": AxisZero, "z": AxisZero, "transfer": Transfer, "tool_touches": list[ToolTouch]},
+    {
+        "x": AxisZero,
+        "y": AxisZero,
+        "z": AxisZero,
+        "transfer": Transfer,
+        "tool_touches": list[ToolTouch],
+    },
 )
 Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
 Contour = record(
@@ -194,7 +210,7 @@ class Plan(InputModel):
     setups: list[Setup]
 
 
-FrameVector: TypeAlias = Annotated[list[Number], Field(min_length=3, max_length=3)] | Unknown
+type FrameVector = Annotated[list[Number], Field(min_length=3, max_length=3)] | Unknown
 
 
 class Frame(InputModel):
@@ -221,6 +237,7 @@ class Frame(InputModel):
         if any(abs(a - b) > 1e-9 for a, b in zip(cross, z, strict=True)):
             raise ValueError("Frame axes must be right-handed.")
         return self
+
 
 Datum = record("Datum", {**texts("feature surface"), "cite": Citations})
 MaterialSpec = record(
@@ -319,9 +336,7 @@ class Features(InputModel):
         return self
 
 
-Source = record(
-    "Source", {**texts("vendor by url note cite"), "sku": str | int, "verify": bool}
-)
+Source = record("Source", {**texts("vendor by url note cite"), "sku": str | int, "verify": bool})
 Spindle = record(
     "Spindle",
     {
@@ -337,20 +352,20 @@ LeadScrew = record("LeadScrew", {**numbers("tpi dial_in"), "cross_feed_ipr": Vec
 Capacity = record("Capacity", numbers("drill end_mill face_mill"))
 Tailstock = record("Tailstock", {"taper": str, "quill_travel_in": Number})
 Threads = record("Threads", {"inch_tpi": Vector, "metric_pitch_mm": Vector})
-Toolpost = record(
-    "Toolpost", {**texts("series type note"), "holders": int, "included": bool}
-)
+Toolpost = record("Toolpost", {**texts("series type note"), "holders": int, "included": bool})
 DirectIndex = record("DirectIndex", numbers("positions step_deg"))
 Tilt = record("Tilt", numbers("down up"))
 Bars = record(
-    "Bars", {"count": int, "type": str, "shank_in": Number, "min_bore_in": Vector, "depth_in": Vector}
+    "Bars",
+    {"count": int, "type": str, "shank_in": Number, "min_bore_in": Vector, "depth_in": Vector},
 )
 InventoryItem = record(
     "InventoryItem",
     {
         **texts(
             "kind make control operation_mode note coating material coverage by standards "
-            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in standard series chart units taper"
+            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in "
+            "standard series chart units taper"
         ),
         "sku": str | int,
         **flags("verify present center_cutting swivel_base scroll independent"),
@@ -363,7 +378,8 @@ InventoryItem = record(
             "grip_mm max_shank_in lead_mm projection_mm sfm chip_load_mm_per_tooth "
             "dia_mm dia_in shank_mm flute_len_mm flute_len_in oal_mm oal_in gauge_len_mm "
             "gauge_len_in projection_in spindle_to_table_max_mm jaw_height_mm height_mm "
-            "height_in length_mm width_mm width_in capacity_mm bed_height_in nose_radius_mm reach_mm"
+            "height_in length_mm width_mm width_in capacity_mm "
+            "bed_height_in nose_radius_mm reach_mm"
         ),
         "dia": Number,
         "shank_in": float | str | dict[str, list[str]],

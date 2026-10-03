@@ -10,9 +10,8 @@ from prechips.report import canonical_bytes, report_hash
 def test_canonical_report_unicode_sorted_keys_float_and_final_lf():
     report = {"z": 1.25, "hash": "stale", "a": {"é": "Ø", "hash": "input", "b": 2.0}}
     expected = (
-        '{\n  "a": {\n    "b": 2.0,\n    "hash": "input",\n'
-        '    "é": "Ø"\n  },\n  "z": 1.25\n}\n'
-    ).encode("utf-8")
+        '{\n  "a": {\n    "b": 2.0,\n    "hash": "input",\n    "é": "Ø"\n  },\n  "z": 1.25\n}\n'
+    ).encode()
     payload = {key: value for key, value in report.items() if key != "hash"}
     assert canonical_bytes(payload) == expected
     assert report_hash(report) == hashlib.sha256(expected).hexdigest()

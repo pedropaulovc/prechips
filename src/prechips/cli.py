@@ -87,16 +87,22 @@ def _evaluate(bundle: Bundle, tracing: telemetry.Telemetry):
             rows = rule.evaluate(bundle)
         for finding in rows:
             with tracing.span(
-                f"rule.{rule.name}", subject=finding.subject,
-                status=str(finding.status), numbers=finding.numbers,
+                f"rule.{rule.name}",
+                subject=finding.subject,
+                status=str(finding.status),
+                numbers=finding.numbers,
             ):
                 tracing.finding(finding)
         findings.extend(rows)
     step = bundle.features.get("step_sha256", "unknown")
     binding = Finding(
-        "bundle_binding", "inputs", "unknown" if step == "unknown" else "pass",
-        {"step_sha256": step, "inputs": bundle.input_records}, ["PLAN.md §5 input-bundle binding"],
-        "The part model is not bound to verified STEP bytes." if step == "unknown"
+        "bundle_binding",
+        "inputs",
+        "unknown" if step == "unknown" else "pass",
+        {"step_sha256": step, "inputs": bundle.input_records},
+        ["PLAN.md §5 input-bundle binding"],
+        "The part model is not bound to verified STEP bytes."
+        if step == "unknown"
         else "The part model and every operative input are bound to the report.",
     )
     with tracing.span("rule.bundle_binding", subject="inputs"):
@@ -123,7 +129,11 @@ def _read_approval(path: Path | None, report: dict, tracing: telemetry.Telemetry
     if "approvals" in document and set(document) != {"approvals"}:
         raise BadInput("Unknown approval document key.")
     records = document.get("approvals", [document])
-    if not isinstance(records, list) or not records or any(not isinstance(r, dict) for r in records):
+    if (
+        not isinstance(records, list)
+        or not records
+        or any(not isinstance(r, dict) for r in records)
+    ):
         raise BadInput("Approval records must be TOML tables.")
     exact = next((entry for entry in records if entry.get("hash") == report["hash"]), None)
     record = exact or records[-1]
@@ -144,12 +154,20 @@ def _read_approval(path: Path | None, report: dict, tracing: telemetry.Telemetry
             if digest != current["sha256"]:
                 changed.append(name.replace("_", " "))
         description = ", ".join(changed) or "the operative bundle"
-        warnings.append(f"Approval no longer matches: {description} changed. Repeat the first article.")
-    approved = exact is not None and bool(record["first_article"].strip()) and report["verification"] == "checked"
+        warnings.append(
+            f"Approval no longer matches: {description} changed. Repeat the first article."
+        )
+    approved = (
+        exact is not None
+        and bool(record["first_article"].strip())
+        and report["verification"] == "checked"
+    )
     if exact is not None and not record["first_article"].strip():
         warnings.append("No first-article evidence is recorded; the traveler remains planned.")
     elif exact is not None and report["verification"] != "checked":
-        warnings.append("The report still has unresolved shop-required checks; approval cannot waive them.")
+        warnings.append(
+            "The report still has unresolved shop-required checks; approval cannot waive them."
+        )
     for warning in warnings:
         tracing.log("warn", f"! {warning}")
     return {**record, "approved": approved, "warnings": warnings}
@@ -160,7 +178,14 @@ def _json_stdout(value) -> None:
 
 
 def _tools(args, tracing: telemetry.Telemetry) -> int:
-    from prechips.rules.resolution import candidate_refs, length_mm, number, record, resolve, uncertain
+    from prechips.rules.resolution import (
+        candidate_refs,
+        length_mm,
+        number,
+        record,
+        resolve,
+        uncertain,
+    )
 
     path = args.inventory or os.environ.get("PRECHIPS_INVENTORY")
     if not path:
@@ -188,15 +213,29 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
         verdict = "unknown"
         reason = "No confirmed diameter is listed."
         if requested is not None and number(diameter):
-            verdict = "unknown" if uncertain(item) else "pass" if abs(diameter - requested) < 1e-9 else "error"
-            reason = "Nominal diameter matches." if abs(diameter - requested) < 1e-9 else "Nominal diameter differs from requested size."
+            verdict = (
+                "unknown"
+                if uncertain(item)
+                else "pass"
+                if abs(diameter - requested) < 1e-9
+                else "error"
+            )
+            reason = (
+                "Nominal diameter matches."
+                if abs(diameter - requested) < 1e-9
+                else "Nominal diameter differs from requested size."
+            )
             if uncertain(item):
                 reason += " Verify the inventory measurement."
         size = diameter
         if not number(size):
             size = next(
-                (value for field in ("capacity", "height", "range")
-                 if number(value := length_mm(item, field))), "unknown"
+                (
+                    value
+                    for field in ("capacity", "height", "range")
+                    if number(value := length_mm(item, field))
+                ),
+                "unknown",
             )
         if size == "unknown" and isinstance(item.get("range_mm"), list):
             size = item["range_mm"]
@@ -207,10 +246,14 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
         else:
             size_in = "unknown"
         row = {
-            "category": category, "id": identity, **item, "dia_mm": diameter,
+            "category": category,
+            "id": identity,
+            **item,
+            "dia_mm": diameter,
             "dia_in": diameter / 25.4 if number(diameter) else "unknown",
             "verify": uncertain(item),
-            "size_mm": size, "size_in": size_in,
+            "size_mm": size,
+            "size_in": size_in,
             "holder_chain": item.get("standard", item.get("shank", item.get("series", "unknown"))),
         }
         if requested is not None:
@@ -222,7 +265,8 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
         print("ID | Kind | Size mm / in | Holder chain | Verification | Sizing")
         for row in rows:
             print(
-                f"{row['id']} | {row.get('kind', 'unknown')} | {row['size_mm']} / {row['size_in']} | "
+                f"{row['id']} | {row.get('kind', 'unknown')} | "
+                f"{row['size_mm']} / {row['size_in']} | "
                 f"{row['holder_chain']} | {'verify' if row.get('verify') else 'listed'} | "
                 f"{row.get('reason', '—')}"
             )
@@ -237,15 +281,26 @@ def _explain(args, tracing: telemetry.Telemetry) -> int:
         if not isinstance(report, dict) or report.get("hash") != report_hash(report):
             raise BadInput("The report hash does not match its canonical content.")
         rule, separator, subject = args.finding.partition(":")
-        rows = [f for f in report["findings"] if f["rule"] == rule and (not separator or f["subject"] == subject)]
+        rows = [
+            f
+            for f in report["findings"]
+            if f["rule"] == rule and (not separator or f["subject"] == subject)
+        ]
     except (OSError, UnicodeError, ValueError, KeyError, TypeError) as exc:
         raise BadInput(f"Cannot explain report: {exc}") from exc
     if not rows:
         raise BadInput("No finding matches that rule and subject.")
     for row in rows:
-        tracing.finding(Finding(
-            row["rule"], row["subject"], row["status"], row["numbers"], row["cite"], row["message"]
-        ))
+        tracing.finding(
+            Finding(
+                row["rule"],
+                row["subject"],
+                row["status"],
+                row["numbers"],
+                row["cite"],
+                row["message"],
+            )
+        )
     if getattr(args, "json", False):
         _json_stdout(rows[0] if len(rows) == 1 else rows)
     else:
@@ -264,8 +319,10 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     plans = args.plans if args.verb == "compare" else [args.plan]
     bundles = [load_bundle(p, args.inventory, args.policy, args.cutting_data) for p in plans]
     out = args.out or plans[0].parent
-    names = ("compare.json",) if args.verb == "compare" else (
-        ("report.json", "traveler.html") if args.verb == "traveler" else ("report.json",)
+    names = (
+        ("compare.json",)
+        if args.verb == "compare"
+        else (("report.json", "traveler.html") if args.verb == "traveler" else ("report.json",))
     )
     all_inputs = [path for bundle in bundles for path in bundle.paths.values()]
     if getattr(args, "approval", None):
@@ -279,11 +336,18 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
             counts = {}
             for finding in report["findings"]:
                 counts[finding["status"]] = counts.get(finding["status"], 0) + 1
-            rows.append({
-                "part": bundle.plan["part"], "setups": len(bundle.plan["setups"]),
-                "fixtures": sorted({s.get("hold", {}).get("fixture", "unknown") for s in bundle.plan["setups"]}),
-                "waste_ratio": "unknown", "findings": counts, "exit": report["expected_exit"],
-            })
+            rows.append(
+                {
+                    "part": bundle.plan["part"],
+                    "setups": len(bundle.plan["setups"]),
+                    "fixtures": sorted(
+                        {s.get("hold", {}).get("fixture", "unknown") for s in bundle.plan["setups"]}
+                    ),
+                    "waste_ratio": "unknown",
+                    "findings": counts,
+                    "exit": report["expected_exit"],
+                }
+            )
         out.mkdir(parents=True, exist_ok=True)
         with tracing.span("output.write", path=str(destinations[0])):
             destinations[0].write_bytes(canonical_bytes(rows))
@@ -292,7 +356,10 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         else:
             print("Part | Setups | Fixtures required | Findings")
             for row in rows:
-                print(f"{row['part']} | {row['setups']} | {', '.join(row['fixtures'])} | {row['findings']}")
+                print(
+                    f"{row['part']} | {row['setups']} | "
+                    f"{', '.join(row['fixtures'])} | {row['findings']}"
+                )
         codes = {report["expected_exit"] for report in reports}
         return 2 if 2 in codes else 4 if 4 in codes else 0
     report = reports[0]
@@ -315,7 +382,10 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    verb = next((value for value in argv if value in {"traveler", "check", "tools", "compare", "explain"}), "usage")
+    verb = next(
+        (value for value in argv if value in {"traveler", "check", "tools", "compare", "explain"}),
+        "usage",
+    )
     tracing = telemetry.configure(verb)
     verbose_handler = None
     try:

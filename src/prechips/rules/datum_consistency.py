@@ -6,7 +6,6 @@ indicating an earlier pilot does not establish a later reamed datum.
 
 from prechips.findings import Finding
 
-
 _NONFINISH = {"spot", "inspect", "release", "fit_up", "scribe", "transfer", "deburr"}
 
 
@@ -21,7 +20,13 @@ def _number(value):
 def _cuts(setups, feature):
     cuts = []
     for index, setup in enumerate(setups):
-        ops = [op for op in setup["ops"] if op.get("feature") == feature and op["do"] not in _NONFINISH and not op["do"].startswith("rough")]
+        ops = [
+            op
+            for op in setup["ops"]
+            if op.get("feature") == feature
+            and op["do"] not in _NONFINISH
+            and not op["do"].startswith("rough")
+        ]
         if any(op["do"] in ("ream", "tap", "bore") for op in ops):
             ops = [op for op in ops if op["do"] != "drill"]
         cuts.extend((index, setup, op) for op in ops)
@@ -52,8 +57,17 @@ def _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name):
 def evaluate(bundle):
     setups = bundle.plan["setups"]
     features = bundle.features["features"]
-    datum_map = {name: _mapping(datum).get("feature") for name, datum in _mapping(bundle.features.get("datums")).items()}
-    datum_map.update({feature["datum"]: name for name, feature in features.items() if isinstance(feature.get("datum"), str) and feature["datum"] != "unknown"})
+    datum_map = {
+        name: _mapping(datum).get("feature")
+        for name, datum in _mapping(bundle.features.get("datums")).items()
+    }
+    datum_map.update(
+        {
+            feature["datum"]: name
+            for name, feature in features.items()
+            if isinstance(feature.get("datum"), str) and feature["datum"] != "unknown"
+        }
+    )
     budget = _mapping(bundle.policy.get("numbers")).get("refixture_budget_mm", "unknown")
     verified = bundle.policy.get("numbers_verify", False)
     if isinstance(verified, dict):
@@ -65,21 +79,50 @@ def evaluate(bundle):
         position_datums = feature.get("position_datums", [])
         relationships = []
         if isinstance(position_datums, list):
-            relationships.extend((datum, datum_map.get(datum), feature.get("position_dia", "unknown")) for datum in position_datums)
+            relationships.extend(
+                (datum, datum_map.get(datum), feature.get("position_dia", "unknown"))
+                for datum in position_datums
+            )
         if "coaxial_to" in feature:
-            relationships.append((feature["coaxial_to"], feature["coaxial_to"], feature.get("coaxiality_dia", "unknown")))
+            relationships.append(
+                (
+                    feature["coaxial_to"],
+                    feature["coaxial_to"],
+                    feature.get("coaxiality_dia", "unknown"),
+                )
+            )
         if "height_from" in feature:
             band = feature.get("height_above_pivot", "unknown")
-            tolerance = band[1] - band[0] if isinstance(band, list) and len(band) == 2 and all(_number(v) for v in band) else "unknown"
+            tolerance = (
+                band[1] - band[0]
+                if isinstance(band, list) and len(band) == 2 and all(_number(v) for v in band)
+                else "unknown"
+            )
             relationships.append((feature["height_from"], feature["height_from"], tolerance))
         numbers = {"position_datums": position_datums}
         if "datum" in feature:
             numbers["datum"] = feature["datum"]
         if not relationships and position_datums != "unknown":
-            findings.append(Finding("datum_consistency", name, "not_applicable", numbers, ["PLAN.md §4.1 datum consistency"], "No tolerance on this feature refers to another datum."))
+            findings.append(
+                Finding(
+                    "datum_consistency",
+                    name,
+                    "not_applicable",
+                    numbers,
+                    ["PLAN.md §4.1 datum consistency"],
+                    "No tolerance on this feature refers to another datum.",
+                )
+            )
             continue
         feature_cuts = _cuts(setups, name)
-        numbers.update({"feature_ops": [_label(cut) for cut in feature_cuts], "refixture_budget_mm": budget, "relationships": [], "datums": {}})
+        numbers.update(
+            {
+                "feature_ops": [_label(cut) for cut in feature_cuts],
+                "refixture_budget_mm": budget,
+                "relationships": [],
+                "datums": {},
+            }
+        )
         if feature_cuts:
             numbers["feature_op"] = _label(feature_cuts[-1])
         unknown = position_datums == "unknown" or not feature_cuts
@@ -101,7 +144,11 @@ def evaluate(bundle):
             for feature_cut in feature_cuts:
                 for datum_cut in datum_cuts:
                     same_setup = feature_cut[0] == datum_cut[0]
-                    indicated = False if same_setup else _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name)
+                    indicated = (
+                        False
+                        if same_setup
+                        else _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name)
+                    )
                     cross_setup |= not same_setup
                     verdict = "pass"
                     if not same_setup and not indicated:
@@ -111,10 +158,18 @@ def evaluate(bundle):
                         elif tolerance < budget:
                             failed.append(datum_name)
                             verdict = "error"
-                    numbers["relationships"].append({"datum": datum_name, "datum_feature": datum_feature,
-                                                       "feature_op": _label(feature_cut), "datum_op": _label(datum_cut),
-                                                       "same_setup": same_setup, "indicated_transfer": indicated,
-                                                       "tolerance_mm": tolerance, "status": verdict})
+                    numbers["relationships"].append(
+                        {
+                            "datum": datum_name,
+                            "datum_feature": datum_feature,
+                            "feature_op": _label(feature_cut),
+                            "datum_op": _label(datum_cut),
+                            "same_setup": same_setup,
+                            "indicated_transfer": indicated,
+                            "tolerance_mm": tolerance,
+                            "status": verdict,
+                        }
+                    )
         numbers["same_setup"] = not cross_setup and bool(feature_cuts) and not unknown
         numbers["transfer"] = [
             _mapping(setup.get("zero")).get("transfer")
@@ -122,8 +177,25 @@ def evaluate(bundle):
             if _mapping(setup.get("zero")).get("transfer")
         ]
         status = "error" if failed else "unknown" if unknown else "pass"
-        message = ("Re-fixtured datum tolerance is below the measured shop budget: " + ", ".join(sorted(set(failed))) + ".") if failed else "Datum cuts or the re-fixture acceptance budget remain unresolved." if unknown else "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget."
-        cite = ["PLAN.md §4.1 datum consistency", "features: datum references and tolerance", "plan: finishing cuts and zero.transfer"]
+        message = (
+            (
+                "Re-fixtured datum tolerance is below the measured shop budget: "
+                + ", ".join(sorted(set(failed)))
+                + "."
+            )
+            if failed
+            else "Datum cuts or the re-fixture acceptance budget remain unresolved."
+            if unknown
+            else (
+                "Datum relationships share a setup, have an indicated transfer, or fit the "
+                "measured shop re-fixture budget."
+            )
+        )
+        cite = [
+            "PLAN.md §4.1 datum consistency",
+            "features: datum references and tolerance",
+            "plan: finishing cuts and zero.transfer",
+        ]
         budget_cite = _mapping(bundle.policy.get("numbers_cite")).get("refixture_budget_mm")
         if isinstance(budget_cite, str) and budget_cite != "unknown":
             cite.append(budget_cite)
