@@ -56,12 +56,15 @@ def finding(status="error"):
 
 def test_span_tree_and_correlated_findings(exporters):
     spans, logs = exporters
+    assert telemetry.current() is None
     t = telemetry.configure("check")
     assert telemetry.configure("traveler") is t
+    assert telemetry.current() is t
     with t.span("rule.sizing", subject="pivot_bore"):
         t.finding(finding())
     t.flush()
     t.flush()
+    assert telemetry.current() is None
     root, child = sorted(spans.get_finished_spans(), key=lambda span: span.start_time)
     assert root.name == "prechips.check"
     assert root.parent is None

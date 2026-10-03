@@ -274,3 +274,8 @@ def configure(verb: str) -> Telemetry:
             _telemetry = Telemetry(verb)
             atexit.register(_telemetry.flush)
         return _telemetry
+
+
+def current() -> Telemetry | None:
+    """Return the live session without creating a root for library-only loads."""
+    return _telemetry if _telemetry is not None and not _telemetry._closed else None
