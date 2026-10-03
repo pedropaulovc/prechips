@@ -98,8 +98,9 @@ SETUP S3 — PM-30MV, PM 6 in vise, jaws along X, part on 3/4 in parallels
     70  release   rails       —                      —    —          —                —     —
        70: loosen, lift the part onto the fixture plate before cutting the
        rails free (S4). Do not cut the rails in the vise.
-  RPM/feed: HSS, 1018 CRS, 90 sfm; 0.05 mm/tooth (Machinery's Handbook 31,
-  Table 1 p. 1023; cutting-data.toml rev 1). Starting points, not limits.
+  RPM/feed: HSS, 1018 CRS, 90 sfm; 0.05 mm/tooth — layout placeholders;
+  the shipped cutting-data.toml rev 1 cites no page yet, so the real
+  sheet prints `?` here until a row is transcribed. Starting points, not limits.
 
   Sign off: ________  first article: ________  pivot bore reads ______
                                             prechips 0.1 · report 7f3a9c2e
@@ -478,8 +479,9 @@ The only numeric table prechips ships. Two tables. `[[cut]]` keyed
 `material_class` → `kc_n_per_mm2` (specific cutting force at 1 mm chip),
 `e_gpa`, `cite` — the only source the §4.4 proxies may read. `material_class` maps from the
 inventory/plan material string through a small alias table (`"1018 CRS"` →
-`low_carbon_steel`). RPM = 12·sfm / (π·D_in), clamped to the machine, rounded
-to 50; feed = rpm·flutes·chip_load. An inventory tool with `chart = …`
+`low_carbon_steel`). RPM = 12·sfm / (π·D_in), rounded to the nearest 50,
+then clamped to the machine's range (so a 70 rpm floor never prints 50);
+feed = rpm·flutes·chip_load. An inventory tool with `chart = …`
 overrides the row with its own `sfm`/`chip_load`, citing the chart. A
 missing row is a `?` line, never a guessed number. Content grows with the
 routes that ship: rev 1 carries only the rows M1's rocker setup selects
@@ -517,7 +519,7 @@ not exist.
 | speeds/feeds from cutting-data, clamped, rounded | plan.ops, inventory.tools (material, flutes, chart), machine rpm range, cutting-data | M1 | fills the columns; "? no row for O1 hardened" |
 | zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + paper; the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
 | coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; the arc table for `contour.method = "arc_table"`) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia | M1 | silent when right; prints sheet 3a |
-| inspection per requirement: every entry in a feature's `requirements` that is a tolerance (`dia`, `position_dia`, `finish_ra`, `depth`) has a `checks.<requirement>` on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
+| inspection per requirement: every entry in a feature's `requirements` that is a tolerance (any `*_dia`, `dia`, `finish_ra`, `depth`, `coaxiality_dia` — every requirement that carries a band, not a fixed list) has a `checks.<requirement>` on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
 | headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL, holder gauge length, machine envelope — `verify` → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |

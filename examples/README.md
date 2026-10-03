@@ -61,7 +61,7 @@ coordinates are on the sheet. No operative asset lies outside the bundle.
 
 ## Source facts, not the PLAN layout sketch
 
-Consumer citations are relative to the read-only `C:/src/harmonic-analyzer`
+Consumer citations are relative to the read-only [pedropaulovc/harmonic-analyzer](https://github.com/pedropaulovc/harmonic-analyzer)
 repository (`harmonic-analyzer/cad/...` and `cad/...` identify the same root).
 Named file:line citations were re-read against that tree before carry-over.
 Current source values and corrected line ranges are recorded beside dimensions.
