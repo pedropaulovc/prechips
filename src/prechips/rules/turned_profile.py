@@ -2,7 +2,7 @@
 
 from ..findings import Finding
 from .coordinates import frame_point, model_point
-from .resolution import UNKNOWN, number, record, resolve, same_length
+from .resolution import UNKNOWN, _citations, number, record, resolve, same_length
 
 PROFILE_OPS = {
     "turn",
@@ -95,16 +95,6 @@ def _grooving(setup, name, bundle):
     return ("unknown" if unknown else "error"), evidence
 
 
-def _citations(value):
-    if isinstance(value, str):
-        return [value] if value not in (UNKNOWN, "") else []
-    if isinstance(value, dict):
-        return [text for key in sorted(value) for text in _citations(value[key])]
-    if isinstance(value, list):
-        return [text for item in value for text in _citations(item)]
-    return []
-
-
 def exposed_profile(bundle, setup):
     """Reuse the declared setup-Z geometry for profile and unsupported-diameter checks."""
     features = bundle.features["features"]
@@ -112,9 +102,7 @@ def exposed_profile(bundle, setup):
     units = bundle.features.get("units", UNKNOWN)
     scale = 25.4 if units == "in" else 1.0 if units == "mm" else None
     frame = _frame_mm(frames.get(setup.get("frame")), scale or 1.0)
-    claimed = {
-        op.get("feature", UNKNOWN) for op in setup["ops"] if op["do"] in PROFILE_OPS
-    }
+    claimed = {op.get("feature", UNKNOWN) for op in setup["ops"] if op["do"] in PROFILE_OPS}
     names = {
         name for name, feature in features.items() if feature.get("kind") in AXIAL_KINDS
     } | claimed
@@ -158,9 +146,7 @@ def exposed_profile(bundle, setup):
     boundaries = sorted({z for interval in intervals for z in interval["z_mm"]})
     previous = None
     for low, high in zip(boundaries, boundaries[1:], strict=False):
-        active = [
-            item for item in intervals if item["z_mm"][0] <= low and high <= item["z_mm"][1]
-        ]
+        active = [item for item in intervals if item["z_mm"][0] <= low and high <= item["z_mm"][1]]
         cylinders = [item for item in active if item["kind"] != "groove"]
         grooves = [item for item in active if item["kind"] == "groove"]
         candidates = grooves or cylinders

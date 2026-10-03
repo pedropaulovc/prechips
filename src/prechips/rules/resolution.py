@@ -65,6 +65,19 @@ def record(value):
     return value if isinstance(value, dict) else {}
 
 
+def _citations(value, field=None):
+    """Keep usable cited strings; a field selects only that fact from a citation map."""
+    if isinstance(value, dict):
+        if field is not None:
+            return _citations(value.get(field))
+        return [text for key in sorted(value) for text in _citations(value[key])]
+    if isinstance(value, list):
+        return [text for item in value for text in _citations(item, field)]
+    if isinstance(value, str) and value.strip() and value.strip() != UNKNOWN:
+        return [value]
+    return []
+
+
 def inch_sizes(value):
     """Declared inch sizes from a flat list or from every group of a grouped mapping."""
     groups = value.values() if isinstance(value, dict) else (value,)

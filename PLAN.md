@@ -11,8 +11,8 @@
 > no human has to read.
 
 Status: M1 local implementation and PR #5 cross-family/CodeRabbit review
-corrections completed, including strict optional identity handling, tool-size
-comparison and operative traveler precision; physical paper rehearsal and live
+corrections completed; M2 declared-input implementation and all six PR #6
+review corrections are locally verified. Physical paper rehearsal and live
 parented farm/App Insights acceptance remain pending/unobserved. Rev 6, 2026-10-03.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
@@ -830,11 +830,16 @@ sheet.
    12.5182° cone-journal inclination (`positions = 1`, no repeated-pattern closure),
    with authored full-envelope one-piece and block-plus-pressed-boss alternatives.
    The drawing is one-piece only; the built-up candidate is refused.
-   **Observed local acceptance:** Ruff check and format check; 488 pytest cases;
-   all 12 TOML inputs / five candidate goldens validated; actual CLI checks
-   repeated byte-identically with exits 4 / 2 / 2 / 4 / 2. Cone comparison
-   prints the drawing refusal beside the built-up candidate. Chromium showed
-   plate B, circle 23, 1 turn + 9 spaces; this is not physical print evidence.
+   **Observed local acceptance after PR #6 review corrections:** Ruff check and
+   format check (67 Python files); 575 pytest cases; all 12 TOML inputs / five
+   candidate goldens validated. Actual CLI travelers preserve exits
+   4 / 2 / 2 / 4 / 2 and cone comparison exits 2, with canonical golden parity.
+   The corrections use finished exposed stick-out D, explicit built-up permission,
+   full-pattern-only closure, endmill-with-DOC engagement, machine hold resolution
+   and one shared citation collector. All six findings were reproduced before
+   their fixes. Only changed rule output regenerated goldens (#1, #4 and #5).
+   Chromium showed the synthetic 30° × 3 open pattern's exact landings and
+   “Open pattern: no cycle closure.” This is not physical print evidence.
    **Unobserved/pending:** measured chuck capacities/support/BS-0 inventory,
    sourced K_c/E and a sourced BASIC-angle landing allowance, printed traveler/operator
    rehearsal, independent hand oracle, live farm telemetry and M3/M4 geometry

@@ -3,17 +3,9 @@
 from fractions import Fraction
 
 from prechips.findings import Finding
-from prechips.rules.resolution import UNKNOWN, number, record, resolve, uncertain
+from prechips.rules.resolution import UNKNOWN, _citations, number, record, resolve, uncertain
 
 _CITE = "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
-
-
-def _citations(value, field):
-    if isinstance(value, dict):
-        value = value.get(field, UNKNOWN)
-    if isinstance(value, str):
-        return [value] if value != UNKNOWN else []
-    return [item for item in value if item != UNKNOWN] if isinstance(value, list) else []
 
 
 def _rational(value):

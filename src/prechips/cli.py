@@ -16,6 +16,7 @@ from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
 from prechips.report import build_report, canonical_bytes, report_hash
+from prechips.rules.resolution import _citations
 
 
 class Parser(argparse.ArgumentParser):
@@ -366,15 +367,6 @@ def _explain(args, tracing: telemetry.Telemetry) -> int:
             print(json.dumps(finding["numbers"], ensure_ascii=False, sort_keys=True, indent=2))
             print("Cite: " + "; ".join(finding["cite"]))
     return 0
-
-
-def _citations(value) -> list[str]:
-    entries = value if isinstance(value, list) else [value]
-    return [
-        entry
-        for entry in entries
-        if isinstance(entry, str) and entry.strip() and entry.strip() != "unknown"
-    ]
 
 
 def _validate_stock_dimensions(piece: dict, subject: str) -> None:

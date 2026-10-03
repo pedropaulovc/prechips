@@ -47,6 +47,9 @@ the digest alone is not accepted. Shipped examples have no STEP byte stream.
 `cite`, `cite_root`, and per-dimension citations identify evidence and
 are not file assets fetched or opened during the check. Hand-authored manifests
 must be cross-checked against source drawings; completeness export is M3.
+Citation collection discards blank and `"unknown"` entries individually, without
+losing other known sources in the list. A per-dimension citation map supplies only
+the requested fact; whole-record provenance is collected in sorted key order.
 
 The stick-out rule takes its D from the smallest finished profile diameter along
 setup Z in the unsupported span, using these authored axial stations and frames.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
-from .resolution import MANUAL, UNKNOWN, number, operations, record, resolve, uncertain
+from .resolution import MANUAL, UNKNOWN, _citations, number, operations, record, resolve, uncertain
 from .stickout import support_state
 from .turned_profile import nominal_diameter
 
@@ -14,15 +14,6 @@ _PROXY_CITE = "PLAN.md:563-568 (§4.4 physics proxies)"
 
 def _positive(value):
     return number(value) and math.isfinite(value) and value > 0
-
-
-def _citations(value):
-    values = value if isinstance(value, list) else [value]
-    return (
-        values
-        if values and all(isinstance(v, str) and v.strip() and v != UNKNOWN for v in values)
-        else []
-    )
 
 
 def _material(bundle):

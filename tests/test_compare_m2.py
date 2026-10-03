@@ -179,9 +179,7 @@ def test_construction_gate_uses_explicit_candidate_and_drawing_permission(
 @pytest.mark.parametrize("verb", ["check", "traveler"])
 @pytest.mark.parametrize("permission", ["one_piece", "unknown", None])
 def test_construction_refusal_cannot_be_bypassed_outside_compare(tmp_path, verb, permission):
-    plan = candidate(
-        tmp_path / "inputs", "built", construction="built_up", permission=permission
-    )
+    plan = candidate(tmp_path / "inputs", "built", construction="built_up", permission=permission)
     out = tmp_path / "out"
     result = run_cli(verb, plan, "--out", out)
     assert result.returncode == 2, result.stderr

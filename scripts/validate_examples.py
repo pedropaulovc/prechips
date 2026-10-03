@@ -916,7 +916,8 @@ def finished_exposed_diameter(setup: dict, features: dict):
     claimed = {
         op.get("feature")
         for op in setup["ops"]
-        if op["do"] in {
+        if op["do"]
+        in {
             "turn",
             "rough_turn",
             "finish_turn",

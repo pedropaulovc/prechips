@@ -1,7 +1,7 @@
 """Compare only the selected size-setting finishing tool to drawing limits."""
 
 from ..findings import Finding
-from .resolution import length_mm, number, operations, record, resolve, uncertain
+from .resolution import _citations, length_mm, number, operations, record, resolve, uncertain
 
 
 def evaluate(bundle):
@@ -9,13 +9,7 @@ def evaluate(bundle):
     for name, feature in bundle.features["features"].items():
         source = feature.get("cite", [])
         source = list(source.values()) if isinstance(source, dict) else source
-        source = source if isinstance(source, list) else [source]
-        cite = ["PLAN.md §4.1 sizing"] + [
-            text
-            for entry in source
-            for text in (entry if isinstance(entry, list) else [entry])
-            if isinstance(text, str)
-        ]
+        cite = ["PLAN.md §4.1 sizing"] + _citations(source)
         nums = {
             "kind": feature["kind"],
             "feature_kind": feature["kind"],

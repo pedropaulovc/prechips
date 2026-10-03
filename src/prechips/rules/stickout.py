@@ -1,7 +1,7 @@
 """Declared exposed finished diameter and selected support; no inferred shop limit."""
 
 from ..findings import Finding
-from .resolution import UNKNOWN, number, record, resolve, uncertain
+from .resolution import UNKNOWN, _citations, number, record, resolve, uncertain
 from .turned_profile import exposed_profile
 
 SUPPORT_KINDS = {
@@ -115,9 +115,7 @@ def evaluate(bundle):
         geometry = exposed_profile(bundle, setup)
         segments = geometry["segments"]
         diameter = (
-            min(segment["diameter_mm"] for segment in segments)
-            if geometry["complete"]
-            else UNKNOWN
+            min(segment["diameter_mm"] for segment in segments) if geometry["complete"] else UNKNOWN
         )
         diameter_features = sorted(
             {
@@ -130,11 +128,7 @@ def evaluate(bundle):
         length = record(setup.get("hold")).get("stickout_mm", UNKNOWN)
         policy = record(bundle.policy.get("numbers"))
         ratio = policy.get("stickout_ld_max", UNKNOWN)
-        citation = record(bundle.policy.get("numbers_cite")).get("stickout_ld_max", UNKNOWN)
-        citations = citation if isinstance(citation, list) else [citation]
-        citations = [
-            text for text in citations if isinstance(text, str) and text not in (UNKNOWN, "")
-        ]
+        citations = _citations(record(bundle.policy.get("numbers_cite")).get("stickout_ld_max"))
         verify = record(bundle.policy.get("numbers_verify")).get("stickout_ld_max", False)
         known_limit = number(ratio) and ratio > 0 and bool(citations) and verify is False
         limit = ratio * diameter if known_limit and number(diameter) else UNKNOWN

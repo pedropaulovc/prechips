@@ -21,6 +21,12 @@ radial DOC and feed/revolution supply the force inputs. The shipped K_c/E values
 remain `"unknown"`: no verified Handbook 31 table/page is available. Missing
 sources, values, geometry or material verification remain unresolved, not zero
 deflection. Adding a numerical row requires real source evidence.
+
+Citation collection discards blank and `"unknown"` entries individually, so an
+incomplete list does not erase other known sources. The same collector handles
+comparison, construction, indexing, sizing, holding policy, turned profiles and
+turning deflection; per-fact citation maps select only the requested fact.
+
 Selection is `--cutting-data`, then a known `[paths].cutting_data`. There is no
 cutting-data environment fallback; an omitted or `"unknown"` path without an
 explicit override is bad input (exit 3), not a source of invented numbers.

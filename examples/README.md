@@ -290,9 +290,13 @@ binding and exit precedence. It rejects obsolete YAML/CSV fixtures. It validates
 these authored contracts; it is not another machining checker and does not assert
 geometry, material properties, gauge calibration, first-article evidence or telemetry.
 The cone extension also independently enumerates all inventory indexing settings,
-checks signed landing arithmetic and absence of single-setting closure, stick-out
-length/diameter/verified-ratio arithmetic, source/candidate construction facts,
-and leaf-blank stock/net/waste arithmetic in `expected/compare.json`.
+checks signed landing arithmetic and full-pattern-only closure, smallest finished
+exposed diameter/verified-ratio arithmetic separately from held OD, explicit
+construction permission, and leaf-blank stock/net/waste arithmetic in
+`expected/compare.json`. Unbound or incomplete finished profiles stay unknown.
+The PR #6 review corrections regenerated only changed output: stick-out evidence,
+endmill-with-DOC engagement eligibility and machine-listed BS-0 hold resolution.
+All five candidate exits remain 4 / 2 / 2 / 4 / 2; comparison remains 2.
 Endpoint arithmetic distinguishes spot/tap depth, blind tip depth and its drawing
 guard, and through breakthrough allowance. Reamers use sourced axial lead,
 drills use the point cone, and boring/counterboring uses zero drill-cone length;
