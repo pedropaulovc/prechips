@@ -193,6 +193,8 @@ def _read_approval(path: Path | None, report: dict, tracing: telemetry.Telemetry
             raise BadInput("Approval inputs must be a table of input digests.")
         changed = []
         for name, current in report["inputs"].items():
+            if name not in old_inputs:
+                continue
             prior = old_inputs.get(name)
             digest = prior.get("sha256") if isinstance(prior, dict) else prior
             if digest != current["sha256"]:
@@ -330,21 +332,32 @@ def _explain(args, tracing: telemetry.Telemetry) -> int:
             for f in report["findings"]
             if f["rule"] == rule and (not separator or f["subject"] == subject)
         ]
+        if not rows:
+            raise BadInput("No finding matches that rule and subject.")
+        parsed = []
+        for row in rows:
+            if not all(isinstance(row[key], str) for key in ("rule", "subject", "message")):
+                raise ValueError("Finding rule, subject and message must be strings.")
+            if not isinstance(row["numbers"], dict):
+                raise ValueError("Finding numbers must be an object.")
+            if not isinstance(row["cite"], list) or not all(
+                isinstance(cite, str) for cite in row["cite"]
+            ):
+                raise ValueError("Finding cite must be a list of strings.")
+            parsed.append(
+                Finding(
+                    row["rule"],
+                    row["subject"],
+                    row["status"],
+                    row["numbers"],
+                    row["cite"],
+                    row["message"],
+                )
+            )
     except (OSError, UnicodeError, ValueError, KeyError, TypeError) as exc:
         raise BadInput(f"Cannot explain report: {exc}") from exc
-    if not rows:
-        raise BadInput("No finding matches that rule and subject.")
-    for row in rows:
-        tracing.finding(
-            Finding(
-                row["rule"],
-                row["subject"],
-                row["status"],
-                row["numbers"],
-                row["cite"],
-                row["message"],
-            )
-        )
+    for finding in parsed:
+        tracing.finding(finding)
     if getattr(args, "json", False):
         _json_stdout(rows[0] if len(rows) == 1 else rows)
     else:

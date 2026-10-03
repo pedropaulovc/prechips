@@ -22,8 +22,12 @@ fabricated digest. An absent policy fallback has no file-byte digest.
 Citations are evidence pointers, not operative assets loaded at runtime. HTML
 and approval records are not inputs to their own report hash. A content/format
 change to an input resets its digest even when it seems semantically identical.
-`explain` verifies report integrity before selecting rows; a matching hash is
-not proof of machining safety or source truth.
+`explain` verifies report integrity before selecting rows, then validates every
+matching finding before emitting any finding logs or output. Selected findings
+require string `rule`, `subject`, and `message`, a supported `status`, an object
+`numbers`, and a list of strings `cite`. Missing or malformed selected fields
+exit 3 with `Cannot explain report`, even when the report hash is valid.
+A matching hash is not proof of machining safety or source truth.
 The CLI also emits `bundle_binding:inputs`: unknown when the manifest STEP
 digest is unknown, otherwise pass, with the full input records as evidence.
 Its exact messages are `The part model is not bound to verified STEP bytes.`
@@ -39,7 +43,7 @@ Any error wins (exit 2). Required warn/unknown/unsupported or a missing required
 rule/subject yields 4; an explicitly unknown required policy also yields 4.
 Otherwise the report has exit 0 and `verification = "checked"`.
 The implemented gate does not block required `info` or `not_applicable`. Without
-approval the traveler still prints `PLANNED — NOT CHECKED, NO FIRST ARTICLE`.
+approval the traveler still prints `PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE`.
 The footer text is `prechips <version> · report <first 8 hash chars>`.
 That short id is only a paper lookup aid, never the approval's full binding.
 The renderer additionally requires the normalized approval `approved = true`,
@@ -82,8 +86,12 @@ string suffices. Approval parsing does not authenticate evidence or perform
 the first article; the shop owns its truth.
 
 Stale record warning: `Approval no longer matches: {changed input names} changed.
-Repeat the first article.` When no digest comparison identifies a change it
-names `the operative bundle`. A matching record for an ineligible report warns:
+Repeat the first article.` Only input names declared in the prior record and
+present in the current report are compared; an omitted prior input is never
+named as changed. Digest strings and digest tables follow the same comparison.
+The warning names `the operative bundle` when prior `inputs` is absent or
+empty, there are no input names in common, or all compared digests are unchanged
+despite the stale report hash. A matching record for an ineligible report warns:
 `The report still has unresolved shop-required checks; approval cannot waive them.`
 Approval never changes the checker exit. `check` also parses/warns on approval,
 but does not produce a sheet.
@@ -129,11 +137,15 @@ Footers are in normal document flow, not fixed over bench content. Identical
 station positions may be grouped while retaining all provenance; diameter-mode
 lathe station tables omit nonoperative Y. Unresolved checks are grouped for
 compact bench presentation, not hidden or waived.
-Unknown drawing dimensions or display precision remain explicit, but missing
-drawing precision does not erase a known operative/manual coordinate. Such
-settings retain their supplied numeric form; explicit dimension precision wins,
-and actual unknown numeric values remain `?`. No acceptance band or display
-precision is invented, and numeric presentation never changes PLANNED readiness.
+Unknown drawing dimensions remain explicit. Declared dimension precision controls
+drawing values, manual settings, DRO-zero values and genuine feature points when
+available; without it, every known finite number still prints its own digits.
+Operation-derived coordinate rows, tip/Z targets, computed stations and
+contour/cutter-centre targets always retain their own numeric digits: six
+significant digits, with floating residue below `1e-6` dropped. Unrelated drawing
+precision never rounds or hides these operative targets. Actual unknown numeric
+values remain `?`. No acceptance band or drawing precision is invented, and
+numeric presentation never changes PLANNED readiness.
 Bench text excludes rule ids, source paths and full hashes; the footer short id
 is the report lookup. Generated logical sections and print CSS are not physical
 clipping/dry-run proof. The paper acceptance remains pending.

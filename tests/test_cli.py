@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from prechips.report import canonical_bytes, report_hash
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -176,3 +178,110 @@ def test_refused_traveler_output_leaves_prior_outputs_exactly(refusal, preexisti
     # No new report beside an old traveler, no staged temporaries left behind.
     after = {path.name: path.read_bytes() for path in out.iterdir()} if out.exists() else {}
     assert after == prior
+
+
+@pytest.mark.parametrize(
+    ("prior_inputs", "changed"),
+    [
+        ("absent", "the operative bundle"),
+        ("empty", "the operative bundle"),
+        ("partial_unchanged", "the operative bundle"),
+        ("partial_changed", "features"),
+        ("unreferenced", "the operative bundle"),
+    ],
+)
+def test_stale_approval_names_only_compared_input_changes(prior_inputs, changed, tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plain, report, _ = traveler(plan, tmp_path / "plain")
+    inputs = {
+        "absent": "",
+        "empty": "\n[inputs]\n",
+        "partial_unchanged": f'\n[inputs]\nplan = "{report["inputs"]["plan"]["sha256"]}"\n',
+        "partial_changed": (
+            f'\n[inputs]\nplan = "{report["inputs"]["plan"]["sha256"]}"\n'
+            f'features = {{ sha256 = "{"0" * 64}" }}\n'
+        ),
+        "unreferenced": f'\n[inputs]\nretired_asset = "{"0" * 64}"\n',
+    }[prior_inputs]
+    approval = tmp_path / "approvals.toml"
+    approval.write_text(
+        f'hash = "{"0" * 64}"\n'
+        'first_article = "Synthetic regression record, not shop evidence."\n' + inputs,
+        encoding="utf-8",
+    )
+    result, approved_report, html = traveler(plan, tmp_path / "stale", "--approval", approval)
+    assert result.returncode == plain.returncode
+    assert approved_report == report
+    warning = " ".join(result.stderr.split()).split("Approval no longer matches: ", 1)[1]
+    assert warning.split(" changed.", 1)[0] == changed
+    assert f"Approval no longer matches: {changed} changed." in html
+    assert "PLANNED" in html
+    assert "CHECKED —" not in html
+
+
+@pytest.mark.parametrize("json_output", [False, True], ids=["human", "json"])
+@pytest.mark.parametrize(
+    ("field", "value", "missing"),
+    [
+        ("status", "invalid", False),
+        ("status", None, False),
+        ("status", None, True),
+        ("numbers", [], False),
+        ("numbers", "not an object", False),
+        ("numbers", None, False),
+        ("numbers", None, True),
+        ("cite", [123], False),
+        ("cite", "not a citation list", False),
+        ("cite", {"page": "source"}, False),
+        ("cite", None, False),
+        ("cite", None, True),
+        ("subject", 123, False),
+        ("subject", None, True),
+        ("message", [], False),
+        ("message", None, True),
+    ],
+)
+def test_explain_rejects_all_malformed_matches_before_any_finding_output(
+    field, value, missing, json_output, tmp_path
+):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    _, report, _ = traveler(plan, tmp_path / "plain")
+    first = next(row for row in report["findings"] if row["status"] == "unknown")
+    malformed = {**first, "subject": first["subject"] + ":malformed"}
+    if missing:
+        malformed.pop(field)
+    else:
+        malformed[field] = value
+    # A later bad match must not emit the earlier valid finding to stdout or logs.
+    report["findings"] = [first, malformed]
+    report["hash"] = report_hash(report)
+    path = tmp_path / "malformed.json"
+    path.write_bytes(canonical_bytes(report))
+    result = run_cli("explain", path, first["rule"], *(["--json"] if json_output else []))
+    assert result.returncode == 3, result.stderr
+    assert "Cannot explain report" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert result.stdout == ""
+    assert first["message"] not in " ".join(result.stderr.split())
+
+
+@pytest.mark.parametrize("json_output", [False, True], ids=["human", "json"])
+def test_explain_valid_selected_finding_keeps_structured_evidence(json_output, tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    _, report, _ = traveler(plan, tmp_path / "plain")
+    row = next(row for row in report["findings"] if row["status"] == "unknown")
+    result = run_cli(
+        "explain",
+        tmp_path / "plain" / "report.json",
+        f"{row['rule']}:{row['subject']}",
+        *(["--json"] if json_output else []),
+    )
+    assert result.returncode == 0, result.stderr
+    if json_output:
+        assert json.loads(result.stdout) == row
+    else:
+        header, evidence = result.stdout.split("\n", 1)
+        numbers, cite = evidence.rsplit("\nCite: ", 1)
+        assert header == f"{row['rule']}:{row['subject']} — {row['status']}"
+        assert json.loads(numbers) == row["numbers"]
+        assert cite.rstrip("\n") == "; ".join(row["cite"])
