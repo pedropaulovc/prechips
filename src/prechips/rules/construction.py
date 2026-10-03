@@ -1,4 +1,4 @@
-"""Drawing-owned construction permission; omitted plan intent is unknown."""
+"""Drawing-owned construction permission; only an explicit note permits built-up."""
 
 from prechips.findings import Finding
 from prechips.rules.resolution import UNKNOWN
@@ -17,22 +17,16 @@ def evaluate(bundle):
         if isinstance(entry, str) and entry.strip() and entry.strip() != UNKNOWN
     ]
     numbers = {"plan_construction": candidate, "drawing_construction": permission}
-    if candidate == UNKNOWN or permission == UNKNOWN or not permission.strip():
-        status = "unknown"
-        sentence = "Candidate construction or drawing construction permission is unknown."
-    elif candidate == "built_up" and permission != "built_up_permitted":
+    if candidate == "built_up" and permission != "built_up_permitted":
         status = "error"
         sentence = "drawing permits one-piece only"
-    elif candidate == "one_piece" or (
-        candidate == "built_up" and permission == "built_up_permitted"
-    ):
+    elif candidate == "built_up":
         status = "pass"
-        sentence = (
-            "The candidate uses one-piece construction."
-            if candidate == "one_piece"
-            else "The drawing explicitly permits built-up construction."
-        )
+        sentence = "The drawing explicitly permits built-up construction."
+    elif candidate == "one_piece":
+        status = "pass"
+        sentence = "The candidate uses one-piece construction."
     else:
         status = "unknown"
-        sentence = "Candidate construction is unresolved."
+        sentence = "Candidate construction is unknown."
     return [Finding("construction", bundle.plan["part"], status, numbers, cite, sentence)]

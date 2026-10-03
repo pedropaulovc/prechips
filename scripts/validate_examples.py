@@ -798,9 +798,7 @@ def check_construction(plan: dict, features: dict, finding: dict) -> None:
         },
         "construction evidence does not identify the candidate and drawing",
     )
-    if "unknown" in (candidate, permission):
-        expected = "unknown"
-    elif candidate == "built_up":
+    if candidate == "built_up":
         expected = "pass" if permission == "built_up_permitted" else "error"
     else:
         expected = "pass" if candidate == "one_piece" else "unknown"

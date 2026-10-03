@@ -11,13 +11,20 @@ Subject: the plan's part name. Evidence contains `plan_construction` and
 The candidate must explicitly declare `construction = "one_piece"`,
 `"built_up"`, or `"unknown"`; omission remains unknown, never one-piece.
 
-- Unknown candidate construction or unknown/omitted manifest construction gives
-  `unknown` (`?`), not permission or refusal.
-- A one-piece candidate with known manifest construction passes.
+Built-up construction has one prerequisite: the drawing manifest must explicitly
+declare `construction = "built_up_permitted"`, carried from a drawing-side
+permission note. Missing permission is not permission. Without the explicit
+value, the drawing permits one-piece construction only.
+
 - A built-up candidate passes only when the manifest explicitly declares
   `construction = "built_up_permitted"`.
-- Any other known manifest construction refuses a built-up candidate with an
-  `error` whose entire sentence is **`drawing permits one-piece only`**.
+- Any other manifest value refuses a built-up candidate. That includes
+  `"one_piece"`, any other string, `"unknown"`, blank, or an omitted key. The
+  refusal is an `error` whose entire sentence is
+  **`drawing permits one-piece only`**.
+- A one-piece candidate needs no permission, so it passes whatever the manifest
+  says, including unknown or omitted.
+- Only unknown or omitted candidate construction gives `unknown` (`?`).
 
 The rule participates in the same evaluator, required-policy selectors and
 error-before-required-unknown exit gate as every other rule. It applies to

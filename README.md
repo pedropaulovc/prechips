@@ -90,6 +90,8 @@ package version. `--json` and `--verbose` default off.
   and construction permission. Waste is `(stock volume - finished volume) /
   stock volume`, only when the authored stock dimensions and sourced manifest
   volume are known. Unknown finished volume stays `"unknown"`; no route is chosen.
+  Built-up construction is refused unless the drawing explicitly says
+  `built_up_permitted`; unknown or missing drawing permission is not permission.
 - **explain** validates the stored report's canonical hash and selected finding
   records, then prints their message, numbers and citations. A rule alone selects
   every subject; `rule:subject` selects that exact subject. JSON is an object for

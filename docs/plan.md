@@ -130,8 +130,11 @@ sourced `volume_mm3`, never a bounding-box estimate.
 
 Root `construction` declares the candidate route, independently of the
 drawing-side manifest permission. `built_up` is refused unless
-`features.construction = "built_up_permitted"`; omission is unknown rather than
-an implicit one-piece declaration. See [stock-form comparison](rules-comparison.md).
+`features.construction = "built_up_permitted"`: unknown or omitted drawing
+permission does not lift the one-piece-only restriction. An explicit `one_piece`
+candidate needs no such permission. Omitting the **plan's** candidate construction
+is unknown rather than an implicit one-piece declaration.
+See [stock-form comparison](rules-comparison.md).
 
 ## Dro
 

@@ -61,6 +61,8 @@ volume for stock comparison. Missing or unverified volume remains `"unknown"`;
 prechips never substitutes a feature bounding box, guessed cone subtraction,
 or stock volume. Drawing `construction = "one_piece"` does not permit a
 built-up candidate; permission requires the literal `"built_up_permitted"`.
+Unknown or omitted drawing permission retains the one-piece-only restriction;
+it never permits built-up construction. A one-piece candidate needs no permission.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled

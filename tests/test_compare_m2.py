@@ -147,11 +147,15 @@ def construction_finding(row):
         ("built_up", "built_up_permitted", "pass", 0),
         ("built_up", "one_piece", "error", 2),
         ("built_up", "another_known_drawing_restriction", "error", 2),
+        ("built_up", "unknown", "error", 2),
+        ("built_up", None, "error", 2),
+        ("built_up", " ", "error", 2),
+        ("one_piece", "unknown", "pass", 0),
+        ("one_piece", None, "pass", 0),
         ("unknown", "one_piece", "unknown", 4),
+        ("unknown", "built_up_permitted", "unknown", 4),
+        ("unknown", None, "unknown", 4),
         (None, "one_piece", "unknown", 4),
-        ("built_up", "unknown", "unknown", 4),
-        ("built_up", None, "unknown", 4),
-        ("one_piece", None, "unknown", 4),
     ],
 )
 def test_construction_gate_uses_explicit_candidate_and_drawing_permission(
@@ -173,8 +177,11 @@ def test_construction_gate_uses_explicit_candidate_and_drawing_permission(
 
 
 @pytest.mark.parametrize("verb", ["check", "traveler"])
-def test_construction_refusal_cannot_be_bypassed_outside_compare(tmp_path, verb):
-    plan = candidate(tmp_path / "inputs", "built", construction="built_up")
+@pytest.mark.parametrize("permission", ["one_piece", "unknown", None])
+def test_construction_refusal_cannot_be_bypassed_outside_compare(tmp_path, verb, permission):
+    plan = candidate(
+        tmp_path / "inputs", "built", construction="built_up", permission=permission
+    )
     out = tmp_path / "out"
     result = run_cli(verb, plan, "--out", out)
     assert result.returncode == 2, result.stderr
