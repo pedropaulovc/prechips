@@ -1,0 +1,102 @@
+# Synthetic test shop for the examples/geometry fixtures (PLAN.md rev 6 §4.2-4.3, §6).
+# Every number here is an authored test specification chosen so that one geometry
+# rule discriminates; none is a measurement of Pedro's shop (../inventory/pedro-shop.toml),
+# a vendor catalogue fact or a purchase. verify = false therefore means "specified by the
+# fixture author", never "measured". Do not copy these items into a real inventory.
+stock = []
+
+[machines.test-mill]
+kind = "mill"
+make = "synthetic test specification"
+note = "Vertical mill with an R8 spindle. Travel and spindle-to-table height are deliberately unknown so the headroom row stays a ? line; the geometry rules do not read them."
+verify = false
+
+[machines.test-mill.spindle]
+taper = "R8"
+rpm_min = 100
+rpm_max = 3000
+
+# Holders: an R8 collet per shank size. gauge_dia/gauge_len are the holder cylinder the
+# kernel stands above the cutter; grip_mm is the shank engagement, so a tool without an
+# explicit projection_mm projects oal_mm - grip_mm below the holder nose.
+[holders.r8-collet-8mm]
+kind = "collet"
+standard = "R8"
+capacity_mm = 8.0
+gauge_dia_mm = 40.0
+gauge_len_mm = 60.0
+grip_mm = 25.0
+verify = false
+
+[holders.r8-collet-1-4in]
+kind = "collet"
+standard = "R8"
+capacity_mm = 6.35
+gauge_dia_mm = 40.0
+gauge_len_mm = 60.0
+grip_mm = 25.0
+verify = false
+
+# Cutters. em-8-std and em-8-long differ only in OAL: with the 25 mm collet grip the
+# standard cutter projects 38 mm (holder nose 7 mm below the pocket-reach top face), the
+# long one projects 75 mm (holder nose 30 mm above it). Both have 19 mm of flute.
+[tools.em-8-std]
+kind = "endmill"
+material = "HSS"
+dia_mm = 8.0
+flutes = 4
+flute_len_mm = 19.0
+oal_mm = 63.0
+shank_mm = 8.0
+verify = false
+
+[tools.em-8-long]
+kind = "endmill"
+material = "HSS"
+dia_mm = 8.0
+flutes = 4
+flute_len_mm = 19.0
+oal_mm = 100.0
+shank_mm = 8.0
+verify = false
+
+[tools.em-1-4in]
+kind = "endmill"
+material = "HSS"
+dia_mm = 6.35
+flutes = 4
+flute_len_mm = 16.0
+oal_mm = 57.0
+shank_mm = 6.35
+verify = false
+
+# Vises: all four jaw dimensions are explicit because the kernel never synthesizes a jaw
+# solid. test-vise suits the 40-70 mm blocks; test-vise-wide is sized so the 292.5 mm
+# rocker arm sits inside one jaw width (a part longer than the jaws leaves the jaws
+# unplaced and every jaw fact unknown).
+[fixtures.test-vise]
+kind = "vise"
+jaw_width_mm = 150.0
+opening_mm = 100.0
+jaw_height_mm = 40.0
+jaw_depth_mm = 30.0
+verify = false
+
+[fixtures.test-vise-wide]
+kind = "vise"
+jaw_width_mm = 320.0
+opening_mm = 100.0
+jaw_height_mm = 40.0
+jaw_depth_mm = 30.0
+verify = false
+
+# Parallels: one matched pair, drawn as prisms from the declared length (along the jaws),
+# width (along the clamp axis) and height; the plan places their setup-frame centres.
+[fixtures.test-parallels-20]
+kind = "parallels"
+length_mm = 150.0
+width_mm = 6.0
+height_mm = 20.0
+verify = false
+
+[gauges]

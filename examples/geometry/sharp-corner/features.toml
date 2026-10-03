@@ -1,0 +1,48 @@
+# slot-block: a designed test solid for the PLAN.md rev 6 §4.2 internal corner radius
+# rule. 60 x 40 x 20 mm block with one closed 30 x 12 mm pocket, sharp vertical corners,
+# 6 mm deep from the top face (floor at z = 14). Authored by ../author_solids.py (FreeCAD
+# 1.1, STEP AP214) and frozen as slot-block.STEP; every dimension is a fixture choice,
+# not a drawing or inventory measurement. Face references are
+# #<entity>/ADVANCED_FACE[<1-based file-order ordinal>]/<label> read from the STEP text
+# (FreeCAD exports an empty label); the kernel matches them by surface kind/area/bbox.
+part = "slot-block"
+units = "mm"
+precision = "unknown"
+step = "slot-block.STEP"
+step_sha256 = "6662f278cc58a0ec90b54ab6b310c3b5cf5f7692e27a805b8993a756f16a5a40"
+construction = "one_piece"
+
+[cite]
+part = "examples/geometry/author_solids.py: SLOT_BLOCK (synthetic test specification)"
+step_sha256 = "examples/geometry/sharp-corner/slot-block.STEP"
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+note = "Block corner at the origin; X along the 60 mm length, Y across the 40 mm width, Z up through the 20 mm height. Pocket x 15..45, y 14..26, floor z = 14."
+
+[frames.A]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "unknown"
+note = "S1, top face up, model axes; the jaws run along X and clamp across Y."
+
+# The pocket is one feature: floor and four flat walls meeting in four sharp concave
+# vertical edges (corner radius 0). A 1/4 in end mill leaves R3.175 there.
+[features.pocket]
+kind = "pocket"
+frame = "model"
+requirements = []
+faces = [
+  "#295/ADVANCED_FACE[11]/",
+  "#199/ADVANCED_FACE[7]/",
+  "#230/ADVANCED_FACE[8]/",
+  "#254/ADVANCED_FACE[9]/",
+  "#278/ADVANCED_FACE[10]/",
+]
+note = "Floor [11] z = 14; walls [7] y = 14, [8] x = 45, [9] y = 26, [10] x = 15."
+cite = "examples/geometry/author_solids.py: slot_block (synthetic test specification)"

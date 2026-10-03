@@ -107,10 +107,16 @@ class _ConsoleHandler(logging.Handler):
             highlight=False,
         )
         self._table_header = True
+        self._console_groups: set[str] = set()
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
             finding_status = getattr(record, "status", None)
+            group = getattr(record, "console_group", None)
+            if group and not self.verbose:
+                if group in self._console_groups:
+                    return
+                self._console_groups.add(group)
             if finding_status and self.verbose:
                 table = Table(show_header=self._table_header, box=None, padding=(0, 1))
                 for label in ("Rule", "Subject", "Status", "Finding"):
@@ -257,6 +263,8 @@ class Telemetry:
             }
         )
         trace.get_current_span().set_attributes(attrs)
+        if finding.numbers.get("kernel_unavailable"):
+            attrs["console_group"] = "kernel_unavailable"
         glyph = _GLYPHS.get(status)
         body = f"{glyph} {finding.sentence}" if glyph else finding.sentence
         severity = (

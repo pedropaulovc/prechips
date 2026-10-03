@@ -1,0 +1,32 @@
+# Policy for the examples/geometry fixtures: the seven PLAN.md rev 6 §4.2-4.3 geometry
+# rules are required on every subject, nothing else. M1/M2 rows still run and print as
+# ? lines, but only an error anywhere or a required geometry row that is not pass /
+# not_applicable changes the exit. This isolates the discriminating rule of each fixture.
+revision = 6
+
+[required]
+accessibility = "*"
+reach = "*"
+internal_corner_radius = "*"
+coverage = "*"
+finish_coverage = "*"
+vise = "*"
+thin_wall_under_clamp = "*"
+
+[numbers]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = 2.0
+stickout_ld_max = "unknown"
+
+# The thin-wall floor is a synthetic test threshold chosen so every fixture's grip-zone
+# wall clears it; it is not a measured or sourced shop limit (../shop-policy.toml keeps
+# the real one unknown).
+[numbers_cite]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "examples/geometry/README.md: synthetic test specification"
+stickout_ld_max = "unknown"
+
+[numbers_verify]
+refixture_budget_mm = true
+thin_wall_floor_mm = false
+stickout_ld_max = true

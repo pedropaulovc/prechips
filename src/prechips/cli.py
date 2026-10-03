@@ -15,7 +15,7 @@ from pathlib import Path
 from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
-from prechips.report import build_report, canonical_bytes, report_hash
+from prechips.report import build_report, canonical_bytes, render_assets, report_hash
 from prechips.rules.resolution import _citations
 
 
@@ -631,6 +631,10 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         if args.verb == "compare"
         else (("report.json", "traveler.html") if args.verb == "traveler" else ("report.json",))
     )
+    if args.verb == "traveler":
+        names += tuple(
+            f"setup-S{ordinal}.png" for ordinal, _ in enumerate(bundles[0].plan["setups"], start=1)
+        )
     all_inputs = [path for bundle in bundles for path in bundle.paths.values()]
     if getattr(args, "approval", None):
         all_inputs.append(args.approval)
@@ -638,8 +642,15 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         destinations = _output_paths(out, names, all_inputs)
     except OSError as exc:
         raise BadInput(f"Cannot check output path: {exc}") from exc
+    from prechips.kernel import run_geometries
+
+    run_geometries(bundles)
     findings = [_evaluate(bundle, tracing) for bundle in bundles]
-    reports = [build_report(bundle, rows) for bundle, rows in zip(bundles, findings, strict=True)]
+    assets = [render_assets(bundle) for bundle in bundles]
+    reports = [
+        build_report(bundle, rows, assets=images)
+        for bundle, rows, images in zip(bundles, findings, assets, strict=True)
+    ]
     if args.verb == "compare":
         try:
             comparison_root = Path(
@@ -672,6 +683,9 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     outputs = {destinations[0]: canonical_bytes(report)}
     if html is not None:
         outputs[destinations[1]] = html.encode("utf-8")
+        outputs.update(
+            {path: assets[0][path.name] for path in destinations[2:] if path.name in assets[0]}
+        )
     _write_outputs(out, outputs, tracing)
     if getattr(args, "json", False):
         _json_stdout(report)

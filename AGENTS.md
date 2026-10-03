@@ -43,10 +43,22 @@ only from justified actual rule output and source evidence, never by weakening
 stops or certifying unknowns. Keep fixture LF endings and canonical report hash.
 
 Checks must perform **no network activity except explicitly configured OTel
-export**. Inventory chart/source URLs are citations, not downloads. No CAD kernel,
-fixture renderer, CAM or geometry-certification should be implied by a declared
-input/display field. M2 rules evaluate declared profile, holding, indexing and
-physics inputs; unknown K_c/E, shop limits and verified capacity remain debt.
+export**. Inventory chart/source URLs are citations, not downloads. The only
+external process is the M4 FreeCAD kernel: one `freecadcmd.exe` job per
+check/traveler run on the bundle's own STEP, resolved through `FREECAD_CMD`,
+the installed FreeCAD 1.1, then `PATH`, with results cached under
+`PRECHIPS_KERNEL_CACHE`. A missing kernel is `?` plus exit 4, never a pass; a
+kernel failure is `✗`. No CAM, geometry certification or fixture solid is
+implied by a declared input/display field: fixture solids exist only for a
+vise whose `jaw_height`/`jaw_width`/`jaw_depth`/`opening` are explicit and not
+`verify = true`, plus a declared pose, and face identity comes only from a
+geometry-matched STEP `ADVANCED_FACE` reference, never from import order or
+the nearest face. M2 rules evaluate declared profile, holding, indexing and
+physics inputs; unknown K_c/E, shop limits, `thin_wall_floor_mm` and verified
+capacity remain debt. Tests that need kernel facts must inject a synthetic
+`bundle.kernel` result or point `FREECAD_CMD` and `PRECHIPS_KERNEL_CACHE` at
+temporary locations; never rely on the developer's cache or installed FreeCAD
+for a pass.
 No physical rehearsal or live farm evidence is recorded merely because exporter tests pass.
 
 ## Local validation
@@ -125,7 +137,8 @@ this parented live farm path. This acceptance is unobserved/pending here.
 
 ## Documentation and scope
 
-Update README, the five input-format pages, affected rule-family pages and PLAN
+Update README, the five input-format pages, affected rule-family pages
+(including [docs/rules-geometry.md](docs/rules-geometry.md)) and PLAN
 milestone status lines when shipped behavior changes. Follow actual schema/rule
 sentences, not PLAN sketches' obsolete placeholder dimensions. Physical printed
 Letter clipping checks, operator dry-run and independent hand oracle remain

@@ -1,0 +1,52 @@
+# pocket-block: a designed test solid for the PLAN.md rev 6 §4.2 reach rule.
+# 70 x 50 x 60 mm block with one closed 40 x 24 mm pocket, R6 vertical corners, 45 mm
+# deep from the top face (floor at z = 15). Authored by ../author_solids.py (FreeCAD
+# 1.1, STEP AP214) and frozen as pocket-block.STEP; every dimension is a fixture
+# choice, not a drawing or inventory measurement. Face references are
+# #<entity>/ADVANCED_FACE[<1-based file-order ordinal>]/<label> read from the STEP text
+# (FreeCAD exports an empty label); the kernel matches them by surface kind/area/bbox.
+part = "pocket-block"
+units = "mm"
+precision = "unknown"
+step = "pocket-block.STEP"
+step_sha256 = "b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f"
+construction = "one_piece"
+
+[cite]
+part = "examples/geometry/author_solids.py: POCKET_BLOCK (synthetic test specification)"
+step_sha256 = "examples/geometry/pocket-reach/pocket-block.STEP"
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+note = "Block corner at the origin; X along the 70 mm length, Y across the 50 mm width, Z up through the 60 mm height. Pocket x 15..55, y 13..37, floor z = 15."
+
+[frames.A]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "unknown"
+note = "S1, top face up, model axes; the jaws run along X and clamp across Y."
+
+# The pocket is one feature: floor, four flat walls and four R6 corner fillets. Entry
+# from the top face (z = 60) to the floor (z = 15) is 45 mm, deeper than any 19 mm flute.
+[features.pocket]
+kind = "pocket"
+frame = "model"
+requirements = []
+faces = [
+  "#431/ADVANCED_FACE[15]/",
+  "#267/ADVANCED_FACE[8]/",
+  "#316/ADVANCED_FACE[10]/",
+  "#365/ADVANCED_FACE[12]/",
+  "#414/ADVANCED_FACE[14]/",
+  "#235/ADVANCED_FACE[7]/",
+  "#291/ADVANCED_FACE[9]/",
+  "#340/ADVANCED_FACE[11]/",
+  "#389/ADVANCED_FACE[13]/",
+]
+note = "Floor [15] z = 15; walls [8] y = 13, [10] x = 55, [12] y = 37, [14] x = 15; fillets [7] [9] [11] [13] R6 about vertical axes at (21|49, 19|31)."
+cite = "examples/geometry/author_solids.py: pocket_block (synthetic test specification)"

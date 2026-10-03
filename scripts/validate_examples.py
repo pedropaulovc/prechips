@@ -29,6 +29,13 @@ EXPECTED_EXIT = {
     "cone-pivot-post": 4,
     "cone-pivot-post/built-up.toml": 2,
 }
+GEOMETRY_CASES = (
+    ("rocker-jaw-occluded", "plan.toml", "expected", 2, "accessibility"),
+    ("pocket-reach", "plan.toml", "expected", 2, "reach"),
+    ("pocket-reach", "long-reach.toml", "expected/long-reach", 0, None),
+    ("sharp-corner", "plan.toml", "expected", 2, "internal_corner_radius"),
+    ("unclaimed-face", "plan.toml", "expected", 2, "coverage"),
+)
 STATUSES = {"pass", "error", "warn", "info", "unknown", "unsupported", "not_applicable"}
 FEATURE_RULES = {"sizing", "op_chain", "blind_depth", "datum_consistency"}
 SETUP_RULES = {
@@ -397,8 +404,12 @@ def read_report(path: Path) -> dict:
         report.get("hash") == hashlib.sha256(canonical(payload)).hexdigest(),
         f"{path}: report hash mismatch",
     )
-    require(report.get("verification") == "planned", f"{path}: unearned readiness")
-    require(report.get("rules_version") == "m5-rev7", f"{path}: stale rule catalogue")
+    require(
+        report.get("verification")
+        == ("checked" if report.get("expected_exit") == 0 else "planned"),
+        f"{path}: unearned readiness",
+    )
+    require(report.get("rules_version") == "m5-rev8", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]
@@ -423,6 +434,11 @@ def input_paths(folder: Path, plan: dict, plan_filename: str = "plan.toml") -> d
         ("cutting_data", "cutting_data"),
     ):
         paths[key] = (folder / plan["paths"][field]).resolve()
+    features = tomllib.loads(paths["features"].read_text(encoding="utf-8"))
+    step = features.get("step", plan.get("step", plan.get("paths", {}).get("step")))
+    if step and step != "unknown":
+        base = paths["features"].parent if "step" in features else folder
+        paths["step"] = (base / step).resolve()
     for path in paths.values():
         require(path.is_relative_to(EXAMPLES), f"input escapes examples: {path}")
     return paths
@@ -431,6 +447,8 @@ def input_paths(folder: Path, plan: dict, plan_filename: str = "plan.toml") -> d
 def report_exit(report: dict, policy: dict) -> int:
     if any(f["status"] == "error" for f in report["findings"]):
         return 2
+    if any(f["numbers"].get("kernel_unavailable") for f in report["findings"]):
+        return 4
     required = policy["required"]
     if any(
         f["rule"] in required and f["status"] in {"unknown", "unsupported", "warn"}
@@ -1164,7 +1182,12 @@ def validate_fixture(
     features = documents[folder / "features.toml"]
     require(plan["part"] == features["part"] == part, "part identity mismatch")
     require(features.get("features"), "empty manifest")
-    require(features["step_sha256"] == "unknown", "unprovided STEP digest asserted")
+    digest = features["step_sha256"]
+    if digest != "unknown":
+        require(
+            re.fullmatch(r"[0-9a-f]{64}", digest) is not None,
+            "invalid STEP digest asserted",
+        )
     check_author_choices(plan)
     paths = input_paths(folder, plan, plan_filename)
     inventory = documents[paths["inventory"]]
@@ -1172,11 +1195,25 @@ def validate_fixture(
     cutting = documents[paths["cutting_data"]]
     entries = entries_for(inventory)
     report = read_report(folder / expected_subdir / "report.json")
-    require(set(report["inputs"]) == set(paths), "report input bundle incomplete")
+    renders = report.get("renders", {})
+    render_inputs = {f"render:{sid}" for sid in renders}
+    require(set(report["inputs"]) == set(paths) | render_inputs, "report input bundle incomplete")
+    for sid, asset in renders.items():
+        image = folder / expected_subdir / asset["path"]
+        require(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), "invalid fixture PNG")
+        require(asset["sha256"] == sha256(image), "fixture render hash mismatch")
+        require(
+            report["inputs"][f"render:{sid}"] == {"path": asset["path"], "sha256": asset["sha256"]},
+            "fixture render not bound to the report",
+        )
     for key, path in paths.items():
         expected = {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256(path)}
         require(report["inputs"][key] == expected, f"{part}: stale {key} input binding")
     require(report["step_sha256"] == features["step_sha256"], "STEP binding mismatch")
+    if digest != "unknown":
+        require(
+            "step" in paths and sha256(paths["step"]) == digest, "STEP bytes differ from digest"
+        )
     findings = {(f["rule"], f["subject"]): f for f in report["findings"]}
     check_construction(plan, features, findings["construction", part])
     if part == "cone-pivot-post":
@@ -1209,6 +1246,83 @@ def validate_fixture(
     return exit_code, missing
 
 
+def validate_geometry_fixture(case: tuple, documents: dict) -> None:
+    name, plan_filename, expected_subdir, expected_exit, failing_rule = case
+    folder = EXAMPLES / "geometry" / name
+    plan = documents[(folder / plan_filename).resolve()]
+    features = documents[(folder / plan["features"]).resolve()]
+    paths = input_paths(folder, plan, plan_filename)
+    report = read_report(folder / expected_subdir / "report.json")
+    require(plan["part"] == features["part"], f"{name}: part identity mismatch")
+    require(
+        features["step_sha256"] == sha256(paths["step"]) == report["step_sha256"],
+        f"{name}: STEP digest mismatch",
+    )
+    face_records = re.findall(
+        r"#(\d+)\s*=\s*ADVANCED_FACE\s*\(\s*'((?:[^']|'')*)'",
+        paths["step"].read_text(encoding="utf-8"),
+        re.DOTALL,
+    )
+    require(face_records, f"{name}: no ADVANCED_FACE records")
+    refs = set(plan["stock"].get("as_is_faces", []))
+    for feature in features["features"].values():
+        if isinstance(feature.get("faces"), list):
+            refs.update(feature["faces"])
+    for ref in refs:
+        match = re.fullmatch(r"#(\d+)/ADVANCED_FACE\[(\d+)\]/(.*)", ref)
+        require(match is not None, f"{name}: malformed face reference {ref}")
+        entity, ordinal, label = match.groups()
+        require(0 < int(ordinal) <= len(face_records), f"{name}: invalid face ordinal {ref}")
+        actual_entity, actual_label = face_records[int(ordinal) - 1]
+        require(
+            (entity, label) == (actual_entity, actual_label.replace("''", "'")),
+            f"{name}: face reference differs from bound STEP {ref}",
+        )
+    for kind, path in paths.items():
+        require(
+            report["inputs"][kind]
+            == {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256(path)},
+            f"{name}: stale input binding {kind}",
+        )
+    require(report.get("renders"), f"{name}: kernel fixture render missing")
+    for sid, asset in report["renders"].items():
+        require(
+            asset.get("fixture") == "modeled"
+            and asset.get("scene") == {"jaws": "exact", "parallels": "exact", "debts": []},
+            f"{name}: authored full fixture scene is unresolved",
+        )
+        image = (folder / expected_subdir / asset["path"]).resolve()
+        require(image.is_relative_to((folder / expected_subdir).resolve()), "render path escapes")
+        require(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), "invalid fixture PNG")
+        binding = {"path": asset["path"], "sha256": sha256(image)}
+        require(
+            report["inputs"][f"render:{sid}"] == binding and asset["sha256"] == binding["sha256"],
+            f"{name}: render is not bound to the report",
+        )
+    policy = documents[paths["shop_policy"]]
+    require(
+        report_exit(report, policy) == report["expected_exit"] == expected_exit, "geometry exit"
+    )
+    if failing_rule:
+        require(
+            any(
+                row["rule"] == failing_rule and row["status"] == "error"
+                for row in report["findings"]
+            ),
+            f"{name}: missing discriminating {failing_rule} error",
+        )
+    else:
+        require(
+            all(
+                row["status"] in {"pass", "not_applicable"}
+                for row in report["findings"]
+                if row["rule"] in policy["required"]
+            ),
+            f"{name}: successful geometry counterpart retains a required debt",
+        )
+    check_sheet(folder, report, expected_subdir)
+
+
 def main() -> int:
     try:
         paths = sorted(EXAMPLES.rglob("*.toml"))
@@ -1233,6 +1347,9 @@ def main() -> int:
             f"{', '.join(missing) or 'none'}"
         )
         check_comparison(EXAMPLES / "cone-pivot-post", documents)
+        for case in GEOMETRY_CASES:
+            validate_geometry_fixture(case, documents)
+            print(f"geometry/{case[0]}/{case[1]}: expected exit {case[3]}")
         print("All rev-6 reference bundles validate.")
         return 0
     except (OSError, ValueError, KeyError, TypeError, StopIteration) as exc:

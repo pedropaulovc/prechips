@@ -7,6 +7,7 @@ import os
 import tomllib
 from contextlib import nullcontext
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -28,6 +29,7 @@ class Bundle:
     paths: dict[str, Path]
     hashes: dict[str, str]
     root: Path
+    kernel: dict | None = dataclass_field(default=None, compare=False)
 
     @property
     def input_records(self) -> dict[str, dict[str, str]]:

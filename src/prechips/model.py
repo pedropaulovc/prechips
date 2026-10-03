@@ -134,6 +134,11 @@ Hold = record(
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
+        "jaw_center_along_mm": Number,
+        "parallels_centres_mm": Annotated[
+            list[Annotated[list[Number], Field(min_length=2, max_length=2)]],
+            Field(min_length=2, max_length=2),
+        ],
         "supports": str | list[str | Reference],
         **flags("grip_mm_verify jaw_above_parallels_mm_verify"),
         "index": Index,
@@ -455,7 +460,9 @@ InventoryItem = record(
             "diameter_in thickness_in resolution_in runout_max_in "
             "max_shank_in sfm chip_load_mm_per_tooth "
             "shank_mm flute_len_mm flute_len_in jaw_height_mm "
-            "length_mm width_mm width_in capacity_mm nose_radius_mm reach_mm"
+            "length_mm width_mm width_in capacity_mm nose_radius_mm reach_mm "
+            "gauge_len spindle_to_table_max_mm jaw_depth_mm jaw_depth_in jaw_width_mm "
+            "opening_mm gauge_dia gauge_dia_mm gauge_dia_in"
         ),
         "point_angle": MeasuredAngle,
         **dict.fromkeys(

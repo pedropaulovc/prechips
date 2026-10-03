@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>pocket-block traveler</title><style>@page { size: Letter portrait; margin: .4in; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #000; background: #fff; font: 8pt/1.2 Arial, sans-serif; }
+.page { break-after: page; page-break-after: always; }
+.page:last-child { break-after: auto; page-break-after: auto; }
+h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 4pt 0 2pt; border-bottom: 1px solid #000; break-after: avoid; }
+p { margin: 2pt 0; } .meta { display: flex; justify-content: space-between; gap: 8pt; }
+.banner { border: 2px solid #000; text-align: center; font-weight: bold; padding: 1pt; margin: 3pt 0; }
+.byst p { margin: 1pt 0 1pt 1.3em; text-indent: -1.3em; }
+table { width: 100%; border-collapse: collapse; margin: 2pt 0; table-layout: fixed; }
+th, td { border: 1px solid #555; padding: 1pt 2pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: #eee; } thead { display: table-header-group; }
+tr { break-inside: avoid; page-break-inside: avoid; } .operations { font-size: 7.5pt; }
+.fixture-render { margin: 4pt 0; break-inside: avoid; }
+.fixture-render img { display: block; width: 100%; max-height: 1.7in; object-fit: contain; }
+.fixture-render figcaption { font-size: 7pt; }
+.foot { text-align: right; font-size: 7pt; margin-top: 5pt; break-inside: avoid; }
+@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } }
+</style></head><body>
+<section class="page">
+<div class="meta"><h1>POCKET-BLOCK · ? · rev ?</h1><div>qty ?</div></div>
+<p>Header / route</p>
+<div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
+<h2>BEFORE YOU START</h2><div class="byst"><p>No reported errors, warnings or unresolved checks for this section.</p></div><p>? Drawing revision is not confirmed.</p><p>Drawing material / finish: </p><h2>STOCK AND ROUTE</h2><p>form: finished test solid; note: The STEP solid is the stock; only the pocket is cut. No material is asserted.; as is faces: #17/ADVANCED FACE[1]/ / #57/ADVANCED FACE[2]/ / #88/ADVANCED FACE[3]/ / #182/ADVANCED FACE[4]/ / #206/ADVANCED FACE[5]/ / #223/ADVANCED FACE[6]/</p><table class=""><colgroup><col style="width:10%"><col style="width:20%"><col style="width:70%"></colgroup><thead><tr><th>setup</th><th>starts from</th><th>machine / fixture</th></tr></thead><tbody><tr><td>S1</td><td>stock</td><td>test-mill / vise</td></tr></tbody></table><h2>DRAWING REQUIREMENTS</h2><table class=""><thead><tr><th>feature</th><th>requirement / acceptance band</th></tr></thead><tbody><tr><td>pocket</td><td>No drawing requirements declared.</td></tr></tbody></table><p>Kernel geometry findings use sampled tool / holder solids, not CAM toolpaths. An unresolved fixture is not a rendered holding proof. ? = unresolved. EM = endmill; CD = centre drill; DTI = test indicator; mic = micrometer. Keep the drawing at the bench.</p>
+<p>Sign off: __________  First article / measured results: ____________________</p>
+<p class="foot">prechips 0.1 · report 87c3da5d</p>
+</section>
+<section class="page">
+<div class="meta"><h1>POCKET-BLOCK · ? · rev ?</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
+<h2>SETUP S1 — test-mill</h2><h2>BEFORE YOU START</h2><div class="byst"><p>✗ S1:10: selected cutter or holder is certainly occluded by part/fixture material.</p><p>✗ S1:10: depth exceeds flute length and the holder intersects walls.</p><p>? Geometry unresolved: coordinates / frame binding; headroom / clearance. Close ? checks below.</p><p>? Tooling unresolved: RPM / feed. Close ? checks below.</p><p>? DRO / inspection unresolved: DRO / tool / trial-cut checks. Close ? checks below.</p></div><p>Starts from: stock; stock state: top feature: pocket; top z: 60; bottom z: 0</p><p>Hold: fixture: vise; jaws along: x; fixed jaw: rear; parallels: parallels; stop: left end against the fixed-jaw stop; clamp: hand snug, then quarter turn; grip mm: 6; jaw above supports mm: 8; jaw center along mm: 35; parallels centres mm: 35 / 5 / 35 / 45</p><figure class="fixture-render"><img src="setup-S1.png" alt="S1 kernel setup view"><figcaption>Kernel view: part and declared jaws / parallels; sampled checks are not a toolpath.</figcaption></figure><p>Coolant: none; deburr maximum: 0 mm</p><p>Headroom / clearance — nominal, subject to verification. Stack (mm): bed ?; blocks 0; parallels 20; supported stock 60; insertion 25; required ? / spindle capacity ?. Tools: projection 38, OAL 63, holder length 60, headroom ? mm. Jaw top Z 20; stock top 40 mm above jaws. Tip above jaws (mm): ops 10: -5. Cutter access unproved. Envelope (mm): X stock ?, fixture ?, required ? / travel ?; Y stock ?, fixture ?, required ? / travel ?.</p><p>Top face up on 20 mm parallels; jaws along X clamp the 50 mm width across Y.</p><h2>DRO ZERO — frame A, mm, ?, linear mode</h2><p>Direction (§6.2): . ABS Axis Set (§7.4), never Preset (§8.1). Jog without retouch; mirrored = STOP, correct Direction and redo touch / set / check.</p><table class=""><colgroup><col style="width:5%"><col style="width:43%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / compensation</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>mirrored: STOP</th></tr></thead><tbody></tbody></table><h2>COORDINATES — frame A, mm; feature reference points</h2><p>? No resolved feature coordinates; use the explicit operation targets only where their local provenance is stated.</p><p>Feature points, not cutting tips; use Z tips in operations. → = towards. Measured binding: ?.</p><h2>OPERATIONS — RPM / feed are starting points, not limits</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:10%"><col style="width:10%"><col style="width:18%"><col style="width:5%"><col style="width:7%"><col style="width:16%"><col style="width:5%"><col style="width:25%"></colgroup><thead><tr><th>op</th><th>do</th><th>feature</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z tip</th><th>dir</th><th>inspection</th></tr></thead><tbody><tr><td>10</td><td>finish pocket</td><td>pocket</td><td>8 mm EM / R8 collet</td><td>?</td><td>?</td><td>→ 15</td><td>climb</td><td>—</td></tr></tbody></table><p>RPM / feed source: approved plan starting-speed model; machine range; cutting-data source row</p>
+<p>Sign off: __________  First article / measured results: ____________________</p>
+<p class="foot">prechips 0.1 · report 87c3da5d</p>
+</section>
+</body></html>

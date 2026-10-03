@@ -3,6 +3,435 @@
   "findings": [
     {
       "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.foot_seat: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:252,373-376",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:49-54",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.30: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.head: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.mount_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.100: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:100"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.cbore_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.110: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:110"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.head: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.crank_boss: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.40: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.journal_boss: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.50: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.mount_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.60: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.mount_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.70: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.cbore_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.80: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.mount_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.90: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.cone_north_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67,268-279",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.40: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S4:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S4:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S4:30"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 tip endpoints",
         "features manifest hole geometry",
         "plan stock_state and operation depth/exit",
@@ -1014,6 +1443,19 @@
       "rule": "coordinates",
       "status": "unknown",
       "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 coverage",
+        "plan.stock.as_is_faces; union of cutting-op feature face sets"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "coverage",
+      "status": "unknown",
+      "subject": "cone-pivot-post"
     },
     {
       "cite": [
@@ -3635,6 +4077,435 @@
     },
     {
       "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.foot_seat: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:252,373-376",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:49-54",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.30: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.head: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.mount_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.100: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:100"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.cbore_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.110: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:110"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.head: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.crank_boss: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.40: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.journal_boss: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.50: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.mount_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.60: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.mount_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.70: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.cbore_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.80: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.mount_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.90: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.cone_north_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67,268-279",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.40: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S4:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S4:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "internal_corner_radius",
+      "status": "unknown",
+      "subject": "S4:30"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 op chain",
         "plan authored route",
         "features declared process/thread"
@@ -3971,6 +4842,435 @@
       "rule": "order",
       "status": "pass",
       "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.foot_seat: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:252,373-376",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:49-54",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+        "plan.setups.S1.ops.30: selected action/tool/holder",
+        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
+        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.head: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.mount_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.100: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:100"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.cbore_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.110: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:110"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.body: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.head: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.crank_boss: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.40: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.journal_boss: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.50: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.mount_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.60: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.mount_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.70: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.cbore_west: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.80: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.mount_east: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+        "plan.setups.S2.ops.90: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.cone_north_face: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67,268-279",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.journal_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "plan.setups.S3.ops.40: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.10: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S4:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.20: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S4:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "features.crank_bore: faces and requirements",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.ops.30: selected action/tool/holder"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S4:30"
     },
     {
       "cite": [
@@ -5070,6 +6370,70 @@
         "sizes_mm": []
       },
       "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "thin_wall_under_clamp",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "thin_wall_under_clamp",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "thin_wall_under_clamp",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "thin_wall_under_clamp",
       "status": "unknown",
       "subject": "S4"
     },
@@ -7453,6 +8817,70 @@
       "rule": "turning_deflection",
       "status": "not_applicable",
       "subject": "S4:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 vise",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-4jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "vise",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 vise",
+        "plan.setups.S2: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "vise",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 vise",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "vise",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 vise",
+        "plan.setups.S4: frame and hold",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "vise",
+      "status": "unknown",
+      "subject": "S4"
     },
     {
       "cite": [
