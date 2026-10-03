@@ -31,7 +31,7 @@ def build_report(bundle: Bundle, findings: list[Finding]) -> dict:
         "findings": [f.to_dict() for f in sorted(findings, key=lambda f: (f.rule, f.subject))],
         "inputs": bundle.input_records,
         "prechips_version": __version__,
-        "rules_version": "m5-rev6",
+        "rules_version": "m5-rev7",
         "step_sha256": bundle.features.get("step_sha256", "unknown"),
         "verification": "checked" if result == 0 else "planned",
     }

@@ -33,10 +33,17 @@ One subject per setup. Lathe is explicitly unsupported. Mill stack in mm is
 projection + holder gauge length + 25 mm insertion`. Physical stock height
 (`stock_height_mm`) is `top_z - retained_rail_bottom_z` if authored, otherwise
 `top_z - bottom_z`.
-Projection is explicit, or `tool OAL - holder grip` when both are known.
+Projection is the selected tool's `projection_mm` entry for the selected holder,
+or `tool OAL - holder grip` when both are known.
 The 25 mm insertion allowance is from PLAN §4.1, not holder grip. Support-block
 orientation must explicitly identify a listed height; do not pick an arbitrary
-block dimension. Per-op margin is `spindle_to_table_max - stack`.
+block dimension. Per-op margin is `spindle_to_table_max - stack`. The
+spindle-to-table maximum and X/Y travel are read from the machine's
+`envelope` block, the same facts `envelope`/`travel` read, with the same
+fact-local trust: a limit without its own `measured` record (a vendor nominal
+with `verify = true`, say) is evidence in `numbers`, adds a
+`numbers.measurements` entry and keeps the row `?`. There is no top-level
+`spindle_to_table_max_in`/`travel_in` copy to fall back on.
 
 Jaw height is not a stack layer: `jaw_top_z = bottom + jaw_height -
 (parallels + supports)`; cut clearance is `to_z - jaw_top_z`. Below-jaw cuts
@@ -69,50 +76,67 @@ coordinate and fixture height is not silently assumed to be bed height.
 
 The default policy is unchanged. A shop can add `envelope = "*"` and
 `travel = "*"` under `[required]`; unmeasured applicable setups then keep exit 4.
-`holder_stack = "*"` may likewise require every operation's selected holder
-gauge. Errors remain exit 2 whether required or not. These three declared-input
-rules do not invoke FreeCAD or certify collisions. Lathe setups are
-`not_applicable` to the mill envelope/travel checks; lathe holder gauge debt
-remains visible in `holder_stack`.
+Errors remain exit 2 whether required or not. These two declared-input rules do
+not invoke FreeCAD or certify collisions. Lathe setups are `not_applicable` to
+both. There is no separate `holder_stack` rule: a selected holder's gauge debt
+is carried by `envelope` and `travel` where it is actually consumed, and a
+lathe operation is never asked for a fictitious toolpost gauge length.
 
 | Rule / subject | Inputs and tier | Sheet sentence |
 |---|---|---|
-| `envelope` / setup | M5: authored stock and setup stock-state/frame; already-present successful kernel bbox only; fixture jaw height plus parallels/supports; measured holder gauge and installed tool projection; measured spindle-to-table min/max | `S1: op 10 setup stack … mm exceeds spindle-to-table maximum … mm by … mm.` or `? S1: spindle envelope remains unmeasured or unresolved. measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm.` |
-| `travel` / setup | M5: transformed operation feature extents/centres or conservative authored stock span; selected cutter radius; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent or safe approach to measure and author. |
-| `holder_stack` / setup:op | M5: each selected cutting holder's gauge length and measurement metadata | `? S1 op 10: holder … gauge length is unmeasured. measure: … mounted holder gauge length …, steel rule, mm.` |
+| `envelope` / setup | M5: authored stock and setup stock-state/frame; already-present successful kernel bbox only; fixture bed height plus parallels/supports; measured holder gauge and tool/holder projection; each operation's authored `approach_mm` and commanded Z band; measured spindle-to-table min/max | `S1: op 10 … exceeds spindle-to-table maximum … mm by … mm.` or `? S1: spindle envelope remains unmeasured or unresolved. measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm.` |
+| `travel` / setup | M5: transformed operation feature extents/centres or conservative authored stock span; selected cutter radius for profile/pocket extents only; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; per-op holder gauge and projection; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent, holder/tool length or safe approach to measure and author. |
 
-`envelope` compares each **individual** operation's
-`supported stock height + fixture jaw height + parallels/supports + mounted holder gauge + tool projection`
-with both measured spindle-to-table limits. It never combines the longest tool
-from one operation with the longest holder from another. Equality passes.
-The M5 conservative envelope includes jaw height; M1 `headroom` retains its
-different physical bed-height plus insertion calculation above. An already
-successful `bundle.kernel.bbox_mm` is transformed from model to setup axes;
-otherwise authored stock or complete feature extents are used. On every path
-an authored setup `stock_state` height overrides finished-model Z: the received
-blank, not a shorter finished part, occupies the fixture. A STEP filename or
-digest does not cause this rule to launch a kernel or invent a bbox.
+`envelope` stacks, for each **individual** operation,
+`fixture bed height + parallels/supports + physical stock height + mounted holder gauge + tool projection`
+to place the spindle nose with the tool tip at the stock top. A vise contributes
+its measured `bed_height`, never its jaw height: the jaws sit above the bed and
+their obstruction of the tool path is `headroom`'s separate jaw check. Against
+the measured maximum the rule raises that nose by the operation's highest
+commanded Z above the top (the authored `approach_mm` at least); against the
+measured minimum it lowers it by the deepest floor the operation reaches
+(`to_z`, `depth_mm`, drill tip/exit). The nose must fit between the limits on
+both ends; equality passes. An operation whose Z band is unknown (no authored
+approach, unknown target) is unknown, not passed at zero clearance. Missing
+authored approach is plan-input debt, not a shop measurement. It never combines
+the longest tool from one operation with the longest holder from another. An
+already successful `bundle.kernel.bbox_mm` is transformed from model to setup
+axes; otherwise authored stock or complete feature extents are used. On every
+path an authored setup `stock_state` height overrides finished-model Z: the
+received blank, not a shorter finished part, occupies the fixture. A STEP
+filename or digest does not cause this rule to launch a kernel or invent a bbox.
 
 `travel` unions positioned operation extents, not just their individual maximum
-widths: widely separated holes need the distance between them as well as cutter
-radius on both sides. Broad face/profile/pocket operations without complete
-extents use a conservative stock-span screen without inventing a stock origin.
+widths: widely separated holes need the distance between their centres. Point
+and hole operations (`spot`, `drill`, `ream`, `tap`, `counterbore`, `center`)
+are their centres with no cutter-radius padding, because the spindle sits on
+the hole; only profile/pocket extents carry the selected cutter radius.
+Broad face/profile/pocket operations without complete extents use a
+conservative stock-span screen without inventing a stock origin. Z is the
+union of each operation's **spindle-nose** positions, `tip + holder gauge +
+tool projection`, not the cutter-tip span: a long facing tool and a short
+pocketing tool in one setup need the stroke between their nose extremes, and
+the row is unknown while any operation's gauge or projection is unmeasured.
 `approach_mm` is an explicitly authored nonnegative safe Z approach distance;
-missing approach remains unresolved. Z uses commanded targets and the existing
-advanced-stock-state hole tip calculation, including drill point/exit allowance,
-not merely the finished hole depth.
+missing approach remains unresolved. Tip Z uses commanded targets and the
+existing advanced-stock-state hole tip calculation, including drill point/exit
+allowance, not merely the finished hole depth.
 The manifest must explicitly declare millimetres for this screen. Unknown or
 inch feature/frame coordinates are not silently read as mm or converted into a
 travel pass; declare a correctly unit-bound millimetre manifest instead.
 
 Each M5 finding cites the input fields and retains nominal vendor numbers only
-as evidence. A missing value stays `"unknown"`. Limits and holder geometry
-require complete `measured = { by, date, instrument }`; `verify = true` cannot
-establish a pass or a measured overrun. A known verified axis/stack violation
-still stops if other measurements remain unknown. Every unresolved applicable
-row carries concrete `measure:` instructions. `numbers.measurements` carries
-stable checklist entries; `tools --measure` provides one sorted, deduplicated
-inventory-wide checklist to take to the machine.
+as evidence. A missing value stays `"unknown"`. Limits, fixture heights, holder
+gauge/grip, tool OAL/projection and cutter geometry require a complete
+fact-local `measured = { by, date, instrument }`; `verify = true`, a block or
+root record, a source flag or a citation cannot establish a pass or a measured
+overrun. A known verified axis/stack violation still stops if other
+measurements remain unknown. Every unresolved applicable row carries concrete
+`measure:` instructions, keyed by the exact fact consumed (set member or
+tool/holder pair included); an operation whose holder does not resolve is told
+to add or resolve the holder, not to measure an unowned item.
+`numbers.measurements` carries those entries; `tools --measure` lists exactly
+the entries behind the current reports, sorted and deduplicated by id.
 
 ## `datum_consistency`
 

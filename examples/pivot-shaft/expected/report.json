@@ -162,7 +162,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "314a2fd5ea6e036d00d1ce1d5433c800d937ac3be86c5f78a986789635373c66"
+            "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
@@ -1914,315 +1914,6 @@
       "rule": "hold_fields",
       "status": "unknown",
       "subject": "S3"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:10: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:10"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:20: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:20"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:30: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:30"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:40: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:40"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:50: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:50"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:60: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:60"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:70: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:70"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:80: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:80"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S1:90: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S1:90"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S2:10: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S2:10"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S2:20: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S2:20"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length"
-      ],
-      "message": "A manual operation has no cutting holder stack to measure.",
-      "numbers": {},
-      "rule": "holder_stack",
-      "status": "not_applicable",
-      "subject": "S2:30"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S3:10: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S3:10"
-    },
-    {
-      "cite": [
-        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-      ],
-      "message": "S3:20: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
-      "numbers": {
-        "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_gauge_len_mm": "unknown",
-        "measurements": [
-          {
-            "cite": [
-              "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
-            ],
-            "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
-            "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
-          }
-        ]
-      },
-      "rule": "holder_stack",
-      "status": "unknown",
-      "subject": "S3:20"
     },
     {
       "cite": [
@@ -5618,7 +5309,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "7633cc924b8108c8ab960afb84f02b8e2949bcc3ef691e09c95963444e1b9194",
+  "hash": "641e69c859ed90333afb6a7be171cbe2cee6292b098f2c18916f1a54eed64aa7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -5630,7 +5321,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "314a2fd5ea6e036d00d1ce1d5433c800d937ac3be86c5f78a986789635373c66"
+      "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
@@ -5642,7 +5333,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m5-rev6",
+  "rules_version": "m5-rev7",
   "step_sha256": "unknown",
   "verification": "planned"
 }

@@ -37,12 +37,14 @@ does not hide an environment-supplied shop policy.
 
 M5 does not change this default. To require measured mill feasibility, add
 `envelope = "*"` and `travel = "*"` to the shop's `[required]` table alongside
-its existing requirements. `holder_stack = "*"` can also require every selected
-cutting holder's measured gauge length. Missing or vendor-only values produce
-`?` and exit 4 when required; a measured envelope/travel violation always
-produces exit 2. Mill-only envelope/travel rows are `not_applicable` on a lathe.
+its existing requirements. There is no `holder_stack` rule to require: a
+selected holder's unmeasured gauge keeps `envelope` and `travel` at `?`
+where that gauge is consumed. Missing or vendor-only values produce `?` and
+exit 4 when required; a measured envelope/travel violation always produces
+exit 2. Mill-only envelope/travel rows are `not_applicable` on a lathe.
 See [measured setup screens](rules-setup.md#m5-measured-inventory-screens) and
-`prechips tools --measure` for the concrete machine checklist.
+`prechips tools --measure [--plan PLAN ...]` for the checklist of exactly the
+measurement debt behind the current reports.
 
 `numbers` is a map of finite numeric values or `"unknown"`; `numbers_cite` is
 the matching citation map; `numbers_verify` maps names to booleans or unknown.

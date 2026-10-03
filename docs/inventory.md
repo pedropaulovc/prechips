@@ -6,11 +6,14 @@ aliases. Category maps use authored identity keys. `members` is a recursively
 modeled InventoryItem map. `source` may be a source string or Source record.
 Named set members/coverage may resolve without pretending an unlisted member
 was measured or purchased. Explicit `present = false` means missing;
-`verify = true`, unverified inherited source facts, or explicitly unknown presence make
-results unresolved.
+an item-level `verify = true`, an unverified `source`, or explicitly unknown
+presence makes that item's identity unresolved. Whether a particular
+dimension is *measured* is decided only by that fact's own record (see
+[M5](#measured-envelopes-and-installed-tool-stacks-m5)).
 
-For length lookups explicit `_mm` fields take precedence, then `_in` converted
-with exactly 25.4 mm/in; bare lengths require explicit `units = "mm"`, `"in"`, or `"inch"`. Do not manufacture nominal diameters from a catalog label unless
+A length is authored once per stem: an explicit `_mm` key, an `_in` key converted
+with exactly 25.4 mm/in, or a bare key with explicit `units = "mm"`, `"in"`, or
+`"inch"`; two spellings of one stem are rejected rather than ranked. Do not manufacture nominal diameters from a catalog label unless
 the resolver's supported identity/coverage or explicit `nominal_dia_mm` map
 establishes them. Nominal identity is not measured size. Inventory tool units
 may be converted explicitly; drawing units are not silently converted.
@@ -39,95 +42,124 @@ a machine or dividing head with declared collet sizes or chuck ranges is checked
 For indexing, a dividing head can live in `machines` (the example is `BS-0`) or
 `fixtures`. `worm_ratio`, `direct_index` and every `plate_holes` circle are
 arithmetic inputs; `verify = true` keeps the chosen setting tentative. Hole
-counts are positive integers. For engagement, `projection_mm` on the selected
-tool/holder assembly takes precedence over `oal_mm - holder.grip_mm`. Neither
-flute length nor holder gauge length substitutes for projection.
+counts are positive integers. For engagement, the selected tool's
+`projection_mm` entry for the selected holder takes precedence over
+`oal_mm - holder.grip_mm`. Neither flute length nor holder gauge length
+substitutes for projection.
 Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
 
 ## Measured envelopes and installed tool stacks (M5)
 
-`machines.<id>.envelope` records the usable mill envelope, independently of
-vendor identity data. Lengths may be a scalar Number qualified by a surrounding
-`measured` record, or a fact record:
+`machines.<id>.envelope` is the one home for the mill limits that rules read:
+usable X/Y/Z travel and spindle-nose-to-table maximum and minimum. M1
+`headroom` and the M5 `envelope`/`travel` screens read this same block; a mill
+carries no top-level `spindle_to_table_max_in`, `travel_in`/`travel_mm` or
+`table_in` copy, and the schema rejects one. Table length/width, T-slot pitch,
+spindle taper and R8/ER-collet-chuck/drill-chuck stack heights are not envelope
+fields: no rule reads them, so nothing asks the shop to measure them. The
+spindle taper stays vendor identity under `machines.<id>.spindle`.
 
 ```toml
 [machines.my_mill.envelope]
 spindle_to_table_max_mm = "unknown"
 spindle_to_table_min_mm = "unknown"
-table_length_mm = "unknown"
-table_width_mm = "unknown"
-t_slot_pitch_mm = "unknown"
-spindle_taper = "unknown"
 
 [machines.my_mill.envelope.travel_mm]
 x = "unknown"
 y = "unknown"
 z = "unknown"
 
-[machines.my_mill.envelope.spindle_stack_mm]
-r8 = "unknown"
-er_collet_chuck = "unknown"
-drill_chuck = "unknown"
-
 [holders.my_holder]
 gauge_len_mm = "unknown"
-projection_mm = "unknown"
+grip_mm = "unknown"
+
+[tools.my_endmill]
+oal_mm = "unknown"
+
+[tools.my_endmill.projection_mm]
+my_holder = "unknown"
 ```
 
 For a measured fact replace the unknown with
 `{ value = <actual measurement>, measured = { by = "<operator>", date = "YYYY-MM-DD", instrument = "<actual instrument>" } }`.
 `by`, `date` and `instrument` must be nonblank known strings. Do not put these
 template placeholders into operative inventory. A vendor copy instead carries
-`verify = true`, either on that fact or its enclosing block. Complete fact-local
-measurement evidence qualifies only that dimension; an explicit fact-local
-`verify = true` still leaves it unresolved. Clearing `verify` without measurement
-evidence cannot certify a new envelope limit or holder gauge/projection.
+`{ value = <nominal>, verify = true }`.
 
-Envelope `travel_mm` / `travel_in` use `x`, `y`, `z`. Max/min, table length/width,
-and T-slot pitch accept `_mm` or `_in`. `spindle_stack_mm` records installed R8,
-ER-collet-chuck and drill-chuck heights. Envelope/block metadata are `measured`,
-`verify`, and `cite`. `measured` may also qualify inventory item scalar lengths.
-Gauge length retains the existing `gauge_len_mm/in` spelling. Gauge is
-**mounted spindle nose to holder exit face**;
-projection is **holder exit face to the installed tool tip**. A holder projection
-belongs to that installed assembly, not every interchangeable tool. A selected
-tool's explicit projection takes precedence over a holder projection; otherwise
-measured tool OAL minus measured holder grip is permitted. Unknown OAL, grip,
-or projection is never replaced with flute length. Explicit tool projection
-`"unknown"` does not fall through to a different assembly's number.
+Trust is fact-local. A physical dimension an M5 rule reads (envelope limits,
+fixture bed/parallel/support heights, holder gauge and grip, tool OAL, the
+tool/holder projection, cutter diameter, drill point angle, reamer lead) counts
+as measured only when that fact's own record carries a complete
+`measured = { by, date, instrument }` and no `verify = true` or `"unknown"`. Nothing is
+inherited or inferred: `measured` on an envelope block, an item root or a
+`source` record is rejected by the schema; `source.verify`, `coverage` text,
+`present`, a date or a citation is provenance, not measurement; an explicit
+fact-local `verify = true` leaves the fact unresolved even beside a complete
+`measured`. A scalar vendor nominal (`spindle_to_table_max_in = 17` or
+`{ value = 17, verify = true }`) stays in the finding's `numbers` as evidence
+and yields `?`, never a pass or a measured overrun. Clearing `verify` without
+a `measured` record is not measurement either.
 
-The M5 envelope screen uses the conservative jaw-height/parallel/support
-envelope, distinct from M1's bed-height plus tool-change allowance. Mounted gauge
-already includes spindle/chuck stack height, so the recorded spindle-stack
-height is not added again. Table size, T-slot pitch and taper/stack are visible
-inventory measurements, not a new collision or mounting-certification rule.
-The original PM-30MV vendor max/travel/table values remain unchanged and
-`verify = true`; missing minimum, T-slot pitch and stack heights remain unknown.
+Each length stem has one authored unit key: `gauge_len_mm` or `gauge_len_in`,
+`oal_mm` or `oal_in`, `projection_mm` or `projection_in`, `bed_height_mm` or
+`bed_height_in`. A suffixless `gauge_len`, or a second unit spelling beside the
+first, is rejected, so a measured `_in` fact can never be shadowed by an
+unmeasured `_mm` one. `travel_mm` / `travel_in` use `x`, `y`, `z`. Inch facts
+convert by exactly 25.4.
 
-`prechips tools --inventory inventory.toml --measure` produces one sorted,
-deduplicated shop checklist. It includes missing M5 envelope/holder dimensions
-and authored unknown/vendor-copy dimensions, with the instrument and units for
-each measurement. JSON emits the same entries with stable ids and citations.
-This inventory-wide list includes unused declared items; it invents no set
-members or purchases. Normal `tools` prints the envelope and marks unmeasured
-facts. Applicable M5 `?` sheet sentences also state what to measure and how.
+Gauge is **mounted spindle nose to holder exit face** and already includes the
+spindle/chuck stack, so no separate stack height is recorded or added.
+Projection is **holder exit face to installed tool tip** and belongs to one
+(tool, holder, insertion) triple: it lives on the tool as
+`tools.<tool>.projection_mm` (or `_in`), a map keyed by the full exact holder
+reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`).
+A holder, fixture, machine or gauge never carries projection, and a tool never
+carries a holder-wide or tool-wide scalar projection. When the selected pair
+has no entry, the rules use measured tool OAL minus the selected holder's
+measured grip; an `"unknown"` pair entry does not fall through to another
+holder's number, and flute length never substitutes.
+
+Fixture bed height (`bed_height_mm/in`) is the table-to-bed distance that every
+vise stack uses; jaw height (`jaw_height_in`) is the jaw's height above the bed
+for the separate jaw-obstruction check, never a stack layer. Parallels and
+support blocks carry their own heights. `point_angle` accepts the same
+`{ value, measured, verify }` record in degrees.
+
+`prechips tools --measure [--plan PLAN ...]` lists the measurement debt behind
+the current reports: every `numbers.measurements` entry that an unresolved
+applicable finding emits for the given plans (default: the five shipped example
+plans), sorted and deduplicated by exact report id, including set-member and
+tool/holder-pair ids such as `holders.r8-collets-lms-4860/3-8in.gauge_len` and
+`tools.endmills-lms-6784/3-8in-4fl.projection.r8-collets-lms-4860/3-8in`. An
+`"unknown"` fact a rule needs is listed even without `verify` debt. It is not a
+reflection over every declared field: items and fields no rule consumes do not
+appear, and it invents no set members or purchases. `--inventory` (or
+`PRECHIPS_INVENTORY`) overrides the plans' declared inventory; without it each
+plan's own inventory applies. Every other `tools` display still requires
+`--inventory` or `PRECHIPS_INVENTORY`. JSON emits the same entries with ids,
+instructions, units and citations: lengths use mm, point angles use degrees,
+and add/resolve instructions use identity units. Normal `tools` prints the envelope and
+marks each limit measured or unmeasured. Applicable M5 `?` sheet sentences also
+state what to measure and how; an operation whose holder does not resolve is
+told to add or resolve that holder, not to measure an item the shop does not
+own.
 
 ### Measurement records
 
 | Record | Fields |
 |---|---|
 | `Measurement` | Required strings `by`, ISO calendar `date` (`YYYY-MM-DD`), `instrument`; none may be blank or `"unknown"` |
-| `LengthMeasurement` | Required `value: Number`; optional `measured: Measurement`, `verify: bool`, `cite: Citations` (each may be `"unknown"`) |
-| `MeasuredLength` | `Number` or `LengthMeasurement` |
-| `EnvelopeTravel` | `x`, `y`, `z: MeasuredLength`; optional `measured`, `verify`, `cite` |
-| `SpindleStack` | `r8`, `er_collet_chuck`, `drill_chuck: MeasuredLength`; optional `measured`, `verify`, `cite` |
-| `MachineEnvelope` | `travel_mm/in: EnvelopeTravel`; `spindle_to_table_max_mm/in`, `spindle_to_table_min_mm/in`, `table_length_mm/in`, `table_width_mm/in`, `t_slot_pitch_mm/in: MeasuredLength`; `spindle_taper: str`; `spindle_stack_mm: SpindleStack`; optional `measured`, `verify`, `cite` |
+| `LengthMeasurement` | Required `value: Number`; optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
+| `MeasuredLength` / `MeasuredAngle` | `Number` or `LengthMeasurement` (mm/in, or degrees for `point_angle`) |
+| `EnvelopeTravel` | `x`, `y`, `z: MeasuredLength`; no block metadata |
+| `MachineEnvelope` | `travel_mm` or `travel_in: EnvelopeTravel`; `spindle_to_table_max_mm/in`, `spindle_to_table_min_mm/in: MeasuredLength`; no block metadata |
+| `ProjectionMap` | `dict[full holder reference, MeasuredLength]`; tools only |
 
-All envelope/stack/travel fields are optional and accept `"unknown"`; their
-absence remains measurement debt. A date or a citation is provenance, not an
-automatic claim that the whole item is measured.
+All envelope/travel fields are optional and accept `"unknown"`; their absence
+remains measurement debt. A date or a citation is provenance, not an automatic
+claim that a fact is measured.
 
 
 All InventoryItems share the declared field set below, regardless of category;
@@ -230,6 +262,7 @@ on hand.
 | `series` | `str` |
 | `chart` | `str` |
 | `units` | `str` |
+| `taper` | `str` |
 | `sku` | `str \| int` |
 | `verify` | `bool` |
 | `present` | `bool` |
@@ -237,9 +270,7 @@ on hand.
 | `swivel_base` | `bool` |
 | `scroll` | `bool` |
 | `independent` | `bool` |
-| `measured` | `Measurement` |
 | `envelope` | `MachineEnvelope` |
-| `spindle_to_table_max_in` | `float` |
 | `headstock_tilt_deg` | `float` |
 | `swing_over_bed_in` | `float` |
 | `between_centres_in` | `float` |
@@ -252,51 +283,49 @@ on hand.
 | `plates` | `float` |
 | `pieces` | `float` |
 | `angle_deg` | `float` |
-| `point_angle` | `float` |
-| `flute_len` | `MeasuredLength` |
+| `point_angle` | `MeasuredAngle` |
+| `flute_len` | `float` |
 | `oal` | `MeasuredLength` |
 | `head_in` | `float` |
 | `max_offset_in` | `float` |
 | `dial_in` | `float` |
-| `length_in` | `MeasuredLength` |
+| `length_in` | `float` |
 | `min_bore_in` | `float` |
 | `tip_in` | `float` |
 | `jaw_width_in` | `float` |
 | `opening_in` | `float` |
-| `jaw_height_in` | `MeasuredLength` |
+| `jaw_height_in` | `float` |
 | `bed_height_mm` | `MeasuredLength` |
 | `diameter_in` | `float` |
 | `thickness_in` | `float` |
 | `resolution_in` | `float` |
 | `runout_max_in` | `float` |
-| `gauge_len` | `MeasuredLength` |
 | `grip_mm` | `MeasuredLength` |
 | `max_shank_in` | `float` |
-| `lead_mm` | `float` |
-| `projection_mm` | `MeasuredLength` |
+| `lead_mm` | `MeasuredLength` |
+| `projection_mm` | `ProjectionMap` (tools only) |
 | `sfm` | `float` |
 | `chip_load_mm_per_tooth` | `float` |
 | `dia_mm` | `MeasuredLength` |
 | `dia_in` | `MeasuredLength` |
-| `shank_mm` | `MeasuredLength` |
-| `flute_len_mm` | `MeasuredLength` |
-| `flute_len_in` | `MeasuredLength` |
+| `shank_mm` | `float` |
+| `flute_len_mm` | `float` |
+| `flute_len_in` | `float` |
 | `oal_mm` | `MeasuredLength` |
 | `oal_in` | `MeasuredLength` |
 | `gauge_len_mm` | `MeasuredLength` |
 | `gauge_len_in` | `MeasuredLength` |
-| `projection_in` | `MeasuredLength` |
-| `spindle_to_table_max_mm` | `float` |
-| `jaw_height_mm` | `MeasuredLength` |
+| `projection_in` | `ProjectionMap` (tools only) |
+| `jaw_height_mm` | `float` |
 | `height_mm` | `MeasuredLength` |
 | `height_in` | `MeasuredLength` |
-| `length_mm` | `MeasuredLength` |
-| `width_mm` | `MeasuredLength` |
-| `width_in` | `MeasuredLength` |
+| `length_mm` | `float` |
+| `width_mm` | `float` |
+| `width_in` | `float` |
 | `capacity_mm` | `float` |
 | `bed_height_in` | `MeasuredLength` |
 | `nose_radius_mm` | `float` |
-| `reach_mm` | `MeasuredLength` |
+| `reach_mm` | `float` |
 | `dia` | `MeasuredLength` |
 | `shank_in` | `float \| str \| dict[str, list[str]]` |
 | `flutes` | `int \| list[int]` |
@@ -320,9 +349,6 @@ on hand.
 | `standard_accessories` | `list[str]` |
 | `included` | `list[str]` |
 | `spindle` | `Spindle` |
-| `travel_in` | `Travel` |
-| `travel_mm` | `Travel` |
-| `table_in` | `Table` |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |
@@ -350,22 +376,15 @@ on hand.
 | `two_ranges` | `bool` |
 | `ranges_rpm` | `list[list[Number]]` |
 
-## Travel
+## Length and angle facts
 
-| Field | Type (also accepts `"unknown"`) |
-|---|---|
-| `x` | `float` |
-| `y` | `float` |
-| `z` | `float` |
-| `quill` | `float` |
-
-## Table
-
-| Field | Type (also accepts `"unknown"`) |
-|---|---|
-| `length` | `float` |
-| `width` | `float` |
-| `t_slot` | `str` |
+There are no `Travel` or `Table` records: travel and spindle-to-table limits
+live only under `envelope` (see [measurement records](#measurement-records)),
+and the former `table_in` length/width/`t_slot` block is not modeled. The
+`t_slot_in` text on a clamping kit is an identity label, not a measured pitch.
+Inventory loading rejects a `measured` record on an item root, an envelope
+block, a `source` or a member; the only measurement evidence is the
+`LengthMeasurement`/`MeasuredAngle` record on the fact itself.
 
 ## LeadScrew
 

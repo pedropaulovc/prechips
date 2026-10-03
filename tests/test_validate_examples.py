@@ -190,11 +190,12 @@ def test_through_bore_endpoint_has_zero_drill_cone(corruption):
         VALIDATOR["check_endpoints"](plan, features, findings, entries)
 
 
-@pytest.mark.parametrize("action", ["tap", "ream"])
-def test_endpoint_oracle_checks_tool_length_units_and_action_specific_depth(action):
-    # Isolated synthetic units fixture, never a claim about shop inventory.
-    operation = {"op": 10, "do": action, "feature": "h", "tool": "cutter"}
+@pytest.mark.parametrize("action", ["tap", "ream", "drill"])
+def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(action):
+    # Isolated synthetic facts, never a claim about shop inventory.
+    operation = {"op": 10, "do": action, "feature": "h", "tool": "cutter/installed"}
     operation.update({"depth_mm": 5.0} if action == "tap" else {"exit_mm": 0.5})
+    measured = {"by": "test", "date": "2026-10-03", "instrument": "synthetic gauge"}
     bundle = SimpleNamespace(
         plan={
             "setups": [
@@ -209,25 +210,40 @@ def test_endpoint_oracle_checks_tool_length_units_and_action_specific_depth(acti
             "features": {
                 "h": {
                     "kind": "threaded_hole" if action == "tap" else "hole",
-                    "thru": action == "ream",
+                    "thru": action != "tap",
                     "depth": [4.0, 8.0],
                 },
             }
         },
         inventory={
             "tools": {
-                "cutter": {"kind": action, "lead_in": 0.125, "flute_len_in": 1.0},
+                "cutter": {
+                    "kind": "drill_set",
+                    "dia_mm": 20.0,
+                    "point_angle": 118.0,
+                    "lead_mm": 2.0,
+                    "members": {
+                        "installed": {
+                            "kind": action,
+                            "dia_mm": {"value": 6.0, "measured": measured},
+                            "point_angle": {"value": 90.0, "measured": measured},
+                            "lead_mm": {"value": 3.175, "measured": measured},
+                            "flute_len_in": 1.0,
+                        }
+                    },
+                },
             }
         },
     )
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(bundle)}
     row = findings["blind_depth", "h"]["numbers"]["endpoints"][0]
-    assert row["tip_z"] == pytest.approx(5.0 if action == "tap" else -13.675)
+    expected_tip = {"tap": 5.0, "ream": -13.675, "drill": -13.5}[action]
+    assert row["tip_z"] == pytest.approx(expected_tip)
     entries = VALIDATOR["entries_for"](bundle.inventory)
     VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries)
-    field = "flute_len_mm" if action == "tap" else "lead_mm"
+    field = {"tap": "flute_len_mm", "ream": "lead_mm", "drill": "point_mm"}[action]
     row[field] += 1.0
-    if action == "ream":
+    if action != "tap":
         row["tip_z"] -= 1.0
     with pytest.raises(ValueError):
         VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries)

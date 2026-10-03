@@ -310,7 +310,7 @@ def tool_diameter(ref: str, entries: dict):
             if size is not None
             else entry.get("nominal_dia_mm", {}).get(member, "unknown")
         )
-    return entry.get("dia", "unknown")
+    return tool_field(ref, "dia", entries)
 
 
 def tool_field(ref: str, key: str, entries: dict):
@@ -319,7 +319,12 @@ def tool_field(ref: str, key: str, entries: dict):
     if key == "flutes" and entry.get("kind") == "endmill_set":
         match = re.fullmatch(r"(.+in)-(2|4)fl", member)
         return int(match[2]) if match else "unknown"
-    return entry.get("items", {}).get(member, {}).get(key, entry.get(key, "unknown"))
+    members = entry.get("members", {})
+    selected = members.get(member, {}) if isinstance(members, dict) else {}
+    if not isinstance(selected, dict):
+        return "unknown"
+    value = selected.get(key, entry.get(key, "unknown"))
+    return value.get("value", "unknown") if isinstance(value, dict) else value
 
 
 def tool_length_mm(ref: str, field: str, entries: dict):
@@ -393,7 +398,7 @@ def read_report(path: Path) -> dict:
         f"{path}: report hash mismatch",
     )
     require(report.get("verification") == "planned", f"{path}: unearned readiness")
-    require(report.get("rules_version") == "m5-rev6", f"{path}: stale rule catalogue")
+    require(report.get("rules_version") == "m5-rev7", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]
@@ -499,7 +504,6 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
             has("speeds_feeds", f"{sid}:{op['op']}")
             has("turning_deflection", f"{sid}:{op['op']}")
             has("engagement", f"{sid}:{op['op']}")
-            has("holder_stack", f"{sid}:{op['op']}")
             if "tool" in op:
                 require("holder" in op, f"{sid}:{op['op']}: omitted holder")
                 has("tool_resolves", f"{sid}:{op['op']}")

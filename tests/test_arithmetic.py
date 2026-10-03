@@ -35,14 +35,20 @@ requirements = ["dia", "thru"]
 INVENTORY = """[machines.mill]
 kind = "mill"
 verify = false
-spindle_to_table_max_mm = 400.0
+[machines.mill.envelope]
+[machines.mill.envelope.spindle_to_table_max_mm]
+value = 400.0
+measured = { by = "test", date = "2026-10-03", instrument = "synthetic height gauge" }
 [machines.mill.spindle]
 taper = "R8"
 rpm_min = 100.0
 rpm_max = 3000.0
-[machines.mill.travel_mm]
-x = 500.0
-y = 200.0
+[machines.mill.envelope.travel_mm.x]
+value = 500.0
+measured = { by = "test", date = "2026-10-03", instrument = "synthetic steel rule" }
+[machines.mill.envelope.travel_mm.y]
+value = 200.0
+measured = { by = "test", date = "2026-10-03", instrument = "synthetic steel rule" }
 [tools.em10]
 kind = "endmill"
 dia_mm = 10.0
@@ -50,7 +56,7 @@ shank_mm = 10.0
 flutes = 4
 material = "HSS"
 oal_mm = 70.0
-projection_mm = 40.0
+projection_mm = { collet10 = 40.0 }
 verify = false
 [tools.em6]
 kind = "endmill"
@@ -59,7 +65,7 @@ shank_mm = 10.0
 flutes = 4
 material = "HSS"
 oal_mm = 60.0
-projection_mm = 30.0
+projection_mm = { collet10 = 30.0 }
 verify = false
 [tools.spot]
 kind = "spot_drill"
@@ -68,7 +74,7 @@ point_angle = 90.0
 shank_mm = 6.0
 material = "HSS"
 oal_mm = 60.0
-projection_mm = 30.0
+projection_mm = { chuck = 30.0 }
 verify = false
 [tools.drill6]
 kind = "drill"
@@ -77,7 +83,7 @@ point_angle = 118.0
 shank_mm = 6.0
 material = "HSS"
 oal_mm = 90.0
-projection_mm = 60.0
+projection_mm = { chuck = 60.0 }
 verify = false
 [tools.finder]
 kind = "edge_finder"

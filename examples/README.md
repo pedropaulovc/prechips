@@ -69,28 +69,46 @@ the sheet. No operative asset lies outside the bundle.
 ### M5 inventory and output reconciliation
 
 The original shared shop inventory numbers and `verify = true` flags are
-unchanged. `PM-30MV.envelope` makes vendor max/travel/table values visible as
-vendor-copy debt; minimum spindle clearance, T-slot pitch and installed
-R8/ER-collet-chuck/drill-chuck heights are unknown. Holder gauge/projection
-remain unknown where unmeasured. No measured operator/date/instrument record
-is fabricated for these fixtures.
+unchanged in value. The PM-30MV's spindle-to-table maximum (17 in) and X/Y/Z
+travel (23 / 8.75 / 14 in) now live only in `machines.PM-30MV.envelope`
+(`inventory/pedro-shop.toml:21–28`) as `{ value, verify = true }` vendor-copy
+debt; the former top-level `spindle_to_table_max_in`, `[travel_in]` and
+`[table_in]` copies are deleted rather than kept as a second, differently
+trusted source, and the unread table size, T-slot pitch, spindle taper and
+spindle-stack entries are not modeled at all (the taper remains vendor
+identity under `[machines.PM-30MV.spindle]`). Minimum spindle clearance
+(`spindle_to_table_min_mm`) and the vise `bed_height_mm` are `"unknown"`.
+Every holder carries `gauge_len_mm = "unknown"` and `grip_mm = "unknown"`
+(one spelling each; the suffixless `gauge_len` and the holder-level
+`projection_mm` keys are gone), and no tool carries a `projection_mm` map yet:
+a projection is recorded per (tool, holder) pair on the tool once it is
+measured. No measured operator/date/instrument record is fabricated anywhere.
 
-The new `envelope`, `travel` and `holder_stack` findings add concrete `measure:`
-instructions to the before-you-start lines. Mill travel additionally needs
-explicit safe `approach_mm` and complete feature/stock extents; no approach is
-chosen on the operator's behalf. Lathe mill-envelope/travel rows are
-`not_applicable`; selected lathe-holder gauge lengths still have measurement debt.
-Use `uv run prechips tools --inventory examples/inventory/pedro-shop.toml --measure`
-for one sorted, deduplicated inventory-wide shop checklist.
+The `envelope` and `travel` findings add concrete `measure:` instructions to
+the before-you-start lines, keyed by the exact fact consumed (set member or
+tool/holder pair). The vise stack uses the unmeasured bed height, never jaw
+height; Z travel is the per-op spindle-nose span (`tip + gauge + projection`),
+so it also waits on holder gauges and tool projections; hole and point
+centres carry no cutter-radius padding. Mill travel/envelope additionally
+need explicit safe `approach_mm` and complete feature/stock extents, which are
+plan-input debt; no approach is chosen on the operator's behalf. Lathe
+mill-envelope/travel rows are `not_applicable`, and no lathe operation is
+asked for a toolpost gauge length: there is no `holder_stack` rule. An
+operation naming a holder the inventory lacks (the bracket's and rocker's
+`drill-chuck-r8`) is told to add or resolve that holder, not to measure it.
+Use `uv run prechips tools --measure` for the sorted, deduplicated list of
+exactly the `numbers.measurements` debt behind these five reports (add
+`--plan` to scope it, `--inventory` to override the plans' inventory).
 
 All five report/traveler goldens and the cone comparison golden are regenerated
-because the operative inventory digest, M5 rule catalogue and correct new
-unresolved findings change their bound hashes/output. Existing exits remain
-**4 / 2 / 2 / 4 / 2**: the default required policy is unchanged; optional M5 `?`
-findings do not introduce a new gate. A shop that requires `envelope` or
-`travel` on `"*"` obtains exit 4 for unresolved measured feasibility unless an
-existing error takes precedence. This is output reconciliation, not evidence
-of a machine measurement, physical rehearsal or first article.
+because the operative inventory digest, M5 rule catalogue (`m5-rev7`) and
+correct new unresolved findings change their bound hashes/output. Existing
+exits remain **4 / 2 / 2 / 4 / 2**: the default required policy is unchanged;
+optional M5 `?` findings do not introduce a new gate. A shop that requires
+`envelope` or `travel` on `"*"` obtains exit 4 for unresolved measured
+feasibility unless an existing error takes precedence. This is output
+reconciliation, not evidence of a machine measurement, physical rehearsal or
+first article.
 
 ## Source facts, not the PLAN layout sketch
 
@@ -207,7 +225,7 @@ unknown, and no drawing note authorizes it. A lower computed waste ratio cannot
 override the construction stop. Neither blank is on hand (`inventory stock=[]`).
 
 The BS-0 lives under inventory **machines**, with worm 40, direct 24×15° and all
-18 listed worm circles (`inventory/pedro-shop.toml:90–119`). The independent
+18 listed worm circles (`inventory/pedro-shop.toml:88–117`). The independent
 validator searches every circle and direct setting: nearest for 12.5182° is
 **plate B /23, one crank turn +9 hole spaces**, actual 12.5217391304°,
 signed error +0.0035391304°. One setting means **no cycle closure**. Plate
@@ -581,13 +599,13 @@ tools.slitting-saws.flutes
 tools.slitting-saws.dia
 tools.slitting-saws.shank
 fixtures.vise-pm-6.bed_height_mm
-holders.r8-collets-lms-4860.gauge_len
+holders.r8-collets-lms-4860.gauge_len_mm
 holders.r8-collets-lms-4860.grip_mm
-holders.er-collets.gauge_len
+holders.er-collets.gauge_len_mm
 holders.er-collets.grip_mm
-holders.lathe-collets.gauge_len
+holders.lathe-collets.gauge_len_mm
 holders.lathe-collets.grip_mm
-holders.qctp-axa-lms-2280.gauge_len
+holders.qctp-axa-lms-2280.gauge_len_mm
 holders.qctp-axa-lms-2280.grip_mm
 ```
 

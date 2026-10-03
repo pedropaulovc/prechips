@@ -20,11 +20,18 @@ or identity cannot establish absence. An unknown listed dimension still needs
 an inspection method; unknown requirement identities remain unresolved rather
 than inventing a gauge. Preserve source citations
 next to the facts they support; author's process choices are not measured facts.
-M5 machine envelope limits and holder gauge/projection require
-`measured = { by, date, instrument }`; `verify = false` alone is not evidence.
-Keep fixture vendor flags and existing OAL facts intact. M5 rules consume only
-an already-present successful kernel bbox; they never start a kernel. Missing
-approach/extent and measurement inputs retain concrete `measure:` instructions.
+M5 physical dimensions (machine `envelope` limits, fixture bed height, holder
+gauge/grip, tool OAL and tool/holder projection) require a fact-local
+`{ value, measured = { by, date, instrument } }`; `verify = false` alone, a
+block/root/source record, a date or a citation is not evidence, and a vendor
+nominal is evidence in `numbers`, never a certificate. The mill's limits live
+only in `machines.<id>.envelope`; projection is a per-holder map on the tool,
+never a holder or tool scalar; the vise stack uses bed height, never jaw
+height. Keep fixture vendor flags and existing OAL facts intact. M5 rules
+consume only an already-present successful kernel bbox; they never start a
+kernel. Missing approach/extent is plan-input debt and missing measurements
+retain concrete `measure:` instructions keyed by the exact fact consumed; an
+unresolved holder asks to be added or resolved, not measured.
 
 The shipped hand-authored reference bundles are under `examples/`, with shared
 inventory, policy and cutting data. Read [examples/README.md](examples/README.md)
