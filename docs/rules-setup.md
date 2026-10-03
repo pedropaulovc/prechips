@@ -85,7 +85,7 @@ lathe operation is never asked for a fictitious toolpost gauge length.
 | Rule / subject | Inputs and tier | Sheet sentence |
 |---|---|---|
 | `envelope` / setup | M5: authored stock and setup stock-state/frame; already-present successful kernel bbox only; fixture bed height plus parallels/supports; measured holder gauge and tool/holder projection; each operation's authored `approach_mm` and commanded Z band; measured spindle-to-table min/max | `S1: op 10 … exceeds spindle-to-table maximum … mm by … mm.` or `? S1: spindle envelope remains unmeasured or unresolved. measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm.` |
-| `travel` / setup | M5: transformed operation feature extents/centres or conservative authored stock span; selected cutter radius for profile/pocket extents only; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; per-op holder gauge and projection; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent, holder/tool length or safe approach to measure and author. |
+| `travel` / setup | M5: transformed operation feature extents/centres or conservative authored stock span; selected cutter radius for profile extents only; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; per-op holder gauge and projection; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent, holder/tool length or safe approach to measure and author. |
 
 `envelope` stacks, for each **individual** operation,
 `fixture bed height + parallels/supports + physical stock height + mounted holder gauge + tool projection`
@@ -98,8 +98,11 @@ measured minimum it lowers it by the deepest floor the operation reaches
 (`to_z`, `depth_mm`, drill tip/exit). The nose must fit between the limits on
 both ends; equality passes. An operation whose Z band is unknown (no authored
 approach, unknown target) is unknown, not passed at zero clearance. Missing
-authored approach is plan-input debt, not a shop measurement. It never combines
-the longest tool from one operation with the longest holder from another. An
+authored approach is plan-input debt, not a shop measurement. Each missing-geometry
+authoring instruction is printed once. Unresolved tools, fixtures and supports
+ask to add or resolve an owned identity, not to measure an unowned item's
+height, drill point angle or reamer lead. It never combines the longest tool
+from one operation with the longest holder from another. An
 already successful `bundle.kernel.bbox_mm` is transformed from model to setup
 axes; otherwise authored stock or complete feature extents are used. On every
 path an authored setup `stock_state` height overrides finished-model Z: the
@@ -110,7 +113,8 @@ filename or digest does not cause this rule to launch a kernel or invent a bbox.
 widths: widely separated holes need the distance between their centres. Point
 and hole operations (`spot`, `drill`, `ream`, `tap`, `counterbore`, `center`)
 are their centres with no cutter-radius padding, because the spindle sits on
-the hole; only profile/pocket extents carry the selected cutter radius.
+the hole; only outside-profile extents carry the selected cutter radius;
+face/pocket declared extents are used as authored.
 Broad face/profile/pocket operations without complete extents use a
 conservative stock-span screen without inventing a stock origin. Z is the
 union of each operation's **spindle-nose** positions, `tip + holder gauge +

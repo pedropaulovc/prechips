@@ -1670,10 +1670,8 @@
           "features.frames.model; features.frames.M2",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67",
           "https://www.precisionmatthews.com/products/pm-30mv",
-          "inventory.fixtures.unknown.height",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.100.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.100: stock_states current top and local entry; hole tip/exit endpoints",
@@ -1700,18 +1698,18 @@
           "plan.setups.stock_state: physical supported stock height",
           "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
         ],
-        "message": "S2: spindle envelope remains unmeasured or unresolved. Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown record height, steel rule or calipers, mm; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
+        "message": "S2: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
         "numbers": {
           "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
           "fixture_height_mm": "unknown",
           "measurements": [
             {
               "cite": [
-                "inventory.fixtures.unknown.height"
+                "inventory.fixtures.unknown"
               ],
-              "id": "fixtures.unknown.height",
-              "instruction": "measure: unknown record height, steel rule or calipers, mm",
-              "units": "mm"
+              "id": "fixtures.unknown.resolve",
+              "instruction": "resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture",
+              "units": "identity"
             },
             {
               "cite": [
@@ -1758,7 +1756,7 @@
                 "plan.setups.S2.ops.110"
               ],
               "id": "plan.setups.S2.ops.110.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -1798,7 +1796,7 @@
                 "plan.setups.S2.ops.60"
               ],
               "id": "plan.setups.S2.ops.60.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -1814,7 +1812,7 @@
                 "plan.setups.S2.ops.80"
               ],
               "id": "plan.setups.S2.ops.80.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -1822,16 +1820,8 @@
                 "plan.setups.S2.ops.90"
               ],
               "id": "plan.setups.S2.ops.90.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -2053,10 +2043,8 @@
           "features.frames.model; features.frames.J3",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67",
           "https://www.precisionmatthews.com/products/pm-30mv",
-          "inventory.fixtures.BS-0.height",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S3.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S3.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S3.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -2069,18 +2057,18 @@
           "plan.setups.stock_state: physical supported stock height",
           "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
         ],
-        "message": "S3: spindle envelope remains unmeasured or unresolved. Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: BS-0 record height, steel rule or calipers, mm; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
+        "message": "S3: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
         "numbers": {
           "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
           "fixture_height_mm": "unknown",
           "measurements": [
             {
               "cite": [
-                "inventory.fixtures.BS-0.height"
+                "inventory.fixtures.BS-0"
               ],
-              "id": "fixtures.BS-0.height",
-              "instruction": "measure: BS-0 record height, steel rule or calipers, mm",
-              "units": "mm"
+              "id": "fixtures.BS-0.resolve",
+              "instruction": "resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture",
+              "units": "identity"
             },
             {
               "cite": [
@@ -2119,7 +2107,7 @@
                 "plan.setups.S3.ops.20"
               ],
               "id": "plan.setups.S3.ops.20.z_geometry",
-              "instruction": "author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -2135,16 +2123,8 @@
                 "plan.setups.S3.ops.40"
               ],
               "id": "plan.setups.S3.ops.40.z_geometry",
-              "instruction": "author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -2245,10 +2225,8 @@
           "features.frames.model; features.frames.C4",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67",
           "https://www.precisionmatthews.com/products/pm-30mv",
-          "inventory.fixtures.unknown.height",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S4.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S4.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S4.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -2259,18 +2237,18 @@
           "plan.setups.stock_state: physical supported stock height",
           "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
         ],
-        "message": "S4: spindle envelope remains unmeasured or unresolved. Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown record height, steel rule or calipers, mm; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
+        "message": "S4: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S4.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
         "numbers": {
           "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
           "fixture_height_mm": "unknown",
           "measurements": [
             {
               "cite": [
-                "inventory.fixtures.unknown.height"
+                "inventory.fixtures.unknown"
               ],
-              "id": "fixtures.unknown.height",
-              "instruction": "measure: unknown record height, steel rule or calipers, mm",
-              "units": "mm"
+              "id": "fixtures.unknown.resolve",
+              "instruction": "resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S4.hold.fixture",
+              "units": "identity"
             },
             {
               "cite": [
@@ -2301,7 +2279,7 @@
                 "plan.setups.S4.ops.10"
               ],
               "id": "plan.setups.S4.ops.10.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -2317,16 +2295,8 @@
                 "plan.setups.S4.ops.30"
               ],
               "id": "plan.setups.S4.ops.30.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -5686,7 +5656,6 @@
           "plan.setups.S2.ops.60.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.60: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S2.ops.70",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S2.ops.70.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.70: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S2.ops.80",
@@ -5710,7 +5679,7 @@
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S2: declared operation travel remains unmeasured or unresolved. Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
+        "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
         "numbers": {
           "measurements": [
             {
@@ -5766,7 +5735,7 @@
                 "plan.setups.S2.ops.110"
               ],
               "id": "plan.setups.S2.ops.110.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -5838,7 +5807,7 @@
                 "plan.setups.S2.ops.60"
               ],
               "id": "plan.setups.S2.ops.60.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -5854,7 +5823,7 @@
                 "plan.setups.S2.ops.80"
               ],
               "id": "plan.setups.S2.ops.80.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -5862,16 +5831,8 @@
                 "plan.setups.S2.ops.90"
               ],
               "id": "plan.setups.S2.ops.90.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -6440,7 +6401,6 @@
           "plan.setups.S3.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S3.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S3.ops.30",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S3.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S3.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S3.ops.40",
@@ -6450,7 +6410,7 @@
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S3: declared operation travel remains unmeasured or unresolved. Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
+        "message": "S3: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
         "numbers": {
           "measurements": [
             {
@@ -6498,7 +6458,7 @@
                 "plan.setups.S3.ops.20"
               ],
               "id": "plan.setups.S3.ops.20.z_geometry",
-              "instruction": "author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -6514,16 +6474,8 @@
                 "plan.setups.S3.ops.40"
               ],
               "id": "plan.setups.S3.ops.40.z_geometry",
-              "instruction": "author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -6795,7 +6747,6 @@
           "plan.setups.S4.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.stock_state.top_z/entry_z/local_thickness",
           "plan.setups.S4.ops.20",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S4.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S4.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S4.ops.30",
@@ -6805,7 +6756,7 @@
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S4: declared operation travel remains unmeasured or unresolved. Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
+        "message": "S4: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
         "numbers": {
           "measurements": [
             {
@@ -6845,7 +6796,7 @@
                 "plan.setups.S4.ops.10"
               ],
               "id": "plan.setups.S4.ops.10.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -6861,16 +6812,8 @@
                 "plan.setups.S4.ops.30"
               ],
               "id": "plan.setups.S4.ops.30.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -9658,7 +9601,6 @@
           "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
           "https://www.precisionmatthews.com/products/pm-30mv",
-          "inventory.fixtures.unknown.height",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
           "plan.setups.S0.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -9667,18 +9609,18 @@
           "plan.setups.stock_state: physical supported stock height",
           "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
         ],
-        "message": "S0: spindle envelope remains unmeasured or unresolved. Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown record height, steel rule or calipers, mm; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S0.ops.10.tool.",
+        "message": "S0: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S0.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S0.ops.10.tool.",
         "numbers": {
           "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
           "fixture_height_mm": "unknown",
           "measurements": [
             {
               "cite": [
-                "inventory.fixtures.unknown.height"
+                "inventory.fixtures.unknown"
               ],
-              "id": "fixtures.unknown.height",
-              "instruction": "measure: unknown record height, steel rule or calipers, mm",
-              "units": "mm"
+              "id": "fixtures.unknown.resolve",
+              "instruction": "resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S0.hold.fixture",
+              "units": "identity"
             },
             {
               "cite": [
@@ -9778,10 +9720,8 @@
           "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
           "https://www.precisionmatthews.com/products/pm-30mv",
-          "inventory.fixtures.unknown.height",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.100.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.100: stock_states current top and local entry; hole tip/exit endpoints",
@@ -9806,18 +9746,18 @@
           "plan.setups.stock_state: physical supported stock height",
           "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
         ],
-        "message": "S2: spindle envelope remains unmeasured or unresolved. Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown record height, steel rule or calipers, mm; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
+        "message": "S2: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
         "numbers": {
           "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
           "fixture_height_mm": "unknown",
           "measurements": [
             {
               "cite": [
-                "inventory.fixtures.unknown.height"
+                "inventory.fixtures.unknown"
               ],
-              "id": "fixtures.unknown.height",
-              "instruction": "measure: unknown record height, steel rule or calipers, mm",
-              "units": "mm"
+              "id": "fixtures.unknown.resolve",
+              "instruction": "resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture",
+              "units": "identity"
             },
             {
               "cite": [
@@ -9864,7 +9804,7 @@
                 "plan.setups.S2.ops.110"
               ],
               "id": "plan.setups.S2.ops.110.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -9896,7 +9836,7 @@
                 "plan.setups.S2.ops.60"
               ],
               "id": "plan.setups.S2.ops.60.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -9912,7 +9852,7 @@
                 "plan.setups.S2.ops.80"
               ],
               "id": "plan.setups.S2.ops.80.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -9920,16 +9860,8 @@
                 "plan.setups.S2.ops.90"
               ],
               "id": "plan.setups.S2.ops.90.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -10135,10 +10067,8 @@
           "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
           "https://www.precisionmatthews.com/products/pm-30mv",
-          "inventory.fixtures.BS-0.height",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S3.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S3.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S3.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -10151,18 +10081,18 @@
           "plan.setups.stock_state: physical supported stock height",
           "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
         ],
-        "message": "S3: spindle envelope remains unmeasured or unresolved. Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: BS-0 record height, steel rule or calipers, mm; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
+        "message": "S3: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
         "numbers": {
           "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
           "fixture_height_mm": "unknown",
           "measurements": [
             {
               "cite": [
-                "inventory.fixtures.BS-0.height"
+                "inventory.fixtures.BS-0"
               ],
-              "id": "fixtures.BS-0.height",
-              "instruction": "measure: BS-0 record height, steel rule or calipers, mm",
-              "units": "mm"
+              "id": "fixtures.BS-0.resolve",
+              "instruction": "resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture",
+              "units": "identity"
             },
             {
               "cite": [
@@ -10201,7 +10131,7 @@
                 "plan.setups.S3.ops.20"
               ],
               "id": "plan.setups.S3.ops.20.z_geometry",
-              "instruction": "author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -10217,16 +10147,8 @@
                 "plan.setups.S3.ops.40"
               ],
               "id": "plan.setups.S3.ops.40.z_geometry",
-              "instruction": "author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -10329,10 +10251,8 @@
           "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
           "https://www.precisionmatthews.com/products/pm-30mv",
-          "inventory.fixtures.unknown.height",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S4.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S4.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S4.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -10345,18 +10265,18 @@
           "plan.setups.stock_state: physical supported stock height",
           "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
         ],
-        "message": "S4: spindle envelope remains unmeasured or unresolved. Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown record height, steel rule or calipers, mm; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
+        "message": "S4: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S4.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
         "numbers": {
           "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
           "fixture_height_mm": "unknown",
           "measurements": [
             {
               "cite": [
-                "inventory.fixtures.unknown.height"
+                "inventory.fixtures.unknown"
               ],
-              "id": "fixtures.unknown.height",
-              "instruction": "measure: unknown record height, steel rule or calipers, mm",
-              "units": "mm"
+              "id": "fixtures.unknown.resolve",
+              "instruction": "resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S4.hold.fixture",
+              "units": "identity"
             },
             {
               "cite": [
@@ -10387,7 +10307,7 @@
                 "plan.setups.S4.ops.10"
               ],
               "id": "plan.setups.S4.ops.10.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -10403,7 +10323,7 @@
                 "plan.setups.S4.ops.30"
               ],
               "id": "plan.setups.S4.ops.30.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -10413,14 +10333,6 @@
               "id": "plan.setups.S4.ops.5.z_geometry",
               "instruction": "author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -14063,7 +13975,7 @@
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S0: declared operation travel remains unmeasured or unresolved. Measure plan.setups.S0.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S0.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S0.ops.10.tool.",
+        "message": "S0: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S0.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S0.ops.10.tool.",
         "numbers": {
           "measurements": [
             {
@@ -14255,7 +14167,6 @@
           "plan.setups.S2.ops.60.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.60: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S2.ops.70",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S2.ops.70.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.70: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S2.ops.80",
@@ -14279,7 +14190,7 @@
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S2: declared operation travel remains unmeasured or unresolved. Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
+        "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
         "numbers": {
           "measurements": [
             {
@@ -14343,7 +14254,7 @@
                 "plan.setups.S2.ops.110"
               ],
               "id": "plan.setups.S2.ops.110.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -14399,7 +14310,7 @@
                 "plan.setups.S2.ops.60"
               ],
               "id": "plan.setups.S2.ops.60.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -14415,7 +14326,7 @@
                 "plan.setups.S2.ops.80"
               ],
               "id": "plan.setups.S2.ops.80.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -14423,16 +14334,8 @@
                 "plan.setups.S2.ops.90"
               ],
               "id": "plan.setups.S2.ops.90.z_geometry",
-              "instruction": "author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -14972,7 +14875,6 @@
           "plan.setups.S3.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S3.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S3.ops.30",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S3.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S3.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S3.ops.40",
@@ -14982,7 +14884,7 @@
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S3: declared operation travel remains unmeasured or unresolved. Measure plan.setups.S3.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S3.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
+        "message": "S3: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S3.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
         "numbers": {
           "measurements": [
             {
@@ -15038,7 +14940,7 @@
                 "plan.setups.S3.ops.20"
               ],
               "id": "plan.setups.S3.ops.20.z_geometry",
-              "instruction": "author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -15054,16 +14956,8 @@
                 "plan.setups.S3.ops.40"
               ],
               "id": "plan.setups.S3.ops.40.z_geometry",
-              "instruction": "author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [
@@ -15342,7 +15236,6 @@
           "plan.setups.S4.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S4.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S4.ops.20",
-          "inventory.tools.unknown.point_angle",
           "plan.setups.S4.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S4.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S4.ops.30",
@@ -15352,7 +15245,7 @@
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S4: declared operation travel remains unmeasured or unresolved. Measure plan.setups.S4.ops.5 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure plan.setups.S4.ops.5 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: unknown included drill point angle, protractor, degrees; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
+        "message": "S4: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S4.ops.5 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
         "numbers": {
           "measurements": [
             {
@@ -15392,7 +15285,7 @@
                 "plan.setups.S4.ops.10"
               ],
               "id": "plan.setups.S4.ops.10.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -15408,7 +15301,7 @@
                 "plan.setups.S4.ops.30"
               ],
               "id": "plan.setups.S4.ops.30.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+              "instruction": "author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
               "units": "mm"
             },
             {
@@ -15426,14 +15319,6 @@
               "id": "plan.setups.S4.ops.5.z_geometry",
               "instruction": "author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
               "units": "mm"
-            },
-            {
-              "cite": [
-                "inventory.tools.unknown.point_angle"
-              ],
-              "id": "tools.unknown.point_angle",
-              "instruction": "measure: unknown included drill point angle, protractor, degrees",
-              "units": "degrees"
             },
             {
               "cite": [

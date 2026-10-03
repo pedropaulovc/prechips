@@ -11,9 +11,12 @@ presence makes that item's identity unresolved. Whether a particular
 dimension is *measured* is decided only by that fact's own record (see
 [M5](#measured-envelopes-and-installed-tool-stacks-m5)).
 
-A length is authored once per stem: an explicit `_mm` key, an `_in` key converted
-with exactly 25.4 mm/in, or a bare key with explicit `units = "mm"`, `"in"`, or
-`"inch"`; two spellings of one stem are rejected rather than ranked. Do not manufacture nominal diameters from a catalog label unless
+A consumed single-length fact is authored once per stem: an explicit `_mm`
+key, an `_in` key converted with exactly 25.4 mm/in, or a bare key with explicit
+`units = "mm"`, `"in"`, or `"inch"`; two spellings of that fact are rejected
+rather than ranked. Collection/coverage fields such as `sizes_mm`/`sizes_in`,
+`range_mm`/`range_in` and `width_mm`/`width_in` are not duplicate single-length
+facts; mixed metric/inch sets may declare both. Do not manufacture nominal diameters from a catalog label unless
 the resolver's supported identity/coverage or explicit `nominal_dia_mm` map
 establishes them. Nominal identity is not measured size. Inventory tool units
 may be converted explicitly; drawing units are not silently converted.
@@ -130,21 +133,25 @@ support blocks carry their own heights. `point_angle` accepts the same
 `prechips tools --measure [--plan PLAN ...]` lists the measurement debt behind
 the current reports: every `numbers.measurements` entry that an unresolved
 applicable finding emits for the given plans (default: the five shipped example
-plans), sorted and deduplicated by exact report id, including set-member and
+plans), sorted and deduplicated by scoped report id, including set-member and
 tool/holder-pair ids such as `holders.r8-collets-lms-4860/3-8in.gauge_len` and
 `tools.endmills-lms-6784/3-8in-4fl.projection.r8-collets-lms-4860/3-8in`. An
 `"unknown"` fact a rule needs is listed even without `verify` debt. It is not a
 reflection over every declared field: items and fields no rule consumes do not
 appear, and it invents no set members or purchases. `--inventory` (or
 `PRECHIPS_INVENTORY`) overrides the plans' declared inventory; without it each
-plan's own inventory applies. Every other `tools` display still requires
-`--inventory` or `PRECHIPS_INVENTORY`. JSON emits the same entries with ids,
+plan's own inventory applies. Plan-input ids and instructions are prefixed with
+the plan path. When multiple effective inventories apply, inventory ids and
+instructions are qualified by their source path so equal item names cannot
+merge unrelated facts; plans sharing an inventory still share its measurement
+debt. Every other `tools` display still requires `--inventory` or
+`PRECHIPS_INVENTORY`. JSON emits the same entries with ids,
 instructions, units and citations: lengths use mm, point angles use degrees,
 and add/resolve instructions use identity units. Normal `tools` prints the envelope and
 marks each limit measured or unmeasured. Applicable M5 `?` sheet sentences also
-state what to measure and how; an operation whose holder does not resolve is
-told to add or resolve that holder, not to measure an item the shop does not
-own.
+state what to measure and how; unresolved tools, holders, fixtures and supports
+are told to add or resolve an owned identity, not to measure an item the shop
+does not own.
 
 ### Measurement records
 

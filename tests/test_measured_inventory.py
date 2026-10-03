@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from prechips.measurements import angle_fact, length_fact, nominal_angle_deg, nominal_length_mm
 from prechips.model import Inventory
-from prechips.rules.resolution import length_mm
+from prechips.rules.resolution import length_mm, resolve
 
 MEASURED = {"by": "test machinist", "date": "2026-01-15", "instrument": "height gauge"}
 
@@ -125,6 +125,41 @@ def test_schema_accepts_pair_projection_maps_and_one_unit_per_stem():
     drill = values["tools"]["drill"]
     assert length_fact(drill, ("projection", "r8/3-8in"))["value"] == 40
     assert length_fact(values["fixtures"]["vise"], "bed_height")["value"] == 50.8
+
+
+@pytest.mark.parametrize("kind", ["reamers", "drill_set"])
+def test_mixed_unit_size_sets_validate_and_resolve_both_member_units(kind):
+    values = inventory({"tools": {"mixed": {"kind": kind, "sizes_mm": [6], "sizes_in": ["1/4"]}}})
+    assert length_mm(resolve(values, "tools", "mixed/6mm"), "dia") == 6
+    assert length_mm(resolve(values, "tools", "mixed/1-4in"), "dia") == pytest.approx(6.35)
+    assert resolve(values, "tools", "mixed/7mm") is None
+
+
+def test_inventory_range_lists_in_both_units_are_not_a_single_length():
+    values = inventory({"gauges": {"gauge": {"range_mm": [0, 25.4], "range_in": [0, 1]}}})
+    assert values["gauges"]["gauge"]["range_mm"] == [0, 25.4]
+    assert values["gauges"]["gauge"]["range_in"] == [0, 1]
+
+
+def test_inventory_widths_in_both_units_validate():
+    values = inventory({"fixtures": {"vise": {"width_mm": 100, "width_in": 4}}})
+    assert values["fixtures"]["vise"]["width_mm"] == 100
+    assert values["fixtures"]["vise"]["width_in"] == 4
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"tools": {"tool": {"dia_mm": 6, "dia_in": 0.25}}},
+        {"tools": {"set": {"members": {"tool": {"oal_mm": 50, "oal_in": 2}}}}},
+        mill(spindle_to_table_min_mm=100, spindle_to_table_min_in=4),
+        mill(travel_mm={"x": 500}, travel_in={"x": 20}),
+        mill(travel_in={"x": 20, "x_mm": 500}),
+    ],
+)
+def test_duplicate_single_length_facts_remain_rejected(values):
+    with pytest.raises(ValidationError):
+        inventory(values)
 
 
 @pytest.mark.parametrize(

@@ -404,3 +404,42 @@ def test_tool_wide_scalar_and_wrong_pair_cannot_replace_selected_oal_grip():
     row = envelope.evaluate(data)[0]
     assert row.status == "error"
     assert row.numbers["stacks"][0]["tool_projection_mm"] == 130
+
+
+def test_missing_approach_instruction_is_printed_once():
+    data = review_bundle()
+    data.plan["setups"][0]["ops"][0].pop("approach_mm")
+    row = envelope.evaluate(data)[0]
+    debt = next(
+        entry for entry in row.numbers["measurements"] if entry["id"].endswith(".z_geometry")
+    )
+    assert row.sentence.count(debt["instruction"].removeprefix("author: ")) == 1
+
+
+@pytest.mark.parametrize("field", ["fixture", "parallels", "supports", "riser"])
+@pytest.mark.parametrize("identity", ["unowned", "unknown"])
+def test_unresolved_fixture_requests_identity_not_height_measurement(field, identity):
+    data = review_bundle()
+    data.plan["setups"][0]["hold"][field] = identity
+    if identity == "unknown":
+        data.inventory["fixtures"][identity] = {"kind": "unknown"}
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
+    assert f"fixtures.{identity}.height" not in debts
+    assert debts[f"fixtures.{identity}.resolve"]["instruction"].startswith("resolve:")
+
+
+@pytest.mark.parametrize("action,field", [("drill", "point_angle"), ("ream", "lead")])
+@pytest.mark.parametrize("identity", ["unowned", "unknown"])
+def test_unresolved_hole_tool_does_not_request_unowned_measurement(action, field, identity):
+    data = review_bundle()
+    data.features["features"]["hole"] = {"kind": "hole", "at": [10, 10, 0], "thru": True}
+    data.plan["setups"][0]["ops"][0].update(do=action, feature="hole", tool=identity, exit_mm=1)
+    if identity == "unknown":
+        data.inventory["tools"][identity] = {"kind": "unknown"}
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
+    assert f"tools.{identity}.{field}" not in debts
+    assert debts[f"tools.{identity}.resolve"]["instruction"].startswith("resolve:")

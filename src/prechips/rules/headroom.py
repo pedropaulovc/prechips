@@ -5,6 +5,8 @@ holder grip. Jaw height is an obstruction, never a spindle-stack layer.
 Machine limits are the measured ``envelope`` facts the M5 envelope and
 travel screens read; a vendor number without a complete local measurement
 keeps its nominal value in the numbers but can neither pass nor fail.
+An authored tool/holder projection stays unknown when explicitly declared
+unknown; OAL minus grip applies only when the selected pair has no entry.
 """
 
 from fractions import Fraction
@@ -144,8 +146,12 @@ def evaluate(bundle):
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             holder = resolve(bundle, "holders", holder_ref) or {}
             oal, gauge = length_mm(tool, "oal"), length_mm(holder, "gauge_len")
+            declared = any(
+                holder_ref in _mapping(tool.get(field))
+                for field in ("projection_mm", "projection_in")
+            )
             projection = length_mm(tool, ("projection", holder_ref)) if holder else _UNKNOWN
-            if not _numeric(projection):
+            if holder and not declared:
                 grip = length_mm(holder, "grip")
                 projection = oal - grip if _numeric(oal) and _numeric(grip) else _UNKNOWN
             stack = _sum(bed, parallel_height, support_height, stock_height, projection, gauge, 25)

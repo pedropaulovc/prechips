@@ -517,8 +517,24 @@ InventoryItem = record(
 InventoryItem.model_rebuild()
 
 
-def _inventory_lengths(item: Any, where: str, *, tool: bool, unit: str | None = None) -> None:
-    """One authored unit key per length stem; projection maps belong to tools only."""
+# Single-length facts consumed by rules; size/range lists are independent collections.
+_INVENTORY_LENGTH_STEMS = frozenset(
+    "dia oal grip gauge_len lead height bed_height projection flute_len jaw_height "
+    "shank capacity max_shank nose_radius reach tip length resolution".split()
+)
+_ENVELOPE_LENGTH_STEMS = frozenset(("spindle_to_table_max", "spindle_to_table_min", "travel"))
+_TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))
+
+
+def _inventory_lengths(
+    item: Any,
+    where: str,
+    *,
+    tool: bool,
+    unit: str | None = None,
+    stems: frozenset[str] = _INVENTORY_LENGTH_STEMS,
+) -> None:
+    """Reject duplicate single-length facts, not independently authored size lists."""
     from prechips.measurements import length_keys
 
     if not isinstance(item, dict):
@@ -527,7 +543,7 @@ def _inventory_lengths(item: Any, where: str, *, tool: bool, unit: str | None = 
         unit = "in" if item["units"] == "inch" else item["units"]
     if not tool and {"projection_mm", "projection_in"} & item.keys():
         raise ValueError(f"{where}: projection is a tool-owned map keyed by full holder reference.")
-    for stem in sorted({key.removesuffix("_mm").removesuffix("_in") for key in item}):
+    for stem in sorted(stems):
         keys = length_keys(item, stem, unit)
         if len(keys) > 1:
             raise ValueError(f"{where}: {' and '.join(keys)} author one length twice.")
@@ -536,7 +552,13 @@ def _inventory_lengths(item: Any, where: str, *, tool: bool, unit: str | None = 
         _inventory_lengths(member, f"{where}/{name}", tool=tool)
     for key in ("envelope", "travel_mm", "travel_in"):
         child_unit = "mm" if key.endswith("_mm") else "in" if key.endswith("_in") else unit
-        _inventory_lengths(item.get(key), f"{where}.{key}", tool=tool, unit=child_unit)
+        _inventory_lengths(
+            item.get(key),
+            f"{where}.{key}",
+            tool=tool,
+            unit=child_unit,
+            stems=_ENVELOPE_LENGTH_STEMS if key == "envelope" else _TRAVEL_LENGTH_STEMS,
+        )
 
 
 class Inventory(InputModel):

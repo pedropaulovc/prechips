@@ -557,7 +557,7 @@ not exist.
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
 | headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL/projection, holder gauge length, `machine.envelope` max and X/Y travel — unmeasured → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
 | envelope: per-op spindle-nose stack `bed height + parallels/supports + physical stock height + holder gauge + tool projection`, raised by the op's highest commanded Z above the stock top (authored approach) against measured spindle-to-table max, lowered to its deepest floor against measured min; optional successful already-present STEP bbox, otherwise authored stock/state extents | plan.stock/stock_state/setup frame, plan.ops approach/targets/depth, inventory fixture bed height + parallels/supports, measured holder gauge and tool/holder projection (or OAL − grip), machine.envelope max/min | M5 | "? measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm"; measured over-tall stack or unreachable floor is a stop |
-| travel: union of operation feature extents/centres (hole centres unpadded; cutter radius only on profile/pocket extents), commanded tip targets and explicit safe approach fits measured X/Y travel; Z unions per-op spindle-nose positions `tip + gauge + projection` against measured Z travel | features bounds/at/frame, plan stock/op target/depth/exit/approach_mm, inventory selected tool radius, holder gauge, tool projection and machine.envelope travel | M5 | "? measure: PM-30MV usable X travel between safe stops, steel rule, mm"; measured overtravel is a stop |
+| travel: union of operation feature extents/centres (hole centres unpadded; cutter radius only on outside-profile extents), commanded tip targets and explicit safe approach fits measured X/Y travel; Z unions per-op spindle-nose positions `tip + gauge + projection` against measured Z travel | features bounds/at/frame, plan stock/op target/depth/exit/approach_mm, inventory selected tool radius, holder gauge, tool projection and machine.envelope travel | M5 | "? measure: PM-30MV usable X travel between safe stops, steel rule, mm"; measured overtravel is a stop |
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
 | stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
@@ -900,11 +900,15 @@ sheet.
    approach/commanded Z against the maximum and lowers it to its deepest floor
    against the minimum; `travel` Z unions per-op spindle-nose positions
    (`tip + gauge + projection`), and XY pads hole/point centres by nothing and
-   profile/pocket extents by the cutter radius. `holder_stack` is deleted; an
-   unresolved holder yields an add/resolve instruction, not a measurement of
-   an unowned item. `tools --measure [--plan …]` lists exactly the
-   `numbers.measurements` debt behind the current reports (default: the five
-   example plans), sorted and deduplicated by report id.
+   profile extents by the cutter radius; pocket/face extents are unpadded.
+   `holder_stack` is deleted; unresolved tools, holders, fixtures and supports
+   yield add/resolve instructions, not measurements of unowned items. Geometry
+   authoring instructions print once. Explicit unknown pair projections stay
+   unknown; only absent pair entries permit OAL − grip fallback.
+   `tools --measure [--plan …]` lists exactly the `numbers.measurements` debt
+   behind the current reports (default: the five example plans), sorted and
+   deduplicated by scoped report id: plan inputs identify their plan, and
+   separate inventories cannot collapse identical item/fact ids.
    Pending in the shop, none invented: PM-30MV usable X/Y/Z travel and spindle
    nose to table at full Z-up and Z-down with `measured` records; PM 6 in vise
    bed height; each selected holder's mounted gauge length and grip; each

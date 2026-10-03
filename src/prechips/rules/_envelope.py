@@ -65,7 +65,9 @@ def tool_projection(bundle, op, debts, cite, *, require_measured=True):
 
 def unknown_sentence(setup, description, debts, missing=()):
     instructions = [debts[key]["instruction"] for key in sorted(debts)]
-    return f"{setup}: {description}. " + "; ".join([*missing, *instructions]) + "."
+    covered = " ".join(instructions)
+    extra = [text for text in dict.fromkeys(missing) if text not in covered]
+    return f"{setup}: {description}. " + "; ".join([*extra, *instructions]) + "."
 
 
 def setup_frame(bundle, setup):
@@ -185,14 +187,35 @@ def fixture_height(bundle, setup, debts, cite):
     hold = record(setup.get("hold"))
     identity = hold.get("fixture", UNKNOWN)
     fixture = measurement_item(bundle, "fixtures", identity)
-    field = "bed_height" if fixture.get("kind") == "vise" else "height"
-    height = fact(fixture, field, "fixtures", identity, debts, cite)
-    values, verified = [height["value"]], height["verified"]
+    if not fixture or fixture.get("kind") == UNKNOWN:
+        authoring_entry(
+            debts,
+            f"fixtures.{identity}.resolve",
+            f"resolve: add or select an owned fixture for {identity} in inventory "
+            f"and author plan.setups.{setup['id']}.hold.fixture",
+            f"inventory.fixtures.{identity}",
+        )
+        values, verified = [UNKNOWN], False
+    else:
+        field = "bed_height" if fixture.get("kind") == "vise" else "height"
+        height = fact(fixture, field, "fixtures", identity, debts, cite)
+        values, verified = [height["value"]], height["verified"]
     for field in ("parallels", "supports", "riser"):
         reference = hold.get(field)
         if reference in (None, "none", "not_applicable"):
             continue  # Known absence of an optional support is not a zero measurement.
         support = measurement_item(bundle, "fixtures", reference)
+        if not support or support.get("kind") == UNKNOWN:
+            authoring_entry(
+                debts,
+                f"fixtures.{reference}.resolve",
+                f"resolve: add or select an owned fixture for {reference} in inventory "
+                f"and author plan.setups.{setup['id']}.hold.{field}",
+                f"inventory.fixtures.{reference}",
+            )
+            values.append(UNKNOWN)
+            verified = False
+            continue
         value = fact(support, "height", "fixtures", reference, debts, cite)
         values.append(value["value"])
         verified &= value["verified"]
@@ -268,7 +291,9 @@ def _z_extent(op, before, extent, endpoint, tool, diameter, debts, cite, missing
                 if _known(value):
                     targets.append(value)
         action = op.get("do")
-        if action == "drill":
+        if not tool or tool.get("kind") == UNKNOWN:
+            endpoint_complete = False
+        elif action == "drill":
             endpoint_complete &= diameter["verified"] and _known(diameter["value"])
             angle = angle_fact(tool, "point_angle")
             angle_verified = (

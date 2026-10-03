@@ -254,11 +254,26 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 examples / "cone-pivot-post" / "plan.toml",
                 examples / "cone-pivot-post" / "built-up.toml",
             ]
-        findings = []
+        scoped_findings = []
+        inventories = set()
         for plan in plans:
             bundle = load_bundle(plan, inventory=path)
+            inventory_path = bundle.paths["inventory"]
+            inventories.add(inventory_path)
             for rule in RULES:
-                findings.extend(rule.evaluate(bundle))
+                scoped_findings.extend(
+                    (plan.as_posix(), inventory_path, finding) for finding in rule.evaluate(bundle)
+                )
+        findings = []
+        for plan_label, inventory_path, finding in scoped_findings:
+            for entry in finding.numbers.get("measurements", []):
+                label = plan_label if entry["id"].startswith("plan.") else None
+                if label is None and len(inventories) > 1:
+                    label = inventory_path.as_posix()
+                if label is not None:
+                    entry["id"] = f"{label}:{entry['id']}"
+                    entry["instruction"] = f"{label}: {entry['instruction']}"
+            findings.append(finding)
         checklist = measurement_checklist(findings)
         if getattr(args, "json", False):
             _json_stdout(checklist)

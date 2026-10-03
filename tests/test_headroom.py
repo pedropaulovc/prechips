@@ -127,6 +127,20 @@ def test_projection_is_selected_per_tool_and_holder_pair_else_oal_minus_grip():
     assert finding.numbers["sum_mm"] == pytest.approx(166.4)
 
 
+@pytest.mark.parametrize("field", ["projection_mm", "projection_in"])
+@pytest.mark.parametrize("limit", [200, 180])
+def test_explicit_unknown_projection_never_falls_back_to_oal_minus_grip(field, limit):
+    data = bundle()
+    data.inventory["tools"]["cutter"][field] = {"holder": "unknown"}
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(limit)
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["stacks"][0]["tool_projection_mm"] == "unknown"
+    assert finding.numbers["stacks"][0]["sum_mm"] == "unknown"
+    assert finding.numbers["stacks"][0]["margin_mm"] == "unknown"
+    assert finding.numbers["sum_mm"] == "unknown"
+
+
 def test_measured_stack_over_limit_is_error_and_equality_passes():
     data = bundle()
     envelope = data.inventory["machines"]["mill"]["envelope"]
