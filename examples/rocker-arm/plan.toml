@@ -1,0 +1,464 @@
+# rocker-arm process plan (PLAN.md rev 6 §3.1), M1 reference fixture.
+# The three-setup route is the rev-3 fixture's (vise S1 upper side, vise S2
+# flipped lower side, supported fixture S3 finish), kept whole. Rev-3 numbers that
+# no source supports (blank 45 x 16 x 310, blank-edge offsets -155/-16, roughing
+# allowance 0.20, paper 0.08, every RPM) are dropped to "unknown"; nothing replaces
+# them. Hole ids, holders and fixtures are the rev-3 selections, including the
+# three the shop does not have (drill-chuck-r8, reamers-metric/6.5-H7,
+# rocker-profile-fixture): the checker must report them, not hide them.
+part = "rocker-arm"
+features = "features.toml"
+quantity = 20
+quantity_cite = "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:5"
+
+[drawing]
+number = "MHA-071"
+revision = "unknown" # release.yaml:3 configures v38; no certified STEP/drawing export pairs with this plan
+cite = ["harmonic-analyzer/cad/config/parts/rocker-arm.yaml:2", "harmonic-analyzer/cad/config/release.yaml:1-3"]
+
+[paths]
+inventory = "../inventory/pedro-shop.toml"
+policy = "../shop-policy.toml"
+cutting_data = "../cutting-data.toml"
+
+[stock]
+material = "1018 low-carbon steel" # rev-3 author's pick inside the drawing's family; not a sourced grade
+material_verify = true
+drawing_material = "LOW-CARBON STEEL OR GRAY IRON"
+material_cite = ["harmonic-analyzer/cad/config/parts/rocker-arm.yaml:3", "harmonic-analyzer/cad/config/parts/_defaults.yaml:25-27", "rev-3 rocker-arm/plan.yaml:7"]
+form = "rectangular_blank" # rev-3 prepared blank with rectangular reference edges; no stock on hand claimed
+form_verify = true
+section_mm = "unknown"
+length_mm = "unknown"
+note = "Rails and end ears stay full raw thickness through S1 and S2; they carry the vise load while the strap and both hub islands are milled. Integral hub from the bar: no brazed boss, loose bushing, rod tap or counterbore."
+
+[dro]
+controller = "el400"
+manual = "Electronica EL400 Operation Manual"
+mode = "abs" # manual §7.4 Axis Set in ABS
+radius_mode = true # manual §6.2
+units = "mm"
+
+[dro.direction] # manual §6.2 Direction; set once before S1, proved by each check jog
+x = "right"
+y = "away"
+z = "up"
+
+# ---------------------------------------------------------------- S1
+[[setups]]
+id = "S1"
+machine = "PM-30MV"
+frame = "A"
+coolant = "unknown"
+deburr_mm = 0.25 # title block: break edges R0.25 or chamfer 0.25 max
+deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
+stock_in = "stock"
+note = "Upper side: qualify the upper hub face (frame A Z0), finish the upper strap face, rough the hub, top edge and outer profile, spot and drill the pivot pilot. Keep the rails and ears continuous."
+
+[setups.stock_state]
+top_feature = "hub_faces" # the Z-touch face is the upper hub face; strap face ops do not move it
+top_z = "unknown" # raw blank top; blank thickness and its placement about the model are not sourced
+bottom_z = "unknown"
+
+[setups.stock_state.local_thickness]
+pivot_bore = "unknown" # through the raw blank; the lower hub face is not faced until S2
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"
+fixed_jaw = "unknown"
+parallels = "parallels-lms-6745/1-2in"
+supports = "blocks-123-lms-2881"
+support_orientation = "1 in height"
+grip_on = "full-thickness rectangular rails"
+grip_mm = "unknown"
+jaw_above_parallels_mm = "unknown"
+stop = "unknown"
+clamp = "unknown"
+note = "Grip the rails on the 1-2-3 blocks plus 1/2 in parallels; never rest the thinned strap on an unsupported island."
+
+[setups.zero.x]
+edge = "blank_left_end"
+from = "-x"
+tool = "edge-finder"
+holder = "r8-collets-lms-4860/3-8in"
+edge_mm = "unknown" # left end in frame A depends on the blank length and placement, neither sourced
+check_jog_mm = "unknown"
+
+[setups.zero.y]
+edge = "blank_front_edge"
+from = "-y"
+tool = "edge-finder"
+holder = "r8-collets-lms-4860/3-8in"
+edge_mm = "unknown" # front edge in frame A depends on the blank section and placement, neither sourced
+check_jog_mm = "unknown"
+
+[setups.zero.z]
+face = "top"
+method = "paper"
+paper_mm = "unknown"
+tool = "endmills-lms-6784/3-8in-4fl"
+check_jog_mm = "unknown"
+retouch_after = [10, 20, 25, 50, 60] # op 10 makes the hub face Z0; each later op listed is followed by a tool change
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "hub_faces"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = 0.0 # the upper hub face becomes frame A Z0; the lower face stays overstock for S2
+direction = "unknown"
+
+[[setups.ops]]
+op = 20
+do = "rough_face"
+feature = "strap_faces"
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = "unknown" # finish Z -2.27825 plus a roughing allowance no source gives
+direction = "unknown"
+note = "Around the hub island, keeping the rails."
+
+[[setups.ops]]
+op = 25
+do = "finish_face"
+feature = "strap_faces"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.27825 # upper strap face: HUB_PROUD = (7.0565 - 2.5)/2 below the hub face
+to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
+direction = "unknown"
+
+[[setups.ops]]
+op = 30
+do = "rough_profile"
+feature = "hub_od"
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = "unknown"
+stock_to_leave_mm = "unknown"
+direction = "unknown"
+note = "Upper hub island about the pivot axis; finished in S3 with the bore."
+
+[[setups.ops]]
+op = 40
+do = "rough_profile"
+feature = "top_edge"
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = "unknown"
+stock_to_leave_mm = "unknown"
+direction = "unknown"
+note = "R800 top edge; leave the rails and ears connected."
+
+[[setups.ops]]
+op = 50
+do = "rough_profile"
+feature = "profile_outer"
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = "unknown"
+stock_to_leave_mm = "unknown"
+direction = "unknown"
+note = "Bottom arc, radial lands and tapered ends; rails and ears stay continuous. The 5.59 lands are profile lines, not chamfers."
+
+[[setups.ops]]
+op = 60
+do = "spot"
+feature = "pivot_bore"
+tool = "center-drills-lms-4859/2"
+holder = "drill-chuck-r8"
+depth_mm = "unknown"
+
+[[setups.ops]]
+op = 70
+do = "drill"
+feature = "pivot_bore"
+tool = "drill-index-115/1-4in"
+holder = "drill-chuck-r8"
+exit_mm = "unknown"
+note = "Pilot for the S3 ream and the S2/S3 pickups. Drill size kept from the earlier plan; the ream allowance it leaves is not confirmed."
+
+# ---------------------------------------------------------------- S2
+[[setups]]
+id = "S2"
+machine = "PM-30MV"
+frame = "B"
+coolant = "unknown"
+deburr_mm = 0.25
+deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
+stock_in = "S1"
+note = "Lower side, flipped about model X: qualify the lower hub face to the hub length, finish the lower strap face and lower hub OD, rough the lower side of the top edge and profile. Rails and ears stay on."
+
+[setups.stock_state]
+top_feature = "hub_faces" # the Z-touch face is the lower hub face; strap face ops do not move it
+top_z = "unknown" # raw lower face before op 10
+bottom_z = -7.0565 # S1 hub face, HUB_LENGTH below frame B Z0 (nominal; band +0.05/0)
+bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"
+fixed_jaw = "unknown"
+parallels = "parallels-lms-6745/1-2in"
+supports = "blocks-123-lms-2881"
+support_orientation = "1 in height"
+grip_on = "full-thickness rectangular rails and ears"
+grip_mm = "unknown"
+jaw_above_parallels_mm = "unknown"
+stop = "unknown"
+clamp = "unknown"
+note = "Seat the retained rails, not the thin strap or a hub rim."
+
+[setups.zero.transfer]
+from = "S1"
+indicate = "pivot_bore" # the S1 pilot
+tool = "dti"
+
+[setups.zero.x]
+edge = "pivot_bore_axis"
+from = "indicated"
+tool = "dti"
+edge_mm = 0.0 # frame B origin is on the pivot axis
+radius_mm = 0.0 # indicated centre, no finder radius
+check_jog_mm = "unknown"
+
+[setups.zero.y]
+edge = "pivot_bore_axis"
+from = "indicated"
+tool = "dti"
+edge_mm = 0.0
+radius_mm = 0.0
+check_jog_mm = "unknown"
+
+[setups.zero.z]
+face = "top"
+method = "paper"
+paper_mm = "unknown"
+tool = "endmills-lms-6784/3-8in-4fl"
+check_jog_mm = "unknown"
+retouch_after = [10, 30] # op 10 makes the lower hub face Z0; op 40 changes tool
+
+[[setups.ops]]
+op = 10
+do = "finish_face"
+feature = "hub_faces"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = 0.0 # lower hub face; approach the length from long, never below 7.0565
+direction = "unknown"
+
+[setups.ops.checks]
+length = "micrometers/0-1in"
+
+[[setups.ops]]
+op = 20
+do = "finish_face"
+feature = "strap_faces"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.27825
+to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
+direction = "unknown"
+
+[setups.ops.checks]
+thickness = "micrometers/0-1in"
+
+[[setups.ops]]
+op = 30
+do = "finish_profile"
+feature = "hub_od"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.27825 # lower hub OD runs down to the lower strap face
+direction = "unknown"
+note = "Lower hub OD about the transferred pilot axis."
+
+[setups.ops.checks]
+dia = "unknown"
+coaxiality_dia = "dial-indicator"
+
+[[setups.ops]]
+op = 40
+do = "rough_profile"
+feature = "top_edge"
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = "unknown"
+stock_to_leave_mm = "unknown"
+direction = "unknown"
+
+[[setups.ops]]
+op = 50
+do = "rough_profile"
+feature = "profile_outer"
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = "unknown"
+stock_to_leave_mm = "unknown"
+direction = "unknown"
+
+# ---------------------------------------------------------------- S3
+[[setups]]
+id = "S3"
+machine = "PM-30MV"
+frame = "A"
+coolant = "unknown"
+deburr_mm = 0.25
+deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
+stock_in = "S2"
+note = "Finish on a supported profile fixture: upper hub OD and ream without relocating, top edge, outer profile (frees the rails and ears), rod-pin hole, deburr, black oxide."
+
+[setups.stock_state]
+top_feature = "hub_faces" # Z touches the upper hub face
+top_z = 0.0 # upper hub face (S1 op 10)
+bottom_z = -7.0565 # lower hub face (S2 op 10), nominal hub length
+bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
+
+[setups.stock_state.local_thickness]
+pivot_bore = 7.0565 # bore runs the full hub length
+rod_hole = 2.5 # rod bore runs the strap only
+
+[setups.stock_state.local_thickness_cite]
+pivot_bore = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:542-544"
+rod_hole = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:542-545"
+
+[setups.stock_state.entry_z]
+pivot_bore = 0.0
+rod_hole = -2.27825 # upper strap face
+
+[setups.hold]
+fixture = "rocker-profile-fixture" # not in the shop: no design exists
+locate = "datum A on the pivot pilot, broad face B seated, rod-side radial land C clocked"
+supports = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+grip_mm = "unknown"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+clamp = "unknown"
+note = "Support the strap before the rails and ears come off. Fixture author and rail-release method are open (PLAN.md §9)."
+
+[setups.zero.transfer]
+from = "S2"
+indicate = "pivot_bore"
+tool = "dti"
+reindicate_after = [20] # re-find the reamed datum A before the rod-pin hole
+
+[setups.zero.x]
+edge = "pivot_bore_axis"
+from = "indicated"
+tool = "dti"
+edge_mm = 0.0
+radius_mm = 0.0
+check_jog_mm = "unknown"
+
+[setups.zero.y]
+edge = "pivot_bore_axis"
+from = "indicated"
+tool = "dti"
+edge_mm = 0.0
+radius_mm = 0.0
+check_jog_mm = "unknown"
+
+[setups.zero.z]
+face = "top"
+method = "paper"
+paper_mm = "unknown"
+tool = "endmills-lms-6784/3-8in-4fl"
+check_jog_mm = "unknown"
+retouch_after = [10, 20, 40, 50] # each listed op is followed by a tool change
+
+[[setups.ops]]
+op = 10
+do = "finish_profile"
+feature = "hub_od"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.27825 # upper hub OD runs down to the upper strap face
+direction = "unknown"
+note = "Upper hub OD; no relocation before the ream (note 7: turn hub and ream bore in one setup)."
+
+[setups.ops.checks]
+dia = "unknown"
+coaxiality_dia = "dial-indicator"
+
+[[setups.ops]]
+op = 20
+do = "ream"
+feature = "pivot_bore"
+tool = "reamers-metric/6.5-H7"
+holder = "drill-chuck-r8"
+exit_mm = "unknown"
+
+[setups.ops.checks]
+dia = "unknown"
+finish_ra = "unknown"
+
+[[setups.ops]]
+op = 30
+do = "finish_profile"
+feature = "top_edge"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = "unknown"
+direction = "unknown"
+contour = "unknown" # no arc-table step or cutter offset is sourced
+
+[setups.ops.checks]
+height_above_pivot = "unknown"
+radius = "unknown"
+arc_len = "unknown"
+
+[[setups.ops]]
+op = 40
+do = "finish_profile"
+feature = "profile_outer"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -4.77825 # lower strap face: -2.27825 - 2.5
+exit_mm = "unknown"
+direction = "unknown"
+contour = "unknown"
+note = "Bottom arc, both radial lands, tapered ends; the rails and ears come off here, only under the fixture's support."
+
+[setups.ops.checks]
+bottom_radius = "unknown"
+bottom_arc_len = "unknown"
+tip_land = "unknown"
+land_angle_deg = "unknown"
+
+[[setups.ops]]
+op = 50
+do = "spot"
+feature = "rod_hole"
+tool = "center-drills-lms-4859/2"
+holder = "drill-chuck-r8"
+depth_mm = "unknown"
+
+[[setups.ops]]
+op = 60
+do = "drill"
+feature = "rod_hole"
+tool = "drill-index-115/#47"
+holder = "drill-chuck-r8"
+exit_mm = "unknown"
+
+[setups.ops.checks]
+dia = "unknown"
+position_dia = "unknown"
+
+[[setups.ops]]
+op = 70
+do = "deburr"
+feature = "profile_outer"
+note = "Hand deburr all edges and hole entries to R0.25 or 0.25 chamfer max without touching the lands, top-edge height, strap or bore edges. Method not chosen."
+
+[[setups.ops]]
+op = 80
+do = "coating"
+feature = "profile_outer"
+note = "Matte black oxide after machining, as the drawing calls for; no bath or vendor in the shop list. Protect or re-measure the bore."
+note_cite = "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:4"

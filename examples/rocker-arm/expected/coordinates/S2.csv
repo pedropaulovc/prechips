@@ -1,7 +1,0 @@
-frame=B, units=mm, mode=absolute, radius
-feature,op,x,y,z
-hub_faces,10,,,0.0
-strap_faces,20,,,-2.27825
-hub_od,30,0.0,0.0,
-top_edge,40,,,
-profile_outer,50,,,

@@ -1,1213 +1,2903 @@
 {
+  "expected_exit": 4,
   "findings": [
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature body"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:197"
       ],
-      "evidence": [
-        "Feature kind=shaft; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The body is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "cylinder",
+        "ops": [
+          "S1:40",
+          "S1:50"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "body"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature north_dome"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:266"
       ],
-      "evidence": [
-        "Feature kind=shaft; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The north dome is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "dome",
+        "ops": [
+          "S2:10",
+          "S2:20"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "north_dome"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature north_journal"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:133"
       ],
-      "evidence": [
-        "Feature kind=shaft; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The north journal is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "cylinder",
+        "ops": [
+          "S1:20",
+          "S1:30",
+          "S2:30"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "north_journal"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature north_relief"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:220"
       ],
-      "evidence": [
-        "Feature kind=shaft; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The north relief is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "groove",
+        "ops": [
+          "S1:80"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "north_relief"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature plain_end"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:317"
       ],
-      "evidence": [
-        "Feature kind=shaft; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The plain end is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "cut_end",
+        "ops": [
+          "S3:10"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "plain_end"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature shoulder"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:159"
       ],
-      "evidence": [
-        "Feature kind=shaft; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The shoulder is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "cylinder",
+        "ops": [
+          "S1:10",
+          "S1:70"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "shoulder"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature shoulder_thrust"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:180"
       ],
-      "evidence": [
-        "Feature kind=face; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The shoulder thrust face is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "face",
+        "ops": [
+          "S1:60"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "shoulder_thrust"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature south_dome"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:289"
       ],
-      "evidence": [
-        "Feature kind=shaft; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The south dome is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "dome",
+        "ops": [
+          "S3:20"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "south_dome"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "examples/pivot-shaft/spec.yaml feature south_relief"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:243"
       ],
-      "evidence": [
-        "Feature kind=shaft; no blind thread or full-thread depth exists. No tap lead, drill-point allowance, breakthrough inequality or blind-depth sum is fabricated."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The south relief is not a hole, so there is no drill tip or breakthrough to compute.",
+      "numbers": {
+        "endpoints": [],
+        "feature_kind": "groove",
+        "ops": [
+          "S1:90"
+        ]
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "south_relief"
     },
     {
       "cite": [
-        "PLAN.md §3.2, §4",
-        "examples/pivot-shaft/spec.yaml",
-        "harmonic-analyzer/cad/config/title_block.yaml:25-27 value_in",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:35,69-80,150-160",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §5",
+        "examples/pivot-shaft/features.toml"
       ],
-      "evidence": [
-        "Every numeric sidecar dimension, exact numeric default tolerance, roughness value and coordinate transform carries a named consumer file:line source; derived values include arithmetic. No independent tolerance is added for the calculated spherical radius.",
-        "Adopted untoleranced defaults use title_block.yaml value_in ×25.4 exactly: .X 0.03 in=0.762 mm; .XX 0.02 in=0.508 mm; .XXX 0.005 in=0.127 mm. Rounded display strings ±0.8/±0.51/±0.13 and the consumer relief-derived display-width range are presentation/design context, not authority for these adopted defaults.",
-        "Journal length6±0.762 mm, shoulder diameter10±0.508 mm and length1.5±0.508 mm, relief diameter5.7±0.127 mm and width2±0.762 mm, both dome heights1.5±0.762 mm. Explicit running-shaft +0/−0.020 mm, fitted proud band0–0.5 mm and nominal spherical/profile geometry are unchanged.",
-        "Quantity, 300/500 rpm, 0.20 mm rough allowance and 15/25 mm sacrificial handling allowances are labelled authored plan choices, not consumer requirements."
-      ],
-      "rule": "citations_present",
-      "severity": "block",
-      "status": "pass",
+      "message": "No STEP model was supplied, so the drawing numbers are not bound to a model file.",
+      "numbers": {
+        "inputs": [
+          "cutting_data",
+          "features",
+          "inventory",
+          "plan",
+          "shop_policy"
+        ],
+        "step_sha256": "unknown"
+      },
+      "rule": "bundle_binding",
+      "status": "unknown",
       "subject": "inputs"
     },
     {
       "cite": [
-        "PLAN.md §3.7, §4 coordinate_table",
-        "examples/pivot-shaft/spec.yaml frame T1",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:35-44,69,178-188",
-        "examples/pivot-shaft/plan.yaml setup S1",
-        "examples/pivot-shaft/expected/coordinates/S1.csv"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:53",
+        "examples/pivot-shaft/features.toml:90"
       ],
-      "evidence": [
-        "T1→model: (x,y,z)→(x,y,z-6); inverse z_T1=z_model+6. Right-handed identity basis; origin is shoulder north face, not an assembly datum.",
-        "Pickup x/y identifies spindle axis at0; Z contact at frame_origin_face sets0, no paper correction. Diameter display doubles radial coordinates; Y is uncommanded and blank.",
-        "Journal end0 model→+6 mm T1 (0.2362204724 in); shoulder south face−7.5→−1.5 mm (−0.0590551181 in); relief north−6→0, relief south−9.5→−3.5 mm (−0.1377952756 in).",
-        "Extended supply body station−175→−169 mm T1 (−6.6535433071 in) is the sourced supply-long route, not fitted length. Selected final diameter6.35 mm=0.25 in; authored rough6.55 mm=0.2578740157 in.",
-        "CSV contains one row for each of nine declared operations in declaration order; blank X for facing/contact operations and blank Y do not invent feature centres."
-      ],
-      "rule": "coordinate_table",
-      "severity": "block",
-      "status": "pass",
+      "message": "S1 stations are exact from the drawing, but whether the lathe readout shows X as diameter and the tool nose radius are unknown.",
+      "numbers": {
+        "binding": "nominal",
+        "frame": "T1",
+        "rows": [
+          {
+            "dia_nominal": 10.0,
+            "feature": "shoulder",
+            "model": [
+              0.0,
+              0.0,
+              -6.0
+            ],
+            "point": "north face",
+            "precision": 2,
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "dia_nominal": 10.0,
+            "feature": "shoulder",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "south face",
+            "precision": 2,
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ]
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              -6.0
+            ],
+            "point": "shoulder end",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "point": "north end (dome base)",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              6.0
+            ]
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              1.5
+            ],
+            "point": "turned out to the apex plane",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              7.5
+            ]
+          },
+          {
+            "dia_nominal": 5.7,
+            "feature": "north_relief",
+            "model": [
+              0.0,
+              0.0,
+              -6.0
+            ],
+            "point": "shoulder side",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "dia_nominal": 5.7,
+            "feature": "north_relief",
+            "model": [
+              0.0,
+              0.0,
+              -4.0
+            ],
+            "point": "journal side",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              2.0
+            ]
+          },
+          {
+            "dia_nominal": 10.0,
+            "feature": "shoulder_thrust",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "face",
+            "precision": 2,
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ]
+          },
+          {
+            "dia_nominal": 5.7,
+            "feature": "south_relief",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "shoulder side",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ]
+          },
+          {
+            "dia_nominal": 5.7,
+            "feature": "south_relief",
+            "model": [
+              0.0,
+              0.0,
+              -9.5
+            ],
+            "point": "body side",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              -3.5
+            ]
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "shoulder end",
+            "precision": 2,
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ]
+          }
+        ],
+        "tool_nose_radius_mm": "unknown",
+        "x_display": "unknown"
+      },
+      "rule": "coordinates",
+      "status": "unknown",
       "subject": "S1"
     },
     {
       "cite": [
-        "PLAN.md §3.7, §4 coordinate_table",
-        "examples/pivot-shaft/spec.yaml frame T2",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-46",
-        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-342,431",
-        "examples/pivot-shaft/expected/coordinates/S2.csv"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:221",
+        "examples/pivot-shaft/features.toml:104"
       ],
-      "evidence": [
-        "T2→model: (x,y,z)→(x,y,z+1.5); inverse z_T2=z_model−1.5. Right-handed identity basis, temporary contact face at north apex plane sets0.",
-        "North dome apex model+1.5→T2 Z0/X0; its rim model0→T2 Z−1.5 mm (−0.0590551181 in) at diameter6.35 mm=0.25 in. CSV lists the endpoint, not a toolpath.",
-        "Dome profile radius=((6.35/2)^2+1.5^2)/(2×1.5)=4.1102083333333335 mm=0.1618192257 in; base radius3.175 mm=0.125 in; no inferred cutter geometry.",
-        "Both operations have rows, blank non-coordinate fields stay blank. No final planar end at the apex is claimed."
-      ],
-      "rule": "coordinate_table",
-      "severity": "block",
-      "status": "pass",
+      "message": "S2 stations are exact from the drawing, but whether the lathe readout shows X as diameter and the tool nose radius are unknown.",
+      "numbers": {
+        "binding": "nominal",
+        "frame": "T2",
+        "rows": [
+          {
+            "dia_nominal": 10.0,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              -6.0
+            ],
+            "point": "shoulder north face (Z touch)",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              -7.5
+            ]
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "point": "north end (dome base)",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ]
+          },
+          {
+            "dia_nominal": 0.0,
+            "feature": "north_dome",
+            "model": [
+              0.0,
+              0.0,
+              1.5
+            ],
+            "point": "apex",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_dome",
+            "model": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "point": "base",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ]
+          },
+          {
+            "dia_nominal": 0.0,
+            "feature": "north_dome",
+            "model": [
+              0.0,
+              0.0,
+              -2.6102083333333335
+            ],
+            "point": "sphere centre (R 4.11)",
+            "precision": 2,
+            "setup": [
+              0.0,
+              0.0,
+              -4.1102083333333335
+            ]
+          }
+        ],
+        "tool_nose_radius_mm": "unknown",
+        "x_display": "unknown"
+      },
+      "rule": "coordinates",
+      "status": "unknown",
       "subject": "S2"
     },
     {
       "cite": [
-        "PLAN.md §3.2, §3.7, §4 coordinate_table",
-        "examples/pivot-shaft/spec.yaml frame T3 and feature plain_end",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:13-16,50-52",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107,112-115",
-        "examples/pivot-shaft/expected/coordinates/S3.csv"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:315",
+        "examples/pivot-shaft/features.toml:120"
       ],
-      "evidence": [
-        "Missing fields: assembly.measured_installed_ear_span_mm and assembly.chosen_fitted_cylinder_length_mm. Source says CUT TO FIT; neither actual value is present in consumer config/spec/build.",
-        "Nominal-only T3→model: (x,y,z)→(x,−y,−158.17−z), a right-handed reversed axial frame. Inverse nominal z_T3=−158.17−z_model. Actual origin.z=−(chosen_fitted_length+1.5) is unknown.",
-        "Nominal span=20×7.0565+1.5+2×6+1.59+0.45=156.67 mm=6.1681102362 in; nominal south apex−(156.67+1.5)=−158.17 mm=−6.2271653543 in. These are reference geometry, not substituted for an as-built span.",
-        "Z pickup at the eventual actual south-apex contact face sets0; local dome tip X0/Z0 follows that pickup but cannot bind to the model without the missing fitted length. The fit-cut row has blank x/y/z rather than invented absolute coordinates.",
-        "Hand check of the local dome rim gives Z−1.5 mm and diameter6.35 mm; the table is deliberately not a certified final-fit table."
-      ],
-      "rule": "coordinate_table",
-      "severity": "block",
+      "message": "S3 coordinates are measured from the scribe; where the scribe falls on the model is the installed-ear span, which is not measured yet.",
+      "numbers": {
+        "binding": "unknown",
+        "frame": "T3",
+        "rows": [
+          {
+            "binding": "unknown",
+            "dia_nominal": 6.35,
+            "feature": "plain_end",
+            "model": [
+              0.0,
+              0.0,
+              -156.67
+            ],
+            "point": "scribe (south ear outer face)",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "binding": "unknown",
+            "dia_nominal": 6.35,
+            "feature": "plain_end",
+            "model": [
+              0.0,
+              0.0,
+              "unknown"
+            ],
+            "model_reference_band": [
+              -158.17,
+              -158.67
+            ],
+            "point": "cut face (dome apex)",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              "unknown"
+            ],
+            "setup_band": [
+              1.5,
+              2.0
+            ]
+          },
+          {
+            "binding": "unknown",
+            "dia_nominal": 6.35,
+            "feature": "south_dome",
+            "model": [
+              0.0,
+              0.0,
+              "unknown"
+            ],
+            "model_reference_band": [
+              -156.67,
+              -157.17
+            ],
+            "point": "base (cylinder end)",
+            "precision": 1,
+            "setup": [
+              0.0,
+              0.0,
+              "unknown"
+            ],
+            "setup_band": [
+              0.0,
+              0.5
+            ]
+          }
+        ],
+        "tool_nose_radius_mm": "unknown",
+        "x_display": "unknown"
+      },
+      "rule": "coordinates",
       "status": "unknown",
       "subject": "S3"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature body",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:197",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S1:40 rough_turn, S1:50 finish_turn.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The body is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S1:40",
+          "S1:50"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "body"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature north_dome",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:266",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S2:10 remove_allowance_and_face, S2:20 form_dome.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The north dome is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S2:10",
+          "S2:20"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "north_dome"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature north_journal",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:133",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S1:20 rough_turn, S1:30 finish_turn.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The north journal is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S1:20",
+          "S1:30",
+          "S2:30"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "north_journal"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature north_relief",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:220",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S1:80 form_relief.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The north relief is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S1:80"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "north_relief"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature plain_end",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:317",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S3:10 cut_to_fit.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The plain end is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S3:10"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "plain_end"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature shoulder",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:159",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S1:10 establish_datum, S1:70 finish_turn.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The shoulder is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S1:10",
+          "S1:70"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "shoulder"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature shoulder_thrust",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:180",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S1:60 finish_face.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The shoulder thrust face is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S1:60"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "shoulder_thrust"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature south_dome",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:289",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S3:20 form_dome.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The south dome is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S3:20"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "south_dome"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "examples/pivot-shaft/spec.yaml feature south_relief",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:243",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
       ],
-      "evidence": [
-        "Declared operation coverage: S1:90 form_relief.",
-        "The feature has a declared inspection entry on its finishing/forming/fitting operation. Coverage checks presence, not gauge capability, a measured result, surface finish achievement or geometric accessibility."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The south relief is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "numbers": {
+        "ops": [
+          "S1:90"
+        ],
+        "position_datums": [],
+        "refixture_budget_mm": "unknown"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
       "subject": "south_relief"
     },
     {
       "cite": [
-        "PLAN.md §3.5, §4 envelope",
-        "examples/inventory/pedro-shop.yaml:23-44,76,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1",
-        "examples/pivot-shaft/spec.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:53",
+        "examples/inventory/pedro-shop.toml:51"
       ],
-      "evidence": [
-        "Missing/unverified fields: machines.PM-1127VF-LB mount, swing_over_bed_in, bore_in, travel/clearance and tailstock geometry carry verify:true; workholding.chuck-3jaw-6-d1-4 also carries verify:true. Vendor ratings are not measured envelopes.",
-        "Missing fields: chuck.jaw_swing_dia_in, actual jaw engagement/grip extent, mounted tool.projection_in, holder.gauge_length_in and holder.insertion_in; tools.turning-tools-warner-lms-4132.shank_in=null and insert nose/side-clearance envelopes absent.",
-        "Reference conversion only: stockØ10 mm=0.3937007874 in (radius5 mm=0.1968503937 in), supplied shaft175 mm=6.8897637795 in; no ≤ inequality can pass without measured assembled limits.",
-        "Authored prepared blank215=175+15+25 mm=8.4645669291 in; actual north sacrificial centre-seat geometry, dead-centre engagement and tailstock.quill_in/usable reach are missing. Accessory ref inherits machines.PM-1127VF-LB.verify:true.",
-        "Relief radial removal=(6.35−5.70)/2=0.325 mm=0.0127952756 in; width2 mm=0.0787401575 in. Selected E nose, accessible flank/side clearance and projection are unmeasured; this arithmetic is not reach proof."
+      "message": "S1 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
+      "numbers": {
+        "between_centres_in": 27.55,
+        "machine_kind": "lathe",
+        "machine_verify": true,
+        "stickout_mm": "unknown",
+        "stock_length_mm": "unknown",
+        "swing_over_bed_in": 11
+      },
+      "rule": "headroom",
+      "status": "unsupported",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:221",
+        "examples/inventory/pedro-shop.toml:51"
       ],
-      "rule": "envelope",
-      "severity": "block",
+      "message": "S2 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
+      "numbers": {
+        "between_centres_in": 27.55,
+        "machine_kind": "lathe",
+        "machine_verify": true,
+        "stickout_mm": "unknown",
+        "stock_length_mm": "unknown",
+        "swing_over_bed_in": 11
+      },
+      "rule": "headroom",
+      "status": "unsupported",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:315",
+        "examples/inventory/pedro-shop.toml:51"
+      ],
+      "message": "S3 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
+      "numbers": {
+        "between_centres_in": 27.55,
+        "machine_kind": "lathe",
+        "machine_verify": true,
+        "stickout_mm": "unknown",
+        "stock_length_mm": "unknown",
+        "swing_over_bed_in": 11
+      },
+      "rule": "headroom",
+      "status": "unsupported",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:53",
+        "harmonic-analyzer/cad/config/title_block.yaml:45"
+      ],
+      "message": "S1 does not say the grip length, the stop, how tight to clamp, the coolant or the feed direction of each cut, nor how the dead centre is lubricated.",
+      "numbers": {
+        "missing": [
+          "coolant",
+          "hold.grip_mm",
+          "hold.stop",
+          "hold.clamp",
+          "hold.centre_lubrication",
+          "stock_state.north_end_z",
+          "stock_state.south_end_z",
+          "ops.10.direction",
+          "ops.20.direction",
+          "ops.30.direction",
+          "ops.40.direction",
+          "ops.50.direction",
+          "ops.60.direction",
+          "ops.70.direction",
+          "ops.80.direction",
+          "ops.90.direction"
+        ],
+        "present": {
+          "deburr_mm": 0.25,
+          "fixture": "chuck-3jaw-6-d1-4",
+          "grip_on": "south grip allowance, past the supply station",
+          "holder_per_cutting_op": true,
+          "support": "dead_centre_tailstock_mt3"
+        }
+      },
+      "rule": "hold_fields",
       "status": "unknown",
       "subject": "S1"
     },
     {
       "cite": [
-        "PLAN.md §3.5, §4 envelope",
-        "examples/inventory/pedro-shop.yaml:23-44,76,142-150",
-        "examples/pivot-shaft/plan.yaml setup S2",
-        "examples/pivot-shaft/spec.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:221",
+        "harmonic-analyzer/cad/config/title_block.yaml:45"
       ],
-      "evidence": [
-        "Missing/unverified fields: machines.PM-1127VF-LB mount, swing_over_bed_in, bore_in, travel/clearance and tailstock geometry carry verify:true; workholding.chuck-3jaw-6-d1-4 also carries verify:true. Vendor ratings are not measured envelopes.",
-        "Missing fields: chuck.jaw_swing_dia_in, actual jaw engagement/grip extent, mounted tool.projection_in, holder.gauge_length_in and holder.insertion_in; tools.turning-tools-warner-lms-4132.shank_in=null and insert nose/side-clearance envelopes absent.",
-        "Reference conversion only: stockØ10 mm=0.3937007874 in (radius5 mm=0.1968503937 in), supplied shaft175 mm=6.8897637795 in; no ≤ inequality can pass without measured assembled limits.",
-        "Declared rechuck withdraws tailstock for dome access; local stickout, jaw-to-tool clearance, face protection and grip engagement have no measured values. No ball-turner or undeclared accessory is assumed."
-      ],
-      "rule": "envelope",
-      "severity": "block",
+      "message": "S2 does not say the grip length, the stop, how tight to clamp, the coolant or the feed direction of each cut, nor how the jaws are kept off the finished Ø6.35 body.",
+      "numbers": {
+        "missing": [
+          "coolant",
+          "hold.grip_mm",
+          "hold.stop",
+          "hold.clamp",
+          "hold.jaw_protection",
+          "stock_state.north_end_z",
+          "stock_state.south_end_z",
+          "ops.10.direction",
+          "ops.20.direction"
+        ],
+        "present": {
+          "deburr_mm": 0.25,
+          "fixture": "chuck-3jaw-6-d1-4",
+          "grip_on": "finished body near the shoulder, south of the south relief",
+          "holder_per_cutting_op": true,
+          "support": "none"
+        }
+      },
+      "rule": "hold_fields",
       "status": "unknown",
       "subject": "S2"
     },
     {
       "cite": [
-        "PLAN.md §3.5, §4 envelope",
-        "examples/inventory/pedro-shop.yaml:23-44,76,142-150",
-        "examples/pivot-shaft/plan.yaml setup S3",
-        "examples/pivot-shaft/spec.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:315",
+        "harmonic-analyzer/cad/config/title_block.yaml:45"
       ],
-      "evidence": [
-        "Missing/unverified fields: machines.PM-1127VF-LB mount, swing_over_bed_in, bore_in, travel/clearance and tailstock geometry carry verify:true; workholding.chuck-3jaw-6-d1-4 also carries verify:true. Vendor ratings are not measured envelopes.",
-        "Missing fields: chuck.jaw_swing_dia_in, actual jaw engagement/grip extent, mounted tool.projection_in, holder.gauge_length_in and holder.insertion_in; tools.turning-tools-warner-lms-4132.shank_in=null and insert nose/side-clearance envelopes absent.",
-        "Reference conversion only: stockØ10 mm=0.3937007874 in (radius5 mm=0.1968503937 in), supplied shaft175 mm=6.8897637795 in; no ≤ inequality can pass without measured assembled limits.",
-        "Declared rechuck withdraws tailstock for dome access; local stickout, jaw-to-tool clearance, face protection and grip engagement have no measured values. No ball-turner or undeclared accessory is assumed.",
-        "Missing fields: assembly.measured_installed_ear_span_mm and assembly.chosen_fitted_cylinder_length_mm additionally prevent a final plain-end location/envelope; repeated facing is planned rather than an invented parting blade."
-      ],
-      "rule": "envelope",
-      "severity": "block",
+      "message": "S3 does not say the grip length, the stop, how tight to clamp, the coolant or the feed direction of each cut, nor how the jaws are kept off the finished Ø6.35 body.",
+      "numbers": {
+        "missing": [
+          "coolant",
+          "hold.grip_mm",
+          "hold.stop",
+          "hold.clamp",
+          "hold.jaw_protection",
+          "stock_state.plain_end_z",
+          "stock_state.north_end_z",
+          "ops.10.direction",
+          "ops.20.direction"
+        ],
+        "present": {
+          "deburr_mm": 0.25,
+          "fixture": "chuck-3jaw-6-d1-4",
+          "grip_on": "body near the plain end, north of the scribe",
+          "holder_per_cutting_op": true,
+          "support": "none"
+        }
+      },
+      "rule": "hold_fields",
       "status": "unknown",
       "subject": "S3"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 10"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:197",
+        "examples/pivot-shaft/plan.toml:149",
+        "examples/inventory/pedro-shop.toml:535"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
+      "message": "Body Ø6.350 (6.330 to 6.350) is checked with the 0-1 in micrometer in op 50, but that gauge is not confirmed in the inventory.",
+      "numbers": {
+        "band": [
+          6.33,
+          6.35
+        ],
+        "check": "micrometers/0-1in",
+        "gauge_range_mm": [
+          0.0,
+          25.4
+        ],
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "op": "S1:50",
+        "precision": 3,
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "body:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:197",
+        "examples/pivot-shaft/plan.toml:149"
       ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Body finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
+      "numbers": {
+        "band": 1.6,
+        "check": "unknown",
+        "op": "S1:50",
+        "precision": 1,
+        "requirement": "finish_ra"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "body:finish_ra"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:266",
+        "examples/pivot-shaft/plan.toml:286"
+      ],
+      "message": "North dome height 1.5 (0.738 to 2.262) has no stated check: the dome's base is an edge, not a face, and no way to measure the height is stated.",
+      "numbers": {
+        "band": [
+          0.738,
+          2.262
+        ],
+        "check": "unknown",
+        "op": "S2:20",
+        "precision": 1,
+        "requirement": "height"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "north_dome:height"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:133",
+        "examples/pivot-shaft/plan.toml:124",
+        "examples/inventory/pedro-shop.toml:535"
+      ],
+      "message": "North journal Ø6.350 (6.330 to 6.350) is checked with the 0-1 in micrometer in op 30, but that gauge is not confirmed in the inventory.",
+      "numbers": {
+        "band": [
+          6.33,
+          6.35
+        ],
+        "check": "micrometers/0-1in",
+        "gauge_range_mm": [
+          0.0,
+          25.4
+        ],
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "op": "S1:30",
+        "precision": 3,
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "north_journal:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:133",
+        "examples/pivot-shaft/plan.toml:124"
+      ],
+      "message": "North journal finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
+      "numbers": {
+        "band": 1.6,
+        "check": "unknown",
+        "op": "S1:30",
+        "precision": 1,
+        "requirement": "finish_ra"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "north_journal:finish_ra"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:133",
+        "examples/pivot-shaft/plan.toml:301"
+      ],
+      "message": "North journal length 6.0 (5.238 to 6.762) has no stated check: no way to measure from the dome's base edge to the shoulder face is stated.",
+      "numbers": {
+        "band": [
+          5.238,
+          6.762
+        ],
+        "check": "unknown",
+        "op": "S2:30",
+        "precision": 1,
+        "requirement": "length"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "north_journal:length"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:220",
+        "examples/pivot-shaft/plan.toml:190",
+        "examples/inventory/pedro-shop.toml:528"
+      ],
+      "message": "North relief Ø5.700 (5.573 to 5.827) is checked with the calipers in op 80, but the calipers' jaws are not confirmed to reach into the 2.0 wide groove.",
+      "numbers": {
+        "band": [
+          5.573,
+          5.827
+        ],
+        "check": "calipers",
+        "gauge_range_mm": [
+          0.0,
+          152.4
+        ],
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "op": "S1:80",
+        "precision": 3,
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "north_relief:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:220",
+        "examples/pivot-shaft/plan.toml:190",
+        "examples/inventory/pedro-shop.toml:528"
+      ],
+      "message": "North relief width 2.0 (1.238 to 2.762) is checked with the calipers in op 80, but the calipers are unconfirmed and their inside-jaw fit in the groove is unknown.",
+      "numbers": {
+        "band": [
+          1.238,
+          2.762
+        ],
+        "check": "calipers",
+        "gauge_range_mm": [
+          0.0,
+          152.4
+        ],
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "op": "S1:80",
+        "precision": 1,
+        "requirement": "width"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "north_relief:width"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:317",
+        "examples/pivot-shaft/plan.toml:370"
+      ],
+      "message": "Plain end cut-to-fit length (scribe + 0 to 0.5; 156.7 REF) has no stated check: the installed-ear span is not measured yet and no way to measure from the scribe to the cut face is stated.",
+      "numbers": {
+        "band": "unknown",
+        "check": "unknown",
+        "cut_past_scribe": [
+          1.5,
+          2.0
+        ],
+        "end_past_scribe": [
+          0.0,
+          0.5
+        ],
+        "length_reference": 156.67,
+        "op": "S3:10",
+        "precision": 1,
+        "requirement": "length"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "plain_end:length"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:159",
+        "examples/pivot-shaft/plan.toml:175",
+        "examples/inventory/pedro-shop.toml:535"
+      ],
+      "message": "Shoulder Ø10.00 (9.492 to 10.508) is checked with the 0-1 in micrometer in op 70, but that gauge is not confirmed in the inventory.",
+      "numbers": {
+        "band": [
+          9.492,
+          10.508
+        ],
+        "check": "micrometers/0-1in",
+        "gauge_range_mm": [
+          0.0,
+          25.4
+        ],
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "op": "S1:70",
+        "precision": 2,
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "shoulder:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:159",
+        "examples/pivot-shaft/plan.toml:175",
+        "examples/inventory/pedro-shop.toml:528"
+      ],
+      "message": "Shoulder length 1.50 (0.992 to 2.008) is checked with the calipers in op 70, but that gauge is not confirmed in the inventory.",
+      "numbers": {
+        "band": [
+          0.992,
+          2.008
+        ],
+        "check": "calipers",
+        "gauge_range_mm": [
+          0.0,
+          152.4
+        ],
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "op": "S1:70",
+        "precision": 2,
+        "requirement": "length"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "shoulder:length"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:180",
+        "examples/pivot-shaft/plan.toml:163"
+      ],
+      "message": "Shoulder thrust face finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
+      "numbers": {
+        "band": 1.6,
+        "check": "unknown",
+        "op": "S1:60",
+        "precision": 1,
+        "requirement": "finish_ra"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "shoulder_thrust:finish_ra"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:289",
+        "examples/pivot-shaft/plan.toml:384"
+      ],
+      "message": "South dome height 1.5 (0.738 to 2.262) has no stated check: the dome's base is an edge, not a face, and no way to measure the height is stated.",
+      "numbers": {
+        "band": [
+          0.738,
+          2.262
+        ],
+        "check": "unknown",
+        "op": "S3:20",
+        "precision": 1,
+        "requirement": "height"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "south_dome:height"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:243",
+        "examples/pivot-shaft/plan.toml:205",
+        "examples/inventory/pedro-shop.toml:528"
+      ],
+      "message": "South relief Ø5.700 (5.573 to 5.827) is checked with the calipers in op 90, but the calipers' jaws are not confirmed to reach into the 2.0 wide groove.",
+      "numbers": {
+        "band": [
+          5.573,
+          5.827
+        ],
+        "check": "calipers",
+        "gauge_range_mm": [
+          0.0,
+          152.4
+        ],
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "op": "S1:90",
+        "precision": 3,
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "south_relief:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:243",
+        "examples/pivot-shaft/plan.toml:205",
+        "examples/inventory/pedro-shop.toml:528"
+      ],
+      "message": "South relief width 2.0 (1.238 to 2.762) is checked with the calipers in op 90, but the calipers are unconfirmed and their inside-jaw fit in the groove is unknown.",
+      "numbers": {
+        "band": [
+          1.238,
+          2.762
+        ],
+        "check": "calipers",
+        "gauge_range_mm": [
+          0.0,
+          152.4
+        ],
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "op": "S1:90",
+        "precision": 1,
+        "requirement": "width"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "south_relief:width"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:197",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The body is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S1:40",
+          "S1:50"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "body"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:266",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The north dome is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "dome",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S2:10",
+          "S2:20"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "north_dome"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:133",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The north journal is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S1:20",
+          "S1:30",
+          "S2:30"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "north_journal"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:220",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The north relief is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "groove",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S1:80"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "north_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:317",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The plain end is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "cut_end",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S3:10"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "plain_end"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:159",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The shoulder is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S1:10",
+          "S1:70"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "shoulder"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:180",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The shoulder thrust face is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "face",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S1:60"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "shoulder_thrust"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:289",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The south dome is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "dome",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S3:20"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "south_dome"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:243",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+      ],
+      "message": "The south relief is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "numbers": {
+        "feature_kind": "groove",
+        "hole_thread_counterbore": false,
+        "ops": [
+          "S1:90"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "south_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:53"
+      ],
+      "message": "S1 runs rough before finish on every feature and has nothing out of order.",
+      "numbers": {
+        "release_last": "no release op",
+        "rough_before_finish": true,
+        "sequence": [
+          [
+            10,
+            "face",
+            "shoulder"
+          ],
+          [
+            20,
+            "rough_turn",
+            "north_journal"
+          ],
+          [
+            30,
+            "finish_turn",
+            "north_journal"
+          ],
+          [
+            40,
+            "rough_turn",
+            "body"
+          ],
+          [
+            50,
+            "finish_turn",
+            "body"
+          ],
+          [
+            60,
+            "face",
+            "shoulder_thrust"
+          ],
+          [
+            70,
+            "finish_turn",
+            "shoulder"
+          ],
+          [
+            80,
+            "form_relief",
+            "north_relief"
+          ],
+          [
+            90,
+            "form_relief",
+            "south_relief"
+          ]
+        ]
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:221"
+      ],
+      "message": "S2 runs rough before finish on every feature and has nothing out of order.",
+      "numbers": {
+        "release_last": "no release op",
+        "rough_before_finish": true,
+        "sequence": [
+          [
+            10,
+            "face",
+            "north_dome"
+          ],
+          [
+            20,
+            "form_dome",
+            "north_dome"
+          ],
+          [
+            30,
+            "inspect",
+            "north_journal"
+          ]
+        ]
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:315"
+      ],
+      "message": "S3 runs rough before finish on every feature and has nothing out of order.",
+      "numbers": {
+        "release_last": "no release op",
+        "rough_before_finish": true,
+        "sequence": [
+          [
+            10,
+            "cut_to_fit",
+            "plain_end"
+          ],
+          [
+            20,
+            "form_dome",
+            "south_dome"
+          ]
+        ]
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:197"
+      ],
+      "message": "The body is sized by where a single-point tool is put, not by the tool's own size.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "ops": [
+          "S1:40",
+          "S1:50"
+        ],
+        "sized_by": "tool position, not tool size"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "body"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:266"
+      ],
+      "message": "The north dome is sized by where a single-point tool is put, not by the tool's own size.",
+      "numbers": {
+        "feature_kind": "dome",
+        "ops": [
+          "S2:10",
+          "S2:20"
+        ],
+        "sized_by": "tool position, not tool size"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "north_dome"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:133"
+      ],
+      "message": "The north journal is sized by where a single-point tool is put, not by the tool's own size.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "ops": [
+          "S1:20",
+          "S1:30",
+          "S2:30"
+        ],
+        "sized_by": "tool position, not tool size"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "north_journal"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:220",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-73",
+        "examples/inventory/pedro-shop.toml:310"
+      ],
+      "message": "The north relief is 2.0 wide and assumes a corner of R0.25 or less, but the E tool's nose radius and reach are not in the inventory.",
+      "numbers": {
+        "corner_radius_max_design_mm": 0.25,
+        "dia": [
+          5.573,
+          5.827
+        ],
+        "feature_kind": "groove",
+        "ops": [
+          "S1:80"
+        ],
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_nose_radius_mm": "unknown",
+        "tool_reach_mm": "unknown",
+        "width": [
+          1.238,
+          2.762
+        ],
+        "width_min_mm": 1.238
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "north_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:317"
+      ],
+      "message": "The plain end is sized by where a single-point tool is put, not by the tool's own size.",
+      "numbers": {
+        "feature_kind": "cut_end",
+        "ops": [
+          "S3:10"
+        ],
+        "sized_by": "tool position, not tool size"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "plain_end"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:159"
+      ],
+      "message": "The shoulder is sized by where a single-point tool is put, not by the tool's own size.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "ops": [
+          "S1:10",
+          "S1:70"
+        ],
+        "sized_by": "tool position, not tool size"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "shoulder"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:180"
+      ],
+      "message": "The shoulder thrust face is sized by where a single-point tool is put, not by the tool's own size.",
+      "numbers": {
+        "feature_kind": "face",
+        "ops": [
+          "S1:60"
+        ],
+        "sized_by": "tool position, not tool size"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "shoulder_thrust"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:289"
+      ],
+      "message": "The south dome is sized by where a single-point tool is put, not by the tool's own size.",
+      "numbers": {
+        "feature_kind": "dome",
+        "ops": [
+          "S3:20"
+        ],
+        "sized_by": "tool position, not tool size"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "south_dome"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/features.toml:243",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-73",
+        "examples/inventory/pedro-shop.toml:310"
+      ],
+      "message": "The south relief is 2.0 wide and assumes a corner of R0.25 or less, but the E tool's nose radius and reach are not in the inventory.",
+      "numbers": {
+        "corner_radius_max_design_mm": 0.25,
+        "dia": [
+          5.573,
+          5.827
+        ],
+        "feature_kind": "groove",
+        "ops": [
+          "S1:90"
+        ],
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_nose_radius_mm": "unknown",
+        "tool_reach_mm": "unknown",
+        "width": [
+          1.238,
+          2.762
+        ],
+        "width_min_mm": 1.238
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "south_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:103",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
+      ],
+      "message": "Op 10: the cutting table's facing row for 1018 steel has no numbers yet and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.3937007874015748,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "face",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:10"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 20"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:113",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 20: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:20"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 30"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:124",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 30: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:30"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 40"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:138",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 40: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:40"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 50"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:149",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 50: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:50"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 60"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:163",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 60: the cutting table's facing row for 1018 steel has no numbers yet and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.3937007874015748,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "face",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:60"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 70"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:175",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 70: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.3937007874015748,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:70"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 80"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:190",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/E; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn.",
-        "Selected E insert nose geometry, side clearance and mounted projection are absent; no claim that it fits the relief/crown envelope is made."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 80: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.22440944881889766,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:80"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S1 op 90"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:205",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/E; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn.",
-        "Selected E insert nose geometry, side clearance and mounted projection are absent; no claim that it fits the relief/crown envelope is made."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 90: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.22440944881889766,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:90"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S2 op 10"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:276",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 10: the cutting table's facing row for 1018 steel has no numbers yet and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "face",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:10"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S2 op 20"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:286",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/E; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn.",
-        "Selected E insert nose geometry, side clearance and mounted projection are absent; no claim that it fits the relief/crown envelope is made."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 20: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:20"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S3 op 10"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:301"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/AR; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn."
+      "message": "Op 30 is a manual inspect with no cut.",
+      "numbers": {
+        "feed_mm_min": "not_applicable",
+        "manual": "inspect",
+        "rpm": "not_applicable"
+      },
+      "rule": "speeds_feeds",
+      "status": "not_applicable",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:370",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 10: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S3:10"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.5, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:42,44,142-150",
-        "examples/pivot-shaft/plan.yaml setup S3 op 20"
+        "PLAN.md §3.5",
+        "examples/pivot-shaft/plan.toml:384",
+        "examples/cutting-data.toml:6",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Selected tool turning-tools-warner-lms-4132/E; selected holder qctp-axa-lms-2280/1-turning-facing; machine PM-1127VF-LB. All item identities resolve without substituting another tool.",
-        "Missing field: tools.turning-tools-warner-lms-4132.shank_in=null; both tools.turning-tools-warner-lms-4132 and tools.qctp-axa-lms-2280 carry verify:true, inherited by /AR or /E and /1-turning-facing.",
-        "Advertised holder.max_shank_in=0.5 in=12.7 mm is also verify:true. Without measured tool shank, holder capacity and confirmed AXA machine fit, shank≤capacity and holder-to-machine compatibility are unknown, not fail or warn.",
-        "Selected E insert nose geometry, side clearance and mounted projection are absent; no claim that it fits the relief/crown envelope is made."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "Op 20: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "not_applicable",
+        "material_class": "low_carbon_steel",
+        "operation": "turn",
+        "row": "unknown",
+        "rpm": "unknown",
+        "rpm_max": 2200,
+        "rpm_min": 70,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S3:20"
     },
     {
       "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature body"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:51"
       ],
-      "evidence": [
-        "Feature kind=shaft; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "body"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature north_dome"
-      ],
-      "evidence": [
-        "Feature kind=shaft; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_dome"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature north_journal"
-      ],
-      "evidence": [
-        "Feature kind=shaft; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_journal"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature north_relief"
-      ],
-      "evidence": [
-        "Feature kind=shaft; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature plain_end"
-      ],
-      "evidence": [
-        "Feature kind=shaft; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "plain_end"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature shoulder"
-      ],
-      "evidence": [
-        "Feature kind=shaft; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "shoulder"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature shoulder_thrust"
-      ],
-      "evidence": [
-        "Feature kind=face; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "shoulder_thrust"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature south_dome"
-      ],
-      "evidence": [
-        "Feature kind=shaft; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "south_dome"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4",
-        "examples/pivot-shaft/spec.yaml feature south_relief"
-      ],
-      "evidence": [
-        "Feature kind=shaft; no hole, bore, counterbore or thread chain applies. No spot/drill/ream/tap operations are invented for the final part."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "south_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature body"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "body"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature north_dome"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_dome"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature north_journal"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_journal"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature north_relief"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature plain_end"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "plain_end"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature shoulder"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "shoulder"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature shoulder_thrust"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "shoulder_thrust"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature south_dome"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "south_dome"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "examples/pivot-shaft/spec.yaml feature south_relief"
-      ],
-      "evidence": [
-        "No indexed angular feature or angular-tolerance requirement exists for this turned shaft/face. Axial and rotationally symmetric profiles do not require a dividing plate."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "south_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:23-44",
-        "examples/pivot-shaft/plan.yaml"
-      ],
-      "evidence": [
-        "Exact selected reference resolves to machines.PM-1127VF-LB; no substitution, missing tool, lathe dog, drive plate, ball-turner or parting accessory is selected.",
-        "Unverified field: machines.PM-1127VF-LB.verify=true. The exact identity resolves, but inventory_refs inherits required-input verification uncertainty and remains unknown, not pass, fail or warn; no measured machine or confirmed availability is claimed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The PM-1127VF-LB lathe is listed, but its entry comes from a vendor page and is not confirmed on the machine.",
+      "numbers": {
+        "category": "machines",
+        "entry": "machines.PM-1127VF-LB",
+        "found": true,
+        "reference": "PM-1127VF-LB",
+        "used_by": [
+          "S1:machine",
+          "S2:machine",
+          "S3:machine"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "PM-1127VF-LB"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:159",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:103",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
       ],
-      "evidence": [
-        "Exact selected reference resolves to measuring.calipers; no substitution, missing tool, lathe dog, drive plate, ball-turner or parting accessory is selected.",
-        "Unverified field: measuring.calipers.verify=true. The exact identity resolves, but inventory_refs inherits required-input verification uncertainty and remains unknown, not pass, fail or warn; no measured gauge or confirmed availability is claimed."
+      "message": "Op 10: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:113",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
       ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "Op 20: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:124",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 30: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:138",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 40: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:149",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 50: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:163",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 60: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:175",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 70: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:190",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 80: the AXA holder matches the lathe's toolpost, but the E tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:205",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 90: the AXA holder matches the lathe's toolpost, but the E tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:276",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 10: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:286",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 20: the AXA holder matches the lathe's toolpost, but the E tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:370",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 10: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:384",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:310",
+        "examples/inventory/pedro-shop.toml:83"
+      ],
+      "message": "Op 20: the AXA holder matches the lathe's toolpost, but the E tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_max_shank_in": 0.5,
+        "holder_series": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_toolpost_series": "AXA",
+        "tool": "turning-tools-warner-lms-4132/E",
+        "tool_shank_in": "unknown",
+        "verify": [
+          "machine",
+          "holder",
+          "tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:528"
+      ],
+      "message": "The 6 in calipers are listed, but they are not confirmed.",
+      "numbers": {
+        "category": "gauges",
+        "entry": "gauges.calipers",
+        "found": true,
+        "range_in": 6,
+        "reference": "calipers",
+        "resolution_in": 0.0005,
+        "used_by": [
+          "S1:70.checks.length",
+          "S1:80.checks.dia",
+          "S1:80.checks.width",
+          "S1:90.checks.dia",
+          "S1:90.checks.width"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "calipers"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:43,76",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:441",
+        "examples/inventory/pedro-shop.toml:64"
       ],
-      "evidence": [
-        "Exact selected reference resolves to workholding.chuck-3jaw-6-d1-4 and PM-1127VF-LB.standard_accessories; no substitution, missing tool, lathe dog, drive plate, ball-turner or parting accessory is selected.",
-        "Unverified field: workholding.chuck-3jaw-6-d1-4.verify=true. The exact identity resolves, but inventory_refs inherits required-input verification uncertainty and remains unknown, not pass, fail or warn; listed standard-accessory membership is not bench verification."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The 6 in three-jaw chuck is listed and its D1-4 mount matches the lathe spindle, but the entry is not confirmed.",
+      "numbers": {
+        "category": "fixtures",
+        "entry": "fixtures.chuck-3jaw-6-d1-4",
+        "found": true,
+        "listed_accessory_of": "PM-1127VF-LB",
+        "machine_spindle_mount": "D1-4",
+        "mount": "D1-4",
+        "reference": "chuck-3jaw-6-d1-4",
+        "used_by": [
+          "S1:hold.fixture",
+          "S2:hold.fixture",
+          "S3:hold.fixture"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "chuck-3jaw-6-d1-4"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:38,43-44",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:51",
+        "examples/inventory/pedro-shop.toml:71"
       ],
-      "evidence": [
-        "Exact selected reference resolves to PM-1127VF-LB.standard_accessories; inherited parent machine; no substitution, missing tool, lathe dog, drive plate, ball-turner or parting accessory is selected.",
-        "Inherited unverified field: dead_centre_tailstock_mt3.ref -> machines.PM-1127VF-LB.verify=true. The listed accessory identity resolves, but inventory_refs inherits parent verification uncertainty and remains unknown; no measured centre or confirmed availability is claimed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The tailstock dead centre is known only as a standard accessory of the lathe, whose entry is unconfirmed; confirm it is on hand.",
+      "numbers": {
+        "category": "machines.PM-1127VF-LB.standard_accessories",
+        "entry": "machines.PM-1127VF-LB.standard_accessories",
+        "found": true,
+        "reference": "dead_centre_tailstock_mt3",
+        "resolved_via": "PM-1127VF-LB standard accessory",
+        "tailstock_taper": "MT3",
+        "used_by": [
+          "S1:hold.support"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "dead_centre_tailstock_mt3"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:161",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:542"
       ],
-      "evidence": [
-        "Exact selected reference resolves to measuring.dial-indicator; no substitution, missing tool, lathe dog, drive plate, ball-turner or parting accessory is selected.",
-        "Unverified field: measuring.dial-indicator.verify=true. The exact identity resolves, but inventory_refs inherits required-input verification uncertainty and remains unknown, not pass, fail or warn; no measured instrument or confirmed availability is claimed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The dial indicator is listed, but its range is unknown and it is not confirmed.",
+      "numbers": {
+        "category": "gauges",
+        "entry": "gauges.dial-indicator",
+        "found": true,
+        "range_in": "unknown",
+        "reference": "dial-indicator",
+        "resolution_in": 0.0005,
+        "used_by": [
+          "S2:zero.transfer.gauge",
+          "S3:zero.transfer.gauge"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "dial-indicator"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:160",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:535"
       ],
-      "evidence": [
-        "Exact selected reference resolves to measuring.micrometers.ranges_in[\"0-1\"]; this is the enumerated 0–1 inch instrument, not a bare set or an invented gauge. Other accessories/tool/holder selections resolve without substitution.",
-        "Inherited unverified field: micrometers/0-1in -> measuring.micrometers.verify=true. The enumerated instrument identity resolves, but inventory_refs inherits parent verification uncertainty and remains unknown; no measured instrument or confirmed availability is claimed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The 0-1 in micrometer is listed, but the set is not confirmed.",
+      "numbers": {
+        "category": "gauges",
+        "entry": "gauges.micrometers",
+        "found": true,
+        "range_in": "0-1",
+        "reference": "micrometers/0-1in",
+        "resolution_in": 0.0001,
+        "used_by": [
+          "S1:zero.x.gauge",
+          "S1:30.checks.dia",
+          "S1:50.checks.dia",
+          "S1:70.checks.dia",
+          "S2:zero.x.gauge",
+          "S3:zero.x.gauge"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "micrometers/0-1in"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:142-149",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:593",
+        "examples/inventory/pedro-shop.toml:602",
+        "examples/inventory/pedro-shop.toml:83"
       ],
-      "evidence": [
-        "Exact selected reference resolves to tools.qctp-axa-lms-2280.holders[\"#1 turning/facing\"]; no substitution, missing tool, lathe dog, drive plate, ball-turner or parting accessory is selected.",
-        "Inherited unverified field: qctp-axa-lms-2280/1-turning-facing -> tools.qctp-axa-lms-2280.verify=true. The enumerated holder identity resolves, but inventory_refs inherits parent verification uncertainty and remains unknown; holder membership is not bench confirmation."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The AXA #1 turning/facing holder is listed (two of them) and matches the lathe's AXA toolpost, but the set is not confirmed on this lathe.",
+      "numbers": {
+        "category": "holders",
+        "count": 2,
+        "entry": "holders.qctp-axa-lms-2280.holders.\"#1 turning/facing\"",
+        "found": true,
+        "machine_toolpost_series": "AXA",
+        "member": "#1 turning/facing",
+        "reference": "qctp-axa-lms-2280/1-turning-facing",
+        "series": "AXA",
+        "used_by": [
+          "S1:10.holder",
+          "S1:20.holder",
+          "S1:30.holder",
+          "S1:40.holder",
+          "S1:50.holder",
+          "S1:60.holder",
+          "S1:70.holder",
+          "S1:80.holder",
+          "S1:90.holder",
+          "S2:10.holder",
+          "S2:20.holder",
+          "S3:10.holder",
+          "S3:20.holder"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "qctp-axa-lms-2280/1-turning-facing"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:150",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:310"
       ],
-      "evidence": [
-        "Exact selected reference resolves to tools.turning-tools-warner-lms-4132.styles[AR]; no substitution, missing tool, lathe dog, drive plate, ball-turner or parting accessory is selected.",
-        "Inherited unverified field: turning-tools-warner-lms-4132/AR -> tools.turning-tools-warner-lms-4132.verify=true. The enumerated AR identity resolves, but inventory_refs inherits parent verification uncertainty and remains unknown; no measured tool or confirmed availability is claimed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The Warner AR turning tool is listed, but its shank size, insert grade and presence are not confirmed.",
+      "numbers": {
+        "category": "tools",
+        "entry": "tools.turning-tools-warner-lms-4132",
+        "found": true,
+        "insert": "TCMT-21.51",
+        "material": "unknown",
+        "reference": "turning-tools-warner-lms-4132/AR",
+        "shank_in": "unknown",
+        "style": "AR",
+        "used_by": [
+          "S1:zero.x.tool",
+          "S1:zero.z.tool",
+          "S1:10.tool",
+          "S1:20.tool",
+          "S1:30.tool",
+          "S1:40.tool",
+          "S1:50.tool",
+          "S1:60.tool",
+          "S1:70.tool",
+          "S2:zero.x.tool",
+          "S2:zero.z.tool",
+          "S2:10.tool",
+          "S3:zero.x.tool",
+          "S3:zero.z.tool",
+          "S3:10.tool"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "turning-tools-warner-lms-4132/AR"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3–3.5",
-        "examples/inventory/pedro-shop.yaml:150",
-        "examples/pivot-shaft/plan.yaml"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml",
+        "examples/inventory/pedro-shop.toml:310"
       ],
-      "evidence": [
-        "Exact selected reference resolves to tools.turning-tools-warner-lms-4132.styles[E]; no substitution, missing tool, lathe dog, drive plate, ball-turner or parting accessory is selected.",
-        "Inherited unverified field: turning-tools-warner-lms-4132/E -> tools.turning-tools-warner-lms-4132.verify=true. The enumerated E identity resolves, but inventory_refs inherits parent verification uncertainty and remains unknown; no measured tool or confirmed availability is claimed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The Warner E turning tool is listed, but its shank size, insert grade and presence are not confirmed.",
+      "numbers": {
+        "category": "tools",
+        "entry": "tools.turning-tools-warner-lms-4132",
+        "found": true,
+        "insert": "TCMT-21.51",
+        "material": "unknown",
+        "reference": "turning-tools-warner-lms-4132/E",
+        "shank_in": "unknown",
+        "style": "E",
+        "used_by": [
+          "S1:80.tool",
+          "S1:90.tool",
+          "S2:20.tool",
+          "S3:20.tool"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "turning-tools-warner-lms-4132/E"
     },
     {
       "cite": [
-        "PLAN.md §4 op_order",
-        "examples/pivot-shaft/plan.yaml setup S1",
-        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:425-434"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:53",
+        "examples/pivot-shaft/plan.toml:40",
+        "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
+        "examples/inventory/pedro-shop.toml:51"
       ],
-      "evidence": [
-        "Op10 establishes the datum face before the recorded contact pickup; north journal rough20 precedes finish30, body rough40 precedes finish50.",
-        "Shoulder thrust-face60 and shoulder finish70 precede reliefs80/90; the integral Ø10 shoulder is retained and both real shoulder reliefs are covered. No drill/ream/tap precedence is applicable."
-      ],
-      "rule": "op_order",
-      "severity": "block",
-      "status": "pass",
+      "message": "S1: no DRO is listed for the lathe, so its Direction and Radial/Diametric settings and the check-jog reading are unknown; the E tool used in S1 has no touch-off of its own.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge_mm": 0.0,
+            "jog_mm": "unknown",
+            "method": "trial_cut_measure",
+            "mirrored_reading": "unknown",
+            "note": "Axis Set is the measured trial-cut diameter (or radius), read at the bench",
+            "paper_mm": "not_applicable",
+            "radius_mm": "not_applicable",
+            "sign": "unknown"
+          },
+          "z": {
+            "axis_set": 0.0,
+            "check_reading": "unknown",
+            "edge_mm": 0.0,
+            "jog_mm": "unknown",
+            "method": "face_then_set",
+            "mirrored_reading": "unknown",
+            "paper_mm": 0.0,
+            "radius_mm": "not_applicable",
+            "sign": "unknown"
+          }
+        },
+        "direction": {
+          "x": "unknown",
+          "z": "unknown"
+        },
+        "dro_controller": "unknown",
+        "radius_mode": "unknown",
+        "retouch": [],
+        "tools_used": [
+          "turning-tools-warner-lms-4132/AR",
+          "turning-tools-warner-lms-4132/E"
+        ],
+        "tools_without_touch": [
+          "turning-tools-warner-lms-4132/E"
+        ]
+      },
+      "rule": "zero_check",
+      "status": "unknown",
       "subject": "S1"
     },
     {
       "cite": [
-        "PLAN.md §4 op_order",
-        "examples/pivot-shaft/plan.yaml setup S2",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-53"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:221",
+        "examples/pivot-shaft/plan.toml:40",
+        "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
+        "examples/inventory/pedro-shop.toml:51"
       ],
-      "evidence": [
-        "Explicit rechuck and tailstock withdrawal precede op10 removal of the sacrificial north allowance; op10 establishes the temporary apex pickup face before dome20.",
-        "No centre seat or flat end survives as an invented final feature."
-      ],
-      "rule": "op_order",
-      "severity": "block",
-      "status": "pass",
+      "message": "S2: no DRO is listed for the lathe, so its Direction and Radial/Diametric settings and the check-jog reading are unknown; the E tool used in S2 has no touch-off of its own.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge_mm": 0.0,
+            "jog_mm": "unknown",
+            "method": "trial_cut_measure",
+            "mirrored_reading": "unknown",
+            "note": "Axis Set is the measured trial-cut diameter (or radius), read at the bench",
+            "paper_mm": "not_applicable",
+            "radius_mm": "not_applicable",
+            "sign": "unknown"
+          },
+          "z": {
+            "axis_set": -7.5,
+            "check_reading": "unknown",
+            "edge_mm": -7.5,
+            "jog_mm": "unknown",
+            "method": "touch",
+            "mirrored_reading": "unknown",
+            "paper_mm": 0.0,
+            "radius_mm": "not_applicable",
+            "sign": "unknown"
+          }
+        },
+        "direction": {
+          "x": "unknown",
+          "z": "unknown"
+        },
+        "dro_controller": "unknown",
+        "radius_mode": "unknown",
+        "retouch": [],
+        "tools_used": [
+          "turning-tools-warner-lms-4132/AR",
+          "turning-tools-warner-lms-4132/E"
+        ],
+        "tools_without_touch": [
+          "turning-tools-warner-lms-4132/E"
+        ],
+        "transfer": {
+          "from": "S1",
+          "gauge": "dial-indicator",
+          "indicate": "body",
+          "runout_limit_mm": "unknown"
+        }
+      },
+      "rule": "zero_check",
+      "status": "unknown",
       "subject": "S2"
     },
     {
       "cite": [
-        "PLAN.md §4 op_order",
-        "examples/pivot-shaft/plan.yaml setup S3",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:13-16,178-188"
+        "PLAN.md §4.1",
+        "examples/pivot-shaft/plan.toml:315",
+        "examples/pivot-shaft/plan.toml:40",
+        "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
+        "examples/inventory/pedro-shop.toml:51"
       ],
-      "evidence": [
-        "Declared prerequisite is measurement of the installed-ear span; explicit rechuck precedes fit-cut10, repickup and south-dome20.",
-        "The dependency order is valid even though the required actual span and corresponding absolute cut coordinate remain absent; this is not a claimed completed fit."
-      ],
-      "rule": "op_order",
-      "severity": "block",
-      "status": "pass",
-      "subject": "S3"
-    },
-    {
-      "cite": [
-        "PLAN.md §2, §3.4",
-        "examples/policy/default.yaml",
-        "examples/pivot-shaft/policy.yaml",
-        "examples/pivot-shaft/plan.yaml"
-      ],
-      "evidence": [
-        "policy.yaml is a byte-for-byte copy of examples/policy/default.yaml; all 14 M1/M1b rules are required.",
-        "Plan does not remove or downgrade rules. coverage severity is warn; every other rule severity is block."
-      ],
-      "rule": "policy_integrity",
-      "severity": "block",
-      "status": "pass",
-      "subject": "policy"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.2–3.5",
-        "examples/pivot-shaft/spec.yaml",
-        "examples/pivot-shaft/plan.yaml",
-        "examples/pivot-shaft/policy.yaml"
-      ],
-      "evidence": [
-        "Reference fixture uses typed shaft/face features, three explicit setups, complete structured x/y/z pickups and resolvable feature/operation references; no hole, thread or unsupported indexing subject is manufactured.",
-        "All report statuses and severity labels follow the 14-rule consumer policy. This is an authored expected result, not output from an implemented checker."
-      ],
-      "rule": "schema",
-      "severity": "block",
-      "status": "pass",
-      "subject": "inputs"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature body",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,99-116; harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-121"
-      ],
-      "evidence": [
-        "Feature kind=shaft; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "body"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature north_dome",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-53; harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-342,431"
-      ],
-      "evidence": [
-        "Feature kind=shaft; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_dome"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature north_journal",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:18-22,37-44; harmonic-analyzer/cad/scripts/build_pivot_shaft.py:113-119"
-      ],
-      "evidence": [
-        "Feature kind=shaft; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_journal"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature north_relief",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97; harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202"
-      ],
-      "evidence": [
-        "Feature kind=shaft; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "north_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature plain_end",
-        "harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:9; harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:13-16,50-52,178-188"
-      ],
-      "evidence": [
-        "Feature kind=shaft; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "plain_end"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature shoulder",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-44; harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-119"
-      ],
-      "evidence": [
-        "Feature kind=shaft; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "shoulder"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature shoulder_thrust",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104-127"
-      ],
-      "evidence": [
-        "Feature kind=face; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "shoulder_thrust"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature south_dome",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-53; harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-342,433"
-      ],
-      "evidence": [
-        "Feature kind=shaft; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "south_dome"
-    },
-    {
-      "cite": [
-        "PLAN.md §4",
-        "examples/pivot-shaft/spec.yaml feature south_relief",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97; harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208"
-      ],
-      "evidence": [
-        "Feature kind=shaft; sizing_tool applicability is the selected finishing tool for a toleranced hole/bore/thread. This feature is an external turned shaft/profile or face, not one of those kinds.",
-        "No diameter is inferred from an insert, and missing insert shank/nose geometry is reported per operation by holder_compat/envelope rather than converted into a sizing pass."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "south_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.1–3.2",
-        "examples/pivot-shaft/spec.yaml",
-        "examples/pivot-shaft/plan.yaml",
-        "harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:1-9",
-        "harmonic-analyzer/cad/scripts/_common.py:1751-1765"
-      ],
-      "evidence": [
-        "Missing field: certified_export.step_bytes; step_sha256 remains exactly <sha256 of cad/out/step/pivot-shaft.step>. No STEP was imported, hashed or paired with this hand-authored sidecar.",
-        "plan.spec_sha256 matches SHA256 of the actual spec.yaml bytes, but matching a sidecar digest does not certify the absent STEP/sidecar pair.",
-        "Missing field: drawing.revision bound to this export. The part registry has number MHA-065 but no per-part revision; release-derived custom-property behavior is not an observed revision of the unprovided drawing."
-      ],
-      "rule": "step_binding",
-      "severity": "block",
+      "message": "S3: the scribe's pickup method is not stated and no lathe DRO is listed, so neither the Z set value nor any check reading is known; the E tool has no touch-off of its own.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge_mm": 0.0,
+            "jog_mm": "unknown",
+            "method": "trial_cut_measure",
+            "mirrored_reading": "unknown",
+            "note": "Axis Set is the measured trial-cut diameter (or radius), read at the bench",
+            "paper_mm": "not_applicable",
+            "radius_mm": "not_applicable",
+            "sign": "unknown"
+          },
+          "z": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge_mm": 0.0,
+            "jog_mm": "unknown",
+            "method": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "unknown",
+            "radius_mm": "not_applicable",
+            "sign": "unknown"
+          }
+        },
+        "direction": {
+          "x": "unknown",
+          "z": "unknown"
+        },
+        "dro_controller": "unknown",
+        "radius_mode": "unknown",
+        "retouch": [],
+        "tools_used": [
+          "turning-tools-warner-lms-4132/AR",
+          "turning-tools-warner-lms-4132/E"
+        ],
+        "tools_without_touch": [
+          "turning-tools-warner-lms-4132/E"
+        ],
+        "transfer": {
+          "from": "S2",
+          "gauge": "dial-indicator",
+          "indicate": "body",
+          "runout_limit_mm": "unknown"
+        }
+      },
+      "rule": "zero_check",
       "status": "unknown",
-      "subject": "certified_export"
+      "subject": "S3"
     }
   ],
-  "hash": "<computed>",
+  "hash": "cc8ca16c39125322ce99b61367a0d7182629c2c02eea42b9048edd0f143e0013",
   "inputs": {
-    "inventory_sha256": "82f458cda20b298cea093911e3d3f091186679e844d4572394b365a738b79d4d",
-    "plan_sha256": "64f8089b75ec96f22fe39450c46b10675f3543a01e71b5aa6cc0f001abe2dce9",
-    "policy_sha256": "440a87f17a9ed0ddc4e533304830ae202b074b2298ed08e447e85db6caca88bc",
-    "prechips_version": "reference-fixtures-rev3",
-    "rules_version": "reference-fixtures-rev3",
-    "spec_sha256": "684fca4f33c12ed4e90c13ae2a31785763d0d56753be3c1aa76d7ef0f7b43b25",
-    "step_sha256": "<sha256 of cad/out/step/pivot-shaft.step>",
-    "tables_version": "reference-fixtures-rev3"
+    "cutting_data": {
+      "path": "examples/cutting-data.toml",
+      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+    },
+    "features": {
+      "path": "examples/pivot-shaft/features.toml",
+      "sha256": "0074005bc6fa785c76828c8ff6c6d8ecce45c7ccc85090cc92506719821614ec"
+    },
+    "inventory": {
+      "path": "examples/inventory/pedro-shop.toml",
+      "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+    },
+    "plan": {
+      "path": "examples/pivot-shaft/plan.toml",
+      "sha256": "a6dfbe4cb13d96624041c697ea6c5115d21adbb81e475f73c252770619c02c4f"
+    },
+    "shop_policy": {
+      "path": "examples/shop-policy.toml",
+      "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+    }
   },
+  "prechips_version": "0.1",
+  "rules_version": "reference-fixtures-rev6",
+  "step_sha256": "unknown",
   "verification": "planned"
 }

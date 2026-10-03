@@ -1,1404 +1,3099 @@
 {
+  "expected_exit": 2,
   "findings": [
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:24,31,33",
-        "cad/scripts/build_pivot_bracket.py:193-210"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.cross_bore",
+        "examples/pivot-bracket/plan.toml S3 stock_state",
+        "examples/inventory/pedro-shop.toml:183-193",
+        "examples/inventory/pedro-shop.toml:239-250"
       ],
-      "evidence": [
-        "Feature kind hole; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
-      "status": "not_applicable",
+      "message": "The cross-bore exits at Z -6.0, but the drill point and reamer lead are not recorded and no exit allowance is given, so the tip depth is unknown.",
+      "numbers": {
+        "endpoints": [
+          {
+            "entry_from": "S3 stock_state.entry_z.cross_bore",
+            "entry_z": 0.0,
+            "exit_face": -6.0,
+            "exit_mm": "unknown",
+            "feature": "cross_bore",
+            "local_thickness": 6.0,
+            "op": 40,
+            "point_mm": "unknown",
+            "setup": "S3",
+            "tip_z": "unknown"
+          },
+          {
+            "entry_from": "S3 stock_state.entry_z.cross_bore",
+            "entry_z": 0.0,
+            "exit_face": -6.0,
+            "exit_mm": "unknown",
+            "feature": "cross_bore",
+            "lead_mm": "unknown",
+            "local_thickness": 6.0,
+            "op": 50,
+            "setup": "S3",
+            "tip_z": "unknown"
+          }
+        ],
+        "thru": true
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
       "subject": "cross_bore"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:23-35",
-        "cad/scripts/build_pivot_bracket.py:168-188"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.ear_arch"
       ],
-      "evidence": [
-        "Feature kind pocket; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The ear arch is not a hole, so there is no tip endpoint to compute.",
+      "numbers": {
+        "kind": "pocket"
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "ear_arch"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:22-35,57"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.ear_relief"
       ],
-      "evidence": [
-        "Feature kind pocket; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The L relief is not a hole, so there is no tip endpoint to compute.",
+      "numbers": {
+        "kind": "pocket"
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "ear_relief"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:22-35"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.ear_sides"
       ],
-      "evidence": [
-        "Feature kind pocket; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The ear sides is not a hole, so there is no tip endpoint to compute.",
+      "numbers": {
+        "kind": "pocket"
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "ear_sides"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:21-30"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.foot_profile"
       ],
-      "evidence": [
-        "Feature kind pocket; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The foot outline is not a hole, so there is no tip endpoint to compute.",
+      "numbers": {
+        "kind": "pocket"
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "foot_profile"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:22,57"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.foot_top"
       ],
-      "evidence": [
-        "Feature kind face; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The foot top is not a hole, so there is no tip endpoint to compute.",
+      "numbers": {
+        "kind": "face"
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "foot_top"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.hold_down_a",
+        "examples/pivot-bracket/plan.toml S2 stock_state",
+        "examples/inventory/pedro-shop.toml:183-193"
       ],
-      "evidence": [
-        "Feature kind hole; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
-      "status": "not_applicable",
+      "message": "The hold-down hole A exits at Z -6.0, but the drill point is not recorded and no exit allowance is given, so the tip depth is unknown.",
+      "numbers": {
+        "endpoints": [
+          {
+            "entry_from": "S2 op 30 to_z",
+            "entry_z": 0.0,
+            "exit_face": -6.0,
+            "exit_mm": "unknown",
+            "feature": "hold_down_a",
+            "local_thickness": 6.0,
+            "op": 70,
+            "point_mm": "unknown",
+            "setup": "S2",
+            "tip_z": "unknown"
+          }
+        ],
+        "thru": true
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
       "subject": "hold_down_a"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.hold_down_b",
+        "examples/pivot-bracket/plan.toml S2 stock_state",
+        "examples/inventory/pedro-shop.toml:183-193"
       ],
-      "evidence": [
-        "Feature kind hole; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
-      "status": "not_applicable",
+      "message": "The hold-down hole B exits at Z -6.0, but the drill point is not recorded and no exit allowance is given, so the tip depth is unknown.",
+      "numbers": {
+        "endpoints": [
+          {
+            "entry_from": "S2 op 30 to_z",
+            "entry_z": 0.0,
+            "exit_face": -6.0,
+            "exit_mm": "unknown",
+            "feature": "hold_down_b",
+            "local_thickness": 6.0,
+            "op": 90,
+            "point_mm": "unknown",
+            "setup": "S2",
+            "tip_z": "unknown"
+          }
+        ],
+        "thru": true
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
       "subject": "hold_down_b"
     },
     {
       "cite": [
-        "PLAN.md §4 blind_thread_depth",
-        "cad/scripts/pivot_bracket_spec.py:7,21-22"
+        "PLAN.md rev 6 §4.1 tip endpoints",
+        "examples/pivot-bracket/features.toml features.seat_face"
       ],
-      "evidence": [
-        "Feature kind face; no blind thread is declared for this subject.",
-        "No thread-depth, tap-lead, flute or drill-point sum is invented; actual axial holes are through and untapped."
-      ],
-      "rule": "blind_thread_depth",
-      "severity": "block",
+      "message": "The seat face is not a hole, so there is no tip endpoint to compute.",
+      "numbers": {
+        "kind": "face"
+      },
+      "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "seat_face"
     },
     {
       "cite": [
-        "PLAN.md §3.2",
-        "cad/scripts/pivot_bracket_spec.py:7-41,43,77-103",
-        "cad/scripts/_hole_spec.py:44-57,111-130",
-        "cad/config/parts/pivot-bracket.yaml:2-7"
+        "PLAN.md rev 6 §5",
+        "examples/pivot-bracket/features.toml step_sha256",
+        "harmonic-analyzer/cad/scripts/_drawing_registry.py"
       ],
-      "evidence": [
-        "Every dimensional sidecar mapping includes a source naming a consumer file and lines; derived coordinates name their arithmetic.",
-        "Drawing revision, diameter/position/profile tolerance bands, roughness and title-block defaults are omitted rather than inferred. Registry black oxide is sourced and retained."
-      ],
-      "rule": "citations_present",
-      "severity": "block",
-      "status": "pass",
-      "subject": "certified_export"
+      "message": "No STEP has been exported for this part and no drawing is registered, so the manifest is not bound to a model or a sheet.",
+      "numbers": {
+        "drawing": "none registered",
+        "step": "none exported",
+        "step_sha256": "unknown"
+      },
+      "rule": "bundle_binding",
+      "status": "unknown",
+      "subject": "inputs"
     },
     {
       "cite": [
-        "PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
-        "spec.yaml:frames.A",
-        "expected/coordinates/S1.csv",
-        "cad/scripts/pivot_bracket_spec.py:7-35,43,77-103",
-        "examples/inventory/pedro-shop.yaml:140"
+        "PLAN.md rev 6 §4.1 coordinates",
+        "examples/pivot-bracket/features.toml frames.A",
+        "examples/pivot-bracket/plan.toml S1 ops",
+        "examples/inventory/pedro-shop.toml:123-134"
       ],
-      "evidence": [
-        "A->model basis X=(1,0,0),Y=(0,0,1),Z=(0,-1,0); determinant +1. Model->A=(X,Z,-Y). Seat contact model Y=0 gives pickup.z.sets=0; finish foot profile reaches -FOOT_H=-6 mm=-0.23622047244094488 in.",
-        "Authored blank edge X=-9, Z=-4 gives nominal negative-side tip-centre pickups -11.54,-6.54 mm at radius 2.54 mm=0.1 in. Missing actual prepared_blank bounds/alignment and edge-finder measured tip diameter/presence; edge-finder verify:true/present:null.",
-        "Paper_mm=0.08 is proposed, separately compensated and not added to z.sets. CSV contour X/Y blanks mean no single feature/tool-centre coordinate; all three operations are represented."
-      ],
-      "rule": "coordinate_table",
-      "severity": "block",
+      "message": "S1 has no hole or arc centres; the foot outline's cutter-centre path needs a contour method and a measured end-mill diameter, neither given.",
+      "numbers": {
+        "arc_table": "unknown",
+        "frame": "A",
+        "profiles": [
+          {
+            "contour": "unknown",
+            "cutter_centre": "unknown",
+            "feature": "foot_profile",
+            "op": 20,
+            "rough_allowance_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_dia": "unknown",
+            "tool_nominal_dia_mm": 9.525
+          },
+          {
+            "contour": "unknown",
+            "cutter_centre": "unknown",
+            "feature": "foot_profile",
+            "op": 30,
+            "rough_allowance_mm": "not_applicable",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_dia": "unknown",
+            "tool_nominal_dia_mm": 9.525
+          }
+        ],
+        "rows": []
+      },
+      "rule": "coordinates",
       "status": "unknown",
       "subject": "S1"
     },
     {
       "cite": [
-        "PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
-        "spec.yaml:frames.B",
-        "expected/coordinates/S2.csv",
-        "cad/scripts/pivot_bracket_spec.py:7-35,43,77-103",
-        "examples/inventory/pedro-shop.yaml:140"
+        "PLAN.md rev 6 §4.1 coordinates",
+        "examples/pivot-bracket/features.toml frames.B",
+        "examples/pivot-bracket/plan.toml S2 ops",
+        "examples/inventory/pedro-shop.toml:123-134"
       ],
-      "evidence": [
-        "B->model origin (0,6,0), basis X=(1,0,0),Y=(0,0,-1),Z=(0,1,0); determinant +1. Model->B=(X,-Z,Y-6). Foot top Y=6 gives z.sets=0, not +6.",
-        "Hold-down model entries (0,6,8.2),(0,6,16) map to B=(0,-8.2,0),(0,-16,0). Station separation=16-8.2=7.8 mm=0.30708661417322836 in; all nine operation rows are present.",
-        "Nominal x edge=-8, y free end=-21.2 yields tool centres -10.54,-23.74 mm at 2.54 radius. Missing edge-finder measured tip diameter/presence; inherited verify:true and present:null. Paper compensation is separate and foot-top pickup follows shelf establishment."
-      ],
-      "rule": "coordinate_table",
-      "severity": "block",
+      "message": "Hold-down holes A and B are at X 0, Y −8.2 and X 0, Y −16 in this setup; the L relief and ear-side cutter paths need a contour method and a measured end-mill diameter, neither given.",
+      "numbers": {
+        "arc_table": "unknown",
+        "frame": "B",
+        "profiles": [
+          {
+            "contour": "unknown",
+            "cutter_centre": "unknown",
+            "feature": "ear_relief",
+            "op": 10,
+            "rough_allowance_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_dia": "unknown",
+            "tool_nominal_dia_mm": 9.525
+          },
+          {
+            "contour": "unknown",
+            "cutter_centre": "unknown",
+            "feature": "ear_relief",
+            "op": 20,
+            "rough_allowance_mm": "not_applicable",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_dia": "unknown",
+            "tool_nominal_dia_mm": 9.525
+          },
+          {
+            "contour": "unknown",
+            "cutter_centre": "unknown",
+            "feature": "ear_sides",
+            "op": 40,
+            "rough_allowance_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_dia": "unknown",
+            "tool_nominal_dia_mm": 9.525
+          },
+          {
+            "contour": "unknown",
+            "cutter_centre": "unknown",
+            "feature": "ear_sides",
+            "op": 50,
+            "rough_allowance_mm": "not_applicable",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_dia": "unknown",
+            "tool_nominal_dia_mm": 9.525
+          }
+        ],
+        "rows": [
+          {
+            "feature": "hold_down_a",
+            "model": [
+              0.0,
+              6.0,
+              8.2
+            ],
+            "setup": [
+              0.0,
+              -8.2,
+              0.0
+            ]
+          },
+          {
+            "feature": "hold_down_b",
+            "model": [
+              0.0,
+              6.0,
+              16.0
+            ],
+            "setup": [
+              0.0,
+              -16.0,
+              0.0
+            ]
+          }
+        ]
+      },
+      "rule": "coordinates",
       "status": "unknown",
       "subject": "S2"
     },
     {
       "cite": [
-        "PLAN.md §3.2-3.3, §3.7, §4 coordinate_table",
-        "spec.yaml:frames.C",
-        "expected/coordinates/S3.csv",
-        "cad/scripts/pivot_bracket_spec.py:7-35,43,77-103",
-        "examples/inventory/pedro-shop.yaml:140"
+        "PLAN.md rev 6 §4.1 coordinates",
+        "examples/pivot-bracket/features.toml frames.C",
+        "examples/pivot-bracket/plan.toml S3 ops",
+        "examples/inventory/pedro-shop.toml:123-134"
       ],
-      "evidence": [
-        "C->model origin (0,0,3), identity basis; determinant +1. Model->C=(X,Y,Z-3). Inner entry model (0,25.2,3) maps to C=(0,25.2,0); outer exit Z=-3 maps to C.z=-6.",
-        "Spindle cutting -C.Z=(0,0,-1) maps to model -Z, perpendicular to the hold-down -model Y axis. Cross-bore height 25.2 mm=0.9921259842519685 in; through path 6 mm=0.23622047244094488 in.",
-        "Pickup uses exposed foot top C.y=6 from the +y side, giving nominal tool centre 8.54 mm; left edge gives -10.54 mm. Missing edge-finder measured tip diameter/presence and actual angle-plate/support alignment. z contact is the frame-origin entry face=0 with paper independently compensated; all five operation rows are present."
-      ],
-      "rule": "coordinate_table",
-      "severity": "block",
+      "message": "The cross-bore and arch centre are at X 0, Y 25.2; the arch cutter-centre path and its arc table need a contour method, a rough allowance and a measured end-mill diameter, none given.",
+      "numbers": {
+        "arc_table": "unknown",
+        "frame": "C",
+        "profiles": [
+          {
+            "contour": "unknown",
+            "cutter_centre": "unknown",
+            "feature": "ear_arch",
+            "op": 10,
+            "rough_allowance_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_dia": "unknown",
+            "tool_nominal_dia_mm": 9.525
+          },
+          {
+            "contour": "unknown",
+            "cutter_centre": "unknown",
+            "feature": "ear_arch",
+            "op": 20,
+            "rough_allowance_mm": "not_applicable",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_dia": "unknown",
+            "tool_nominal_dia_mm": 9.525
+          }
+        ],
+        "rows": [
+          {
+            "feature": "ear_arch",
+            "model": [
+              0.0,
+              25.2,
+              3.0
+            ],
+            "setup": [
+              0.0,
+              25.2,
+              0.0
+            ]
+          },
+          {
+            "feature": "cross_bore",
+            "model": [
+              0.0,
+              25.2,
+              3.0
+            ],
+            "setup": [
+              0.0,
+              25.2,
+              0.0
+            ]
+          }
+        ]
+      },
+      "rule": "coordinates",
       "status": "unknown",
       "subject": "S3"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:24,31,33",
-        "cad/scripts/build_pivot_bracket.py:193-210",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.cross_bore",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31"
       ],
-      "evidence": [
-        "Operations exist: S3:30 spot, S3:40 drill, S3:50 ream.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
+      "message": "The cross-bore is 25.2 above the seat, but S3 picks up Y on the foot top, so the seat-to-foot-top error carries into the bore height; the band and budget are unknown.",
+      "numbers": {
+        "chain": "seat -> foot top 6 -> axis 25.2",
+        "cut_in": "S3",
+        "located_from": [
+          "seat_face (S1)",
+          "foot_profile (S1)"
+        ],
+        "position_datums": "none",
+        "refixture_budget_mm": "unknown",
+        "seat_indicated": false,
+        "tolerance": "unknown",
+        "transfer_indicates": [
+          "foot_profile",
+          "foot_top",
+          "ear_relief"
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "unknown",
+      "subject": "cross_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.ear_arch",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31"
       ],
-      "rule": "coverage",
-      "severity": "warn",
+      "message": "The arch centre is 25.2 above the seat, but S3 picks up Y on the foot top, so the seat-to-foot-top error carries into it; the band and budget are unknown.",
+      "numbers": {
+        "chain": "seat -> foot top 6 -> centre 25.2",
+        "cut_in": "S3",
+        "located_from": [
+          "seat_face (S1)",
+          "foot_profile (S1)"
+        ],
+        "position_datums": "none",
+        "refixture_budget_mm": "unknown",
+        "seat_indicated": false,
+        "tolerance": "unknown",
+        "transfer_indicates": [
+          "foot_profile",
+          "foot_top",
+          "ear_relief"
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "unknown",
+      "subject": "ear_arch"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.ear_relief",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
+      ],
+      "message": "The L relief floor is measured from the S1 seat, which S2 does not re-indicate; the band and the re-fixture budget are unknown.",
+      "numbers": {
+        "cut_in": "S2",
+        "located_from": [
+          "seat_face (S1)",
+          "foot_profile (S1)"
+        ],
+        "position_datums": "none",
+        "refixture_budget_mm": "unknown",
+        "seat_indicated": false,
+        "tolerance": "unknown",
+        "transfer_indicates": [
+          "foot_profile"
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "unknown",
+      "subject": "ear_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.ear_sides",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23"
+      ],
+      "message": "The ear width is centred on foot edges that S2 re-finds, but its floor is the foot top measured from the un-indicated S1 seat; the band and budget are unknown.",
+      "numbers": {
+        "cut_in": "S2",
+        "located_from": [
+          "foot_profile (S1)",
+          "seat_face (S1)"
+        ],
+        "position_datums": "none",
+        "refixture_budget_mm": "unknown",
+        "seat_indicated": false,
+        "tolerance": "unknown",
+        "transfer_indicates": [
+          "foot_profile"
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "unknown",
+      "subject": "ear_sides"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.foot_profile",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21"
+      ],
+      "message": "The foot outline is cut in the same setup as the seat it is measured from.",
+      "numbers": {
+        "cut_in": "S1",
+        "located_from": [
+          "seat_face (S1)"
+        ],
+        "position_datums": "none"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "foot_profile"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.foot_top",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
+      ],
+      "message": "The foot top is 6 above a seat cut in S1, and S2 only re-finds the foot edges, not the seat; the height band and the re-fixture budget are both unknown.",
+      "numbers": {
+        "cut_in": "S2",
+        "located_from": [
+          "seat_face (S1)"
+        ],
+        "position_datums": "none",
+        "refixture_budget_mm": "unknown",
+        "seat_indicated": false,
+        "tolerance": "unknown",
+        "transfer_indicates": [
+          "foot_profile"
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "unknown",
+      "subject": "foot_top"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.hold_down_a",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102"
+      ],
+      "message": "Hold-down hole A is located from the foot side and free end, and S2 re-finds both with the edge finder before drilling.",
+      "numbers": {
+        "cut_in": "S2",
+        "located_from": [
+          "foot_profile (S1)"
+        ],
+        "position_datums": "none",
+        "refixture_budget_mm": "unknown",
+        "tolerance": "unknown",
+        "transfer_indicates": [
+          "foot_profile"
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "pass",
+      "subject": "hold_down_a"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.hold_down_b",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102"
+      ],
+      "message": "Hold-down hole B is located from the foot side and free end, and S2 re-finds both with the edge finder before drilling.",
+      "numbers": {
+        "cut_in": "S2",
+        "located_from": [
+          "foot_profile (S1)"
+        ],
+        "position_datums": "none",
+        "refixture_budget_mm": "unknown",
+        "tolerance": "unknown",
+        "transfer_indicates": [
+          "foot_profile"
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "pass",
+      "subject": "hold_down_b"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 datum consistency",
+        "examples/pivot-bracket/features.toml features.seat_face",
+        "examples/pivot-bracket/plan.toml zero.transfer",
+        "examples/shop-policy.toml:14-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7"
+      ],
+      "message": "The seat face is the S1 origin plane; nothing locates it from another setup.",
+      "numbers": {
+        "cut_in": "S1",
+        "located_from": [],
+        "position_datums": "none"
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "seat_face"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 headroom",
+        "examples/inventory/pedro-shop.toml:11-20",
+        "examples/inventory/pedro-shop.toml:31-35",
+        "examples/inventory/pedro-shop.toml:428-439",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/pivot-bracket/plan.toml S1 stock_state"
+      ],
+      "message": "The vise bed height, the blank height and the tool and holder lengths are not recorded, so spindle clearance cannot be checked.",
+      "numbers": {
+        "holder_gauge_len": "unknown",
+        "insertion_mm": 25,
+        "jaw_height_mm": 46.355,
+        "parallels_mm": 25.4,
+        "spindle_to_table_max_mm": 431.8,
+        "spindle_to_table_verify": true,
+        "stock_top_z": "unknown",
+        "sum_mm": "unknown",
+        "tool_oal": "unknown",
+        "travel_in": {
+          "quill": 3,
+          "x": 23,
+          "y": 8.75,
+          "z": 14
+        },
+        "travel_verify": true,
+        "vise_bed_height_mm": "unknown"
+      },
+      "rule": "headroom",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 headroom",
+        "examples/inventory/pedro-shop.toml:11-20",
+        "examples/inventory/pedro-shop.toml:31-35",
+        "examples/inventory/pedro-shop.toml:428-439",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/pivot-bracket/plan.toml S2 stock_state"
+      ],
+      "message": "The vise bed height, the raw stock height and the tool and holder lengths are not recorded, so spindle clearance cannot be checked.",
+      "numbers": {
+        "holder_gauge_len": "unknown",
+        "insertion_mm": 25,
+        "jaw_height_mm": 46.355,
+        "parallels_mm": 15.875,
+        "riser_mm": 25.4,
+        "spindle_to_table_max_mm": 431.8,
+        "spindle_to_table_verify": true,
+        "stock_top_z": "unknown",
+        "sum_mm": "unknown",
+        "tool_oal": "unknown",
+        "travel_in": {
+          "quill": 3,
+          "x": 23,
+          "y": 8.75,
+          "z": 14
+        },
+        "travel_verify": true,
+        "vise_bed_height_mm": "unknown"
+      },
+      "rule": "headroom",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 headroom",
+        "examples/inventory/pedro-shop.toml:11-20",
+        "examples/inventory/pedro-shop.toml:31-35",
+        "examples/inventory/pedro-shop.toml:428-439",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/pivot-bracket/plan.toml S3 stock_state"
+      ],
+      "message": "The angle plate is missing and no tool or holder length is recorded, so spindle clearance cannot be checked; the foot stands 18.2 above the bore entry.",
+      "numbers": {
+        "angle_plate": "missing",
+        "foot_above_entry_mm": 18.2,
+        "holder_gauge_len": "unknown",
+        "insertion_mm": 25,
+        "jaw_height_mm": "not_applicable",
+        "parallels_mm": 12.7,
+        "spindle_to_table_max_mm": 431.8,
+        "spindle_to_table_verify": true,
+        "stock_top_z": 18.2,
+        "sum_mm": "unknown",
+        "tool_oal": "unknown",
+        "travel_in": {
+          "quill": 3,
+          "x": 23,
+          "y": 8.75,
+          "z": 14
+        },
+        "travel_verify": true,
+        "vise_bed_height_mm": "unknown"
+      },
+      "rule": "headroom",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 hold fields complete",
+        "examples/pivot-bracket/plan.toml S1 hold"
+      ],
+      "message": "S1 does not say which jaw is fixed, the stop, the clamping, coolant, deburr limit or the cut direction for any op.",
+      "numbers": {
+        "holder_per_op": true,
+        "missing": [
+          "hold.fixed_jaw",
+          "hold.stop",
+          "hold.clamp",
+          "coolant",
+          "deburr_mm",
+          "op 10.direction",
+          "op 20.direction",
+          "op 30.direction"
+        ],
+        "stock_state": {
+          "bottom_z": "unknown",
+          "top_z": "unknown"
+        },
+        "verify": [
+          "hold.grip_mm",
+          "hold.jaw_above_parallels_mm"
+        ]
+      },
+      "rule": "hold_fields",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 hold fields complete",
+        "examples/pivot-bracket/plan.toml S2 hold"
+      ],
+      "message": "S2 does not say which jaw is fixed, the stop, the clamping, coolant, deburr limit or the cut direction for the milling ops.",
+      "numbers": {
+        "holder_per_op": true,
+        "missing": [
+          "hold.fixed_jaw",
+          "hold.stop",
+          "hold.clamp",
+          "coolant",
+          "deburr_mm",
+          "op 10.direction",
+          "op 20.direction",
+          "op 30.direction",
+          "op 40.direction",
+          "op 50.direction"
+        ],
+        "stock_state": {
+          "bottom_z": -6.0,
+          "top_z": "unknown"
+        },
+        "verify": [
+          "hold.grip_mm",
+          "hold.jaw_above_parallels_mm"
+        ]
+      },
+      "rule": "hold_fields",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 hold fields complete",
+        "examples/pivot-bracket/plan.toml S3 hold"
+      ],
+      "message": "S3 does not say the stop, how much the clamps hold, coolant, deburr limit or the cut direction for the arch.",
+      "numbers": {
+        "holder_per_op": true,
+        "missing": [
+          "hold.stop",
+          "hold.grip_mm",
+          "coolant",
+          "deburr_mm",
+          "op 10.direction",
+          "op 20.direction"
+        ],
+        "stock_state": {
+          "bottom_z": -6.0,
+          "top_z": 18.2
+        },
+        "verify": []
+      },
+      "rule": "hold_fields",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.cross_bore",
+        "examples/pivot-bracket/plan.toml S3 op 50 checks.dia",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33"
+      ],
+      "message": "The cross-bore dia (6.5 nominal) has no band on any drawing and no gauge is named to check it.",
+      "numbers": {
+        "band": "unknown",
+        "check": "unknown",
+        "nominal": 6.5,
+        "op": "S3:50",
+        "precision": "unknown",
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "cross_bore:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.cross_bore",
+        "examples/pivot-bracket/plan.toml S3 op 50 checks.height",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31"
+      ],
+      "message": "The cross-bore height (25.2 nominal) has no band on any drawing and no gauge is named to check it.",
+      "numbers": {
+        "band": "unknown",
+        "check": "unknown",
+        "nominal": 25.2,
+        "op": "S3:50",
+        "precision": "unknown",
+        "requirement": "height"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "cross_bore:height"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.ear_arch",
+        "examples/pivot-bracket/plan.toml S3 op 20 checks.radius",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35"
+      ],
+      "message": "The ear arch radius (7.0 nominal) has no band on any drawing and no gauge is named to check it.",
+      "numbers": {
+        "band": "unknown",
+        "check": "unknown",
+        "nominal": 7.0,
+        "op": "S3:20",
+        "precision": "unknown",
+        "requirement": "radius"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "ear_arch:radius"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.ear_relief",
+        "examples/pivot-bracket/plan.toml S2 op 20 checks.thickness",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The L relief thickness (6.0 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 6.0,
+        "op": "S2:20",
+        "precision": "unknown",
+        "requirement": "thickness",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "ear_relief:thickness"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.ear_sides",
+        "examples/pivot-bracket/plan.toml S2 op 50 checks.width",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The ear sides width (14.0 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 14.0,
+        "op": "S2:50",
+        "precision": "unknown",
+        "requirement": "width",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "ear_sides:width"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.foot_profile",
+        "examples/pivot-bracket/plan.toml S1 op 30 checks.length",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The foot outline length (24.2 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 24.2,
+        "op": "S1:30",
+        "precision": "unknown",
+        "requirement": "length",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "foot_profile:length"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.foot_profile",
+        "examples/pivot-bracket/plan.toml S1 op 30 checks.width",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The foot outline width (16.0 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 16.0,
+        "op": "S1:30",
+        "precision": "unknown",
+        "requirement": "width",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "foot_profile:width"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.foot_top",
+        "examples/pivot-bracket/plan.toml S2 op 30 checks.height",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The foot top height (6.0 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 6.0,
+        "op": "S2:30",
+        "precision": "unknown",
+        "requirement": "height",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "foot_top:height"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.hold_down_a",
+        "examples/pivot-bracket/plan.toml S2 op 70 checks.dia",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The hold-down hole A dia (4.572 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 4.572,
+        "op": "S2:70",
+        "precision": "unknown",
+        "requirement": "dia",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "hold_down_a:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.hold_down_a",
+        "examples/pivot-bracket/plan.toml S2 op 70 checks.station",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The hold-down hole A station (8.2 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 8.2,
+        "op": "S2:70",
+        "precision": "unknown",
+        "requirement": "station",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "hold_down_a:station"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.hold_down_b",
+        "examples/pivot-bracket/plan.toml S2 op 90 checks.dia",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The hold-down hole B dia (4.572 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 4.572,
+        "op": "S2:90",
+        "precision": "unknown",
+        "requirement": "dia",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "hold_down_b:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.hold_down_b",
+        "examples/pivot-bracket/plan.toml S2 op 90 checks.station",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "examples/inventory/pedro-shop.toml:528-533"
+      ],
+      "message": "The hold-down hole B station (16.0 nominal) is checked with calipers, but no drawing gives its band and the calipers are marked verify.",
+      "numbers": {
+        "band": "unknown",
+        "check": "calipers",
+        "gauge": "gauges.calipers",
+        "gauge_verify": true,
+        "nominal": 16.0,
+        "op": "S2:90",
+        "precision": "unknown",
+        "requirement": "station",
+        "spans_band": "unknown"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "hold_down_b:station"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 inspection",
+        "examples/pivot-bracket/features.toml features.seat_face"
+      ],
+      "message": "The seat face carries no toleranced requirement, so there is nothing to inspect.",
+      "numbers": {
+        "requirements": []
+      },
+      "rule": "inspection",
+      "status": "not_applicable",
+      "subject": "seat_face"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 op chain",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "examples/pivot-bracket/plan.toml S3"
+      ],
+      "message": "The cross-bore is spotted, drilled and reamed, as the part record requires.",
+      "numbers": {
+        "chain": [
+          "S3:30 spot",
+          "S3:40 drill",
+          "S3:50 ream"
+        ],
+        "expected": "spot -> drill -> ream",
+        "process": "ream"
+      },
+      "rule": "op_chain",
       "status": "pass",
       "subject": "cross_bore"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:23-35",
-        "cad/scripts/build_pivot_bracket.py:168-188",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 op chain",
+        "examples/pivot-bracket/features.toml features.ear_arch"
       ],
-      "evidence": [
-        "Operations exist: S3:10 rough_profile, S3:20 finish_profile.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The op-chain rule covers holes only; the ear arch is a pocket.",
+      "numbers": {
+        "kind": "pocket",
+        "ops": [
+          "S3:10 rough_profile",
+          "S3:20 finish_profile"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
       "subject": "ear_arch"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:22-35,57",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 op chain",
+        "examples/pivot-bracket/features.toml features.ear_relief"
       ],
-      "evidence": [
-        "Operations exist: S2:10 rough_pocket, S2:20 finish_pocket.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The op-chain rule covers holes only; the L relief is a pocket.",
+      "numbers": {
+        "kind": "pocket",
+        "ops": [
+          "S2:10 rough_pocket",
+          "S2:20 finish_pocket"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
       "subject": "ear_relief"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:22-35",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 op chain",
+        "examples/pivot-bracket/features.toml features.ear_sides"
       ],
-      "evidence": [
-        "Operations exist: S2:40 rough_profile, S2:50 finish_profile.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The op-chain rule covers holes only; the ear sides is a pocket.",
+      "numbers": {
+        "kind": "pocket",
+        "ops": [
+          "S2:40 rough_profile",
+          "S2:50 finish_profile"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
       "subject": "ear_sides"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:21-30",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 op chain",
+        "examples/pivot-bracket/features.toml features.foot_profile"
       ],
-      "evidence": [
-        "Operations exist: S1:20 rough_profile, S1:30 finish_profile.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The op-chain rule covers holes only; the foot outline is a pocket.",
+      "numbers": {
+        "kind": "pocket",
+        "ops": [
+          "S1:20 rough_profile",
+          "S1:30 finish_profile"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
       "subject": "foot_profile"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:22,57",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 op chain",
+        "examples/pivot-bracket/features.toml features.foot_top"
       ],
-      "evidence": [
-        "Operations exist: S2:30 face.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The op-chain rule covers holes only; the foot top is a face.",
+      "numbers": {
+        "kind": "face",
+        "ops": [
+          "S2:30 face"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
       "subject": "foot_top"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 op chain",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "examples/pivot-bracket/plan.toml S2"
       ],
-      "evidence": [
-        "Operations exist: S2:60 spot, S2:70 drill.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
+      "message": "The hold-down hole A is spotted, drilled through; no ream or tap is called for.",
+      "numbers": {
+        "chain": [
+          "S2:60 spot",
+          "S2:70 drill"
+        ],
+        "expected": "spot -> drill",
+        "process": "drill"
+      },
+      "rule": "op_chain",
       "status": "pass",
       "subject": "hold_down_a"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 op chain",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "examples/pivot-bracket/plan.toml S2"
       ],
-      "evidence": [
-        "Operations exist: S2:80 spot, S2:90 drill.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
+      "message": "The hold-down hole B is spotted, drilled through; no ream or tap is called for.",
+      "numbers": {
+        "chain": [
+          "S2:80 spot",
+          "S2:90 drill"
+        ],
+        "expected": "spot -> drill",
+        "process": "drill"
+      },
+      "rule": "op_chain",
       "status": "pass",
       "subject": "hold_down_b"
     },
     {
       "cite": [
-        "PLAN.md §4 coverage",
-        "cad/scripts/pivot_bracket_spec.py:7,21-22",
-        "plan.yaml"
+        "PLAN.md rev 6 §4.1 op chain",
+        "examples/pivot-bracket/features.toml features.seat_face"
       ],
-      "evidence": [
-        "Operations exist: S1:10 face.",
-        "Every listed operation has inspect; no explicitly toleranced feature lacks inspection. Missing acceptance bands and gauge capability are not treated as passed measurements or geometric coverage."
-      ],
-      "rule": "coverage",
-      "severity": "warn",
-      "status": "pass",
+      "message": "The op-chain rule covers holes only; the seat face is a face.",
+      "numbers": {
+        "kind": "face",
+        "ops": [
+          "S1:10 face"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
       "subject": "seat_face"
     },
     {
       "cite": [
-        "PLAN.md §3.5, §4 envelope",
-        "examples/inventory/pedro-shop.yaml:8-22,65-99,106-140",
-        "plan.yaml:S1.workholding"
+        "PLAN.md rev 6 §4.1 order",
+        "examples/pivot-bracket/plan.toml S1 ops"
       ],
-      "evidence": [
-        "Authored S1 support uses listed 1 in parallels: 1*25.4=25.4 mm. Raw seat top=25.4+34.2=59.6 mm; after authored 1 mm seat allowance, finished seat=58.6 mm and six-mm foot-profile bottom=52.6 mm. Listed jaw top=1.825*25.4=46.355 mm; nominal cutter-bottom clearance=6.245 mm=0.24586614173228346 in, nominal jaw engagement=20.955 mm=0.825 in. Vise.verify and parallel.source.verify are true; this is nominal arithmetic, not measured clearance/grip proof.",
-        "Missing PM-30MV.travel_measured_in and spindle_nose_to_table_max_in; vendor travel/spindle-to-table fields inherit verify:true and are not measured equivalents.",
-        "Missing vise-pm-6.bed_above_table_in, verified parallel height, selected holder gauge_length_in/insertion_in and endmill flute_length/OAL/projection_in. Blank support/clamping and six-mm foot-profile reach cannot be proved."
-      ],
-      "rule": "envelope",
-      "severity": "block",
-      "status": "unknown",
+      "message": "S1 faces the seat before roughing and then finishing the foot outline.",
+      "numbers": {
+        "ops": [
+          "10 face seat_face",
+          "20 rough_profile foot_profile",
+          "30 finish_profile foot_profile"
+        ]
+      },
+      "rule": "order",
+      "status": "pass",
       "subject": "S1"
     },
     {
       "cite": [
-        "PLAN.md §3.5, §4 envelope",
-        "examples/inventory/pedro-shop.yaml:8-22,65-99,106-140",
-        "plan.yaml:S2.workholding"
+        "PLAN.md rev 6 §4.1 order",
+        "examples/pivot-bracket/plan.toml S2 ops"
       ],
-      "evidence": [
-        "Nominal authored packing (1+5/8)*25.4=41.275 mm; vendor jaw height 1.825*25.4=46.355 mm; plus nominal foot 6 gives 0.920 mm above jaws and 5.080 mm overlap. Block source.verify, parallel source.verify and vise.verify are true; no measured support/grip clearance is claimed.",
-        "Ear-side nominal reach 32.2-6=26.2 mm=1.031496062992126 in. Missing endmill flute_length/OAL/projection, holder gauge_length/insertion, machine measured travel/spindle clearance/quill allowance, vise bed height, actual supports/jaw placement and drill-point/retract geometry."
-      ],
-      "rule": "envelope",
-      "severity": "block",
-      "status": "unknown",
+      "message": "S2 roughs before it finishes, faces the foot top before spotting, and spots before drilling each hole.",
+      "numbers": {
+        "ops": [
+          "10 rough_pocket ear_relief",
+          "20 finish_pocket ear_relief",
+          "30 face foot_top",
+          "40 rough_profile ear_sides",
+          "50 finish_profile ear_sides",
+          "60 spot hold_down_a",
+          "70 drill hold_down_a",
+          "80 spot hold_down_b",
+          "90 drill hold_down_b"
+        ]
+      },
+      "rule": "order",
+      "status": "pass",
       "subject": "S2"
     },
     {
       "cite": [
-        "PLAN.md §3.5, §4 envelope",
-        "examples/inventory/pedro-shop.yaml:8-22,65-99,106-140",
-        "plan.yaml:S3.workholding"
+        "PLAN.md rev 6 §4.1 order",
+        "examples/pivot-bracket/plan.toml S3 ops"
       ],
-      "evidence": [
-        "angle-plate is absent; missing plate/base/slot/support geometry and assembled stack. clamping-kit present:null/verify:true; parallels source.verify:true; nominal 1/2 in=12.7 mm exit support height is not a measured clearance.",
-        "Missing machine measured travel/spindle_nose_to_table_max_in, plate height/alignment, holder gauge_length/insertion, tool OAL/projection/flute/reamer geometry, drill point and actual free exit clearance. No BS-0 faceplate/chuck-adapter geometry is fabricated."
-      ],
-      "rule": "envelope",
-      "severity": "block",
-      "status": "unknown",
+      "message": "S3 finishes the arch, then spots, drills and reams the cross-bore in that order.",
+      "numbers": {
+        "ops": [
+          "10 rough_profile ear_arch",
+          "20 finish_profile ear_arch",
+          "30 spot cross_bore",
+          "40 drill cross_bore",
+          "50 ream cross_bore"
+        ]
+      },
+      "rule": "order",
+      "status": "pass",
       "subject": "S3"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S1:10"
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.cross_bore",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "examples/inventory/pedro-shop.toml:239-250"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
+      "message": "The cross-bore's size band is not on any drawing (6.5 nominal only) and the 6.5 mm reamer that should finish it is not in the shop, so the reamer size cannot be checked.",
+      "numbers": {
+        "dia": "unknown",
+        "dia_nominal": 6.5,
+        "finishing_op": "S3:50",
+        "tool": "reamers-metric/6.5mm",
+        "tool_dia_mm": "unknown",
+        "unit_tool": "mm"
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "cross_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.ear_arch"
       ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "The ear arch size is set by the cutter path, not by the cutter's own size, so there is no tool size to check.",
+      "numbers": {
+        "finishing_ops": [
+          "S3:10",
+          "S3:20"
+        ],
+        "kind": "pocket"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "ear_arch"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.ear_relief"
+      ],
+      "message": "The L relief size is set by the cutter path, not by the cutter's own size, so there is no tool size to check.",
+      "numbers": {
+        "finishing_ops": [
+          "S2:10",
+          "S2:20"
+        ],
+        "kind": "pocket"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "ear_relief"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.ear_sides"
+      ],
+      "message": "The ear sides size is set by the cutter path, not by the cutter's own size, so there is no tool size to check.",
+      "numbers": {
+        "finishing_ops": [
+          "S2:40",
+          "S2:50"
+        ],
+        "kind": "pocket"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "ear_sides"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.foot_profile"
+      ],
+      "message": "The foot outline size is set by the cutter path, not by the cutter's own size, so there is no tool size to check.",
+      "numbers": {
+        "finishing_ops": [
+          "S1:20",
+          "S1:30"
+        ],
+        "kind": "pocket"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "foot_profile"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.foot_top"
+      ],
+      "message": "The foot top size is set by the cutter path, not by the cutter's own size, so there is no tool size to check.",
+      "numbers": {
+        "finishing_ops": [
+          "S2:30"
+        ],
+        "kind": "face"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "foot_top"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.hold_down_a",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57",
+        "examples/inventory/pedro-shop.toml:195-197"
+      ],
+      "message": "The #15 drill (0.180 in, 4.572 mm nominal) matches the hold-down hole A nominal 4.572 (#8 close clearance), but no drawing gives a size band to check it against.",
+      "numbers": {
+        "dia": "unknown",
+        "dia_nominal": 4.572,
+        "finishing_op": "S2:70",
+        "tool": "drill-index-115/#15",
+        "tool_dia_in": 0.18,
+        "tool_dia_mm": 4.572
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "hold_down_a"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.hold_down_b",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57",
+        "examples/inventory/pedro-shop.toml:195-197"
+      ],
+      "message": "The #15 drill (0.180 in, 4.572 mm nominal) matches the hold-down hole B nominal 4.572 (#8 close clearance), but no drawing gives a size band to check it against.",
+      "numbers": {
+        "dia": "unknown",
+        "dia_nominal": 4.572,
+        "finishing_op": "S2:90",
+        "tool": "drill-index-115/#15",
+        "tool_dia_in": 0.18,
+        "tool_dia_mm": 4.572
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "hold_down_b"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 sizing",
+        "examples/pivot-bracket/features.toml features.seat_face"
+      ],
+      "message": "The seat face size is set by the cutter path, not by the cutter's own size, so there is no tool size to check.",
+      "numbers": {
+        "finishing_ops": [
+          "S1:10"
+        ],
+        "kind": "face"
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "seat_face"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
+      ],
+      "message": "S1 op 10: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; even that candidate HSS face row has no speed or chip load yet.",
+      "numbers": {
+        "candidate_row": "low_carbon_steel/HSS/face",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "face",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:10"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S1:20"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S1 op 20: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; even that candidate HSS profile row has no speed or chip load yet.",
+      "numbers": {
+        "candidate_row": "low_carbon_steel/HSS/profile",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:20"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S1:30"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S1 op 30: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; even that candidate HSS profile row has no speed or chip load yet.",
+      "numbers": {
+        "candidate_row": "low_carbon_steel/HSS/profile",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S1:30"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S2:10"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 10: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also there is no pocket row.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "pocket",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:10"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S2:20"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 20: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also there is no pocket row.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "pocket",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:20"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S2:30"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 30: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; even that candidate HSS face row has no speed or chip load yet.",
+      "numbers": {
+        "candidate_row": "low_carbon_steel/HSS/face",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "face",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:30"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S2:40"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 40: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; even that candidate HSS profile row has no speed or chip load yet.",
+      "numbers": {
+        "candidate_row": "low_carbon_steel/HSS/profile",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:40"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S2:50"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 50: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; even that candidate HSS profile row has no speed or chip load yet.",
+      "numbers": {
+        "candidate_row": "low_carbon_steel/HSS/profile",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:50"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
-        "plan.yaml:S2:60"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:165-176",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Selected tool center-drills-lms-4859/2 requires declared holder drill-chuck-r8, which is absent; holder capacity/arbor and tool measured shank are unavailable.",
-        "Machine PM-30MV spindle taper inherits verify:true. Missing holder/tool geometry is unknown, not an invented shank mismatch; the absent reference is inventory_refs fail/block."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 60: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also there is no spot row and no row for the M42 centre drill.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "spot",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "M42"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:60"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
-        "plan.yaml:S2:70"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:183-193",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Selected tool drill-index-115/#15 requires declared holder drill-chuck-r8, which is absent; holder capacity/arbor and tool measured shank are unavailable.",
-        "Machine PM-30MV spindle taper inherits verify:true. Missing holder/tool geometry is unknown, not an invented shank mismatch; the absent reference is inventory_refs fail/block."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 70: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also the drill index's material is not recorded.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.18,
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "drill",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:70"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
-        "plan.yaml:S2:80"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:165-176",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Selected tool center-drills-lms-4859/2 requires declared holder drill-chuck-r8, which is absent; holder capacity/arbor and tool measured shank are unavailable.",
-        "Machine PM-30MV spindle taper inherits verify:true. Missing holder/tool geometry is unknown, not an invented shank mismatch; the absent reference is inventory_refs fail/block."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 80: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also there is no spot row and no row for the M42 centre drill.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "spot",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "M42"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:80"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
-        "plan.yaml:S2:90"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:183-193",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Selected tool drill-index-115/#15 requires declared holder drill-chuck-r8, which is absent; holder capacity/arbor and tool measured shank are unavailable.",
-        "Machine PM-30MV spindle taper inherits verify:true. Missing holder/tool geometry is unknown, not an invented shank mismatch; the absent reference is inventory_refs fail/block."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S2 op 90: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also the drill index's material is not recorded.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.18,
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "drill",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S2:90"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S3:10"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S3 op 10: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; even that candidate HSS profile row has no speed or chip load yet.",
+      "numbers": {
+        "candidate_row": "low_carbon_steel/HSS/profile",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S3:10"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,82-88,106-114",
-        "plan.yaml:S3:20"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Declared endmill shank 3/8 in=9.525 mm matches selected R8 collet 3/8 in=9.525 mm; nominal shank-minus-collet delta=0 mm=0 in.",
-        "Machine PM-30MV spindle.taper=R8 inherits machines.PM-30MV.verify=true. Machine fit remains unknown until confirmed, not fail/warn; gauge/insertion/projection debt is separately envelope unknown."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S3 op 20: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; even that candidate HSS profile row has no speed or chip load yet.",
+      "numbers": {
+        "candidate_row": "low_carbon_steel/HSS/profile",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.375,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S3:20"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
-        "plan.yaml:S3:30"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:165-176",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Selected tool center-drills-lms-4859/2 requires declared holder drill-chuck-r8, which is absent; holder capacity/arbor and tool measured shank are unavailable.",
-        "Machine PM-30MV spindle taper inherits verify:true. Missing holder/tool geometry is unknown, not an invented shank mismatch; the absent reference is inventory_refs fail/block."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S3 op 30: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also there is no spot row and no row for the M42 centre drill.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "spot",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "M42"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S3:30"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
-        "plan.yaml:S3:40"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:183-193",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Selected tool drill-index-115/1-4in requires declared holder drill-chuck-r8, which is absent; holder capacity/arbor and tool measured shank are unavailable.",
-        "Machine PM-30MV spindle taper inherits verify:true. Missing holder/tool geometry is unknown, not an invented shank mismatch; the absent reference is inventory_refs fail/block."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S3 op 40: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also the drill index's material is not recorded.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.25,
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "drill",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S3:40"
     },
     {
       "cite": [
-        "PLAN.md §2, §4 holder_compat",
-        "examples/inventory/pedro-shop.yaml:8-22,116-127,153",
-        "plan.yaml:S3:50"
+        "PLAN.md rev 6 §3.5, §4.1 speeds/feeds",
+        "examples/cutting-data.toml",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:239-250",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3"
       ],
-      "evidence": [
-        "Selected tool reamers-metric/6.5mm requires declared holder drill-chuck-r8, which is absent; holder capacity/arbor and tool measured shank are unavailable.",
-        "Machine PM-30MV spindle taper inherits verify:true. Missing holder/tool geometry is unknown, not an invented shank mismatch; the absent reference is inventory_refs fail/block."
-      ],
-      "rule": "holder_compat",
-      "severity": "block",
+      "message": "S3 op 50: no RPM or feed. The part record says only Plain Carbon Steel, with no grade, so the low-carbon cutting-data class is a candidate, not established; also the reamer is missing.",
+      "numbers": {
+        "candidate_row": "none",
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "Plain Carbon Steel",
+        "material_class": "unknown",
+        "material_class_candidate": "low_carbon_steel",
+        "material_class_verify": true,
+        "operation": "ream",
+        "rpm": "unknown",
+        "rpm_max": 3000,
+        "rpm_min": 50,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S3:50"
     },
     {
       "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:24,31,33",
-        "cad/scripts/build_pivot_bracket.py:193-210"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:11-20",
+        "examples/inventory/pedro-shop.toml:22-29"
       ],
-      "evidence": [
-        "Declared chain: S3:30 spot -> S3:40 drill -> S3:50 ream.",
-        "This is an enumerated hole chain. Missing tooling and unknown geometry are reported independently; no thread or counterbore operation is fabricated."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "pass",
-      "subject": "cross_bore"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:23-35",
-        "cad/scripts/build_pivot_bracket.py:168-188"
-      ],
-      "evidence": [
-        "Feature kind pocket has no axial hole/bore/thread/counterbore chain applicability.",
-        "Declared operations: S3:10 rough_profile -> S3:20 finish_profile."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_arch"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:22-35,57"
-      ],
-      "evidence": [
-        "Feature kind pocket has no axial hole/bore/thread/counterbore chain applicability.",
-        "Declared operations: S2:10 rough_pocket -> S2:20 finish_pocket."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:22-35"
-      ],
-      "evidence": [
-        "Feature kind pocket has no axial hole/bore/thread/counterbore chain applicability.",
-        "Declared operations: S2:40 rough_profile -> S2:50 finish_profile."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_sides"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:21-30"
-      ],
-      "evidence": [
-        "Feature kind pocket has no axial hole/bore/thread/counterbore chain applicability.",
-        "Declared operations: S1:20 rough_profile -> S1:30 finish_profile."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "foot_profile"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:22,57"
-      ],
-      "evidence": [
-        "Feature kind face has no axial hole/bore/thread/counterbore chain applicability.",
-        "Declared operations: S2:30 face."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "foot_top"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235"
-      ],
-      "evidence": [
-        "Declared chain: S2:60 spot -> S2:70 drill.",
-        "This is an enumerated hole chain. Missing tooling and unknown geometry are reported independently; no thread or counterbore operation is fabricated."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "pass",
-      "subject": "hold_down_a"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235"
-      ],
-      "evidence": [
-        "Declared chain: S2:80 spot -> S2:90 drill.",
-        "This is an enumerated hole chain. Missing tooling and unknown geometry are reported independently; no thread or counterbore operation is fabricated."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "pass",
-      "subject": "hold_down_b"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.3, §4 hole_op_chain",
-        "cad/scripts/pivot_bracket_spec.py:7,21-22"
-      ],
-      "evidence": [
-        "Feature kind face has no axial hole/bore/thread/counterbore chain applicability.",
-        "Declared operations: S1:10 face."
-      ],
-      "rule": "hole_op_chain",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "seat_face"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:24,31,33",
-        "cad/scripts/build_pivot_bracket.py:193-210",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "cross_bore"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:23-35",
-        "cad/scripts/build_pivot_bracket.py:168-188",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_arch"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:22-35,57",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:22-35",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_sides"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:21-30",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "foot_profile"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:22,57",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "foot_top"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "hold_down_a"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "hold_down_b"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 index_representable",
-        "cad/scripts/pivot_bracket_spec.py:7,21-22",
-        "plan.yaml:S1-S3.workholding"
-      ],
-      "evidence": [
-        "No indexed-angle feature is declared for this subject; S1/S2 use a vise and S3 an angle plate, not BS-0 indexing.",
-        "Applicability is false, not an assertion that a missing angular tolerance is satisfied. No plate arithmetic or indexed-angle requirement is invented."
-      ],
-      "rule": "index_representable",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "seat_face"
-    },
-    {
-      "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:8-22"
-      ],
-      "evidence": [
-        "Reference resolves to machines.PM-30MV.",
-        "machines.PM-30MV.verify=true; machine values are vendor declarations until measured. Reference resolution does not verify taper or travel."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The PM-30MV is listed with an R8 spindle, but its entry is a vendor value marked verify, so nothing that depends on it can be confirmed yet.",
+      "numbers": {
+        "reference": "PM-30MV",
+        "resolved": "machines.PM-30MV",
+        "spindle_taper": "R8",
+        "used_by": [
+          "S1:machine",
+          "S2:machine",
+          "S3:machine"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "PM-30MV"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:45-62,64-100",
-        "plan.yaml:S3.workholding"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
       ],
-      "evidence": [
-        "No angle-plate workholding entry is listed. S3 requires a vertical plate and verified slots/mounts for the stated strap-clamped foot route.",
-        "BS-0 included items are a three-jaw chuck, tailstock, spindle centre and dog driver, not a suitable bracket faceplate/adapter. None is fabricated."
+      "message": "S1 op 10: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 10,
+        "setup": "S1",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
       ],
-      "rule": "inventory_refs",
-      "severity": "block",
-      "status": "fail",
+      "message": "S1 op 20: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 20,
+        "setup": "S1",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
+      ],
+      "message": "S1 op 30: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 30,
+        "setup": "S1",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
+      ],
+      "message": "S2 op 10: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 10,
+        "setup": "S2",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
+      ],
+      "message": "S2 op 20: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 20,
+        "setup": "S2",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
+      ],
+      "message": "S2 op 30: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 30,
+        "setup": "S2",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
+      ],
+      "message": "S2 op 40: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 40,
+        "setup": "S2",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
+      ],
+      "message": "S2 op 50: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 50,
+        "setup": "S2",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/pivot-bracket/plan.toml S2 op 60"
+      ],
+      "message": "S2 op 60 (spot, hold-down hole A) holds its tool in an R8 drill chuck the shop does not list.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_taper": "unknown",
+        "machine": "PM-30MV",
+        "missing": [
+          "drill-chuck-r8"
+        ],
+        "op": 60,
+        "setup": "S2",
+        "shank_fits_holder": "unknown",
+        "spindle_taper": "R8",
+        "tool": "center-drills-lms-4859/2"
+      },
+      "rule": "tool_resolves",
+      "status": "error",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/pivot-bracket/plan.toml S2 op 70"
+      ],
+      "message": "S2 op 70 (drill, hold-down hole A) holds its tool in an R8 drill chuck the shop does not list.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_taper": "unknown",
+        "machine": "PM-30MV",
+        "missing": [
+          "drill-chuck-r8"
+        ],
+        "op": 70,
+        "setup": "S2",
+        "shank_fits_holder": "unknown",
+        "spindle_taper": "R8",
+        "tool": "drill-index-115/#15"
+      },
+      "rule": "tool_resolves",
+      "status": "error",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/pivot-bracket/plan.toml S2 op 80"
+      ],
+      "message": "S2 op 80 (spot, hold-down hole B) holds its tool in an R8 drill chuck the shop does not list.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_taper": "unknown",
+        "machine": "PM-30MV",
+        "missing": [
+          "drill-chuck-r8"
+        ],
+        "op": 80,
+        "setup": "S2",
+        "shank_fits_holder": "unknown",
+        "spindle_taper": "R8",
+        "tool": "center-drills-lms-4859/2"
+      },
+      "rule": "tool_resolves",
+      "status": "error",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/pivot-bracket/plan.toml S2 op 90"
+      ],
+      "message": "S2 op 90 (drill, hold-down hole B) holds its tool in an R8 drill chuck the shop does not list.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_taper": "unknown",
+        "machine": "PM-30MV",
+        "missing": [
+          "drill-chuck-r8"
+        ],
+        "op": 90,
+        "setup": "S2",
+        "shank_fits_holder": "unknown",
+        "spindle_taper": "R8",
+        "tool": "drill-index-115/#15"
+      },
+      "rule": "tool_resolves",
+      "status": "error",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
+      ],
+      "message": "S3 op 10: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 10,
+        "setup": "S3",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/inventory/pedro-shop.toml:561-568",
+        "examples/inventory/pedro-shop.toml:139-143"
+      ],
+      "message": "S3 op 20: the 3/8 in shank fits the 3/8 in R8 collet, but the mill's R8 spindle is a vendor value marked verify.",
+      "numbers": {
+        "collet_in": "3/8",
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_taper": "R8",
+        "machine": "PM-30MV",
+        "machine_verify": true,
+        "op": 20,
+        "setup": "S3",
+        "shank_fits_holder": true,
+        "shank_in": "3/8",
+        "spindle_taper": "R8",
+        "tool": "endmills-lms-6784/3-8in-4fl"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/pivot-bracket/plan.toml S3 op 30"
+      ],
+      "message": "S3 op 30 (spot, cross-bore) holds its tool in an R8 drill chuck the shop does not list.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_taper": "unknown",
+        "machine": "PM-30MV",
+        "missing": [
+          "drill-chuck-r8"
+        ],
+        "op": 30,
+        "setup": "S3",
+        "shank_fits_holder": "unknown",
+        "spindle_taper": "R8",
+        "tool": "center-drills-lms-4859/2"
+      },
+      "rule": "tool_resolves",
+      "status": "error",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/pivot-bracket/plan.toml S3 op 40"
+      ],
+      "message": "S3 op 40 (drill, cross-bore) holds its tool in an R8 drill chuck the shop does not list.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_taper": "unknown",
+        "machine": "PM-30MV",
+        "missing": [
+          "drill-chuck-r8"
+        ],
+        "op": 40,
+        "setup": "S3",
+        "shank_fits_holder": "unknown",
+        "spindle_taper": "R8",
+        "tool": "drill-index-115/1-4in"
+      },
+      "rule": "tool_resolves",
+      "status": "error",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:22-29",
+        "examples/pivot-bracket/plan.toml S3 op 50"
+      ],
+      "message": "S3 op 50 (ream, cross-bore) holds its tool in an R8 drill chuck the shop does not list, and the 6.5 mm reamer is also missing.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_taper": "unknown",
+        "machine": "PM-30MV",
+        "missing": [
+          "drill-chuck-r8",
+          "reamers-metric/6.5mm"
+        ],
+        "op": 50,
+        "setup": "S3",
+        "shank_fits_holder": "unknown",
+        "spindle_taper": "R8",
+        "tool": "reamers-metric/6.5mm"
+      },
+      "rule": "tool_resolves",
+      "status": "error",
+      "subject": "S3:50"
+    },
+    {
+      "cite": [
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:426-525",
+        "examples/pivot-bracket/plan.toml S3 hold.fixture"
+      ],
+      "message": "No angle plate is listed in the shop, and S3 needs one to stand the bracket seat-down against a vertical face. Buy or confirm an angle plate, or re-plan S3.",
+      "numbers": {
+        "reference": "angle-plate",
+        "resolved": "none",
+        "used_by": [
+          "S3:hold.fixture"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "error",
       "subject": "angle-plate"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:97"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:492-494",
+        "examples/inventory/pedro-shop.toml:496-500"
       ],
-      "evidence": [
-        "Reference resolves to the named 1-2-3 blocks; one-inch-height orientation is an authored packing choice.",
-        "workholding.blocks-123-lms-2881.source.verify=true is inherited. Actual size, support quantity and layout must be confirmed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The 1-2-3 blocks are listed, but marked verify; their size and how many there are must be confirmed.",
+      "numbers": {
+        "reference": "blocks-123-lms-2881",
+        "resolved": "fixtures.blocks-123-lms-2881",
+        "size_in": [
+          1,
+          2,
+          3
+        ],
+        "used_by": [
+          "S2:hold.riser"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "blocks-123-lms-2881"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:158-159"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:528-533"
       ],
-      "evidence": [
-        "Reference resolves to measuring.calipers.",
-        "measuring.calipers.verify=true; no calibrated size acceptance or suitable reamed-bore gauge capability is claimed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The calipers are listed but marked verify.",
+      "numbers": {
+        "range_in": 6,
+        "reference": "calipers",
+        "resolution_in": 0.0005,
+        "resolved": "gauges.calipers",
+        "used_by": [
+          "S1:30.checks.width",
+          "S1:30.checks.length",
+          "S2:20.checks.thickness",
+          "S2:30.checks.height",
+          "S2:50.checks.width",
+          "S2:70.checks.dia",
+          "S2:70.checks.station",
+          "S2:90.checks.dia",
+          "S2:90.checks.station"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "calipers"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:116"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:165-176"
       ],
-      "evidence": [
-        "Exact centre-drill item 2 is enumerated in sizes.",
-        "tools.center-drills-lms-4859.verify=true; item diameter/shank/flute/OAL are not measured."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "Centre drill #2 is in the listed set, but the set is marked verify and its sizes are not recorded.",
+      "numbers": {
+        "dia": "unknown",
+        "member": 2,
+        "reference": "center-drills-lms-4859/2",
+        "resolved": "tools.center-drills-lms-4859",
+        "used_by": [
+          "S2:60.tool",
+          "S2:80.tool",
+          "S3:30.tool"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "center-drills-lms-4859/2"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:99",
-        "cad/scripts/_hole_spec.py:57",
-        "plan.yaml:S3.workholding"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:508-514"
       ],
-      "evidence": [
-        "Reference resolves to clamping-kit-lms-1144.",
-        "workholding.clamping-kit-lms-1144.present=null and verify=true. Clamp/stud/T-slot fit, quantities and plate mounting are unknown. Nominal 3/8 in studs=9.525 mm exceed the 4.572 mm hold-down holes by 4.953 mm=0.195 in, so studs must remain outside the part."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The clamping kit is listed but its presence is not confirmed and it is marked verify.",
+      "numbers": {
+        "present": "unknown",
+        "reference": "clamping-kit-lms-1144",
+        "resolved": "fixtures.clamping-kit-lms-1144",
+        "stud": "3/8-16",
+        "used_by": [
+          "S3:hold.clamp"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "clamping-kit-lms-1144"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:82-89,102-156",
-        "examples/inventory/pedro-shop.yaml:153"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:559-637",
+        "examples/inventory/pedro-shop.toml:367-379"
       ],
-      "evidence": [
-        "No drill-chuck-r8 entry or R8 drill-chuck accessory is listed.",
-        "Required for S2 spotting/drilling and S3 spotting/drilling/reaming; drill shanks are not placed in a fixed 3/8 in R8 collet. The listed tailstock chuck is 2MT/JT33, not an R8 substitute."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
-      "status": "fail",
+      "message": "No R8 drill chuck is listed for the mill; the only drill chuck is a 2MT lathe tailstock chuck. S2 and S3 spot, drill and ream through it, so add or confirm an R8 drill chuck.",
+      "numbers": {
+        "nearest": "tools.drill-chuck-tailstock-lms-1660 (2MT / JT33, lathe tailstock)",
+        "reference": "drill-chuck-r8",
+        "resolved": "none",
+        "used_by": [
+          "S2:60.holder",
+          "S2:70.holder",
+          "S2:80.holder",
+          "S2:90.holder",
+          "S3:30.holder",
+          "S3:40.holder",
+          "S3:50.holder"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "error",
       "subject": "drill-chuck-r8"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:117",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/pivot_bracket_spec.py:40-41"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:183-193",
+        "examples/inventory/pedro-shop.toml:195-197"
       ],
-      "evidence": [
-        "#15 is within the explicitly advertised #1-60 coverage; the reference resolves without inventing a measured item.",
-        "Selected standard nominal 0.180 in=4.572 mm corresponds to the consumer nominal clearance diameter 4.572/25.4=0.180 in. Inventory carries no measured diameter, shank, point or length."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
-      "status": "pass",
+      "message": "#15 (4.572 mm nominal) falls in the drill index's stated #1-60 range, but that coverage was read from a photo and is marked verify.",
+      "numbers": {
+        "coverage": "verify",
+        "member": "#15",
+        "nominal_dia_mm": 4.572,
+        "point_angle": "unknown",
+        "reference": "drill-index-115/#15",
+        "resolved": "tools.drill-index-115",
+        "used_by": [
+          "S2:70.tool",
+          "S2:90.tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
       "subject": "drill-index-115/#15"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:117",
-        "cad/scripts/pivot_bracket_spec.py:33",
-        "plan.yaml:S3:40"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:183-193"
       ],
-      "evidence": [
-        "1/4 in is within the explicitly advertised fractional coverage; the reference resolves without inventing a measured item.",
-        "Authored predrill nominal (1/4)*25.4=6.35 mm; nominal diametral reaming stock 6.5-6.35=0.15 mm=0.005905511811023622 in. Tool geometry is not measured."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
-      "status": "pass",
+      "message": "A 1/4 in (6.35 mm) drill falls in the drill index's stated range, but that coverage was read from a photo and is marked verify.",
+      "numbers": {
+        "coverage": "verify",
+        "member": "1/4",
+        "nominal_dia_mm": 6.35,
+        "point_angle": "unknown",
+        "reference": "drill-index-115/1-4in",
+        "resolved": "tools.drill-index-115",
+        "used_by": [
+          "S3:40.tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
       "subject": "drill-index-115/1-4in"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:140"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:295-308"
       ],
-      "evidence": [
-        "Reference resolves to tools.edge-finder; no fictitious edge-finder-lms item is used.",
-        "tools.edge-finder.present=null and verify=true; nominal tip 0.2 in=5.08 mm and shank 3/8 in do not establish physical presence or a measured pickup radius."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "An edge finder with a 0.200 in tip is listed, but its presence and tip size are not confirmed.",
+      "numbers": {
+        "present": "unknown",
+        "reference": "edge-finder",
+        "resolved": "tools.edge-finder",
+        "tip_in": 0.2,
+        "tip_mm": 5.08,
+        "used_by": [
+          "S1:zero.x",
+          "S1:zero.y",
+          "S2:zero.x",
+          "S2:zero.y",
+          "S3:zero.x",
+          "S3:zero.y"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "edge-finder"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:106-114"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:123-134",
+        "examples/inventory/pedro-shop.toml:136-137",
+        "examples/inventory/pedro-shop.toml:139-143"
       ],
-      "evidence": [
-        "The exact 3/8 in four-flute member is explicitly enumerated; advertised nominal diameter and mapped shank are 3/8 in=9.525 mm.",
-        "No measured flute length, OAL or mounted projection is inferred from the set listing."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The 3/8 in 4-flute end mill is a listed member of the end-mill set with a 3/8 in shank; its measured diameter, flute length and length are not recorded.",
+      "numbers": {
+        "dia": "unknown",
+        "flute_len": "unknown",
+        "flutes": 4,
+        "member": "3/8",
+        "oal": "unknown",
+        "reference": "endmills-lms-6784/3-8in-4fl",
+        "resolved": "tools.endmills-lms-6784",
+        "shank_in": "3/8",
+        "used_by": [
+          "S1:10.tool",
+          "S1:20.tool",
+          "S1:30.tool",
+          "S2:10.tool",
+          "S2:20.tool",
+          "S2:30.tool",
+          "S2:40.tool",
+          "S2:50.tool",
+          "S3:10.tool",
+          "S3:20.tool"
+        ]
+      },
+      "rule": "tool_resolves",
       "status": "pass",
       "subject": "endmills-lms-6784/3-8in-4fl"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:90-96"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:479-484",
+        "examples/inventory/pedro-shop.toml:486-490"
       ],
-      "evidence": [
-        "Exact selected height 1/2 in is enumerated in heights_in; nominal 1/2*25.4=12.7 mm.",
-        "workholding.parallels-lms-6745.source.verify=true is inherited by this item; actual exit clearance remains unmeasured."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The 1/2 in parallels are in the listed set (12.7 mm nominal), but the set is marked verify.",
+      "numbers": {
+        "height_mm": 12.7,
+        "member": "1/2",
+        "reference": "parallels-lms-6745/1-2in",
+        "resolved": "fixtures.parallels-lms-6745",
+        "used_by": [
+          "S3:hold.parallels"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "parallels-lms-6745/1-2in"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:90-96",
-        "plan.yaml:S1.workholding"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:479-484",
+        "examples/inventory/pedro-shop.toml:486-490"
       ],
-      "evidence": [
-        "Exact selected height 1 in is enumerated in heights_in; nominal 1*25.4=25.4 mm.",
-        "workholding.parallels-lms-6745.source.verify=true is inherited by this item. S1 uses this taller support; actual support height, jaw engagement and cutter clearance remain unmeasured."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The 1 in parallels are in the listed set (25.4 mm nominal), but the set is marked verify.",
+      "numbers": {
+        "height_mm": 25.4,
+        "member": "1",
+        "reference": "parallels-lms-6745/1in",
+        "resolved": "fixtures.parallels-lms-6745",
+        "used_by": [
+          "S1:hold.parallels"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "parallels-lms-6745/1in"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:90-96"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:479-484",
+        "examples/inventory/pedro-shop.toml:486-490"
       ],
-      "evidence": [
-        "Exact selected height 5/8 in is enumerated in heights_in; nominal 5/8*25.4=15.875 mm.",
-        "workholding.parallels-lms-6745.source.verify=true is inherited by this item; actual support geometry remains unmeasured."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The 5/8 in parallels are in the listed set (15.875 mm nominal), but the set is marked verify.",
+      "numbers": {
+        "height_mm": 15.875,
+        "member": "5/8",
+        "reference": "parallels-lms-6745/5-8in",
+        "resolved": "fixtures.parallels-lms-6745",
+        "used_by": [
+          "S2:hold.parallels"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "parallels-lms-6745/5-8in"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:82-88"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:561-568"
       ],
-      "evidence": [
-        "3-8in normalizes to the explicitly enumerated 3/8 in R8 collet.",
-        "Selected collet is not substituted for a drill chuck and is used only with the selected endmill. Gauge length/insertion are still absent for envelope."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The 3/8 in R8 collet is a listed member of the collet set; its gauge length is not recorded.",
+      "numbers": {
+        "gauge_len": "unknown",
+        "grip_mm": "unknown",
+        "member": "3/8",
+        "reference": "r8-collets-lms-4860/3-8in",
+        "resolved": "holders.r8-collets-lms-4860",
+        "standard": "R8",
+        "used_by": [
+          "S1:10.holder",
+          "S1:20.holder",
+          "S1:30.holder",
+          "S2:10.holder",
+          "S2:20.holder",
+          "S2:30.holder",
+          "S2:40.holder",
+          "S2:50.holder",
+          "S3:10.holder",
+          "S3:20.holder"
+        ]
+      },
+      "rule": "tool_resolves",
       "status": "pass",
       "subject": "r8-collets-lms-4860/3-8in"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:121-127",
-        "cad/config/parts/pivot-bracket.yaml:7",
-        "cad/scripts/pivot_bracket_spec.py:33"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:239-250",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7"
       ],
-      "evidence": [
-        "No reamers-metric root or 6.5 mm physical reamer item is listed.",
-        "Existing reamers.sizes_in is empty and candidate LMS sets are not owned, identified items. Reaming is explicitly required by the consumer process; a different nominal size or boring route is not silently substituted."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
-      "status": "fail",
+      "message": "No 6.5 mm reamer is listed: the shop's reamers are unidentified and none is metric. The cross-bore must be reamed, so buy a 6.5 mm reamer or identify one.",
+      "numbers": {
+        "reamers_sizes_in": [],
+        "reference": "reamers-metric/6.5mm",
+        "resolved": "none",
+        "used_by": [
+          "S3:50.tool"
+        ]
+      },
+      "rule": "tool_resolves",
+      "status": "error",
       "subject": "reamers-metric/6.5mm"
     },
     {
       "cite": [
-        "PLAN.md §2, §3.3, §3.5",
-        "examples/inventory/pedro-shop.yaml:65-75"
+        "PLAN.md rev 6 §4.1 tool resolves",
+        "examples/inventory/pedro-shop.toml:428-439"
       ],
-      "evidence": [
-        "Reference resolves to workholding.vise-pm-6.",
-        "workholding.vise-pm-6.verify=true; assumed model/opening/jaw dimensions are not confirmed."
-      ],
-      "rule": "inventory_refs",
-      "severity": "block",
+      "message": "The PM 6 in vise is listed, but it is an assumed model marked verify and its bed height is not measured.",
+      "numbers": {
+        "bed_height_mm": "unknown",
+        "jaw_height_in": 1.825,
+        "opening_in": 6,
+        "reference": "vise-pm-6",
+        "resolved": "fixtures.vise-pm-6",
+        "used_by": [
+          "S1:hold.fixture",
+          "S2:hold.fixture"
+        ],
+        "verify": true
+      },
+      "rule": "tool_resolves",
       "status": "unknown",
       "subject": "vise-pm-6"
     },
     {
       "cite": [
-        "PLAN.md §4 op_order",
-        "plan.yaml:S1"
+        "PLAN.md rev 6 §4.1 zero recipe",
+        "examples/pivot-bracket/plan.toml S1 zero",
+        "examples/pivot-bracket/plan.toml dro",
+        "examples/pivot-bracket/features.toml frames.A",
+        "examples/inventory/pedro-shop.toml:295-308"
       ],
-      "evidence": [
-        "S1:20 rough_profile precedes S1:30 finish_profile; S1:10 establishes the seat datum first.",
-        "Final seat/foot datum pickup is described separately from the raw-blank datum-establishment cut."
-      ],
-      "rule": "op_order",
-      "severity": "block",
-      "status": "pass",
+      "message": "The blank's edges and the paper thickness are not given, so no S1 Axis Set value can be printed; no check-jog distance is given either.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge": "blank_left",
+            "edge_mm": "unknown",
+            "from": "-x",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "not_applicable",
+            "radius_mm": 2.54,
+            "radius_verify": true,
+            "sign": 1,
+            "tool": "edge-finder"
+          },
+          "y": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge": "blank_outer_end",
+            "edge_mm": "unknown",
+            "from": "-y",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "not_applicable",
+            "radius_mm": 2.54,
+            "radius_verify": true,
+            "sign": 1,
+            "tool": "edge-finder"
+          },
+          "z": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge_mm": "unknown",
+            "face": "top",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "unknown",
+            "radius_mm": "not_applicable",
+            "sign": 1,
+            "tool": "unknown"
+          }
+        },
+        "dro": {
+          "direction": {
+            "x": "right",
+            "y": "away",
+            "z": "up"
+          },
+          "mode": "abs",
+          "radius_mode": true
+        },
+        "frame": "A",
+        "retouch": [
+          {
+            "axis_set": "unknown",
+            "op": 10,
+            "paper_mm": "unknown",
+            "top_z": 0.0
+          }
+        ]
+      },
+      "rule": "zero_check",
+      "status": "unknown",
       "subject": "S1"
     },
     {
       "cite": [
-        "PLAN.md §4 op_order",
-        "plan.yaml:S2"
+        "PLAN.md rev 6 §4.1 zero recipe",
+        "examples/pivot-bracket/plan.toml S2 zero",
+        "examples/pivot-bracket/plan.toml dro",
+        "examples/pivot-bracket/features.toml frames.B",
+        "examples/inventory/pedro-shop.toml:295-308"
       ],
-      "evidence": [
-        "S2:10 rough_pocket precedes S2:20 finish_pocket; S2:40 rough_profile precedes S2:50 finish_profile.",
-        "Foot-top datum is established before hole work; hold_down_a spot60 -> drill70 and hold_down_b spot80 -> drill90."
-      ],
-      "rule": "op_order",
-      "severity": "block",
-      "status": "pass",
+      "message": "X and Y Axis Set read −10.54 and −23.74 with a 0.200 in finder that is not confirmed; Z depends on the raw stock height and the paper thickness, which are not given, and no check-jog distance is given.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": -10.54,
+            "check_reading": "unknown",
+            "edge": "foot_left",
+            "edge_mm": -8.0,
+            "from": "-x",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "not_applicable",
+            "radius_mm": 2.54,
+            "radius_verify": true,
+            "sign": 1,
+            "tool": "edge-finder"
+          },
+          "y": {
+            "axis_set": -23.74,
+            "check_reading": "unknown",
+            "edge": "foot_free_end",
+            "edge_mm": -21.2,
+            "from": "-y",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "not_applicable",
+            "radius_mm": 2.54,
+            "radius_verify": true,
+            "sign": 1,
+            "tool": "edge-finder"
+          },
+          "z": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge_mm": "unknown",
+            "face": "top",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "unknown",
+            "radius_mm": "not_applicable",
+            "sign": 1,
+            "tool": "unknown"
+          }
+        },
+        "dro": {
+          "direction": {
+            "x": "right",
+            "y": "away",
+            "z": "up"
+          },
+          "mode": "abs",
+          "radius_mode": true
+        },
+        "frame": "B",
+        "retouch": [
+          {
+            "axis_set": "unknown",
+            "op": 30,
+            "paper_mm": "unknown",
+            "top_z": 0.0
+          }
+        ],
+        "transfer": {
+          "from": "S1",
+          "indicate": [
+            "foot_profile"
+          ]
+        }
+      },
+      "rule": "zero_check",
+      "status": "unknown",
       "subject": "S2"
     },
     {
       "cite": [
-        "PLAN.md §4 op_order",
-        "plan.yaml:S3"
+        "PLAN.md rev 6 §4.1 zero recipe",
+        "examples/pivot-bracket/plan.toml S3 zero",
+        "examples/pivot-bracket/plan.toml dro",
+        "examples/pivot-bracket/features.toml frames.C",
+        "examples/inventory/pedro-shop.toml:295-308"
       ],
-      "evidence": [
-        "ear_arch rough10 -> finish20 precedes cross_bore spot30 -> drill40 -> ream50.",
-        "No counterbore/tap or ream-before-drill reversal exists. The route remains blocked by absent fixtures/tooling."
-      ],
-      "rule": "op_order",
-      "severity": "block",
-      "status": "pass",
+      "message": "X and Y Axis Set read −10.54 and 8.54 with a 0.200 in finder that is not confirmed; the paper thickness for Z and the check-jog distance are not given.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": -10.54,
+            "check_reading": "unknown",
+            "edge": "foot_left",
+            "edge_mm": -8.0,
+            "from": "-x",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "not_applicable",
+            "radius_mm": 2.54,
+            "radius_verify": true,
+            "sign": 1,
+            "tool": "edge-finder"
+          },
+          "y": {
+            "axis_set": 8.54,
+            "check_reading": "unknown",
+            "edge": "foot_top",
+            "edge_mm": 6.0,
+            "from": "+y",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "not_applicable",
+            "radius_mm": 2.54,
+            "radius_verify": true,
+            "sign": 1,
+            "tool": "edge-finder"
+          },
+          "z": {
+            "axis_set": "unknown",
+            "check_reading": "unknown",
+            "edge_mm": 0.0,
+            "face": "ear_inner",
+            "jog_mm": "unknown",
+            "mirrored_reading": "unknown",
+            "paper_mm": "unknown",
+            "radius_mm": "not_applicable",
+            "sign": 1,
+            "tool": "unknown"
+          }
+        },
+        "dro": {
+          "direction": {
+            "x": "right",
+            "y": "away",
+            "z": "up"
+          },
+          "mode": "abs",
+          "radius_mode": true
+        },
+        "frame": "C",
+        "retouch": [],
+        "transfer": {
+          "from": "S2",
+          "indicate": [
+            "foot_profile",
+            "foot_top",
+            "ear_relief"
+          ]
+        }
+      },
+      "rule": "zero_check",
+      "status": "unknown",
       "subject": "S3"
-    },
-    {
-      "cite": [
-        "PLAN.md §2, §3.4",
-        "examples/policy/default.yaml",
-        "policy.yaml"
-      ],
-      "evidence": [
-        "policy.yaml is byte-for-byte the shared examples/policy/default.yaml; all fourteen required rules and severities are retained.",
-        "coverage severity is warn; every other required rule severity is block. No downgrades or removals."
-      ],
-      "rule": "policy_integrity",
-      "severity": "block",
-      "status": "pass",
-      "subject": "policy"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.2-3.5",
-        "spec.yaml",
-        "plan.yaml"
-      ],
-      "evidence": [
-        "Hand-authored rev-3 declaration uses typed feature kinds, unique IDs, right-handed setup frames, structured pickups and real operation references.",
-        "Nine features; three setups; seventeen operations. This is reference-fixture conformance, not output from an implemented checker."
-      ],
-      "rule": "schema",
-      "severity": "block",
-      "status": "pass",
-      "subject": "inputs"
-    },
-    {
-      "cite": [
-        "PLAN.md §2, §3.5, §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:24,31,33",
-        "cad/scripts/build_pivot_bracket.py:193-210",
-        "examples/inventory/pedro-shop.yaml:121-127"
-      ],
-      "evidence": [
-        "Selected finishing tool reamers-metric/6.5mm is absent; its measured diameter is unavailable. Missing cross_bore.diameter.upper/lower and centre position tolerance; 6.5 mm=0.2559055118110236 in is nominal only.",
-        "Authored 1/4 in predrill=6.35 mm leaves 0.15 mm=0.005905511811023622 in diametral stock. This arithmetic is not a reamer fit or consumer acceptance band."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "unknown",
-      "subject": "cross_bore"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:23-35",
-        "cad/scripts/build_pivot_bracket.py:168-188"
-      ],
-      "evidence": [
-        "Feature kind pocket; this rule checks selected finishing size for toleranced axial hole/bore/thread features, not face or exterior-complement profiling.",
-        "No fabricated profile/roughness acceptance tolerance is introduced."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_arch"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:22-35,57"
-      ],
-      "evidence": [
-        "Feature kind pocket; this rule checks selected finishing size for toleranced axial hole/bore/thread features, not face or exterior-complement profiling.",
-        "No fabricated profile/roughness acceptance tolerance is introduced."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_relief"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:22-35"
-      ],
-      "evidence": [
-        "Feature kind pocket; this rule checks selected finishing size for toleranced axial hole/bore/thread features, not face or exterior-complement profiling.",
-        "No fabricated profile/roughness acceptance tolerance is introduced."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "ear_sides"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:21-30"
-      ],
-      "evidence": [
-        "Feature kind pocket; this rule checks selected finishing size for toleranced axial hole/bore/thread features, not face or exterior-complement profiling.",
-        "No fabricated profile/roughness acceptance tolerance is introduced."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "foot_profile"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:22,57"
-      ],
-      "evidence": [
-        "Feature kind face; this rule checks selected finishing size for toleranced axial hole/bore/thread features, not face or exterior-complement profiling.",
-        "No fabricated profile/roughness acceptance tolerance is introduced."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "foot_top"
-    },
-    {
-      "cite": [
-        "PLAN.md §2, §3.5, §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235",
-        "examples/inventory/pedro-shop.yaml:117"
-      ],
-      "evidence": [
-        "Missing hold_down_a.diameter.upper/lower and centre position tolerance. Consumer nominal 4.572 mm=0.180 in does not define an acceptance band.",
-        "Selected drill-index-115/#15 resolves by advertised coverage, but measured tool diameter/shank/point geometry are missing. No measured size is invented from the standard #15 nominal."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "unknown",
-      "subject": "hold_down_a"
-    },
-    {
-      "cite": [
-        "PLAN.md §2, §3.5, §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:40-43,77-103",
-        "cad/scripts/_hole_spec.py:57",
-        "cad/scripts/build_pivot_bracket.py:215-235",
-        "examples/inventory/pedro-shop.yaml:117"
-      ],
-      "evidence": [
-        "Missing hold_down_b.diameter.upper/lower and centre position tolerance. Consumer nominal 4.572 mm=0.180 in does not define an acceptance band.",
-        "Selected drill-index-115/#15 resolves by advertised coverage, but measured tool diameter/shank/point geometry are missing. No measured size is invented from the standard #15 nominal."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "unknown",
-      "subject": "hold_down_b"
-    },
-    {
-      "cite": [
-        "PLAN.md §4 sizing_tool",
-        "cad/scripts/pivot_bracket_spec.py:7,21-22"
-      ],
-      "evidence": [
-        "Feature kind face; this rule checks selected finishing size for toleranced axial hole/bore/thread features, not face or exterior-complement profiling.",
-        "No fabricated profile/roughness acceptance tolerance is introduced."
-      ],
-      "rule": "sizing_tool",
-      "severity": "block",
-      "status": "not_applicable",
-      "subject": "seat_face"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.1, §3.6",
-        "spec.yaml:step_sha256",
-        "plan.yaml:spec_sha256"
-      ],
-      "evidence": [
-        "plan.spec_sha256 matches the current spec.yaml bytes: 5b568910623220f1baa30ec62146a7abaa9535071e5da310c5253200d3c97da7.",
-        "Missing STEP bytes and joint certified export: spec.step_sha256 is the literal <sha256 of cad/out/step/pivot-bracket.step>. No STEP digest or export attestation is fabricated."
-      ],
-      "rule": "step_binding",
-      "severity": "block",
-      "status": "unknown",
-      "subject": "certified_export"
     }
   ],
-  "hash": "<computed>",
+  "hash": "7fff2a5970df7bf35e1a3383a050de550fa5463b650ec8901d9a62225b2ee73b",
   "inputs": {
-    "inventory_sha256": "82f458cda20b298cea093911e3d3f091186679e844d4572394b365a738b79d4d",
-    "plan_sha256": "b64d575c56606da118bdfec4f373125ab105b698b4f4a058fdfa0dfaca7544d4",
-    "policy_sha256": "440a87f17a9ed0ddc4e533304830ae202b074b2298ed08e447e85db6caca88bc",
-    "prechips_version": "reference-fixtures-rev3",
-    "rules_version": "reference-fixtures-rev3",
-    "spec_sha256": "5b568910623220f1baa30ec62146a7abaa9535071e5da310c5253200d3c97da7",
-    "step_sha256": "<sha256 of cad/out/step/pivot-bracket.step>",
-    "tables_version": "reference-fixtures-rev3"
+    "cutting_data": {
+      "path": "examples/cutting-data.toml",
+      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+    },
+    "features": {
+      "path": "examples/pivot-bracket/features.toml",
+      "sha256": "19d5d12c24a4351b1d949c0da6c857b1badebaa8bc3b7ea21658b0f8e02823c4"
+    },
+    "inventory": {
+      "path": "examples/inventory/pedro-shop.toml",
+      "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+    },
+    "plan": {
+      "path": "examples/pivot-bracket/plan.toml",
+      "sha256": "3517c780c6a8d3509a0fb79fade004c38e164e73be875ba34bf2bc3d7c00ba5b"
+    },
+    "shop_policy": {
+      "path": "examples/shop-policy.toml",
+      "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+    }
   },
+  "prechips_version": "0.1",
+  "rules_version": "reference-fixtures-rev6",
+  "step_sha256": "unknown",
   "verification": "planned"
 }
