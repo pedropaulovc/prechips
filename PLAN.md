@@ -10,7 +10,7 @@
 > plain words; everything else it computed goes to a machine-readable report
 > no human has to read.
 
-Status: plan only. Rev 5, 2026-10-03. Rev 1 was traveler-first but promised
+Status: plan only. Rev 5, 2026-10-03 (updated same day: 4.6 reasons, 5.1 CLI, indexing to M2, per-feature precision). Rev 1 was traveler-first but promised
 geometric proofs it could not deliver. Revs 2–3 absorbed two adversarial
 reviews and became correct but unusable: a 100 KB traveler of config ids,
 hashes and 15-decimal numbers. Rev 4 restored the purpose and the rule
@@ -491,9 +491,24 @@ side by side. It does not pick a winner, and a built-up candidate is marked
 
 ### 4.6 Non-deterministic residue, named
 
-Chatter, clamp deformation, whip, tiny-part gripping, cutter wear. Handled by
-the proxies and fixturing rules above. No rule in this project claims to
-replace the first-article cut.
+Chatter, clamp deformation, whip, tiny-part gripping, cutter wear. No rule
+in this project claims to decide these, and the reason is not effort: each
+depends on a quantity the declared inputs cannot carry.
+
+| residue | what decides it | why prechips cannot compute it |
+|---|---|---|
+| chatter | the tool–holder–spindle–part–fixture stiffness and damping at the cutting frequency | a modal property of the assembled stack; needs a tap test or a cut on *this* machine, not a catalogue number — a stability lobe diagram is per spindle, per holder, per overhang |
+| clamp deformation | vise torque, jaw and part contact geometry, part wall stiffness | the torque is uncalibrated ("hand plus a quarter turn"); the contact is a frictional, nonlinear problem the thin-wall proxy only screens |
+| whip (turning) | stick-out, speed, stock straightness, bar residual stress | the deflection proxy gives static sag; whip is dynamic and depends on how straight the bar was when bought |
+| tiny-part gripping | surface condition, burr, oil, operator's hand | not a geometric property |
+| cutter wear | cumulative cut length, coating, coolant, workpiece batch hardness | needs a life model calibrated on this shop's tools and steel; no vendor table ships one for HSS hobby tooling |
+
+The proxies (§4.4) and the fixturing rules (§4.3) screen the cases that
+are decidable from geometry; the first-article cut and the logbook entry
+are the evidence for the rest. If a residue turns out to be a repeat
+offender on one part, the fix is a shop-policy number measured on that
+part (`numbers.max_stickout_mm_for_6mm = …`, cited to the logbook entry),
+not a general model.
 
 ## 5. Outputs, binding and readiness
 
@@ -517,9 +532,45 @@ given (`--approval approvals.toml`), and prints `PLANNED` with a `!` line
 naming which input changed. The paper copy carries only the short id; the
 binding is enforced where the files are.
 
-CLI: `prechips traveler <plan.toml> [--approval …]` (writes both; exit per
-§4), `prechips tools` (lists the inventory as prechips resolved it),
-`prechips compare <plan.toml>...` (§4.5).
+### 5.1 CLI shape
+
+One executable, verbs for the three things a person does with it. Every
+verb reads the same four inputs, resolves them the same way, and prints
+the same finding sentences; the verbs differ in what they write.
+
+```
+prechips traveler <plan.toml> [--inventory <toml>] [--policy <toml>]
+                  [--approval <toml>] [--out <dir>]
+    Writes traveler.html, report.json (and setup-S<n>.png once M4
+    exists) under --out (default: beside the plan). Prints the "before
+    you start" lines to stderr. Exit 0 checked / 2 blocked / 4 required
+    unknown or unsupported / 3 bad input (unparsable TOML, unknown key,
+    plan feature not in the manifest, empty plan).
+
+prechips check <plan.toml> [...]
+    Same as traveler without writing the sheet; the doit-gate form.
+
+prechips tools [--inventory <toml>] [<query>]
+    The inventory as prechips resolved it: ids, sizes in both units,
+    holder chain, what is verify = true. With a query ("reamer 6.5",
+    "R8") the candidates the sizing rule would consider and why each
+    passes or fails.
+
+prechips compare <plan.toml>... [--inventory ...] [--policy ...]
+    §4.5: one row per candidate plan — setups, waste ratio, fixtures
+    required, findings — to stdout as a table and <out>/compare.json.
+
+prechips explain <report.json> <rule>[:<subject>]
+    The numbers behind one finding, for the informed review: inputs,
+    citation, the computation. Never on the sheet.
+```
+
+Conventions: inventory and policy default from `[paths]` in the plan or
+from `PRECHIPS_INVENTORY` / `PRECHIPS_POLICY`; `--out` never writes
+outside itself; nothing is interactive; stdout is the human table, `--json`
+switches it to the machine form; stderr carries findings and `?` lines.
+Determinism is a CLI contract: same inputs, byte-identical `report.json`,
+checked in CI by running twice.
 
 ## 6. The kernel: what the spike measured
 
