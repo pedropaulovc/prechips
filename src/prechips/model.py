@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, model_serializer, model_validator
@@ -194,7 +195,7 @@ Operation = record(
         **texts("do feature tool holder direction note inspection_note"),
         **numbers(
             "to_z depth_mm exit_mm rough_allowance_mm stock_to_leave_mm z_from z_to "
-            "to_dia rpm feed_mm_min doc_mm feed_mm_rev"
+            "to_dia rpm feed_mm_min doc_mm feed_mm_rev approach_mm"
         ),
         "to_z_cite": Citations,
         "note_cite": Citations,
@@ -368,6 +369,70 @@ class Features(InputModel):
 
 
 Source = record("Source", {**texts("vendor by url note cite"), "sku": str | int, "verify": bool})
+
+
+class Measurement(InputModel):
+    by: str
+    date: str
+    instrument: str
+
+    @model_validator(mode="after")
+    def complete(self) -> Measurement:
+        if any(
+            not value.strip() or value.strip() == UNKNOWN
+            for value in (self.by, self.date, self.instrument)
+        ):
+            raise ValueError("Measurement by, date and instrument must be complete.")
+        if date.fromisoformat(self.date).isoformat() != self.date:
+            raise ValueError("Measurement date must be an ISO YYYY-MM-DD calendar date.")
+        return self
+
+
+class LengthMeasurement(InputModel):
+    value: Number
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+    cite: Citations = UNKNOWN
+
+
+type MeasuredLength = Number | LengthMeasurement
+MEASUREMENT_FIELDS = {"measured": Measurement, "verify": bool, "cite": Citations}
+EnvelopeTravel = record(
+    "EnvelopeTravel",
+    {**dict.fromkeys(("x", "y", "z"), MeasuredLength), **MEASUREMENT_FIELDS},
+)
+SpindleStack = record(
+    "SpindleStack",
+    {
+        **dict.fromkeys(("r8", "er_collet_chuck", "drill_chuck"), MeasuredLength),
+        **MEASUREMENT_FIELDS,
+    },
+)
+MachineEnvelope = record(
+    "MachineEnvelope",
+    {
+        "travel_mm": EnvelopeTravel,
+        "travel_in": EnvelopeTravel,
+        **dict.fromkeys(
+            (
+                "spindle_to_table_max_mm",
+                "spindle_to_table_max_in",
+                "spindle_to_table_min_mm",
+                "spindle_to_table_min_in",
+                "table_length_mm",
+                "table_length_in",
+                "table_width_mm",
+                "table_width_in",
+                "t_slot_pitch_mm",
+                "t_slot_pitch_in",
+            ),
+            MeasuredLength,
+        ),
+        "spindle_taper": str,
+        "spindle_stack_mm": SpindleStack,
+        **MEASUREMENT_FIELDS,
+    },
+)
 Spindle = record(
     "Spindle",
     {
@@ -403,16 +468,46 @@ InventoryItem = record(
         **numbers(
             "spindle_to_table_max_in headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
-            "swing_in plates pieces angle_deg point_angle flute_len oal head_in max_offset_in "
-            "dial_in length_in min_bore_in tip_in jaw_width_in opening_in jaw_height_in "
-            "bed_height_mm diameter_in thickness_in resolution_in runout_max_in gauge_len "
-            "grip_mm max_shank_in lead_mm projection_mm sfm chip_load_mm_per_tooth "
-            "dia_mm dia_in shank_mm flute_len_mm flute_len_in oal_mm oal_in gauge_len_mm "
-            "gauge_len_in projection_in spindle_to_table_max_mm jaw_height_mm height_mm "
-            "height_in length_mm width_mm width_in capacity_mm "
-            "bed_height_in nose_radius_mm reach_mm"
+            "swing_in plates pieces angle_deg point_angle head_in max_offset_in "
+            "dial_in min_bore_in tip_in jaw_width_in opening_in "
+            "diameter_in thickness_in resolution_in runout_max_in "
+            "max_shank_in lead_mm sfm chip_load_mm_per_tooth "
+            "spindle_to_table_max_mm capacity_mm nose_radius_mm"
         ),
-        "dia": Number,
+        "dia": MeasuredLength,
+        **dict.fromkeys(
+            (
+                "gauge_len",
+                "gauge_len_mm",
+                "gauge_len_in",
+                "projection_mm",
+                "projection_in",
+                "oal",
+                "oal_mm",
+                "oal_in",
+                "grip_mm",
+                "dia_mm",
+                "dia_in",
+                "flute_len",
+                "flute_len_mm",
+                "flute_len_in",
+                "shank_mm",
+                "height_mm",
+                "height_in",
+                "jaw_height_mm",
+                "jaw_height_in",
+                "bed_height_mm",
+                "bed_height_in",
+                "length_mm",
+                "length_in",
+                "width_mm",
+                "width_in",
+                "reach_mm",
+            ),
+            MeasuredLength,
+        ),
+        "measured": Measurement,
+        "envelope": MachineEnvelope,
         "shank_in": float | str | dict[str, list[str]],
         "flutes": int | list[int],
         "source": str | Source,

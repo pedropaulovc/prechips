@@ -20,6 +20,11 @@ or identity cannot establish absence. An unknown listed dimension still needs
 an inspection method; unknown requirement identities remain unresolved rather
 than inventing a gauge. Preserve source citations
 next to the facts they support; author's process choices are not measured facts.
+M5 machine envelope limits and holder gauge/projection require
+`measured = { by, date, instrument }`; `verify = false` alone is not evidence.
+Keep fixture vendor flags and existing OAL facts intact. M5 rules consume only
+an already-present successful kernel bbox; they never start a kernel. Missing
+approach/extent and measurement inputs retain concrete `measure:` instructions.
 
 The shipped hand-authored reference bundles are under `examples/`, with shared
 inventory, policy and cutting data. Read [examples/README.md](examples/README.md)

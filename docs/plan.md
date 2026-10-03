@@ -346,6 +346,7 @@ with angles at the drawing's declared angular precision.
 | `feed_mm_min` | `float` |
 | `doc_mm` | `float` |
 | `feed_mm_rev` | `float` |
+| `approach_mm` | `float` |
 | `to_z_cite` | `Citations` |
 | `note_cite` | `Citations` |
 | `checks` | `dict[str, str]` |
@@ -357,6 +358,13 @@ with angles at the drawing's declared angular precision.
 cutting operation. Omitted DOC, noncutting actions and known drills, reamers,
 taps or lathe tools are `not_applicable`; an authored unknown DOC on an eligible
 operation remains unresolved, not an invented recommendation.
+
+`approach_mm` is the authored nonnegative safe approach/retract distance along
+setup Z for M5's travel screen. There is no invented default: absence or
+`"unknown"` leaves that operation's Z travel unresolved and the sheet says how
+to measure/author it. It does not itself command a machine move or assert XY
+collision clearance. Feature extents/centres and commanded tip targets supply
+the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inventory-screens).
 
 ## Contour
 

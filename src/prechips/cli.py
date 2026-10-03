@@ -48,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     tools = verbs.add_parser("tools")
     tools.add_argument("query", nargs="?", default="")
     tools.add_argument("--inventory")
+    tools.add_argument("--measure", action="store_true", help="List inventory measurement debt.")
     _common(tools, bundle=False)
     compare = verbs.add_parser("compare")
     compare.add_argument("plans", nargs="+", type=Path)
@@ -225,6 +226,10 @@ def _json_stdout(value) -> None:
 
 
 def _tools(args, tracing: telemetry.Telemetry) -> int:
+    from prechips.measurements import (
+        envelope_measurements,
+        measurement_checklist,
+    )
     from prechips.rules.resolution import (
         candidate_refs,
         length_mm,
@@ -238,6 +243,17 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
     if not path:
         raise BadInput("tools requires --inventory or PRECHIPS_INVENTORY.")
     inventory = load_inventory(path)
+    if args.measure:
+        checklist = measurement_checklist(inventory)
+        if getattr(args, "json", False):
+            _json_stdout(checklist)
+        else:
+            for entry in checklist:
+                print(f"[ ] {entry['instruction']}")
+                for citation in entry["cite"]:
+                    print(f"    {citation}")
+        tracing.log("debug", "Inventory measurement checklist.", measurements=len(checklist))
+        return 0
     words = args.query.casefold().split()
     requested = None
     text_words = []
@@ -303,6 +319,14 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
             "size_in": size_in,
             "holder_chain": item.get("standard", item.get("shank", item.get("series", "unknown"))),
         }
+        authored = record(record(inventory.get(category)).get(identity))
+        if category == "machines" and (authored.get("kind") == "mill" or "envelope" in authored):
+            row["envelope_measurements"] = envelope_measurements(authored)
+            row["envelope_measurement_status"] = (
+                "measured"
+                if all(fact["verified"] for fact in row["envelope_measurements"].values())
+                else "unmeasured"
+            )
         if requested is not None:
             row.update(requested_dia_mm=requested, sizing=verdict, reason=reason)
         rows.append(row)
@@ -317,6 +341,12 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 f"{row['holder_chain']} | {'verify' if row.get('verify') else 'listed'} | "
                 f"{row.get('reason', '—')}"
             )
+            if "envelope_measurements" in row:
+                print(f"  Envelope {row['id']} [{row['envelope_measurement_status']}]")
+                for field, fact in row["envelope_measurements"].items():
+                    marker = "measured" if fact["verified"] else "unmeasured"
+                    units = "" if field == "spindle_taper" else " mm"
+                    print(f"    {field}: {fact['value']}{units} [{marker}]")
     tracing.log("debug", "Inventory resolved.", candidates=len(rows))
     return 0
 

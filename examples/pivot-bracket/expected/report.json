@@ -246,7 +246,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+            "sha256": "314a2fd5ea6e036d00d1ce1d5433c800d937ac3be86c5f78a986789635373c66"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
@@ -2812,6 +2812,500 @@
     },
     {
       "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+        "https://www.precisionmatthews.com/products/pm-30mv",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in.height",
+        "inventory.fixtures.vise-pm-6.jaw_height",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
+        "inventory.holders.r8-collets-lms-4860/3-8in.projection",
+        "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+        "plan.setups.stock_state: physical supported stock height",
+        "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+      ],
+      "message": "S1: spindle envelope remains unmeasured or unresolved. measure: parallels-lms-6745/1in record height, steel rule or calipers, mm; measure: vise-pm-6 record jaw_height, steel rule or calipers, mm; measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: r8-collets-lms-4860/3-8in holder face to tool tip for the installed cutting assembly, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm.",
+      "numbers": {
+        "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+        "fixture_height_mm": 71.755,
+        "measurements": [
+          {
+            "cite": [
+              "inventory.fixtures.parallels-lms-6745/1in.height"
+            ],
+            "id": "fixtures.parallels-lms-6745/1in.height",
+            "instruction": "measure: parallels-lms-6745/1in record height, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.vise-pm-6.jaw_height"
+            ],
+            "id": "fixtures.vise-pm-6.jaw_height",
+            "instruction": "measure: vise-pm-6 record jaw_height, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.projection"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.projection",
+            "instruction": "measure: r8-collets-lms-4860/3-8in holder face to tool tip for the installed cutting assembly, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+            ],
+            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+            ],
+            "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+            "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+          }
+        ],
+        "part_extents_mm": {
+          "x": 34.2,
+          "y": 26.2,
+          "z": 34.2
+        },
+        "spindle_to_table_max_mm": 431.79999999999995,
+        "spindle_to_table_min_mm": "unknown",
+        "stacks": [
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 10,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 20,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 30,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          }
+        ]
+      },
+      "rule": "envelope",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+        "https://www.precisionmatthews.com/products/pm-30mv",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.blocks-123-lms-2881.height",
+        "inventory.fixtures.parallels-lms-6745/5-8in.height",
+        "inventory.fixtures.vise-pm-6.jaw_height",
+        "inventory.holders.drill-chuck-r8.gauge_len",
+        "inventory.holders.drill-chuck-r8.grip",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
+        "inventory.holders.r8-collets-lms-4860/3-8in.projection",
+        "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+        "inventory.tools.center-drills-lms-4859/2.oal",
+        "inventory.tools.drill-index-115/#15.oal",
+        "plan.setups.stock_state: physical supported stock height",
+        "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+      ],
+      "message": "S2: spindle envelope remains unmeasured or unresolved. measure: blocks-123-lms-2881 record height, steel rule or calipers, mm; measure: parallels-lms-6745/5-8in record height, steel rule or calipers, mm; measure: vise-pm-6 record jaw_height, steel rule or calipers, mm; measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: drill-chuck-r8 record grip, steel rule or calipers, mm; measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: r8-collets-lms-4860/3-8in holder face to tool tip for the installed cutting assembly, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: center-drills-lms-4859/2 record oal, steel rule or calipers, mm; measure: drill-index-115/#15 record oal, steel rule or calipers, mm.",
+      "numbers": {
+        "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+        "fixture_height_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.fixtures.blocks-123-lms-2881.height"
+            ],
+            "id": "fixtures.blocks-123-lms-2881.height",
+            "instruction": "measure: blocks-123-lms-2881 record height, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.parallels-lms-6745/5-8in.height"
+            ],
+            "id": "fixtures.parallels-lms-6745/5-8in.height",
+            "instruction": "measure: parallels-lms-6745/5-8in record height, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.vise-pm-6.jaw_height"
+            ],
+            "id": "fixtures.vise-pm-6.jaw_height",
+            "instruction": "measure: vise-pm-6 record jaw_height, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.grip"
+            ],
+            "id": "holders.drill-chuck-r8.grip",
+            "instruction": "measure: drill-chuck-r8 record grip, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.projection"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.projection",
+            "instruction": "measure: r8-collets-lms-4860/3-8in holder face to tool tip for the installed cutting assembly, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+            ],
+            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+            ],
+            "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+            "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.center-drills-lms-4859/2.oal"
+            ],
+            "id": "tools.center-drills-lms-4859/2.oal",
+            "instruction": "measure: center-drills-lms-4859/2 record oal, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.drill-index-115/#15.oal"
+            ],
+            "id": "tools.drill-index-115/#15.oal",
+            "instruction": "measure: drill-index-115/#15 record oal, steel rule or calipers, mm"
+          }
+        ],
+        "part_extents_mm": {
+          "x": 34.2,
+          "y": 26.2,
+          "z": 33.2
+        },
+        "spindle_to_table_max_mm": 431.79999999999995,
+        "spindle_to_table_min_mm": "unknown",
+        "stacks": [
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 10,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 20,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 30,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 40,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 50,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "drill-chuck-r8",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 60,
+            "stack_mm": "unknown",
+            "tool": "center-drills-lms-4859/2",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "drill-chuck-r8",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 70,
+            "stack_mm": "unknown",
+            "tool": "drill-index-115/#15",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "drill-chuck-r8",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 80,
+            "stack_mm": "unknown",
+            "tool": "center-drills-lms-4859/2",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "drill-chuck-r8",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 90,
+            "stack_mm": "unknown",
+            "tool": "drill-index-115/#15",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          }
+        ]
+      },
+      "rule": "envelope",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+        "https://www.precisionmatthews.com/products/pm-30mv",
+        "inventory.fixtures.angle-plate.height",
+        "inventory.fixtures.parallels-lms-6745/1-2in.height",
+        "inventory.holders.drill-chuck-r8.gauge_len",
+        "inventory.holders.drill-chuck-r8.grip",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
+        "inventory.holders.r8-collets-lms-4860/3-8in.projection",
+        "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+        "inventory.tools.center-drills-lms-4859/2.oal",
+        "inventory.tools.drill-index-115/1-4in.oal",
+        "inventory.tools.reamers-metric/6.5mm.oal",
+        "plan.setups.stock_state: physical supported stock height",
+        "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+      ],
+      "message": "S3: spindle envelope remains unmeasured or unresolved. measure: angle-plate record height, steel rule or calipers, mm; measure: parallels-lms-6745/1-2in record height, steel rule or calipers, mm; measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: drill-chuck-r8 record grip, steel rule or calipers, mm; measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: r8-collets-lms-4860/3-8in holder face to tool tip for the installed cutting assembly, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: center-drills-lms-4859/2 record oal, steel rule or calipers, mm; measure: drill-index-115/1-4in record oal, steel rule or calipers, mm; measure: reamers-metric/6.5mm record oal, steel rule or calipers, mm.",
+      "numbers": {
+        "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+        "fixture_height_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.fixtures.angle-plate.height"
+            ],
+            "id": "fixtures.angle-plate.height",
+            "instruction": "measure: angle-plate record height, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.parallels-lms-6745/1-2in.height"
+            ],
+            "id": "fixtures.parallels-lms-6745/1-2in.height",
+            "instruction": "measure: parallels-lms-6745/1-2in record height, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.grip"
+            ],
+            "id": "holders.drill-chuck-r8.grip",
+            "instruction": "measure: drill-chuck-r8 record grip, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.projection"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.projection",
+            "instruction": "measure: r8-collets-lms-4860/3-8in holder face to tool tip for the installed cutting assembly, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+            ],
+            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+            ],
+            "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+            "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.center-drills-lms-4859/2.oal"
+            ],
+            "id": "tools.center-drills-lms-4859/2.oal",
+            "instruction": "measure: center-drills-lms-4859/2 record oal, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.drill-index-115/1-4in.oal"
+            ],
+            "id": "tools.drill-index-115/1-4in.oal",
+            "instruction": "measure: drill-index-115/1-4in record oal, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.reamers-metric/6.5mm.oal"
+            ],
+            "id": "tools.reamers-metric/6.5mm.oal",
+            "instruction": "measure: reamers-metric/6.5mm record oal, steel rule or calipers, mm"
+          }
+        ],
+        "part_extents_mm": {
+          "x": 34.2,
+          "y": 18.0,
+          "z": 24.2
+        },
+        "spindle_to_table_max_mm": 431.79999999999995,
+        "spindle_to_table_min_mm": "unknown",
+        "stacks": [
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 10,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 20,
+            "stack_mm": "unknown",
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "drill-chuck-r8",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 30,
+            "stack_mm": "unknown",
+            "tool": "center-drills-lms-4859/2",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "drill-chuck-r8",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 40,
+            "stack_mm": "unknown",
+            "tool": "drill-index-115/1-4in",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "holder": "drill-chuck-r8",
+            "holder_gauge_len_mm": "unknown",
+            "lower_margin_mm": "unknown",
+            "op": 50,
+            "stack_mm": "unknown",
+            "tool": "reamers-metric/6.5mm",
+            "tool_projection_mm": "unknown",
+            "upper_margin_mm": "unknown",
+            "verified": false
+          }
+        ]
+      },
+      "rule": "envelope",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame"
@@ -3295,6 +3789,397 @@
       "rule": "hold_fields",
       "status": "unknown",
       "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S1:10: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S1:20: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S1:30: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S2:10: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S2:20: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S2:30: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S2:40: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S2:50: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.drill-chuck-r8.gauge_len"
+      ],
+      "message": "S2:60: holder drill-chuck-r8 gauge length is unmeasured. measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.drill-chuck-r8.gauge_len"
+      ],
+      "message": "S2:70: holder drill-chuck-r8 gauge length is unmeasured. measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.drill-chuck-r8.gauge_len"
+      ],
+      "message": "S2:80: holder drill-chuck-r8 gauge length is unmeasured. measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.drill-chuck-r8.gauge_len"
+      ],
+      "message": "S2:90: holder drill-chuck-r8 gauge length is unmeasured. measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S3:10: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+      ],
+      "message": "S3:20: holder r8-collets-lms-4860/3-8in gauge length is unmeasured. measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len"
+            ],
+            "id": "holders.r8-collets-lms-4860/3-8in.gauge_len",
+            "instruction": "measure: r8-collets-lms-4860/3-8in mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.drill-chuck-r8.gauge_len"
+      ],
+      "message": "S3:30: holder drill-chuck-r8 gauge length is unmeasured. measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.drill-chuck-r8.gauge_len"
+      ],
+      "message": "S3:40: holder drill-chuck-r8 gauge length is unmeasured. measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+        "inventory.holders.drill-chuck-r8.gauge_len"
+      ],
+      "message": "S3:50: holder drill-chuck-r8 gauge length is unmeasured. measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+      "numbers": {
+        "holder": "drill-chuck-r8",
+        "holder_gauge_len_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.drill-chuck-r8.gauge_len"
+            ],
+            "id": "holders.drill-chuck-r8.gauge_len",
+            "instruction": "measure: drill-chuck-r8 mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+          }
+        ]
+      },
+      "rule": "holder_stack",
+      "status": "unknown",
+      "subject": "S3:50"
     },
     {
       "cite": [
@@ -5259,6 +6144,1015 @@
     },
     {
       "cite": [
+        "plan.setups.S1",
+        "inventory.machines.PM-30MV",
+        "https://www.precisionmatthews.com/products/pm-30mv",
+        "features.frames.A",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22",
+        "plan.setups.S1.ops.10",
+        "features.features.seat_face.bounds/at",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7",
+        "features.frames.model",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:19-26",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
+        "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+        "plan.setups.stock_state: physical supported stock height",
+        "plan.setups.S1.ops.20",
+        "features.features.foot_profile.bounds/at",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21",
+        "plan.setups.S1.ops.30",
+        "inventory.machines.PM-30MV.envelope.travel.x",
+        "inventory.machines.PM-30MV.envelope.travel.y",
+        "inventory.machines.PM-30MV.envelope.travel.z"
+      ],
+      "message": "S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S1.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S1.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.x"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.x",
+            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.y"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.y",
+            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.z"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.z",
+            "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          }
+        ],
+        "operations": [
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": {
+              "x": 34.2,
+              "y": 26.2,
+              "z": 34.2
+            },
+            "do": "face",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "seat_face",
+            "op": 10,
+            "rough_allowance_mm": 0,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              0.0,
+              1.0
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "rough_profile",
+            "endpoint": "not_applicable",
+            "extent_mm": {
+              "x": [
+                -8.0,
+                8.0
+              ],
+              "y": [
+                -3.0,
+                21.2
+              ],
+              "z": [
+                -6.0,
+                0.0
+              ]
+            },
+            "feature": "foot_profile",
+            "op": 20,
+            "rough_allowance_mm": 0.3,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": [
+                -13.0625,
+                13.0625
+              ],
+              "y": [
+                -8.0625,
+                26.2625
+              ]
+            },
+            "z_bounds_mm": [
+              -6.0,
+              0.0
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "finish_profile",
+            "endpoint": "not_applicable",
+            "extent_mm": {
+              "x": [
+                -8.0,
+                8.0
+              ],
+              "y": [
+                -3.0,
+                21.2
+              ],
+              "z": [
+                -6.0,
+                0.0
+              ]
+            },
+            "feature": "foot_profile",
+            "op": 30,
+            "rough_allowance_mm": 0,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": [
+                -12.7625,
+                12.7625
+              ],
+              "y": [
+                -7.762499999999999,
+                25.9625
+              ]
+            },
+            "z_bounds_mm": [
+              -6.0,
+              0.0
+            ],
+            "z_verified": false
+          }
+        ],
+        "travel_checks": {
+          "x": {
+            "located_span_mm": 26.125,
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": 43.725,
+            "required_mm": 43.725,
+            "required_verified": true,
+            "travel_mm": 584.1999999999999,
+            "travel_verified": false
+          },
+          "y": {
+            "located_span_mm": 34.325,
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": 35.724999999999994,
+            "required_mm": 35.724999999999994,
+            "required_verified": true,
+            "travel_mm": 222.25,
+            "travel_verified": false
+          },
+          "z": {
+            "located_span_mm": "unknown",
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": 355.59999999999997,
+            "travel_verified": false
+          }
+        }
+      },
+      "rule": "travel",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "plan.setups.S2",
+        "inventory.machines.PM-30MV",
+        "https://www.precisionmatthews.com/products/pm-30mv",
+        "features.frames.B",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29",
+        "plan.setups.S2.ops.10",
+        "features.features.ear_relief.bounds/at",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "features.frames.model",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:19-26",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
+        "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+        "plan.setups.stock_state: physical supported stock height",
+        "plan.setups.S2.ops.20",
+        "plan.setups.S2.ops.30",
+        "features.features.foot_top.bounds/at",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21,57",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22",
+        "plan.setups.S2.ops.40",
+        "features.features.ear_sides.bounds/at",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23",
+        "plan.setups.S2.ops.50",
+        "plan.setups.S2.ops.60",
+        "features.features.hold_down_a.bounds/at",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41",
+        "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))",
+        "inventory.tools.center-drills-lms-4859/2.dia",
+        "plan.setups.S2.ops.70",
+        "inventory.tools.drill-index-115/#15.dia",
+        "inventory.tools.drill-index-115/#15.point_angle",
+        "plan.setups.S2.ops.80",
+        "features.features.hold_down_b.bounds/at",
+        "plan.setups.S2.ops.90",
+        "inventory.machines.PM-30MV.envelope.travel.x",
+        "inventory.machines.PM-30MV.envelope.travel.y",
+        "inventory.machines.PM-30MV.envelope.travel.z"
+      ],
+      "message": "S2: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S2.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.40.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.50.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure inventory.tools.center-drills-lms-4859/2.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S2.ops.60 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.60.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure inventory.tools.drill-index-115/#15.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S2.ops.70 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.70.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.80.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.90 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.90.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: center-drills-lms-4859/2 record dia, steel rule or calipers, mm; measure: drill-index-115/#15 record dia, steel rule or calipers, mm; measure: drill-index-115/#15 included tool point angle, protractor, degrees.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.x"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.x",
+            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.y"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.y",
+            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.z"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.z",
+            "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.center-drills-lms-4859/2.dia"
+            ],
+            "id": "tools.center-drills-lms-4859/2.dia",
+            "instruction": "measure: center-drills-lms-4859/2 record dia, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.drill-index-115/#15.dia"
+            ],
+            "id": "tools.drill-index-115/#15.dia",
+            "instruction": "measure: drill-index-115/#15 record dia, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.drill-index-115/#15.point_angle"
+            ],
+            "id": "tools.drill-index-115/#15.point_angle",
+            "instruction": "measure: drill-index-115/#15 included tool point angle, protractor, degrees"
+          }
+        ],
+        "operations": [
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": {
+              "x": 34.2,
+              "y": 26.2,
+              "z": 33.2
+            },
+            "do": "rough_pocket",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "ear_relief",
+            "op": 10,
+            "rough_allowance_mm": 0.3,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              0.3,
+              27.2
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": {
+              "x": 34.2,
+              "y": 26.2,
+              "z": 33.2
+            },
+            "do": "finish_pocket",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "ear_relief",
+            "op": 20,
+            "rough_allowance_mm": 0,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              0.0,
+              27.2
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": {
+              "x": 34.2,
+              "y": 26.2,
+              "z": 33.2
+            },
+            "do": "face",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "foot_top",
+            "op": 30,
+            "rough_allowance_mm": 0,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              0.0,
+              27.2
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "rough_profile",
+            "endpoint": "not_applicable",
+            "extent_mm": {
+              "x": [
+                -7.0,
+                7.0
+              ],
+              "y": [
+                -3.0,
+                3.0
+              ],
+              "z": [
+                0.0,
+                26.200000000000003
+              ]
+            },
+            "feature": "ear_sides",
+            "op": 40,
+            "rough_allowance_mm": 0.3,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": [
+                -12.0625,
+                12.0625
+              ],
+              "y": [
+                -8.0625,
+                8.0625
+              ]
+            },
+            "z_bounds_mm": [
+              0.0,
+              26.200000000000003
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "finish_profile",
+            "endpoint": "not_applicable",
+            "extent_mm": {
+              "x": [
+                -7.0,
+                7.0
+              ],
+              "y": [
+                -3.0,
+                3.0
+              ],
+              "z": [
+                0.0,
+                26.200000000000003
+              ]
+            },
+            "feature": "ear_sides",
+            "op": 50,
+            "rough_allowance_mm": 0,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": [
+                -11.7625,
+                11.7625
+              ],
+              "y": [
+                -7.762499999999999,
+                7.762499999999999
+              ]
+            },
+            "z_bounds_mm": [
+              0.0,
+              26.200000000000003
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "spot",
+            "endpoint": {
+              "depth_mm": 2.0,
+              "entry_from": "S2 op 30 to_z",
+              "entry_z": 0.0,
+              "exit_face": "not_applicable",
+              "feature": "hold_down_a",
+              "op": 60,
+              "point_mm": "unknown",
+              "setup": "S2",
+              "tip_z": -2.0
+            },
+            "extent_mm": {
+              "x": [
+                0.0,
+                0.0
+              ],
+              "y": [
+                -8.2,
+                -8.2
+              ],
+              "z": [
+                0.0,
+                0.0
+              ]
+            },
+            "feature": "hold_down_a",
+            "op": 60,
+            "rough_allowance_mm": 0,
+            "tool": "center-drills-lms-4859/2",
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              -2.0,
+              0.0
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "drill",
+            "endpoint": {
+              "entry_from": "S2 op 30 to_z",
+              "entry_z": 0.0,
+              "exit_face": -6.0,
+              "exit_mm": 2.0,
+              "feature": "hold_down_a",
+              "local_thickness": 6.0,
+              "op": 70,
+              "point_mm": "unknown",
+              "setup": "S2",
+              "tip_z": "unknown"
+            },
+            "extent_mm": {
+              "x": [
+                0.0,
+                0.0
+              ],
+              "y": [
+                -8.2,
+                -8.2
+              ],
+              "z": [
+                0.0,
+                0.0
+              ]
+            },
+            "feature": "hold_down_a",
+            "op": 70,
+            "rough_allowance_mm": 0,
+            "tool": "drill-index-115/#15",
+            "tool_radius_mm": 2.286,
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              -6.0,
+              0.0
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "spot",
+            "endpoint": {
+              "depth_mm": 2.0,
+              "entry_from": "S2 op 30 to_z",
+              "entry_z": 0.0,
+              "exit_face": "not_applicable",
+              "feature": "hold_down_b",
+              "op": 80,
+              "point_mm": "unknown",
+              "setup": "S2",
+              "tip_z": -2.0
+            },
+            "extent_mm": {
+              "x": [
+                0.0,
+                0.0
+              ],
+              "y": [
+                -16.0,
+                -16.0
+              ],
+              "z": [
+                0.0,
+                0.0
+              ]
+            },
+            "feature": "hold_down_b",
+            "op": 80,
+            "rough_allowance_mm": 0,
+            "tool": "center-drills-lms-4859/2",
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              -2.0,
+              0.0
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "drill",
+            "endpoint": {
+              "entry_from": "S2 op 30 to_z",
+              "entry_z": 0.0,
+              "exit_face": -6.0,
+              "exit_mm": 2.0,
+              "feature": "hold_down_b",
+              "local_thickness": 6.0,
+              "op": 90,
+              "point_mm": "unknown",
+              "setup": "S2",
+              "tip_z": "unknown"
+            },
+            "extent_mm": {
+              "x": [
+                0.0,
+                0.0
+              ],
+              "y": [
+                -16.0,
+                -16.0
+              ],
+              "z": [
+                0.0,
+                0.0
+              ]
+            },
+            "feature": "hold_down_b",
+            "op": 90,
+            "rough_allowance_mm": 0,
+            "tool": "drill-index-115/#15",
+            "tool_radius_mm": 2.286,
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              -6.0,
+              0.0
+            ],
+            "z_verified": false
+          }
+        ],
+        "travel_checks": {
+          "x": {
+            "located_span_mm": 24.125,
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": 44.325,
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": 584.1999999999999,
+            "travel_verified": false
+          },
+          "y": {
+            "located_span_mm": 16.125,
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": 36.324999999999996,
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": 222.25,
+            "travel_verified": false
+          },
+          "z": {
+            "located_span_mm": "unknown",
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": 355.59999999999997,
+            "travel_verified": false
+          }
+        }
+      },
+      "rule": "travel",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "plan.setups.S3",
+        "inventory.machines.PM-30MV",
+        "https://www.precisionmatthews.com/products/pm-30mv",
+        "features.frames.C",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29",
+        "plan.setups.S3.ops.10",
+        "features.features.ear_arch.bounds/at",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "features.frames.model",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:19-26",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
+        "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+        "plan.setups.stock_state: physical supported stock height",
+        "plan.setups.S3.ops.20",
+        "plan.setups.S3.ops.30",
+        "features.features.cross_bore.bounds/at",
+        "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31",
+        "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7",
+        "inventory.tools.center-drills-lms-4859/2.dia",
+        "plan.setups.S3.ops.40",
+        "inventory.tools.drill-index-115/1-4in.dia",
+        "inventory.tools.drill-index-115/1-4in.point_angle",
+        "plan.setups.S3.ops.50",
+        "inventory.tools.reamers-metric/6.5mm.dia",
+        "inventory.tools.reamers-metric/6.5mm.lead",
+        "inventory.machines.PM-30MV.envelope.travel.x",
+        "inventory.machines.PM-30MV.envelope.travel.y",
+        "inventory.machines.PM-30MV.envelope.travel.z"
+      ],
+      "message": "S3: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S3.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S3.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure inventory.tools.center-drills-lms-4859/2.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S3.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure inventory.tools.drill-index-115/1-4in.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S3.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.40.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure inventory.tools.reamers-metric/6.5mm.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S3.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.50.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S3.ops.50 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: center-drills-lms-4859/2 record dia, steel rule or calipers, mm; measure: drill-index-115/1-4in record dia, steel rule or calipers, mm; measure: drill-index-115/1-4in included tool point angle, protractor, degrees; measure: reamers-metric/6.5mm record dia, steel rule or calipers, mm; measure: reamers-metric/6.5mm record lead, steel rule or calipers, mm.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.x"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.x",
+            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.y"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.y",
+            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-30MV.envelope.travel.z"
+            ],
+            "id": "machines.PM-30MV.envelope.travel.z",
+            "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.center-drills-lms-4859/2.dia"
+            ],
+            "id": "tools.center-drills-lms-4859/2.dia",
+            "instruction": "measure: center-drills-lms-4859/2 record dia, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.drill-index-115/1-4in.dia"
+            ],
+            "id": "tools.drill-index-115/1-4in.dia",
+            "instruction": "measure: drill-index-115/1-4in record dia, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.drill-index-115/1-4in.point_angle"
+            ],
+            "id": "tools.drill-index-115/1-4in.point_angle",
+            "instruction": "measure: drill-index-115/1-4in included tool point angle, protractor, degrees"
+          },
+          {
+            "cite": [
+              "inventory.tools.reamers-metric/6.5mm.dia"
+            ],
+            "id": "tools.reamers-metric/6.5mm.dia",
+            "instruction": "measure: reamers-metric/6.5mm record dia, steel rule or calipers, mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.reamers-metric/6.5mm.lead"
+            ],
+            "id": "tools.reamers-metric/6.5mm.lead",
+            "instruction": "measure: reamers-metric/6.5mm record lead, steel rule or calipers, mm"
+          }
+        ],
+        "operations": [
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": {
+              "x": 34.2,
+              "y": 18.0,
+              "z": 24.2
+            },
+            "do": "rough_profile",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "ear_arch",
+            "op": 10,
+            "rough_allowance_mm": 0.3,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": [
+                -5.062499999999999,
+                5.062499999999999
+              ],
+              "y": [
+                20.1375,
+                30.2625
+              ]
+            },
+            "z_bounds_mm": [
+              -5.7,
+              18.2
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": {
+              "x": 34.2,
+              "y": 18.0,
+              "z": 24.2
+            },
+            "do": "finish_profile",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "ear_arch",
+            "op": 20,
+            "rough_allowance_mm": 0,
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_radius_mm": 4.762499999999999,
+            "tool_radius_verified": true,
+            "xy_cutter_bounds_mm": {
+              "x": [
+                -4.762499999999999,
+                4.762499999999999
+              ],
+              "y": [
+                20.4375,
+                29.9625
+              ]
+            },
+            "z_bounds_mm": [
+              -6.0,
+              18.2
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "spot",
+            "endpoint": {
+              "depth_mm": 2.0,
+              "entry_from": "S3 stock_state.entry_z.cross_bore",
+              "entry_z": 0.0,
+              "exit_face": "not_applicable",
+              "feature": "cross_bore",
+              "op": 30,
+              "point_mm": "unknown",
+              "setup": "S3",
+              "tip_z": -2.0
+            },
+            "extent_mm": {
+              "x": [
+                0.0,
+                0.0
+              ],
+              "y": [
+                25.2,
+                25.2
+              ],
+              "z": [
+                0.0,
+                0.0
+              ]
+            },
+            "feature": "cross_bore",
+            "op": 30,
+            "rough_allowance_mm": 0,
+            "tool": "center-drills-lms-4859/2",
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              -2.0,
+              18.2
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "drill",
+            "endpoint": {
+              "entry_from": "S3 stock_state.entry_z.cross_bore",
+              "entry_z": 0.0,
+              "exit_face": -6.0,
+              "exit_mm": 2.0,
+              "feature": "cross_bore",
+              "local_thickness": 6.0,
+              "op": 40,
+              "point_mm": "unknown",
+              "setup": "S3",
+              "tip_z": "unknown"
+            },
+            "extent_mm": {
+              "x": [
+                0.0,
+                0.0
+              ],
+              "y": [
+                25.2,
+                25.2
+              ],
+              "z": [
+                0.0,
+                0.0
+              ]
+            },
+            "feature": "cross_bore",
+            "op": 40,
+            "rough_allowance_mm": 0,
+            "tool": "drill-index-115/1-4in",
+            "tool_radius_mm": 3.175,
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              -6.0,
+              18.2
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "ream",
+            "endpoint": {
+              "entry_from": "S3 stock_state.entry_z.cross_bore",
+              "entry_z": 0.0,
+              "exit_face": -6.0,
+              "exit_mm": 2.0,
+              "feature": "cross_bore",
+              "lead_mm": "unknown",
+              "local_thickness": 6.0,
+              "op": 50,
+              "setup": "S3",
+              "tip_z": "unknown"
+            },
+            "extent_mm": {
+              "x": [
+                0.0,
+                0.0
+              ],
+              "y": [
+                25.2,
+                25.2
+              ],
+              "z": [
+                0.0,
+                0.0
+              ]
+            },
+            "feature": "cross_bore",
+            "op": 50,
+            "rough_allowance_mm": 0,
+            "tool": "reamers-metric/6.5mm",
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              -6.0,
+              18.2
+            ],
+            "z_verified": false
+          }
+        ],
+        "travel_checks": {
+          "x": {
+            "located_span_mm": 10.124999999999998,
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": 44.325,
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": 584.1999999999999,
+            "travel_verified": false
+          },
+          "y": {
+            "located_span_mm": 10.125,
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": 28.125,
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": 222.25,
+            "travel_verified": false
+          },
+          "z": {
+            "located_span_mm": "unknown",
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": 355.59999999999997,
+            "travel_verified": false
+          }
+        }
+      },
+      "rule": "travel",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
@@ -5783,7 +7677,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "e21e1cbc648c477b542a689f0f2022573beb543d4c5637ab391e336364ede897",
+  "hash": "7858182d67ab49c390564e48f9ea2fb21622a9d698d80d4b86d6f5437cab4e46",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -5795,7 +7689,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+      "sha256": "314a2fd5ea6e036d00d1ce1d5433c800d937ac3be86c5f78a986789635373c66"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
@@ -5807,7 +7701,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m2-rev6",
+  "rules_version": "m5-rev6",
   "step_sha256": "unknown",
   "verification": "planned"
 }
