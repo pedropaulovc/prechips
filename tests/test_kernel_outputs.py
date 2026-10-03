@@ -90,3 +90,57 @@ def test_refused_image_replacement_rolls_back_report_sheet_and_prior_image(tmp_p
             tracing,
         )
     assert {path: path.read_bytes() for path in tmp_path.iterdir()} == prior
+
+
+def test_kernel_absent_traveler_removes_stale_setup_image(tmp_path):
+    import json
+
+    from test_cli import copy_examples, run_cli
+
+    plan = copy_examples(tmp_path) / "geometry" / "pocket-reach" / "long-reach.toml"
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "setup-S1.png").write_bytes(_png((80, 100, 120)))
+    # A previous route can also have had more setups than this one.
+    (out / "setup-S2.png").write_bytes(_png((120, 100, 80)))
+    result = run_cli(
+        "traveler",
+        plan,
+        "--out",
+        out,
+        env={"FREECAD_CMD": str(tmp_path / "missing-freecadcmd.exe")},
+    )
+    assert result.returncode == 4, result.stderr
+    report = json.loads((out / "report.json").read_bytes())
+    assert not report.get("renders")
+    assert {path.name for path in out.iterdir()} == {"report.json", "traveler.html"}
+
+
+def test_refused_stale_image_deletion_restores_every_prior_output(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    names = ("report.json", "traveler.html", "setup-S1.png", "setup-S2.png")
+    prior = {tmp_path / name: f"old {name}".encode() for name in names}
+    for path, data in prior.items():
+        path.write_bytes(data)
+    original_unlink = Path.unlink
+
+    def refuse_image(path, *args, **kwargs):
+        if path.name == "setup-S2.png":
+            raise OSError("Synthetic refusal deleting stale geometry asset")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", refuse_image)
+    tracing = SimpleNamespace(span=lambda *args, **kwargs: nullcontext())
+    with pytest.raises(BadInput):
+        _write_outputs(
+            tmp_path,
+            {
+                tmp_path / name: None if name.endswith(".png") else f"new {name}".encode()
+                for name in names
+            },
+            tracing,
+        )
+    assert {path: path.read_bytes() for path in tmp_path.iterdir()} == prior

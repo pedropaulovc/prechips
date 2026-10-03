@@ -82,8 +82,10 @@ def _output_paths(out: Path, filenames: tuple[str, ...], inputs: list[Path]) -> 
     return result
 
 
-def _write_outputs(out: Path, outputs: dict[Path, bytes], tracing: telemetry.Telemetry) -> None:
-    """Stage every output in full beside its target before replacing any target.
+def _write_outputs(
+    out: Path, outputs: dict[Path, bytes | None], tracing: telemetry.Telemetry
+) -> None:
+    """Stage every write/deletion in full before changing any target.
 
     A failure removes the staged files and returns each already-replaced target to
     its prior bytes (or removes it when it is new); a filesystem refusal is exit 3.
@@ -102,12 +104,15 @@ def _write_outputs(out: Path, outputs: dict[Path, bytes], tracing: telemetry.Tel
         staged = []
         for target, data in outputs.items():
             with tracing.span("output.write", path=str(target)):
-                staged.append(stage(target, data))
-        # Each replacement is atomic, so only targets replaced before the last need backups.
+                staged.append(stage(target, data) if data is not None else None)
+        # Only targets changed before the last need backups; unlink is atomic too.
         targets = list(outputs)
         backups = [stage(t, t.read_bytes()) if t.exists() else None for t in targets[:-1]]
         for target, temporary, backup in zip(targets, staged, [*backups, None], strict=True):
-            os.replace(temporary, target)
+            if temporary is None:
+                target.unlink(missing_ok=True)
+            else:
+                os.replace(temporary, target)
             replaced.append((target, backup))
     except BaseException as exc:
         for target, backup in reversed(replaced):
@@ -635,6 +640,12 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         names += tuple(
             f"setup-S{ordinal}.png" for ordinal, _ in enumerate(bundles[0].plan["setups"], start=1)
         )
+        names += tuple(
+            path.name
+            for path in sorted(out.glob("setup-S*.png"))
+            if path.name not in names
+            and path.name.removeprefix("setup-S").removesuffix(".png").isdecimal()
+        )
     all_inputs = [path for bundle in bundles for path in bundle.paths.values()]
     if getattr(args, "approval", None):
         all_inputs.append(args.approval)
@@ -684,7 +695,7 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     if html is not None:
         outputs[destinations[1]] = html.encode("utf-8")
         outputs.update(
-            {path: assets[0][path.name] for path in destinations[2:] if path.name in assets[0]}
+            {path: assets[0].get(path.name) for path in destinations[2:]}
         )
     _write_outputs(out, outputs, tracing)
     if getattr(args, "json", False):

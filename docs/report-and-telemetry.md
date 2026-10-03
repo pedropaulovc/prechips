@@ -68,8 +68,11 @@ a prechips failure (exit 1), not bad input. `check` records the same
 `renders` / `render:<setup id>` entries (its report hash matches the
 traveler's) but writes only `report.json`; the PNG file appears only with
 `traveler`. The PNG filenames are preflighted with
-the other outputs: an input at `setup-S1.png` is a collision (exit 3) and a
-refused image replacement rolls back the report, sheet and prior image.
+the other outputs: an input at `setup-S1.png` is a collision (exit 3).
+Any prior `setup-S<n>.png` not returned by this run is removed, including
+images from a longer prior route or a now-unavailable kernel. Replacement
+and removal share the report/sheet transaction: a refusal restores every
+prior output, so no unreferenced stale fixture image survives a successful run.
 The render is a deterministic software rasterization of the kernel's
 tessellation, so a cache hit and a fresh FreeCAD run give identical bytes; it
 is a view of the part plus only the fixture solids built from explicit
@@ -147,10 +150,11 @@ resolved path or hard link, escape by symlink, or name a directory. The output
 root cannot name a file. Approval files are included in collision protection.
 Existing regular output files are replaced. Each output is first written in
 full to a hidden temporary beside its target (`.<name>.<random>.tmp`), and no
-target is replaced until every output is staged. The prior bytes of any earlier
-target are kept until the last replacement lands. If the filesystem refuses the
-directory, a staged write or a replacement, the run exits 3. The temporaries are
-removed and every target that was already replaced gets its prior bytes back,
+target is replaced or removed until every write is staged. The prior bytes of
+any earlier changed target are kept until the last change lands. If the
+filesystem refuses the directory, staged write, replacement or stale-image
+removal, the run exits 3. Temporaries are removed and every changed target
+gets its prior bytes back,
 or is removed if it is new. A failed run therefore never leaves a new
 `report.json` next to an old `traveler.html`. An output directory created for
 the run may remain, empty. This does not cover a process kill between the two
