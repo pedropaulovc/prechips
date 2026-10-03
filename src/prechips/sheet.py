@@ -10,25 +10,24 @@ import math
 import re
 from html import escape
 
+from .model import tolerance_requirements
 from .rules.resolution import MANUAL, resolve
 
 
-_CSS = """@page { size: Letter portrait; margin: .4in .4in .55in; }
+_CSS = """@page { size: Letter portrait; margin: .4in; }
 * { box-sizing: border-box; }
-body { margin: 0; color: #000; background: #fff; font: 8pt/1.25 Arial, sans-serif; }
+body { margin: 0; color: #000; background: #fff; font: 8pt/1.2 Arial, sans-serif; }
 .page { break-after: page; page-break-after: always; }
 .page:last-child { break-after: auto; page-break-after: auto; }
-h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 5pt 0 2pt; border-bottom: 1px solid #000; break-after: avoid; }
+h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 4pt 0 2pt; border-bottom: 1px solid #000; break-after: avoid; }
 p { margin: 2pt 0; } .meta { display: flex; justify-content: space-between; gap: 8pt; }
-.banner { border: 2px solid #000; text-align: center; font-weight: bold; padding: 2pt; margin: 3pt 0; }
-.byst p { margin-left: 1.3em; text-indent: -1.3em; }
+.banner { border: 2px solid #000; text-align: center; font-weight: bold; padding: 1pt; margin: 3pt 0; }
+.byst p { margin: 1pt 0 1pt 1.3em; text-indent: -1.3em; }
 table { width: 100%; border-collapse: collapse; margin: 2pt 0; table-layout: fixed; }
-th, td { border: 1px solid #555; padding: 2pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th, td { border: 1px solid #555; padding: 1pt 2pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
 th { background: #eee; } thead { display: table-header-group; }
-tr { break-inside: avoid; page-break-inside: avoid; } .operations { font-size: 7pt; }
+tr { break-inside: avoid; page-break-inside: avoid; } .operations { font-size: 7.5pt; }
 .foot { text-align: right; font-size: 7pt; margin-top: 5pt; break-inside: avoid; }
-.print-footer { display: none; }
-@media print { .foot { display: none; } .print-footer { display: block; position: fixed; bottom: -.25in; right: 0; font-size: 7pt; } }
 @media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } }
 """
 _GLYPHS = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}
@@ -214,24 +213,156 @@ class _Traveler:
             parts.append(f"{_text(key)}: {value}")
         return self.bench("; ".join(parts))
 
-    def issues(self, findings, warnings=()):
-        lines = []
-        seen = set()
+    def short_reference(self, reference, category=None):
+        label = self.reference(reference, category)
+        for full, short in (("4-flute", "4fl"), ("2-flute", "2fl"), ("endmill", "EM"),
+                            ("center drill", "CD"), ("drill index", "drill"),
+                            ("dial test indicator", "DTI"), ("dial indicator", "indicator"),
+                            ("micrometer", "mic"), (" (missing)", " ✗")):
+            label = label.replace(full, short)
+        return re.sub(r"(\d+)-turning-facing qctp", r"QCTP \1 turn/face", label)
+
+    def hold(self, setup):
+        hold = setup.get("hold", {})
+        names = {"jaws_along": "jaws along", "grip_mm": "grip mm",
+                 "jaw_above_parallels_mm": "jaw above supports mm", "grip_on": "grip on"}
+        parts = []
+        for key, value in hold.items():
+            if self.metadata(key) or value == "not_applicable":
+                continue
+            if key in _REFERENCE_FIELDS:
+                value = self.short_reference(value)
+            else:
+                value = self.recipe(value, dimension=key)
+            parts.append(f"{names.get(key, _text(key))}: {value}")
+        return _p("Hold: " + self.bench("; ".join(parts)))
+
+    def headroom(self, setup):
+        numbers = self.records.get(("headroom", setup["id"]), {})
+        if not numbers:
+            if any(_field(f, "rule") == "headroom" and _field(f, "subject") == setup["id"]
+                   and _GLYPHS.get(_status(f)) for f in self.findings):
+                return ""  # The unresolved clearance is already in Before You Start.
+            return _p("? Headroom / support clearance not computed.")
+        r = self.recipe
+        parts = [f"Stack (mm): bed {r(numbers.get('bed_height_mm'))}; blocks {r(numbers.get('support_blocks_mm'))}; "
+                 f"parallels {r(numbers.get('parallels_mm'))}; supported stock {r(numbers.get('stock_height_mm'))}; "
+                 f"insertion {r(numbers.get('insertion_mm'))}; required {r(numbers.get('sum_mm'))} / spindle capacity {r(numbers.get('spindle_to_table_max_mm'))}."]
+        stacks = {}
+        for stack in numbers.get("stacks", []):
+            key = tuple(r(stack.get(k)) for k in ("tool_projection_mm", "tool_oal_mm", "holder_gauge_len_mm", "margin_mm"))
+            stacks.setdefault(key, []).append(_text(stack.get("op")))
+        for (projection, oal, holder, margin), ops in stacks.items():
+            all_ops = {str(o["op"]) for o in setup["ops"] if o.get("do") not in MANUAL}
+            label = "Tools" if set(ops) == all_ops else "Ops " + ", ".join(ops)
+            parts.append(f"{label}: projection {projection}, OAL {oal}, holder length {holder}, headroom {margin} mm.")
+        jaw = numbers.get("jaw_obstruction", {})
+        if setup.get("hold", {}).get("jaws_along") != "not_applicable":
+            parts.append(f"Jaw top Z {r(jaw.get('jaw_top_z'))}; stock top {r(numbers.get('stock_top_above_jaws_mm'))} mm above jaws.")
+        clearances = {}
+        for op, value in numbers.get("cut_tip_above_jaws_mm", {}).items():
+            clearances.setdefault(r(value), []).append(op)
+        if clearances:
+            parts.append("Tip above jaws (mm): " + "; ".join(f"ops {', '.join(ops)}: {value}" for value, ops in clearances.items()) + ". Cutter access unproved.")
+        travel = numbers.get("travel_checks", {})
+        if travel:
+            axes = []
+            for axis in ("x", "y"):
+                record = travel.get(axis, {})
+                axes.append(f"{axis.upper()} stock {r(record.get('part_mm'))}, fixture {r(record.get('fixture_mm'))}, "
+                            f"required {r(record.get('required_mm'))} / travel {r(record.get('travel_mm'))}")
+            parts.append("Envelope (mm): " + "; ".join(axes) + ".")
+        return _p("Headroom / clearance — nominal, subject to verification. " + " ".join(parts))
+
+    def issues(self, findings, warnings=(), setup=None):
+        groups = {}
+        errors = []
         for finding in findings:
-            glyph = _GLYPHS.get(_status(finding))
-            if glyph:
-                line = f"{glyph} {self.bench(_field(finding, 'message', '?'))}"
-                if line not in seen:
-                    seen.add(line)
-                    lines.append(_p(line))
+            status = _status(finding)
+            glyph = _GLYPHS.get(status)
+            if not glyph:
+                continue
+            message = _field(finding, "message", "?")
+            subject = _field(finding, "subject", "")
+            rule = _field(finding, "rule")
+            if status == "error":
+                line = f"{glyph} {self.bench(message)}"
+                if line not in errors:
+                    errors.append(line)
+                continue
+            label = ""
+            for prefix in (subject + ":", subject.replace(":", " ") + ":"):
+                if message.startswith(prefix):
+                    message = message[len(prefix):].lstrip()
+                    if rule == "inspection":
+                        label = subject
+                    elif setup and subject.startswith(setup["id"] + ":"):
+                        label = "op " + subject.split(":", 1)[1]
+                    else:
+                        label = self.bench(subject.replace(":", " "))
+                    break
+            if status == "unknown":
+                summaries = {
+                    "blind_depth": "Hole entry / tool geometry / tip depth remains unresolved; see Z tips.",
+                    "coordinates": "Coordinates are nominal; feature geometry or tool/frame binding is unverified.",
+                    "datum_consistency": "Datum cuts or re-fixture acceptance remain unresolved.",
+                    "headroom": "Headroom, travel or jaw access is unresolved; see clearance facts.",
+                    "speeds_feeds": "Starting RPM/feed is unconfirmed: source, tool, material or machine range.",
+                    "zero_check": "DRO/tool or trial-cut verification is unresolved; prove the sign below.",
+                    "sizing": "Finishing tool size is unconfirmed.",
+                }
+                message = summaries.get(rule, message)
+                if rule == "tool_resolves" and ":" in subject:
+                    message = "Tool/holder fit needs measured shank, holder and machine facts."
+                if rule == "inspection" and setup:
+                    message = "Inspection limits, methods or gauge capability are unresolved; close ? checks below."
+                    label = ""
+            key = (glyph, rule, self.bench(message))
+            labels = groups.setdefault(key, [])
+            if label and label not in labels:
+                labels.append(label)
+        lines = list(errors)
+        unresolved = {}
+        concise = {
+            "blind_depth": ("Geometry", "hole entry / tip"),
+            "coordinates": ("Geometry", "coordinates / frame binding"),
+            "datum_consistency": ("Geometry", "datum transfer"),
+            "headroom": ("Geometry", "headroom / clearance"),
+            "sizing": ("Tooling", "finishing size"),
+            "speeds_feeds": ("Tooling", "RPM / feed"),
+            "tool_resolves": ("Tooling", "tool / holder / shank fit"),
+            "zero_check": ("DRO / inspection", "DRO / tool / trial-cut checks"),
+            "inspection": ("DRO / inspection", "inspection limits / methods / gauges"),
+        }
+        for (glyph, rule, message), labels in groups.items():
+            if setup and glyph == "?" and rule in concise:
+                category, term = concise[rule]
+                labels = [label for label in labels if label and label != setup["id"]]
+                if rule == "tool_resolves":
+                    cutting = {f"op {op['op']}" for op in setup["ops"] if op.get("do") not in MANUAL}
+                    if set(labels) == cutting:
+                        labels = ["all cutting ops"]
+                if labels:
+                    term += " (" + ", ".join(labels) + ")"
+                unresolved.setdefault(category, []).append(term)
+                continue
+            if rule == "inspection":
+                features = {}
+                for label in labels:
+                    feature, _, requirement = label.partition(":")
+                    features.setdefault(self.bench(feature), []).append(_text(requirement))
+                labels = [f"{feature} ({', '.join(requirements)})" for feature, requirements in features.items()]
+            context = ", ".join(labels) + ": " if labels else ""
+            lines.append(f"{glyph} {context}{message}")
+        for category, terms in unresolved.items():
+            lines.append(f"? {category} unresolved: {'; '.join(terms)}. Close ? checks below.")
         for warning in warnings:
             line = f"! {self.bench(warning)}"
-            if line not in seen:
-                seen.add(line)
-                lines.append(_p(line))
+            if line not in lines:
+                lines.append(line)
         if not lines:
-            lines.append(_p("No reported errors, warnings or unresolved checks for this section."))
-        return '<h2>BEFORE YOU START</h2><div class="byst">' + "".join(lines) + "</div>"
+            lines.append("No reported errors, warnings or unresolved checks for this section.")
+        return '<h2>BEFORE YOU START</h2><div class="byst">' + "".join(_p(line) for line in lines) + "</div>"
 
     def setup_findings(self, setup):
         sid = setup["id"]
@@ -262,8 +393,7 @@ class _Traveler:
         mode = "radius" if settings.get("radius_mode") is True else "diameter" if settings.get("radius_mode") is False else "?"
         pieces = [f"<h2>DRO ZERO — frame {escape(_text(setup.get('frame')))}, {escape(_text(self.units))}, {escape(_text(settings.get('mode')).upper())}, {mode} mode</h2>"]
         pieces.append(_p("Direction (§6.2): " + self.paragraphs(settings.get("direction", {}))
-                         + ". Axis Set in ABS (§7.4) changes the datum; never use Preset (distance-to-go, §8.1). "
-                         "Jog without touching again. A mirrored reading means STOP, correct Direction and redo touch / set / check."))
+                         + ". ABS Axis Set (§7.4), never Preset (§8.1). Jog without retouch; mirrored = STOP, correct Direction and redo touch / set / check."))
         axes = numbers.get("axes", {})
         top_feature = setup.get("stock_state", {}).get("top_feature")
         top_dimension = next((d for d in ("length", "thickness", "height") if d in self.features.get(top_feature, {})), None)
@@ -282,6 +412,20 @@ class _Traveler:
             dimension = top_dimension if axis == "z" else None
             if "edge_mm" in touch:
                 touch["edge_mm"] = self.recipe(touch["edge_mm"], feature, dimension)
+            contact = [self.bench(touch.get("edge", touch.get("face", touch.get("feature", "? contact"))))]
+            if touch.get("method") not in (None, "paper"):
+                contact.append(_text(touch["method"]))
+            for key, category in (("tool", "tools"), ("holder", "holders")):
+                if key in touch:
+                    contact.append(self.short_reference(touch[key], category))
+            if touch.get("from"):
+                contact.append("from " + _text(touch["from"]).upper())
+            for key, label in (("edge_mm", "surface"), ("radius_mm", "radius"), ("paper_mm", "paper")):
+                if key in touch and touch[key] != "not_applicable" and not (touch.get("from") == "indicated" and key in {"edge_mm", "radius_mm"} and touch[key] in (0, 0.0, "0.00")):
+                    contact.append(label + " " + self.recipe(touch[key], feature, dimension if key == "edge_mm" else None))
+            remaining = {k: v for k, v in touch.items() if k not in {"edge", "face", "feature", "method", "tool", "holder", "from", "edge_mm", "radius_mm", "paper_mm"}}
+            if remaining:
+                contact.append(self.paragraphs(remaining, recipes=True))
             expected = self.recipe(computed.get("check_reading"), feature, dimension)
             mirrored = self.recipe(computed.get("mirrored_reading"), feature, dimension)
             if expected == "?" and computed.get("check_expression"):
@@ -290,20 +434,27 @@ class _Traveler:
                 mirrored += " (" + self.bench(computed["mirrored_expression"]) + ")"
             jog = computed.get("jog_mm")
             jog_direction = "−" if isinstance(jog, (int, float)) and jog < 0 else "+"
-            rows.append((axis.upper(), self.paragraphs(touch, recipes=True), self.recipe(computed.get("axis_set"), feature, dimension),
+            rows.append((axis.upper(), "; ".join(contact), self.recipe(computed.get("axis_set"), feature, dimension),
                          jog_direction + axis.upper() + " " + self.recipe(abs(jog) if isinstance(jog, (int, float)) else jog) + " physical", expected, mirrored))
         pieces.append(_table(["axis", "touch / compensation", "Axis Set", "jog, no touch", "must read", "mirrored: STOP"], rows, widths=[5, 43, 13, 13, 13, 13]))
         transfer = authored.get("transfer")
         if transfer:
-            pieces.append(_p("Datum transfer: " + self.paragraphs(transfer)))
+            reindicate = transfer.get("reindicate_after", [])
+            instruction = f"Transfer from {_text(transfer.get('from'))}: indicate {_text(transfer.get('indicate'))} with {self.short_reference(transfer.get('tool'))}"
+            remaining = {k: v for k, v in transfer.items() if k not in {"from", "indicate", "tool", "reindicate_after"}}
+            if remaining:
+                instruction += "; " + self.paragraphs(remaining)
+            if reindicate:
+                instruction += ". After " + ", ".join(map(_text, reindicate)) + ": re-indicate, repeat X/Y Axis Set / check."
+            pieces.append(_p(instruction))
         retouches = {}
         for record in numbers.get("retouch", []):
             key = (self.recipe(record.get("top_z"), top_feature, top_dimension),
                    self.recipe(record.get("paper_mm")), self.recipe(record.get("axis_set"), top_feature, top_dimension))
             retouches.setdefault(key, []).append(_text(record.get("op")))
         for (top, paper, axis_set), ops in retouches.items():
-            pieces.append(_p(f"After ops {', '.join(ops)}, re-touch {self.bench(setup.get('stock_state', {}).get('top_feature', 'top'))} "
-                             f"at Z {top}, paper {paper}: Axis Set Z {axis_set} before the next tool's operation."))
+            pieces.append(_p(f"After {', '.join(ops)}, re-touch {self.bench(setup.get('stock_state', {}).get('top_feature', 'top'))} "
+                             f"Z {top} with {paper} paper → Axis Set Z {axis_set} before each changed tool."))
         for touch in numbers.get("tool_touches", []):
             pieces.append(_p("Tool touch-off: " + self.paragraphs(touch, recipes=True)))
         for axis in axes.values():
@@ -320,16 +471,27 @@ class _Traveler:
         feature = op.get("feature")
         endpoint = self.endpoint(setup, op)
         if endpoint:
-            parts = [f"entry {self.value(endpoint.get('entry_z'), feature, 'depth')} → tip {self.value(endpoint.get('tip_z'), feature, 'depth')}"]
-            for key in ("exit_face", "local_thickness", "point_mm", "lead_mm", "exit_mm", "depth_mm"):
-                if key in endpoint and endpoint[key] != "not_applicable":
-                    parts.append(f"{_text(key)} {self.value(endpoint[key], feature, 'depth')}")
+            value = lambda key: self.value(endpoint.get(key), feature, "depth")
+            parts = [f"entry {value('entry_z')} → tip {value('tip_z')}"]
+            if endpoint.get("exit_face", "not_applicable") != "not_applicable":
+                allowance = "lead_mm" if "lead_mm" in endpoint else "point_mm"
+                parts.append(f"exit face {value('exit_face')} − {_text(allowance).removesuffix(' mm')} {value(allowance)} − exit {value('exit_mm')}")
+                if feature not in setup.get("stock_state", {}).get("local_thickness", {}):
+                    parts.append("local thickness " + value("local_thickness"))
+            elif "depth_mm" in endpoint:
+                parts.append("depth " + value("depth_mm"))
             return parts
         parts = []
-        for key in ("to_z", "z_from", "z_to", "depth_mm", "exit_mm", "to_z_band"):
+        dimension = next((d for d in ("depth", "length", "thickness", "height") if d in self.features.get(feature, {})), "depth")
+        value = lambda key: self.recipe(op[key], feature, dimension)
+        if "z_from" in op and "z_to" in op:
+            parts.append(value("z_from") + " → " + value("z_to"))
+        for key, label in (("to_z", "→"), ("depth_mm", "depth"), ("exit_mm", "exit"), ("to_z_band", "band")):
             if key in op:
-                dimension = next((d for d in ("depth", "length", "thickness") if d in self.features.get(feature, {})), "depth")
-                parts.append(f"{_text(key)} {self.value(op[key], feature, dimension)}")
+                parts.append(label + " " + value(key))
+        for key in ("z_from", "z_to"):
+            if key in op and not ("z_from" in op and "z_to" in op):
+                parts.append(_text(key) + " " + value(key))
         return parts or ["—" if op.get("do") in MANUAL else "? tip endpoint"]
 
     def inspection(self, setup, op):
@@ -343,7 +505,12 @@ class _Traveler:
             target = definition.get(requirement)
             method = op.get("inspection_methods", {}).get(requirement)
             datums = definition.get("position_datums") if requirement == "position_dia" else None
-            line = f"{glyph + ' ' if glyph else ''}{_text(requirement)} {self.value(target, feature, requirement)}: {self.reference(reference, 'gauges')}"
+            names = {"dia": "Ø", "position_dia": "position Ø", "coaxiality_dia": "coax Ø",
+                     "finish_ra": "Ra", "height_above_pivot": "height over pivot",
+                     "radius": "R", "bottom_radius": "bottom R", "arc_len": "arc",
+                     "bottom_arc_len": "bottom arc", "land_angle_deg": "land angle"}
+            target_text = self.value(target, feature, requirement).replace(" / ", "–")
+            line = f"{glyph + ' ' if glyph else ''}{names.get(requirement, _text(requirement))} {target_text}: {self.short_reference(reference, 'gauges')}"
             if datums:
                 line += " to " + "|".join(map(_text, datums))
             if method:
@@ -356,72 +523,97 @@ class _Traveler:
     def operations(self, setup, ops):
         rows = []
         citations = []
+        notes = []
         for op in ops:
             feature = op.get("feature")
             numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
             manual = op.get("do") in MANUAL
-            tools = [self.reference(op.get("tool"), "tools") + " / " + self.reference(op.get("holder"), "holders")]
+            tools = [self.short_reference(op.get("tool"), "tools") + " / " + self.short_reference(op.get("holder"), "holders")]
             if manual and "tool" not in op:
                 tools = ["—"]
             action = [_text(op.get("do"))]
             if op.get("note"):
-                action.append(self.bench(op["note"]))
+                notes.append(f"{op['op']}: {self.bench(op['note'])}")
             for key in ("rough_allowance_mm", "stock_to_leave_mm", "passes"):
                 if key in op:
-                    action.append(f"{_text(key)}: {self.recipe(op[key], feature, key)}")
+                    label = {"rough_allowance_mm": "allowance", "stock_to_leave_mm": "stock left", "passes": "passes"}[key]
+                    action.append(f"{label} {self.recipe(op[key], feature, key)}")
             feed = numbers.get("feed_mm_min", numbers.get("feed_mm_rev"))
             feed_units = " / rev" if "feed_mm_rev" in numbers else " / min"
             feed_text = "—" if manual else self.recipe(feed) + (" mm" + feed_units if isinstance(feed, (int, float)) else "")
+            direction = _text(op.get("direction", "not_applicable" if manual or op.get("do") in {"spot", "drill", "ream", "tap"} else None))
+            direction = {"conventional": "conv", "climb": "climb", "radially inward": "radial in"}.get(direction, direction).replace("toward ", "→ ")
             rows.append((_text(op["op"]), action, _text(feature), tools,
                          "—" if manual else _number(numbers.get("rpm"), 0), feed_text,
-                         self.tip(setup, op), _text(op.get("direction", "not_applicable" if manual or op.get("do") in {"spot", "drill", "ream", "tap"} else None)), self.inspection(setup, op)))
-            headroom = self.records.get(("headroom", setup["id"]), {})
-            stack = next((s for s in headroom.get("stacks", []) if s.get("op") == op["op"]), {})
-            if isinstance(stack.get("margin_mm"), (int, float)):
-                tools.append(f"{'? ' if stack.get('verify') else ''}headroom {self.value(stack['margin_mm'])} mm")
-            jaw_clearance = headroom.get("cut_tip_above_jaws_mm", {}).get(str(op["op"]))
-            if isinstance(jaw_clearance, (int, float)):
-                rows[-1][6].append(f"? tip above jaws {self.value(jaw_clearance)} mm; access unproved")
+                         self.tip(setup, op), direction, self.inspection(setup, op)))
             finding = next((f for f in self.findings if _field(f, "rule") == "speeds_feeds" and _field(f, "subject") == f"{setup['id']}:{op['op']}"), None)
             if finding:
                 for cite in _field(finding, "cite", []):
                     citation = self.bench(cite)
+                    if citation.startswith("approved plan §3.5 RPM ="):
+                        citation = "approved plan starting-speed model"
+                    elif citation == "inventory machine spindle range":
+                        citation = "machine range"
+                    elif citation == "cutting-data aliases and rows":
+                        citation = "cutting-data source row"
                     if citation and citation not in citations:
                         citations.append(citation)
         result = "<h2>OPERATIONS — RPM / feed are starting points, not limits</h2>"
-        result += _table(["op", "do / instructions", "feature", "tool / holder", "rpm", "feed", "Z (tool tip)", "direction", "inspection"], rows, "operations", [4, 20, 10, 15, 5, 7, 18, 7, 14])
+        widths = [4, 10, 10, 18, 5, 7, 16, 8, 22] if self.records.get(("coordinates", setup["id"]), {}).get("x_display") == "diameter" else [4, 10, 10, 18, 5, 7, 16, 5, 25]
+        result += _table(["op", "do", "feature", "tool / holder", "rpm", "feed", "Z tip", "dir", "inspection"], rows, "operations", widths)
+        if notes:
+            result += _p(" ".join(notes))
         if citations:
             result += _p("RPM / feed source: " + "; ".join(citations))
         return result
 
     def coordinates(self, setup):
         numbers = self.records.get(("coordinates", setup["id"]), {})
-        rows = []
+        grouped = {}
+        lathe = numbers.get("x_display") == "diameter"
         for record in numbers.get("rows", []):
             feature = record.get("feature")
             coordinates = record.get("setup", ["unknown"] * 3)
             if not isinstance(coordinates, (list, tuple)):
                 coordinates = ["unknown"] * 3
             coordinates = list(coordinates) + ["unknown"] * (3 - len(coordinates))
-            x = record.get("x_target_mm", coordinates[0])
-            x_dimension = "dia" if "x_target_mm" in record else "at"
+            x = record.get("x_target_mm", "unknown" if lathe else coordinates[0])
+            x_dimension = "dia" if "x_target_mm" in record or lathe else "at"
             note = []
             for key in ("point", "note", "local_from"):
                 if key in record:
-                    note.append(f"{_text(key)}: {self.bench(self.value(record[key]))}")
-            z = _number(coordinates[2], record["precision"]) if "precision" in record else self.value(coordinates[2], feature, "at")
-            rows.append((_text(feature), self.value(x, feature, x_dimension), self.value(coordinates[1], feature, "at"), z, note or ["—"]))
+                    text = self.bench(self.recipe(record[key])).replace("drawing station", "station")
+                    note.append(text if key == "point" else f"{_text(key)}: {text}")
+            z_dimension = "length" if lathe else "at"
+            formatter = self.recipe if lathe else self.value
+            z = _number(coordinates[2], record["precision"]) if "precision" in record else formatter(coordinates[2], feature, z_dimension)
+            key = (feature, tuple(coordinates), x, record.get("precision"))
+            cells = (_text(feature), self.value(x, feature, x_dimension), self.value(coordinates[1], feature, "at"), z)
+            existing = grouped.setdefault(key, (cells, []))[1]
+            for label in note:
+                if label not in existing:
+                    existing.append(label)
+        rows = []
+        for cells, notes in grouped.values():
+            if lathe:
+                cells = (cells[0], cells[1], cells[3])
+            rows.append((*cells, "; ".join(notes) or "—"))
         pieces = [f"<h2>COORDINATES — frame {escape(_text(setup.get('frame')))}, {escape(_text(self.units))}; feature reference points</h2>"]
         if rows:
-            pieces.append(_table(["feature", "X", "Y", "Z / station", "note"], rows))
-            pieces.append(_p("These reference points are not tool-tip endpoints. Use the operation's tip Z and the cutter-centre continuation for cutting."))
+            headings = ["feature", "X diameter", "Z / station", "provenance"] if lathe else ["feature", "X", "Y", "Z / station", "note"]
+            pieces.append(_table(headings, rows, widths=[23, 12, 15, 50] if lathe else None))
         else:
             pieces.append(_p("? No resolved feature coordinates; use the explicit operation targets only where their local provenance is stated."))
-        if any(isinstance(numbers.get(key), list) and numbers[key] for key in ("arc_table", "line_table", "profiles", "contours")):
-            pieces.append(_p("Cutter-centre contours and exact joins follow this setup on continuation pages. Feature centres above are not profile cutter positions."))
-        for key in ("route_limit", "binding", "retain_web_mm", "x_display", "tool_nose_radius_mm", "fitted_model_length_mm"):
+        has_contours = any(isinstance(numbers.get(key), list) and numbers[key] for key in ("arc_table", "line_table", "profiles", "contours"))
+        note = "Feature points, not cutting tips; use Z tips in operations. → = towards."
+        if has_contours:
+            note += " Cutter-centre tables / exact joins follow."
+        for key, label in (("route_limit", "Route limit"), ("binding", "Measured binding"),
+                           ("retain_web_mm", "Retained web mm"), ("x_display", "X display"),
+                           ("tool_nose_radius_mm", "Tool nose radius mm"), ("fitted_model_length_mm", "Fitted model length mm")):
             if key in numbers:
-                pieces.append(_p(f"{_text(key)}: {self.bench(self.value(numbers[key]))}"))
+                note += f" {label}: {self.bench(self.value(numbers[key]))}."
+        pieces.append(_p(note))
         return "".join(pieces)
 
     def arc_rows(self, arc):
@@ -542,24 +734,23 @@ class _Traveler:
             header += _p("? No checked STEP / drawing pair is bound to this plan.")
         header += _p("Drawing material / finish: " + self.paragraphs(self.bundle.features.get("material", {}), recipes=True))
         header += "<h2>STOCK AND ROUTE</h2>" + _p(self.paragraphs(self.plan.get("stock", {}), recipes=True))
-        header += _table(["setup", "starts from", "machine / fixture", "purpose"],
-                         [(s["id"], _text(s.get("stock_in")), self.reference(s.get("machine"), "machines") + " / " + self.reference(s.get("hold", {}).get("fixture"), "fixtures"), self.bench(s.get("note", "? setup purpose"))) for s in setups])
+        header += _table(["setup", "starts from", "machine / fixture"],
+                         [(s["id"], _text(s.get("stock_in")), self.reference(s.get("machine"), "machines") + " / " + self.reference(s.get("hold", {}).get("fixture"), "fixtures")) for s in setups], widths=[10, 20, 70])
         requirements = []
         for feature, definition in self.features.items():
-            values = [f"{_text(d)} {self.value(definition.get(d), feature, d)}" for d in definition.get("requirements", [])]
+            values = ["Requirement identity: ?" if d == "unknown" else f"{_text(d)} {self.value(definition.get(d), feature, d)}"
+                      for d in dict.fromkeys(tolerance_requirements(definition))]
             requirements.append((_text(feature), "; ".join(values) or "No drawing requirements declared."))
         header += "<h2>DRAWING REQUIREMENTS</h2>" + _table(["feature", "requirement / acceptance band"], requirements)
-        header += _p("Holding and coordinates are declared or nominal M1 facts, not rendered geometry or a cutter-access proof. Unknown fields are ?. Keep the drawing at the bench.")
+        header += _p("Nominal holding / coordinates are not rendered geometry or a cutter-access proof. ? = unresolved. EM = endmill; CD = centre drill; DTI = test indicator; mic = micrometer. Keep the drawing at the bench.")
         self.pages.append(("Header / route", header))
         for setup in setups:
-            content = self.issues(self.setup_findings(setup))
-            content += f"<h2>SETUP {escape(setup['id'])} — {escape(self.reference(setup.get('machine'), 'machines'))}</h2>"
+            content = f"<h2>SETUP {escape(setup['id'])} — {escape(self.reference(setup.get('machine'), 'machines'))}</h2>"
+            content += self.issues(self.setup_findings(setup), setup=setup)
             content += _p("Starts from: " + _text(setup.get("stock_in")) + "; stock state: " + self.paragraphs(setup.get("stock_state", {}), recipes=True))
-            content += _p("Hold: " + self.paragraphs(setup.get("hold", {}), recipes=True))
+            content += self.hold(setup)
             content += _p("Coolant: " + _text(setup.get("coolant")) + "; deburr maximum: " + self.recipe(setup.get("deburr_mm")) + " mm")
-            headroom = self.records.get(("headroom", setup["id"]), {})
-            summary = {k: v for k, v in headroom.items() if k not in {"stacks", "cut_tip_above_jaws_mm"}}
-            content += _p("Headroom / support / clearance (nominal unless confirmed): " + (self.paragraphs(summary, recipes=True) if summary else "? no headroom computation"))
+            content += self.headroom(setup)
             if setup.get("note"):
                 content += _p(self.bench(setup["note"]))
             content += self.dro(setup) + self.coordinates(setup)
@@ -575,11 +766,11 @@ class _Traveler:
         banner = "CHECKED — HASH-MATCHED FIRST ARTICLE RECORDED" if self.checked else "PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE"
         result = [f'<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><title>{escape(part)} traveler</title><style>{_CSS}</style></head><body>']
         footer = f"prechips {self.report.get('prechips_version', '?')} · report {str(self.report.get('hash', '?'))[:8]}"
-        result.append(_p(footer, "print-footer"))
         for title, content in self.pages:
             result.append('<section class="page">')
             result.append(f'<div class="meta"><h1>{escape(part.upper())} · {escape(_text(drawing.get("number")))} · rev {escape(_text(drawing.get("revision")))}</h1><div>qty {escape(_text(self.plan.get("quantity")))}</div></div>')
-            result.append(_p(title))
+            if not any(title == f"Setup {setup['id']}" for setup in setups):
+                result.append(_p(title))
             result.append(f'<div class="banner">{banner}</div>')
             result.append(content)
             result.append(_p("Sign off: __________  First article / measured results: ____________________"))
