@@ -97,8 +97,25 @@ authored directory anywhere; every
 fixed output filename must resolve inside it. No output can alias an input by
 resolved path or hard link, escape by symlink, or name a directory. The output
 root cannot name a file. Approval files are included in collision protection.
-Existing regular output files may be overwritten. Preflight/bad input writes
-nothing, but a later filesystem failure is not an atomic multi-file rollback.
+Existing regular output files are replaced. Each output is first written in
+full to a hidden temporary beside its target (`.<name>.<random>.tmp`), and no
+target is replaced until every output is staged. The prior bytes of any earlier
+target are kept until the last replacement lands. If the filesystem refuses the
+directory, a staged write or a replacement, the run exits 3. The temporaries are
+removed and every target that was already replaced gets its prior bytes back,
+or is removed if it is new. A failed run therefore never leaves a new
+`report.json` next to an old `traveler.html`. An output directory created for
+the run may remain, empty. This does not cover a process kill between the two
+replacements, or a failure of the restoring rename itself. That second error
+exits 1, and the prior bytes stay in the temporary backup.
+
+Exit 3 covers bad input, output preflight and output-file writes. Any other
+exception is a prechips bug, not bad input: for example, a rule that raises or
+that returns duplicate subjects. It is outside the 0/2/3/4 exit contract and
+gives Python's ordinary traceback and exit 1. Telemetry still flushes. Generation
+finishes before any output is staged, and a staged write rolls back on any
+exception, so such a failure writes no output. A failure writing stdout after
+the files are in place is also exit 1.
 No verb reads expected fixtures as runtime answers.
 
 ## Generated traveler
@@ -130,8 +147,7 @@ Every invocation has a `prechips.<verb>` root span (initial usage may be named
 Records carry rule, subject, status, numbers and citations. The same Python
 logging records feed OTel and Rich stderr, so console and exported facts agree.
 `--verbose` renders the full finding table; ordinary stderr renders unresolved
-and error glyphs. Non-TTY/`NO_COLOR` disables color, not the glyphs. Unexpected
-failures render tracebacks with locals; avoid secrets in authored inputs.
+and error glyphs. Non-TTY/`NO_COLOR` disables color, not the glyphs.
 
 Resource identity: `service.name=prechips`, package `service.version`, optional
 `service.namespace` from `OTEL_SERVICE_NAMESPACE`. Valid W3C `TRACEPARENT` and
@@ -146,8 +162,11 @@ signal-specific `OTEL_EXPORTER_OTLP_TRACES_*` and `OTEL_EXPORTER_OTLP_LOGS_*`
 override them. Protocol is `http/protobuf` (default) or `grpc`; SDK headers/TLS
 follow standard exporter environment variables. Timeout is milliseconds in the
 environment, converted to exporter seconds. Batch processors flush/shut down on
-exit, including bad input. Invalid protocol/exporter configuration is not an
-optional machining-data fallback.
+exit, including bad input. Export is optional. If
+the protocol is unsupported, or the timeout is not a positive number of
+milliseconds, export is disabled for both signals in that invocation. Stderr gets
+one `! OTLP export disabled: …` warning naming the variable. The exit, report and
+sheet are those of an unconfigured run.
 
 See [AGENTS.md](../AGENTS.md) for local collector and farm acceptance procedures.
 Local exporter tests do not substitute for a real parented farm run observed in

@@ -92,12 +92,16 @@ supported only by traveler/check. Normal traveler/check stdout is empty;
 `--json` writes the fresh report there. Findings go to stderr with `✗`, `!`, `?`;
 `--verbose` includes the full rule/subject table.
 
-Exit precedence: **3 bad input/write failure > 2 any error > 4 required
+Exit precedence: **3 bad input/output I/O failure > 2 any rule error > 4 required
 unknown/unsupported/warn > 0 eligible report**. Compare returns the worst of
-2/4/0 across its plans. Output preflight rejects input collisions (including
-hard links), escaping output symlinks, and wrong file/directory types. Validation
-and preflight happen before writes; an I/O failure during writing is not a
-transactional rollback guarantee. Existing output files can be overwritten.
+2/4/0 across its plans. Unexpected implementation failures instead propagate a
+traceback with exit 1; they are not bad input. Output preflight rejects input
+collisions (including hard links), escaping output symlinks, and wrong
+file/directory types. Generated files are staged before replacement, and a failed
+write/replacement restores prior outputs. Rollback is not a crash or concurrent
+writer guarantee; see [output safety](docs/report-and-telemetry.md#output-safety).
+Existing output files can be overwritten. Malformed OTLP protocol/timeout settings
+warn once and disable exporters without changing the report or checker exit.
 
 ## Formats, rules and readiness
 
@@ -119,6 +123,11 @@ An existing policy without `[required]`, a feature without `requirements`, or a
 Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
 Explicit empty tables/lists remain known empty; no policy file still selects the
 built-in required-rule set.
+
+Worked located features need a complete numeric three-component centre; absent,
+unknown or two-component coordinates never clear the coordinate check. A nonrough
+mill contour carrying `rough_allowance_mm` prints distinct rough and finish cutter
+tables, with the rough allowance added to the cutter radius.
 
 Authored bench instructions retain slash-separated text such as
 `top/bottom/sides`, `S1/S2/S3` and `1/4/20`; only recognizable repository,

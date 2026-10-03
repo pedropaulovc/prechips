@@ -9,12 +9,13 @@ import math
 import os
 import sys
 import tomllib
+import uuid
 from pathlib import Path
 
 from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
-from prechips.report import build_report, canonical_bytes, report_hash, write_report
+from prechips.report import build_report, canonical_bytes, report_hash
 
 
 class Parser(argparse.ArgumentParser):
@@ -76,6 +77,49 @@ def _output_paths(out: Path, filenames: tuple[str, ...], inputs: list[Path]) -> 
             raise BadInput("An output file names a directory.")
         result.append(target)
     return result
+
+
+def _write_outputs(out: Path, outputs: dict[Path, bytes], tracing: telemetry.Telemetry) -> None:
+    """Stage every output in full beside its target before replacing any target.
+
+    A failure removes the staged files and returns each already-replaced target to
+    its prior bytes (or removes it when it is new); a filesystem refusal is exit 3.
+    """
+    temporaries: list[Path] = []
+
+    def stage(target: Path, data: bytes) -> Path:
+        temporaries.append(target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp"))
+        with temporaries[-1].open("xb") as handle:
+            handle.write(data)
+        return temporaries[-1]
+
+    replaced: list[tuple[Path, Path | None]] = []
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+        staged = []
+        for target, data in outputs.items():
+            with tracing.span("output.write", path=str(target)):
+                staged.append(stage(target, data))
+        # Each replacement is atomic, so only targets replaced before the last need backups.
+        targets = list(outputs)
+        backups = [stage(t, t.read_bytes()) if t.exists() else None for t in targets[:-1]]
+        for target, temporary, backup in zip(targets, staged, [*backups, None], strict=True):
+            os.replace(temporary, target)
+            replaced.append((target, backup))
+    except BaseException as exc:
+        for target, backup in reversed(replaced):
+            if backup is None:
+                target.unlink()
+            else:
+                # If restoring fails, the backup keeps the only copy of the prior bytes.
+                temporaries.remove(backup)
+                os.replace(backup, target)
+        if isinstance(exc, OSError):
+            raise BadInput(f"Cannot write output: {exc}") from exc
+        raise
+    finally:
+        for temporary in temporaries:
+            temporary.unlink(missing_ok=True)
 
 
 def _evaluate(bundle: Bundle, tracing: telemetry.Telemetry):
@@ -327,7 +371,10 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     all_inputs = [path for bundle in bundles for path in bundle.paths.values()]
     if getattr(args, "approval", None):
         all_inputs.append(args.approval)
-    destinations = _output_paths(out, names, all_inputs)
+    try:
+        destinations = _output_paths(out, names, all_inputs)
+    except OSError as exc:
+        raise BadInput(f"Cannot check output path: {exc}") from exc
     findings = [_evaluate(bundle, tracing) for bundle in bundles]
     reports = [build_report(bundle, rows) for bundle, rows in zip(bundles, findings, strict=True)]
     if args.verb == "compare":
@@ -348,9 +395,7 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
                     "exit": report["expected_exit"],
                 }
             )
-        out.mkdir(parents=True, exist_ok=True)
-        with tracing.span("output.write", path=str(destinations[0])):
-            destinations[0].write_bytes(canonical_bytes(rows))
+        _write_outputs(out, {destinations[0]: canonical_bytes(rows)}, tracing)
         if getattr(args, "json", False):
             _json_stdout(rows)
         else:
@@ -369,12 +414,10 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         from prechips.sheet import render_traveler
 
         html = render_traveler(bundles[0], findings[0], report, approval)
-    out.mkdir(parents=True, exist_ok=True)
-    with tracing.span("output.write", path=str(destinations[0])):
-        write_report(report, destinations[0])
+    outputs = {destinations[0]: canonical_bytes(report)}
     if html is not None:
-        with tracing.span("output.write", path=str(destinations[1])):
-            destinations[1].write_bytes(html.encode("utf-8"))
+        outputs[destinations[1]] = html.encode("utf-8")
+    _write_outputs(out, outputs, tracing)
     if getattr(args, "json", False):
         _json_stdout(report)
     return exit_code(findings[0], bundles[0].policy, bundles[0])
@@ -401,12 +444,6 @@ def main(argv: list[str] | None = None) -> int:
         return _run(args, tracing)
     except BadInput as exc:
         tracing.log("error", f"Bad input: {exc}")
-        return 3
-    except OSError as exc:
-        tracing.log("error", f"Cannot write output: {exc}")
-        return 3
-    except Exception:
-        logging.getLogger("prechips").exception("Unexpected checker failure.")
         return 3
     finally:
         if verbose_handler is not None:

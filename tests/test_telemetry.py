@@ -152,6 +152,44 @@ def test_no_endpoint_means_no_exporter_or_warning(capsys):
     assert capsys.readouterr().err == ""
 
 
+@pytest.mark.parametrize(
+    ("variable", "value"),
+    [("OTEL_EXPORTER_OTLP_LOGS_PROTOCOL", "http/json"), ("OTEL_EXPORTER_OTLP_LOGS_TIMEOUT", "5s")],
+)
+def test_malformed_export_setting_warns_once_and_exports_nothing(
+    variable, value, monkeypatch, capsys
+):
+    received = []
+
+    class Receiver(BaseHTTPRequestHandler):
+        def do_POST(self):
+            received.append(self.path)
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        # Traces alone are well formed; one malformed signal still disables all export.
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", f"http://127.0.0.1:{server.server_port}")
+        monkeypatch.setenv(variable, value)
+        t = telemetry.configure("check")
+        with t.span("rule.sizing"):
+            t.finding(finding("unknown"))
+        t.flush()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+    assert received == []
+    assert capsys.readouterr().err.count(variable) == 1
+
+
 def test_no_color_preserves_glyphs_without_ansi(monkeypatch):
     class Tty(io.StringIO):
         def isatty(self):

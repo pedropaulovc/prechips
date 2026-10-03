@@ -10,10 +10,11 @@
 > plain words; everything else it computed goes to a machine-readable report
 > no human has to read.
 
-Status: M1 local implementation deliverable completed; physical paper rehearsal
-and live parented farm/App Insights acceptance remain pending/unobserved. Rev 6,
-2026-10-03. Sections below retain design intent; README and docs describe the
-shipped schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
+Status: M1 local implementation and PR #5 cross-family review corrections
+completed; physical paper rehearsal and live parented farm/App Insights acceptance
+remain pending/unobserved. Rev 6, 2026-10-03. Sections below retain design intent;
+README and docs describe the shipped schema/CLI/rules. Rev 1 was traveler-first but
+promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial
 reviews and became correct but unusable: a 100 KB traveler of config ids,
 hashes and 15-decimal numbers. Rev 4 restored the purpose and the rule
@@ -503,6 +504,13 @@ sentences; `info` goes to the report and the log only. Exit precedence:
 `unsupported` or `warn`) > 0 — so the consumer can wrap it as a doit gate.
 Every numeric threshold carries a `cite`; an uncited number is a lint error
 in this repo.
+
+Unexpected implementation failures are outside this readiness precedence: they
+propagate a traceback and exit 1, never masquerading as bad input. Generated
+outputs are staged before replacement and prior files are restored on ordinary
+write/replacement failure; crash/concurrent-writer atomicity is not promised.
+Malformed optional OTLP protocol/timeout settings warn once and disable export,
+leaving the checker's report and exit unchanged.
 
 Each row names **where its inputs come from** (`plan`, `features`,
 `inventory`, `policy`, `cutting-data`, `kernel`) and its tier: **M1** ships

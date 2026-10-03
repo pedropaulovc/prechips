@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 from typing import Any
 
 from prechips import __version__
@@ -38,7 +37,3 @@ def build_report(bundle: Bundle, findings: list[Finding]) -> dict:
     }
     report["hash"] = report_hash(report)
     return report
-
-
-def write_report(report: dict, path: str | Path) -> None:
-    Path(path).write_bytes(canonical_bytes(report))

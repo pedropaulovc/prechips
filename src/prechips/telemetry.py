@@ -9,6 +9,7 @@ from __future__ import annotations
 import atexit
 import json
 import logging
+import math
 import os
 import sys
 from contextlib import contextmanager
@@ -26,7 +27,6 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
-from rich.traceback import Traceback
 
 from prechips import __version__
 
@@ -116,8 +116,6 @@ class _ConsoleHandler(logging.Handler):
                 self._table_header = False
             elif not finding_status or finding_status in _GLYPHS:
                 self.console.print(Text(record.getMessage(), style=_STYLES.get(record.levelno, "")))
-            if record.exc_info and record.exc_info[0] is not None:
-                self.console.print(Traceback.from_exception(*record.exc_info, show_locals=True))
         except Exception:
             self.handleError(record)
 
@@ -127,25 +125,37 @@ def console_handler(verbose: bool) -> logging.Handler:
     return _ConsoleHandler(verbose)
 
 
+def _setting(prefix: str, key: str) -> tuple[str, str] | None:
+    """Return the signal-specific variable, else the common one; empty means unset."""
+    for name in (f"{prefix}_{key}", f"OTEL_EXPORTER_OTLP_{key}"):
+        if value := os.environ.get(name):
+            return name, value
+    return None
+
+
 def _exporter(signal: str):
-    """Resolve transport explicitly; let each SDK exporter resolve headers/TLS."""
+    """Resolve transport explicitly; let each SDK exporter resolve headers/TLS.
+
+    A malformed protocol or timeout raises ValueError naming its variable.
+    """
     prefix = f"OTEL_EXPORTER_OTLP_{signal.upper()}"
     endpoint = os.environ.get(f"{prefix}_ENDPOINT", os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"))
     if not endpoint:
         return None
-    protocol = (
-        (
-            os.environ.get(f"{prefix}_PROTOCOL")
-            or os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL")
-            or "http/protobuf"
-        )
-        .strip()
-        .lower()
-    )
+    protocol_setting = _setting(prefix, "PROTOCOL")
+    protocol = protocol_setting[1].strip().lower() if protocol_setting else "http/protobuf"
     # The OTLP environment specifies milliseconds; Python exporter constructors
     # take seconds. Signal-specific settings override the common setting.
-    timeout = os.environ.get(f"{prefix}_TIMEOUT") or os.environ.get("OTEL_EXPORTER_OTLP_TIMEOUT")
-    kwargs = {"timeout": float(timeout) / 1000} if timeout else {}
+    kwargs = {}
+    if timeout_setting := _setting(prefix, "TIMEOUT"):
+        name, text = timeout_setting
+        try:
+            milliseconds = float(text)
+        except ValueError:
+            milliseconds = math.nan
+        if not (math.isfinite(milliseconds) and milliseconds > 0):
+            raise ValueError(f"{name} must be a positive number of milliseconds, not {text!r}.")
+        kwargs["timeout"] = milliseconds / 1000
     if protocol == "http/protobuf":
         if signal == "traces":
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -162,7 +172,7 @@ def _exporter(signal: str):
         from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
 
         return OTLPLogExporter(**kwargs)
-    raise ValueError(f"Unsupported {prefix}_PROTOCOL: {protocol!r}")
+    raise ValueError(f"{protocol_setting[0]} must be http/protobuf or grpc, not {protocol!r}.")
 
 
 class Telemetry:
@@ -181,11 +191,18 @@ class Telemetry:
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
         self._handlers: list[logging.Handler] = []
+        warning = None
         try:
-            if exporter := _exporter("traces"):
-                self.trace_provider.add_span_processor(BatchSpanProcessor(exporter))
-            if exporter := _exporter("logs"):
-                self.log_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
+            try:
+                exporters = (_exporter("traces"), _exporter("logs"))
+            except ValueError as exc:
+                # Export is optional (PLAN §5.2): a malformed setting disables it, not the check.
+                exporters = (None, None)
+                warning = f"! OTLP export disabled: {exc}"
+            if exporters[0] is not None:
+                self.trace_provider.add_span_processor(BatchSpanProcessor(exporters[0]))
+            if exporters[1] is not None:
+                self.log_provider.add_log_record_processor(BatchLogRecordProcessor(exporters[1]))
             self.tracer = self.trace_provider.get_tracer("prechips", __version__)
             carrier = {
                 key.lower(): os.environ[key]
@@ -202,6 +219,8 @@ class Telemetry:
             ]
             for handler in self._handlers:
                 self.logger.addHandler(handler)
+            if warning is not None:
+                self.log("warn", warning)
         except BaseException:
             self.flush()
             raise
