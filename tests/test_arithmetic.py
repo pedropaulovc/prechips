@@ -46,6 +46,7 @@ def test_diametric_display_doubles_only_the_physical_jog():
     (1024.9, 50, 3000, 1000), (1025, 50, 3000, 1000), (1075, 50, 3000, 1100),
     (1499, 50, 3000, 1500), (4000, 50, 3000, 3000), (1, 70, 2200, 70),
     (9999, 50, 2180, 2180), (125, 120, 130, 120), (300, 150, 100, "unknown"),
+    (40, 75, 3000, 75), (1040, 50, 1025, 1025),
 ])
 def test_rpm_nearest50_ties_and_boundaries(raw, low, high, expected):
     assert nearest50(raw, low, high) == expected

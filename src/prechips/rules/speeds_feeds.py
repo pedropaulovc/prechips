@@ -1,8 +1,8 @@
 """Sourced starting speeds. No chart/row citation means no numeric speed.
 
-RPM policy: clamp raw RPM to the machine range, round to nearest 50 with
-half-way ties to even, then clamp again to the actual boundary. A boundary
-not divisible by 50 is retained rather than commanding an out-of-range speed.
+RPM policy: round raw RPM to nearest 50 with half-way ties to even, then clamp
+to the actual machine range. A boundary not divisible by 50 is retained rather
+than commanding an out-of-range speed.
 Cutting-table diameter_range is in millimetres, inclusive at both ends; an
 ambiguous overlapping pair of rows is unresolved rather than first-row wins.
 """
@@ -18,8 +18,7 @@ from .tip_endpoints import mapping, records
 def nearest50(rpm, minimum, maximum):
     if not all(number(v) and math.isfinite(v) for v in (rpm, minimum, maximum)) or minimum < 0 or maximum < minimum:
         return UNKNOWN
-    clamped = max(minimum, min(maximum, rpm))
-    return max(minimum, min(maximum, round(clamped / 50) * 50))
+    return max(minimum, min(maximum, round(rpm / 50) * 50))
 
 
 def _operation(action):
@@ -118,10 +117,10 @@ def evaluate(bundle):
                        "rpm_range_verify": uncertain(machine)}
             unknown = (rpm == UNKNOWN or feed == UNKNOWN or uncertain(tool) or uncertain(machine)
                        or stock.get("material_verify", False) or range_unknown)
-            cite = ["PLAN.md §3.5 RPM = 12·sfm/(π·D_in), nearest50 ties-to-even with boundary clamp", "inventory machine spindle range", "cutting-data aliases and rows"]
+            cite = ["PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp", "inventory machine spindle range", "cutting-data aliases and rows"]
             if _cited(source):
                 cite.extend(source if isinstance(source, list) else [source])
             sentence = ("Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified."
-                        if unknown else "Starting RPM and feed are sourced, clamped to the machine range and rounded to nearest 50 RPM.")
+                        if unknown else "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.")
             result.append(Finding("speeds_feeds", subject, "unknown" if unknown else "pass", numbers, cite, sentence))
     return result
