@@ -26,16 +26,36 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket")
 RULES = {
-    "schema", "inventory_refs", "citations_present", "step_binding",
-    "policy_integrity", "sizing_tool", "hole_op_chain", "op_order",
-    "coordinate_table", "coverage", "blind_thread_depth", "envelope",
-    "holder_compat", "index_representable",
+    "schema",
+    "inventory_refs",
+    "citations_present",
+    "step_binding",
+    "policy_integrity",
+    "sizing_tool",
+    "hole_op_chain",
+    "op_order",
+    "coordinate_table",
+    "coverage",
+    "blind_thread_depth",
+    "envelope",
+    "holder_compat",
+    "index_representable",
 }
 STATUSES = {"pass", "fail", "unknown", "not_applicable"}
 SET_KINDS = {
-    "endmill_set", "collet_set", "parallels_set", "center_drill_set",
-    "drill_index", "drill_set", "tap_die_set", "tap_set", "reamers",
-    "countersink_set", "qctp_set", "insert_holders", "micrometer_set",
+    "endmill_set",
+    "collet_set",
+    "parallels_set",
+    "center_drill_set",
+    "drill_index",
+    "drill_set",
+    "tap_die_set",
+    "tap_set",
+    "reamers",
+    "countersink_set",
+    "qctp_set",
+    "insert_holders",
+    "micrometer_set",
 }
 
 
@@ -81,7 +101,9 @@ def inventory_entries(inventory: dict) -> dict:
 
 def ref_resolves(ref: str, entries: dict) -> bool:
     if ref in entries:
-        return entries[ref].get("present") is not False and entries[ref].get("kind") not in SET_KINDS
+        return (
+            entries[ref].get("present") is not False and entries[ref].get("kind") not in SET_KINDS
+        )
     if "/" not in ref:
         return False
     root, item = ref.split("/", 1)
@@ -103,7 +125,9 @@ def ref_resolves(ref: str, entries: dict) -> bool:
         sizes = entry.get("sizes_in", {}).get("2_and_4_flute", [])
         return diameter is not None and diameter in {inch_fraction(str(size)) for size in sizes}
     if kind == "center_drill_set":
-        return item.removeprefix("#").isdigit() and int(item.removeprefix("#")) in entry.get("sizes", [])
+        return item.removeprefix("#").isdigit() and int(item.removeprefix("#")) in entry.get(
+            "sizes", []
+        )
     if root == "drill-index-115":
         # The sample declares standard 115-piece coverage, not measured geometry.
         numbered = re.fullmatch(r"#?(\d{1,2})", item)
@@ -112,7 +136,11 @@ def ref_resolves(ref: str, entries: dict) -> bool:
         if re.fullmatch(r"[A-Z]", item):
             return True
         size = inch_fraction(item)
-        return size is not None and Fraction(1, 16) <= size <= Fraction(1, 2) and (size * 64).denominator == 1
+        return (
+            size is not None
+            and Fraction(1, 16) <= size <= Fraction(1, 2)
+            and (size * 64).denominator == 1
+        )
     if kind == "qctp_set":
         aliases = {
             "1-turning-facing": "#1 turning/facing",
@@ -165,6 +193,7 @@ def selected_refs(plan: dict):
         elif isinstance(value, list):
             for index, child in enumerate(value):
                 yield from walk(child, f"{location}[{index}]")
+
     yield from walk(plan, "plan")
 
 
@@ -193,7 +222,9 @@ def check_pickup(spec: dict, setup: dict):
             thickness = spec["material"]["thickness"]
             expected = float(thickness["nominal"] if isinstance(thickness, dict) else thickness)
         else:
-            raise ValueError(f"{setup['id']}: cannot derive top Z from frame note/material.thickness")
+            raise ValueError(
+                f"{setup['id']}: cannot derive top Z from frame note/material.thickness"
+            )
     elif feature in {"axis", "spindle_axis", "shaft_axis", "centreline"}:
         expected = 0.0
     else:
@@ -214,12 +245,26 @@ def reject_constant(value):
 def check_report(path: Path, policy: dict) -> dict:
     text = path.read_bytes().decode("utf-8")
     report = json.loads(text, parse_constant=reject_constant)
-    canonical = json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
+    canonical = (
+        json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
+    )
     if text != canonical:
         raise ValueError(f"{path.relative_to(ROOT)}: not canonical sorted-key JSON")
-    if set(report) != {"inputs", "verification", "findings", "hash"} or report["hash"] != "<computed>":
+    if (
+        set(report) != {"inputs", "verification", "findings", "hash"}
+        or report["hash"] != "<computed>"
+    ):
         raise ValueError(f"{path.relative_to(ROOT)}: wrong §3.7 report shape/hash placeholder")
-    input_fields = {"step_sha256", "spec_sha256", "plan_sha256", "inventory_sha256", "policy_sha256", "rules_version", "tables_version", "prechips_version"}
+    input_fields = {
+        "step_sha256",
+        "spec_sha256",
+        "plan_sha256",
+        "inventory_sha256",
+        "policy_sha256",
+        "rules_version",
+        "tables_version",
+        "prechips_version",
+    }
     if set(report["inputs"]) != input_fields or report["verification"] != "planned":
         raise ValueError(f"{path.relative_to(ROOT)}: wrong inputs/verification contract")
     findings = report["findings"]
@@ -231,7 +276,10 @@ def check_report(path: Path, policy: dict) -> dict:
     for finding in findings:
         if set(finding) != {"rule", "subject", "status", "severity", "evidence", "cite"}:
             raise ValueError(f"{path.relative_to(ROOT)}: wrong finding shape")
-        if finding["status"] not in STATUSES or finding["severity"] != policy["severity"][finding["rule"]]:
+        if (
+            finding["status"] not in STATUSES
+            or finding["severity"] != policy["severity"][finding["rule"]]
+        ):
             raise ValueError(f"{path.relative_to(ROOT)}: invalid finding status/severity")
         if not isinstance(finding["evidence"], list) or not finding["evidence"]:
             raise ValueError(f"{path.relative_to(ROOT)}: missing ordered evidence array")
@@ -242,14 +290,18 @@ def check_csv(path: Path, setup: dict):
     with path.open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream))
     expected_prefix = [f"frame={setup['frame']}", " units=mm", " mode=absolute"]
-    if len(rows) < 2 or [cell.strip() for cell in rows[0][:3]] != [cell.strip() for cell in expected_prefix]:
+    if len(rows) < 2 or [cell.strip() for cell in rows[0][:3]] != [
+        cell.strip() for cell in expected_prefix
+    ]:
         raise ValueError(f"{path.relative_to(ROOT)}: wrong frame/unit/mode header")
     if [cell.strip() for cell in rows[1]] != ["feature", "op", "x", "y", "z"]:
         raise ValueError(f"{path.relative_to(ROOT)}: wrong coordinate columns")
     expected = [(str(op["feature"]), str(op["op"])) for op in setup["operations"]]
     actual = [(row[0], row[1]) for row in rows[2:] if len(row) == 5]
     if actual != expected or any(len(row) != 5 for row in rows[2:]):
-        raise ValueError(f"{path.relative_to(ROOT)}: coordinate rows do not cover operations in order")
+        raise ValueError(
+            f"{path.relative_to(ROOT)}: coordinate rows do not cover operations in order"
+        )
     for row in rows[2:]:
         for number in row[2:]:
             if number and not math.isfinite(float(number)):
@@ -280,7 +332,9 @@ def validate() -> int:
             policy = documents[folder / "policy.yaml"]
             if spec["part"] != part or plan["part"] != part:
                 raise ValueError("part identity differs from directory")
-            if (folder / "policy.yaml").read_bytes() != default_bytes or set(policy["required"]) != RULES:
+            if (folder / "policy.yaml").read_bytes() != default_bytes or set(
+                policy["required"]
+            ) != RULES:
                 raise ValueError("policy copy differs or omits a required rule")
             feature_ids = [feature["id"] for feature in spec["features"]]
             if len(feature_ids) != len(set(feature_ids)):
@@ -309,52 +363,94 @@ def validate() -> int:
             digests = {
                 "spec_sha256": hashlib.sha256((folder / "spec.yaml").read_bytes()).hexdigest(),
                 "plan_sha256": hashlib.sha256((folder / "plan.yaml").read_bytes()).hexdigest(),
-                "inventory_sha256": hashlib.sha256((EXAMPLES / "inventory" / "pedro-shop.yaml").read_bytes()).hexdigest(),
+                "inventory_sha256": hashlib.sha256(
+                    (EXAMPLES / "inventory" / "pedro-shop.yaml").read_bytes()
+                ).hexdigest(),
                 "policy_sha256": hashlib.sha256((folder / "policy.yaml").read_bytes()).hexdigest(),
             }
             if plan["spec_sha256"] != digests["spec_sha256"]:
                 raise ValueError("plan.spec_sha256 does not bind the current spec bytes")
             for field, digest in digests.items():
                 if report["inputs"][field] != digest:
-                    raise ValueError(f"expected report inputs.{field} differs from current file bytes")
+                    raise ValueError(
+                        f"expected report inputs.{field} differs from current file bytes"
+                    )
             step_placeholder = f"<sha256 of cad/out/step/{part}.step>"
-            if spec["step_sha256"] != step_placeholder or report["inputs"]["step_sha256"] != step_placeholder:
+            if (
+                spec["step_sha256"] != step_placeholder
+                or report["inputs"]["step_sha256"] != step_placeholder
+            ):
                 raise ValueError("STEP placeholder differs from the fixture contract")
             expected_subjects = {
-                rule: known for rule in (
-                    "sizing_tool", "hole_op_chain", "coverage",
-                    "blind_thread_depth", "index_representable",
+                rule: known
+                for rule in (
+                    "sizing_tool",
+                    "hole_op_chain",
+                    "coverage",
+                    "blind_thread_depth",
+                    "index_representable",
                 )
             }
-            expected_subjects.update({
-                rule: setup_ids for rule in ("op_order", "coordinate_table", "envelope")
-            })
+            expected_subjects.update(
+                {rule: setup_ids for rule in ("op_order", "coordinate_table", "envelope")}
+            )
             expected_subjects["inventory_refs"] = {ref for ref, _ in selected_refs(plan)}
             expected_subjects["holder_compat"] = {
                 f"{setup['id']}:{operation['op']}"
-                for setup in plan["setups"] for operation in setup["operations"]
+                for setup in plan["setups"]
+                for operation in setup["operations"]
             }
             for rule, subjects in expected_subjects.items():
-                actual = {finding["subject"] for finding in report["findings"] if finding["rule"] == rule}
+                actual = {
+                    finding["subject"] for finding in report["findings"] if finding["rule"] == rule
+                }
                 if actual != subjects:
-                    raise ValueError(f"{rule}: subject coverage differs: expected={sorted(subjects)}, actual={sorted(actual)}")
+                    raise ValueError(
+                        f"{rule}: subject coverage differs: "
+                        f"expected={sorted(subjects)}, actual={sorted(actual)}"
+                    )
             for rule in ("schema", "citations_present", "step_binding", "policy_integrity"):
                 if sum(finding["rule"] == rule for finding in report["findings"]) != 1:
                     raise ValueError(f"{rule}: expected one global finding")
-            blocked_refs = {finding["subject"] for finding in report["findings"] if finding["rule"] == "inventory_refs" and finding["status"] == "fail" and finding["severity"] == "block"}
+            blocked_refs = {
+                finding["subject"]
+                for finding in report["findings"]
+                if finding["rule"] == "inventory_refs"
+                and finding["status"] == "fail"
+                and finding["severity"] == "block"
+            }
             missing = {ref for ref, _ in selected_refs(plan) if not ref_resolves(ref, entries)}
             if missing != blocked_refs:
-                raise ValueError(f"inventory misses differ from expected blocks: actual={sorted(missing)}, report={sorted(blocked_refs)}")
+                raise ValueError(
+                    "inventory misses differ from expected blocks: "
+                    f"actual={sorted(missing)}, report={sorted(blocked_refs)}"
+                )
             for finding in report["findings"]:
                 if finding["rule"] == "inventory_refs" and finding["subject"] not in missing:
-                    expected_status = "unknown" if inventory_uncertain(finding["subject"], entries) else "pass"
+                    expected_status = (
+                        "unknown" if inventory_uncertain(finding["subject"], entries) else "pass"
+                    )
                     if finding["status"] != expected_status:
-                        raise ValueError(f"inventory_refs({finding['subject']}): expected {expected_status} from inherited verification/presence, got {finding['status']}")
+                        raise ValueError(
+                            f"inventory_refs({finding['subject']}): expected {expected_status} "
+                            f"from inherited verification/presence, got {finding['status']}"
+                        )
             for ref in sorted(missing):
                 misses.append(f"  {part}: {ref}")
             if not (folder / "expected" / "traveler.html").is_file():
                 raise ValueError("missing expected traveler")
-            code = 2 if any(f["status"] == "fail" and f["severity"] == "block" for f in report["findings"]) else 4 if any(f["status"] == "unknown" and f["rule"] in policy["required"] for f in report["findings"]) else 0
+            code = (
+                2
+                if any(
+                    f["status"] == "fail" and f["severity"] == "block" for f in report["findings"]
+                )
+                else 4
+                if any(
+                    f["status"] == "unknown" and f["rule"] in policy["required"]
+                    for f in report["findings"]
+                )
+                else 0
+            )
             print(f"{part}: valid authored fixture; expected prechips exit {code}")
         except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError) as error:
             errors.append(f"{part}: {error}")
