@@ -137,16 +137,16 @@ Sources were read from the read-only harmonic-analyzer tree:
   is the horizontal plan angle between cone/crank bore axes, not bore tilt.
   The fixture preserves four places and explicitly unknown `angle_tol_deg`;
   neither general ±1° nor a conversion of the FCF becomes its landing allowance.
-- `spec:132–168`: exact running fit limits are crank11.413–11.443 and
-  cone12.2558–12.2858. The cone nominal prints12.281 at three places; re-anchoring
-  its limits on that rounded number would shift them0.0002mm. This hand-authored
+- `spec:132–168`: exact running fit limits are crank 11.413–11.443 and
+  cone 12.2558–12.2858. The cone nominal prints 12.281 at three places; re-anchoring
+  its limits on that rounded number would shift them 0.0002 mm. This hand-authored
   fixture retains the explicit source fit limits and records that reconciliation,
-  rather than silently manufacturing a new fit. Printed height33.37±0.25 and
-  spacing39.33+0.37/0 are separate requirements; crank height72.70 is REF
+  rather than silently manufacturing a new fit. Printed height 33.37±0.25 and
+  spacing 39.33+0.37/0 are separate requirements; crank height 72.70 is REF
   (`draw:188–190,1134–1135`).
-- `spec:79–104,175–176,318`: the mounting station is **derived**12.98 each
+- `spec:79–104,175–176,318`: the mounting station is **derived** 12.98 each
   side (25.96 pitch), not a guessed literal. Through holes retain sourced
-  7.14248 with the drilled+0.10/0 row; counterbores print11.51×6.02 with
+  7.14248 with the drilled +0.10/0 row; counterbores print 11.51×6.02 with
   rendered two-place ±0.51 bands.
 - `spec:248–280,369–387`: datum A is the finished cone journal bore, B the
   finished foot; **Ø0.10 angularity to A|B belongs to the crank bore** and has
@@ -154,23 +154,23 @@ Sources were read from the read-only harmonic-analyzer tree:
   come from `_surface_finish.py:48–54`. Construction setup frames are not extra
   drawing datums. S4 indicates finished A/B from S3, not an earlier pilot.
 - `cad/config/parts/cone-pivot-post.yaml:2–7` and `spec:349–355`: MHA-016,
-  quantity1, ferrous_noncritical family, specified paint/masking/oiling, and
+  quantity 1, ferrous_noncritical family, specified paint/masking/oiling, and
   “machined from solid stock or casting.” No note permits built-up construction.
   A stock grade is therefore unknown; a family name is not an AISI/ASTM grade.
-- `spec:108–129`: **112300.8902mm³** is a genuinely sourced analytic feature
+- `spec:108–129`: **112300.8902 mm³** is a genuinely sourced analytic feature
   sum and its explicit authority, not an estimated or measured net volume.
   Both comparison candidates use this volume and its citation.
 - `draw:254–264` imports the cone-rim exception from
-  `cone_gear_shaft_spec.py:79–97,111–113`: **RIMS BREAK0.1MAX**, not the
-  title block's otherwise applicable0.25 edge break.
+  `cone_gear_shaft_spec.py:79–97,111–113`: **RIMS BREAK 0.1 MAX**, not the
+  title block's otherwise applicable 0.25 edge break.
 
 The one-piece **Ø110×120 round** is an **AUTHOR'S CHOICE**, not an inventory
 claim. With bar axis along body Y, the crank far-face radial corner is
-`hypot(50.6591,21.93/2)=51.8322mm`, within radius55. Axial blank length is
+`hypot(50.6591,21.93/2)=51.8322 mm`, within radius 55. Axial blank length is
 86 body +6 foot-facing allowance +28 sacrificial grip. The cone-pad plan
-half-extent is22.3702mm, also within that round. A body-only Ø45 blank would
+half-extent is 22.3702mm, also within that round. A body-only Ø45 blank would
 exclude the integral crank boss and is deliberately **not** asserted. S1's
-declared stick-out is92/110; lower-body turning stops at Y24.5 before the cone
+declared stick-out is 92/110; lower-body turning stops at Y24.5 before the cone
 pad's lowest Y24.768. Remaining profiles preserve both integral bosses.
 
 The separate built-up candidate declares two **AUTHOR'S CHOICE** leaf blanks:
@@ -180,11 +180,11 @@ joint's interface, interference, engagement, press/arbor and strength are
 unknown, and no drawing note authorizes it. A lower computed waste ratio cannot
 override the construction stop. Neither blank is on hand (`inventory stock=[]`).
 
-The BS-0 lives under inventory **machines**, with worm40, direct24×15° and all
+The BS-0 lives under inventory **machines**, with worm 40, direct 24×15° and all
 18 listed worm circles (`inventory/pedro-shop.toml:90–119`). The independent
-validator searches every circle and direct setting: nearest for12.5182° is
-**plate B /23, one crank turn +9 hole spaces**, actual12.5217391304°,
-signed error+0.0035391304°. One setting means **no cycle closure**. Plate
+validator searches every circle and direct setting: nearest for 12.5182° is
+**plate B /23, one crank turn +9 hole spaces**, actual 12.5217391304°,
+signed error +0.0035391304°. One setting means **no cycle closure**. Plate
 counts remain unverified and BASIC landing acceptance remains unknown, so the
 traveler must show a tentative `?`, not an approval.
 
@@ -193,7 +193,7 @@ appropriate milling nests/adapters, cutter/holder reach, bore/height/roughness
 inspection and A/B angularity inspection method remain unresolved. Existing
 lathe tool/chuck identities are retained with their verification debt; unknown
 mill/bore tools and holders are explicitly unknown, not fictitious inventory.
-RPM/feed derivation, K_c/E and Machinery's Handbook31 evidence are not supplied.
+RPM/feed derivation, K_c/E and Machinery's Handbook 31 evidence are not supplied.
 The fixture is only an authored process/arithmetical contract: it makes **no
 physical machining, farm-build, first-article or clearance-completion claim**.
 
