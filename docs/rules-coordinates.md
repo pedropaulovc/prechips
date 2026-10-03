@@ -14,6 +14,14 @@ Unknown components propagate only through nonzero coefficients. Tolerance-band
 midpoints never define nominal geometry: explicit `*_nominal` values take
 precedence, otherwise only scalar dimensions are usable as nominal geometry.
 
+Worked holes (including threaded holes and counterbores), bosses, and features
+used by point/hole operations require a numeric three-component `at` reference
+point. An absent, `"unknown"`, two-component or partially unknown point keeps
+the setup's `coordinates` status unknown; two-component sketch locations do not
+imply Z = 0. A known point still needs a usable model-to-setup frame transform.
+Bounds-only face, rectangular profile and pocket features do not acquire an
+invented centre requirement.
+
 Feature reference centres are distinct from hole tool-tip endpoints (those
 belong to `blind_depth`). Lathe rows carry drawing stations, authored operation
 endpoints, nominal diameter and radius/diameter X display. An authored local Z
@@ -23,10 +31,20 @@ to nominal model geometry. Dome axial samples compute
 `radius=sqrt(sphere_radius^2-(z-sphere_centre_z)^2)` at authored steps and include
 the exact endpoint. Tool-nose compensation remains unknown.
 
-For contours, cutter radius is selected diameter/2; rough offset adds authored
-`rough_allowance_mm` or `stock_to_leave_mm`. `arc_table` uses explicit centres,
-nominal radii and known finite geometry: a boss is a full circle, a declared
-upper semicircle is 0–180°, and finite rocker arcs derive endpoint angles.
+For contours, cutter radius is selected diameter/2. An explicitly rough
+operation produces its rough table at cutter radius plus `rough_allowance_mm`
+or, if that field is absent, `stock_to_leave_mm`. A non-rough arc or linear
+contour carrying `rough_allowance_mm` produces both rough and finish tables:
+rough offset = cutter radius + allowance; finish offset = cutter radius. An
+unknown authored allowance leaves the rough path unresolved rather than using
+zero. Operations without an authored rough allowance keep their finish-only
+table. Each profile, arc and exact line-join record names its `stage` (`rough`
+or `finish`), so the report and traveler distinguish the two paths even when
+they share one operation number. Axial dome samples remain nominal profiles,
+not an allowance/tool-nose-compensated rough path.
+`arc_table` uses explicit centres, nominal radii and known finite geometry:
+a boss is a full circle, a declared upper semicircle is 0–180°, and finite
+rocker arcs derive endpoint angles.
 Internal/top arcs subtract offset; outside/bottom arcs add it. Samples include
 exact endpoints and angular grid checkpoints. `start_deg`/`end_deg` are accepted
 schema fields but the current rule derives bounds from geometry rather than

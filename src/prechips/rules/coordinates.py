@@ -13,9 +13,11 @@ import math
 
 from ..findings import Finding
 from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
-from .tip_endpoints import stock_states
+from .tip_endpoints import HOLE_OPS, stock_states
 
 AXES = ("x", "y", "z")
+CENTRE_OPS = HOLE_OPS | {"center"}
+LOCATED_KINDS = {"hole", "counterbore", "thread", "threaded_hole", "boss"}
 
 
 def mapping(value):
@@ -487,10 +489,14 @@ def evaluate(bundle):
                 if "tool" in op
             )
         names = list(dict.fromkeys(op.get("feature") for op in setup["ops"]))
+        centre_features = {op.get("feature") for op in setup["ops"] if op.get("do") in CENTRE_OPS}
         for name in names:
             feature = mapping(features.get(name))
             at = feature.get("at")
-            if isinstance(at, list) and len(at) == 3:
+            located = feature.get("kind") in LOCATED_KINDS or name in centre_features
+            vector = isinstance(at, list) and len(at) == 3
+            unknown |= located and not (vector and all(number(value) for value in at))
+            if located or vector:
                 model = model_point(at, frames.get(feature.get("frame", "model")))
                 local = frame_point(model, frame)
                 numbers["rows"].append({"feature": name, "model": model, "setup": local})
@@ -511,47 +517,56 @@ def evaluate(bundle):
             diameter = length_mm(tool, "dia")
             radius = diameter / 2 if number(diameter) else UNKNOWN
             rough = op.get("do", "").startswith("rough")
-            allowance = (
-                op.get("rough_allowance_mm", op.get("stock_to_leave_mm", UNKNOWN)) if rough else 0
+            paired = not rough and "rough_allowance_mm" in op
+            stages = (
+                [("rough", op.get("rough_allowance_mm", op.get("stock_to_leave_mm", UNKNOWN)))]
+                if rough
+                else [("rough", op["rough_allowance_mm"]), ("finish", 0)]
+                if paired
+                else [("finish", 0)]
             )
-            offset = radius + allowance if number(radius) and number(allowance) else UNKNOWN
-            profile = {
-                "feature": name,
-                "op": op["op"],
-                "tool": op.get("tool", UNKNOWN),
-                "tool_dia": diameter,
-                "tool_nominal_dia_mm": diameter,
-                "cutter_radius_mm": radius,
-                "offset_mm": offset,
-                "rough_allowance_mm": allowance if rough else "not_applicable",
-                "entry_z": before["entry_z"].get(name, before["top_z"]),
-                "to_z": op.get("to_z", UNKNOWN),
-                "contour": contour,
-                "tool_dia_basis": "selected member nominal, not measured",
-            }
-            generated = False
-            if contour.get("method") == "arc_table":
-                arc, lines = _arc(name, feature, op, offset, frame, frames, features)
-                if arc:
-                    arc["allowance_mm"] = allowance
-                    numbers["arc_table"].append(arc)
-                    numbers["line_table"].extend(lines)
-                    profile["cutter_centre"] = arc["rows"]
-                    generated = True
-            elif contour.get("method") == "linear_table":
-                path = _linear(feature, op, offset, radius, frame, frames)
-                if path:
-                    profile["cutter_centre"] = path
-                    generated = True
-            elif contour.get("method") == "axial_table":
-                dome = _dome(name, feature, op, dro.get("radius_mode") is True)
-                if dome:
-                    numbers["contours"].append(dome)
-                    generated = True
-            if not generated:
-                profile["cutter_centre"] = UNKNOWN
-            numbers["profiles"].append(profile)
-            unknown |= not generated or not tool or uncertain(tool)
+            for stage, allowance in stages:
+                offset = radius + allowance if number(radius) and number(allowance) else UNKNOWN
+                profile = {
+                    "feature": name,
+                    "op": op["op"],
+                    "stage": stage,
+                    "tool": op.get("tool", UNKNOWN),
+                    "tool_dia": diameter,
+                    "tool_nominal_dia_mm": diameter,
+                    "cutter_radius_mm": radius,
+                    "offset_mm": offset,
+                    "rough_allowance_mm": allowance if stage == "rough" else "not_applicable",
+                    "entry_z": before["entry_z"].get(name, before["top_z"]),
+                    "to_z": op.get("to_z", UNKNOWN),
+                    "contour": contour,
+                    "tool_dia_basis": "selected member nominal, not measured",
+                }
+                generated = False
+                if contour.get("method") == "arc_table":
+                    arc, lines = _arc(name, feature, op, offset, frame, frames, features)
+                    if arc:
+                        arc.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
+                        numbers["arc_table"].append(arc)
+                        for line in lines:
+                            line["stage"] = stage
+                        numbers["line_table"].extend(lines)
+                        profile["cutter_centre"] = arc["rows"]
+                        generated = True
+                elif contour.get("method") == "linear_table":
+                    path = _linear(feature, op, offset, radius, frame, frames)
+                    if path:
+                        profile["cutter_centre"] = path
+                        generated = True
+                elif contour.get("method") == "axial_table" and (not paired or stage == "finish"):
+                    dome = _dome(name, feature, op, dro.get("radius_mode") is True)
+                    if dome:
+                        numbers["contours"].append(dome)
+                        generated = True
+                if not generated:
+                    profile["cutter_centre"] = UNKNOWN
+                numbers["profiles"].append(profile)
+                unknown |= not generated or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
         status = "unknown" if unknown else "pass"
