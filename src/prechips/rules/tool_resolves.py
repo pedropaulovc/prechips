@@ -7,6 +7,7 @@ from .resolution import (
     number,
     operations,
     resolve,
+    same_length,
     selected_references,
     uncertain,
 )
@@ -86,14 +87,15 @@ def evaluate(bundle):
             max_shank = length_mm(holder, "max_shank")
             nums.update(shank_mm=shank, holder_capacity_mm=capacity)
             if number(shank) and number(capacity):
-                if shank != capacity:
+                if not same_length(shank, capacity):
                     problems.append("tool shank does not match selected collet")
             elif number(shank) and number(max_shank):
-                if shank > max_shank:
+                if shank > max_shank and not same_length(shank, max_shank):
                     problems.append("tool shank exceeds holder capacity")
             elif number(shank) and isinstance(holder.get("capacity_mm"), list):
                 low, high = holder["capacity_mm"]
-                if not low <= shank <= high:
+                inside = low <= shank <= high
+                if not (inside or same_length(shank, low) or same_length(shank, high)):
                     problems.append("tool shank outside holder range")
             else:
                 unknown = True

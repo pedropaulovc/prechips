@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import math
 import re
 from fractions import Fraction
 
 UNKNOWN = "unknown"
+# Inch fields convert by float multiplication (3/8 in -> 9.524999999999999 mm), so a
+# converted length and its exact mm spelling differ by float residue, never by 1 nm.
+LENGTH_TOLERANCE_MM = 1e-6
 SET_KINDS = {
     "endmill_set",
     "collet_set",
@@ -27,6 +31,11 @@ MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"}
 
 def number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def same_length(a, b):
+    """Physical length equality in mm: absolute 1 nm, no relative slack."""
+    return math.isclose(a, b, rel_tol=0.0, abs_tol=LENGTH_TOLERANCE_MM)
 
 
 def fraction(value):
@@ -56,6 +65,17 @@ def record(value):
     return value if isinstance(value, dict) else {}
 
 
+def inch_sizes(value):
+    """Declared inch sizes from a flat list or from every group of a grouped mapping."""
+    groups = value.values() if isinstance(value, dict) else (value,)
+    return [size for group in groups if isinstance(group, list) for size in group]
+
+
+def flute_counts(value):
+    """Declared flute counts from a single count or a list of counts."""
+    return value if isinstance(value, list) else [value] if number(value) else []
+
+
 def inventory_record(value):
     item = dict(record(value))
     for key in ("members", "nominal_dia_mm", "nominal_dia_cite", "holders"):
@@ -67,6 +87,7 @@ def inventory_record(value):
         "included",
         "sizes",
         "sizes_mm",
+        "sizes_in",
         "styles",
         "ranges_in",
         "heights_in",
@@ -75,9 +96,6 @@ def inventory_record(value):
         if item.get(key) == UNKNOWN:
             item[key] = []
             item["verify"] = True
-    if item.get("sizes_in") == UNKNOWN:
-        item["sizes_in"] = {} if item.get("kind") == "endmill_set" else []
-        item["verify"] = True
     return item
 
 
@@ -142,7 +160,7 @@ def resolve(bundle_or_inventory, category, reference):
             return {"kind": UNKNOWN, "verify": True}
         item.update(inventory_record(selected))
     elif kind in {"collet_set", "parallels_set", "countersink_set"}:
-        choices = item.get("sizes_in", item.get("heights_in", []))
+        choices = inch_sizes(item.get("sizes_in", item.get("heights_in", [])))
         if size is None or size not in {fraction(v) for v in choices}:
             return None
         item[
@@ -161,7 +179,7 @@ def resolve(bundle_or_inventory, category, reference):
         elif (
             member.endswith("in")
             and size is not None
-            and size in {fraction(v) for v in item.get("sizes_in", [])}
+            and size in {fraction(v) for v in inch_sizes(item.get("sizes_in"))}
         ):
             item["dia_mm"] = float(size) * 25.4
         else:
@@ -172,8 +190,8 @@ def resolve(bundle_or_inventory, category, reference):
             return None
         size = fraction(match[1])
         flutes = int(match[2])
-        choices = item.get("sizes_in", {}).get("2_and_4_flute", [])
-        if size not in {fraction(v) for v in choices} or flutes not in item.get("flutes", []):
+        choices = {fraction(v) for v in inch_sizes(item.get("sizes_in"))}
+        if size is None or size not in choices or flutes not in flute_counts(item.get("flutes")):
             return None
         item.update(dia_mm=float(size) * 25.4, flutes=flutes)
         for shank, sizes in record(item.get("shank_in")).items():
@@ -301,15 +319,16 @@ def candidate_refs(inventory):
             members = set(item.get("members", {}))
             kind = item.get("kind")
             if kind == "endmill_set":
-                for size in item.get("sizes_in", {}).get("2_and_4_flute", []):
+                flute_choices = flute_counts(item.get("flutes"))
+                for size in inch_sizes(item.get("sizes_in")):
                     value = fraction(size)
                     if value is not None:
                         token = str(value).replace("/", "-") + "in"
-                        members.update(f"{token}-{flutes}fl" for flutes in item.get("flutes", []))
+                        members.update(f"{token}-{flutes}fl" for flutes in flute_choices)
             elif kind in {"collet_set", "parallels_set", "countersink_set", "reamers", "drill_set"}:
                 members.update(
                     str(value).replace("/", "-") + "in"
-                    for value in item.get("sizes_in", item.get("heights_in", []))
+                    for value in inch_sizes(item.get("sizes_in", item.get("heights_in", [])))
                 )
                 if kind in {"reamers", "drill_set"}:
                     members.update(str(value) + "mm" for value in item.get("sizes_mm", []))

@@ -1,7 +1,7 @@
 """Hole prerequisites are route-wide, including indicated later setups."""
 
 from ..findings import Finding
-from .resolution import length_mm, number, operations, resolve, uncertain
+from .resolution import length_mm, number, operations, resolve, same_length, uncertain
 
 
 def evaluate(bundle):
@@ -74,7 +74,7 @@ def evaluate(bundle):
             nums.update(tap_drill_mm=expected, selected_drill_mm=actual)
             if not number(expected) or not number(actual) or not tool or uncertain(tool):
                 unknown = True
-            elif expected != actual:
+            elif not same_length(expected, actual):
                 errors.append("selected tap drill differs from thread specification")
         status = "error" if errors else "unknown" if unknown else "pass"
         result.append(

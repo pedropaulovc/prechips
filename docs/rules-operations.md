@@ -9,7 +9,9 @@ the bundle and do not infer a missing stock state or cutting-data value.
 One subject per feature. Hole/thread/threaded-hole/counterbore routes need spot
 and drill. Ream process needs ream; a thread needs tap; counterbore needs its
 parent/hole drill. Tap-drill diameter must match the explicitly supplied
-`tap_drill_mm` and verified selected drill geometry. Nonholes are not applicable.
+`tap_drill_mm` and verified selected drill geometry; the converted lengths are
+equal within an absolute 1e-6 mm (no relative tolerance), so `3/8` in and
+`9.525` mm agree. Nonholes are not applicable.
 An explicitly unknown feature kind or hole-chain action gives unknown; unknown
 process/thread specification also leaves the chain unresolved.
 
@@ -107,7 +109,7 @@ Exact templates:
 
 - `This manual operation has no cutting speed or feed.`
 - `Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.`
-- `Starting RPM and feed are sourced, clamped to the machine range and rounded to nearest 50 RPM.`
+- `Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.`
 
 Evidence: material/class and verification, normalized operation, tool material,
 diameter in inches, flute count, sfm/chip load, range, RPM/feed and selected

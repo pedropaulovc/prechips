@@ -14,6 +14,10 @@ with exactly 25.4 mm/in; bare lengths require explicit `units = "mm"`, `"in"`, o
 the resolver's supported identity/coverage or explicit `nominal_dia_mm` map
 establishes them. Nominal identity is not measured size. Inventory tool units
 may be converted explicitly; drawing units are not silently converted.
+Set `sizes_in` may be a flat list or a mapping of named groups; every group's
+sizes are declared choices (the group name is a label). `flutes` may be one count
+or a list. An `endmill_set` member `<size>in-<n>fl` resolves when the size is in
+any group and `n` is a declared flute count.
 
 Mill holder compatibility uses spindle taper; lathe compatibility uses toolpost
 series. Collet capacity, range and maximum shank checks are separate. Drill point
