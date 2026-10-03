@@ -3,8 +3,10 @@
 from ..findings import Finding
 from .resolution import (
     UNKNOWN,
+    WORKHOLDING_CATEGORIES,
     fraction,
     inch_sizes,
+    inventory_category,
     inventory_record,
     number,
     record,
@@ -18,20 +20,11 @@ CAPACITY_FIELDS = ("sizes_mm", "sizes_in", "range_mm", "range_in")
 GRIPPING_KINDS = {"collet_set", "collet", "collet_chuck"}
 
 
-def _category(bundle, reference):
-    """M1 identity lookup order; machines too, as `indexing` resolves a dividing head."""
-    root = reference.partition("/")[0] if isinstance(reference, str) else None
-    for category in ("fixtures", "holders", "machines"):
-        if root in record(bundle.inventory.get(category)):
-            return category
-    return None
-
-
 def _workholding(bundle, reference):
     """Use M1 identities; set-root workholding can check its declared membership."""
     if not isinstance(reference, str) or reference in (UNKNOWN, "none", "not_applicable"):
         return None, UNKNOWN
-    category = _category(bundle, reference)
+    category = inventory_category(bundle, reference, WORKHOLDING_CATEGORIES)
     if category is None:
         return resolve(bundle, "fixtures", reference), UNKNOWN
     root, separator, member = reference.partition("/")
@@ -123,7 +116,9 @@ def evaluate(bundle):
         item, selected_size = _workholding(bundle, reference)
         item = record(item)
         kind = item.get("kind", UNKNOWN)
-        relevant = _relevant(item, kind, _category(bundle, reference))
+        relevant = _relevant(
+            item, kind, inventory_category(bundle, reference, WORKHOLDING_CATEGORIES)
+        )
         diameter = held_diameter(bundle, setup)
         sizes, ranges, unresolved = _capacity(item, selected_size)
         fits = number(diameter) and (

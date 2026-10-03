@@ -12,7 +12,12 @@ import re
 from html import escape
 
 from .model import tolerance_requirements
-from .rules.resolution import MANUAL, resolve
+from .rules.resolution import (
+    MANUAL,
+    WORKHOLDING_CATEGORIES,
+    inventory_category,
+    resolve,
+)
 from .rules.resolution import record as _mapping
 
 _CSS = """@page { size: Letter portrait; margin: .4in; }
@@ -181,17 +186,24 @@ class _Traveler:
             return _text(reference)
         if not isinstance(reference, str):
             return "?"
-        item = resolve(self.bundle, category, reference)
+        identity_category = category
+        if category == "fixtures":
+            identity_category = (
+                inventory_category(self.bundle, reference, WORKHOLDING_CATEGORIES) or category
+            )
+        item = resolve(self.bundle, identity_category, reference)
         root, _, member = reference.partition("/")
-        raw = _mapping(_mapping(self.bundle.inventory.get(category)).get(root)) if category else {}
+        raw = (
+            _mapping(_mapping(self.bundle.inventory.get(identity_category)).get(root))
+            if identity_category
+            else {}
+        )
         if not raw:
-            raw = next(
-                (
-                    _mapping(items[root])
-                    for items in self.bundle.inventory.values()
-                    if isinstance(items, dict) and root in items
-                ),
-                {},
+            raw_category = inventory_category(self.bundle, reference, tuple(self.bundle.inventory))
+            raw = (
+                _mapping(_mapping(self.bundle.inventory.get(raw_category)).get(root))
+                if raw_category
+                else {}
             )
         record = item or raw
         name = record.get("name", record.get("label"))
