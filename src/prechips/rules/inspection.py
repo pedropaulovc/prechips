@@ -1,21 +1,13 @@
 """Every manifest tolerance needs its own real, capable inspection method."""
 from ..findings import Finding
-from .resolution import TOLERANCES, length_mm, number, operations, record, resolve, uncertain
+from ..model import tolerance_requirements
+from .resolution import length_mm, number, operations, record, resolve, uncertain
 
 
 def evaluate(bundle):
     result = []
     for name, feature in bundle.features["features"].items():
-        requirements = sorted(
-            requirement
-            for requirement in feature.get("requirements", [])
-            if requirement in TOLERANCES
-            or (
-                isinstance(feature.get(requirement), list)
-                and len(feature[requirement]) == 2
-                and all(number(value) for value in feature[requirement])
-            )
-        )
+        requirements = tolerance_requirements(feature)
         cite = ["PLAN.md §4.1 inspection", "features requirement manifest", "inventory gauge range/resolution/verification"]
         if feature["kind"] == "unknown" or any(o["do"] == "unknown" for _, o in operations(bundle, name)):
             for requirement in requirements or [None]:
@@ -27,6 +19,9 @@ def evaluate(bundle):
         route = operations(bundle, name)
         finishing = [(s, o) for s, o in route if not o["do"].startswith("rough_") and o["do"] not in {"spot", "deburr", "coating", "release"}]
         for requirement in requirements:
+            if requirement == "unknown":
+                result.append(Finding("inspection", f"{name}:unknown", "unknown", {"requirement": "unknown"}, cite, f"{name}: requirement identity is explicitly unknown."))
+                continue
             checks = [(s, o) for s, o in finishing if requirement in record(o.get("checks"))]
             cutters = [i for i, (_, o) in enumerate(finishing) if o["do"] != "inspect"]
             if cutters:
