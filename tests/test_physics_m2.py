@@ -247,6 +247,128 @@ def test_geometry_and_support_unknowns_are_not_inferred(problem):
     assert finding.numbers["deflection_mm"] == "unknown"
 
 
+@pytest.mark.parametrize("kind,action", [("drill", "drill"), ("reamer", "ream"), ("tap", "tap")])
+@pytest.mark.parametrize("doc", [None, 1])
+def test_engagement_scope_excludes_hole_tools_with_or_without_doc(kind, action, doc):
+    data = milling_bundle()
+    op = data.plan["setups"][0]["ops"][0]
+    op["do"] = action
+    if doc is None:
+        del op["doc_mm"]
+    else:
+        op["doc_mm"] = doc
+    data.inventory["tools"]["cutter"] = {"kind": kind, "dia_mm": 6.35, "oal_mm": 101}
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == "not_applicable"
+    assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 0
+
+
+@pytest.mark.parametrize("action", ["face", "rough_turn", "finish_turn"])
+def test_engagement_scope_excludes_lathe_turning_tools_without_cutter_diameter(action):
+    data = turning_bundle()
+    data.plan["setups"][0]["ops"][0]["do"] = action
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == "not_applicable"
+    assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 0
+
+
+@pytest.mark.parametrize("kind", ["boring_bar", "boring_head", "insert_holders", "face_mill"])
+def test_engagement_scope_excludes_known_non_endmill_families_even_with_doc(kind):
+    data = milling_bundle()
+    data.inventory["tools"]["cutter"].update(kind=kind, projection_mm=50)
+    if kind == "insert_holders":
+        data.inventory["tools"]["cutter"]["members"] = {"AR": {}}
+        data.plan["setups"][0]["ops"][0]["tool"] = "cutter/AR"
+    assert engagement.evaluate(data)[0].status == "not_applicable"
+
+
+@pytest.mark.parametrize("action", ["fit_up", "transfer"])
+def test_engagement_scope_excludes_noncutting_operations_even_with_endmill_and_doc(action):
+    data = milling_bundle()
+    data.plan["setups"][0]["ops"][0]["do"] = action
+    data.inventory["tools"]["cutter"]["projection_mm"] = 50
+    assert engagement.evaluate(data)[0].status == "not_applicable"
+
+
+@pytest.mark.parametrize("projection", [40, 50])
+def test_engagement_scope_omitted_doc_is_not_applicable_even_with_endmill(projection):
+    data = milling_bundle()
+    del data.plan["setups"][0]["ops"][0]["doc_mm"]
+    data.inventory["tools"]["cutter"]["projection_mm"] = projection
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == "not_applicable"
+    assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 0
+
+
+@pytest.mark.parametrize("projection", [40, 50])
+@pytest.mark.parametrize("doc", ["unknown", 0, -1])
+def test_engagement_scope_authored_unknown_or_nonpositive_doc_cannot_pass(projection, doc):
+    data = milling_bundle()
+    data.plan["setups"][0]["ops"][0]["doc_mm"] = doc
+    data.inventory["tools"]["cutter"]["projection_mm"] = projection
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["projection_ld"] == projection / 10
+    assert finding.numbers["recommended_doc_mm"] == "unknown"
+    assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 4
+
+
+@pytest.mark.parametrize(
+    "identity",
+    ["unresolved_ref", "unknown_record", "unknown_inventory", "omitted_kind", "unknown_kind"],
+)
+def test_engagement_scope_unknown_tool_identity_cannot_certify_exclusion(identity):
+    data = milling_bundle()
+    if identity == "unresolved_ref":
+        data.plan["setups"][0]["ops"][0]["tool"] = "not_in_inventory"
+    elif identity == "unknown_record":
+        data.inventory["tools"]["cutter"] = "unknown"
+    elif identity == "unknown_inventory":
+        data.inventory["tools"] = "unknown"
+    elif identity == "omitted_kind":
+        del data.inventory["tools"]["cutter"]["kind"]
+    else:
+        data.inventory["tools"]["cutter"]["kind"] = "unknown"
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["projection_ld"] == "unknown"
+    assert finding.numbers["recommended_doc_mm"] == "unknown"
+
+
+@pytest.mark.parametrize("action", ["rough_pocket", "counterbore"])
+def test_engagement_cutting_endmill_with_doc_remains_eligible(action):
+    data = milling_bundle()
+    data.plan["setups"][0]["ops"][0]["do"] = action
+    data.inventory["tools"]["cutter"]["projection_mm"] = 50
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == "warn"
+    assert finding.numbers["projection_ld"] == 5
+    assert finding.numbers["recommended_doc_mm"] == 1
+
+
+@pytest.mark.parametrize(
+    "kind,status", [("endmill", "warn"), ("drill", "not_applicable"), ("unknown", "unknown")]
+)
+def test_engagement_scope_resolved_set_member_kind_controls_applicability(kind, status):
+    data = milling_bundle()
+    data.inventory["tools"] = {
+        "mills": {
+            "kind": "endmill_set",
+            "members": {
+                "selected": {"kind": kind, "dia_in": 0.5, "projection_in": 2.5},
+            },
+        }
+    }
+    data.plan["setups"][0]["ops"][0]["tool"] = "mills/selected"
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == status
+    if status == "warn":
+        assert finding.numbers["projection_ld"] == 5
+        assert finding.numbers["recommended_doc_mm"] == 1
+    elif status == "unknown":
+        assert finding.numbers["recommended_doc_mm"] == "unknown"
+
+
 def test_engagement_four_diameter_boundary_and_doc_halving():
     data = milling_bundle()
     at_limit = engagement.evaluate(data)[0]
@@ -335,6 +457,11 @@ def test_declared_set_member_projection_and_diameter_resolve():
     finding = engagement.evaluate(data)[0]
     assert finding.status == "pass"
     assert finding.numbers["projection_ld"] == 4
+    data.inventory["tools"]["mills"]["members"]["1-2in-2fl"]["projection_in"] = 2.5
+    over_limit = engagement.evaluate(data)[0]
+    assert over_limit.status == "warn"
+    assert over_limit.numbers["projection_ld"] == 5
+    assert over_limit.numbers["recommended_doc_mm"] == 1
     data.inventory["tools"]["mills"]["verify"] = True
     assert engagement.evaluate(data)[0].status == "unknown"
 
@@ -363,10 +490,10 @@ def test_engagement_missing_or_unverified_assembly_stays_unknown(problem):
     assert finding.numbers["recommended_doc_mm"] == "unknown"
 
 
-def test_long_projection_without_doc_reports_unknown_reduction_not_a_guessed_depth():
+def test_engagement_long_projection_with_authored_unknown_doc_does_not_guess_depth():
     data = milling_bundle()
     data.inventory["tools"]["cutter"]["projection_mm"] = 50
-    del data.plan["setups"][0]["ops"][0]["doc_mm"]
+    data.plan["setups"][0]["ops"][0]["doc_mm"] = "unknown"
     finding = engagement.evaluate(data)[0]
     assert finding.status == "unknown"
     assert finding.numbers["projection_ld"] == 5
@@ -375,7 +502,7 @@ def test_long_projection_without_doc_reports_unknown_reduction_not_a_guessed_dep
 
 @pytest.mark.parametrize("evaluate", [turning_deflection.evaluate, engagement.evaluate])
 def test_manual_operation_is_not_a_cutting_proxy(evaluate):
-    data = turning_bundle()
+    data = milling_bundle() if evaluate is engagement.evaluate else turning_bundle()
     data.plan["setups"][0]["ops"][0]["do"] = "inspect"
     assert evaluate(data)[0].status == "not_applicable"
     data.plan["setups"][0]["ops"][0]["do"] = "unknown"

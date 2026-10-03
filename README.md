@@ -171,6 +171,8 @@ waive errors or required unresolved findings.
 Indexing checks every landing; only a full pattern (`positions >= 2` and omitted
 `angle_deg`, step exactly `360 / positions`) has a closure check. Authored angles
 declare open patterns, even when their steps total a whole revolution.
+The engagement screen is for endmill-family cutting operations with an authored
+DOC; drills, reamers, taps, lathe tools and noncutting operations are not applicable.
 
 ## Limits
 

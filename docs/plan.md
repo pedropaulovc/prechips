@@ -348,6 +348,11 @@ with angles at the drawing's declared angular precision.
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 
+`doc_mm` enables the engagement screen only for an endmill-family cutter on a
+cutting operation. Omitted DOC, noncutting actions and known drills, reamers,
+taps or lathe tools are `not_applicable`; an authored unknown DOC on an eligible
+operation remains unresolved, not an invented recommendation.
+
 ## Contour
 
 | Field | Type (also accepts `"unknown"`) |

@@ -76,6 +76,21 @@ actual feature diameter source.
 
 ## `engagement`
 
+This is an **endmill-only** screen for cutting operations with an explicitly
+authored `doc_mm`. The selected resolved tool/member must have kind `endmill`
+or `endmill_set`. Known drill, reamer, tap, lathe-tool and other non-endmill
+families are `not_applicable`, even when the operation declares DOC; their
+geometry must not produce a milling DOC-halving recommendation.
+Noncutting/manual operations, including `fit_up` and `transfer`, and operations
+with omitted DOC are also `not_applicable`. Cutting actions use the existing
+face, profile, pocket, hole-making and turning action conventions; an endmill
+used for a counterbore with authored DOC remains eligible.
+
+On an eligible cutting operation with authored DOC, an unresolved selected
+tool/member or unknown tool kind stays `unknown`, rather than establishing a
+non-endmill exclusion. An unknown action also stays unknown unless omitted DOC
+or a known non-endmill family independently establishes non-applicability.
+
 Resolve the operation's selected inventory tool **and** holder. Use the existing
 explicit-unit `length_mm` helper for tool diameter, projection/OAL and holder
 grip; a tool with a bare diameter and no units does not acquire an assumed unit.
@@ -107,12 +122,12 @@ Equality passes. The existing `resolution.same_length` precision convention
 `4 × D` despite inch-conversion residue; the report keeps the unrounded ratio.
 This is arithmetic equality handling, not a new shop-policy allowance.
 The recommendation never changes the authored operation.
-Above the limit, unknown/nonpositive authored DOC means an unknown reduction,
-not a guessed cut depth; the report retains the known projection ratio and
-prints `?`. At or below the limit no DOC is needed to decide the projection
-check, so a missing DOC does not invent or demand a cutting recommendation.
+Unknown/nonpositive **authored** DOC keeps an eligible endmill result `unknown`
+at any projection ratio, including at or below 4×D. When the geometry is known,
+the report retains the projection ratio and prints `?`, but never guesses a
+recommended cut depth. This differs from omitted DOC, which is `not_applicable`.
 
-Evidence includes selected identities, explicit-unit diameter, OAL, grip,
+Evidence includes selected identities and tool kind, explicit-unit diameter, OAL, grip,
 projection and its source basis, ratio, PLAN limit, authored DOC, reduction
 factor, recommended DOC and missing-input reasons. Citations identify PLAN
 line 568 and the actual selected inventory/operation fields.

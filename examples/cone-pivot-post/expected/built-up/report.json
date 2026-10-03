@@ -1350,830 +1350,347 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S0].ops[10].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S0:10: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S0:10: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "face",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S0:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
-        "plan.setups[S1].ops[10].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S1:10: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S1:10: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": 0.25,
-        "doc_scale": "unknown",
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "face",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "insert_holders"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S1:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
-        "plan.setups[S1].ops[20].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S1:20: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S1:20: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": 0.25,
-        "doc_scale": "unknown",
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "rough_turn",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "insert_holders"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S1:20"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit diameter/projection/OAL",
-        "inventory.holders.qctp-axa-lms-2280/1-turning-facing: selected holder grip/verification",
-        "plan.setups[S1].ops[30].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S1:30: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S1:30: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": 0.1,
-        "doc_scale": "unknown",
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "finish_turn",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "insert_holders"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S1:30"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S1].ops[40].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S1:40: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S1:40: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "part_off",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S1:40"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[10].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:10: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:10: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "face",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[100].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:100: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:100: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "drill",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:100"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[110].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:110: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:110: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "counterbore",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:110"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[20].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:20: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:20: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "profile",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:20"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[30].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:30: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:30: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "profile",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:30"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[50].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:50: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:50: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "profile",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:50"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[60].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:60: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:60: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "spot",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:60"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[70].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:70: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:70: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "drill",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:70"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[80].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:80: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:80: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "counterbore",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:80"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S2].ops[90].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:90: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S2:90: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "spot",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S2:90"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S3].ops[10].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S3:10: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S3:10: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "face",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S3:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S3].ops[20].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S3:20: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S3:20: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "spot",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S3:20"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S3].ops[30].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S3:30: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S3:30: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "drill",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S3:30"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S3].ops[40].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S3:40: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S3:40: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "bore",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S3:40"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S4].ops[10].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S4:10: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S4:10: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "spot",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S4:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S4].ops[20].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S4:20: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S4:20: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "drill",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S4:20"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S4].ops[30].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S4:30: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S4:30: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "bore",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S4:30"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
-        "inventory.tools.unknown: explicit-unit diameter/projection/OAL",
-        "inventory.holders.unknown: selected holder grip/verification",
-        "plan.setups[S4].ops[5].doc_mm",
-        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
-        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S4:5: Engagement proxy needs resolved/verified selected tool, resolved/verified selected holder, explicit-unit tool diameter, positive projection or OAL minus holder grip.",
+      "message": "S4:5: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "doc_mm": "unknown",
-        "doc_scale": "unknown",
         "holder": "unknown",
-        "holder_grip_mm": "unknown",
-        "missing_inputs": [
-          "resolved/verified selected tool",
-          "resolved/verified selected holder",
-          "explicit-unit tool diameter",
-          "positive projection or OAL minus holder grip"
-        ],
         "operation": "fit_up",
-        "over_limit": "unknown",
-        "projection_basis": "tool OAL - selected holder grip",
-        "projection_ld": "unknown",
-        "projection_ld_max": 4,
-        "projection_mm": "unknown",
-        "recommended_doc_mm": "unknown",
         "tool": "unknown",
-        "tool_oal_mm": "unknown"
+        "tool_kind": "unknown"
       },
       "rule": "engagement",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S4:5"
     },
     {
@@ -6455,7 +5972,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "d4eaaa84d2447467306f491298f1df8e969b40b79971ea4fd1da3947bdc9b8d3",
+  "hash": "c2346e2e619bd4554625d74745da89fd3827af3ff32adb4647be81e462df5d2b",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -1,4 +1,4 @@
-"""Selected tool projection / diameter proxy; PLAN §4.4 owns the 4×D limit."""
+"""Selected endmill projection / diameter proxy; PLAN §4.4 owns the 4×D limit."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import math
 
 from ..findings import Finding
 from .resolution import (
-    MANUAL,
     UNKNOWN,
     length_mm,
     number,
@@ -15,10 +14,20 @@ from .resolution import (
     same_length,
     uncertain,
 )
+from .tip_endpoints import FACING, HOLE_OPS, POCKETING
+from .turned_profile import PROFILE_OPS
 
 _LIMIT_LD = 4
 _DOC_SCALE = 0.5
 _PROXY_CITE = "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+_ENDMILL_KINDS = {"endmill", "endmill_set"}
+_CUTTING_OPS = (
+    FACING
+    | HOLE_OPS
+    | POCKETING
+    | PROFILE_OPS
+    | {"center", "rough_profile", "finish_profile", "part_off", "cut_to_fit"}
+)
 
 
 def _positive(value):
@@ -31,9 +40,15 @@ def evaluate(bundle):
         subject = f"{setup['id']}:{op['op']}"
         action = op.get("do", UNKNOWN)
         tool_ref, holder_ref = op.get("tool", UNKNOWN), op.get("holder", UNKNOWN)
-        numbers = {"operation": action, "tool": tool_ref, "holder": holder_ref}
+        tool = resolve(bundle, "tools", tool_ref)
+        kind = (tool or {}).get("kind", UNKNOWN)
+        numbers = {"operation": action, "tool": tool_ref, "holder": holder_ref, "tool_kind": kind}
         cite = [_PROXY_CITE]
-        if action in MANUAL:
+        if (
+            (action != UNKNOWN and action not in _CUTTING_OPS)
+            or "doc_mm" not in op
+            or (kind != UNKNOWN and kind not in _ENDMILL_KINDS)
+        ):
             result.append(
                 Finding(
                     "engagement",
@@ -41,12 +56,12 @@ def evaluate(bundle):
                     "not_applicable",
                     numbers,
                     cite,
-                    f"{subject}: a manual operation has no cutting-tool engagement proxy.",
+                    f"{subject}: engagement applies only to an endmill cutting operation "
+                    "with an authored DOC.",
                 )
             )
             continue
 
-        tool = resolve(bundle, "tools", tool_ref)
         holder = resolve(bundle, "holders", holder_ref)
         diameter = length_mm(tool, "dia")
         oal, grip = length_mm(tool, "oal"), length_mm(holder, "grip")
@@ -61,6 +76,8 @@ def evaluate(bundle):
         missing = []
         if action == UNKNOWN:
             missing.append("known cutting operation")
+        if kind not in _ENDMILL_KINDS:
+            missing.append("known endmill family")
         if not tool or uncertain(tool):
             missing.append("resolved/verified selected tool")
         if not holder or uncertain(holder):
@@ -81,8 +98,8 @@ def evaluate(bundle):
             scale = _DOC_SCALE if over_limit else 1
             if _positive(doc):
                 recommended = doc * scale
-            elif over_limit:
-                missing.append("positive authored DOC to halve")
+        if not _positive(doc):
+            missing.append("positive authored DOC")
         numbers.update(
             diameter_mm=diameter,
             tool_oal_mm=oal,

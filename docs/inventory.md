@@ -42,6 +42,9 @@ arithmetic inputs; `verify = true` keeps the chosen setting tentative. Hole
 counts are positive integers. For engagement, `projection_mm` on the selected
 tool/holder assembly takes precedence over `oal_mm - holder.grip_mm`. Neither
 flute length nor holder gauge length substitutes for projection.
+Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
+operations with authored DOC. Long drills, reamers, taps and lathe tools do not
+receive a milling DOC-halving recommendation.
 
 All InventoryItems share the declared field set below, regardless of category;
 category-specific usefulness is enforced by rules, not separate subclass schemas.

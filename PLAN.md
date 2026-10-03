@@ -565,7 +565,7 @@ not exist.
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
 | turning deflection: δ = F·L³/(3EI) (cantilever) or /(48EI) (supported), F = K_c·a_p·f, K_c and E from `cutting-data.[[material]]` | plan.hold.stickout_mm, plan.ops (DOC, feed), features.dia, cutting-data.material | M2 | "Expected deflection 0.04 against ±0.1; take the last pass at 0.2." |
-| engagement: tool projection from the holder (inventory `projection_mm` per tool+holder, else OAL − holder grip) / D ≤ 4 else halve DOC | inventory.tools (OAL), inventory.holders (grip_mm), plan.ops.holder | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
+| engagement: only milling cutters (endmill families) on cutting operations with an authored DOC; tool projection from the holder (inventory `projection_mm` per tool+holder, else OAL − holder grip) / D ≤ 4 else halve DOC. Drills, reamers, taps and lathe tools are not applicable | inventory.tools (kind, OAL), inventory.holders (grip_mm), plan.ops (holder, DOC) | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
 | tool life | needs a calibrated life table nobody ships | deferred | — |
 
 ### 4.5 Stock-form comparison (authored candidates, counted by prechips)
