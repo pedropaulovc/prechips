@@ -2,11 +2,17 @@
 
 The 25 mm insertion allowance is PLAN §4.1's tool-change allowance, not
 holder grip. Jaw height is an obstruction, never a spindle-stack layer.
+Machine limits are the measured ``envelope`` facts the M5 envelope and
+travel screens read; a vendor number without a complete local measurement
+keeps its nominal value in the numbers but can neither pass nor fail.
+An authored tool/holder projection stays unknown when explicitly declared
+unknown; OAL minus grip applies only when the selected pair has no entry.
 """
 
 from fractions import Fraction
 
 from prechips.findings import Finding
+from prechips.measurements import length_fact, measurement_entry
 from prechips.rules.resolution import MANUAL, length_mm, resolve, uncertain
 
 _UNKNOWN = "unknown"
@@ -41,10 +47,22 @@ def _mapping(value):
     return value if isinstance(value, dict) else {}
 
 
+def _limit(machine, identity, field, debts, cite):
+    """One measured machine envelope fact, with the same checklist id as envelope/travel."""
+    result = length_fact(machine, field)
+    cite.extend(result["cite"])
+    cite.append(f"inventory.machines.{identity}.{field}")
+    if not result["verified"]:
+        entry = measurement_entry("machines", identity, field)
+        debts[entry["id"]] = entry
+    return result
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
-        machine = resolve(bundle, "machines", setup["machine"]) or {}
+        machine_ref = setup["machine"]
+        machine = resolve(bundle, "machines", machine_ref) or {}
         if machine.get("kind") == "lathe":
             findings.append(
                 Finding(
@@ -57,6 +75,12 @@ def evaluate(bundle):
                 )
             )
             continue
+        debts = {}
+        cite = [
+            "PLAN.md §4.1 headroom",
+            "inventory: machine, fixture, support, tool and holder dimensions",
+            "plan: stock state and setup frame",
+        ]
         hold = _mapping(setup.get("hold"))
         state = _mapping(setup.get("stock_state"))
         fixture = resolve(bundle, "fixtures", hold.get("fixture")) or {}
@@ -79,7 +103,7 @@ def evaluate(bundle):
         stock_height = top - bottom if _numeric(top) and _numeric(bottom) else _UNKNOWN
         bed = length_mm(fixture, "bed_height")
         jaw = length_mm(fixture, "jaw_height")
-        spindle = length_mm(machine, "spindle_to_table_max")
+        spindle = _limit(machine, machine_ref, "envelope.spindle_to_table_max", debts, cite)
         numbers = {
             "bed_height_mm": bed,
             "fixture_height_mm": jaw,
@@ -93,19 +117,20 @@ def evaluate(bundle):
             "retained_rail_bottom_z": bottom,
             "stock_height_mm": stock_height,
             "insertion_mm": 25,
-            "spindle_to_table_max_mm": spindle,
-            "spindle_verify": uncertain(machine),
+            "spindle_to_table_max_mm": spindle["value"],
             "tool_oal_mm": _UNKNOWN,
             "holder_gauge_len_mm": _UNKNOWN,
             "sum_mm": _UNKNOWN,
-            "travel_in": machine.get("travel_in", {}),
             "stacks": [],
-            "clearance_basis": "nominal input geometry; verification flags are measurement debt",
+            "clearance_basis": (
+                "measured spindle-to-table maximum and XY travel; nominal fixture, support, "
+                "tool and holder geometry with verification flags as measurement debt"
+            ),
         }
         unknown = (
             not fixture
             or not machine
-            or any(uncertain(item) for item in (machine, fixture, parallels, support) if item)
+            or any(uncertain(item) for item in (fixture, parallels, support) if item)
         )
         unknown |= not _numeric(stock_height) or (
             fixture.get("kind") == "vise" and not _numeric(jaw)
@@ -117,19 +142,26 @@ def evaluate(bundle):
         for op in setup["ops"]:
             if op["do"] in MANUAL:
                 continue
+            holder_ref = op.get("holder")
             tool = resolve(bundle, "tools", op.get("tool")) or {}
-            holder = resolve(bundle, "holders", op.get("holder")) or {}
+            holder = resolve(bundle, "holders", holder_ref) or {}
             oal, gauge = length_mm(tool, "oal"), length_mm(holder, "gauge_len")
-            projection = length_mm(tool, "projection")
-            if not _numeric(projection):
+            declared = any(
+                holder_ref in _mapping(tool.get(field))
+                for field in ("projection_mm", "projection_in")
+            )
+            projection = length_mm(tool, ("projection", holder_ref)) if holder else _UNKNOWN
+            if holder and not declared:
                 grip = length_mm(holder, "grip")
                 projection = oal - grip if _numeric(oal) and _numeric(grip) else _UNKNOWN
             stack = _sum(bed, parallel_height, support_height, stock_height, projection, gauge, 25)
-            margin = spindle - stack if _numeric(spindle) and _numeric(stack) else _UNKNOWN
+            margin = (
+                spindle["value"] - stack
+                if _numeric(spindle["value"]) and _numeric(stack)
+                else _UNKNOWN
+            )
             verified = not any(
-                uncertain(item)
-                for item in (machine, fixture, parallels, support, tool, holder)
-                if item
+                uncertain(item) for item in (fixture, parallels, support, tool, holder) if item
             ) and bool(tool and holder and fixture)
             numbers["stacks"].append(
                 {
@@ -141,11 +173,11 @@ def evaluate(bundle):
                     "holder_gauge_len_mm": gauge,
                     "sum_mm": stack,
                     "margin_mm": margin,
-                    "verify": not verified,
+                    "verify": not (verified and spindle["verified"]),
                 }
             )
-            unknown |= not verified or not _numeric(margin)
-            if verified and _numeric(margin) and margin < 0:
+            unknown |= not verified or not spindle["verified"] or not _numeric(margin)
+            if verified and spindle["verified"] and _numeric(margin) and margin < 0:
                 errors.append(f"op {op['op']} exceeds spindle clearance by {-margin:g} mm")
             if _numeric(stack):
                 nominal_stacks.append(stack)
@@ -206,10 +238,7 @@ def evaluate(bundle):
         numbers.update({"stock_extent_x_mm": stock_x, "stock_extent_y_mm": stock_y})
         travels = {}
         for axis, extent in (("x", stock_x), ("y", stock_y)):
-            travel = _mapping(machine.get("travel_mm")).get(axis, _UNKNOWN)
-            if not _numeric(travel):
-                inches = _mapping(machine.get("travel_in")).get(axis, _UNKNOWN)
-                travel = inches * 25.4 if _numeric(inches) else _UNKNOWN
+            travel = _limit(machine, machine_ref, f"envelope.travel.{axis}", debts, cite)
             fixture_extent = length_mm(fixture, "length" if axis == "x" else "width")
             required = (
                 max(extent, fixture_extent)
@@ -217,21 +246,21 @@ def evaluate(bundle):
                 else _UNKNOWN
             )
             travels[axis] = {
-                "travel_mm": travel,
+                "travel_mm": travel["value"],
                 "part_mm": extent,
                 "fixture_mm": fixture_extent,
                 "required_mm": required,
             }
-            unknown |= not _numeric(required) or not _numeric(travel)
+            unknown |= not _numeric(required) or not travel["verified"]
             if (
-                not uncertain(machine)
+                travel["verified"]
                 and not uncertain(fixture)
                 and _numeric(required)
-                and _numeric(travel)
-                and required > travel
+                and required > travel["value"]
             ):
                 errors.append(f"part/fixture envelope exceeds {axis.upper()} travel")
         numbers["travel_checks"] = travels
+        numbers["measurements"] = [debts[key] for key in sorted(debts)]
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
             f"{setup['id']}: "
@@ -250,11 +279,7 @@ def evaluate(bundle):
                 setup["id"],
                 status,
                 numbers,
-                [
-                    "PLAN.md §4.1 headroom",
-                    "inventory: machine, fixture, support, tool and holder dimensions",
-                    "plan: stock state and setup frame",
-                ],
+                list(dict.fromkeys(cite)),
                 sentence,
             )
         )

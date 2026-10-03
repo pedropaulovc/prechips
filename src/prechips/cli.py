@@ -48,6 +48,8 @@ def build_parser() -> argparse.ArgumentParser:
     tools = verbs.add_parser("tools")
     tools.add_argument("query", nargs="?", default="")
     tools.add_argument("--inventory")
+    tools.add_argument("--measure", action="store_true", help="List current-plan measurement debt.")
+    tools.add_argument("--plan", action="append", type=Path, help="Scope --measure to this plan.")
     _common(tools, bundle=False)
     compare = verbs.add_parser("compare")
     compare.add_argument("plans", nargs="+", type=Path)
@@ -225,6 +227,10 @@ def _json_stdout(value) -> None:
 
 
 def _tools(args, tracing: telemetry.Telemetry) -> int:
+    from prechips.measurements import (
+        envelope_measurements,
+        measurement_checklist,
+    )
     from prechips.rules.resolution import (
         candidate_refs,
         length_mm,
@@ -235,6 +241,51 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
     )
 
     path = args.inventory or os.environ.get("PRECHIPS_INVENTORY")
+    if args.measure:
+        from prechips.rules import RULES
+
+        plans = args.plan
+        if not plans:
+            examples = Path(__file__).resolve().parents[2] / "examples"
+            plans = [
+                examples / "pivot-shaft" / "plan.toml",
+                examples / "rocker-arm" / "plan.toml",
+                examples / "pivot-bracket" / "plan.toml",
+                examples / "cone-pivot-post" / "plan.toml",
+                examples / "cone-pivot-post" / "built-up.toml",
+            ]
+        scoped_findings = []
+        inventories = set()
+        for plan in plans:
+            bundle = load_bundle(plan, inventory=path)
+            inventory_path = bundle.paths["inventory"]
+            inventories.add(inventory_path)
+            for rule in RULES:
+                scoped_findings.extend(
+                    (plan.as_posix(), inventory_path, finding) for finding in rule.evaluate(bundle)
+                )
+        findings = []
+        for plan_label, inventory_path, finding in scoped_findings:
+            for entry in finding.numbers.get("measurements", []):
+                label = plan_label if entry["id"].startswith("plan.") else None
+                if label is None and len(inventories) > 1:
+                    label = inventory_path.as_posix()
+                if label is not None:
+                    entry["id"] = f"{label}:{entry['id']}"
+                    entry["instruction"] = f"{label}: {entry['instruction']}"
+            findings.append(finding)
+        checklist = measurement_checklist(findings)
+        if getattr(args, "json", False):
+            _json_stdout(checklist)
+        else:
+            for entry in checklist:
+                print(f"[ ] {entry['instruction']}")
+                for citation in entry["cite"]:
+                    print(f"    {citation}")
+        tracing.log("debug", "Inventory measurement checklist.", measurements=len(checklist))
+        return 0
+    if args.plan:
+        raise BadInput("--plan is only supported with tools --measure.")
     if not path:
         raise BadInput("tools requires --inventory or PRECHIPS_INVENTORY.")
     inventory = load_inventory(path)
@@ -303,6 +354,14 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
             "size_in": size_in,
             "holder_chain": item.get("standard", item.get("shank", item.get("series", "unknown"))),
         }
+        authored = record(record(inventory.get(category)).get(identity))
+        if category == "machines" and (authored.get("kind") == "mill" or "envelope" in authored):
+            row["envelope_measurements"] = envelope_measurements(authored)
+            row["envelope_measurement_status"] = (
+                "measured"
+                if all(fact["verified"] for fact in row["envelope_measurements"].values())
+                else "unmeasured"
+            )
         if requested is not None:
             row.update(requested_dia_mm=requested, sizing=verdict, reason=reason)
         rows.append(row)
@@ -317,6 +376,11 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 f"{row['holder_chain']} | {'verify' if row.get('verify') else 'listed'} | "
                 f"{row.get('reason', '—')}"
             )
+            if "envelope_measurements" in row:
+                print(f"  Envelope {row['id']} [{row['envelope_measurement_status']}]")
+                for field, fact in row["envelope_measurements"].items():
+                    marker = "measured" if fact["verified"] else "unmeasured"
+                    print(f"    {field}: {fact['value']} mm [{marker}]")
     tracing.log("debug", "Inventory resolved.", candidates=len(rows))
     return 0
 

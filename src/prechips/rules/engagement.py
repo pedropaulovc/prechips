@@ -5,11 +5,13 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
+from ._envelope import tool_projection
 from .resolution import (
     UNKNOWN,
     length_mm,
     number,
     operations,
+    record,
     resolve,
     same_length,
     uncertain,
@@ -65,13 +67,13 @@ def evaluate(bundle):
         holder = resolve(bundle, "holders", holder_ref)
         diameter = length_mm(tool, "dia")
         oal, grip = length_mm(tool, "oal"), length_mm(holder, "grip")
-        projection = length_mm(tool, "projection")
+        projection_fact = tool_projection(bundle, op, {}, cite, require_measured=False)
+        projection = projection_fact["value"]
         explicit = any(
-            field in (tool or {}) for field in ("projection_mm", "projection_in", "projection")
+            holder_ref in record((tool or {}).get(field))
+            for field in ("projection_mm", "projection_in")
         )
-        if not explicit:
-            projection = oal - grip if _positive(oal) and _positive(grip) else UNKNOWN
-        basis = "inventory tool projection" if explicit else "tool OAL - selected holder grip"
+        basis = "selected tool/holder projection" if explicit else "tool OAL - selected holder grip"
         doc = op.get("doc_mm", UNKNOWN)
         missing = []
         if action == UNKNOWN:
@@ -84,8 +86,8 @@ def evaluate(bundle):
             missing.append("resolved/verified selected holder")
         if not _positive(diameter):
             missing.append("explicit-unit tool diameter")
-        if not _positive(projection):
-            missing.append("positive projection or OAL minus holder grip")
+        if not _positive(projection) or not projection_fact["verified"]:
+            missing.append("positive selected tool/holder projection or OAL minus holder grip")
 
         ratio = projection / diameter if not missing else UNKNOWN
         over_limit = (

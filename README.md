@@ -4,7 +4,9 @@ Checks before chips: a deterministic, offline checker and printable traveler for
 an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
 plan, workholding, indexing and physics rule families, write a canonical findings
 report, and render Letter-portrait HTML with setup pages and contour continuations.
-It checks declared facts, not a CAD model's machinability, and does not generate CAM toolpaths.
+M5 adds measured machine/holder inventory, envelope/travel screens and a machine
+measurement checklist. It checks declared facts, not a CAD model's machinability,
+and does not generate CAM toolpaths.
 
 The local M1 implementation, PR #5 review corrections and M2 declared-input
 feasibility rules are present. Physical paper rehearsal and live farm/App Insights
@@ -66,7 +68,7 @@ prechips [--json] [--verbose] traveler PLAN [--inventory TOML] [--policy TOML]
     [--cutting-data TOML] [--out DIR] [--approval TOML] [--json] [--verbose]
 prechips [--json] [--verbose] check PLAN [--inventory TOML] [--policy TOML]
     [--cutting-data TOML] [--out DIR] [--approval TOML] [--json] [--verbose]
-prechips [--json] [--verbose] tools [QUERY] [--inventory TOML] [--json] [--verbose]
+prechips [--json] [--verbose] tools [QUERY] [--inventory TOML] [--measure [--plan TOML ...]] [--json] [--verbose]
 prechips [--json] [--verbose] compare PLAN [PLAN ...] [--inventory TOML]
     [--policy TOML] [--cutting-data TOML] [--out DIR] [--json] [--verbose]
 prechips [--json] [--verbose] explain REPORT RULE[:SUBJECT] [--json] [--verbose]
@@ -84,7 +86,17 @@ package version. `--json` and `--verbose` default off.
   diameter; the last numeric token wins. Rows report nominal match/difference
   and verification debt, not an automatic tool choice. Human columns are ID,
   Kind, Diameter mm/in, Holder chain, Verification and Sizing; JSON emits rows.
-  Inventory is mandatory through the flag or `PRECHIPS_INVENTORY`.
+  Inventory is mandatory through the flag or `PRECHIPS_INVENTORY`, except for
+  `--measure`, which may fall back to each plan's declared inventory.
+  Machine rows also show the envelope with measured/unmeasured markers.
+  **tools --measure** lists the measurement debt behind the current reports:
+  every `numbers.measurements` entry an unresolved finding emits for the given
+  `--plan` files (default: the five shipped example plans), sorted and
+  deduplicated by exact report id, set members and tool/holder pairs included,
+  each with what to measure, instrument, units and citation. It is not an
+  inventory-wide field walk: nothing no rule reads is listed, and it adds no
+  tool purchases or unlisted set members. `--plan` is only valid with
+  `--measure`.
 - **compare** writes `compare.json` and a side-by-side table (JSON with `--json`):
   candidate identity, part, setup count, required fixtures, waste ratio, findings
   and construction permission. Waste is `(stock volume - finished volume) /
@@ -143,6 +155,26 @@ An existing policy without `[required]`, a feature without `requirements`, or a
 Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
 Explicit empty tables/lists remain known empty; no policy file still selects the
 built-in required-rule set.
+
+M5 machine envelope limits, fixture bed height, holder gauge/grip, tool OAL
+and tool/holder projection need a fact-local
+`measured = { by, date, instrument }`; clearing `verify` alone is not
+measurement, and nothing is inherited from a block, item root or source. The
+mill's limits live only in `machines.PM-30MV.envelope` (travel X/Y/Z,
+spindle-to-table max/min), read by `headroom`, `envelope` and `travel` alike;
+the vendor nominals remain unchanged and `verify = true`, minimum clearance,
+vise bed height and every holder gauge/grip stay `"unknown"`, and no tool
+carries a projection yet. A tool's projection is a per-holder map
+(`tools.<tool>.projection_mm.<full holder ref>`), never a holder-wide or
+tool-wide number. Run `uv run prechips tools --measure` for the checklist of
+exactly what the current example reports are waiting on. A policy may add
+`envelope = "*"` and `travel = "*"` under `[required]`; the default required
+set is unchanged and there is no `holder_stack` rule. Mill envelope/travel
+remain `?` until limits, bed/parallel heights, installed gauges/projections,
+feature/stock spans and each operation's safe `approach_mm` are known; the
+vise stack uses bed height, never jaw height, and Z travel is the spindle-nose
+span, not the tool-tip span. Lathe setups do not acquire a fictitious mill
+table or a toolpost gauge demand.
 Omitted setup `machine`, operation `do`, and feature `kind` are normalized to
 `"unknown"` by their schemas, so missing identities stay unresolved rather than
 crashing the checker.

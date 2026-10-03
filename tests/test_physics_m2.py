@@ -81,7 +81,7 @@ def milling_bundle():
         "kind": "endmill",
         "dia_mm": 10,
         "oal_mm": 75,
-        "projection_mm": 40,
+        "projection_mm": {"holder": 40},
     }
     data.inventory["holders"]["holder"] = {"kind": "collet", "grip_mm": 25}
     return data
@@ -275,7 +275,7 @@ def test_engagement_scope_excludes_lathe_turning_tools_without_cutter_diameter(a
 @pytest.mark.parametrize("kind", ["boring_bar", "boring_head", "insert_holders", "face_mill"])
 def test_engagement_scope_excludes_known_non_endmill_families_even_with_doc(kind):
     data = milling_bundle()
-    data.inventory["tools"]["cutter"].update(kind=kind, projection_mm=50)
+    data.inventory["tools"]["cutter"].update(kind=kind, projection_mm={"holder": 50})
     if kind == "insert_holders":
         data.inventory["tools"]["cutter"]["members"] = {"AR": {}}
         data.plan["setups"][0]["ops"][0]["tool"] = "cutter/AR"
@@ -286,7 +286,7 @@ def test_engagement_scope_excludes_known_non_endmill_families_even_with_doc(kind
 def test_engagement_scope_excludes_noncutting_operations_even_with_endmill_and_doc(action):
     data = milling_bundle()
     data.plan["setups"][0]["ops"][0]["do"] = action
-    data.inventory["tools"]["cutter"]["projection_mm"] = 50
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 50
     assert engagement.evaluate(data)[0].status == "not_applicable"
 
 
@@ -294,7 +294,7 @@ def test_engagement_scope_excludes_noncutting_operations_even_with_endmill_and_d
 def test_engagement_scope_omitted_doc_is_not_applicable_even_with_endmill(projection):
     data = milling_bundle()
     del data.plan["setups"][0]["ops"][0]["doc_mm"]
-    data.inventory["tools"]["cutter"]["projection_mm"] = projection
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = projection
     finding = engagement.evaluate(data)[0]
     assert finding.status == "not_applicable"
     assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 0
@@ -305,7 +305,7 @@ def test_engagement_scope_omitted_doc_is_not_applicable_even_with_endmill(projec
 def test_engagement_scope_authored_unknown_or_nonpositive_doc_cannot_pass(projection, doc):
     data = milling_bundle()
     data.plan["setups"][0]["ops"][0]["doc_mm"] = doc
-    data.inventory["tools"]["cutter"]["projection_mm"] = projection
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = projection
     finding = engagement.evaluate(data)[0]
     assert finding.status == "unknown"
     assert finding.numbers["projection_ld"] == projection / 10
@@ -339,7 +339,7 @@ def test_engagement_scope_unknown_tool_identity_cannot_certify_exclusion(identit
 def test_engagement_cutting_endmill_with_doc_remains_eligible(action):
     data = milling_bundle()
     data.plan["setups"][0]["ops"][0]["do"] = action
-    data.inventory["tools"]["cutter"]["projection_mm"] = 50
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 50
     finding = engagement.evaluate(data)[0]
     assert finding.status == "warn"
     assert finding.numbers["projection_ld"] == 5
@@ -355,7 +355,7 @@ def test_engagement_scope_resolved_set_member_kind_controls_applicability(kind, 
         "mills": {
             "kind": "endmill_set",
             "members": {
-                "selected": {"kind": kind, "dia_in": 0.5, "projection_in": 2.5},
+                "selected": {"kind": kind, "dia_in": 0.5, "projection_in": {"holder": 2.5}},
             },
         }
     }
@@ -375,7 +375,7 @@ def test_engagement_four_diameter_boundary_and_doc_halving():
     assert at_limit.status == "pass"
     assert at_limit.numbers["projection_ld"] == 4
     assert at_limit.numbers["recommended_doc_mm"] == 2
-    data.inventory["tools"]["cutter"]["projection_mm"] = 40.01
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 40.01
     over_limit = engagement.evaluate(data)[0]
     assert over_limit.status == "warn"
     assert over_limit.numbers["doc_scale"] == 0.5
@@ -385,7 +385,7 @@ def test_engagement_four_diameter_boundary_and_doc_halving():
 
 def test_explicit_projection_takes_precedence_over_oal_minus_grip():
     data = milling_bundle()
-    data.inventory["tools"]["cutter"]["projection_mm"] = 35
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 35
     explicit = engagement.evaluate(data)[0]
     assert explicit.status == "pass"
     assert explicit.numbers["projection_mm"] == 35
@@ -396,7 +396,7 @@ def test_explicit_projection_takes_precedence_over_oal_minus_grip():
     assert fallback.numbers["recommended_doc_mm"] == 1
 
 
-@pytest.mark.parametrize("field", ["projection_mm", "projection_in", "projection"])
+@pytest.mark.parametrize("field", ["projection_mm", "projection_in"])
 def test_explicit_unknown_projection_never_falls_back_to_oal_minus_grip(field):
     data = milling_bundle()
     tool = data.inventory["tools"]["cutter"]
@@ -405,7 +405,7 @@ def test_explicit_unknown_projection_never_falls_back_to_oal_minus_grip(field):
     omitted = engagement.evaluate(data)[0]
     assert omitted.status == "pass"
     assert omitted.numbers["projection_mm"] == 40
-    tool[field] = "unknown"
+    tool[field] = {"holder": "unknown"}
     declared_unknown = engagement.evaluate(data)[0]
     assert declared_unknown.status == "unknown"
     assert declared_unknown.numbers["projection_mm"] == "unknown"
@@ -434,7 +434,7 @@ def test_exact_inch_boundary_is_not_a_warning_from_conversion_residue():
     data.inventory["tools"]["cutter"] = {
         "kind": "endmill",
         "dia_in": 0.375,
-        "projection_mm": 38.1,
+        "projection_mm": {"holder": 38.1},
     }
     finding = engagement.evaluate(data)[0]
     assert finding.numbers["projection_ld"] > 4
@@ -450,14 +450,14 @@ def test_declared_set_member_projection_and_diameter_resolve():
             "kind": "endmill_set",
             "sizes_in": ["1/2"],
             "flutes": [2],
-            "members": {"1-2in-2fl": {"dia_in": 0.5, "projection_in": 2}},
+            "members": {"1-2in-2fl": {"dia_in": 0.5, "projection_in": {"holder": 2}}},
         }
     }
     data.plan["setups"][0]["ops"][0]["tool"] = "mills/1-2in-2fl"
     finding = engagement.evaluate(data)[0]
     assert finding.status == "pass"
     assert finding.numbers["projection_ld"] == 4
-    data.inventory["tools"]["mills"]["members"]["1-2in-2fl"]["projection_in"] = 2.5
+    data.inventory["tools"]["mills"]["members"]["1-2in-2fl"]["projection_in"]["holder"] = 2.5
     over_limit = engagement.evaluate(data)[0]
     assert over_limit.status == "warn"
     assert over_limit.numbers["projection_ld"] == 5
@@ -492,7 +492,7 @@ def test_engagement_missing_or_unverified_assembly_stays_unknown(problem):
 
 def test_engagement_long_projection_with_authored_unknown_doc_does_not_guess_depth():
     data = milling_bundle()
-    data.inventory["tools"]["cutter"]["projection_mm"] = 50
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 50
     data.plan["setups"][0]["ops"][0]["doc_mm"] = "unknown"
     finding = engagement.evaluate(data)[0]
     assert finding.status == "unknown"
@@ -535,7 +535,7 @@ def test_proxies_are_deterministic_and_leave_authored_inputs_unchanged(factory, 
 def test_proxy_warning_uses_existing_required_gate_not_hard_error(factory, evaluate, rule):
     data = factory()
     if rule == "engagement":
-        data.inventory["tools"]["cutter"]["projection_mm"] = 50
+        data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 50
     findings = evaluate(data)
     assert findings[0].status == "warn"
     assert exit_code(findings, {"required": {}}, data) == 0
@@ -598,3 +598,18 @@ requirements = []
     assert result.returncode == 3, result.stderr
     assert "doc_mm" in result.stderr
     assert not out.exists() or not tuple(out.iterdir())
+
+
+def test_review_2_engagement_selects_projection_for_exact_holder():
+    data = milling_bundle()
+    data.inventory["tools"]["cutter"]["projection_mm"] = {"holder": 35, "other": 60}
+    data.inventory["holders"]["other"] = {"kind": "collet", "grip_mm": 25}
+    op = data.plan["setups"][0]["ops"][0]
+    selected = engagement.evaluate(data)[0]
+    assert selected.status == "pass"
+    assert selected.numbers["projection_mm"] == 35
+    op["holder"] = "other"
+    selected = engagement.evaluate(data)[0]
+    assert selected.status == "warn"
+    assert selected.numbers["projection_ld"] == 6
+    assert selected.numbers["recommended_doc_mm"] == 1

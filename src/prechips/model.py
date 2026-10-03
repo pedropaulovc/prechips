@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, model_serializer, model_validator
@@ -194,7 +195,7 @@ Operation = record(
         **texts("do feature tool holder direction note inspection_note"),
         **numbers(
             "to_z depth_mm exit_mm rough_allowance_mm stock_to_leave_mm z_from z_to "
-            "to_dia rpm feed_mm_min doc_mm feed_mm_rev"
+            "to_dia rpm feed_mm_min doc_mm feed_mm_rev approach_mm"
         ),
         "to_z_cite": Citations,
         "note_cite": Citations,
@@ -368,6 +369,52 @@ class Features(InputModel):
 
 
 Source = record("Source", {**texts("vendor by url note cite"), "sku": str | int, "verify": bool})
+
+
+class Measurement(InputModel):
+    by: str
+    date: str
+    instrument: str
+
+    @model_validator(mode="after")
+    def complete(self) -> Measurement:
+        if any(
+            not value.strip() or value.strip() == UNKNOWN
+            for value in (self.by, self.date, self.instrument)
+        ):
+            raise ValueError("Measurement by, date and instrument must be complete.")
+        if date.fromisoformat(self.date).isoformat() != self.date:
+            raise ValueError("Measurement date must be an ISO YYYY-MM-DD calendar date.")
+        return self
+
+
+class LengthMeasurement(InputModel):
+    """A fact-local value; only its own measured/verify qualify it (lengths or degrees)."""
+
+    value: Number
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+
+type MeasuredLength = Number | LengthMeasurement
+type MeasuredAngle = Number | LengthMeasurement
+EnvelopeTravel = record("EnvelopeTravel", dict.fromkeys(("x", "y", "z"), MeasuredLength))
+MachineEnvelope = record(
+    "MachineEnvelope",
+    {
+        "travel_mm": EnvelopeTravel,
+        "travel_in": EnvelopeTravel,
+        **dict.fromkeys(
+            (
+                "spindle_to_table_max_mm",
+                "spindle_to_table_max_in",
+                "spindle_to_table_min_mm",
+                "spindle_to_table_min_in",
+            ),
+            MeasuredLength,
+        ),
+    },
+)
 Spindle = record(
     "Spindle",
     {
@@ -377,8 +424,8 @@ Spindle = record(
         "ranges_rpm": list[list[Number]],
     },
 )
-Travel = record("Travel", numbers("x y z quill"))
-Table = record("Table", {**numbers("length width"), "t_slot": str})
+# Tool projection belongs to one (tool, holder) pair: full holder reference -> fact.
+type ProjectionMap = dict[str, MeasuredLength]
 LeadScrew = record("LeadScrew", {**numbers("tpi dial_in"), "cross_feed_ipr": Vector})
 Capacity = record("Capacity", numbers("drill end_mill face_mill"))
 Tailstock = record("Tailstock", {"taper": str, "quill_travel_in": Number})
@@ -401,18 +448,38 @@ InventoryItem = record(
         "sku": str | int,
         **flags("verify present center_cutting swivel_base scroll independent"),
         **numbers(
-            "spindle_to_table_max_in headstock_tilt_deg swing_over_bed_in between_centres_in "
+            "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
-            "swing_in plates pieces angle_deg point_angle flute_len oal head_in max_offset_in "
+            "swing_in plates pieces angle_deg flute_len head_in max_offset_in "
             "dial_in length_in min_bore_in tip_in jaw_width_in opening_in jaw_height_in "
-            "bed_height_mm diameter_in thickness_in resolution_in runout_max_in gauge_len "
-            "grip_mm max_shank_in lead_mm projection_mm sfm chip_load_mm_per_tooth "
-            "dia_mm dia_in shank_mm flute_len_mm flute_len_in oal_mm oal_in gauge_len_mm "
-            "gauge_len_in projection_in spindle_to_table_max_mm jaw_height_mm height_mm "
-            "height_in length_mm width_mm width_in capacity_mm "
-            "bed_height_in nose_radius_mm reach_mm"
+            "diameter_in thickness_in resolution_in runout_max_in "
+            "max_shank_in sfm chip_load_mm_per_tooth "
+            "shank_mm flute_len_mm flute_len_in jaw_height_mm "
+            "length_mm width_mm width_in capacity_mm nose_radius_mm reach_mm"
         ),
-        "dia": Number,
+        "point_angle": MeasuredAngle,
+        **dict.fromkeys(
+            (
+                "dia",
+                "dia_mm",
+                "dia_in",
+                "oal",
+                "oal_mm",
+                "oal_in",
+                "grip_mm",
+                "gauge_len_mm",
+                "gauge_len_in",
+                "lead_mm",
+                "height_mm",
+                "height_in",
+                "bed_height_mm",
+                "bed_height_in",
+            ),
+            MeasuredLength,
+        ),
+        "projection_mm": ProjectionMap,
+        "projection_in": ProjectionMap,
+        "envelope": MachineEnvelope,
         "shank_in": float | str | dict[str, list[str]],
         "flutes": int | list[int],
         "source": str | Source,
@@ -435,9 +502,6 @@ InventoryItem = record(
         "standard_accessories": list[str],
         "included": list[str],
         "spindle": Spindle,
-        "travel_in": Travel,
-        "travel_mm": Travel,
-        "table_in": Table,
         "leadscrew": LeadScrew,
         "capacity_in": float | list[Number] | Capacity,
         "tailstock": Tailstock,
@@ -453,6 +517,50 @@ InventoryItem = record(
 InventoryItem.model_rebuild()
 
 
+# Single-length facts consumed by rules; size/range lists are independent collections.
+_INVENTORY_LENGTH_STEMS = frozenset(
+    "dia oal grip gauge_len lead height bed_height projection flute_len jaw_height "
+    "shank capacity max_shank nose_radius reach tip length resolution".split()
+)
+_ENVELOPE_LENGTH_STEMS = frozenset(("spindle_to_table_max", "spindle_to_table_min", "travel"))
+_TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))
+
+
+def _inventory_lengths(
+    item: Any,
+    where: str,
+    *,
+    tool: bool,
+    unit: str | None = None,
+    stems: frozenset[str] = _INVENTORY_LENGTH_STEMS,
+) -> None:
+    """Reject duplicate single-length facts, not independently authored size lists."""
+    from prechips.measurements import length_keys
+
+    if not isinstance(item, dict):
+        return
+    if item.get("units") in {"mm", "in", "inch"}:
+        unit = "in" if item["units"] == "inch" else item["units"]
+    if not tool and {"projection_mm", "projection_in"} & item.keys():
+        raise ValueError(f"{where}: projection is a tool-owned map keyed by full holder reference.")
+    for stem in sorted(stems):
+        keys = length_keys(item, stem, unit)
+        if len(keys) > 1:
+            raise ValueError(f"{where}: {' and '.join(keys)} author one length twice.")
+    members = item.get("members")
+    for name, member in members.items() if isinstance(members, dict) else ():
+        _inventory_lengths(member, f"{where}/{name}", tool=tool)
+    for key in ("envelope", "travel_mm", "travel_in"):
+        child_unit = "mm" if key.endswith("_mm") else "in" if key.endswith("_in") else unit
+        _inventory_lengths(
+            item.get(key),
+            f"{where}.{key}",
+            tool=tool,
+            unit=child_unit,
+            stems=_ENVELOPE_LENGTH_STEMS if key == "envelope" else _TRAVEL_LENGTH_STEMS,
+        )
+
+
 class Inventory(InputModel):
     machines: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     tools: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
@@ -461,6 +569,18 @@ class Inventory(InputModel):
     gauges: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     consumables: dict[str, list[str] | Unknown] | Unknown = UNKNOWN
     stock: list[Stock] | Unknown = UNKNOWN
+
+    @model_validator(mode="before")
+    @classmethod
+    def unambiguous_lengths(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            for category in ("machines", "tools", "holders", "fixtures", "gauges"):
+                items = values.get(category)
+                if isinstance(items, dict):
+                    for identity, item in items.items():
+                        where = f"{category}.{identity}"
+                        _inventory_lengths(item, where, tool=category == "tools")
+        return values
 
 
 class Policy(InputModel):

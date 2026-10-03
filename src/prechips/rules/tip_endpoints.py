@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 
+from prechips.measurements import nominal_angle_deg
+
 from ..findings import Finding
 from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
 
@@ -134,7 +136,7 @@ def evaluate(bundle):
             action = op["do"]
             point = drill_point_mm(
                 length_mm(tool, "dia"),
-                tool.get("point_angle", tool.get("point_angle_deg", UNKNOWN)),
+                nominal_angle_deg(tool, "point_angle"),
             )
             if action == "spot":
                 row.update(

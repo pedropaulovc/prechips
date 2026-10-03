@@ -434,16 +434,33 @@ loud on ambiguity. Tracked as a harmonic-analyzer issue (§8, M3).
 ### 3.3 `inventory.toml` — the shop (user-supplied; sample in `examples/inventory/`)
 
 Machines with ranges and (when measured) envelopes; holders with gauge
-length; tools by short id with diameter, flutes, flute length, OAL, shank,
-material, point angle for drills, and an optional `chart`; gauges; fixtures
-with the dimensions the rules read (vise: jaw width, opening, jaw height
-above the bed; parallels: heights; collet set: sizes; chuck: range; dividing
+length and grip; tools by short id with diameter, flutes, flute length, OAL, shank,
+material, point angle for drills, an optional `chart` and, once measured, a
+projection per holder; gauges; fixtures
+with the dimensions the rules read (vise: jaw width, opening, bed height
+above the table, jaw height above the bed; parallels: heights; collet set: sizes; chuck: range; dividing
 head: `worm_ratio`, `direct_index.positions`, `plate_holes` per plate —
 the sample's BS-0 carries all three, circles `verify = true`). A value copied from a vendor page is
 `verify = true` and anything that depends on it is a `?` on the sheet, never
 a silent pass. The sample inventory already carries the PM 6 in vise
-(`jaw_height_in = 1.825`, `opening_in = 6`) and the PM-30MV envelope
-(`travel_in`, `spindle_to_table_max_in`), all `verify = true`.
+(`jaw_height_in = 1.825`, `opening_in = 6`, `bed_height_mm = "unknown"`) and
+the PM-30MV envelope (`envelope.travel_in`, `envelope.spindle_to_table_max_in`),
+all `verify = true`.
+
+M5's shipped inventory shape makes `machines.<id>.envelope` the only home for
+the mill limits any rule reads: X/Y/Z travel and spindle-nose-to-table max/min.
+There is no top-level `spindle_to_table_max_in`/`travel_in`/`table_in` copy,
+and no table size, T-slot pitch, spindle taper or spindle-stack entries,
+because no rule consumes them. A length is one fact,
+`{ value, measured = { by, date, instrument }, verify }`, and only that fact's
+own record qualifies it: no block, item-root or source `measured`/`verify`
+inheritance, no coverage heuristics. Holders carry mounted gauge
+(`gauge_len_mm`/`_in`, one spelling) and grip; a tool's projection is a map
+keyed by the full holder reference it was measured in
+(`tools.<tool>.projection_mm.<holder>`), never a holder-wide or tool-wide
+scalar, with measured OAL − selected holder grip as the only fallback. Missing
+values stay `"unknown"`; vendor copies remain `verify = true`. See
+[inventory schema](docs/inventory.md).
 
 ### 3.4 `shop-policy.toml` — what must be confirmed (user-supplied, optional)
 
@@ -477,6 +494,9 @@ for this feature kind yet) and `not_applicable` (the rule has nothing to
 say about this subject) are distinct statuses; only `not_applicable` is a
 pass. Lives with the inventory, not in the plan, so a plan cannot waive it.
 The shipped default requires the first seven rules on `*`.
+M5 additionally supports shop-required `envelope = "*"` / `travel = "*"`;
+it does not change the default required set, and there is no `holder_stack`
+rule to require.
 
 ### 3.5 `cutting-data.toml` — shipped with prechips, versioned
 
@@ -535,7 +555,9 @@ not exist.
 | coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; the arc table for `contour.method = "arc_table"`) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia | M1 | silent when right; prints sheet 3a |
 | inspection per requirement: every entry in a feature's `requirements` that is a tolerance (any `*_dia`, `dia`, `finish_ra`, `depth`, `coaxiality_dia` — every requirement that carries a band, not a fixed list) has a `checks.<requirement>` on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
-| headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL, holder gauge length, machine envelope — `verify` → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
+| headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL/projection, holder gauge length, `machine.envelope` max and X/Y travel — unmeasured → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
+| envelope: per-op spindle-nose stack `bed height + parallels/supports + physical stock height + holder gauge + tool projection`, raised by the op's highest commanded Z above the stock top (authored approach) against measured spindle-to-table max, lowered to its deepest floor against measured min; optional successful already-present STEP bbox, otherwise authored stock/state extents | plan.stock/stock_state/setup frame, plan.ops approach/targets/depth, inventory fixture bed height + parallels/supports, measured holder gauge and tool/holder projection (or OAL − grip), machine.envelope max/min | M5 | "? measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm"; measured over-tall stack or unreachable floor is a stop |
+| travel: union of operation feature extents/centres (hole centres unpadded; cutter radius only on outside-profile extents), commanded tip targets and explicit safe approach fits measured X/Y travel; Z unions per-op spindle-nose positions `tip + gauge + projection` against measured Z travel | features bounds/at/frame, plan stock/op target/depth/exit/approach_mm, inventory selected tool radius, holder gauge, tool projection and machine.envelope travel | M5 | "? measure: PM-30MV usable X travel between safe stops, steel rule, mm"; measured overtravel is a stop |
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
 | stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
@@ -565,7 +587,7 @@ not exist.
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
 | turning deflection: δ = F·L³/(3EI) (cantilever) or /(48EI) (supported), F = K_c·a_p·f, K_c and E from `cutting-data.[[material]]` | plan.hold.stickout_mm, plan.ops (DOC, feed), features.dia, cutting-data.material | M2 | "Expected deflection 0.04 against ±0.1; take the last pass at 0.2." |
-| engagement: only milling cutters (endmill families) on cutting operations with an authored DOC; tool projection from the holder (inventory `projection_mm` per tool+holder, else OAL − holder grip) / D ≤ 4 else halve DOC. Drills, reamers, taps and lathe tools are not applicable | inventory.tools (kind, OAL), inventory.holders (grip_mm), plan.ops (holder, DOC) | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
+| engagement: only milling cutters (endmill families) on cutting operations with an authored DOC; tool projection from the holder (the tool's `projection_mm` entry for the selected holder, else OAL − holder grip) / D ≤ 4 else halve DOC. Drills, reamers, taps and lathe tools are not applicable | inventory.tools (kind, OAL, projection map), inventory.holders (grip_mm), plan.ops (holder, DOC) | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
 | tool life | needs a calibrated life table nobody ships | deferred | — |
 
 ### 4.5 Stock-form comparison (authored candidates, counted by prechips)
@@ -646,11 +668,18 @@ prechips traveler <plan.toml> [--inventory <toml>] [--policy <toml>]
 prechips check <plan.toml> [...]
     Same as traveler without writing the sheet; the doit-gate form.
 
-prechips tools [--inventory <toml>] [<query>]
+prechips tools [--inventory <toml>] [--measure [--plan <plan.toml>]...] [<query>]
     The inventory as prechips resolved it: ids, sizes in both units,
     holder chain, what is verify = true. With a query ("reamer 6.5",
     "R8") the candidates the sizing rule would consider and why each
-    passes or fails.
+    passes or fails. Also prints each machine envelope limit as measured
+    or unmeasured. --measure lists the measurement debt behind the
+    current reports: the numbers.measurements entries of every unresolved
+    finding for the --plan files (default: the five shipped example
+    plans), sorted and deduplicated by exact report id, set members and
+    tool/holder pairs included, with instrument and units. It walks no
+    inventory field a rule does not read; --inventory (or
+    PRECHIPS_INVENTORY) overrides the plans' declared inventory.
 
 prechips compare <plan.toml>... [--inventory ...] [--policy ...]
     §4.5: one row per candidate plan — setups, waste ratio, fixtures
@@ -853,8 +882,42 @@ sheet.
    `cad/process/`. Replaces the hand-written manifests.
 4. **M4 — geometry and workholding** (§4.2–4.3) on the kernel, starting with
    the discriminating fixtures §6 lists; fixture renders on the sheet.
-5. **M5 — measured inventory**: spindle stack, travel limits, holder gauge
-   lengths; envelope checks leave `?`.
+5. **M5 — measured inventory implemented (PR #7 review cutover, `m5-rev7`);
+   shop measurements pending.** Implemented: `machines.<id>.envelope` is the
+   single machine block (`travel` x/y/z, `spindle_to_table_max`/`min`) read by
+   `headroom`, `envelope` and `travel`; the mill's top-level
+   `spindle_to_table_max_in`/`travel_in`/`table_in` copies and the unread
+   table size, T-slot pitch, spindle taper and spindle-stack fields are gone.
+   Trust is fact-local `{ value, measured = { by, date, instrument }, verify }`,
+   with no block/root/source inheritance, coverage heuristics or legacy-field
+   redirect; a vendor nominal is evidence, never a certificate. The vise
+   stack is `bed_height + parallels/supports + physical part height + holder
+   gauge + tool projection`, never jaw height (jaw obstruction stays
+   `headroom`'s separate check). Projection is a per-pair fact on the tool,
+   `tools.<tool>.projection_mm.<full holder reference>`, else measured OAL −
+   selected holder grip; holders carry only `gauge_len_mm/in` (one spelling)
+   and `grip_mm`. `envelope` raises each op's nose by its highest authored
+   approach/commanded Z against the maximum and lowers it to its deepest floor
+   against the minimum; `travel` Z unions per-op spindle-nose positions
+   (`tip + gauge + projection`), and XY pads hole/point centres by nothing and
+   profile extents by the cutter radius; pocket/face extents are unpadded.
+   `holder_stack` is deleted; unresolved tools, holders, fixtures and supports
+   yield add/resolve instructions, not measurements of unowned items. Geometry
+   authoring instructions print once. Explicit unknown pair projections stay
+   unknown; only absent pair entries permit OAL − grip fallback.
+   `tools --measure [--plan …]` lists exactly the `numbers.measurements` debt
+   behind the current reports (default: the five example plans), sorted and
+   deduplicated by scoped report id: plan inputs identify their plan, and
+   separate inventories cannot collapse identical item/fact ids.
+   Pending in the shop, none invented: PM-30MV usable X/Y/Z travel and spindle
+   nose to table at full Z-up and Z-down with `measured` records; PM 6 in vise
+   bed height; each selected holder's mounted gauge length and grip; each
+   selected tool's OAL and its projection in the holder it is used in (or
+   OAL/grip); cutter diameters, drill point angles and reamer leads the
+   examples select. Per-operation safe `approach_mm` and incomplete authored
+   extents remain plan-input debt, not shop measurements. Until those land,
+   envelope/travel rows stay `?` with measure/how instructions. The default
+   policy is unchanged; shops may require envelope/travel on `"*"`.
 
 ## 9. Decisions from review
 

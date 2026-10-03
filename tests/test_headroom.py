@@ -8,6 +8,12 @@ from test_cli import traveler
 
 from prechips.rules.headroom import evaluate
 
+MEASURED = {"by": "test", "date": "2026-10-03", "instrument": "steel rule"}
+
+
+def measured(value):
+    return {"value": value, "measured": dict(MEASURED)}
+
 
 def bundle():
     return SimpleNamespace(
@@ -42,8 +48,10 @@ def bundle():
             "machines": {
                 "mill": {
                     "kind": "mill",
-                    "spindle_to_table_max_mm": 200,
-                    "travel_mm": {"x": 400, "y": 200},
+                    "envelope": {
+                        "spindle_to_table_max_mm": measured(200),
+                        "travel_mm": {"x": measured(400), "y": measured(200)},
+                    },
                 }
             },
             "fixtures": {
@@ -96,7 +104,7 @@ def test_retained_rail_bottom_is_supported_stock_bottom():
 
 def test_worst_stack_is_per_operation_not_sum_of_independent_maxima():
     data = bundle()
-    data.inventory["tools"]["long"] = {"kind": "endmill", "projection_mm": 70}
+    data.inventory["tools"]["long"] = {"kind": "endmill", "projection_mm": {"short": 70}}
     data.inventory["holders"]["short"] = {"kind": "collet", "gauge_len_mm": 10}
     data.plan["setups"][0]["ops"].append(
         {"op": 20, "do": "face", "tool": "long", "holder": "short"}
@@ -106,20 +114,99 @@ def test_worst_stack_is_per_operation_not_sum_of_independent_maxima():
     assert finding.numbers["stacks"][1]["sum_mm"] == pytest.approx(176.4)
 
 
-def test_measured_stack_over_limit_is_error_and_equality_passes():
+def test_projection_is_selected_per_tool_and_holder_pair_else_oal_minus_grip():
     data = bundle()
-    data.inventory["machines"]["mill"]["spindle_to_table_max_mm"] = 181.4
-    assert evaluate(data)[0].status == "pass"
-    data.inventory["machines"]["mill"]["spindle_to_table_max_mm"] = 180
-    assert evaluate(data)[0].status == "error"
+    cutter = data.inventory["tools"]["cutter"]
+    cutter["projection_mm"] = {"other": 40}
+    finding = evaluate(data)[0]
+    assert finding.numbers["stacks"][0]["tool_projection_mm"] == 55
+    assert finding.numbers["sum_mm"] == pytest.approx(181.4)
+    cutter["projection_mm"]["holder"] = 40
+    finding = evaluate(data)[0]
+    assert finding.numbers["stacks"][0]["tool_projection_mm"] == 40
+    assert finding.numbers["sum_mm"] == pytest.approx(166.4)
 
 
-def test_vendor_verified_geometry_preserves_nominal_numbers_not_pass():
+@pytest.mark.parametrize("field", ["projection_mm", "projection_in"])
+@pytest.mark.parametrize("limit", [200, 180])
+def test_explicit_unknown_projection_never_falls_back_to_oal_minus_grip(field, limit):
     data = bundle()
-    data.inventory["machines"]["mill"]["verify"] = True
+    data.inventory["tools"]["cutter"][field] = {"holder": "unknown"}
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(limit)
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
+    assert finding.numbers["stacks"][0]["tool_projection_mm"] == "unknown"
+    assert finding.numbers["stacks"][0]["sum_mm"] == "unknown"
+    assert finding.numbers["stacks"][0]["margin_mm"] == "unknown"
+    assert finding.numbers["sum_mm"] == "unknown"
+
+
+def test_measured_stack_over_limit_is_error_and_equality_passes():
+    data = bundle()
+    envelope = data.inventory["machines"]["mill"]["envelope"]
+    envelope["spindle_to_table_max_mm"] = measured(181.4)
+    assert evaluate(data)[0].status == "pass"
+    envelope["spindle_to_table_max_mm"] = measured(180)
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["stacks"][0]["margin_mm"] == pytest.approx(-1.4)
+
+
+@pytest.mark.parametrize(
+    "limit,nominal,margin",
+    [
+        (180, 180, -1.4),
+        ({"value": 180, "verify": False}, 180, -1.4),
+        ({"value": 200, "verify": True}, 200, 18.6),
+    ],
+)
+def test_uncertified_machine_limit_keeps_nominal_numbers_but_neither_passes_nor_errors(
+    limit, nominal, margin
+):
+    data = bundle()
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = limit
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["spindle_to_table_max_mm"] == nominal
     assert finding.numbers["sum_mm"] == pytest.approx(181.4)
+    assert finding.numbers["stacks"][0]["margin_mm"] == pytest.approx(margin)
+    assert [entry["id"] for entry in finding.numbers["measurements"]] == [
+        "machines.mill.envelope.spindle_to_table_max"
+    ]
+
+
+def test_measured_envelope_limits_govern_over_conflicting_legacy_machine_fields():
+    data = bundle()
+    machine = data.inventory["machines"]["mill"]
+    machine["spindle_to_table_max_mm"] = 1000
+    machine["travel_mm"] = {"x": 400, "y": 200}
+    machine["envelope"]["spindle_to_table_max_mm"] = measured(180)
+    machine["envelope"]["travel_mm"]["x"] = measured(140)
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["spindle_to_table_max_mm"] == 180
+    assert finding.numbers["stacks"][0]["margin_mm"] == pytest.approx(-1.4)
+    assert finding.numbers["travel_checks"]["x"]["travel_mm"] == 140
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 150
+    assert finding.numbers["measurements"] == []
+
+
+def test_legacy_machine_fields_alone_cannot_certify_headroom():
+    data = bundle()
+    machine = data.inventory["machines"]["mill"]
+    del machine["envelope"]
+    machine["spindle_to_table_max_mm"] = 1000
+    machine["travel_mm"] = {"x": 400, "y": 200}
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["spindle_to_table_max_mm"] == "unknown"
+    assert finding.numbers["stacks"][0]["margin_mm"] == "unknown"
+    assert finding.numbers["travel_checks"]["x"]["travel_mm"] == "unknown"
+    assert [entry["id"] for entry in finding.numbers["measurements"]] == [
+        "machines.mill.envelope.spindle_to_table_max",
+        "machines.mill.envelope.travel.x",
+        "machines.mill.envelope.travel.y",
+    ]
 
 
 def test_unknown_projection_does_not_invent_stack():
@@ -142,7 +229,7 @@ def test_below_jaw_target_is_separate_unresolved_path_check():
 
 def test_part_and_fixture_envelope_must_fit_travel():
     data = bundle()
-    data.inventory["machines"]["mill"]["travel_mm"]["x"] = 140
+    data.inventory["machines"]["mill"]["envelope"]["travel_mm"]["x"] = measured(140)
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == 150
@@ -159,9 +246,9 @@ def test_block_orientation_unknown_does_not_guess_shortest_dimension():
 
 def test_inch_envelope_and_holder_dimensions_convert_once():
     data = bundle()
-    machine = data.inventory["machines"]["mill"]
-    del machine["spindle_to_table_max_mm"]
-    machine["spindle_to_table_max_in"] = 8
+    envelope = data.inventory["machines"]["mill"]["envelope"]
+    del envelope["spindle_to_table_max_mm"]
+    envelope["spindle_to_table_max_in"] = measured(8)
     data.inventory["holders"]["holder"] = {
         "kind": "collet",
         "gauge_len_in": 1,
@@ -175,7 +262,7 @@ def test_inch_envelope_and_holder_dimensions_convert_once():
 
 @pytest.mark.parametrize(
     "section",
-    ["stock", "hold", "stock_state", "machines", "fixtures", "travel_mm"],
+    ["stock", "hold", "stock_state", "machines", "fixtures", "envelope", "travel_mm"],
 )
 def test_structural_unknown_cannot_certify_physical_envelope(section):
     data = bundle()
@@ -183,8 +270,10 @@ def test_structural_unknown_cannot_certify_physical_envelope(section):
         data.plan["stock"] = "unknown"
     elif section in {"hold", "stock_state"}:
         data.plan["setups"][0][section] = "unknown"
+    elif section == "envelope":
+        data.inventory["machines"]["mill"]["envelope"] = "unknown"
     elif section == "travel_mm":
-        data.inventory["machines"]["mill"]["travel_mm"] = "unknown"
+        data.inventory["machines"]["mill"]["envelope"]["travel_mm"] = "unknown"
     else:
         data.inventory[section] = "unknown"
     finding = evaluate(data)[0]

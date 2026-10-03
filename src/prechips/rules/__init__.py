@@ -1,4 +1,4 @@
-"""The M1/M2 rule catalogue; unsupported policy requests stay unresolved."""
+"""Declared-input rule catalogue; unsupported policy requests stay unresolved."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from prechips.rules import (
     coordinates,
     datum_consistency,
     engagement,
+    envelope,
     headroom,
     hold_fields,
     indexing,
@@ -24,6 +25,7 @@ from prechips.rules import (
     stock_diameter,
     tip_endpoints,
     tool_resolves,
+    travel,
     turned_profile,
     turning_deflection,
     zero_recipe,
@@ -48,6 +50,8 @@ RULES: list[Rule] = [
     Rule("inspection", inspection.evaluate),
     Rule("hold_fields", hold_fields.evaluate),
     Rule("headroom", headroom.evaluate),
+    Rule("envelope", envelope.evaluate),
+    Rule("travel", travel.evaluate),
     Rule("datum_consistency", datum_consistency.evaluate),
     Rule("turned_profile", turned_profile.evaluate),
     Rule("stickout", stickout.evaluate),

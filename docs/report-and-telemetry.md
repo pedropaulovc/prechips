@@ -7,8 +7,14 @@
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
-The current catalogue is `rules_version = "m2-rev6"`; changing the operative
-rule catalogue changes the bound report and invalidates prior approvals.
+The current catalogue is `rules_version = "m5-rev7"` (the M5 review cutover:
+bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
+spindle-nose Z travel, unpadded hole centres, one `envelope` machine block,
+fact-local trust, no `holder_stack` rule); changing the operative rule
+catalogue changes the bound report and invalidates prior approvals.
+A finding's `numbers.measurements` lists the exact fact ids (set member or
+tool/holder pair included) whose measurement would resolve it; `tools --measure`
+is the sorted, deduplicated union of those lists over the current plans.
 
 Canonical bytes are UTF-8 JSON, sorted keys, two-space indentation,
 `ensure_ascii=False`, finite numbers only, and **one final LF**. `hash` is the

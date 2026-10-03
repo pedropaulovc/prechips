@@ -162,7 +162,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+            "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
@@ -1736,6 +1736,36 @@
       "rule": "engagement",
       "status": "not_applicable",
       "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"
+      ],
+      "message": "Spindle-nose-to-table clearance applies to a mill, not a lathe.",
+      "numbers": {},
+      "rule": "envelope",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"
+      ],
+      "message": "Spindle-nose-to-table clearance applies to a mill, not a lathe.",
+      "numbers": {},
+      "rule": "envelope",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"
+      ],
+      "message": "Spindle-nose-to-table clearance applies to a mill, not a lathe.",
+      "numbers": {},
+      "rule": "envelope",
+      "status": "not_applicable",
+      "subject": "S3"
     },
     {
       "cite": [
@@ -3839,6 +3869,42 @@
     },
     {
       "cite": [
+        "plan.setups.S1",
+        "inventory.machines.PM-1127VF-LB",
+        "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/"
+      ],
+      "message": "S1: mill XYZ travel does not apply to a lathe.",
+      "numbers": {},
+      "rule": "travel",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "plan.setups.S2",
+        "inventory.machines.PM-1127VF-LB",
+        "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/"
+      ],
+      "message": "S2: mill XYZ travel does not apply to a lathe.",
+      "numbers": {},
+      "rule": "travel",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "plan.setups.S3",
+        "inventory.machines.PM-1127VF-LB",
+        "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/"
+      ],
+      "message": "S3: mill XYZ travel does not apply to a lathe.",
+      "numbers": {},
+      "rule": "travel",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:25",
@@ -5243,7 +5309,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "bdbbcce0bf139c42e4dc8de2685a0eb2384f42a4d9d0f9362ea85e737bfeddcd",
+  "hash": "641e69c859ed90333afb6a7be171cbe2cee6292b098f2c18916f1a54eed64aa7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -5255,7 +5321,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+      "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
@@ -5267,7 +5333,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m2-rev6",
+  "rules_version": "m5-rev7",
   "step_sha256": "unknown",
   "verification": "planned"
 }
