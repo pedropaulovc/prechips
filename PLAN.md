@@ -96,7 +96,14 @@ Rules for the sheet:
   recipe, coordinates, ops, speeds/feeds, inspections. Nothing else.
 - **Speeds and feeds appear on the sheet**, computed from a cited SFM/chip-load
   table for the material/tool pair and clamped to the machine's range, labelled
-  as starting points. The citation is one line per setup, not per cell.
+  as starting points. Source order: the tool vendor's chart when the
+  inventory entry names one (`chart = "<url or doc>"`), otherwise Machinery's
+  Handbook 31. The citation is one line per setup, not per cell.
+- **Units: coordinates in the drawing's unit, tool sizes as bought.** The
+  harmonic-analyzer drawings are mm; the DRO and the tooling are inch. Both
+  appear only where they meet, on the sizing line ("0.2510 in (6.375 mm)").
+- **Feature names, not balloon numbers.** The sheet says `pivot bore`, never
+  "bore ③": balloon numbers are not stable across drawing revisions.
 - **The DRO block is a recipe, not a file.** It says which edge, which
   finder, which direction, what to type. It is written for the EL400's actual
   functions (ABS/INC, radius/diameter, preset, bolt-circle/linear patterns);
@@ -461,17 +468,20 @@ and a logbook entry is the attestation), the 14-rule policy vocabulary.
 5. **M5 — measured inventory**: spindle stack, travel limits, holder lengths;
    envelope checks leave `?`.
 
-## 9. Open questions for review
+## 9. Decisions from review (2026-10-03)
 
-- Is the §2 sketch the right density, or should ops and coordinates merge into
-  one table?
-- Inch or mm on the sheet for harmonic-analyzer parts? The drawings are mm;
-  the DRO and the tooling are inch. Proposal: coordinates in the drawing's
-  unit, tool sizes as bought, both shown where they meet (the sizing line).
-- Should `features.toml` carry the drawing's balloon numbers so the sheet can
-  say "bore ③" instead of `pivot_bore`?
-- Which speeds/feeds source to cite first: Machinery's Handbook 31, or the
-  tool vendor's chart (LMS publishes none; Harvey/Lakeshore do)?
-- Drawing-side permission for built-up construction where §4.5 shows it
-  cheaper (a permission note is a requirement, so it passes the
-  drawing-simplicity rule 6).
+- §2 density: as sketched; ops and coordinates stay separate tables.
+- Units: drawing unit for coordinates, as-bought for tools, both on the
+  sizing line (§2 rules).
+- No balloon numbers in `features.toml` or on the sheet (§2 rules).
+- Speeds/feeds: vendor chart first, Machinery's Handbook 31 otherwise (§2
+  rules).
+- **Built-up construction needs drawing-side permission.** Where §4.5 shows a
+  built-up candidate (brazed boss, pressed pin, bolted block) cheaper than
+  hogging, the plan may use it only if the drawing carries a permission note
+  ("MAY BE BUILT UP FROM N PIECES, BRAZED"); a permission note is a
+  requirement, so it passes the drawing-simplicity rule 6. `prechips compare`
+  prints the candidate either way and marks it `✗ drawing permits one-piece
+  only` until the note exists; the note is a `features.toml` field
+  (`construction = "one_piece" | "built_up_permitted"`) the consumer
+  generator fills from the drawing notes.
