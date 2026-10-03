@@ -1,4 +1,4 @@
-"""The M1/M2 rule catalogue; unsupported policy requests stay unresolved."""
+"""Declared-input rule catalogue; unsupported policy requests stay unresolved."""
 
 from __future__ import annotations
 
