@@ -182,13 +182,102 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:53",
+        "examples/pivot-shaft/plan.toml:55",
         "examples/pivot-shaft/features.toml:90"
       ],
-      "message": "S1 stations are exact from the drawing, but whether the lathe readout shows X as diameter and the tool nose radius are unknown.",
+      "message": "S1 drawing stations use the authored diametric X display; the tool nose radius and actual readout installation remain unknown, so these are nominal surface targets, not a cleared toolpath.",
       "numbers": {
         "binding": "nominal",
         "frame": "T1",
+        "operations": [
+          {
+            "direction": "radially_inward",
+            "feature": "shoulder",
+            "op": 10,
+            "to_z": 0.0,
+            "tool": "turning-tools-warner-lms-4132/AR"
+          },
+          {
+            "direction": "toward_shoulder",
+            "feature": "north_journal",
+            "op": 20,
+            "rough_allowance_mm": 0.2,
+            "target_diameter_mm": 6.55,
+            "target_radius_mm": 3.275,
+            "tool": "turning-tools-warner-lms-4132/AR",
+            "x_axis_set": 6.55,
+            "z_from": 0.0,
+            "z_to": 7.5
+          },
+          {
+            "direction": "toward_shoulder",
+            "feature": "north_journal",
+            "op": 30,
+            "target_diameter_mm": 6.35,
+            "target_radius_mm": 3.175,
+            "tool": "turning-tools-warner-lms-4132/AR",
+            "x_axis_set": 6.35,
+            "z_from": 0.0,
+            "z_to": 7.5
+          },
+          {
+            "direction": "toward_chuck",
+            "feature": "body",
+            "op": 40,
+            "rough_allowance_mm": 0.2,
+            "target_diameter_mm": 6.55,
+            "target_radius_mm": 3.275,
+            "tool": "turning-tools-warner-lms-4132/AR",
+            "x_axis_set": 6.55,
+            "z_from": -1.5,
+            "z_to": -167.5
+          },
+          {
+            "direction": "toward_chuck",
+            "feature": "body",
+            "op": 50,
+            "target_diameter_mm": 6.35,
+            "target_radius_mm": 3.175,
+            "tool": "turning-tools-warner-lms-4132/AR",
+            "x_axis_set": 6.35,
+            "z_from": -1.5,
+            "z_to": -167.5
+          },
+          {
+            "direction": "radially_inward",
+            "feature": "shoulder_thrust",
+            "op": 60,
+            "to_z": -1.5,
+            "tool": "turning-tools-warner-lms-4132/AR"
+          },
+          {
+            "direction": "toward_chuck",
+            "feature": "shoulder",
+            "op": 70,
+            "target_diameter_mm": 10.0,
+            "target_radius_mm": 5.0,
+            "tool": "turning-tools-warner-lms-4132/AR",
+            "x_axis_set": 10.0,
+            "z_from": -1.5,
+            "z_to": 0.0
+          },
+          {
+            "direction": "profile_toward_shoulder",
+            "feature": "north_relief",
+            "op": 80,
+            "tool": "turning-tools-warner-lms-4132/E",
+            "z_from": 0.0,
+            "z_to": 2.0
+          },
+          {
+            "direction": "profile_toward_shoulder",
+            "feature": "south_relief",
+            "op": 90,
+            "tool": "turning-tools-warner-lms-4132/E",
+            "z_from": -1.5,
+            "z_to": -3.5
+          }
+        ],
         "rows": [
           {
             "dia_nominal": 10.0,
@@ -204,7 +293,8 @@
               0.0,
               0.0,
               0.0
-            ]
+            ],
+            "x_target_mm": 10.0
           },
           {
             "dia_nominal": 10.0,
@@ -220,7 +310,8 @@
               0.0,
               0.0,
               -1.5
-            ]
+            ],
+            "x_target_mm": 10.0
           },
           {
             "dia_nominal": 6.35,
@@ -236,7 +327,8 @@
               0.0,
               0.0,
               0.0
-            ]
+            ],
+            "x_target_mm": 6.35
           },
           {
             "dia_nominal": 6.35,
@@ -252,7 +344,8 @@
               0.0,
               0.0,
               6.0
-            ]
+            ],
+            "x_target_mm": 6.35
           },
           {
             "dia_nominal": 6.35,
@@ -268,7 +361,8 @@
               0.0,
               0.0,
               7.5
-            ]
+            ],
+            "x_target_mm": 6.35
           },
           {
             "dia_nominal": 5.7,
@@ -284,7 +378,8 @@
               0.0,
               0.0,
               0.0
-            ]
+            ],
+            "x_target_mm": 5.7
           },
           {
             "dia_nominal": 5.7,
@@ -300,7 +395,8 @@
               0.0,
               0.0,
               2.0
-            ]
+            ],
+            "x_target_mm": 5.7
           },
           {
             "dia_nominal": 10.0,
@@ -316,7 +412,8 @@
               0.0,
               0.0,
               -1.5
-            ]
+            ],
+            "x_target_mm": 10.0
           },
           {
             "dia_nominal": 5.7,
@@ -332,7 +429,8 @@
               0.0,
               0.0,
               -1.5
-            ]
+            ],
+            "x_target_mm": 5.7
           },
           {
             "dia_nominal": 5.7,
@@ -348,7 +446,8 @@
               0.0,
               0.0,
               -3.5
-            ]
+            ],
+            "x_target_mm": 5.7
           },
           {
             "dia_nominal": 6.35,
@@ -364,11 +463,30 @@
               0.0,
               0.0,
               -1.5
-            ]
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "binding": "authored_route_station",
+            "dia_nominal": 6.35,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              -173.5
+            ],
+            "point": "authored pre-fit supply station",
+            "precision": 2,
+            "setup": [
+              0.0,
+              0.0,
+              -167.5
+            ],
+            "x_target_mm": 6.35
           }
         ],
         "tool_nose_radius_mm": "unknown",
-        "x_display": "unknown"
+        "x_display": "diameter"
       },
       "rule": "coordinates",
       "status": "unknown",
@@ -377,13 +495,141 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:221",
+        "examples/pivot-shaft/plan.toml:233",
         "examples/pivot-shaft/features.toml:104"
       ],
-      "message": "S2 stations are exact from the drawing, but whether the lathe readout shows X as diameter and the tool nose radius are unknown.",
+      "message": "S2 drawing stations use the authored diametric X display; the tool nose radius and actual readout installation remain unknown, so these are nominal surface targets, not a cleared toolpath.",
       "numbers": {
         "binding": "nominal",
+        "contours": [
+          {
+            "apex_z_mm": 0.0,
+            "base_z_mm": -1.5,
+            "feature": "north_dome",
+            "method": "axial_table",
+            "op": 20,
+            "rows": [
+              {
+                "diameter_mm": 0.0,
+                "radius_mm": 0.0,
+                "x_target_mm": 0.0,
+                "z_mm": 0.0
+              },
+              {
+                "diameter_mm": 1.802267090823851,
+                "radius_mm": 0.9011335454119255,
+                "x_target_mm": 1.802267090823851,
+                "z_mm": -0.1
+              },
+              {
+                "diameter_mm": 2.5330482295711096,
+                "radius_mm": 1.2665241147855548,
+                "x_target_mm": 2.5330482295711096,
+                "z_mm": -0.2
+              },
+              {
+                "diameter_mm": 3.082936911453104,
+                "radius_mm": 1.541468455726552,
+                "x_target_mm": 3.082936911453104,
+                "z_mm": -0.30000000000000004
+              },
+              {
+                "diameter_mm": 3.5373247895361075,
+                "radius_mm": 1.7686623947680538,
+                "x_target_mm": 3.5373247895361075,
+                "z_mm": -0.4
+              },
+              {
+                "diameter_mm": 3.9294825783216463,
+                "radius_mm": 1.9647412891608231,
+                "x_target_mm": 3.9294825783216463,
+                "z_mm": -0.5
+              },
+              {
+                "diameter_mm": 4.276564041377143,
+                "radius_mm": 2.1382820206885715,
+                "x_target_mm": 4.276564041377143,
+                "z_mm": -0.6000000000000001
+              },
+              {
+                "diameter_mm": 4.5888088505261,
+                "radius_mm": 2.29440442526305,
+                "x_target_mm": 4.5888088505261,
+                "z_mm": -0.7000000000000001
+              },
+              {
+                "diameter_mm": 4.872918358985028,
+                "radius_mm": 2.436459179492514,
+                "x_target_mm": 4.872918358985028,
+                "z_mm": -0.8
+              },
+              {
+                "diameter_mm": 5.133566012042701,
+                "radius_mm": 2.5667830060213506,
+                "x_target_mm": 5.133566012042701,
+                "z_mm": -0.9
+              },
+              {
+                "diameter_mm": 5.374166602057167,
+                "radius_mm": 2.6870833010285833,
+                "x_target_mm": 5.374166602057167,
+                "z_mm": -1.0
+              },
+              {
+                "diameter_mm": 5.597305899567518,
+                "radius_mm": 2.798652949783759,
+                "x_target_mm": 5.597305899567518,
+                "z_mm": -1.1
+              },
+              {
+                "diameter_mm": 5.804997846683494,
+                "radius_mm": 2.902498923341747,
+                "x_target_mm": 5.804997846683494,
+                "z_mm": -1.2000000000000002
+              },
+              {
+                "diameter_mm": 5.998847111459557,
+                "radius_mm": 2.9994235557297784,
+                "x_target_mm": 5.998847111459557,
+                "z_mm": -1.3
+              },
+              {
+                "diameter_mm": 6.180156416575016,
+                "radius_mm": 3.090078208287508,
+                "x_target_mm": 6.180156416575016,
+                "z_mm": -1.4000000000000001
+              },
+              {
+                "diameter_mm": 6.3500000000000005,
+                "radius_mm": 3.1750000000000003,
+                "x_target_mm": 6.3500000000000005,
+                "z_mm": -1.5
+              }
+            ],
+            "sphere_centre_z_mm": -4.1102083333333335,
+            "sphere_radius_mm": 4.1102083333333335,
+            "step_mm": 0.1,
+            "tool_nose_compensation_mm": "unknown"
+          }
+        ],
         "frame": "T2",
+        "operations": [
+          {
+            "direction": "radially_inward",
+            "feature": "north_dome",
+            "op": 10,
+            "to_z": 0.0,
+            "tool": "turning-tools-warner-lms-4132/AR"
+          },
+          {
+            "direction": "apex_to_base",
+            "feature": "north_dome",
+            "op": 20,
+            "tool": "turning-tools-warner-lms-4132/E",
+            "z_from": 0.0,
+            "z_to": -1.5
+          }
+        ],
         "rows": [
           {
             "dia_nominal": 10.0,
@@ -399,7 +645,8 @@
               0.0,
               0.0,
               -7.5
-            ]
+            ],
+            "x_target_mm": 10.0
           },
           {
             "dia_nominal": 6.35,
@@ -415,7 +662,8 @@
               0.0,
               0.0,
               -1.5
-            ]
+            ],
+            "x_target_mm": 6.35
           },
           {
             "dia_nominal": 0.0,
@@ -431,7 +679,8 @@
               0.0,
               0.0,
               0.0
-            ]
+            ],
+            "x_target_mm": 0.0
           },
           {
             "dia_nominal": 6.35,
@@ -447,7 +696,8 @@
               0.0,
               0.0,
               -1.5
-            ]
+            ],
+            "x_target_mm": 6.35
           },
           {
             "dia_nominal": 0.0,
@@ -463,11 +713,12 @@
               0.0,
               0.0,
               -4.1102083333333335
-            ]
+            ],
+            "x_target_mm": 0.0
           }
         ],
         "tool_nose_radius_mm": "unknown",
-        "x_display": "unknown"
+        "x_display": "diameter"
       },
       "rule": "coordinates",
       "status": "unknown",
@@ -476,13 +727,148 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:315",
+        "examples/pivot-shaft/plan.toml:343",
         "examples/pivot-shaft/features.toml:120"
       ],
-      "message": "S3 coordinates are measured from the scribe; where the scribe falls on the model is the installed-ear span, which is not measured yet.",
+      "message": "S3 locally faces at scribe +1.75 and ends the 1.5-high dome at scribe +0.25, authored within the sourced bands; actual model positions remain unknown until fit-up span is measured, and tool nose compensation is unknown.",
       "numbers": {
         "binding": "unknown",
+        "chosen_cut_past_scribe": 1.75,
+        "chosen_end_past_scribe": 0.25,
+        "contours": [
+          {
+            "apex_z_mm": 1.75,
+            "base_z_mm": 0.25,
+            "feature": "south_dome",
+            "method": "axial_table",
+            "op": 20,
+            "rows": [
+              {
+                "diameter_mm": 0.0,
+                "radius_mm": 0.0,
+                "x_target_mm": 0.0,
+                "z_mm": 1.75
+              },
+              {
+                "diameter_mm": 1.802267090823851,
+                "radius_mm": 0.9011335454119255,
+                "x_target_mm": 1.802267090823851,
+                "z_mm": 1.65
+              },
+              {
+                "diameter_mm": 2.5330482295711096,
+                "radius_mm": 1.2665241147855548,
+                "x_target_mm": 2.5330482295711096,
+                "z_mm": 1.55
+              },
+              {
+                "diameter_mm": 3.082936911453104,
+                "radius_mm": 1.541468455726552,
+                "x_target_mm": 3.082936911453104,
+                "z_mm": 1.45
+              },
+              {
+                "diameter_mm": 3.5373247895361075,
+                "radius_mm": 1.7686623947680538,
+                "x_target_mm": 3.5373247895361075,
+                "z_mm": 1.35
+              },
+              {
+                "diameter_mm": 3.9294825783216463,
+                "radius_mm": 1.9647412891608231,
+                "x_target_mm": 3.9294825783216463,
+                "z_mm": 1.25
+              },
+              {
+                "diameter_mm": 4.276564041377143,
+                "radius_mm": 2.1382820206885715,
+                "x_target_mm": 4.276564041377143,
+                "z_mm": 1.15
+              },
+              {
+                "diameter_mm": 4.5888088505261,
+                "radius_mm": 2.29440442526305,
+                "x_target_mm": 4.5888088505261,
+                "z_mm": 1.0499999999999998
+              },
+              {
+                "diameter_mm": 4.872918358985028,
+                "radius_mm": 2.436459179492514,
+                "x_target_mm": 4.872918358985028,
+                "z_mm": 0.95
+              },
+              {
+                "diameter_mm": 5.133566012042701,
+                "radius_mm": 2.5667830060213506,
+                "x_target_mm": 5.133566012042701,
+                "z_mm": 0.85
+              },
+              {
+                "diameter_mm": 5.374166602057167,
+                "radius_mm": 2.6870833010285833,
+                "x_target_mm": 5.374166602057167,
+                "z_mm": 0.75
+              },
+              {
+                "diameter_mm": 5.597305899567518,
+                "radius_mm": 2.798652949783759,
+                "x_target_mm": 5.597305899567518,
+                "z_mm": 0.6499999999999999
+              },
+              {
+                "diameter_mm": 5.804997846683494,
+                "radius_mm": 2.902498923341747,
+                "x_target_mm": 5.804997846683494,
+                "z_mm": 0.5499999999999998
+              },
+              {
+                "diameter_mm": 5.998847111459557,
+                "radius_mm": 2.9994235557297784,
+                "x_target_mm": 5.998847111459557,
+                "z_mm": 0.44999999999999996
+              },
+              {
+                "diameter_mm": 6.180156416575016,
+                "radius_mm": 3.090078208287508,
+                "x_target_mm": 6.180156416575016,
+                "z_mm": 0.34999999999999987
+              },
+              {
+                "diameter_mm": 6.3500000000000005,
+                "radius_mm": 3.1750000000000003,
+                "x_target_mm": 6.3500000000000005,
+                "z_mm": 0.25
+              }
+            ],
+            "sphere_centre_z_mm": -2.3602083333333335,
+            "sphere_radius_mm": 4.1102083333333335,
+            "step_mm": 0.1,
+            "tool_nose_compensation_mm": "unknown"
+          }
+        ],
+        "fitted_model_length_mm": "unknown",
         "frame": "T3",
+        "operations": [
+          {
+            "direction": "radially_inward",
+            "feature": "plain_end",
+            "op": 10,
+            "to_z": 1.75,
+            "to_z_band": [
+              1.5,
+              2.0
+            ],
+            "tool": "turning-tools-warner-lms-4132/AR"
+          },
+          {
+            "direction": "apex_to_base",
+            "feature": "south_dome",
+            "op": 20,
+            "tool": "turning-tools-warner-lms-4132/E",
+            "z_from": 1.75,
+            "z_to": 0.25
+          }
+        ],
         "rows": [
           {
             "binding": "unknown",
@@ -499,12 +885,18 @@
               0.0,
               0.0,
               0.0
-            ]
+            ],
+            "x_target_mm": 6.35
           },
           {
             "binding": "unknown",
             "dia_nominal": 6.35,
             "feature": "plain_end",
+            "local_from": {
+              "axis": "z",
+              "field": "to_z",
+              "op": 10
+            },
             "model": [
               0.0,
               0.0,
@@ -519,17 +911,23 @@
             "setup": [
               0.0,
               0.0,
-              "unknown"
+              1.75
             ],
             "setup_band": [
               1.5,
               2.0
-            ]
+            ],
+            "x_target_mm": 6.35
           },
           {
             "binding": "unknown",
             "dia_nominal": 6.35,
             "feature": "south_dome",
+            "local_from": {
+              "axis": "z",
+              "field": "z_to",
+              "op": 20
+            },
             "model": [
               0.0,
               0.0,
@@ -544,16 +942,17 @@
             "setup": [
               0.0,
               0.0,
-              "unknown"
+              0.25
             ],
             "setup_band": [
               0.0,
               0.5
-            ]
+            ],
+            "x_target_mm": 6.35
           }
         ],
         "tool_nose_radius_mm": "unknown",
-        "x_display": "unknown"
+        "x_display": "diameter"
       },
       "rule": "coordinates",
       "status": "unknown",
@@ -729,7 +1128,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:53",
+        "examples/pivot-shaft/plan.toml:55",
         "examples/inventory/pedro-shop.toml:51"
       ],
       "message": "S1 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
@@ -737,8 +1136,8 @@
         "between_centres_in": 27.55,
         "machine_kind": "lathe",
         "machine_verify": true,
-        "stickout_mm": "unknown",
-        "stock_length_mm": "unknown",
+        "stickout_mm": 191.0,
+        "stock_length_mm": 215.0,
         "swing_over_bed_in": 11
       },
       "rule": "headroom",
@@ -748,7 +1147,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:221",
+        "examples/pivot-shaft/plan.toml:233",
         "examples/inventory/pedro-shop.toml:51"
       ],
       "message": "S2 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
@@ -756,8 +1155,8 @@
         "between_centres_in": 27.55,
         "machine_kind": "lathe",
         "machine_verify": true,
-        "stickout_mm": "unknown",
-        "stock_length_mm": "unknown",
+        "stickout_mm": 27.0,
+        "stock_length_mm": 215.0,
         "swing_over_bed_in": 11
       },
       "rule": "headroom",
@@ -767,7 +1166,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:315",
+        "examples/pivot-shaft/plan.toml:343",
         "examples/inventory/pedro-shop.toml:51"
       ],
       "message": "S3 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
@@ -776,7 +1175,7 @@
         "machine_kind": "lathe",
         "machine_verify": true,
         "stickout_mm": "unknown",
-        "stock_length_mm": "unknown",
+        "stock_length_mm": 200.0,
         "swing_over_bed_in": 11
       },
       "rule": "headroom",
@@ -786,96 +1185,129 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:53",
+        "examples/pivot-shaft/plan.toml:55",
         "harmonic-analyzer/cad/config/title_block.yaml:45"
       ],
-      "message": "S1 does not say the grip length, the stop, how tight to clamp, the coolant or the feed direction of each cut, nor how the dead centre is lubricated.",
+      "message": "S1 declares grip, jaw-front stop, hand tightening, brushed CRC cutting oil and every cut direction as author choices; dead-centre lubrication is stated, but actual grip, seat engagement and safe clearance still require bench verification.",
       "numbers": {
-        "missing": [
-          "coolant",
-          "hold.grip_mm",
-          "hold.stop",
-          "hold.clamp",
-          "hold.centre_lubrication",
-          "stock_state.north_end_z",
-          "stock_state.south_end_z",
-          "ops.10.direction",
-          "ops.20.direction",
-          "ops.30.direction",
-          "ops.40.direction",
-          "ops.50.direction",
-          "ops.60.direction",
-          "ops.70.direction",
-          "ops.80.direction",
-          "ops.90.direction"
-        ],
+        "missing": [],
         "present": {
+          "centre_lubrication": "CRC cutting oil on dead-centre seat; replenish between cuts",
+          "clamp": "tighten chuck key by hand at all three pinions; remove key; check grip before cutting",
+          "coolant": "CRC cutting oil brushed on",
+          "cut_directions": {
+            "10": "radially_inward",
+            "20": "toward_shoulder",
+            "30": "toward_shoulder",
+            "40": "toward_chuck",
+            "50": "toward_chuck",
+            "60": "radially_inward",
+            "70": "toward_chuck",
+            "80": "profile_toward_shoulder",
+            "90": "profile_toward_shoulder"
+          },
           "deburr_mm": 0.25,
+          "fixed_jaw": "not_applicable",
           "fixture": "chuck-3jaw-6-d1-4",
+          "grip_mm": 24.0,
           "grip_on": "south grip allowance, past the supply station",
           "holder_per_cutting_op": true,
+          "jaw_above_parallels_mm": "not_applicable",
+          "jaws_along": "not_applicable",
+          "parallels": "not_applicable",
+          "stickout_mm": 191.0,
+          "stock_state": {
+            "local_thickness": {},
+            "north_end_z": 22.5,
+            "od_mm": 10.0,
+            "south_end_z": -192.5
+          },
+          "stop": "jaw fronts at T1 Z -168.5, 1 mm south of authored supply station",
           "support": "dead_centre_tailstock_mt3"
         }
       },
       "rule": "hold_fields",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1"
     },
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:221",
+        "examples/pivot-shaft/plan.toml:233",
         "harmonic-analyzer/cad/config/title_block.yaml:45"
       ],
-      "message": "S2 does not say the grip length, the stop, how tight to clamp, the coolant or the feed direction of each cut, nor how the jaws are kept off the finished Ø6.35 body.",
+      "message": "S2 declares grip, jaw-front stop, hand tightening, brushed CRC cutting oil and every cut direction as author choices; paper-sleeve jaw protection is a preparation choice, not an on-hand accessory or measured clamp result.",
       "numbers": {
-        "missing": [
-          "coolant",
-          "hold.grip_mm",
-          "hold.stop",
-          "hold.clamp",
-          "hold.jaw_protection",
-          "stock_state.north_end_z",
-          "stock_state.south_end_z",
-          "ops.10.direction",
-          "ops.20.direction"
-        ],
+        "missing": [],
         "present": {
+          "clamp": "tighten chuck key by hand at all three pinions; remove key; indicate after clamping",
+          "coolant": "CRC cutting oil brushed on",
+          "cut_directions": {
+            "10": "radially_inward",
+            "20": "apex_to_base"
+          },
           "deburr_mm": 0.25,
+          "fixed_jaw": "not_applicable",
           "fixture": "chuck-3jaw-6-d1-4",
+          "grip_mm": 25.0,
           "grip_on": "finished body near the shoulder, south of the south relief",
           "holder_per_cutting_op": true,
+          "jaw_above_parallels_mm": "not_applicable",
+          "jaw_protection": "prepare clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip",
+          "jaws_along": "not_applicable",
+          "parallels": "not_applicable",
+          "stickout_mm": 27.0,
+          "stock_state": {
+            "local_thickness": {},
+            "north_end_z": 15.0,
+            "od_mm": 6.35,
+            "south_end_z": -200.0
+          },
+          "stop": "jaw fronts at T2 Z -12, 4.5 mm south of shoulder north face",
           "support": "none"
         }
       },
       "rule": "hold_fields",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2"
     },
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:315",
+        "examples/pivot-shaft/plan.toml:343",
         "harmonic-analyzer/cad/config/title_block.yaml:45"
       ],
-      "message": "S3 does not say the grip length, the stop, how tight to clamp, the coolant or the feed direction of each cut, nor how the jaws are kept off the finished Ø6.35 body.",
+      "message": "S3 declares grip, jaw-front stop, hand tightening, brushed CRC cutting oil and every cut direction as author choices; paper-sleeve jaw protection is a preparation choice, not an on-hand accessory or measured clamp result. Incoming end stations remain unknown until the actual fit-up scribe is measured.",
       "numbers": {
         "missing": [
-          "coolant",
-          "hold.grip_mm",
-          "hold.stop",
-          "hold.clamp",
-          "hold.jaw_protection",
           "stock_state.plain_end_z",
-          "stock_state.north_end_z",
-          "ops.10.direction",
-          "ops.20.direction"
+          "stock_state.north_end_z"
         ],
         "present": {
+          "clamp": "tighten chuck key by hand at all three pinions; remove key; indicate after clamping",
+          "coolant": "CRC cutting oil brushed on",
+          "cut_directions": {
+            "10": "radially_inward",
+            "20": "apex_to_base"
+          },
           "deburr_mm": 0.25,
+          "fixed_jaw": "not_applicable",
           "fixture": "chuck-3jaw-6-d1-4",
+          "grip_mm": 25.0,
           "grip_on": "body near the plain end, north of the scribe",
           "holder_per_cutting_op": true,
+          "jaw_above_parallels_mm": "not_applicable",
+          "jaw_protection": "prepare clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip",
+          "jaws_along": "not_applicable",
+          "parallels": "not_applicable",
+          "stickout_mm": "unknown",
+          "stock_state": {
+            "local_thickness": {},
+            "north_end_z": "unknown",
+            "od_mm": 6.35,
+            "plain_end_z": "unknown"
+          },
+          "stop": "jaw fronts 10 mm north of actual fit-up scribe, T3 Z -10",
           "support": "none"
         }
       },
@@ -887,7 +1319,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:197",
-        "examples/pivot-shaft/plan.toml:149",
+        "examples/pivot-shaft/plan.toml:161",
         "examples/inventory/pedro-shop.toml:535"
       ],
       "message": "Body Ø6.350 (6.330 to 6.350) is checked with the 0-1 in micrometer in op 50, but that gauge is not confirmed in the inventory.",
@@ -915,7 +1347,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:197",
-        "examples/pivot-shaft/plan.toml:149"
+        "examples/pivot-shaft/plan.toml:161"
       ],
       "message": "Body finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
       "numbers": {
@@ -933,15 +1365,24 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:266",
-        "examples/pivot-shaft/plan.toml:286"
+        "examples/pivot-shaft/plan.toml:308",
+        "examples/inventory/pedro-shop.toml:528"
       ],
-      "message": "North dome height 1.5 (0.738 to 2.262) has no stated check: the dome's base is an edge, not a face, and no way to measure the height is stated.",
+      "message": "North dome height is checked axially with calipers against the visible dome-base rim; the authored method covers the specified band, but the listed calipers are not confirmed.",
       "numbers": {
         "band": [
           0.738,
           2.262
         ],
-        "check": "unknown",
+        "check": "calipers",
+        "gauge_range_mm": [
+          0.0,
+          152.39999999999998
+        ],
+        "gauge_resolution_mm": 0.0127,
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "method": "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim.",
         "op": "S2:20",
         "precision": 1,
         "requirement": "height"
@@ -954,7 +1395,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:133",
-        "examples/pivot-shaft/plan.toml:124",
+        "examples/pivot-shaft/plan.toml:136",
         "examples/inventory/pedro-shop.toml:535"
       ],
       "message": "North journal Ø6.350 (6.330 to 6.350) is checked with the 0-1 in micrometer in op 30, but that gauge is not confirmed in the inventory.",
@@ -982,7 +1423,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:133",
-        "examples/pivot-shaft/plan.toml:124"
+        "examples/pivot-shaft/plan.toml:136"
       ],
       "message": "North journal finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
       "numbers": {
@@ -1000,15 +1441,24 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:133",
-        "examples/pivot-shaft/plan.toml:301"
+        "examples/pivot-shaft/plan.toml:326",
+        "examples/inventory/pedro-shop.toml:528"
       ],
-      "message": "North journal length 6.0 (5.238 to 6.762) has no stated check: no way to measure from the dome's base edge to the shoulder face is stated.",
+      "message": "North journal length is checked axially with calipers against the visible dome-base rim; the authored method covers the specified band, but the listed calipers are not confirmed.",
       "numbers": {
         "band": [
           5.238,
           6.762
         ],
-        "check": "unknown",
+        "check": "calipers",
+        "gauge_range_mm": [
+          0.0,
+          152.39999999999998
+        ],
+        "gauge_resolution_mm": 0.0127,
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "method": "With spindle stopped, align outside caliper jaws axially at the dome base rim and shoulder north face; repeat around rim.",
         "op": "S2:30",
         "precision": 1,
         "requirement": "length"
@@ -1021,7 +1471,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:220",
-        "examples/pivot-shaft/plan.toml:190",
+        "examples/pivot-shaft/plan.toml:202",
         "examples/inventory/pedro-shop.toml:528"
       ],
       "message": "North relief Ø5.700 (5.573 to 5.827) is checked with the calipers in op 80, but the calipers' jaws are not confirmed to reach into the 2.0 wide groove.",
@@ -1049,7 +1499,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:220",
-        "examples/pivot-shaft/plan.toml:190",
+        "examples/pivot-shaft/plan.toml:202",
         "examples/inventory/pedro-shop.toml:528"
       ],
       "message": "North relief width 2.0 (1.238 to 2.762) is checked with the calipers in op 80, but the calipers are unconfirmed and their inside-jaw fit in the groove is unknown.",
@@ -1077,12 +1527,16 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:317",
-        "examples/pivot-shaft/plan.toml:370"
+        "examples/pivot-shaft/plan.toml:409",
+        "examples/inventory/pedro-shop.toml:528"
       ],
-      "message": "Plain end cut-to-fit length (scribe + 0 to 0.5; 156.7 REF) has no stated check: the installed-ear span is not measured yet and no way to measure from the scribe to the cut face is stated.",
+      "message": "Plain-end fit uses calipers to transfer scribe +1.75 to the face and checks cylinder end +0.25 after doming, then trials the installed ears; the actual span is unmeasured and the calipers are unconfirmed, so absolute fitted length remains unknown.",
       "numbers": {
+        "actual_installed_span_mm": "unknown",
         "band": "unknown",
-        "check": "unknown",
+        "check": "calipers",
+        "chosen_cut_past_scribe": 1.75,
+        "chosen_end_past_scribe": 0.25,
         "cut_past_scribe": [
           1.5,
           2.0
@@ -1091,7 +1545,15 @@
           0.0,
           0.5
         ],
+        "gauge_range_mm": [
+          0.0,
+          152.39999999999998
+        ],
+        "gauge_resolution_mm": 0.0127,
+        "gauge_spans_band": "unknown",
+        "gauge_verify": true,
         "length_reference": 156.67,
+        "method": "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears.",
         "op": "S3:10",
         "precision": 1,
         "requirement": "length"
@@ -1104,7 +1566,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:159",
-        "examples/pivot-shaft/plan.toml:175",
+        "examples/pivot-shaft/plan.toml:187",
         "examples/inventory/pedro-shop.toml:535"
       ],
       "message": "Shoulder Ø10.00 (9.492 to 10.508) is checked with the 0-1 in micrometer in op 70, but that gauge is not confirmed in the inventory.",
@@ -1132,7 +1594,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:159",
-        "examples/pivot-shaft/plan.toml:175",
+        "examples/pivot-shaft/plan.toml:187",
         "examples/inventory/pedro-shop.toml:528"
       ],
       "message": "Shoulder length 1.50 (0.992 to 2.008) is checked with the calipers in op 70, but that gauge is not confirmed in the inventory.",
@@ -1160,7 +1622,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:180",
-        "examples/pivot-shaft/plan.toml:163"
+        "examples/pivot-shaft/plan.toml:175"
       ],
       "message": "Shoulder thrust face finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
       "numbers": {
@@ -1178,15 +1640,24 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:289",
-        "examples/pivot-shaft/plan.toml:384"
+        "examples/pivot-shaft/plan.toml:426",
+        "examples/inventory/pedro-shop.toml:528"
       ],
-      "message": "South dome height 1.5 (0.738 to 2.262) has no stated check: the dome's base is an edge, not a face, and no way to measure the height is stated.",
+      "message": "South dome height is checked axially with calipers against the visible dome-base rim; the authored method covers the specified band, but the listed calipers are not confirmed.",
       "numbers": {
         "band": [
           0.738,
           2.262
         ],
-        "check": "unknown",
+        "check": "calipers",
+        "gauge_range_mm": [
+          0.0,
+          152.39999999999998
+        ],
+        "gauge_resolution_mm": 0.0127,
+        "gauge_spans_band": true,
+        "gauge_verify": true,
+        "method": "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim and trial fit the assembly.",
         "op": "S3:20",
         "precision": 1,
         "requirement": "height"
@@ -1199,7 +1670,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:243",
-        "examples/pivot-shaft/plan.toml:205",
+        "examples/pivot-shaft/plan.toml:217",
         "examples/inventory/pedro-shop.toml:528"
       ],
       "message": "South relief Ø5.700 (5.573 to 5.827) is checked with the calipers in op 90, but the calipers' jaws are not confirmed to reach into the 2.0 wide groove.",
@@ -1227,7 +1698,7 @@
       "cite": [
         "PLAN.md §4.1",
         "examples/pivot-shaft/features.toml:243",
-        "examples/pivot-shaft/plan.toml:205",
+        "examples/pivot-shaft/plan.toml:217",
         "examples/inventory/pedro-shop.toml:528"
       ],
       "message": "South relief width 2.0 (1.238 to 2.762) is checked with the calipers in op 90, but the calipers are unconfirmed and their inside-jaw fit in the groove is unknown.",
@@ -1421,7 +1892,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:53"
+        "examples/pivot-shaft/plan.toml:55"
       ],
       "message": "S1 runs rough before finish on every feature and has nothing out of order.",
       "numbers": {
@@ -1482,7 +1953,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:221"
+        "examples/pivot-shaft/plan.toml:233"
       ],
       "message": "S2 runs rough before finish on every feature and has nothing out of order.",
       "numbers": {
@@ -1513,7 +1984,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:315"
+        "examples/pivot-shaft/plan.toml:343"
       ],
       "message": "S3 runs rough before finish on every feature and has nothing out of order.",
       "numbers": {
@@ -1725,7 +2196,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:103",
+        "examples/pivot-shaft/plan.toml:115",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1752,7 +2223,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:113",
+        "examples/pivot-shaft/plan.toml:125",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1760,7 +2231,7 @@
       "message": "Op 20: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
-        "diameter_in": 0.25,
+        "diameter_in": 0.2578740157480315,
         "feed_mm_min": "unknown",
         "flutes": "not_applicable",
         "material_class": "low_carbon_steel",
@@ -1779,7 +2250,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:124",
+        "examples/pivot-shaft/plan.toml:136",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1806,7 +2277,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:138",
+        "examples/pivot-shaft/plan.toml:150",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1814,7 +2285,7 @@
       "message": "Op 40: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
-        "diameter_in": 0.25,
+        "diameter_in": 0.2578740157480315,
         "feed_mm_min": "unknown",
         "flutes": "not_applicable",
         "material_class": "low_carbon_steel",
@@ -1833,7 +2304,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:149",
+        "examples/pivot-shaft/plan.toml:161",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1860,7 +2331,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:163",
+        "examples/pivot-shaft/plan.toml:175",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1887,7 +2358,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:175",
+        "examples/pivot-shaft/plan.toml:187",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1914,7 +2385,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:190",
+        "examples/pivot-shaft/plan.toml:202",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1941,7 +2412,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:205",
+        "examples/pivot-shaft/plan.toml:217",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1968,7 +2439,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:276",
+        "examples/pivot-shaft/plan.toml:298",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -1995,7 +2466,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:286",
+        "examples/pivot-shaft/plan.toml:308",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -2022,7 +2493,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:301"
+        "examples/pivot-shaft/plan.toml:326"
       ],
       "message": "Op 30 is a manual inspect with no cut.",
       "numbers": {
@@ -2037,7 +2508,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:370",
+        "examples/pivot-shaft/plan.toml:409",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -2064,7 +2535,7 @@
     {
       "cite": [
         "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:384",
+        "examples/pivot-shaft/plan.toml:426",
         "examples/cutting-data.toml:6",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:64"
@@ -2114,7 +2585,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:103",
+        "examples/pivot-shaft/plan.toml:115",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2141,7 +2612,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:113",
+        "examples/pivot-shaft/plan.toml:125",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2168,7 +2639,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:124",
+        "examples/pivot-shaft/plan.toml:136",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2195,7 +2666,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:138",
+        "examples/pivot-shaft/plan.toml:150",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2222,7 +2693,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:149",
+        "examples/pivot-shaft/plan.toml:161",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2249,7 +2720,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:163",
+        "examples/pivot-shaft/plan.toml:175",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2276,7 +2747,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:175",
+        "examples/pivot-shaft/plan.toml:187",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2303,7 +2774,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:190",
+        "examples/pivot-shaft/plan.toml:202",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2330,7 +2801,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:205",
+        "examples/pivot-shaft/plan.toml:217",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2357,7 +2828,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:276",
+        "examples/pivot-shaft/plan.toml:298",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2384,7 +2855,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:286",
+        "examples/pivot-shaft/plan.toml:308",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2411,7 +2882,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:370",
+        "examples/pivot-shaft/plan.toml:409",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2438,7 +2909,7 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:384",
+        "examples/pivot-shaft/plan.toml:426",
         "examples/inventory/pedro-shop.toml:593",
         "examples/inventory/pedro-shop.toml:310",
         "examples/inventory/pedro-shop.toml:83"
@@ -2481,7 +2952,11 @@
           "S1:80.checks.dia",
           "S1:80.checks.width",
           "S1:90.checks.dia",
-          "S1:90.checks.width"
+          "S1:90.checks.width",
+          "S2:20.checks.height",
+          "S2:30.checks.length",
+          "S3:10.checks.length",
+          "S3:20.checks.height"
         ],
         "verify": true
       },
@@ -2579,11 +3054,14 @@
         "reference": "micrometers/0-1in",
         "resolution_in": 0.0001,
         "used_by": [
-          "S1:zero.x.gauge",
           "S1:30.checks.dia",
           "S1:50.checks.dia",
           "S1:70.checks.dia",
+          "S1:zero.tool_touches[0].gauge",
+          "S1:zero.x.gauge",
+          "S2:zero.tool_touches[0].gauge",
           "S2:zero.x.gauge",
+          "S3:zero.tool_touches[0].gauge",
           "S3:zero.x.gauge"
         ],
         "verify": true
@@ -2648,8 +3126,6 @@
         "shank_in": "unknown",
         "style": "AR",
         "used_by": [
-          "S1:zero.x.tool",
-          "S1:zero.z.tool",
           "S1:10.tool",
           "S1:20.tool",
           "S1:30.tool",
@@ -2657,12 +3133,14 @@
           "S1:50.tool",
           "S1:60.tool",
           "S1:70.tool",
+          "S1:zero.x.tool",
+          "S1:zero.z.tool",
+          "S2:10.tool",
           "S2:zero.x.tool",
           "S2:zero.z.tool",
-          "S2:10.tool",
+          "S3:10.tool",
           "S3:zero.x.tool",
-          "S3:zero.z.tool",
-          "S3:10.tool"
+          "S3:zero.z.tool"
         ],
         "verify": true
       },
@@ -2689,8 +3167,11 @@
         "used_by": [
           "S1:80.tool",
           "S1:90.tool",
+          "S1:zero.tool_touches[0].tool",
           "S2:20.tool",
-          "S3:20.tool"
+          "S2:zero.tool_touches[0].tool",
+          "S3:20.tool",
+          "S3:zero.tool_touches[0].tool"
         ],
         "verify": true
       },
@@ -2701,52 +3182,69 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:53",
-        "examples/pivot-shaft/plan.toml:40",
+        "examples/pivot-shaft/plan.toml:55",
+        "examples/pivot-shaft/plan.toml:42",
         "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
         "examples/inventory/pedro-shop.toml:51"
       ],
-      "message": "S1: no DRO is listed for the lathe, so its Direction and Radial/Diametric settings and the check-jog reading are unknown; the E tool used in S1 has no touch-off of its own.",
+      "message": "S1 requires ABS, diametric X, X+ away from the axis and Z+ toward the exposed end, with 10 mm physical jogs; Z checks are computable and every tool has an authored touch-off, but no lathe DRO installation or measured trial-cut diameter is supplied.",
       "numbers": {
         "axes": {
           "x": {
             "axis_set": "unknown",
+            "check_expression": "D + 20.0",
             "check_reading": "unknown",
             "edge_mm": 0.0,
-            "jog_mm": "unknown",
+            "jog_mm": 10.0,
             "method": "trial_cut_measure",
+            "mirrored_expression": "D - 20.0",
             "mirrored_reading": "unknown",
-            "note": "Axis Set is the measured trial-cut diameter (or radius), read at the bench",
+            "note": "Axis Set the actual measured trial-cut diameter D, never the nominal target; with authored diametric mode, a physical +10 mm radial jog reads D+20, mirrored D-20.",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
-            "sign": "unknown"
+            "sign": 1
           },
           "z": {
             "axis_set": 0.0,
-            "check_reading": "unknown",
+            "check_reading": 10.0,
             "edge_mm": 0.0,
-            "jog_mm": "unknown",
+            "jog_mm": 10.0,
             "method": "face_then_set",
-            "mirrored_reading": "unknown",
+            "mirrored_reading": -10.0,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
-            "sign": "unknown"
+            "sign": 1
           }
         },
         "direction": {
-          "x": "unknown",
-          "z": "unknown"
+          "x": "away_from_spindle_axis",
+          "z": "toward_exposed_end"
         },
         "dro_controller": "unknown",
-        "radius_mode": "unknown",
+        "radius_mode": false,
         "retouch": [],
+        "tool_touches": [
+          {
+            "before_ops": [
+              80,
+              90
+            ],
+            "edge_mm": 0.0,
+            "gauge": "micrometers/0-1in",
+            "method": "touch; withdraw along X without moving Z; Axis Set Z",
+            "paper_mm": 0.0,
+            "tool": "turning-tools-warner-lms-4132/E",
+            "x_axis_set": "unknown",
+            "x_method": "touch the cylinder just measured by micrometer; Axis Set its measured diameter",
+            "z_axis_set": 0.0,
+            "z_face": "shoulder_north"
+          }
+        ],
         "tools_used": [
           "turning-tools-warner-lms-4132/AR",
           "turning-tools-warner-lms-4132/E"
         ],
-        "tools_without_touch": [
-          "turning-tools-warner-lms-4132/E"
-        ]
+        "tools_without_touch": []
       },
       "rule": "zero_check",
       "status": "unknown",
@@ -2755,52 +3253,68 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:221",
-        "examples/pivot-shaft/plan.toml:40",
+        "examples/pivot-shaft/plan.toml:233",
+        "examples/pivot-shaft/plan.toml:42",
         "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
         "examples/inventory/pedro-shop.toml:51"
       ],
-      "message": "S2: no DRO is listed for the lathe, so its Direction and Radial/Diametric settings and the check-jog reading are unknown; the E tool used in S2 has no touch-off of its own.",
+      "message": "S2 requires ABS, diametric X, X+ away from the axis and Z+ toward the exposed end, with 10 mm physical jogs; Z checks are computable and every tool has an authored touch-off, but no lathe DRO installation or measured trial-cut diameter is supplied.",
       "numbers": {
         "axes": {
           "x": {
             "axis_set": "unknown",
+            "check_expression": "D + 20.0",
             "check_reading": "unknown",
             "edge_mm": 0.0,
-            "jog_mm": "unknown",
+            "jog_mm": 10.0,
             "method": "trial_cut_measure",
+            "mirrored_expression": "D - 20.0",
             "mirrored_reading": "unknown",
-            "note": "Axis Set is the measured trial-cut diameter (or radius), read at the bench",
+            "note": "Axis Set the actual measured trial-cut diameter D, never the nominal target; with authored diametric mode, a physical +10 mm radial jog reads D+20, mirrored D-20.",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
-            "sign": "unknown"
+            "sign": 1
           },
           "z": {
             "axis_set": -7.5,
-            "check_reading": "unknown",
+            "check_reading": 2.5,
             "edge_mm": -7.5,
-            "jog_mm": "unknown",
+            "jog_mm": 10.0,
             "method": "touch",
-            "mirrored_reading": "unknown",
+            "mirrored_reading": -17.5,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
-            "sign": "unknown"
+            "sign": 1
           }
         },
         "direction": {
-          "x": "unknown",
-          "z": "unknown"
+          "x": "away_from_spindle_axis",
+          "z": "toward_exposed_end"
         },
         "dro_controller": "unknown",
-        "radius_mode": "unknown",
+        "radius_mode": false,
         "retouch": [],
+        "tool_touches": [
+          {
+            "before_ops": [
+              20
+            ],
+            "edge_mm": -7.5,
+            "gauge": "micrometers/0-1in",
+            "method": "touch; withdraw along X without moving Z; Axis Set Z",
+            "paper_mm": 0.0,
+            "tool": "turning-tools-warner-lms-4132/E",
+            "x_axis_set": "unknown",
+            "x_method": "touch the cylinder just measured by micrometer; Axis Set its measured diameter",
+            "z_axis_set": -7.5,
+            "z_face": "shoulder_north"
+          }
+        ],
         "tools_used": [
           "turning-tools-warner-lms-4132/AR",
           "turning-tools-warner-lms-4132/E"
         ],
-        "tools_without_touch": [
-          "turning-tools-warner-lms-4132/E"
-        ],
+        "tools_without_touch": [],
         "transfer": {
           "from": "S1",
           "gauge": "dial-indicator",
@@ -2815,52 +3329,69 @@
     {
       "cite": [
         "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:315",
-        "examples/pivot-shaft/plan.toml:40",
+        "examples/pivot-shaft/plan.toml:343",
+        "examples/pivot-shaft/plan.toml:42",
         "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
         "examples/inventory/pedro-shop.toml:51"
       ],
-      "message": "S3: the scribe's pickup method is not stated and no lathe DRO is listed, so neither the Z set value nor any check reading is known; the E tool has no touch-off of its own.",
+      "message": "S3 requires ABS, diametric X, X+ away from the axis and Z+ toward the exposed end, with 10 mm physical jogs; Z checks are computable and every tool has an authored touch-off, but no lathe DRO installation or measured trial-cut diameter is supplied. Scribe Z0 is local only; the actual installed-ear span and transfer measurement remain unknown.",
       "numbers": {
         "axes": {
           "x": {
             "axis_set": "unknown",
+            "check_expression": "D + 20.0",
             "check_reading": "unknown",
             "edge_mm": 0.0,
-            "jog_mm": "unknown",
+            "jog_mm": 10.0,
             "method": "trial_cut_measure",
+            "mirrored_expression": "D - 20.0",
             "mirrored_reading": "unknown",
-            "note": "Axis Set is the measured trial-cut diameter (or radius), read at the bench",
+            "note": "Axis Set the actual measured trial-cut diameter D, never the nominal target; with authored diametric mode, a physical +10 mm radial jog reads D+20, mirrored D-20.",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
-            "sign": "unknown"
+            "sign": 1
           },
           "z": {
-            "axis_set": "unknown",
-            "check_reading": "unknown",
+            "axis_set": 0.0,
+            "check_reading": 10.0,
             "edge_mm": 0.0,
-            "jog_mm": "unknown",
-            "method": "unknown",
-            "mirrored_reading": "unknown",
-            "paper_mm": "unknown",
+            "jog_mm": 10.0,
+            "method": "align_tool_point_to_scribe",
+            "mirrored_reading": -10.0,
+            "paper_mm": 0.0,
             "radius_mm": "not_applicable",
-            "sign": "unknown"
+            "sign": 1
           }
         },
         "direction": {
-          "x": "unknown",
-          "z": "unknown"
+          "x": "away_from_spindle_axis",
+          "z": "toward_exposed_end"
         },
         "dro_controller": "unknown",
-        "radius_mode": "unknown",
+        "radius_mode": false,
         "retouch": [],
+        "tool_touches": [
+          {
+            "after_op": 10,
+            "before_ops": [
+              20
+            ],
+            "edge_mm": 1.75,
+            "gauge": "micrometers/0-1in",
+            "method": "touch; withdraw along X without moving Z; Axis Set Z",
+            "paper_mm": 0.0,
+            "tool": "turning-tools-warner-lms-4132/E",
+            "x_axis_set": "unknown",
+            "x_method": "touch the cylinder just measured by micrometer; Axis Set its measured diameter",
+            "z_axis_set": 1.75,
+            "z_face": "cut_face_after_op10"
+          }
+        ],
         "tools_used": [
           "turning-tools-warner-lms-4132/AR",
           "turning-tools-warner-lms-4132/E"
         ],
-        "tools_without_touch": [
-          "turning-tools-warner-lms-4132/E"
-        ],
+        "tools_without_touch": [],
         "transfer": {
           "from": "S2",
           "gauge": "dial-indicator",
@@ -2873,7 +3404,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "cc8ca16c39125322ce99b61367a0d7182629c2c02eea42b9048edd0f143e0013",
+  "hash": "60826522d2af89f334b869be6861fa34031603f55c4b7aaf4ada292a62f180a0",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2889,7 +3420,7 @@
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
-      "sha256": "a6dfbe4cb13d96624041c697ea6c5115d21adbb81e475f73c252770619c02c4f"
+      "sha256": "4a9d0f3d784371c06f28888693122664d6cf3a6861cd907578eacc3a5e54aec9"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",

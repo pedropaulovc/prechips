@@ -38,6 +38,15 @@ REFERENCE_KEYS = {
     "machine", "tool", "holder", "gauge", "fixture", "parallels", "support", "clamps",
     "riser", "support_blocks", "ref",
 }
+# These are plan-author decisions, not measurements awaiting an external source.
+# RPM is deliberately absent: it still depends on sourced cutting data.
+AUTHOR_CHOICE_FIELDS = {
+    "form", "section_mm", "length_mm", "north_allowance_mm", "south_grip_mm",
+    "top_z", "bottom_z", "edge_mm", "grip_mm", "jaw_above_parallels_mm",
+    "stop", "clamp", "fixed_jaw", "check_jog_mm", "paper_mm", "direction",
+    "to_z", "stock_to_leave_mm", "rough_allowance_mm", "depth_mm", "exit_mm",
+    "coolant", "contour", "method", "step_deg", "step_mm",
+}
 
 
 def require(condition: bool, message: str) -> None:
@@ -56,6 +65,23 @@ def near(actual, expected, where: str) -> None:
                 f"{where}: {actual!r} != {expected!r}")
     else:
         require(actual == "unknown", f"{where}: unresolved input must yield unknown")
+
+
+def check_author_choices(plan: dict) -> None:
+    def walk(value, path: str, authored: bool = False) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                walk(child, f"{path}.{key}", authored or key in AUTHOR_CHOICE_FIELDS)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                label = (child.get("id", child.get("op", index))
+                         if isinstance(child, dict) else index)
+                walk(child, f"{path}[{label}]", authored)
+        else:
+            require(not (authored and value == "unknown"),
+                    f"{path}: author's choice must be stated, not unknown")
+
+    walk(plan, "plan")
 
 
 def canonical(value: dict) -> bytes:
@@ -346,8 +372,10 @@ def check_references(plan: dict, entries: dict, findings: dict) -> list:
     return missing
 
 
-def check_zero(setup: dict, finding: dict, entries: dict) -> None:
+def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
     numbers = finding["numbers"]
+    mode = numbers.get("dro", numbers).get("radius_mode")
+    require(mode == dro["radius_mode"], f"{setup['id']}: DRO radius/diameter mode mismatch")
     for axis, row in numbers.get("axes", {}).items():
         recipe = setup["zero"][axis]
         edge = recipe.get("edge_mm", "unknown")
@@ -369,9 +397,11 @@ def check_zero(setup: dict, finding: dict, entries: dict) -> None:
         near(row.get("axis_set", "unknown"), expected, f"{setup['id']}.{axis}: Axis Set")
         jog = recipe["check_jog_mm"]
         sign = row.get("sign", "unknown")
+        require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
+        scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
         for field, factor in (("check_reading", 1), ("mirrored_reading", -1)):
-            result = expected + factor * sign * jog if all(
-                numeric(v) for v in (expected, sign, jog)) else "unknown"
+            result = expected + factor * sign * scale * jog if all(
+                numeric(v) for v in (expected, jog)) else "unknown"
             near(row.get(field, "unknown"), result, f"{setup['id']}.{axis}: {field}")
     top = setup["stock_state"].get("top_z", "unknown")
     after = {}
@@ -434,6 +464,10 @@ def check_speeds(setup: dict, op: dict, finding: dict, entries: dict,
         diameter = feature.get("dia_nominal", "unknown")
         if not numeric(diameter) and numeric(feature.get("base_radius")):
             diameter = 2 * feature["base_radius"]
+        if op["do"] == "rough_turn":
+            allowance = op["rough_allowance_mm"]  # lathe allowance is on diameter
+            diameter = (diameter + allowance
+                        if numeric(diameter) and numeric(allowance) else "unknown")
         # A turned face/end can cut several diameters. Its workpiece envelope
         # is cited in the report, not inferred from a single-point tool's size.
     else:
@@ -467,7 +501,17 @@ def check_coordinates(setup: dict, features: dict, finding: dict) -> None:
             model = model_point(at, features["frames"][feature.get("frame", "model")])
             for actual, expected in zip(row["model"], model, strict=True):
                 near(actual, expected, "model coordinate")
-        for actual, expected in zip(row["setup"], frame_point(row["model"], frame), strict=True):
+        transformed = frame_point(row["model"], frame)
+        if "local_from" in row:
+            source = row["local_from"]
+            require(source["axis"] == "z" and source["field"] in {"to_z", "z_from", "z_to"},
+                    "local coordinate must name an authored Z endpoint")
+            require(frame["binding"] == "unknown" and transformed[2] == "unknown",
+                    "local target cannot replace a known model transform")
+            op = next(op for op in setup["ops"] if op["op"] == source["op"])
+            transformed[2] = op[source["field"]]
+            require(numeric(transformed[2]), "local endpoint is not an authored number")
+        for actual, expected in zip(row["setup"], transformed, strict=True):
             near(actual, expected, "setup coordinate")
 
 class SheetText(HTMLParser):
@@ -501,8 +545,11 @@ def check_sheet(folder: Path, report: dict) -> None:
             "missing Letter print CSS")
     require(not re.search(r"\.(?:toml|yaml|json|py|csv)\b|cad/|examples/", text),
             "bench sheet contains file paths")
-    require(not any(rule in text for rule in FEATURE_RULES | SETUP_RULES | {"tool_resolves",
-                "speeds_feeds", "inspection"}), "bench sheet contains rule ids")
+    rules = FEATURE_RULES | SETUP_RULES | {"tool_resolves", "speeds_feeds", "inspection"}
+    machine_ids = "|".join(sorted(rule for rule in rules if "_" in rule))
+    labelled_ids = "|".join(sorted(rules))
+    require(not re.search(rf"\b(?:{machine_ids})\b|\brule[\s:]+(?:{labelled_ids})\b", text, re.I),
+            "bench sheet contains rule ids")
     require("?" in text, "sheet hides required unknowns")
     if any(f["status"] == "error" for f in report["findings"]):
         require("✗" in text, "sheet hides errors")
@@ -515,6 +562,7 @@ def validate_fixture(part: str, documents: dict) -> tuple[int, list]:
     require(plan["part"] == features["part"] == part, "part identity mismatch")
     require(features.get("features"), "empty manifest")
     require(features["step_sha256"] == "unknown", "unprovided STEP digest asserted")
+    check_author_choices(plan)
     paths = input_paths(folder, plan)
     inventory = documents[paths["inventory"]]
     policy = documents[paths["shop_policy"]]
@@ -532,7 +580,7 @@ def validate_fixture(part: str, documents: dict) -> tuple[int, list]:
     missing = check_references(plan, entries, findings)
     check_endpoints(plan, findings, entries)
     for setup in plan["setups"]:
-        check_zero(setup, findings["zero_check", setup["id"]], entries)
+        check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
         check_coordinates(setup, features, findings["coordinates", setup["id"]])
         for op in setup["ops"]:
             check_speeds(setup, op, findings["speeds_feeds", f"{setup['id']}:{op['op']}"],

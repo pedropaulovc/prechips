@@ -41,104 +41,110 @@ p { margin: 0.6mm 0; }
 <p>Tolerances not written on a dimension: .X ±0.762, .XX ±0.508, .XXX ±0.127.</p>
 <h3>ROUTE</h3>
 <table><tr><th>setup</th><th>what</th><th>starts from</th></tr>
-<tr><td>S1</td><td>chuck on the south grip, dead centre in the north end: shoulder, north journal, body, both reliefs</td><td>prepared blank (length ?, north centre seat ?)</td></tr>
+<tr><td>S1</td><td>chuck on the south grip, dead centre in the north end: shoulder, north journal, body, both reliefs</td><td>prepared Ø10 × 215 blank; 15 north stub + 175 supply + 25 south allowance; centre-seat geometry ?</td></tr>
 <tr><td>S2</td><td>rechuck on the body: face off the north stub, form the north dome</td><td>S1</td></tr>
 <tr><td>S3</td><td>after fit-up scribing: rechuck near the plain end, cut to fit, form the south dome</td><td>S2 and the scribe</td></tr></table>
 <p>Not in this route: the 175 supplied length is never produced on its own — the south grip stays on past it until S3 cuts the end to fit. No cross-hole, flat or indexing on this part.</p>
 <h3>DRO</h3>
-<p>No readout is listed for this lathe. Each sheet follows the Electronica EL400 manual's own steps (Direction and Radial/Diametric §6.2, Axis Set in ABS §7.4, lathe trial cut §9.2.1; Preset §8.1 is never used for zero). Direction for X and Z: ?. X shown as diameter or radius: ?.</p>
+<p>No readout is listed for this lathe: installation remains ?. The authored recipe requires ABS, diametric X, X+ away from the spindle axis and Z+ toward the exposed end; recheck after every rechuck. Physical +10 mm jogs display +20 on X and +10 on Z. Electronica EL400: Direction/Radial-Diametric §6.2, Axis Set §7.4, trial cut §9.2.1; Preset §8.1 is never datum zero.</p>
 <p>RPM and feed: the cutting table has no numbers for turning or facing 1018 steel and the insert material is not listed, so every RPM and feed cell is ?. Lathe range 70–2200 rpm (vendor figure, unconfirmed).</p>
-<div class="foot">prechips 0.1 · report cc8ca16c</div>
+<div class="foot">prechips 0.1 · report 60826522</div>
 </section>
 <section class="page">
 <h2>SETUP S1 — lathe, three-jaw chuck drive, tailstock dead centre</h2>
 <p>sheet 2 of 4 &nbsp;·&nbsp; MHA-065 rev ? &nbsp;·&nbsp; <span class="tag">PLANNED</span></p>
 <h3>BEFORE YOU START</h3>
 <ul class="bys">
-<li><span class="g">?</span> DRO: no lathe readout listed; Direction, Ø/radius display, check readings, nose radius ?; E tool has no touch-off.</li>
-<li><span class="g">?</span> Hold: grip, stop, tightening, coolant, cut direction, centre lubrication not given.</li>
-<li><span class="g">?</span> Unconfirmed gauges: 0-1 in micrometer (body Ø6.350, north journal Ø6.350 and shoulder Ø10.00) and calipers (shoulder length 1.50).</li>
+<li><span class="g">?</span> DRO installation, actual trial-cut Ø and nose radius remain ?. Follow authored mode/sign and per-tool touches.</li>
+<li><span class="g">?</span> Blank 215, grip 24 and supported stick-out 191 are author targets, not verified holding or centre engagement.</li>
+<li><span class="g">?</span> Micrometer/calipers unconfirmed: body and journal Ø6.350, shoulder Ø10.00 × 1.50.</li>
 <li><span class="g">?</span> Reliefs Ø5.700 × 2.0 (both): calipers unconfirmed and may not reach into a 2.0 groove.</li>
 <li><span class="g">?</span> Ra 1.6 µm on the body, north journal and shoulder thrust face: no check — no roughness comparator in the inventory.</li>
 <li><span class="g">?</span> Reliefs assume a corner of R0.25 or less; the E tool's nose radius and reach are not listed.</li>
 <li><span class="g">?</span> RPM and feed for ops 10–90: no cutting-table numbers for 1018 steel, insert material not listed.</li>
-<li><span class="g">?</span> Shank size not listed for the AR tool (ops 10–70) and E tool (ops 80, 90); 1/2 in AXA fit unconfirmed.</li>
+<li><span class="g">?</span> AR/E shank sizes unknown; AXA #1 1/2 in tool fit unconfirmed.</li>
 <li><span class="g">?</span> Clearance (swing, length between centres) not checked for a lathe.</li>
 </ul>
 <h3>SETUP</h3>
-<p><b>Starts from:</b> Ø10 bar, length ? (north stub ? + supply 175 + south grip ?); north centre seat already in the bar, size ?.</p>
-<p><b>Hold:</b> 6 in three-jaw chuck on the south grip, past the 175 station; tailstock dead centre in the north seat; the chuck drives, no dog. Grip ?, stop ?, tighten ?, centre lubrication ?, stick-out ?.</p>
-<p><b>Clearance:</b> ? (not checked for a lathe). <b>Coolant:</b> ?. <b>Deburr:</b> break edges R0.25 or chamfer 0.25 max.</p>
+<p><b>Starts from (author choices):</b> Ø10 × 215 = north stub 15 + north-apex-to-supply-end 175 + south allowance 25. T1 ends +22.5/−192.5; centre-seat size/engagement ?.</p>
+<p><b>Hold (author choices):</b> three-jaw drive, 24 mm grip, jaw fronts −168.5 (1 mm beyond supply −167.5), supported stick-out 191. Hand tighten all three pinions; remove key, check grip. Dead centre in north seat, CRC cutting oil; replenish between cuts. No dog.</p>
+<p><b>Clearance:</b> ?; check actual tool/jaw/centre envelopes. <b>Coolant:</b> brushed CRC cutting oil (author choice). <b>Deburr:</b> break edges R0.25 or chamfer 0.25 max.</p>
 <h3>DRO ZERO (T1, ABS)</h3>
-<p><b>X</b> — trial cut with the AR tool, withdraw along Z without moving X, micrometer the cut, Axis Set X to the reading (manual §9.2.1). Display Ø or radius ?. Axis Set <b>?</b>. Jog X ? untouched: reads <b>?</b>; mirrored <b>?</b> = X Direction reversed (§6.2).</p>
-<p><b>Z</b> — face the shoulder north face (op 10) with the AR tool, withdraw along X without moving Z, Axis Set Z <b>0.0</b> (§7.4; never Preset §8.1). Jog Z ? untouched: reads <b>?</b>; mirrored <b>?</b>. Retouch: none. <b>E tool:</b> no touch-off, X and Z <b>?</b>.</p>
-<h3>COORDINATES (mm, frame T1: origin shoulder north face, +Z toward the north end; Ø values are target sizes, X display mode ?)</h3>
-<table><colgroup><col style='width:20%'><col style='width:16%'><col></colgroup><tr><th>feature</th><th>X</th><th>Z</th></tr><tr><td>shoulder</td><td>Ø10.00</td><td>north face <b>0.00</b> · south face <b>−1.50</b></td></tr><tr><td>north journal</td><td>Ø6.350</td><td>shoulder end <b>0.0</b> · north end (dome base) <b>6.0</b> · turned out to the apex plane <b>7.5</b></td></tr><tr><td>north relief</td><td>Ø5.700</td><td>shoulder side <b>0.0</b> · journal side <b>2.0</b></td></tr><tr><td>shoulder thrust face</td><td>Ø10.00</td><td>face <b>−1.50</b></td></tr><tr><td>south relief</td><td>Ø5.700</td><td>shoulder side <b>−1.5</b> · body side <b>−3.5</b></td></tr><tr><td>body</td><td>Ø6.350</td><td>shoulder end <b>−1.50</b></td></tr></table>
+<p><b>X</b> — AR trial cut; withdraw in Z, keep X, micrometer cut, Axis Set actual Ø <b>D (?)</b>, never nominal target (§9.2.1). Diametric X+, away from axis (§6.2). Physical jog <b>+10.00 mm</b>, no retouch: <b>D + 20.00</b>; mirror <b>D − 20.00</b> means reversed Direction.</p>
+<p><b>Z</b> — AR faces shoulder north (10), withdraw in X, keep Z, Axis Set <b>0.00</b>, no paper. Z+ north; jog <b>+10.00</b> untouched: <b>+10.00</b>, mirror <b>−10.00</b>. <b>E before 80/90:</b> touch measured cylinder, set actual Ø (?); touch shoulder north, set Z <b>0.00</b>, no paper. §7.4 Axis Set, never §8.1 Preset.</p>
+<h3>COORDINATES (mm, T1: shoulder north origin, +Z north; X is authored diametric target, tool nose correction ?)</h3>
+<table><colgroup><col style='width:20%'><col style='width:16%'><col></colgroup><tr><th>feature</th><th>X</th><th>Z</th></tr><tr><td>shoulder</td><td>Ø10.00</td><td>north face <b>0.00</b> · south face <b>−1.50</b></td></tr><tr><td>north journal</td><td>Ø6.350</td><td>shoulder end <b>0.0</b> · north end (dome base) <b>6.0</b> · turned out to the apex plane <b>7.5</b></td></tr><tr><td>north relief</td><td>Ø5.700</td><td>shoulder side <b>0.0</b> · journal side <b>2.0</b></td></tr><tr><td>shoulder thrust face</td><td>Ø10.00</td><td>face <b>−1.50</b></td></tr><tr><td>south relief</td><td>Ø5.700</td><td>shoulder side <b>−1.5</b> · body side <b>−3.5</b></td></tr><tr><td>body</td><td>Ø6.350</td><td>shoulder end <b>−1.50</b> · pre-fit supply station <b>−167.50</b> (author datum)</td></tr></table>
 <h3>OPERATIONS</h3>
 <table style='table-layout:fixed'><colgroup><col style='width:5%'><col style='width:23%'><col style='width:10%'><col style='width:4%'><col style='width:4%'><col style='width:10%'><col style='width:4%'><col style='width:19%'><col style='width:21%'></colgroup><tr><th>op</th><th>operation</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z</th><th>dir</th><th>size</th><th>check</th></tr>
-<tr><td>10 *</td><td>face — shoulder</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>0.00</td><td>?</td><td>—</td><td>—</td></tr><tr><td>20</td><td>rough turn — north journal</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>0.0 → 7.5</td><td>?</td><td>leave ? on Ø</td><td>—</td></tr><tr><td>30</td><td>finish turn — north journal</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>0.0 → 7.5</td><td>?</td><td>Ø6.350 (6.330 to 6.350)</td><td>Ø: 0-1 in micrometer<br>finish Ra 1.6 µm: ?</td></tr><tr><td>40</td><td>rough turn — body</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>−1.50 → ?</td><td>?</td><td>leave ? on Ø</td><td>—</td></tr><tr><td>50</td><td>finish turn — body</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>−1.50 → ?</td><td>?</td><td>Ø6.350 (6.330 to 6.350)</td><td>Ø: 0-1 in micrometer<br>finish Ra 1.6 µm: ?</td></tr><tr><td>60</td><td>face — shoulder thrust face</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>−1.50</td><td>?</td><td>—</td><td>finish Ra 1.6 µm: ?</td></tr><tr><td>70 *</td><td>finish turn — shoulder</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>−1.50 → 0.00</td><td>?</td><td>Ø10.00 (9.492 to 10.508)</td><td>Ø: 0-1 in micrometer<br>length 1.50: calipers</td></tr><tr><td>80 *</td><td>form relief — north relief</td><td>E / AXA #1</td><td>?</td><td>?</td><td>0.0 → 2.0</td><td>?</td><td>Ø5.700 (5.573 to 5.827)</td><td>Ø: calipers<br>width 2.0: calipers</td></tr><tr><td>90 *</td><td>form relief — south relief</td><td>E / AXA #1</td><td>?</td><td>?</td><td>−1.5 → −3.5</td><td>?</td><td>Ø5.700 (5.573 to 5.827)</td><td>Ø: calipers<br>width 2.0: calipers</td></tr>
+<tr><td>10 *</td><td>face — shoulder</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>0.00</td><td>in</td><td>—</td><td>—</td></tr><tr><td>20</td><td>rough turn — north journal</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>0.0 to 7.5</td><td>−Z</td><td>Ø6.550; leave 0.20 on Ø</td><td>—</td></tr><tr><td>30</td><td>finish turn — north journal</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>0.0 to 7.5</td><td>−Z</td><td>Ø6.350 (6.330 to 6.350)</td><td>Ø: 0-1 in micrometer<br>finish Ra 1.6 µm: ?</td></tr><tr><td>40</td><td>rough turn — body</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>−1.50 to −167.50</td><td>−Z</td><td>Ø6.550; leave 0.20 on Ø</td><td>—</td></tr><tr><td>50</td><td>finish turn — body</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>−1.50 to −167.50</td><td>−Z</td><td>Ø6.350 (6.330 to 6.350)</td><td>Ø: 0-1 in micrometer<br>finish Ra 1.6 µm: ?</td></tr><tr><td>60</td><td>face — shoulder thrust face</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>−1.50</td><td>in</td><td>—</td><td>finish Ra 1.6 µm: ?</td></tr><tr><td>70 *</td><td>finish turn — shoulder</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>−1.50 to 0.00</td><td>−Z</td><td>Ø10.00 (9.492 to 10.508)</td><td>Ø: 0-1 in micrometer<br>length 1.50: calipers</td></tr><tr><td>80 *</td><td>form relief — north relief</td><td>E / AXA #1</td><td>?</td><td>?</td><td>0.0 to 2.0</td><td>−Z</td><td>Ø5.700 (5.573 to 5.827)</td><td>Ø: calipers<br>width 2.0: calipers</td></tr><tr><td>90 *</td><td>form relief — south relief</td><td>E / AXA #1</td><td>?</td><td>?</td><td>−1.5 to −3.5</td><td>+Z</td><td>Ø5.700 (5.573 to 5.827)</td><td>Ø: calipers<br>width 2.0: calipers</td></tr>
 </table>
-<p>* op 10: Station of this face on the bar depends on the north allowance (?).<br>* op 70: Leave the Ø10 bar as supplied if it measures inside the band; otherwise skim it.<br>* ops 80, 90: grooves flush to the shoulder north (80) and south (90) faces.</p>
-<p class="sign">Sign off: ________ &nbsp; first article: ________ &nbsp; readings: ____________________<span class="foot">prechips 0.1 · report cc8ca16c</span></p>
+<p>* 10: Shoulder face 22.5 from blank north end (author choice). Z entries bound cuts; <b>in</b> radial inward, <b>−Z/+Z</b> axial traverse. Rough Ø6.550 leaves 0.20 on diameter.<br>* 70: Leave Ø10 stock if measured inside the band; otherwise skim.<br>* 80/90: grooves flush to shoulder north/south faces; no blind plunge.</p>
+<p class="sign">Sign off: ________ &nbsp; first article: ________ &nbsp; readings: ____________________<span class="foot">prechips 0.1 · report 60826522</span></p>
 </section>
 <section class="page">
 <h2>SETUP S2 — lathe, rechuck, north dome</h2>
 <p>sheet 3 of 4 &nbsp;·&nbsp; MHA-065 rev ? &nbsp;·&nbsp; <span class="tag">PLANNED</span></p>
 <h3>BEFORE YOU START</h3>
 <ul class="bys">
-<li><span class="g">?</span> DRO: no lathe readout listed; Direction, Ø/radius display, check readings, nose radius ?; E tool has no touch-off.</li>
-<li><span class="g">?</span> Hold: grip, stop, tightening, coolant, cut direction, keeping the jaws off the Ra 1.6 body not given.</li>
-<li><span class="g">?</span> No way to measure stated for the north dome height 1.5 and north journal length 6.0.</li>
+<li><span class="g">?</span> No lathe readout installation or trial-cut diameter is measured; E nose correction remains ?. Authored target table is not a cleared toolpath.</li>
+<li><span class="g">?</span> Listed chuck, dial indicator and gauges remain unconfirmed; prepare the paper sleeve and verify grip without marking or slipping.</li>
+<li><span class="g">?</span> Calipers are selected for dome height 1.5 and journal length 6.0, but their presence/calibration are not confirmed.</li>
 <li><span class="g">?</span> RPM and feed for ops 10, 20: no cutting-table numbers for 1018 steel, insert material not listed.</li>
 <li><span class="g">?</span> Shank size not listed for the AR tool (op 10) and E tool (op 20); 1/2 in AXA fit unconfirmed.</li>
 <li><span class="g">?</span> Clearance (swing, length between centres) not checked for a lathe.</li>
 </ul>
 <h3>SETUP</h3>
-<p><b>Starts from:</b> S1 finished: journal, shoulder, reliefs and body; north stub still on (length ?).</p>
-<p><b>Hold:</b> 6 in three-jaw chuck on the body just south of the south relief; tailstock withdrawn; indicate the body with the dial indicator (runout limit ?). Grip ?, stop ?, tighten ?, keeping jaws off the Ra 1.6 body ?, stick-out ?.</p>
-<p><b>Clearance:</b> ? (not checked for a lathe). <b>Coolant:</b> ?. <b>Deburr:</b> break edges R0.25 or chamfer 0.25 max.</p>
+<p><b>Starts from:</b> S1 journal/body Ø6.350, shoulder and both reliefs; authored north stub 15 still on. T2 ends +15/−200 before facing; incoming blank length 215.</p>
+<p><b>Hold (author choices):</b> grip 25 mm of body, jaw fronts T2 −12 (1 mm south of relief), stick-out 27. Hand tighten at three pinions, remove key; indicate after clamping (runout limit ?, none on drawing). Tailstock withdrawn. Prepare clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip.</p>
+<p><b>Clearance:</b> ? (lathe rule unsupported). <b>Coolant:</b> CRC cutting oil brushed on (author choice). <b>Deburr:</b> break edges R0.25 or chamfer 0.25 max.</p>
 <h3>DRO ZERO (T2, ABS)</h3>
-<p><b>X</b> — trial cut with the AR tool, withdraw along Z without moving X, micrometer the cut, Axis Set X to the reading (manual §9.2.1). Display Ø or radius ?. Axis Set <b>?</b>. Jog X ? untouched: reads <b>?</b>; mirrored <b>?</b> = X Direction reversed (§6.2).</p>
-<p><b>Z</b> — touch the shoulder north face with the AR tool (no paper), withdraw along X, Axis Set Z <b>−7.5</b> (§7.4; never Preset §8.1). Jog Z ? untouched: reads <b>?</b>; mirrored <b>?</b>. Retouch: none. <b>E tool:</b> no touch-off, X and Z <b>?</b>.</p>
+<p><b>X</b> — AR trial cut; withdraw along Z without moving X, micrometer the cut, Axis Set actual measured diameter <b>D (?)</b> (§9.2.1), not target Ø. X+ away from axis. Jog physically <b>+10.00 mm</b> without retouch: expect <b>D + 20.00</b>; mirrored <b>D − 20.00</b> means reversed Direction. Use diametric X (§6.2).</p>
+<p><b>Z</b> — AR touches shoulder north, no paper; withdraw in X, Axis Set <b>−7.50</b>. Z+ exposed north. Jog <b>+10.00</b> untouched: <b>+2.50</b>, mirror <b>−17.50</b>. <b>E before op 20:</b> touch measured cylinder for actual Ø (?); touch shoulder north, set Z <b>−7.50</b>. No paper. Re-touch on each tool change; §7.4 Axis Set, never Preset.</p>
 <p><b>Re-find the axis</b> — indicate the body with the dial indicator after rechucking; runout limit ? (none on the drawing).</p>
-<h3>COORDINATES (mm, frame T2: origin north dome apex plane, +Z toward the north end; Ø values are target sizes, X display mode ?)</h3>
+<h3>COORDINATES (mm, T2: north apex origin, +Z north; X diametric surface target, nose correction ?)</h3>
 <table><colgroup><col style='width:20%'><col style='width:16%'><col></colgroup><tr><th>feature</th><th>X</th><th>Z</th></tr><tr><td>north journal</td><td>Ø10.00 / Ø6.350</td><td>shoulder north face (Z touch) <b>−7.5</b> · north end (dome base) <b>−1.5</b></td></tr><tr><td>north dome</td><td>axis / Ø6.350</td><td>apex <b>0.0</b> · base <b>−1.5</b> · sphere centre (R 4.11) <b>−4.11</b></td></tr></table>
 <h3>OPERATIONS</h3>
 <table style='table-layout:fixed'><colgroup><col style='width:5%'><col style='width:23%'><col style='width:10%'><col style='width:4%'><col style='width:4%'><col style='width:10%'><col style='width:4%'><col style='width:19%'><col style='width:21%'></colgroup><tr><th>op</th><th>operation</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z</th><th>dir</th><th>size</th><th>check</th></tr>
-<tr><td>10 *</td><td>face — north dome</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>0.0</td><td>?</td><td>—</td><td>—</td></tr><tr><td>20 *</td><td>form dome — north dome</td><td>E / AXA #1</td><td>?</td><td>?</td><td>0.0 → −1.5</td><td>?</td><td>dome 1.5 high, R4.11, contour ?</td><td>height 1.5: ?</td></tr><tr><td>30 *</td><td>inspect — north journal</td><td>— (manual)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>length 6.0: ?</td></tr>
+<tr><td>10 *</td><td>face — north dome</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>0.0</td><td>in</td><td>—</td><td>—</td></tr><tr><td>20 *</td><td>form dome — north dome</td><td>E / AXA #1</td><td>?</td><td>?</td><td>0.0 → −1.5</td><td>−Z</td><td>dome 1.5 high, R4.11; axial table</td><td>height 1.5: calipers</td></tr><tr><td>30 *</td><td>inspect — north journal</td><td>— (manual)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>length 6.0: calipers</td></tr>
 </table>
-<p>* op 10: Face off the north allowance and centre seat down to the apex plane.<br>* op 20: Forming the dome also ends the journal (journal length).<br>* op 30: Journal length runs from the dome base edge to the shoulder north face.</p>
-<p class="sign">Sign off: ________ &nbsp; first article: ________ &nbsp; readings: ____________________<span class="foot">prechips 0.1 · report cc8ca16c</span></p>
+<p>* op 10: Face north stub/centre seat off to apex Z0. * op 20: Doming also ends journal. * op 30: Calipers axially from visible dome-base rim to shoulder north face; repeat around rim. Dome height: calipers axially apex to rim. Spindle stopped; gauges unconfirmed.</p>
+<h3>DOME TARGET TABLE — axial step 0.10 mm (author choice)</h3>
+<p>Hand traverse apex to base, interpolate between rows. X is target diameter, Z tool-tip plane; nose compensation/clearance ? — establish at bench before forming.</p>
+<table class="contour"><tr><th>Z</th><th>X Ø</th><th>Z</th><th>X Ø</th><th>Z</th><th>X Ø</th><th>Z</th><th>X Ø</th></tr><tr><td>0.00</td><td>0.000</td><td>−0.40</td><td>3.537</td><td>−0.80</td><td>4.873</td><td>−1.20</td><td>5.805</td></tr><tr><td>−0.10</td><td>1.802</td><td>−0.50</td><td>3.929</td><td>−0.90</td><td>5.134</td><td>−1.30</td><td>5.999</td></tr><tr><td>−0.20</td><td>2.533</td><td>−0.60</td><td>4.277</td><td>−1.00</td><td>5.374</td><td>−1.40</td><td>6.180</td></tr><tr><td>−0.30</td><td>3.083</td><td>−0.70</td><td>4.589</td><td>−1.10</td><td>5.597</td><td>−1.50</td><td>6.350</td></tr></table>
+<p class="sign">Sign off: ________ &nbsp; first article: ________ &nbsp; readings: ____________________<span class="foot">prechips 0.1 · report 60826522</span></p>
 </section>
 <section class="page">
 <h2>SETUP S3 — lathe, rechuck, plain end cut to fit and south dome</h2>
 <p>sheet 4 of 4 &nbsp;·&nbsp; MHA-065 rev ? &nbsp;·&nbsp; <span class="tag">PLANNED</span></p>
 <h3>BEFORE YOU START</h3>
 <ul class="bys">
-<li><span class="g">?</span> DRO: no lathe readout listed; scribe pickup, Z set value, Direction, Ø/radius display, check readings ?; E tool has no touch-off.</li>
+<li><span class="g">?</span> No lathe readout installation, actual trial-cut diameter or nose correction is measured. Local scribe Z0 does not bind the fitted model length.</li>
 <li><span class="g">?</span> Where the scribe falls on the model (the installed-ear span) is not measured yet.</li>
-<li><span class="g">?</span> Hold: grip, stop, tightening, coolant, cut direction, keeping the jaws off the Ra 1.6 body not given.</li>
-<li><span class="g">?</span> No way to measure stated for the plain end length (scribe + 0 to 0.5) and south dome height 1.5.</li>
+<li><span class="g">?</span> Listed chuck, dial indicator and calipers remain unconfirmed; verify actual end overhang and sleeve-protected grip at the bench.</li>
+<li><span class="g">?</span> Calipers/assembly trial fit are selected for plain-end length and dome height; actual installed-ear span remains unknown.</li>
 <li><span class="g">?</span> RPM and feed for ops 10, 20: no cutting-table numbers for 1018 steel, insert material not listed.</li>
 <li><span class="g">?</span> Shank size not listed for the AR tool (op 10) and E tool (op 20); 1/2 in AXA fit unconfirmed.</li>
 <li><span class="g">?</span> Clearance (swing, length between centres) not checked for a lathe.</li>
 </ul>
 <h3>SETUP</h3>
-<p><b>Starts from:</b> S2 finished and fitted: shoulder against the north ear, shaft scribed at the south ear's outer face, then drawn out. Installed-ear span ?.</p>
-<p><b>Hold:</b> 6 in three-jaw chuck on the body north of the scribe, plain end out; tailstock withdrawn; indicate the body with the dial indicator (runout limit ?). Grip ?, stop ?, tighten ?, keeping jaws off the Ra 1.6 body ?, stick-out ?.</p>
-<p><b>Clearance:</b> ? (not checked for a lathe). <b>Coolant:</b> ?. <b>Deburr:</b> break edges R0.25 or chamfer 0.25 max.</p>
+<p><b>Starts from:</b> S2 finished; shoulder against north ear, scribe at actual south-ear outer face, withdraw shaft. Actual installed-ear span ?. Pre-fit stock length is 200 after removing the north stub (author-derived); do not substitute 156.7 REF.</p>
+<p><b>Hold (author choices):</b> grip 25 mm on body, jaw fronts 10 mm north of scribe (T3 −10), plain end exposed; tailstock withdrawn. Hand tighten at three pinions, remove key; indicate (runout limit ?). Prepare clean paper sleeve under smooth/deburred jaw contacts; reject marks or slip. Incoming stick-out ? until actual scribe-to-end length is measured.</p>
+<p><b>Clearance:</b> ? (lathe rule unsupported). <b>Coolant:</b> CRC cutting oil brushed on (author choice). <b>Deburr:</b> break edges R0.25 or chamfer 0.25 max.</p>
 <h3>DRO ZERO (T3, ABS)</h3>
-<p><b>X</b> — trial cut with the AR tool, withdraw along Z without moving X, micrometer the cut, Axis Set X to the reading (manual §9.2.1). Display Ø or radius ?. Axis Set <b>?</b>. Jog X ? untouched: reads <b>?</b>; mirrored <b>?</b> = X Direction reversed (§6.2).</p>
-<p><b>Z</b> — bring the AR tool point to the scribe (pickup method ?), Axis Set Z <b>?</b> (§7.4; never Preset §8.1). Jog Z ? untouched: reads <b>?</b>; mirrored <b>?</b>. Retouch: none. <b>E tool:</b> no touch-off, X and Z <b>?</b>.</p>
+<p><b>X</b> — AR trial cut; withdraw along Z without moving X, micrometer the cut, Axis Set actual measured diameter <b>D (?)</b> (§9.2.1), not target Ø. X+ away from axis. Jog physically <b>+10.00 mm</b> without retouch: expect <b>D + 20.00</b>; mirrored <b>D − 20.00</b> means reversed Direction. Use diametric X (§6.2).</p>
+<p><b>Z</b> — spindle stopped, align AR point to centre of actual scribe (author choice), no paper, Axis Set <b>0.00</b>. Z+ exposed south. Jog <b>+10.00</b> untouched: <b>+10.00</b>, mirror <b>−10.00</b>. <b>E after op 10:</b> touch measured cylinder for actual Ø (?); touch new apex face, set Z <b>+1.75</b>, no paper. §7.4 Axis Set, never Preset.</p>
 <p><b>Re-find the axis</b> — indicate the body with the dial indicator after rechucking; runout limit ? (none on the drawing).</p>
-<h3>COORDINATES (mm, frame T3: origin the scribe at the south ear outer face, +Z toward the plain end; Ø values are target sizes, X display mode ?)</h3>
-<table><colgroup><col style='width:20%'><col style='width:16%'><col></colgroup><tr><th>feature</th><th>X</th><th>Z</th></tr><tr><td>plain end</td><td>Ø6.350</td><td>scribe (south ear outer face) <b>0.0</b> · cut face (dome apex) <b>1.5 to 2.0</b></td></tr><tr><td>south dome</td><td>Ø6.350</td><td>base (cylinder end) <b>0.0 to 0.5</b></td></tr></table><p>Model position of these Z values: ? until the installed-ear span is measured.</p>
+<h3>COORDINATES (mm, T3: actual scribe origin, +Z south; X diametric targets, model binding/nose correction ?)</h3>
+<table><colgroup><col style="width:20%"><col style="width:16%"><col></colgroup><tr><th>feature</th><th>X</th><th>Z</th></tr><tr><td>plain end</td><td>Ø6.350</td><td>scribe <b>0.0</b> · chosen apex face <b>1.75</b> (source band 1.5–2.0)</td></tr><tr><td>south dome</td><td>Ø6.350</td><td>chosen base <b>0.25</b> (source band 0.0–0.5)</td></tr></table><p>Author choice: 1.75 − source dome height 1.5 = 0.25. Actual fitted/model length stays ? until span is measured.</p>
 <h3>OPERATIONS</h3>
 <table style='table-layout:fixed'><colgroup><col style='width:5%'><col style='width:23%'><col style='width:10%'><col style='width:4%'><col style='width:4%'><col style='width:10%'><col style='width:4%'><col style='width:19%'><col style='width:21%'></colgroup><tr><th>op</th><th>operation</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z</th><th>dir</th><th>size</th><th>check</th></tr>
-<tr><td>10 *</td><td>cut to fit — plain end</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>? (1.5 to 2.0)</td><td>?</td><td>cut face = dome apex</td><td>length scribe + 0 to 0.5: ?</td></tr><tr><td>20</td><td>form dome — south dome</td><td>E / AXA #1</td><td>?</td><td>?</td><td>? → ?</td><td>?</td><td>dome 1.5 high, R4.11, contour ?</td><td>height 1.5: ?</td></tr>
+<tr><td>10 *</td><td>cut to fit — plain end</td><td>AR / AXA #1</td><td>?</td><td>?</td><td>1.75</td><td>in</td><td>cut face = dome apex</td><td>calipers + assembly fit</td></tr><tr><td>20</td><td>form dome — south dome</td><td>E / AXA #1</td><td>?</td><td>?</td><td>1.75 → 0.25</td><td>−Z</td><td>dome 1.5 high, R4.11; axial table</td><td>height 1.5: calipers</td></tr>
 </table>
-<p>* op 10: Face the excess and grip remnant off; no parting blade selected.</p>
-<p class="sign">Sign off: ________ &nbsp; first article: ________ &nbsp; readings: ____________________<span class="foot">prechips 0.1 · report cc8ca16c</span></p>
+<p>* op 10: Repeated facing removes excess/grip, no parting blade. Use calipers scribe-to-face 1.75; after doming check base +0.25 and trial fit over installed ears. Dome height: stopped spindle, axial calipers apex-to-visible-rim, repeat around rim. Actual span and gauge verification ?.</p>
+<h3>DOME TARGET TABLE — axial step 0.10 mm (author choice)</h3>
+<p>Hand traverse apex to base, interpolate between rows. X is target diameter, Z tool-tip plane; nose compensation/clearance ? — establish at bench before forming.</p>
+<table class="contour"><tr><th>Z</th><th>X Ø</th><th>Z</th><th>X Ø</th><th>Z</th><th>X Ø</th><th>Z</th><th>X Ø</th></tr><tr><td>1.75</td><td>0.000</td><td>1.35</td><td>3.537</td><td>0.95</td><td>4.873</td><td>0.55</td><td>5.805</td></tr><tr><td>1.65</td><td>1.802</td><td>1.25</td><td>3.929</td><td>0.85</td><td>5.134</td><td>0.45</td><td>5.999</td></tr><tr><td>1.55</td><td>2.533</td><td>1.15</td><td>4.277</td><td>0.75</td><td>5.374</td><td>0.35</td><td>6.180</td></tr><tr><td>1.45</td><td>3.083</td><td>1.05</td><td>4.589</td><td>0.65</td><td>5.597</td><td>0.25</td><td>6.350</td></tr></table>
+<p class="sign">Sign off: ________ &nbsp; first article: ________ &nbsp; readings: ____________________<span class="foot">prechips 0.1 · report 60826522</span></p>
 </section>
 </body>
 </html>

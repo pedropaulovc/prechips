@@ -40,6 +40,19 @@ These expected report exits are independently recomputed by the validator. The
 validator itself exits **0** when these intentionally stopped bundles agree.
 There is no deviation from the requested 4 / 2 / 2 fixture exits.
 
+| Plan literal `"unknown"` leaves | Before restoration | After restoration |
+|---|---:|---:|
+| `pivot-shaft/plan.toml` | 71 | 10 |
+| `rocker-arm/plan.toml` | 85 | 12 |
+| `pivot-bracket/plan.toml` | 71 | 5 |
+
+Restored fields include stock/blank dimensions and placement, stock-state/edge
+offsets, grip/jaw projection/fixed jaw/stop/clamp, coolant, DRO direction and mode,
+check jogs and paper, cut directions, rough/finish Z and stock allowances,
+spot/exit depths, contour methods/steps and available-gauge inspection methods.
+Cutting-data-dependent RPM/feed, unmeasured tooling/holding facts, missing gauges,
+STEP/drawing binding and the shaft's actual fitted span remain unresolved.
+
 Each part directory contains `plan.toml`, `features.toml`,
 `expected/report.json` and `expected/traveler.html`. Obsolete YAML policy copies
 and all nine neutral CSVs are removed. Plans no longer request external
@@ -52,8 +65,12 @@ Consumer citations are relative to the read-only `C:/src/harmonic-analyzer`
 repository (`harmonic-analyzer/cad/...` and `cad/...` identify the same root).
 Named file:line citations were re-read against that tree before carry-over.
 Current source values and corrected line ranges are recorded beside dimensions.
-Old process proposals are not treated as measured facts: raw blank allowances,
-roughing allowances, 0.08 mm paper and hand-picked RPMs became unknown.
+`plan.toml` is the plan author's document: blank size/placement, holding, coolant,
+direction, jogs/paper, cut/exit allowances, contour steps and capable-gauge methods
+are **author's choices**, not facts requiring a source. Restored choices come from
+the rev-3 route or are marked `# author's choice`; they still require checker
+validation. Measurements, drawing/STEP binding and cutting-data speeds remain
+unknown until evidence exists.
 
 - **Shaft**: `cad/scripts/pivot_shaft_spec.py:132–161` defines eight drawing
   dimensions and their precision. All eight are mapped, including the REF
@@ -131,14 +148,17 @@ are no rev-3 `fail`, `block` or separate severity fields. Subject domains are:
   Lathe headroom is unsupported by the mill-only M1 rule. Known nominal frames
   do not certify measured setup binding. `stock_state.top_feature` disambiguates
   the rocker's touched hub face: machining a strap face does not move that top.
+  A coordinate row's `local_from = { op, field, axis }` binds a local Z target
+  to an authored operation endpoint when its model transform remains unknown;
+  it does not bind the fitted shaft length to the nominal reference model.
 - `speeds_feeds`: every op, including not-applicable manual operations. No
   turning, spotting or unsourced tool-material row is invented.
 
 The complete input unknown ledger below is exhaustive. Report unknown numbers
-are the deterministic consequences of those inputs: unresolved speeds/feeds,
-point/lead/tip endpoints, gauge capability, clearances, zero sign/jog/check and
-retouch readings, contour/arc-table decisions and measured model binding. The
-exact affected subjects and number paths are preserved in each report.
+are the deterministic consequences of genuinely missing facts: unresolved
+speeds/feeds, point/lead/tip endpoints, gauge capability, clearances, measured
+trial-cut readings and model binding. Nominal zero recipes and contour offsets
+are computed from the authored choices without claiming measured readiness.
 
 ## DRO and print surfaces
 
@@ -146,11 +166,12 @@ exact affected subjects and number paths are preserved in each report.
 Direction and Radial/Diametric §6.2 (p20), Axis Set in ABS §7.4 (p31), Preset
 §8.1 (p37, distance-to-go, **never datum zero**), and lathe trial-cut/touch-off
 §9.2.1 (p62). Every recipe gives touch → compensated Axis Set → jog without
-retouch → expected/mirrored reading, with explicit `?` wherever a required
-choice or measurement is unavailable. No unmeasured check-jog distance or paper
-thickness was invented to make a numeric sign proof appear complete.
+retouch → expected/mirrored reading. Physical check jogs are 10 mm; paper touches
+use 0.05 mm. Lathe trial-cut X readings and installation stay unknown; an authored
+diametric X mode doubles a physical jog's displayed increment, not its distance.
 
-Travelers are Letter portrait: one header plus one page per setup. Their plain
+Travelers are Letter portrait: one header plus one page per setup, with a rocker
+contour continuation. Their plain
 before-start lines use ✗ / ! / ?; tables use drawing precision, not report
 precision. The stock state, grip/stop/clamp, clearance, coolant, deburr, tool/
 holder, speed/feed, direction, tip and requirement checks are present or named
@@ -166,17 +187,21 @@ uv run ruff check scripts
 ```
 
 The standard-library validator parses **every example TOML** with `tomllib`,
-checks complete rule subjects, manifest/plan references, enumerated shop items,
-named missing findings and requirement-keyed inspection, verifies orthonormal
-frames and coordinate transforms, tip/exit, Axis Set/finder/paper/jog/mirror/
-retouch and speed/feed arithmetic, hashes/canonical JSON/footer binding and exit
-precedence. It rejects obsolete YAML/CSV fixtures. It validates these authored
-contracts; it is not another machining checker and does not assert geometry,
-material properties, gauge calibration, first-article evidence or telemetry.
-The browser smoke rendered each traveler to exactly four Letter pages (612 × 792 pt);
-actual print rasters were inspected for clipping. Throwaway mutation smoke rejected an
-uncompensated finder touch, an entry mistaken for an exit face, an omitted inspection
-subject and a stale report digest, and proved error/required-warning precedence.
+rejects `"unknown"` in its explicit author-choice field set (including nested
+direction/contour values), checks complete rule subjects, manifest/plan references,
+enumerated shop items, named missing findings and requirement-keyed inspection,
+verifies orthonormal frames and coordinate transforms, tip/exit, Axis Set/finder/
+paper/jog/mirror/retouch and speed/feed arithmetic, hashes/canonical JSON/footer
+binding and exit precedence. It rejects obsolete YAML/CSV fixtures. It validates
+these authored contracts; it is not another machining checker and does not assert
+geometry, material properties, gauge calibration, first-article evidence or telemetry.
+The browser smoke rendered shaft/bracket to four Letter pages and rocker to five
+(612 × 792 pt), with matching report footers and no horizontal table overflow.
+Scoped mutation smoke rejected all 26 named author-choice fields and nested
+direction/contour/section unknowns, while allowing RPM, drawing, installation and
+missing-gauge unknowns; it also rejected a radius-sized jog in lathe diametric X.
+Local-target smoke also rejected a wrong endpoint, missing operation provenance
+and an attempt to replace a known model transform with an authored local target.
 The actual prechips CLI remains plan-only; do not mistake this validation run
 for `prechips check` producing the expected files.
 
@@ -203,29 +228,26 @@ for `prechips check` producing the expected files.
    headroom are not covered by the M1 mill examples. Turning has no shipped cut
    row; milling flutes × chip load is not a turning feed model. Spotting/M42
    tooling and material-grade classification are also unspecified.
-7. Numeric check jogs, paper, cut directions, exit allowances, prepared blank
-   surfaces, clamp methods and profile/arc steps are author decisions with no
-   sourced values here. The layout sketch is not an authority for filling them.
-8. No rounding-tie/boundary policy is supplied for RPM rounded to 50, and no
+7. No rounding-tie/boundary policy is supplied for RPM rounded to 50, and no
    unambiguous contact-approach sign convention is supplied for reversed DRO
-   directions. The references separate contact-side compensation from DRO jog
-   sign and leave unmeasured direction unknown.
-9. The complete dimension-count contract has no machine-readable form for a
+   directions. The references separate contact-side compensation from the
+   authored DRO jog polarity.
+8. The complete dimension-count contract has no machine-readable form for a
    part with no drawing. Bracket nominal geometry does not prove drawing
    precision, defaults, datum tolerances or profile acceptance.
-10. The report/bundle definition expects a STEP, while this assignment explicitly
+9. The report/bundle definition expects a STEP, while this assignment explicitly
     requires unknown STEP binding. These remain stopped reference targets, not
     successful bound runs. Approval format/location and first-article data are
     not authored here.
-11. The milestone's shaft cross-hole/BS-0 example conflicts with the actual
+10. The milestone's shaft cross-hole/BS-0 example conflicts with the actual
     consumer shaft's “NO FLATS”/no-hole geometry. No feature was invented.
-12. The rocker fixture/rail-release design is still open; retained rails are
-    released only in the supported S3 route, never secretly in the vise. The
-    175-long shaft supply state is not a separately produced intermediate state
-    in the retained shop route. Neither gap is concealed by a pass.
-13. Page overflow and continuation policy are not specified. The authored
-    reference sheets were fitted to actual Letter pages rather than treating
-    four HTML sections as four printed pages.
+11. The rocker fixture remains absent/unvalidated; the proposed supported hold
+    and release method does not certify its geometry. Retained rails are released
+    only under the supported S3 route, never secretly in the vise. The 175-long
+    shaft supply state is not a separately produced intermediate in this route.
+12. Page overflow and continuation policy are not specified. The authored
+    reference sheets were fitted to actual Letter pages rather than using HTML
+    section count as proof of print pagination.
 
 ## Exhaustive `"unknown"` input ledger
 
@@ -235,6 +257,8 @@ its cause. `verify = true` values with known nominal numbers are additional
 measurement debt, not missing numbers: notably the vendor machine/vise/support
 geometry, edge finder, instrument capability, and bracket candidate jaw/grip
 arithmetic. Clearing verification requires shop evidence, not an author edit.
+The ledger now has 262 true unknown leaves, down from 462; the 200 restored
+process-choice leaves are no longer listed as missing evidence.
 
 ### `cutting-data.toml` — 19 unknown leaves
 
@@ -474,112 +498,22 @@ features.ear_arch.faces
 features.cross_bore.faces
 ```
 
-### `pivot-bracket/plan.toml` — 71 unknown leaves
+### `pivot-bracket/plan.toml` — 5 unknown leaves (was 71)
 
-No certified export-bound drawing revision.
+No certified drawing/export revision or adopted drawing edge-break limit:
 
 ```text
 drawing.revision
-```
-
-Raw blank/handling/supply datum or starting surface is unsourced or unmeasured; finished nominal geometry is not raw-stock measurement.
-
-```text
-stock.form
-stock.section_mm
-stock.length_mm
-setups[S1].stock_state.top_z
-setups[S1].stock_state.bottom_z
-setups[S2].stock_state.top_z
-```
-
-Applicable cutting/edge-treatment choice is not sourced for this route or absent drawing.
-
-```text
-setups[S1].coolant
 setups[S1].deburr_mm
-setups[S2].coolant
 setups[S2].deburr_mm
-setups[S3].coolant
 setups[S3].deburr_mm
 ```
 
-Author has not supplied a confirmed grip, stop, clamp, support, protection or lubrication decision/measurement.
-
-```text
-setups[S1].hold.fixed_jaw
-setups[S1].hold.stop
-setups[S1].hold.clamp
-setups[S2].hold.fixed_jaw
-setups[S2].hold.stop
-setups[S2].hold.clamp
-setups[S3].hold.grip_mm
-setups[S3].hold.stop
-```
-
-No sourced paper/jog/pickup/tool/transfer reading or method; compensation/check/retouch cannot be completed numerically.
-
-```text
-setups[S1].zero.x.edge_mm
-setups[S1].zero.x.check_jog_mm
-setups[S1].zero.y.edge_mm
-setups[S1].zero.y.check_jog_mm
-setups[S1].zero.z.paper_mm
-setups[S1].zero.z.tool
-setups[S1].zero.z.check_jog_mm
-setups[S2].zero.x.check_jog_mm
-setups[S2].zero.y.check_jog_mm
-setups[S2].zero.z.paper_mm
-setups[S2].zero.z.tool
-setups[S2].zero.z.check_jog_mm
-setups[S3].zero.x.check_jog_mm
-setups[S3].zero.y.check_jog_mm
-setups[S3].zero.z.paper_mm
-setups[S3].zero.z.tool
-setups[S3].zero.z.check_jog_mm
-```
-
-Operation direction, allowance, contour, command endpoint or spot/exit depth is not sourced; no process dimension is invented.
-
-```text
-setups[S1].ops[10].direction
-setups[S1].ops[20].direction
-setups[S1].ops[20].rough_allowance_mm
-setups[S1].ops[20].contour
-setups[S1].ops[30].direction
-setups[S1].ops[30].contour
-setups[S2].ops[10].to_z
-setups[S2].ops[10].direction
-setups[S2].ops[10].rough_allowance_mm
-setups[S2].ops[20].direction
-setups[S2].ops[30].direction
-setups[S2].ops[40].to_z
-setups[S2].ops[40].direction
-setups[S2].ops[40].rough_allowance_mm
-setups[S2].ops[40].contour
-setups[S2].ops[50].direction
-setups[S2].ops[50].contour
-setups[S2].ops[60].depth_mm
-setups[S2].ops[70].exit_mm
-setups[S2].ops[80].depth_mm
-setups[S2].ops[90].exit_mm
-setups[S3].ops[10].to_z
-setups[S3].ops[10].direction
-setups[S3].ops[10].rough_allowance_mm
-setups[S3].ops[10].contour
-setups[S3].ops[20].direction
-setups[S3].ops[20].contour
-setups[S3].ops[30].depth_mm
-setups[S3].ops[40].exit_mm
-setups[S3].ops[50].exit_mm
-```
-
-No qualified gauge/method is selected for this requirement; named available gauges are not substituted for it.
+No radius/profile gauge is listed. Calipers are selected for nominal bore
+diameter and height only; absent bracket drawing tolerances remain in the manifest:
 
 ```text
 setups[S3].ops[20].checks.radius
-setups[S3].ops[50].checks.dia
-setups[S3].ops[50].checks.height
 ```
 
 ### `pivot-shaft/features.toml` — 16 unknown leaves
@@ -625,117 +559,32 @@ features.south_dome.at
 features.plain_end.length
 ```
 
-### `pivot-shaft/plan.toml` — 71 unknown leaves
+### `pivot-shaft/plan.toml` — 10 unknown leaves (was 71)
 
-No certified export-bound drawing revision.
+No certified drawing/export revision or confirmed lathe DRO installation:
 
 ```text
 drawing.revision
-```
-
-Raw blank/handling/supply datum or starting surface is unsourced or unmeasured; finished nominal geometry is not raw-stock measurement.
-
-```text
-stock.length_mm
-stock.north_allowance_mm
-stock.south_grip_mm
-setups[S1].stock_state.north_end_z
-setups[S1].stock_state.south_end_z
-setups[S2].stock_state.north_end_z
-setups[S2].stock_state.south_end_z
-setups[S3].stock_state.plain_end_z
-setups[S3].stock_state.north_end_z
-```
-
-No lathe DRO installation, per-axis Direction or radius/diameter setting is confirmed.
-
-```text
 dro.controller
-dro.radius_mode
-dro.direction.x
-dro.direction.z
 ```
 
-Applicable cutting/edge-treatment choice is not sourced for this route or absent drawing.
-
-```text
-setups[S1].coolant
-setups[S2].coolant
-setups[S3].coolant
-```
-
-Author has not supplied a confirmed grip, stop, clamp, support, protection or lubrication decision/measurement.
-
-```text
-setups[S1].hold.grip_mm
-setups[S1].hold.stop
-setups[S1].hold.clamp
-setups[S1].hold.centre_lubrication
-setups[S1].hold.stickout_mm
-setups[S2].hold.grip_mm
-setups[S2].hold.stop
-setups[S2].hold.clamp
-setups[S2].hold.jaw_protection
-setups[S2].hold.stickout_mm
-setups[S3].hold.grip_mm
-setups[S3].hold.stop
-setups[S3].hold.clamp
-setups[S3].hold.jaw_protection
-setups[S3].hold.stickout_mm
-```
-
-No sourced paper/jog/pickup/tool/transfer reading or method; compensation/check/retouch cannot be completed numerically.
-
-```text
-setups[S1].zero.x.check_jog_mm
-setups[S1].zero.z.check_jog_mm
-setups[S2].zero.transfer.runout_limit_mm
-setups[S2].zero.x.check_jog_mm
-setups[S2].zero.z.check_jog_mm
-setups[S3].zero.transfer.runout_limit_mm
-setups[S3].zero.x.check_jog_mm
-setups[S3].zero.z.method
-setups[S3].zero.z.paper_mm
-setups[S3].zero.z.check_jog_mm
-```
-
-Operation direction, allowance, contour, command endpoint or spot/exit depth is not sourced; no process dimension is invented.
-
-```text
-setups[S1].ops[10].direction
-setups[S1].ops[20].rough_allowance_mm
-setups[S1].ops[20].direction
-setups[S1].ops[30].direction
-setups[S1].ops[40].z_to
-setups[S1].ops[40].rough_allowance_mm
-setups[S1].ops[40].direction
-setups[S1].ops[50].z_to
-setups[S1].ops[50].direction
-setups[S1].ops[60].direction
-setups[S1].ops[70].direction
-setups[S1].ops[80].direction
-setups[S1].ops[90].direction
-setups[S2].ops[10].direction
-setups[S2].ops[20].direction
-setups[S2].ops[20].contour
-setups[S3].ops[10].to_z
-setups[S3].ops[10].direction
-setups[S3].ops[20].z_from
-setups[S3].ops[20].z_to
-setups[S3].ops[20].direction
-setups[S3].ops[20].contour
-```
-
-No qualified gauge/method is selected for this requirement; named available gauges are not substituted for it.
+No roughness comparator in the inventory; no drawing runout limit to borrow:
 
 ```text
 setups[S1].ops[30].checks.finish_ra
 setups[S1].ops[50].checks.finish_ra
 setups[S1].ops[60].checks.finish_ra
-setups[S2].ops[20].checks.height
-setups[S2].ops[30].checks.length
-setups[S3].ops[10].checks.length
-setups[S3].ops[20].checks.height
+setups[S2].zero.transfer.runout_limit_mm
+setups[S3].zero.transfer.runout_limit_mm
+```
+
+Actual scribe/installed-ear binding is unmeasured. Local cut and dome targets
+are chosen, but incoming end stations and stick-out cannot be inferred:
+
+```text
+setups[S3].stock_state.plain_end_z
+setups[S3].stock_state.north_end_z
+setups[S3].hold.stickout_mm
 ```
 
 ### `rocker-arm/features.toml` — 16 unknown leaves
@@ -786,115 +635,21 @@ Radial-land relationship exists, but no numeric angular acceptance band is sourc
 features.profile_outer.land_angle_deg
 ```
 
-### `rocker-arm/plan.toml` — 85 unknown leaves
+### `rocker-arm/plan.toml` — 12 unknown leaves (was 85)
 
-No certified export-bound drawing revision.
+No certified drawing/export revision or measured/available S3 support geometry:
 
 ```text
 drawing.revision
-```
-
-Raw blank/handling/supply datum or starting surface is unsourced or unmeasured; finished nominal geometry is not raw-stock measurement.
-
-```text
-stock.section_mm
-stock.length_mm
-setups[S1].stock_state.top_z
-setups[S1].stock_state.bottom_z
-setups[S1].stock_state.local_thickness.pivot_bore
-setups[S2].stock_state.top_z
-```
-
-Applicable cutting/edge-treatment choice is not sourced for this route or absent drawing.
-
-```text
-setups[S1].coolant
-setups[S2].coolant
-setups[S3].coolant
-```
-
-Author has not supplied a confirmed grip, stop, clamp, support, protection or lubrication decision/measurement.
-
-```text
-setups[S1].hold.fixed_jaw
-setups[S1].hold.grip_mm
-setups[S1].hold.jaw_above_parallels_mm
-setups[S1].hold.stop
-setups[S1].hold.clamp
-setups[S2].hold.fixed_jaw
-setups[S2].hold.grip_mm
-setups[S2].hold.jaw_above_parallels_mm
-setups[S2].hold.stop
-setups[S2].hold.clamp
 setups[S3].hold.supports
-setups[S3].hold.grip_mm
-setups[S3].hold.stop
-setups[S3].hold.clamp
 ```
 
-No sourced paper/jog/pickup/tool/transfer reading or method; compensation/check/retouch cannot be completed numerically.
+The shop lacks requirement-capable bore/position, roughness, height, radius,
+arc-length and angular gauges/methods. The selected micrometer/caliper methods
+for hub diameter, hub length, strap thickness and tip land remain unverified,
+but no longer masquerade as missing author decisions:
 
 ```text
-setups[S1].zero.x.edge_mm
-setups[S1].zero.x.check_jog_mm
-setups[S1].zero.y.edge_mm
-setups[S1].zero.y.check_jog_mm
-setups[S1].zero.z.paper_mm
-setups[S1].zero.z.check_jog_mm
-setups[S2].zero.x.check_jog_mm
-setups[S2].zero.y.check_jog_mm
-setups[S2].zero.z.paper_mm
-setups[S2].zero.z.check_jog_mm
-setups[S3].zero.x.check_jog_mm
-setups[S3].zero.y.check_jog_mm
-setups[S3].zero.z.paper_mm
-setups[S3].zero.z.check_jog_mm
-```
-
-Operation direction, allowance, contour, command endpoint or spot/exit depth is not sourced; no process dimension is invented.
-
-```text
-setups[S1].ops[10].direction
-setups[S1].ops[20].to_z
-setups[S1].ops[20].direction
-setups[S1].ops[25].direction
-setups[S1].ops[30].to_z
-setups[S1].ops[30].stock_to_leave_mm
-setups[S1].ops[30].direction
-setups[S1].ops[40].to_z
-setups[S1].ops[40].stock_to_leave_mm
-setups[S1].ops[40].direction
-setups[S1].ops[50].to_z
-setups[S1].ops[50].stock_to_leave_mm
-setups[S1].ops[50].direction
-setups[S1].ops[60].depth_mm
-setups[S1].ops[70].exit_mm
-setups[S2].ops[10].direction
-setups[S2].ops[20].direction
-setups[S2].ops[30].direction
-setups[S2].ops[40].to_z
-setups[S2].ops[40].stock_to_leave_mm
-setups[S2].ops[40].direction
-setups[S2].ops[50].to_z
-setups[S2].ops[50].stock_to_leave_mm
-setups[S2].ops[50].direction
-setups[S3].ops[10].direction
-setups[S3].ops[20].exit_mm
-setups[S3].ops[30].to_z
-setups[S3].ops[30].direction
-setups[S3].ops[30].contour
-setups[S3].ops[40].exit_mm
-setups[S3].ops[40].direction
-setups[S3].ops[40].contour
-setups[S3].ops[50].depth_mm
-setups[S3].ops[60].exit_mm
-```
-
-No qualified gauge/method is selected for this requirement; named available gauges are not substituted for it.
-
-```text
-setups[S2].ops[30].checks.dia
-setups[S3].ops[10].checks.dia
 setups[S3].ops[20].checks.dia
 setups[S3].ops[20].checks.finish_ra
 setups[S3].ops[30].checks.height_above_pivot
@@ -902,7 +657,6 @@ setups[S3].ops[30].checks.radius
 setups[S3].ops[30].checks.arc_len
 setups[S3].ops[40].checks.bottom_radius
 setups[S3].ops[40].checks.bottom_arc_len
-setups[S3].ops[40].checks.tip_land
 setups[S3].ops[40].checks.land_angle_deg
 setups[S3].ops[60].checks.dia
 setups[S3].ops[60].checks.position_dia

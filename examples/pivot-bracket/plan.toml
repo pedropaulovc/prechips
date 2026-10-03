@@ -1,10 +1,10 @@
 # pivot-bracket process plan — PLAN.md rev 6 §3.1. Three PM-30MV setups, carried from the
 # rev-3 route: S1 seat up (seat + foot boundary), S2 foot top up (L relief, ear width,
 # hold-down holes), S3 inner ear face up on an angle plate (arch + reamed cross-bore).
-# Rev-3 authored blank allowances, paper thickness, pass allowances and RPMs had no consumer
-# or inventory source and are now "unknown"; derived numbers retained from rev 3 carry
-# *_verify = true. Nothing here is executable or attested: the shop lacks the S3 angle
-# plate, an R8 drill chuck and a 6.5 mm reamer.
+# Blank placement, holding and cutting choices belong to the plan author; the rev-3
+# prepared blank is restored below. New process choices are marked explicitly.
+# *_verify = true retains unmeasured inventory arithmetic. Nothing here is executable
+# or attested: the shop lacks the S3 angle plate, R8 drill chuck and 6.5 mm reamer.
 
 part = "pivot-bracket"
 features = "features.toml"
@@ -24,9 +24,9 @@ cutting_data = "../cutting-data.toml"
 [stock]
 material = "Plain Carbon Steel"
 material_cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:74"]
-form = "unknown"                 # rev 3 authored an 18 x 26.2 x 34.2 prepared blank (1 mm allowances); unsourced
-section_mm = "unknown"
-length_mm = "unknown"
+form = "prepared_blank"          # author's choice, restored from rev 3
+section_mm = [18.0, 26.2]        # author's choice: model X width / model Z run, 1 mm each side
+length_mm = 34.2                 # author's choice: model Y -1..33.2, seat/crown allowances
 on_hand = false                  # inventory stock = [] (pedro-shop.toml:7): known none on hand; no procurement claimed
 
 [dro]
@@ -45,49 +45,49 @@ z = "up"
 id = "S1"
 machine = "PM-30MV"
 frame = "A"                      # seat up; frame x/y/z = machine +X/+Y/+Z
-coolant = "unknown"
+coolant = "cutting-oil"           # author's choice: brush listed cutting oil on cuts
 deburr_mm = "unknown"            # no drawing adopts the title-block edge break
 stock_in = "blank"
 
 [setups.stock_state]             # frame A, surfaces as S1 receives them
-top_z = "unknown"                # raw seat-side face: seat allowance is not sourced
-bottom_z = "unknown"             # raw blank face beyond the crown: blank height is not sourced
+top_z = 1.0                      # author's choice: raw seat at model Y = -1
+bottom_z = -33.2                 # author's choice: raw crown-side face at model Y = 33.2
 
 [setups.stock_state.local_thickness]   # S1 has no holes
 
 [setups.hold]
 fixture = "vise-pm-6"
 jaws_along = "y"                 # rev 3: jaws normal to X, gripping the unmachined body across X
-fixed_jaw = "unknown"
+fixed_jaw = "left"               # author's choice: fixed jaw on -X, jaws run along Y
 parallels = "parallels-lms-6745/1in"
-stop = "unknown"
+stop = "blank outer end at A Y = -4 against end stop" # author's choice
 grip_mm = 20.955                 # rev-3 derived: jaw height 1.825 in - 1 in parallels, x 25.4
 grip_mm_verify = true            # vise and parallels are verify = true
 jaw_above_parallels_mm = 20.955
 jaw_above_parallels_mm_verify = true
-clamp = "unknown"
-note = "Seat side up on the 1 in parallels; finish only the foot boundary through FOOT_H = 6 from the seat, leave the stock below for S2/S3. Clearance from the cut bottom (A z = -6) to the jaw top depends on the unsourced blank height."
+clamp = "hand plus quarter turn" # author's choice; verify actual grip before cutting
+note = "Seat side up on 1 in parallels; centred X stock -9..9, model Z -4..22.2. Raw seat is A Z = 1, finished seat 0; finish only the foot boundary down to -6. Nominal jaw engagement 20.955 and finished-seat height 58.6 above the bed give 6.245 clearance from the cut bottom to jaw top; inventory dimensions remain verify-only. Leave stock below for S2/S3."
 
 [setups.zero.x]
 edge = "blank_left"
-edge_mm = "unknown"              # blank size and placement are not sourced
+edge_mm = -9.0                   # author's choice: centred 18 mm blank
 from = "-x"
 tool = "edge-finder"
-check_jog_mm = "unknown"
+check_jog_mm = 10.0              # author's choice; jog without touching again
 
 [setups.zero.y]
 edge = "blank_outer_end"
-edge_mm = "unknown"
+edge_mm = -4.0                   # author's choice: raw model Z = -4
 from = "-y"
 tool = "edge-finder"
-check_jog_mm = "unknown"
+check_jog_mm = 10.0              # author's choice
 
 [setups.zero.z]
 face = "top"
 method = "paper"
-paper_mm = "unknown"             # rev 3 proposed 0.08; no source
-tool = "unknown"
-check_jog_mm = "unknown"
+paper_mm = 0.05                  # author's choice; not an inventory measurement
+tool = "endmills-lms-6784/3-8in-4fl" # author's choice: first cutting tool
+check_jog_mm = 10.0              # author's choice
 retouch_after = [10]             # op 10 faces the seat to z = 0
 
 [[setups.ops]]
@@ -97,7 +97,7 @@ feature = "seat_face"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.0                       # establishes the seat, frame A z = 0
-direction = "unknown"
+direction = "conventional"       # author's choice for a hand-fed mill
 
 [[setups.ops]]
 op = 20
@@ -106,9 +106,9 @@ feature = "foot_profile"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.0                      # -FOOT_H
-direction = "unknown"
-rough_allowance_mm = "unknown"
-contour = "unknown"
+direction = "conventional"       # author's choice
+rough_allowance_mm = 0.3         # author's choice: radial stock on the outline
+contour = { method = "linear_table", step_mm = 1.0 } # author's choice: straight sides
 
 [[setups.ops]]
 op = 30
@@ -117,8 +117,8 @@ feature = "foot_profile"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.0
-direction = "unknown"
-contour = "unknown"
+direction = "conventional"       # author's choice
+contour = { method = "linear_table", step_mm = 1.0 } # author's choice
 
 [setups.ops.checks]
 width = "calipers"
@@ -129,31 +129,38 @@ length = "calipers"
 id = "S2"
 machine = "PM-30MV"
 frame = "B"                      # foot top up, seat down
-coolant = "unknown"
+coolant = "cutting-oil"           # author's choice: brush listed cutting oil on cuts
 deburr_mm = "unknown"
 stock_in = "S1"
 
 [setups.stock_state]             # frame B
-top_z = "unknown"                # raw stock over the free run and the ear band (blank height unsourced)
+top_z = 27.2                     # author's choice: remaining model Y = 33.2 minus FOOT_H
 bottom_z = -6.0                  # finished seat (S1 op 10)
 
 [setups.stock_state.local_thickness]
 hold_down_a = 6.0                # FOOT_H at the station, entry on the foot top once op 30 faces it
 hold_down_b = 6.0
 
+
+[setups.stock_state.entry_z]     # author's choice: distinguish free run, ear band and holes
+ear_relief = 27.2
+foot_top = 27.2
+ear_sides = 27.2
+hold_down_a = 27.2               # free-run surface advances with relief and foot-top cuts
+hold_down_b = 27.2
 [setups.hold]
 fixture = "vise-pm-6"
 jaws_along = "y"                 # grips the finished foot sides across X
-fixed_jaw = "unknown"
+fixed_jaw = "left"               # author's choice: fixed jaw on -X
 parallels = "parallels-lms-6745/5-8in"
 riser = "blocks-123-lms-2881"    # rev-3 authored packing: block on its 1 in face under the 5/8 parallels
 grip_mm = 5.08                   # rev-3 derived: 1.825 in jaw - (1 + 5/8) in stack, x 25.4
 grip_mm_verify = true
 jaw_above_parallels_mm = 5.08
 jaw_above_parallels_mm_verify = true
-stop = "unknown"
-clamp = "unknown"
-note = "Seat down; support both foot edges and keep the x = 0 drilling line clear. Nominal foot top 0.92 above the jaws (verify-only arithmetic)."
+stop = "finished free end at B Y = -21.2 against end stop" # author's choice
+clamp = "hand plus quarter turn" # author's choice
+note = "Seat down; support both foot edges on the 1 in block plus 5/8 in parallels, keeping x = 0 drilling line clear. Nominal stack 41.275, jaw overlap 5.08 and foot top 0.92 above jaws remain verify-only arithmetic. Raw ear/free-run top is B Z = 27.2; relief rough/finish advances only the free run to 0.3/0, never the retained ear top."
 
 [setups.zero.transfer]
 from = "S1"
@@ -164,22 +171,22 @@ edge = "foot_left"
 edge_mm = -8.0                   # -FOOT_W / 2
 from = "-x"
 tool = "edge-finder"
-check_jog_mm = "unknown"
+check_jog_mm = 10.0              # author's choice
 
 [setups.zero.y]
 edge = "foot_free_end"
 edge_mm = -21.2                  # model Z = FOOT_Z1 -> B y = -21.2
 from = "-y"
 tool = "edge-finder"
-check_jog_mm = "unknown"
+check_jog_mm = 10.0              # author's choice
 
 [setups.zero.z]
 face = "top"
 method = "paper"
-paper_mm = "unknown"
-tool = "unknown"
-check_jog_mm = "unknown"
-retouch_after = [30]             # op 30 faces the foot top to z = 0; holes are touched off it
+paper_mm = 0.05                  # author's choice
+tool = "endmills-lms-6784/3-8in-4fl" # author's choice
+check_jog_mm = 10.0              # author's choice
+retouch_after = [30]             # author's choice: same end mill for 10–50; later tools touch finished foot top
 
 [[setups.ops]]
 op = 10
@@ -187,9 +194,10 @@ do = "rough_pocket"
 feature = "ear_relief"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = "unknown"                 # rough floor allowance not sourced
-direction = "unknown"
-rough_allowance_mm = "unknown"
+to_z = 0.3                       # author's choice: finished foot Z = 0 plus floor allowance
+direction = "conventional"       # author's choice
+rough_allowance_mm = 0.3         # author's choice: stock on floor and retained ear wall
+contour = { method = "linear_table", step_mm = 1.0 } # author's choice: open free-run pocket
 
 [[setups.ops]]
 op = 20
@@ -198,7 +206,8 @@ feature = "ear_relief"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.0
-direction = "unknown"
+direction = "conventional"       # author's choice
+contour = { method = "linear_table", step_mm = 1.0 } # author's choice
 
 [setups.ops.checks]
 thickness = "calipers"
@@ -210,7 +219,7 @@ feature = "foot_top"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.0
-direction = "unknown"
+direction = "conventional"       # author's choice
 
 [setups.ops.checks]
 height = "calipers"
@@ -221,10 +230,10 @@ do = "rough_profile"
 feature = "ear_sides"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = "unknown"
-direction = "unknown"
-rough_allowance_mm = "unknown"
-contour = "unknown"
+to_z = 0.3                       # author's choice: finished foot Z = 0 plus floor allowance
+direction = "conventional"       # author's choice
+rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
+contour = { method = "linear_table", step_mm = 1.0 } # author's choice
 
 [[setups.ops]]
 op = 50
@@ -233,8 +242,8 @@ feature = "ear_sides"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.0                       # down to the foot top
-direction = "unknown"
-contour = "unknown"
+direction = "conventional"       # author's choice
+contour = { method = "linear_table", step_mm = 1.0 } # author's choice
 
 [setups.ops.checks]
 width = "calipers"
@@ -245,7 +254,7 @@ do = "spot"
 feature = "hold_down_a"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = "unknown"
+depth_mm = 2.0                   # author's choice: spot from the finished foot top
 
 [[setups.ops]]
 op = 70
@@ -253,7 +262,7 @@ do = "drill"
 feature = "hold_down_a"
 tool = "drill-index-115/#15"
 holder = "drill-chuck-r8"
-exit_mm = "unknown"
+exit_mm = 2.0                    # author's choice: full diameter beyond local exit face
 
 [setups.ops.checks]
 dia = "calipers"
@@ -265,7 +274,7 @@ do = "spot"
 feature = "hold_down_b"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = "unknown"
+depth_mm = 2.0                   # author's choice
 
 [[setups.ops]]
 op = 90
@@ -273,7 +282,7 @@ do = "drill"
 feature = "hold_down_b"
 tool = "drill-index-115/#15"
 holder = "drill-chuck-r8"
-exit_mm = "unknown"
+exit_mm = 2.0                    # author's choice
 
 [setups.ops.checks]
 dia = "calipers"
@@ -284,7 +293,7 @@ station = "calipers"
 id = "S3"
 machine = "PM-30MV"
 frame = "C"                      # inner ear face up; seat against the angle plate on the -y side
-coolant = "unknown"
+coolant = "cutting-oil"           # author's choice: brush listed cutting oil on cuts
 deburr_mm = "unknown"
 stock_in = "S2"
 
@@ -297,6 +306,7 @@ cross_bore = 6.0                 # EAR_T
 
 [setups.stock_state.entry_z]
 cross_bore = 0.0                 # ear inner face, not the stock top (the foot stands above it)
+ear_arch = 0.0                   # author's choice: profile from the ear inner face, not foot top
 
 [setups.hold]
 fixture = "angle-plate"          # NOT IN THE SHOP
@@ -304,10 +314,10 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "parallels-lms-6745/1-2in"
 clamp = "clamping-kit-lms-1144"
-grip_mm = "unknown"
+grip_mm = 8.0                    # author's choice: strap-pad overlap on free foot, not bore/ear
 jaw_above_parallels_mm = "not_applicable"
-stop = "unknown"
-note = "Seat (model Y = 0) against the vertical plate, inner ear face up. Support only the foot outer end on the 1/2 in parallels so the bore and arch exit below the ear is open. Strap the free foot to the plate away from the ear with studs outside the part: the kit's 3/8-16 studs do not pass the 4.572 hold-down holes. Plate slots, mounting and clamp layout are unknown."
+stop = "finished left foot edge at C X = -8 against plate stop" # author's choice
+note = "Seat (model Y = 0) against the absent vertical plate, inner ear face up. Support only the foot outer end on 1/2 in parallels so the bore/arch exit below the ear is open. Author's choice: strap the free foot to the plate with 8 mm pad overlap and studs outside the part; 3/8-16 studs must not pass through 4.572 hold-down holes. Plate slots, mounting, kit presence and actual clearance remain unverified."
 
 [setups.zero.transfer]
 from = "S2"
@@ -318,21 +328,21 @@ edge = "foot_left"
 edge_mm = -8.0
 from = "-x"
 tool = "edge-finder"
-check_jog_mm = "unknown"
+check_jog_mm = 10.0              # author's choice
 
 [setups.zero.y]
 edge = "foot_top"
 edge_mm = 6.0                    # exposed free-run foot top, model Y = FOOT_H; the seat is against the plate
 from = "+y"
 tool = "edge-finder"
-check_jog_mm = "unknown"
+check_jog_mm = 10.0              # author's choice
 
 [setups.zero.z]
 face = "ear_inner"
 method = "paper"
-paper_mm = "unknown"
-tool = "unknown"
-check_jog_mm = "unknown"
+paper_mm = 0.05                  # author's choice
+tool = "endmills-lms-6784/3-8in-4fl" # author's choice
+check_jog_mm = 10.0              # author's choice
 retouch_after = []               # no op changes the ear inner face
 
 [[setups.ops]]
@@ -341,10 +351,10 @@ do = "rough_profile"
 feature = "ear_arch"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = "unknown"
-direction = "unknown"
-rough_allowance_mm = "unknown"
-contour = "unknown"
+to_z = -5.7                      # author's choice: outer ear face -6 plus floor allowance
+direction = "conventional"       # author's choice
+rough_allowance_mm = 0.3         # author's choice: radial crown stock
+contour = { method = "arc_table", step_deg = 10.0 } # author's choice: upper semicircle
 
 [[setups.ops]]
 op = 20
@@ -352,9 +362,9 @@ do = "finish_profile"
 feature = "ear_arch"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = -6.0                      # ear outer face; any overrun is not authored
-direction = "unknown"
-contour = "unknown"
+to_z = -6.0                      # outer ear face; no authored axial overrun
+direction = "conventional"       # author's choice
+contour = { method = "arc_table", step_deg = 10.0 } # author's choice
 
 [setups.ops.checks]
 radius = "unknown"               # no radius gauge named
@@ -365,7 +375,7 @@ do = "spot"
 feature = "cross_bore"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = "unknown"
+depth_mm = 2.0                   # author's choice: spot from ear inner face C Z = 0
 
 [[setups.ops]]
 op = 40
@@ -373,7 +383,7 @@ do = "drill"
 feature = "cross_bore"
 tool = "drill-index-115/1-4in"   # rev-3 predrill choice: 6.35 leaves 0.15 diametral for the reamer
 holder = "drill-chuck-r8"
-exit_mm = "unknown"
+exit_mm = 2.0                    # author's choice
 
 [[setups.ops]]
 op = 50
@@ -381,8 +391,9 @@ do = "ream"
 feature = "cross_bore"
 tool = "reamers-metric/6.5mm"    # NOT IN THE SHOP
 holder = "drill-chuck-r8"
-exit_mm = "unknown"
+exit_mm = 2.0                    # author's choice
+inspection_note = "Author's choice: after unclamping, record nominal bore diameter with caliper inside jaws and nominal height from seat to lower bore edge plus half the measured bore diameter. No fit, tolerance or calibrated gauge capability is claimed."
 
 [setups.ops.checks]
-dia = "unknown"                  # a caliper does not certify an unspecified reamed fit; no bore gauge named
-height = "unknown"               # no height gauge in the shop
+dia = "calipers"                 # author's choice: nominal record only, no reamed-fit certification
+height = "calipers"              # author's choice: edge-to-seat plus measured bore radius
