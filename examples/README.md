@@ -175,13 +175,18 @@ retouch → expected/mirrored reading. Physical check jogs are 10 mm; paper touc
 use 0.05 mm. Lathe trial-cut X readings and installation stay unknown; an authored
 diametric X mode doubles a physical jog's displayed increment, not its distance.
 
-Travelers are Letter portrait: one header plus one page per setup, with a rocker
-contour continuation. Their plain
-before-start lines use ✗ / ! / ?; tables use drawing precision, not report
-precision. The stock state, grip/stop/clamp, clearance, coolant, deburr, tool/
-holder, speed/feed, direction, tip and requirement checks are present or named
-as unknown. No rule ids, paths or full hashes belong on the bench sheet. No
-geometry render is claimed before M4. A browser-rendered Letter PDF is a layout
+Travelers are Letter portrait: one header plus one page per setup, followed by
+coordinate/arc continuation sheets where needed. Fresh CLI outputs rendered in
+Chromium after the main-line pickup correction have 7 physical pages for the
+shaft, 10 for the rocker and 10 for the bracket; physical pages match the logical
+sections. Footers flow after the instructions rather than covering them.
+Before-start lines use ✗ / ! / ?. Tables apply explicit drawing precision;
+known operative/manual targets retain their supplied numeric form when drawing
+precision is absent, without inventing an acceptance band. Actual unknown
+numbers remain `?`. Stock state, grip/stop/clamp, clearance, coolant, deburr,
+tool/holder, speed/feed, direction, tip and requirement checks are present or
+named unknown. No rule ids, paths or full hashes belong on the bench sheet.
+No geometry render is claimed before M4. A browser-rendered Letter PDF is a layout
 smoke proof, **not** the physical printed paper rehearsal or a first article.
 
 ## Validation
@@ -265,6 +270,12 @@ targets with fresh computations and the contracts above.
   free-run sweep's model frame and raw-blank bounds X −9..9, Y 6..33.2,
   Z 3..22.2, opening toward setup −Y. The original stock placement/hold prose
   already supplies these author choices; they are not added to the CAD manifest.
+  The approved main-line pickup correction is retained: S2 touches the accessible
+  unfinished upper-stock overhang at X −9 / Y −22.2, producing nominal Axis Set
+  −11.54 / −24.74 rather than touching the obscured finished foot. S3 explicitly
+  declares `zero.z.edge_mm = 0` for the named ear-inner face; its raised stock top
+  at 18.2 is not that touch surface. The validator derives named Z edges from
+  the plan, never from a report's own answer.
 - **All three `expected/report.json` files**: use `rules_version = "m1-rev6"`,
   current input SHA-256s, generic rule sentence/citation templates and fully
   computed evidence records. Hashes change because they bind the entire report.
