@@ -918,9 +918,14 @@ sheet.
    (3) and the telemetry kernel-absence test (1) passed in isolation.
    **Project-wide acceptance observed:** `uv run ruff check . && uv run ruff
    format --check . && uv run pytest -q && uv run python
-   scripts/validate_examples.py` exited 0; 699 tests passed and all 23 TOML
+   scripts/validate_examples.py` exited 0; 700 tests passed and all 23 TOML
    fixture inputs plus their frozen outputs validated, with pilot exits
    4 / 2 / 2 / 4 / 2 and geometry exits 2 / 2 / 0 / 2 / 2.
+   The cone comparison also passed with default and forced-absent kernels
+   (2 scoped cases); all seven original example cases passed with
+   `FREECAD_CMD` naming a nonexistent executable, preserving deterministic
+   unknown geometry and candidate exit precedence without assuming that
+   kernel-absent bytes equal the installed-kernel goldens.
    **Outside this M4 acceptance:** M3 consumer-side live integration and
    farm/trace rehearsal; measured production vise/parallel dimensions and
    a sourced thin-wall floor; and physical operator/setup checks. None is
