@@ -3,17 +3,15 @@
   "findings": [
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:197"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The body is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "cylinder",
-        "ops": [
-          "S1:40",
-          "S1:50"
-        ]
+        "kind": "cylinder"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -21,17 +19,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:266"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The north dome is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "dome",
-        "ops": [
-          "S2:10",
-          "S2:20"
-        ]
+        "kind": "dome"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -39,18 +35,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:133"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The north journal is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "cylinder",
-        "ops": [
-          "S1:20",
-          "S1:30",
-          "S2:30"
-        ]
+        "kind": "cylinder"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -58,16 +51,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:220"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The north relief is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "groove",
-        "ops": [
-          "S1:80"
-        ]
+        "kind": "groove"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -75,16 +67,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:317"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The plain end is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "cut_end",
-        "ops": [
-          "S3:10"
-        ]
+        "kind": "cut_end"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -92,17 +83,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:159"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The shoulder is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "cylinder",
-        "ops": [
-          "S1:10",
-          "S1:70"
-        ]
+        "kind": "cylinder"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -110,16 +99,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:180"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The shoulder thrust face is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "face",
-        "ops": [
-          "S1:60"
-        ]
+        "kind": "face"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -127,16 +115,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:289"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The south dome is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "dome",
-        "ops": [
-          "S3:20"
-        ]
+        "kind": "dome"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -144,16 +131,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:243"
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
       ],
-      "message": "The south relief is not a hole, so there is no drill tip or breakthrough to compute.",
+      "message": "Not a hole; no tip endpoint applies.",
       "numbers": {
         "endpoints": [],
-        "feature_kind": "groove",
-        "ops": [
-          "S1:90"
-        ]
+        "kind": "groove"
       },
       "rule": "blind_depth",
       "status": "not_applicable",
@@ -161,18 +147,32 @@
     },
     {
       "cite": [
-        "PLAN.md §5",
-        "examples/pivot-shaft/features.toml"
+        "PLAN.md §5 input-bundle binding"
       ],
-      "message": "No STEP model was supplied, so the drawing numbers are not bound to a model file.",
+      "message": "The part model is not bound to verified STEP bytes.",
       "numbers": {
-        "inputs": [
-          "cutting_data",
-          "features",
-          "inventory",
-          "plan",
-          "shop_policy"
-        ],
+        "inputs": {
+          "cutting_data": {
+            "path": "examples/cutting-data.toml",
+            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+          },
+          "features": {
+            "path": "examples/pivot-shaft/features.toml",
+            "sha256": "0074005bc6fa785c76828c8ff6c6d8ecce45c7ccc85090cc92506719821614ec"
+          },
+          "inventory": {
+            "path": "examples/inventory/pedro-shop.toml",
+            "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+          },
+          "plan": {
+            "path": "examples/pivot-shaft/plan.toml",
+            "sha256": "4a9d0f3d784371c06f28888693122664d6cf3a6861cd907578eacc3a5e54aec9"
+          },
+          "shop_policy": {
+            "path": "examples/shop-policy.toml",
+            "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+          }
+        },
         "step_sha256": "unknown"
       },
       "rule": "bundle_binding",
@@ -181,17 +181,51 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:55",
-        "examples/pivot-shaft/features.toml:90"
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
       ],
-      "message": "S1 drawing stations use the authored diametric X display; the tool nose radius and actual readout installation remain unknown, so these are nominal surface targets, not a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
+        "arc_table": [],
         "binding": "nominal",
+        "contours": [],
+        "entry_surfaces": [
+          {
+            "op": 10
+          },
+          {
+            "op": 20
+          },
+          {
+            "op": 30
+          },
+          {
+            "op": 40
+          },
+          {
+            "op": 50
+          },
+          {
+            "op": 60
+          },
+          {
+            "op": 70
+          },
+          {
+            "op": 80
+          },
+          {
+            "op": 90
+          }
+        ],
         "frame": "T1",
+        "line_table": [],
         "operations": [
           {
             "direction": "radially_inward",
+            "do": "face",
             "feature": "shoulder",
             "op": 10,
             "to_z": 0.0,
@@ -199,52 +233,45 @@
           },
           {
             "direction": "toward_shoulder",
+            "do": "rough_turn",
             "feature": "north_journal",
             "op": 20,
             "rough_allowance_mm": 0.2,
-            "target_diameter_mm": 6.55,
-            "target_radius_mm": 3.275,
             "tool": "turning-tools-warner-lms-4132/AR",
-            "x_axis_set": 6.55,
             "z_from": 0.0,
             "z_to": 7.5
           },
           {
             "direction": "toward_shoulder",
+            "do": "finish_turn",
             "feature": "north_journal",
             "op": 30,
-            "target_diameter_mm": 6.35,
-            "target_radius_mm": 3.175,
             "tool": "turning-tools-warner-lms-4132/AR",
-            "x_axis_set": 6.35,
             "z_from": 0.0,
             "z_to": 7.5
           },
           {
             "direction": "toward_chuck",
+            "do": "rough_turn",
             "feature": "body",
             "op": 40,
             "rough_allowance_mm": 0.2,
-            "target_diameter_mm": 6.55,
-            "target_radius_mm": 3.275,
             "tool": "turning-tools-warner-lms-4132/AR",
-            "x_axis_set": 6.55,
             "z_from": -1.5,
             "z_to": -167.5
           },
           {
             "direction": "toward_chuck",
+            "do": "finish_turn",
             "feature": "body",
             "op": 50,
-            "target_diameter_mm": 6.35,
-            "target_radius_mm": 3.175,
             "tool": "turning-tools-warner-lms-4132/AR",
-            "x_axis_set": 6.35,
             "z_from": -1.5,
             "z_to": -167.5
           },
           {
             "direction": "radially_inward",
+            "do": "face",
             "feature": "shoulder_thrust",
             "op": 60,
             "to_z": -1.5,
@@ -252,17 +279,16 @@
           },
           {
             "direction": "toward_chuck",
+            "do": "finish_turn",
             "feature": "shoulder",
             "op": 70,
-            "target_diameter_mm": 10.0,
-            "target_radius_mm": 5.0,
             "tool": "turning-tools-warner-lms-4132/AR",
-            "x_axis_set": 10.0,
             "z_from": -1.5,
             "z_to": 0.0
           },
           {
             "direction": "profile_toward_shoulder",
+            "do": "form_relief",
             "feature": "north_relief",
             "op": 80,
             "tool": "turning-tools-warner-lms-4132/E",
@@ -271,6 +297,7 @@
           },
           {
             "direction": "profile_toward_shoulder",
+            "do": "form_relief",
             "feature": "south_relief",
             "op": 90,
             "tool": "turning-tools-warner-lms-4132/E",
@@ -278,7 +305,24 @@
             "z_to": -3.5
           }
         ],
+        "profiles": [],
         "rows": [
+          {
+            "dia_nominal": 10.0,
+            "feature": "shoulder",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "drawing station 1",
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ],
+            "x_target_mm": 10.0
+          },
           {
             "dia_nominal": 10.0,
             "feature": "shoulder",
@@ -287,8 +331,23 @@
               0.0,
               -6.0
             ],
-            "point": "north face",
-            "precision": 2,
+            "point": "drawing station 2",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": 10.0
+          },
+          {
+            "dia_nominal": 10.0,
+            "feature": "shoulder",
+            "model": [
+              0.0,
+              0.0,
+              -6.0
+            ],
+            "point": "op 10 to_z",
             "setup": [
               0.0,
               0.0,
@@ -304,12 +363,27 @@
               0.0,
               -7.5
             ],
-            "point": "south face",
-            "precision": 2,
+            "point": "op 70 z_from",
             "setup": [
               0.0,
               0.0,
               -1.5
+            ],
+            "x_target_mm": 10.0
+          },
+          {
+            "dia_nominal": 10.0,
+            "feature": "shoulder",
+            "model": [
+              0.0,
+              0.0,
+              -6.0
+            ],
+            "point": "op 70 z_to",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
             ],
             "x_target_mm": 10.0
           },
@@ -321,8 +395,7 @@
               0.0,
               -6.0
             ],
-            "point": "shoulder end",
-            "precision": 1,
+            "point": "drawing station 1",
             "setup": [
               0.0,
               0.0,
@@ -338,8 +411,7 @@
               0.0,
               0.0
             ],
-            "point": "north end (dome base)",
-            "precision": 1,
+            "point": "drawing station 2",
             "setup": [
               0.0,
               0.0,
@@ -353,16 +425,188 @@
             "model": [
               0.0,
               0.0,
+              -6.0
+            ],
+            "point": "op 20 z_from",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
               1.5
             ],
-            "point": "turned out to the apex plane",
-            "precision": 1,
+            "point": "op 20 z_to",
             "setup": [
               0.0,
               0.0,
               7.5
             ],
             "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              -6.0
+            ],
+            "point": "op 30 z_from",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              1.5
+            ],
+            "point": "op 30 z_to",
+            "setup": [
+              0.0,
+              0.0,
+              7.5
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              "unknown"
+            ],
+            "point": "drawing station 1",
+            "setup": [
+              0.0,
+              0.0,
+              "unknown"
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "drawing station 2",
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "op 40 z_from",
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              -173.5
+            ],
+            "point": "op 40 z_to",
+            "setup": [
+              0.0,
+              0.0,
+              -167.5
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "op 50 z_from",
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              -173.5
+            ],
+            "point": "op 50 z_to",
+            "setup": [
+              0.0,
+              0.0,
+              -167.5
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "feature": "shoulder_thrust",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ]
+          },
+          {
+            "dia_nominal": "unknown",
+            "feature": "shoulder_thrust",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "op 60 to_z",
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ],
+            "x_target_mm": "unknown"
           },
           {
             "dia_nominal": 5.7,
@@ -372,8 +616,7 @@
               0.0,
               -6.0
             ],
-            "point": "shoulder side",
-            "precision": 1,
+            "point": "drawing station 1",
             "setup": [
               0.0,
               0.0,
@@ -389,8 +632,7 @@
               0.0,
               -4.0
             ],
-            "point": "journal side",
-            "precision": 1,
+            "point": "drawing station 2",
             "setup": [
               0.0,
               0.0,
@@ -399,21 +641,52 @@
             "x_target_mm": 5.7
           },
           {
-            "dia_nominal": 10.0,
-            "feature": "shoulder_thrust",
+            "dia_nominal": 5.7,
+            "feature": "north_relief",
             "model": [
               0.0,
               0.0,
-              -7.5
+              -6.0
             ],
-            "point": "face",
-            "precision": 2,
+            "point": "op 80 z_from",
             "setup": [
               0.0,
               0.0,
-              -1.5
+              0.0
             ],
-            "x_target_mm": 10.0
+            "x_target_mm": 5.7
+          },
+          {
+            "dia_nominal": 5.7,
+            "feature": "north_relief",
+            "model": [
+              0.0,
+              0.0,
+              -4.0
+            ],
+            "point": "op 80 z_to",
+            "setup": [
+              0.0,
+              0.0,
+              2.0
+            ],
+            "x_target_mm": 5.7
+          },
+          {
+            "dia_nominal": 5.7,
+            "feature": "south_relief",
+            "model": [
+              0.0,
+              0.0,
+              -9.5
+            ],
+            "point": "drawing station 1",
+            "setup": [
+              0.0,
+              0.0,
+              -3.5
+            ],
+            "x_target_mm": 5.7
           },
           {
             "dia_nominal": 5.7,
@@ -423,8 +696,23 @@
               0.0,
               -7.5
             ],
-            "point": "shoulder side",
-            "precision": 1,
+            "point": "drawing station 2",
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ],
+            "x_target_mm": 5.7
+          },
+          {
+            "dia_nominal": 5.7,
+            "feature": "south_relief",
+            "model": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "point": "op 90 z_from",
             "setup": [
               0.0,
               0.0,
@@ -440,52 +728,15 @@
               0.0,
               -9.5
             ],
-            "point": "body side",
-            "precision": 1,
+            "point": "op 90 z_to",
             "setup": [
               0.0,
               0.0,
               -3.5
             ],
             "x_target_mm": 5.7
-          },
-          {
-            "dia_nominal": 6.35,
-            "feature": "body",
-            "model": [
-              0.0,
-              0.0,
-              -7.5
-            ],
-            "point": "shoulder end",
-            "precision": 2,
-            "setup": [
-              0.0,
-              0.0,
-              -1.5
-            ],
-            "x_target_mm": 6.35
-          },
-          {
-            "binding": "authored_route_station",
-            "dia_nominal": 6.35,
-            "feature": "body",
-            "model": [
-              0.0,
-              0.0,
-              -173.5
-            ],
-            "point": "authored pre-fit supply station",
-            "precision": 2,
-            "setup": [
-              0.0,
-              0.0,
-              -167.5
-            ],
-            "x_target_mm": 6.35
           }
         ],
-        "tool_nose_radius_mm": "unknown",
         "x_display": "diameter"
       },
       "rule": "coordinates",
@@ -494,12 +745,14 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:233",
-        "examples/pivot-shaft/features.toml:104"
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
       ],
-      "message": "S2 drawing stations use the authored diametric X display; the tool nose radius and actual readout installation remain unknown, so these are nominal surface targets, not a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
+        "arc_table": [],
         "binding": "nominal",
         "contours": [
           {
@@ -512,97 +765,161 @@
               {
                 "diameter_mm": 0.0,
                 "radius_mm": 0.0,
+                "setup_xz": [
+                  0.0,
+                  0.0
+                ],
                 "x_target_mm": 0.0,
                 "z_mm": 0.0
               },
               {
-                "diameter_mm": 1.802267090823851,
-                "radius_mm": 0.9011335454119255,
-                "x_target_mm": 1.802267090823851,
+                "diameter_mm": 1.8022670908238458,
+                "radius_mm": 0.9011335454119229,
+                "setup_xz": [
+                  1.8022670908238458,
+                  -0.1
+                ],
+                "x_target_mm": 1.8022670908238458,
                 "z_mm": -0.1
               },
               {
                 "diameter_mm": 2.5330482295711096,
                 "radius_mm": 1.2665241147855548,
+                "setup_xz": [
+                  2.5330482295711096,
+                  -0.2
+                ],
                 "x_target_mm": 2.5330482295711096,
                 "z_mm": -0.2
               },
               {
-                "diameter_mm": 3.082936911453104,
-                "radius_mm": 1.541468455726552,
-                "x_target_mm": 3.082936911453104,
+                "diameter_mm": 3.082936911453101,
+                "radius_mm": 1.5414684557265506,
+                "setup_xz": [
+                  3.082936911453101,
+                  -0.30000000000000004
+                ],
+                "x_target_mm": 3.082936911453101,
                 "z_mm": -0.30000000000000004
               },
               {
-                "diameter_mm": 3.5373247895361075,
-                "radius_mm": 1.7686623947680538,
-                "x_target_mm": 3.5373247895361075,
+                "diameter_mm": 3.5373247895361066,
+                "radius_mm": 1.7686623947680533,
+                "setup_xz": [
+                  3.5373247895361066,
+                  -0.4
+                ],
+                "x_target_mm": 3.5373247895361066,
                 "z_mm": -0.4
               },
               {
-                "diameter_mm": 3.9294825783216463,
-                "radius_mm": 1.9647412891608231,
-                "x_target_mm": 3.9294825783216463,
+                "diameter_mm": 3.929482578321646,
+                "radius_mm": 1.964741289160823,
+                "setup_xz": [
+                  3.929482578321646,
+                  -0.5
+                ],
+                "x_target_mm": 3.929482578321646,
                 "z_mm": -0.5
               },
               {
-                "diameter_mm": 4.276564041377143,
-                "radius_mm": 2.1382820206885715,
-                "x_target_mm": 4.276564041377143,
+                "diameter_mm": 4.276564041377142,
+                "radius_mm": 2.138282020688571,
+                "setup_xz": [
+                  4.276564041377142,
+                  -0.6000000000000001
+                ],
+                "x_target_mm": 4.276564041377142,
                 "z_mm": -0.6000000000000001
               },
               {
                 "diameter_mm": 4.5888088505261,
                 "radius_mm": 2.29440442526305,
+                "setup_xz": [
+                  4.5888088505261,
+                  -0.7000000000000001
+                ],
                 "x_target_mm": 4.5888088505261,
                 "z_mm": -0.7000000000000001
               },
               {
-                "diameter_mm": 4.872918358985028,
-                "radius_mm": 2.436459179492514,
-                "x_target_mm": 4.872918358985028,
+                "diameter_mm": 4.872918358985026,
+                "radius_mm": 2.436459179492513,
+                "setup_xz": [
+                  4.872918358985026,
+                  -0.8
+                ],
+                "x_target_mm": 4.872918358985026,
                 "z_mm": -0.8
               },
               {
-                "diameter_mm": 5.133566012042701,
-                "radius_mm": 2.5667830060213506,
-                "x_target_mm": 5.133566012042701,
+                "diameter_mm": 5.1335660120427,
+                "radius_mm": 2.56678300602135,
+                "setup_xz": [
+                  5.1335660120427,
+                  -0.9
+                ],
+                "x_target_mm": 5.1335660120427,
                 "z_mm": -0.9
               },
               {
-                "diameter_mm": 5.374166602057167,
-                "radius_mm": 2.6870833010285833,
-                "x_target_mm": 5.374166602057167,
+                "diameter_mm": 5.374166602057166,
+                "radius_mm": 2.687083301028583,
+                "setup_xz": [
+                  5.374166602057166,
+                  -1.0
+                ],
+                "x_target_mm": 5.374166602057166,
                 "z_mm": -1.0
               },
               {
-                "diameter_mm": 5.597305899567518,
-                "radius_mm": 2.798652949783759,
-                "x_target_mm": 5.597305899567518,
+                "diameter_mm": 5.597305899567517,
+                "radius_mm": 2.7986529497837584,
+                "setup_xz": [
+                  5.597305899567517,
+                  -1.1
+                ],
+                "x_target_mm": 5.597305899567517,
                 "z_mm": -1.1
               },
               {
                 "diameter_mm": 5.804997846683494,
                 "radius_mm": 2.902498923341747,
+                "setup_xz": [
+                  5.804997846683494,
+                  -1.2000000000000002
+                ],
                 "x_target_mm": 5.804997846683494,
                 "z_mm": -1.2000000000000002
               },
               {
                 "diameter_mm": 5.998847111459557,
                 "radius_mm": 2.9994235557297784,
+                "setup_xz": [
+                  5.998847111459557,
+                  -1.3
+                ],
                 "x_target_mm": 5.998847111459557,
                 "z_mm": -1.3
               },
               {
                 "diameter_mm": 6.180156416575016,
                 "radius_mm": 3.090078208287508,
+                "setup_xz": [
+                  6.180156416575016,
+                  -1.4000000000000001
+                ],
                 "x_target_mm": 6.180156416575016,
                 "z_mm": -1.4000000000000001
               },
               {
-                "diameter_mm": 6.3500000000000005,
-                "radius_mm": 3.1750000000000003,
-                "x_target_mm": 6.3500000000000005,
+                "diameter_mm": 6.35,
+                "radius_mm": 3.175,
+                "setup_xz": [
+                  6.35,
+                  -1.5
+                ],
+                "x_target_mm": 6.35,
                 "z_mm": -1.5
               }
             ],
@@ -612,10 +929,23 @@
             "tool_nose_compensation_mm": "unknown"
           }
         ],
+        "entry_surfaces": [
+          {
+            "op": 10
+          },
+          {
+            "op": 20
+          },
+          {
+            "op": 30
+          }
+        ],
         "frame": "T2",
+        "line_table": [],
         "operations": [
           {
             "direction": "radially_inward",
+            "do": "face",
             "feature": "north_dome",
             "op": 10,
             "to_z": 0.0,
@@ -623,101 +953,133 @@
           },
           {
             "direction": "apex_to_base",
+            "do": "form_dome",
             "feature": "north_dome",
             "op": 20,
             "tool": "turning-tools-warner-lms-4132/E",
             "z_from": 0.0,
             "z_to": -1.5
+          },
+          {
+            "do": "inspect",
+            "feature": "north_journal",
+            "op": 30
+          }
+        ],
+        "profiles": [
+          {
+            "contour": {
+              "method": "axial_table",
+              "step_mm": 0.1
+            },
+            "cutter_radius_mm": "unknown",
+            "entry_z": 0.0,
+            "feature": "north_dome",
+            "offset_mm": "unknown",
+            "op": 20,
+            "rough_allowance_mm": "not_applicable",
+            "to_z": "unknown",
+            "tool": "turning-tools-warner-lms-4132/E",
+            "tool_dia": "unknown",
+            "tool_dia_basis": "selected member nominal, not measured",
+            "tool_nominal_dia_mm": "unknown"
           }
         ],
         "rows": [
           {
-            "dia_nominal": 10.0,
-            "feature": "north_journal",
-            "model": [
-              0.0,
-              0.0,
-              -6.0
-            ],
-            "point": "shoulder north face (Z touch)",
-            "precision": 1,
-            "setup": [
-              0.0,
-              0.0,
-              -7.5
-            ],
-            "x_target_mm": 10.0
-          },
-          {
-            "dia_nominal": 6.35,
-            "feature": "north_journal",
-            "model": [
-              0.0,
-              0.0,
-              0.0
-            ],
-            "point": "north end (dome base)",
-            "precision": 1,
-            "setup": [
-              0.0,
-              0.0,
-              -1.5
-            ],
-            "x_target_mm": 6.35
-          },
-          {
-            "dia_nominal": 0.0,
-            "feature": "north_dome",
-            "model": [
-              0.0,
-              0.0,
-              1.5
-            ],
-            "point": "apex",
-            "precision": 1,
-            "setup": [
-              0.0,
-              0.0,
-              0.0
-            ],
-            "x_target_mm": 0.0
-          },
-          {
-            "dia_nominal": 6.35,
-            "feature": "north_dome",
-            "model": [
-              0.0,
-              0.0,
-              0.0
-            ],
-            "point": "base",
-            "precision": 1,
-            "setup": [
-              0.0,
-              0.0,
-              -1.5
-            ],
-            "x_target_mm": 6.35
-          },
-          {
-            "dia_nominal": 0.0,
             "feature": "north_dome",
             "model": [
               0.0,
               0.0,
               -2.6102083333333335
             ],
-            "point": "sphere centre (R 4.11)",
-            "precision": 2,
             "setup": [
               0.0,
               0.0,
               -4.1102083333333335
+            ]
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_dome",
+            "model": [
+              0.0,
+              0.0,
+              1.5
             ],
-            "x_target_mm": 0.0
+            "point": "op 10 to_z",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_dome",
+            "model": [
+              0.0,
+              0.0,
+              1.5
+            ],
+            "point": "op 20 z_from",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_dome",
+            "model": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "point": "op 20 z_to",
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              -6.0
+            ],
+            "point": "drawing station 1",
+            "setup": [
+              0.0,
+              0.0,
+              -7.5
+            ],
+            "x_target_mm": 6.35
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "north_journal",
+            "model": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "point": "drawing station 2",
+            "setup": [
+              0.0,
+              0.0,
+              -1.5
+            ],
+            "x_target_mm": 6.35
           }
         ],
-        "tool_nose_radius_mm": "unknown",
         "x_display": "diameter"
       },
       "rule": "coordinates",
@@ -726,15 +1088,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:343",
-        "examples/pivot-shaft/features.toml:120"
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
       ],
-      "message": "S3 locally faces at scribe +1.75 and ends the 1.5-high dome at scribe +0.25, authored within the sourced bands; actual model positions remain unknown until fit-up span is measured, and tool nose compensation is unknown.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
+        "arc_table": [],
         "binding": "unknown",
-        "chosen_cut_past_scribe": 1.75,
-        "chosen_end_past_scribe": 0.25,
         "contours": [
           {
             "apex_z_mm": 1.75,
@@ -746,97 +1108,161 @@
               {
                 "diameter_mm": 0.0,
                 "radius_mm": 0.0,
+                "setup_xz": [
+                  0.0,
+                  1.75
+                ],
                 "x_target_mm": 0.0,
                 "z_mm": 1.75
               },
               {
-                "diameter_mm": 1.802267090823851,
-                "radius_mm": 0.9011335454119255,
-                "x_target_mm": 1.802267090823851,
+                "diameter_mm": 1.8022670908238536,
+                "radius_mm": 0.9011335454119268,
+                "setup_xz": [
+                  1.8022670908238536,
+                  1.65
+                ],
+                "x_target_mm": 1.8022670908238536,
                 "z_mm": 1.65
               },
               {
                 "diameter_mm": 2.5330482295711096,
                 "radius_mm": 1.2665241147855548,
+                "setup_xz": [
+                  2.5330482295711096,
+                  1.55
+                ],
                 "x_target_mm": 2.5330482295711096,
                 "z_mm": 1.55
               },
               {
-                "diameter_mm": 3.082936911453104,
-                "radius_mm": 1.541468455726552,
-                "x_target_mm": 3.082936911453104,
+                "diameter_mm": 3.082936911453101,
+                "radius_mm": 1.5414684557265506,
+                "setup_xz": [
+                  3.082936911453101,
+                  1.45
+                ],
+                "x_target_mm": 3.082936911453101,
                 "z_mm": 1.45
               },
               {
-                "diameter_mm": 3.5373247895361075,
-                "radius_mm": 1.7686623947680538,
-                "x_target_mm": 3.5373247895361075,
+                "diameter_mm": 3.5373247895361066,
+                "radius_mm": 1.7686623947680533,
+                "setup_xz": [
+                  3.5373247895361066,
+                  1.35
+                ],
+                "x_target_mm": 3.5373247895361066,
                 "z_mm": 1.35
               },
               {
-                "diameter_mm": 3.9294825783216463,
-                "radius_mm": 1.9647412891608231,
-                "x_target_mm": 3.9294825783216463,
+                "diameter_mm": 3.929482578321646,
+                "radius_mm": 1.964741289160823,
+                "setup_xz": [
+                  3.929482578321646,
+                  1.25
+                ],
+                "x_target_mm": 3.929482578321646,
                 "z_mm": 1.25
               },
               {
-                "diameter_mm": 4.276564041377143,
-                "radius_mm": 2.1382820206885715,
-                "x_target_mm": 4.276564041377143,
+                "diameter_mm": 4.276564041377142,
+                "radius_mm": 2.138282020688571,
+                "setup_xz": [
+                  4.276564041377142,
+                  1.15
+                ],
+                "x_target_mm": 4.276564041377142,
                 "z_mm": 1.15
               },
               {
                 "diameter_mm": 4.5888088505261,
                 "radius_mm": 2.29440442526305,
+                "setup_xz": [
+                  4.5888088505261,
+                  1.0499999999999998
+                ],
                 "x_target_mm": 4.5888088505261,
                 "z_mm": 1.0499999999999998
               },
               {
-                "diameter_mm": 4.872918358985028,
-                "radius_mm": 2.436459179492514,
-                "x_target_mm": 4.872918358985028,
+                "diameter_mm": 4.872918358985026,
+                "radius_mm": 2.436459179492513,
+                "setup_xz": [
+                  4.872918358985026,
+                  0.95
+                ],
+                "x_target_mm": 4.872918358985026,
                 "z_mm": 0.95
               },
               {
-                "diameter_mm": 5.133566012042701,
-                "radius_mm": 2.5667830060213506,
-                "x_target_mm": 5.133566012042701,
+                "diameter_mm": 5.1335660120427,
+                "radius_mm": 2.56678300602135,
+                "setup_xz": [
+                  5.1335660120427,
+                  0.85
+                ],
+                "x_target_mm": 5.1335660120427,
                 "z_mm": 0.85
               },
               {
-                "diameter_mm": 5.374166602057167,
-                "radius_mm": 2.6870833010285833,
-                "x_target_mm": 5.374166602057167,
+                "diameter_mm": 5.374166602057166,
+                "radius_mm": 2.687083301028583,
+                "setup_xz": [
+                  5.374166602057166,
+                  0.75
+                ],
+                "x_target_mm": 5.374166602057166,
                 "z_mm": 0.75
               },
               {
-                "diameter_mm": 5.597305899567518,
-                "radius_mm": 2.798652949783759,
-                "x_target_mm": 5.597305899567518,
+                "diameter_mm": 5.597305899567517,
+                "radius_mm": 2.7986529497837584,
+                "setup_xz": [
+                  5.597305899567517,
+                  0.6499999999999999
+                ],
+                "x_target_mm": 5.597305899567517,
                 "z_mm": 0.6499999999999999
               },
               {
                 "diameter_mm": 5.804997846683494,
                 "radius_mm": 2.902498923341747,
+                "setup_xz": [
+                  5.804997846683494,
+                  0.5499999999999998
+                ],
                 "x_target_mm": 5.804997846683494,
                 "z_mm": 0.5499999999999998
               },
               {
                 "diameter_mm": 5.998847111459557,
                 "radius_mm": 2.9994235557297784,
+                "setup_xz": [
+                  5.998847111459557,
+                  0.44999999999999996
+                ],
                 "x_target_mm": 5.998847111459557,
                 "z_mm": 0.44999999999999996
               },
               {
                 "diameter_mm": 6.180156416575016,
                 "radius_mm": 3.090078208287508,
+                "setup_xz": [
+                  6.180156416575016,
+                  0.34999999999999987
+                ],
                 "x_target_mm": 6.180156416575016,
                 "z_mm": 0.34999999999999987
               },
               {
-                "diameter_mm": 6.3500000000000005,
-                "radius_mm": 3.1750000000000003,
-                "x_target_mm": 6.3500000000000005,
+                "diameter_mm": 6.35,
+                "radius_mm": 3.175,
+                "setup_xz": [
+                  6.35,
+                  0.25
+                ],
+                "x_target_mm": 6.35,
                 "z_mm": 0.25
               }
             ],
@@ -846,22 +1272,28 @@
             "tool_nose_compensation_mm": "unknown"
           }
         ],
-        "fitted_model_length_mm": "unknown",
+        "entry_surfaces": [
+          {
+            "op": 10
+          },
+          {
+            "op": 20
+          }
+        ],
         "frame": "T3",
+        "line_table": [],
         "operations": [
           {
             "direction": "radially_inward",
+            "do": "cut_to_fit",
             "feature": "plain_end",
             "op": 10,
             "to_z": 1.75,
-            "to_z_band": [
-              1.5,
-              2.0
-            ],
             "tool": "turning-tools-warner-lms-4132/AR"
           },
           {
             "direction": "apex_to_base",
+            "do": "form_dome",
             "feature": "south_dome",
             "op": 20,
             "tool": "turning-tools-warner-lms-4132/E",
@@ -869,28 +1301,28 @@
             "z_to": 0.25
           }
         ],
+        "profiles": [
+          {
+            "contour": {
+              "method": "axial_table",
+              "step_mm": 0.1
+            },
+            "cutter_radius_mm": "unknown",
+            "entry_z": "unknown",
+            "feature": "south_dome",
+            "offset_mm": "unknown",
+            "op": 20,
+            "rough_allowance_mm": "not_applicable",
+            "to_z": "unknown",
+            "tool": "turning-tools-warner-lms-4132/E",
+            "tool_dia": "unknown",
+            "tool_dia_basis": "selected member nominal, not measured",
+            "tool_nominal_dia_mm": "unknown"
+          }
+        ],
         "rows": [
           {
-            "binding": "unknown",
-            "dia_nominal": 6.35,
-            "feature": "plain_end",
-            "model": [
-              0.0,
-              0.0,
-              -156.67
-            ],
-            "point": "scribe (south ear outer face)",
-            "precision": 1,
-            "setup": [
-              0.0,
-              0.0,
-              0.0
-            ],
-            "x_target_mm": 6.35
-          },
-          {
-            "binding": "unknown",
-            "dia_nominal": 6.35,
+            "dia_nominal": "unknown",
             "feature": "plain_end",
             "local_from": {
               "axis": "z",
@@ -902,25 +1334,36 @@
               0.0,
               "unknown"
             ],
-            "model_reference_band": [
-              -158.17,
-              -158.67
-            ],
-            "point": "cut face (dome apex)",
-            "precision": 1,
+            "point": "op 10 to_z",
             "setup": [
               0.0,
               0.0,
               1.75
             ],
-            "setup_band": [
-              1.5,
-              2.0
+            "x_target_mm": "unknown"
+          },
+          {
+            "dia_nominal": 6.35,
+            "feature": "south_dome",
+            "local_from": {
+              "axis": "z",
+              "field": "z_from",
+              "op": 20
+            },
+            "model": [
+              0.0,
+              0.0,
+              "unknown"
+            ],
+            "point": "op 20 z_from",
+            "setup": [
+              0.0,
+              0.0,
+              1.75
             ],
             "x_target_mm": 6.35
           },
           {
-            "binding": "unknown",
             "dia_nominal": 6.35,
             "feature": "south_dome",
             "local_from": {
@@ -933,25 +1376,15 @@
               0.0,
               "unknown"
             ],
-            "model_reference_band": [
-              -156.67,
-              -157.17
-            ],
-            "point": "base (cylinder end)",
-            "precision": 1,
+            "point": "op 20 z_to",
             "setup": [
               0.0,
               0.0,
               0.25
             ],
-            "setup_band": [
-              0.0,
-              0.5
-            ],
             "x_target_mm": 6.35
           }
         ],
-        "tool_nose_radius_mm": "unknown",
         "x_display": "diameter"
       },
       "rule": "coordinates",
@@ -960,18 +1393,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:197",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The body is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S1:40",
-          "S1:50"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -979,18 +1405,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:266",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The north dome is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S2:10",
-          "S2:20"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -998,19 +1417,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:133",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The north journal is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S1:20",
-          "S1:30",
-          "S2:30"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -1018,17 +1429,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:220",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The north relief is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S1:80"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -1036,17 +1441,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:317",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The plain end is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S3:10"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -1054,18 +1453,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:159",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The shoulder is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S1:10",
-          "S1:70"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -1073,17 +1465,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:180",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The shoulder thrust face is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S1:60"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -1091,17 +1477,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:289",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The south dome is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S3:20"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -1109,17 +1489,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:243",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104"
+        "PLAN.md §4.1 datum consistency"
       ],
-      "message": "The south relief is not toleranced to a datum; the drawing gives the shaft no datums.",
+      "message": "No tolerance on this feature refers to another datum.",
       "numbers": {
-        "ops": [
-          "S1:90"
-        ],
-        "position_datums": [],
-        "refixture_budget_mm": "unknown"
+        "position_datums": []
       },
       "rule": "datum_consistency",
       "status": "not_applicable",
@@ -1127,104 +1501,72 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:55",
-        "examples/inventory/pedro-shop.toml:51"
+        "PLAN.md §4.1 headroom"
       ],
-      "message": "S1 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
-      "numbers": {
-        "between_centres_in": 27.55,
-        "machine_kind": "lathe",
-        "machine_verify": true,
-        "stickout_mm": 191.0,
-        "stock_length_mm": 215.0,
-        "swing_over_bed_in": 11
-      },
+      "message": "Lathe headroom is outside the mill-only M1 envelope rule.",
+      "numbers": {},
       "rule": "headroom",
       "status": "unsupported",
       "subject": "S1"
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:233",
-        "examples/inventory/pedro-shop.toml:51"
+        "PLAN.md §4.1 headroom"
       ],
-      "message": "S2 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
-      "numbers": {
-        "between_centres_in": 27.55,
-        "machine_kind": "lathe",
-        "machine_verify": true,
-        "stickout_mm": 27.0,
-        "stock_length_mm": 215.0,
-        "swing_over_bed_in": 11
-      },
+      "message": "Lathe headroom is outside the mill-only M1 envelope rule.",
+      "numbers": {},
       "rule": "headroom",
       "status": "unsupported",
       "subject": "S2"
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:343",
-        "examples/inventory/pedro-shop.toml:51"
+        "PLAN.md §4.1 headroom"
       ],
-      "message": "S3 is a lathe setup; the clearance check only covers the mill's spindle stack, so swing and length between centres are not checked.",
-      "numbers": {
-        "between_centres_in": 27.55,
-        "machine_kind": "lathe",
-        "machine_verify": true,
-        "stickout_mm": "unknown",
-        "stock_length_mm": 200.0,
-        "swing_over_bed_in": 11
-      },
+      "message": "Lathe headroom is outside the mill-only M1 envelope rule.",
+      "numbers": {},
       "rule": "headroom",
       "status": "unsupported",
       "subject": "S3"
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:55",
-        "harmonic-analyzer/cad/config/title_block.yaml:45"
+        "PLAN.md §4.1 hold fields"
       ],
-      "message": "S1 declares grip, jaw-front stop, hand tightening, brushed CRC cutting oil and every cut direction as author choices; dead-centre lubrication is stated, but actual grip, seat engagement and safe clearance still require bench verification.",
+      "message": "S1: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
       "numbers": {
-        "missing": [],
-        "present": {
+        "coolant": "CRC cutting oil brushed on",
+        "cut_directions": {
+          "10": "radially_inward",
+          "20": "toward_shoulder",
+          "30": "toward_shoulder",
+          "40": "toward_chuck",
+          "50": "toward_chuck",
+          "60": "radially_inward",
+          "70": "toward_chuck",
+          "80": "profile_toward_shoulder",
+          "90": "profile_toward_shoulder"
+        },
+        "deburr_mm": 0.25,
+        "fixture": "chuck-3jaw-6-d1-4",
+        "hold": {
           "centre_lubrication": "CRC cutting oil on dead-centre seat; replenish between cuts",
           "clamp": "tighten chuck key by hand at all three pinions; remove key; check grip before cutting",
-          "coolant": "CRC cutting oil brushed on",
-          "cut_directions": {
-            "10": "radially_inward",
-            "20": "toward_shoulder",
-            "30": "toward_shoulder",
-            "40": "toward_chuck",
-            "50": "toward_chuck",
-            "60": "radially_inward",
-            "70": "toward_chuck",
-            "80": "profile_toward_shoulder",
-            "90": "profile_toward_shoulder"
-          },
-          "deburr_mm": 0.25,
           "fixed_jaw": "not_applicable",
           "fixture": "chuck-3jaw-6-d1-4",
           "grip_mm": 24.0,
           "grip_on": "south grip allowance, past the supply station",
-          "holder_per_cutting_op": true,
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
           "parallels": "not_applicable",
           "stickout_mm": 191.0,
-          "stock_state": {
-            "local_thickness": {},
-            "north_end_z": 22.5,
-            "od_mm": 10.0,
-            "south_end_z": -192.5
-          },
           "stop": "jaw fronts at T1 Z -168.5, 1 mm south of authored supply station",
           "support": "dead_centre_tailstock_mt3"
-        }
+        },
+        "missing": [],
+        "stock_north_end_z": 22.5,
+        "stock_od_mm": 10.0,
+        "stock_south_end_z": -192.5
       },
       "rule": "hold_fields",
       "status": "pass",
@@ -1232,40 +1574,35 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:233",
-        "harmonic-analyzer/cad/config/title_block.yaml:45"
+        "PLAN.md §4.1 hold fields"
       ],
-      "message": "S2 declares grip, jaw-front stop, hand tightening, brushed CRC cutting oil and every cut direction as author choices; paper-sleeve jaw protection is a preparation choice, not an on-hand accessory or measured clamp result.",
+      "message": "S2: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
       "numbers": {
-        "missing": [],
-        "present": {
+        "coolant": "CRC cutting oil brushed on",
+        "cut_directions": {
+          "10": "radially_inward",
+          "20": "apex_to_base"
+        },
+        "deburr_mm": 0.25,
+        "fixture": "chuck-3jaw-6-d1-4",
+        "hold": {
           "clamp": "tighten chuck key by hand at all three pinions; remove key; indicate after clamping",
-          "coolant": "CRC cutting oil brushed on",
-          "cut_directions": {
-            "10": "radially_inward",
-            "20": "apex_to_base"
-          },
-          "deburr_mm": 0.25,
           "fixed_jaw": "not_applicable",
           "fixture": "chuck-3jaw-6-d1-4",
           "grip_mm": 25.0,
           "grip_on": "finished body near the shoulder, south of the south relief",
-          "holder_per_cutting_op": true,
           "jaw_above_parallels_mm": "not_applicable",
           "jaw_protection": "prepare clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip",
           "jaws_along": "not_applicable",
           "parallels": "not_applicable",
           "stickout_mm": 27.0,
-          "stock_state": {
-            "local_thickness": {},
-            "north_end_z": 15.0,
-            "od_mm": 6.35,
-            "south_end_z": -200.0
-          },
           "stop": "jaw fronts at T2 Z -12, 4.5 mm south of shoulder north face",
           "support": "none"
-        }
+        },
+        "missing": [],
+        "stock_north_end_z": 15.0,
+        "stock_od_mm": 6.35,
+        "stock_south_end_z": -200.0
       },
       "rule": "hold_fields",
       "status": "pass",
@@ -1273,43 +1610,38 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:343",
-        "harmonic-analyzer/cad/config/title_block.yaml:45"
+        "PLAN.md §4.1 hold fields"
       ],
-      "message": "S3 declares grip, jaw-front stop, hand tightening, brushed CRC cutting oil and every cut direction as author choices; paper-sleeve jaw protection is a preparation choice, not an on-hand accessory or measured clamp result. Incoming end stations remain unknown until the actual fit-up scribe is measured.",
+      "message": "S3: holding declarations need stock_state.plain_end_z, stock_state.north_end_z.",
       "numbers": {
-        "missing": [
-          "stock_state.plain_end_z",
-          "stock_state.north_end_z"
-        ],
-        "present": {
+        "coolant": "CRC cutting oil brushed on",
+        "cut_directions": {
+          "10": "radially_inward",
+          "20": "apex_to_base"
+        },
+        "deburr_mm": 0.25,
+        "fixture": "chuck-3jaw-6-d1-4",
+        "hold": {
           "clamp": "tighten chuck key by hand at all three pinions; remove key; indicate after clamping",
-          "coolant": "CRC cutting oil brushed on",
-          "cut_directions": {
-            "10": "radially_inward",
-            "20": "apex_to_base"
-          },
-          "deburr_mm": 0.25,
           "fixed_jaw": "not_applicable",
           "fixture": "chuck-3jaw-6-d1-4",
           "grip_mm": 25.0,
           "grip_on": "body near the plain end, north of the scribe",
-          "holder_per_cutting_op": true,
           "jaw_above_parallels_mm": "not_applicable",
           "jaw_protection": "prepare clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip",
           "jaws_along": "not_applicable",
           "parallels": "not_applicable",
           "stickout_mm": "unknown",
-          "stock_state": {
-            "local_thickness": {},
-            "north_end_z": "unknown",
-            "od_mm": 6.35,
-            "plain_end_z": "unknown"
-          },
           "stop": "jaw fronts 10 mm north of actual fit-up scribe, T3 Z -10",
           "support": "none"
-        }
+        },
+        "missing": [
+          "stock_state.plain_end_z",
+          "stock_state.north_end_z"
+        ],
+        "stock_north_end_z": "unknown",
+        "stock_od_mm": 6.35,
+        "stock_plain_end_z": "unknown"
       },
       "rule": "hold_fields",
       "status": "unknown",
@@ -1317,27 +1649,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:197",
-        "examples/pivot-shaft/plan.toml:161",
-        "examples/inventory/pedro-shop.toml:535"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "Body Ø6.350 (6.330 to 6.350) is checked with the 0-1 in micrometer in op 50, but that gauge is not confirmed in the inventory.",
+      "message": "body dia: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 0.019999999999999574,
+        "gauge": "micrometers/0-1in",
+        "gauge_kind": "micrometer_set",
+        "limits": [
           6.33,
           6.35
         ],
-        "check": "micrometers/0-1in",
-        "gauge_range_mm": [
+        "op": "S1:50",
+        "range_mm": [
           0.0,
           25.4
         ],
-        "gauge_spans_band": true,
-        "gauge_verify": true,
-        "op": "S1:50",
-        "precision": 3,
-        "requirement": "dia"
+        "requirement": "dia",
+        "resolution_mm": 0.00254
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1345,16 +1676,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:197",
-        "examples/pivot-shaft/plan.toml:161"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "Body finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
+      "message": "body finish_ra: explicit inspection method is unknown.",
       "numbers": {
-        "band": 1.6,
-        "check": "unknown",
+        "gauge": "unknown",
+        "limits": 1.6,
         "op": "S1:50",
-        "precision": 1,
         "requirement": "finish_ra"
       },
       "rule": "inspection",
@@ -1363,29 +1693,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:266",
-        "examples/pivot-shaft/plan.toml:308",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "North dome height is checked axially with calipers against the visible dome-base rim; the authored method covers the specified band, but the listed calipers are not confirmed.",
+      "message": "north_dome height: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 1.524,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
           0.738,
           2.262
         ],
-        "check": "calipers",
-        "gauge_range_mm": [
-          0.0,
+        "op": "S2:20",
+        "range_mm": [
+          0,
           152.39999999999998
         ],
-        "gauge_resolution_mm": 0.0127,
-        "gauge_spans_band": true,
-        "gauge_verify": true,
-        "method": "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim.",
-        "op": "S2:20",
-        "precision": 1,
-        "requirement": "height"
+        "requirement": "height",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1393,27 +1720,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:133",
-        "examples/pivot-shaft/plan.toml:136",
-        "examples/inventory/pedro-shop.toml:535"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "North journal Ø6.350 (6.330 to 6.350) is checked with the 0-1 in micrometer in op 30, but that gauge is not confirmed in the inventory.",
+      "message": "north_journal dia: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 0.019999999999999574,
+        "gauge": "micrometers/0-1in",
+        "gauge_kind": "micrometer_set",
+        "limits": [
           6.33,
           6.35
         ],
-        "check": "micrometers/0-1in",
-        "gauge_range_mm": [
+        "op": "S1:30",
+        "range_mm": [
           0.0,
           25.4
         ],
-        "gauge_spans_band": true,
-        "gauge_verify": true,
-        "op": "S1:30",
-        "precision": 3,
-        "requirement": "dia"
+        "requirement": "dia",
+        "resolution_mm": 0.00254
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1421,16 +1747,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:133",
-        "examples/pivot-shaft/plan.toml:136"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "North journal finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
+      "message": "north_journal finish_ra: explicit inspection method is unknown.",
       "numbers": {
-        "band": 1.6,
-        "check": "unknown",
+        "gauge": "unknown",
+        "limits": 1.6,
         "op": "S1:30",
-        "precision": 1,
         "requirement": "finish_ra"
       },
       "rule": "inspection",
@@ -1439,29 +1764,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:133",
-        "examples/pivot-shaft/plan.toml:326",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "North journal length is checked axially with calipers against the visible dome-base rim; the authored method covers the specified band, but the listed calipers are not confirmed.",
+      "message": "north_journal length: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 1.5239999999999991,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
           5.238,
           6.762
         ],
-        "check": "calipers",
-        "gauge_range_mm": [
-          0.0,
+        "op": "S2:30",
+        "range_mm": [
+          0,
           152.39999999999998
         ],
-        "gauge_resolution_mm": 0.0127,
-        "gauge_spans_band": true,
-        "gauge_verify": true,
-        "method": "With spindle stopped, align outside caliper jaws axially at the dome base rim and shoulder north face; repeat around rim.",
-        "op": "S2:30",
-        "precision": 1,
-        "requirement": "length"
+        "requirement": "length",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1469,27 +1791,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:220",
-        "examples/pivot-shaft/plan.toml:202",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "North relief Ø5.700 (5.573 to 5.827) is checked with the calipers in op 80, but the calipers' jaws are not confirmed to reach into the 2.0 wide groove.",
+      "message": "north_relief dia: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 0.25399999999999956,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
           5.573,
           5.827
         ],
-        "check": "calipers",
-        "gauge_range_mm": [
-          0.0,
-          152.4
-        ],
-        "gauge_spans_band": true,
-        "gauge_verify": true,
         "op": "S1:80",
-        "precision": 3,
-        "requirement": "dia"
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "dia",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1497,27 +1818,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:220",
-        "examples/pivot-shaft/plan.toml:202",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "North relief width 2.0 (1.238 to 2.762) is checked with the calipers in op 80, but the calipers are unconfirmed and their inside-jaw fit in the groove is unknown.",
+      "message": "north_relief width: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 1.524,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
           1.238,
           2.762
         ],
-        "check": "calipers",
-        "gauge_range_mm": [
-          0.0,
-          152.4
-        ],
-        "gauge_spans_band": true,
-        "gauge_verify": true,
         "op": "S1:80",
-        "precision": 1,
-        "requirement": "width"
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "width",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1525,38 +1845,22 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:317",
-        "examples/pivot-shaft/plan.toml:409",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "Plain-end fit uses calipers to transfer scribe +1.75 to the face and checks cylinder end +0.25 after doming, then trials the installed ears; the actual span is unmeasured and the calipers are unconfirmed, so absolute fitted length remains unknown.",
+      "message": "plain_end length: named gauge capability needs verification.",
       "numbers": {
-        "actual_installed_span_mm": "unknown",
-        "band": "unknown",
-        "check": "calipers",
-        "chosen_cut_past_scribe": 1.75,
-        "chosen_end_past_scribe": 0.25,
-        "cut_past_scribe": [
-          1.5,
-          2.0
-        ],
-        "end_past_scribe": [
-          0.0,
-          0.5
-        ],
-        "gauge_range_mm": [
-          0.0,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": "unknown",
+        "op": "S3:10",
+        "range_mm": [
+          0,
           152.39999999999998
         ],
-        "gauge_resolution_mm": 0.0127,
-        "gauge_spans_band": "unknown",
-        "gauge_verify": true,
-        "length_reference": 156.67,
-        "method": "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears.",
-        "op": "S3:10",
-        "precision": 1,
-        "requirement": "length"
+        "requirement": "length",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1564,27 +1868,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:159",
-        "examples/pivot-shaft/plan.toml:187",
-        "examples/inventory/pedro-shop.toml:535"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "Shoulder Ø10.00 (9.492 to 10.508) is checked with the 0-1 in micrometer in op 70, but that gauge is not confirmed in the inventory.",
+      "message": "shoulder dia: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 1.0159999999999982,
+        "gauge": "micrometers/0-1in",
+        "gauge_kind": "micrometer_set",
+        "limits": [
           9.492,
           10.508
         ],
-        "check": "micrometers/0-1in",
-        "gauge_range_mm": [
+        "op": "S1:70",
+        "range_mm": [
           0.0,
           25.4
         ],
-        "gauge_spans_band": true,
-        "gauge_verify": true,
-        "op": "S1:70",
-        "precision": 2,
-        "requirement": "dia"
+        "requirement": "dia",
+        "resolution_mm": 0.00254
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1592,27 +1895,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:159",
-        "examples/pivot-shaft/plan.toml:187",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "Shoulder length 1.50 (0.992 to 2.008) is checked with the calipers in op 70, but that gauge is not confirmed in the inventory.",
+      "message": "shoulder length: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 1.016,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
           0.992,
           2.008
         ],
-        "check": "calipers",
-        "gauge_range_mm": [
-          0.0,
-          152.4
-        ],
-        "gauge_spans_band": true,
-        "gauge_verify": true,
         "op": "S1:70",
-        "precision": 2,
-        "requirement": "length"
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "length",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1620,16 +1922,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:180",
-        "examples/pivot-shaft/plan.toml:175"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "Shoulder thrust face finish Ra 1.6 µm has no stated check: no roughness comparator is in the inventory.",
+      "message": "shoulder_thrust finish_ra: explicit inspection method is unknown.",
       "numbers": {
-        "band": 1.6,
-        "check": "unknown",
+        "gauge": "unknown",
+        "limits": 1.6,
         "op": "S1:60",
-        "precision": 1,
         "requirement": "finish_ra"
       },
       "rule": "inspection",
@@ -1638,29 +1939,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:289",
-        "examples/pivot-shaft/plan.toml:426",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "South dome height is checked axially with calipers against the visible dome-base rim; the authored method covers the specified band, but the listed calipers are not confirmed.",
+      "message": "south_dome height: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 1.524,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
           0.738,
           2.262
         ],
-        "check": "calipers",
-        "gauge_range_mm": [
-          0.0,
+        "op": "S3:20",
+        "range_mm": [
+          0,
           152.39999999999998
         ],
-        "gauge_resolution_mm": 0.0127,
-        "gauge_spans_band": true,
-        "gauge_verify": true,
-        "method": "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim and trial fit the assembly.",
-        "op": "S3:20",
-        "precision": 1,
-        "requirement": "height"
+        "requirement": "height",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1668,27 +1966,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:243",
-        "examples/pivot-shaft/plan.toml:217",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "South relief Ø5.700 (5.573 to 5.827) is checked with the calipers in op 90, but the calipers' jaws are not confirmed to reach into the 2.0 wide groove.",
+      "message": "south_relief dia: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 0.25399999999999956,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
           5.573,
           5.827
         ],
-        "check": "calipers",
-        "gauge_range_mm": [
-          0.0,
-          152.4
-        ],
-        "gauge_spans_band": true,
-        "gauge_verify": true,
         "op": "S1:90",
-        "precision": 3,
-        "requirement": "dia"
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "dia",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1696,27 +1993,26 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:243",
-        "examples/pivot-shaft/plan.toml:217",
-        "examples/inventory/pedro-shop.toml:528"
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
       ],
-      "message": "South relief width 2.0 (1.238 to 2.762) is checked with the calipers in op 90, but the calipers are unconfirmed and their inside-jaw fit in the groove is unknown.",
+      "message": "south_relief width: named gauge capability needs verification.",
       "numbers": {
-        "band": [
+        "band_mm": 1.524,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
           1.238,
           2.762
         ],
-        "check": "calipers",
-        "gauge_range_mm": [
-          0.0,
-          152.4
-        ],
-        "gauge_spans_band": true,
-        "gauge_verify": true,
         "op": "S1:90",
-        "precision": 1,
-        "requirement": "width"
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "width",
+        "resolution_mm": 0.0127
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1724,14 +2020,17 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:197",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The body is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "body: not a hole chain.",
       "numbers": {
-        "feature_kind": "cylinder",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "rough_turn",
+          "finish_turn"
+        ],
+        "kind": "cylinder",
         "ops": [
           "S1:40",
           "S1:50"
@@ -1743,14 +2042,17 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:266",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The north dome is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "north_dome: not a hole chain.",
       "numbers": {
-        "feature_kind": "dome",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "face",
+          "form_dome"
+        ],
+        "kind": "dome",
         "ops": [
           "S2:10",
           "S2:20"
@@ -1762,14 +2064,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:133",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The north journal is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "north_journal: not a hole chain.",
       "numbers": {
-        "feature_kind": "cylinder",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "rough_turn",
+          "finish_turn",
+          "inspect"
+        ],
+        "kind": "cylinder",
         "ops": [
           "S1:20",
           "S1:30",
@@ -1782,14 +2088,16 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:220",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The north relief is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "north_relief: not a hole chain.",
       "numbers": {
-        "feature_kind": "groove",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "form_relief"
+        ],
+        "kind": "groove",
         "ops": [
           "S1:80"
         ]
@@ -1800,14 +2108,16 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:317",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The plain end is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "plain_end: not a hole chain.",
       "numbers": {
-        "feature_kind": "cut_end",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "cut_to_fit"
+        ],
+        "kind": "cut_end",
         "ops": [
           "S3:10"
         ]
@@ -1818,14 +2128,17 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:159",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The shoulder is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "shoulder: not a hole chain.",
       "numbers": {
-        "feature_kind": "cylinder",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "face",
+          "finish_turn"
+        ],
+        "kind": "cylinder",
         "ops": [
           "S1:10",
           "S1:70"
@@ -1837,14 +2150,16 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:180",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The shoulder thrust face is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "shoulder_thrust: not a hole chain.",
       "numbers": {
-        "feature_kind": "face",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "face"
+        ],
+        "kind": "face",
         "ops": [
           "S1:60"
         ]
@@ -1855,14 +2170,16 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:289",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The south dome is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "south_dome: not a hole chain.",
       "numbers": {
-        "feature_kind": "dome",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "form_dome"
+        ],
+        "kind": "dome",
         "ops": [
           "S3:20"
         ]
@@ -1873,14 +2190,16 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:243",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182-189"
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
       ],
-      "message": "The south relief is turned geometry with no hole, thread or counterbore, so no drilling chain applies.",
+      "message": "south_relief: not a hole chain.",
       "numbers": {
-        "feature_kind": "groove",
-        "hole_thread_counterbore": false,
+        "chain": [
+          "form_relief"
+        ],
+        "kind": "groove",
         "ops": [
           "S1:90"
         ]
@@ -1891,60 +2210,23 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:55"
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
       ],
-      "message": "S1 runs rough before finish on every feature and has nothing out of order.",
+      "message": "S1: rough/finish, face/spot, hole and release order is consistent.",
       "numbers": {
-        "release_last": "no release op",
-        "rough_before_finish": true,
         "sequence": [
-          [
-            10,
-            "face",
-            "shoulder"
-          ],
-          [
-            20,
-            "rough_turn",
-            "north_journal"
-          ],
-          [
-            30,
-            "finish_turn",
-            "north_journal"
-          ],
-          [
-            40,
-            "rough_turn",
-            "body"
-          ],
-          [
-            50,
-            "finish_turn",
-            "body"
-          ],
-          [
-            60,
-            "face",
-            "shoulder_thrust"
-          ],
-          [
-            70,
-            "finish_turn",
-            "shoulder"
-          ],
-          [
-            80,
-            "form_relief",
-            "north_relief"
-          ],
-          [
-            90,
-            "form_relief",
-            "south_relief"
-          ]
-        ]
+          "10 face shoulder",
+          "20 rough_turn north_journal",
+          "30 finish_turn north_journal",
+          "40 rough_turn body",
+          "50 finish_turn body",
+          "60 face shoulder_thrust",
+          "70 finish_turn shoulder",
+          "80 form_relief north_relief",
+          "90 form_relief south_relief"
+        ],
+        "violations": []
       },
       "rule": "order",
       "status": "pass",
@@ -1952,30 +2234,17 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:233"
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
       ],
-      "message": "S2 runs rough before finish on every feature and has nothing out of order.",
+      "message": "S2: rough/finish, face/spot, hole and release order is consistent.",
       "numbers": {
-        "release_last": "no release op",
-        "rough_before_finish": true,
         "sequence": [
-          [
-            10,
-            "face",
-            "north_dome"
-          ],
-          [
-            20,
-            "form_dome",
-            "north_dome"
-          ],
-          [
-            30,
-            "inspect",
-            "north_journal"
-          ]
-        ]
+          "10 face north_dome",
+          "20 form_dome north_dome",
+          "30 inspect north_journal"
+        ],
+        "violations": []
       },
       "rule": "order",
       "status": "pass",
@@ -1983,25 +2252,16 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:343"
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
       ],
-      "message": "S3 runs rough before finish on every feature and has nothing out of order.",
+      "message": "S3: rough/finish, face/spot, hole and release order is consistent.",
       "numbers": {
-        "release_last": "no release op",
-        "rough_before_finish": true,
         "sequence": [
-          [
-            10,
-            "cut_to_fit",
-            "plain_end"
-          ],
-          [
-            20,
-            "form_dome",
-            "south_dome"
-          ]
-        ]
+          "10 cut_to_fit plain_end",
+          "20 form_dome south_dome"
+        ],
+        "violations": []
       },
       "rule": "order",
       "status": "pass",
@@ -2009,17 +2269,21 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:197"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,101,111-116,152",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:119-120,455-457",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:375-384"
       ],
-      "message": "The body is sized by where a single-point tool is put, not by the tool's own size.",
+      "message": "body: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
         "feature_kind": "cylinder",
+        "kind": "cylinder",
         "ops": [
           "S1:40",
           "S1:50"
-        ],
-        "sized_by": "tool position, not tool size"
+        ]
       },
       "rule": "sizing",
       "status": "not_applicable",
@@ -2027,17 +2291,20 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:266"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:116-122,364",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
       ],
-      "message": "The north dome is sized by where a single-point tool is put, not by the tool's own size.",
+      "message": "north_dome: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
         "feature_kind": "dome",
+        "kind": "dome",
         "ops": [
           "S2:10",
           "S2:20"
-        ],
-        "sized_by": "tool position, not tool size"
+        ]
       },
       "rule": "sizing",
       "status": "not_applicable",
@@ -2045,18 +2312,23 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:133"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-38,44,102,117-121,155-156",
+        "harmonic-analyzer/cad/scripts/_fit_limits.py:19-20",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117,133-140,455-457",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
       ],
-      "message": "The north journal is sized by where a single-point tool is put, not by the tool's own size.",
+      "message": "north_journal: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
         "feature_kind": "cylinder",
+        "kind": "cylinder",
         "ops": [
           "S1:20",
           "S1:30",
           "S2:30"
-        ],
-        "sized_by": "tool position, not tool size"
+        ]
       },
       "rule": "sizing",
       "status": "not_applicable",
@@ -2064,12 +2336,14 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:220",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-73",
-        "examples/inventory/pedro-shop.toml:310"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-202",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "plan.stock.dia_mm reference geometry; radial reach = (stock diameter − groove low diameter) / 2"
       ],
-      "message": "The north relief is 2.0 wide and assumes a corner of R0.25 or less, but the E tool's nose radius and reach are not in the inventory.",
+      "message": "north_relief: tool nose radius and radial reach need verified geometry.",
       "numbers": {
         "corner_radius_max_design_mm": 0.25,
         "dia": [
@@ -2077,9 +2351,12 @@
           5.827
         ],
         "feature_kind": "groove",
+        "kind": "groove",
         "ops": [
           "S1:80"
         ],
+        "required_radial_reach_mm": 2.2135,
+        "stock_reference_dia_mm": 10.0,
         "tool": "turning-tools-warner-lms-4132/E",
         "tool_nose_radius_mm": "unknown",
         "tool_reach_mm": "unknown",
@@ -2095,16 +2372,23 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:317"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:13-16,50-52,154,182-189",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:63-69,76,86-95,103-115",
+        "harmonic-analyzer/cad/config/machine/channels.yaml:5",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117",
+        "harmonic-analyzer/cad/scripts/rocker_thrust_washer_spec.py:26-29",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:352-363",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110"
       ],
-      "message": "The plain end is sized by where a single-point tool is put, not by the tool's own size.",
+      "message": "plain_end: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
         "feature_kind": "cut_end",
+        "kind": "cut_end",
         "ops": [
           "S3:10"
-        ],
-        "sized_by": "tool position, not tool size"
+        ]
       },
       "rule": "sizing",
       "status": "not_applicable",
@@ -2112,17 +2396,19 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:159"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:39-43,153,155",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-118",
+        "harmonic-analyzer/cad/config/title_block.yaml:26"
       ],
-      "message": "The shoulder is sized by where a single-point tool is put, not by the tool's own size.",
+      "message": "shoulder: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
         "feature_kind": "cylinder",
+        "kind": "cylinder",
         "ops": [
           "S1:10",
           "S1:70"
-        ],
-        "sized_by": "tool position, not tool size"
+        ]
       },
       "rule": "sizing",
       "status": "not_applicable",
@@ -2130,16 +2416,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:180"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:104-110,122-126",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:395-404"
       ],
-      "message": "The shoulder thrust face is sized by where a single-point tool is put, not by the tool's own size.",
+      "message": "shoulder_thrust: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
         "feature_kind": "face",
+        "kind": "face",
         "ops": [
           "S1:60"
-        ],
-        "sized_by": "tool position, not tool size"
+        ]
       },
       "rule": "sizing",
       "status": "not_applicable",
@@ -2147,16 +2435,19 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:289"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-48,53,158",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,433",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:101-110",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
       ],
-      "message": "The south dome is sized by where a single-point tool is put, not by the tool's own size.",
+      "message": "south_dome: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
         "feature_kind": "dome",
+        "kind": "dome",
         "ops": [
           "S3:20"
-        ],
-        "sized_by": "tool position, not tool size"
+        ]
       },
       "rule": "sizing",
       "status": "not_applicable",
@@ -2164,12 +2455,14 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/features.toml:243",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-73",
-        "examples/inventory/pedro-shop.toml:310"
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:55-80,97,160",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:192-208",
+        "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:161-171,347-351",
+        "harmonic-analyzer/cad/config/title_block.yaml:25,27",
+        "plan.stock.dia_mm reference geometry; radial reach = (stock diameter − groove low diameter) / 2"
       ],
-      "message": "The south relief is 2.0 wide and assumes a corner of R0.25 or less, but the E tool's nose radius and reach are not in the inventory.",
+      "message": "south_relief: tool nose radius and radial reach need verified geometry.",
       "numbers": {
         "corner_radius_max_design_mm": 0.25,
         "dia": [
@@ -2177,9 +2470,12 @@
           5.827
         ],
         "feature_kind": "groove",
+        "kind": "groove",
         "ops": [
           "S1:90"
         ],
+        "required_radial_reach_mm": 2.2135,
+        "stock_reference_dia_mm": 10.0,
         "tool": "turning-tools-warner-lms-4132/E",
         "tool_nose_radius_mm": "unknown",
         "tool_reach_mm": "unknown",
@@ -2195,24 +2491,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:115",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 10: the cutting table's facing row for 1018 steel has no numbers yet and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.3937007874015748,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
+        "material_verify": false,
         "operation": "face",
-        "row": "unknown",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2222,24 +2519,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:125",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 20: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.2578740157480315,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "rough_turn",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2249,24 +2547,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:136",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 30: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.25,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "finish_turn",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2276,24 +2575,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:150",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 40: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.2578740157480315,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "rough_turn",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2303,24 +2603,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:161",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 50: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.25,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "finish_turn",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2330,24 +2631,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:175",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 60: the cutting table's facing row for 1018 steel has no numbers yet and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.3937007874015748,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
+        "material_verify": false,
         "operation": "face",
-        "row": "unknown",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2357,24 +2659,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:187",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 70: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.3937007874015748,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "finish_turn",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2384,24 +2687,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:202",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 80: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.22440944881889766,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "form_relief",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2411,24 +2715,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:217",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 90: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.22440944881889766,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "form_relief",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2438,24 +2743,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:298",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 10: the cutting table's facing row for 1018 steel has no numbers yet and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.25,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
+        "material_verify": false,
         "operation": "face",
-        "row": "unknown",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2465,24 +2771,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:308",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 20: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.25,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "form_dome",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2492,14 +2799,11 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:326"
+        "PLAN.md §4.1 speeds/feeds"
       ],
-      "message": "Op 30 is a manual inspect with no cut.",
+      "message": "This manual operation has no cutting speed or feed.",
       "numbers": {
-        "feed_mm_min": "not_applicable",
-        "manual": "inspect",
-        "rpm": "not_applicable"
+        "operation": "inspect"
       },
       "rule": "speeds_feeds",
       "status": "not_applicable",
@@ -2507,24 +2811,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:409",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 10: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
-        "diameter_in": 0.25,
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "cut_to_fit",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2534,24 +2839,25 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5",
-        "examples/pivot-shaft/plan.toml:426",
-        "examples/cutting-data.toml:6",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:64"
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
       ],
-      "message": "Op 20: the cutting table has no lathe turning row for 1018 steel and the insert material is not listed, so no speed or feed is given.",
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
         "diameter_in": 0.25,
         "feed_mm_min": "unknown",
-        "flutes": "not_applicable",
+        "flutes": [],
+        "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
-        "operation": "turn",
-        "row": "unknown",
+        "material_verify": false,
+        "operation": "form_dome",
         "rpm": "unknown",
-        "rpm_max": 2200,
-        "rpm_min": 70,
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -2561,22 +2867,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:51"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The PM-1127VF-LB lathe is listed, but its entry comes from a vendor page and is not confirmed on the machine.",
+      "message": "PM-1127VF-LB: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "machines",
-        "entry": "machines.PM-1127VF-LB",
-        "found": true,
+        "kind": "lathe",
+        "present": true,
         "reference": "PM-1127VF-LB",
-        "used_by": [
-          "S1:machine",
-          "S2:machine",
-          "S3:machine"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2584,26 +2883,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:115",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 10: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:10: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2611,26 +2902,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:125",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 20: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:20: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2638,26 +2921,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:136",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 30: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:30: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2665,26 +2940,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:150",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 40: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:40: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2692,26 +2959,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:161",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 50: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:50: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2719,26 +2978,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:175",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 60: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:60: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2746,26 +2997,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:187",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 70: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:70: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2773,26 +3016,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:202",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 80: the AXA holder matches the lathe's toolpost, but the E tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:80: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/E",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/E"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2800,26 +3035,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:217",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 90: the AXA holder matches the lathe's toolpost, but the E tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S1:90: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/E",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/E"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2827,26 +3054,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:298",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 10: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S2:10: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2854,26 +3073,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:308",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 20: the AXA holder matches the lathe's toolpost, but the E tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S2:20: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/E",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/E"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2881,26 +3092,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:409",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 10: the AXA holder matches the lathe's toolpost, but the AR tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S3:10: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/AR",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2908,26 +3111,18 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:426",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:310",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
       ],
-      "message": "Op 20: the AXA holder matches the lathe's toolpost, but the E tool's shank size is not listed, so its fit in the 1/2 in holder is unconfirmed.",
+      "message": "S3:20: assembly fit needs measured shank, holder and machine facts.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
-        "holder_max_shank_in": 0.5,
-        "holder_series": "AXA",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
-        "machine_toolpost_series": "AXA",
-        "tool": "turning-tools-warner-lms-4132/E",
-        "tool_shank_in": "unknown",
-        "verify": [
-          "machine",
-          "holder",
-          "tool"
-        ]
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/E"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2935,30 +3130,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:528"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The 6 in calipers are listed, but they are not confirmed.",
+      "message": "calipers: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "gauges",
-        "entry": "gauges.calipers",
-        "found": true,
-        "range_in": 6,
+        "kind": "caliper",
+        "present": true,
         "reference": "calipers",
-        "resolution_in": 0.0005,
-        "used_by": [
-          "S1:70.checks.length",
-          "S1:80.checks.dia",
-          "S1:80.checks.width",
-          "S1:90.checks.dia",
-          "S1:90.checks.width",
-          "S2:20.checks.height",
-          "S2:30.checks.length",
-          "S3:10.checks.length",
-          "S3:20.checks.height"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2966,26 +3146,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:441",
-        "examples/inventory/pedro-shop.toml:64"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The 6 in three-jaw chuck is listed and its D1-4 mount matches the lathe spindle, but the entry is not confirmed.",
+      "message": "chuck-3jaw-6-d1-4: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "fixtures",
-        "entry": "fixtures.chuck-3jaw-6-d1-4",
-        "found": true,
-        "listed_accessory_of": "PM-1127VF-LB",
-        "machine_spindle_mount": "D1-4",
-        "mount": "D1-4",
+        "kind": "chuck_3jaw",
+        "present": true,
         "reference": "chuck-3jaw-6-d1-4",
-        "used_by": [
-          "S1:hold.fixture",
-          "S2:hold.fixture",
-          "S3:hold.fixture"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2993,23 +3162,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:51",
-        "examples/inventory/pedro-shop.toml:71"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The tailstock dead centre is known only as a standard accessory of the lathe, whose entry is unconfirmed; confirm it is on hand.",
+      "message": "dead_centre_tailstock_mt3: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "machines.PM-1127VF-LB.standard_accessories",
-        "entry": "machines.PM-1127VF-LB.standard_accessories",
-        "found": true,
+        "kind": "accessory",
+        "present": true,
         "reference": "dead_centre_tailstock_mt3",
-        "resolved_via": "PM-1127VF-LB standard accessory",
-        "tailstock_taper": "MT3",
-        "used_by": [
-          "S1:hold.support"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -3017,23 +3178,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:542"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The dial indicator is listed, but its range is unknown and it is not confirmed.",
+      "message": "dial-indicator: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "gauges",
-        "entry": "gauges.dial-indicator",
-        "found": true,
-        "range_in": "unknown",
+        "kind": "dial_indicator",
+        "present": true,
         "reference": "dial-indicator",
-        "resolution_in": 0.0005,
-        "used_by": [
-          "S2:zero.transfer.gauge",
-          "S3:zero.transfer.gauge"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -3041,30 +3194,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:535"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The 0-1 in micrometer is listed, but the set is not confirmed.",
+      "message": "micrometers/0-1in: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "gauges",
-        "entry": "gauges.micrometers",
-        "found": true,
-        "range_in": "0-1",
+        "kind": "micrometer_set",
+        "present": true,
         "reference": "micrometers/0-1in",
-        "resolution_in": 0.0001,
-        "used_by": [
-          "S1:30.checks.dia",
-          "S1:50.checks.dia",
-          "S1:70.checks.dia",
-          "S1:zero.tool_touches[0].gauge",
-          "S1:zero.x.gauge",
-          "S2:zero.tool_touches[0].gauge",
-          "S2:zero.x.gauge",
-          "S3:zero.tool_touches[0].gauge",
-          "S3:zero.x.gauge"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -3072,38 +3210,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:593",
-        "examples/inventory/pedro-shop.toml:602",
-        "examples/inventory/pedro-shop.toml:83"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The AXA #1 turning/facing holder is listed (two of them) and matches the lathe's AXA toolpost, but the set is not confirmed on this lathe.",
+      "message": "qctp-axa-lms-2280/1-turning-facing: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "holders",
-        "count": 2,
-        "entry": "holders.qctp-axa-lms-2280.holders.\"#1 turning/facing\"",
-        "found": true,
-        "machine_toolpost_series": "AXA",
-        "member": "#1 turning/facing",
+        "kind": "qctp_set",
+        "present": true,
         "reference": "qctp-axa-lms-2280/1-turning-facing",
-        "series": "AXA",
-        "used_by": [
-          "S1:10.holder",
-          "S1:20.holder",
-          "S1:30.holder",
-          "S1:40.holder",
-          "S1:50.holder",
-          "S1:60.holder",
-          "S1:70.holder",
-          "S1:80.holder",
-          "S1:90.holder",
-          "S2:10.holder",
-          "S2:20.holder",
-          "S3:10.holder",
-          "S3:20.holder"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -3111,38 +3226,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:310"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The Warner AR turning tool is listed, but its shank size, insert grade and presence are not confirmed.",
+      "message": "turning-tools-warner-lms-4132/AR: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "tools",
-        "entry": "tools.turning-tools-warner-lms-4132",
-        "found": true,
-        "insert": "TCMT-21.51",
-        "material": "unknown",
+        "kind": "insert_holders",
+        "present": true,
         "reference": "turning-tools-warner-lms-4132/AR",
-        "shank_in": "unknown",
-        "style": "AR",
-        "used_by": [
-          "S1:10.tool",
-          "S1:20.tool",
-          "S1:30.tool",
-          "S1:40.tool",
-          "S1:50.tool",
-          "S1:60.tool",
-          "S1:70.tool",
-          "S1:zero.x.tool",
-          "S1:zero.z.tool",
-          "S2:10.tool",
-          "S2:zero.x.tool",
-          "S2:zero.z.tool",
-          "S3:10.tool",
-          "S3:zero.x.tool",
-          "S3:zero.z.tool"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -3150,30 +3242,15 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml",
-        "examples/inventory/pedro-shop.toml:310"
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
       ],
-      "message": "The Warner E turning tool is listed, but its shank size, insert grade and presence are not confirmed.",
+      "message": "turning-tools-warner-lms-4132/E: listed; presence or catalogue identity needs verification.",
       "numbers": {
-        "category": "tools",
-        "entry": "tools.turning-tools-warner-lms-4132",
-        "found": true,
-        "insert": "TCMT-21.51",
-        "material": "unknown",
+        "kind": "insert_holders",
+        "present": true,
         "reference": "turning-tools-warner-lms-4132/E",
-        "shank_in": "unknown",
-        "style": "E",
-        "used_by": [
-          "S1:80.tool",
-          "S1:90.tool",
-          "S1:zero.tool_touches[0].tool",
-          "S2:20.tool",
-          "S2:zero.tool_touches[0].tool",
-          "S3:20.tool",
-          "S3:zero.tool_touches[0].tool"
-        ],
-        "verify": true
+        "verified": false
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -3181,47 +3258,58 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:55",
-        "examples/pivot-shaft/plan.toml:42",
-        "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
-        "examples/inventory/pedro-shop.toml:51"
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
       ],
-      "message": "S1 requires ABS, diametric X, X+ away from the axis and Z+ toward the exposed end, with 10 mm physical jogs; Z checks are computable and every tool has an authored touch-off, but no lathe DRO installation or measured trial-cut diameter is supplied.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
       "numbers": {
         "axes": {
           "x": {
             "axis_set": "unknown",
-            "check_expression": "D + 20.0",
+            "axis_set_status": "unknown",
+            "check_expression": "D +20",
+            "check_jog_mm": 10.0,
             "check_reading": "unknown",
+            "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
+            "feature": "spindle_axis",
+            "from": "+x",
+            "gauge": "micrometers/0-1in",
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
-            "mirrored_expression": "D - 20.0",
+            "mirrored_expression": "D -20",
             "mirrored_reading": "unknown",
-            "note": "Axis Set the actual measured trial-cut diameter D, never the nominal target; with authored diametric mode, a physical +10 mm radial jog reads D+20, mirrored D-20.",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
-            "sign": 1
+            "sign": 1,
+            "tool": "turning-tools-warner-lms-4132/AR"
           },
           "z": {
+            "after_op": 10,
             "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
             "check_reading": 10.0,
+            "dro_direction": "toward_exposed_end",
             "edge_mm": 0.0,
+            "face": "shoulder_north",
+            "from": "+z",
             "jog_mm": 10.0,
             "method": "face_then_set",
             "mirrored_reading": -10.0,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
-            "sign": 1
+            "sign": 1,
+            "tool": "turning-tools-warner-lms-4132/AR"
           }
         },
-        "direction": {
-          "x": "away_from_spindle_axis",
-          "z": "toward_exposed_end"
+        "binding": "nominal",
+        "dro": {
+          "mode": "abs",
+          "radius_mode": false
         },
-        "dro_controller": "unknown",
-        "radius_mode": false,
+        "frame": "T1",
         "retouch": [],
         "tool_touches": [
           {
@@ -3239,12 +3327,7 @@
             "z_axis_set": 0.0,
             "z_face": "shoulder_north"
           }
-        ],
-        "tools_used": [
-          "turning-tools-warner-lms-4132/AR",
-          "turning-tools-warner-lms-4132/E"
-        ],
-        "tools_without_touch": []
+        ]
       },
       "rule": "zero_check",
       "status": "unknown",
@@ -3252,47 +3335,57 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:233",
-        "examples/pivot-shaft/plan.toml:42",
-        "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
-        "examples/inventory/pedro-shop.toml:51"
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
       ],
-      "message": "S2 requires ABS, diametric X, X+ away from the axis and Z+ toward the exposed end, with 10 mm physical jogs; Z checks are computable and every tool has an authored touch-off, but no lathe DRO installation or measured trial-cut diameter is supplied.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
       "numbers": {
         "axes": {
           "x": {
             "axis_set": "unknown",
-            "check_expression": "D + 20.0",
+            "axis_set_status": "unknown",
+            "check_expression": "D +20",
+            "check_jog_mm": 10.0,
             "check_reading": "unknown",
+            "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
+            "feature": "spindle_axis",
+            "from": "+x",
+            "gauge": "micrometers/0-1in",
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
-            "mirrored_expression": "D - 20.0",
+            "mirrored_expression": "D -20",
             "mirrored_reading": "unknown",
-            "note": "Axis Set the actual measured trial-cut diameter D, never the nominal target; with authored diametric mode, a physical +10 mm radial jog reads D+20, mirrored D-20.",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
-            "sign": 1
+            "sign": 1,
+            "tool": "turning-tools-warner-lms-4132/AR"
           },
           "z": {
             "axis_set": -7.5,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
             "check_reading": 2.5,
+            "dro_direction": "toward_exposed_end",
             "edge_mm": -7.5,
+            "face": "shoulder_north",
+            "from": "+z",
             "jog_mm": 10.0,
             "method": "touch",
             "mirrored_reading": -17.5,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
-            "sign": 1
+            "sign": 1,
+            "tool": "turning-tools-warner-lms-4132/AR"
           }
         },
-        "direction": {
-          "x": "away_from_spindle_axis",
-          "z": "toward_exposed_end"
+        "binding": "nominal",
+        "dro": {
+          "mode": "abs",
+          "radius_mode": false
         },
-        "dro_controller": "unknown",
-        "radius_mode": false,
+        "frame": "T2",
         "retouch": [],
         "tool_touches": [
           {
@@ -3310,11 +3403,6 @@
             "z_face": "shoulder_north"
           }
         ],
-        "tools_used": [
-          "turning-tools-warner-lms-4132/AR",
-          "turning-tools-warner-lms-4132/E"
-        ],
-        "tools_without_touch": [],
         "transfer": {
           "from": "S1",
           "gauge": "dial-indicator",
@@ -3328,47 +3416,57 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1",
-        "examples/pivot-shaft/plan.toml:343",
-        "examples/pivot-shaft/plan.toml:42",
-        "EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62 (https://www.dropros.com/documents/EL400%20OpManual.pdf)",
-        "examples/inventory/pedro-shop.toml:51"
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
       ],
-      "message": "S3 requires ABS, diametric X, X+ away from the axis and Z+ toward the exposed end, with 10 mm physical jogs; Z checks are computable and every tool has an authored touch-off, but no lathe DRO installation or measured trial-cut diameter is supplied. Scribe Z0 is local only; the actual installed-ear span and transfer measurement remain unknown.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
       "numbers": {
         "axes": {
           "x": {
             "axis_set": "unknown",
-            "check_expression": "D + 20.0",
+            "axis_set_status": "unknown",
+            "check_expression": "D +20",
+            "check_jog_mm": 10.0,
             "check_reading": "unknown",
+            "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
+            "feature": "spindle_axis",
+            "from": "+x",
+            "gauge": "micrometers/0-1in",
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
-            "mirrored_expression": "D - 20.0",
+            "mirrored_expression": "D -20",
             "mirrored_reading": "unknown",
-            "note": "Axis Set the actual measured trial-cut diameter D, never the nominal target; with authored diametric mode, a physical +10 mm radial jog reads D+20, mirrored D-20.",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
-            "sign": 1
+            "sign": 1,
+            "tool": "turning-tools-warner-lms-4132/AR"
           },
           "z": {
             "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
             "check_reading": 10.0,
+            "dro_direction": "toward_exposed_end",
             "edge_mm": 0.0,
+            "face": "scribe",
+            "from": "+z",
             "jog_mm": 10.0,
             "method": "align_tool_point_to_scribe",
             "mirrored_reading": -10.0,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
-            "sign": 1
+            "sign": 1,
+            "tool": "turning-tools-warner-lms-4132/AR"
           }
         },
-        "direction": {
-          "x": "away_from_spindle_axis",
-          "z": "toward_exposed_end"
+        "binding": "unknown",
+        "dro": {
+          "mode": "abs",
+          "radius_mode": false
         },
-        "dro_controller": "unknown",
-        "radius_mode": false,
+        "frame": "T3",
         "retouch": [],
         "tool_touches": [
           {
@@ -3387,11 +3485,6 @@
             "z_face": "cut_face_after_op10"
           }
         ],
-        "tools_used": [
-          "turning-tools-warner-lms-4132/AR",
-          "turning-tools-warner-lms-4132/E"
-        ],
-        "tools_without_touch": [],
         "transfer": {
           "from": "S2",
           "gauge": "dial-indicator",
@@ -3404,7 +3497,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "60826522d2af89f334b869be6861fa34031603f55c4b7aaf4ada292a62f180a0",
+  "hash": "ca77b86a090912c2b3e688a7f2cc039060923da7c4b200aee3970899da8c6c67",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3428,7 +3521,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "reference-fixtures-rev6",
+  "rules_version": "m1-rev6",
   "step_sha256": "unknown",
   "verification": "planned"
 }

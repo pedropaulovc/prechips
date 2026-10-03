@@ -154,6 +154,7 @@ jaws_along = "y"                 # grips the finished foot sides across X
 fixed_jaw = "left"               # author's choice: fixed jaw on -X
 parallels = "parallels-lms-6745/5-8in"
 riser = "blocks-123-lms-2881"    # rev-3 authored packing: block on its 1 in face under the 5/8 parallels
+support_orientation = "1 in height" # author's existing 1 in block orientation, made operative
 grip_mm = 5.08                   # rev-3 derived: 1.825 in jaw - (1 + 5/8) in stack, x 25.4
 grip_mm_verify = true
 jaw_above_parallels_mm = 5.08
@@ -204,7 +205,7 @@ holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.3                       # author's choice: finished foot Z = 0 plus floor allowance
 direction = "conventional"       # author's choice
 rough_allowance_mm = 0.3         # author's choice: stock on floor and retained ear wall
-contour = { method = "linear_table", step_mm = 1.0 } # author's choice: open free-run pocket
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, 9.0], y = [6.0, 33.2], z = [3.0, 22.2] }, open_side = "-y" } # author's existing raw blank placement and open free-run sweep, explicit rather than inferred from stock size
 
 [[setups.ops]]
 op = 20
@@ -214,7 +215,7 @@ tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.0
 direction = "conventional"       # author's choice
-contour = { method = "linear_table", step_mm = 1.0 } # author's choice
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, 9.0], y = [6.0, 33.2], z = [3.0, 22.2] }, open_side = "-y" } # same raw blank sweep; retained ear wall at setup Y -3
 
 [setups.ops.checks]
 thickness = "calipers"

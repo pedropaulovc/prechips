@@ -1,10 +1,10 @@
 # PLAN rev 6 reference bundles
 
-These are **hand-authored reference targets**, not certified CAD exports, checker
-runs, toolpaths, approvals or first articles. Every traveler remains **PLANNED**.
-No `src/` implementation was changed. The frozen input bundle for each part is
-`plan.toml`, `features.toml`, and the three shared shop inputs. No STEP byte stream
-is supplied: `step_sha256 = "unknown"` is a finding, not a fabricated digest.
+These are **hand-authored input bundles** with M1 CLI-generated reference outputs,
+not certified CAD exports, toolpaths, approvals or first articles. Every example
+traveler remains **PLANNED**. The frozen input bundle for each part is `plan.toml`,
+`features.toml`, and the three shared shop inputs. No STEP byte stream is supplied:
+`step_sha256 = "unknown"` is a finding, not a fabricated digest.
 
 ## Files and expected exits
 
@@ -124,6 +124,11 @@ remaining object **with the same canonical form including its final LF**, and
 SHA-256 those bytes. The traveler footer uses the first eight characters:
 `prechips 0.1 · report <id>`. HTML is an output, not an input to its own report.
 `.gitattributes` pins fixture line endings to LF.
+The implemented rule vocabulary is `m1-rev6`; the report retains the reference
+ABI's `message` and `expected_exit` names. Finite floats use the JSON encoder's
+shortest round-trip representation, not drawing-format rounding. Drawing precision
+is applied only to the traveler.
+
 
 Every finding carries status, numbers, citations and a plain sentence. There
 are no rev-3 `fail`, `block` or separate severity fields. Subject domains are:
@@ -195,59 +200,99 @@ paper/jog/mirror/retouch and speed/feed arithmetic, hashes/canonical JSON/footer
 binding and exit precedence. It rejects obsolete YAML/CSV fixtures. It validates
 these authored contracts; it is not another machining checker and does not assert
 geometry, material properties, gauge calibration, first-article evidence or telemetry.
-The browser smoke rendered shaft/bracket to four Letter pages and rocker to five
-(612 × 792 pt), with matching report footers and no horizontal table overflow.
+The earlier hand-authored sheets rendered to four Letter pages for shaft/bracket
+and five for rocker. Those counts do not describe the new generated continuations.
 Scoped mutation smoke rejected all 26 named author-choice fields and nested
 direction/contour/section unknowns, while allowing RPM, drawing, installation and
 missing-gauge unknowns; it also rejected a radius-sized jog in lathe diametric X.
 Local-target smoke also rejected a wrong endpoint, missing operation provenance
 and an attempt to replace a known model transform with an authored local target.
-The actual prechips CLI remains plan-only; do not mistake this validation run
-for `prechips check` producing the expected files.
+The M1 CLI now produces these expected files from the five TOML inputs. Its
+fixture rehearsal observed exits 4/2/2 and byte-identical reports and HTML on
+repeat runs; the numerical validator remains an independent arithmetic gate.
 
-## PLAN rev 6 authoring gaps (listed, not fixed)
+## PLAN rev 6 authoring contracts resolved in M1
 
-1. No complete TOML key/type/units schema is specified for inventory, reports,
-   angle-plate holds or lathe stock state. These references document their keys;
-   lathe end-station/OD fields cannot be mill top/bottom/thickness fields.
-2. Scalar shop-policy number/cite/verify metadata has no TOML spelling. These
-   files use `numbers_cite` and `numbers_verify` sibling tables.
-3. `checks.position`/`checks.finish` in the example differ from exact manifest
-   names `position_dia`/`finish_ra`; fixtures use exact requirement keys.
-   Inspection also omits several real drawing dimension kinds from its short
-   list. Cross-feature closure (journal length finished while doming) needs an
-   explicit manual inspect op.
-4. Stable rule ids, subject domains and report JSON layout/canonical byte
-   encoding are not specified. The reference conventions above make them
-   deterministic without pretending to be an implemented checker ABI.
-5. “Top after an op” does not identify which surface. The rocker requires
-   `stock_state.top_feature`; bracket entry planes require the explicit
-   per-feature `stock_state.entry_z` subtable. An indicated bore pickup also has
-   no finder-radius formula in the sketch.
-6. Lathe DRO installation/polarity/radius-vs-diameter, per-tool touch-off and
-   headroom are not covered by the M1 mill examples. Turning has no shipped cut
-   row; milling flutes × chip load is not a turning feed model. Spotting/M42
-   tooling and material-grade classification are also unspecified.
-7. No rounding-tie/boundary policy is supplied for RPM rounded to 50, and no
-   unambiguous contact-approach sign convention is supplied for reversed DRO
-   directions. The references separate contact-side compensation from the
-   authored DRO jog polarity.
-8. The complete dimension-count contract has no machine-readable form for a
-   part with no drawing. Bracket nominal geometry does not prove drawing
-   precision, defaults, datum tolerances or profile acceptance.
-9. The report/bundle definition expects a STEP, while this assignment explicitly
-    requires unknown STEP binding. These remain stopped reference targets, not
-    successful bound runs. Approval format/location and first-article data are
-    not authored here.
-10. The milestone's shaft cross-hole/BS-0 example conflicts with the actual
-    consumer shaft's “NO FLATS”/no-hole geometry. No feature was invented.
-11. The rocker fixture remains absent/unvalidated; the proposed supported hold
-    and release method does not certify its geometry. Retained rails are released
-    only under the supported S3 route, never secretly in the vise. The 175-long
-    shaft supply state is not a separately produced intermediate in this route.
-12. Page overflow and continuation policy are not specified. The authored
-    reference sheets were fitted to actual Letter pages rather than using HTML
-    section count as proof of print pagination.
+1. `src/prechips/model.py` and the five input-format pages under `docs/` define
+   the strict TOML schema. Unknown keys are bad input; literal `"unknown"` remains
+   unresolved, including nested records. Lathe end stations are not mill heights.
+2. Policy metadata uses `numbers_cite` and `numbers_verify` sibling tables.
+   Missing policy uses the shop-required seven-rule vocabulary, never plan waivers.
+3. Inspection uses exact requirement keys (`position_dia`, `finish_ra`, etc.)
+   and all manifest dimension requirements, including explicit manual inspection
+   for dimensions completed by another feature's operation.
+4. The rule ids, subjects and canonical report ABI above are implemented.
+   An absent required rule or subject is unknown, not silently checked.
+5. `top_feature` identifies the touched surface; `entry_z` advances separate
+   local entry surfaces. Indicated bore pickup has zero finder radius. Unknown
+   frame binding never substitutes reference geometry for an actual fit.
+6. Lathe diametric X doubles the displayed increment of a physical jog; per-tool
+   touches are explicit. M1 mill headroom remains unsupported on a lathe. No
+   turning, spotting or unsourced material cutting row is invented.
+7. Raw RPM is rounded ties-to-even at 50 rpm **before** clamping once to the
+   measured machine range. A non-50 machine boundary is never exceeded and is
+   not rounded again. Contact-side compensation and DRO jog polarity are
+   independent; reversed directions exchange expected and mirrored readings.
+8. Missing bracket drawing bands/precision remain unknown, not adopted from
+   another part. Its nominal geometry does not certify drawing acceptance.
+9. Unknown STEP binding is permitted as a named unresolved finding. A known
+   digest requires actual matching STEP bytes. Approval is separate evidence,
+   not an operative input to its own report hash; it needs a matching hash and
+   nonblank first-article evidence, and cannot waive required findings.
+10. The source shaft has no flat/cross-hole; none is invented to satisfy M2's
+    obsolete pilot description.
+11. The rocker fixture remains absent/unvalidated. Rails release only under the
+    supported S3 route. The proposed stock and support state remains the author's,
+    not measured inventory or certified geometry.
+12. The renderer uses row-safe natural overflow and bounded per-setup contour
+    continuations rather than fixed-height clipping. Logical HTML sections are
+    not claims about physical printed pages. Paper rehearsal remains outstanding.
+
+## M1 fixture reconciliation
+
+The implementation does not read `expected/` at runtime. All three report/HTML
+pairs were regenerated by `prechips traveler` only after comparing the original
+targets with fresh computations and the contracts above.
+
+- **`rocker-arm/features.toml`**: add `hub_od.dia_nominal = 10.20`,
+  `top_edge.radius_nominal = 800`, `profile_outer.bottom_radius_nominal = 816`,
+  `profile_outer.arc_centre = [0, 816, 0]`, and the explicit
+  `top_edge_feature = "top_edge"` relationship. These are the existing source
+  facts at `rocker_arm_spec.py:26-27,42-54,112`, re-read during implementation.
+  A tolerance-band midpoint is not an authored toolpath nominal.
+- **`pivot-bracket/plan.toml`**: promote the existing 1 in riser orientation to
+  `support_orientation = "1 in height"`. For S2 ops 10/20, state the open
+  free-run sweep's model frame and raw-blank bounds X −9..9, Y 6..33.2,
+  Z 3..22.2, opening toward setup −Y. The original stock placement/hold prose
+  already supplies these author choices; they are not added to the CAD manifest.
+- **All three `expected/report.json` files**: use `rules_version = "m1-rev6"`,
+  current input SHA-256s, generic rule sentence/citation templates and fully
+  computed evidence records. Hashes change because they bind the entire report.
+  All unknown tool geometry, gauges, cutting data, measurements and STEP binding
+  remain unknown. Shaft verdicts are unchanged. Duplicate missing-item errors
+  are removed from dependent compatibility/sizing rows: the selected missing
+  reference owns the error; computations depending on it are unknown.
+- **Rocker verdict corrections**: `sizing:pivot_bore` and compatibility
+  subjects S1:60, S1:70, S3:20, S3:50 and S3:60 change error → unknown;
+  the three missing references remain errors. Manual S3:70/S3:80 no-tool
+  compatibility rows are removed, matching the documented subject domain.
+- **Bracket verdict corrections**: compatibility subjects S2:60/S2:70/S2:80/
+  S2:90 and S3:30/S3:40/S3:50 change error → unknown, leaving the three
+  absent references as errors. Datum consistency for foot_top, ear_relief,
+  ear_sides, ear_arch, cross_bore and both hold-down holes becomes
+  not-applicable: no adopted drawing datum relationship is declared. Nominal
+  stations do not create a positional/datum tolerance. S2 ear-side profile
+  entry remains Z 27.2, rather than borrowing the free-run floor Z 0.3.
+- **All three `expected/traveler.html` files**: regenerate from the new report
+  and computed tables. Per-setup continuations replace hand-consolidated tables,
+  include sweep/axial records, apply dimension-specific precision, and show
+  unknown precision rather than inventing decimals. Footer ids bind the new
+  reports; escaped content and row-safe overflow replace hand-curated HTML.
+
+No inventory, policy, cutting-data number, tolerance band, feature or tool
+purchase was changed. Expected exits remain **4 / 2 / 2**. The generated reports
+contain 103 / 117 / 116 findings respectively; rocker and bracket each emit
+exactly three `✗` missing-reference lines.
 
 ## Exhaustive `"unknown"` input ledger
 
