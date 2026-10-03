@@ -688,6 +688,17 @@ byte-identical `report.json`, checked in CI by running twice.
   prechips spawns and its JSON result is cached by bundle hash.
 - **No network at check time** except telemetry export; the inventory's
   `chart` URLs are citations, not fetches.
+- **Docs are part of the milestone.** A milestone is not done until
+  `README.md` (what prechips does today, the CLI as it actually behaves,
+  how to run the examples), `AGENTS.md` (how an agent works in this repo:
+  uv, the no-invented-numbers rule, where fixtures and cites live, how to
+  run the validator and the telemetry check) and the feature docs under
+  `docs/` (one page per input file format and one per rule family,
+  matching the shipped schema and statuses, with the sheet sentences each
+  rule prints) describe the shipped state. A PR that closes a milestone
+  and leaves any of them describing the previous one is not mergeable;
+  the examples README and this plan's milestone list are updated in the
+  same PR.
 
 ## 6. The kernel: what the spike measured
 
