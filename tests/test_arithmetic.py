@@ -108,7 +108,7 @@ range_mm = [5.0, 7.0]
 resolution_mm = 0.001
 verify = false
 """
-CUTTING = "revision = 1\n[aliases]\nsteel = \"low_carbon_steel\"\n" + "".join(
+CUTTING = 'revision = 1\n[aliases]\nsteel = "low_carbon_steel"\n' + "".join(
     f"""[[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"

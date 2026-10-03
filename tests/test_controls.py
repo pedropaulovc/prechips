@@ -168,9 +168,7 @@ def test_approval_stales_when_feature_input_changes(tmp_path):
         ("empty", "[required]\n", 0),
     ],
 )
-def test_missing_required_policy_is_unknown_not_empty(
-    tmp_path, state, declaration, expected_exit
-):
+def test_missing_required_policy_is_unknown_not_empty(tmp_path, state, declaration, expected_exit):
     plan = clean_inspection_bundle(tmp_path)
     policy = plan.parent.parent / "shop-policy.toml"
     policy.write_text("revision = 1\n" + declaration + "[numbers]\n", encoding="utf-8")

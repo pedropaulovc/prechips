@@ -3,9 +3,9 @@
 import hashlib
 
 import pytest
+from test_cli import copy_examples, traveler
 
 from prechips.report import canonical_bytes, report_hash
-from test_cli import copy_examples, traveler
 
 
 def test_canonical_report_unicode_sorted_keys_float_and_final_lf():
