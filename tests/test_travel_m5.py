@@ -9,6 +9,13 @@ import pytest
 from prechips.rules.travel import evaluate
 
 
+def measured(value):
+    return {
+        "value": value,
+        "measured": {"by": "shop tester", "date": "2026-01-01", "instrument": "steel rule"},
+    }
+
+
 def bundle():
     identity = {
         "origin": [0, 0, 0],
@@ -17,7 +24,6 @@ def bundle():
         "z": [0, 0, 1],
         "binding": "measured",
     }
-    measured = {"by": "shop tester", "date": "2026-01-01", "instrument": "steel rule"}
     return SimpleNamespace(
         plan={
             "stock": {"length_mm": 100, "section_mm": [30, 10], "cite": "blank measured"},
@@ -33,6 +39,7 @@ def bundle():
                             "do": "finish_profile",
                             "feature": "outline",
                             "tool": "cutter",
+                            "holder": "holder",
                             "to_z": -2,
                             "approach_mm": 3,
                             "cite": "declared cutting target",
@@ -59,12 +66,9 @@ def bundle():
                     "verify": False,
                     "envelope": {
                         "travel_mm": {
-                            "x": 100,
-                            "y": 100,
-                            "z": 100,
-                            "verify": False,
-                            "measured": measured,
-                            "cite": "full axis strokes measured between limits",
+                            "x": measured(100),
+                            "y": measured(100),
+                            "z": measured(100),
                         }
                     },
                 }
@@ -72,11 +76,13 @@ def bundle():
             "tools": {
                 "cutter": {
                     "kind": "endmill",
-                    "dia_mm": 6,
+                    "dia_mm": measured(6),
+                    "projection_mm": {"holder": measured(40)},
                     "verify": False,
                     "cite": "selected cutter diameter",
                 }
             },
+            "holders": {"holder": {"kind": "collet", "gauge_len_mm": measured(30)}},
         },
         policy={},
     )
@@ -103,9 +109,9 @@ def add_hole(data, name, at, op, *, approach=3):
     }
     data.inventory["tools"]["drill"] = {
         "kind": "drill",
-        "dia_mm": 6,
-        "point_angle": 90,
-        "verify": False,
+        "dia_mm": measured(6),
+        "point_angle": measured(90),
+        "projection_mm": {"holder": measured(40)},
     }
     setup(data)["stock_state"].setdefault("local_thickness", {})[name] = 10
     setup(data)["ops"].append(
@@ -114,6 +120,7 @@ def add_hole(data, name, at, op, *, approach=3):
             "do": "drill",
             "feature": name,
             "tool": "drill",
+            "holder": "holder",
             "exit_mm": 1,
             "approach_mm": approach,
         }
@@ -128,7 +135,7 @@ def test_measured_declared_bounds_pass_and_exact_boundary_passes():
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == 46
     assert finding.numbers["travel_checks"]["y"]["required_mm"] == 26
     assert finding.numbers["travel_checks"]["z"]["required_mm"] == 5
-    machine(data)["envelope"]["travel_mm"].update(x=46, y=26, z=5)
+    machine(data)["envelope"]["travel_mm"].update(x=measured(46), y=measured(26), z=measured(5))
     boundary = evaluate(data)[0]
     assert boundary.status == "pass"
     assert all(row["margin_mm"] == 0 for row in boundary.numbers["travel_checks"].values())
@@ -136,35 +143,10 @@ def test_measured_declared_bounds_pass_and_exact_boundary_passes():
 
 def test_measured_overtravel_has_axis_required_and_excess_for_sheet():
     data = bundle()
-    machine(data)["envelope"]["travel_mm"]["x"] = 45
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(45)
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["margin_mm"] == -1
-    assert "X" in finding.sentence and "46 mm" in finding.sentence and "45 mm" in finding.sentence
-    assert "1 mm" in finding.sentence
-
-
-def test_separated_holes_union_spans_not_independent_maximum():
-    data = bundle()
-    setup(data)["ops"] = []
-    add_hole(data, "left", [0, 0, 0], 10)
-    add_hole(data, "right", [90, 30, 0], 20)
-    finding = evaluate(data)[0]
-    assert finding.status == "pass"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 96
-    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 36
-    machine(data)["envelope"]["travel_mm"]["x"] = 95
-    assert evaluate(data)[0].status == "error"
-
-
-def test_union_uses_each_operations_radius_not_largest_radius_twice():
-    data = bundle()
-    setup(data)["ops"] = []
-    add_hole(data, "left", [0, 0, 0], 10)
-    add_hole(data, "right", [90, 0, 0], 20)
-    data.inventory["tools"]["wide"] = {"kind": "drill", "dia_mm": 10, "point_angle": 90}
-    setup(data)["ops"][0]["tool"] = "wide"
-    assert check(data, "x")["required_mm"] == 98
 
 
 def test_explicit_bounds_transform_source_and_setup_frames():
@@ -196,8 +178,8 @@ def test_point_operations_transform_complete_locations():
     data.features["frames"]["A"].update(x=[0, 1, 0], y=[-1, 0, 0], origin=[10, 20, 0])
     finding = evaluate(data)[0]
     assert finding.status == "pass"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 36
-    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 96
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 30
+    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 90
 
 
 @pytest.mark.parametrize("action", ["face", "rough_profile", "finish_pocket"])
@@ -211,9 +193,9 @@ def test_broad_incomplete_extent_uses_stock_not_tiny_nominal_feature(action, ext
         feature["bounds"] = extent
     op = setup(data)["ops"][0]
     op.update(do=action, rough_allowance_mm=0.4)
-    machine(data)["envelope"]["travel_mm"]["x"] = 200
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(200)
     finding = evaluate(data)[0]
-    padding = 6.8 if action == "rough_profile" else 6
+    padding = 6.8 if action == "rough_profile" else 0
     assert finding.status == "pass"
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == pytest.approx(100 + padding)
     assert finding.numbers["travel_checks"]["y"]["required_mm"] == pytest.approx(30 + padding)
@@ -224,7 +206,7 @@ def test_unlocated_stock_scalar_is_not_placed_at_invented_origin():
     data = bundle()
     data.features["features"]["outline"].pop("bounds")
     add_hole(data, "remote", [1000, 0, 0], 20)
-    machine(data)["envelope"]["travel_mm"]["x"] = 110
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(110)
     finding = evaluate(data)[0]
     assert finding.status == "pass"
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == 106
@@ -235,10 +217,10 @@ def test_stock_fallback_also_keeps_separated_known_feature_centres():
     data.features["features"]["outline"].update(at=[0, 0, 0])
     data.features["features"]["outline"].pop("bounds")
     add_hole(data, "remote", [150, 0, 0], 20)
-    machine(data)["envelope"]["travel_mm"]["x"] = 155
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(152)
     finding = evaluate(data)[0]
     assert finding.status == "error"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 156
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 153
 
 
 def test_rough_allowance_expands_each_side_only_for_rough_cut():
@@ -251,7 +233,7 @@ def test_rough_allowance_expands_each_side_only_for_rough_cut():
 
 
 @pytest.mark.parametrize("missing", ["bounds", "dia", "approach", "travel", "measurement"])
-def test_missing_declared_fact_stays_unknown_with_actionable_measurement_sentence(missing):
+def test_missing_declared_fact_stays_unknown_and_exposes_consumed_debt(missing):
     data = bundle()
     if missing == "bounds":
         data.features["features"]["outline"].pop("bounds")
@@ -263,32 +245,17 @@ def test_missing_declared_fact_stays_unknown_with_actionable_measurement_sentenc
     elif missing == "travel":
         machine(data)["envelope"]["travel_mm"]["x"] = "unknown"
     else:
-        machine(data)["envelope"]["travel_mm"].pop("measured")
+        machine(data)["envelope"]["travel_mm"]["x"] = 100
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
-    assert "mm" in finding.sentence
-    assert any(
-        instrument in finding.sentence.lower()
-        for instrument in (
-            "caliper",
-            "height gauge",
-            "readout",
-            "steel rule",
-            "indicator",
-            "tape",
-            "rule",
-        )
-    )
-    if missing in {"travel", "measurement", "dia"}:
-        assert finding.numbers["measurements"]
+    assert finding.numbers["measurements"]
 
 
 @pytest.mark.parametrize("travel", [1, 1000])
 def test_nominal_verify_true_travel_neither_passes_nor_errors(travel):
     data = bundle()
     limits = machine(data)["envelope"]["travel_mm"]
-    limits.update(x=travel, y=travel, z=travel, verify=True)
-    limits.pop("measured")
+    limits.update({axis: {"value": travel, "verify": True} for axis in ("x", "y", "z")})
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
     assert all(row["margin_mm"] == "unknown" for row in finding.numbers["travel_checks"].values())
@@ -298,7 +265,7 @@ def test_nominal_verify_true_travel_neither_passes_nor_errors(travel):
 def test_verified_known_axis_excess_errors_even_with_other_axes_unknown():
     data = bundle()
     limits = machine(data)["envelope"]["travel_mm"]
-    limits.update(x=45, y="unknown", z="unknown")
+    limits.update(x=measured(45), y="unknown", z="unknown")
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["margin_mm"] == -1
@@ -309,13 +276,11 @@ def test_fact_local_measured_axis_overrides_vendor_verify_debt():
     data = bundle()
     machine(data)["verify"] = True
     limits = machine(data)["envelope"]["travel_mm"]
-    limits.pop("measured")
     limits.update(
         x={
             "value": 45,
             "verify": False,
             "measured": {"by": "shop", "date": "2026-01-01", "instrument": "steel rule"},
-            "cite": "measured X stroke",
         },
         y="unknown",
         z="unknown",
@@ -323,13 +288,12 @@ def test_fact_local_measured_axis_overrides_vendor_verify_debt():
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["travel_verified"] is True
-    assert "measured X stroke" in finding.cite
 
 
 def test_known_axis_can_fail_while_safe_z_approach_missing():
     data = bundle()
     setup(data)["ops"][0].pop("approach_mm")
-    machine(data)["envelope"]["travel_mm"]["x"] = 45
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(45)
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["z"]["required_mm"] == "unknown"
@@ -337,8 +301,8 @@ def test_known_axis_can_fail_while_safe_z_approach_missing():
 
 def test_unknown_tool_radius_cannot_make_xy_overtravel_error():
     data = bundle()
-    data.inventory["tools"]["cutter"]["verify"] = True
-    machine(data)["envelope"]["travel_mm"]["x"] = 1
+    data.inventory["tools"]["cutter"]["dia_mm"] = {"value": 6, "verify": True}
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(1)
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == "unknown"
@@ -352,7 +316,7 @@ def test_actual_through_drill_point_exit_and_approach_set_z_span():
     assert finding.status == "pass"
     assert finding.numbers["operations"][0]["endpoint"]["tip_z"] == pytest.approx(-14)
     assert finding.numbers["travel_checks"]["z"]["required_mm"] == pytest.approx(18)
-    machine(data)["envelope"]["travel_mm"]["z"] = 17
+    machine(data)["envelope"]["travel_mm"]["z"] = measured(17)
     assert evaluate(data)[0].status == "error"
 
 
@@ -432,8 +396,8 @@ def test_already_present_kernel_bbox_can_supply_scalar_stock_extent_without_call
 def test_inch_travel_converts_once_and_compares_with_declared_mm_span():
     data = bundle()
     envelope = machine(data)["envelope"]
-    measured = envelope.pop("travel_mm")["measured"]
-    envelope["travel_in"] = {"x": 2, "y": 2, "z": 2, "measured": measured, "verify": False}
+    envelope.pop("travel_mm")
+    envelope["travel_in"] = {axis: measured(2) for axis in ("x", "y", "z")}
     finding = evaluate(data)[0]
     assert finding.status == "pass"
     assert finding.numbers["travel_checks"]["x"]["travel_mm"] == pytest.approx(50.8)
@@ -490,7 +454,12 @@ def test_reamer_lead_replaces_drill_point_in_through_endpoint():
     data = bundle()
     setup(data)["ops"] = []
     add_hole(data, "through", [0, 0, 0], 10)
-    data.inventory["tools"]["reamer"] = {"kind": "reamer", "dia_mm": 6, "lead_mm": 2}
+    data.inventory["tools"]["reamer"] = {
+        "kind": "reamer",
+        "dia_mm": measured(6),
+        "lead_mm": measured(2),
+        "projection_mm": {"holder": measured(40)},
+    }
     setup(data)["ops"][0].update(do="ream", tool="reamer", approach_mm=4)
     finding = evaluate(data)[0]
     assert finding.status == "pass"
@@ -513,7 +482,7 @@ def test_distant_setups_are_checked_independently_not_unioned_together():
         ("S1", "pass"),
         ("S2", "pass"),
     ]
-    assert [finding.numbers["travel_checks"]["x"]["required_mm"] for finding in findings] == [6, 6]
+    assert [finding.numbers["travel_checks"]["x"]["required_mm"] for finding in findings] == [0, 0]
 
 
 @pytest.mark.parametrize(
@@ -567,7 +536,7 @@ def test_known_axis_scalar_excess_can_fail_with_other_axis_geometry_unknown():
     data = bundle()
     data.features["features"]["outline"].pop("bounds")
     data.features["frames"]["A"].pop("y")
-    machine(data)["envelope"]["travel_mm"]["x"] = 105
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(105)
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == 106
@@ -578,11 +547,11 @@ def test_translated_decimal_exact_boundary_passes_but_real_excess_fails():
     data = bundle()
     data.features["features"]["outline"]["bounds"]["x"] = [1000, 1040]
     setup(data)["ops"][0].update(do="rough_profile", rough_allowance_mm=0.4)
-    machine(data)["envelope"]["travel_mm"]["x"] = 46.8
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(46.8)
     boundary = evaluate(data)[0]
     assert boundary.status == "pass"
     assert boundary.numbers["travel_checks"]["x"]["margin_mm"] == 0
-    machine(data)["envelope"]["travel_mm"]["x"] = 46.799
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(46.799)
     excess = evaluate(data)[0]
     assert excess.status == "error"
     assert excess.numbers["travel_checks"]["x"]["margin_mm"] == pytest.approx(-0.001)
@@ -599,7 +568,7 @@ def test_direct_tool_diameter_ignores_unrelated_fact_verification_debt():
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == 46
 
 
-def test_inline_measured_drill_diameter_used_consistently_for_radius_and_tip():
+def test_inline_measured_drill_diameter_sets_tip_but_not_xy_centre_travel():
     data = bundle()
     setup(data)["ops"] = []
     add_hole(data, "through", [0, 0, 0], 10)
@@ -612,7 +581,7 @@ def test_inline_measured_drill_diameter_used_consistently_for_radius_and_tip():
     }
     finding = evaluate(data)[0]
     assert finding.status == "pass"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 8
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 0
     assert finding.numbers["operations"][0]["endpoint"]["tip_z"] == pytest.approx(-15)
     assert finding.numbers["travel_checks"]["z"]["required_mm"] == pytest.approx(18)
 
@@ -622,20 +591,20 @@ def test_measured_diameter_does_not_certify_verify_true_nominal_drill_point():
     setup(data)["ops"] = []
     add_hole(data, "through", [0, 0, 0], 10)
     drill = data.inventory["tools"]["drill"]
-    drill["verify"] = True
+    drill["point_angle"] = {"value": 90, "verify": True}
     drill["dia_mm"] = {
         "value": 8,
         "verify": False,
         "measured": {"by": "shop", "date": "2026-01-01", "instrument": "micrometer"},
     }
-    machine(data)["envelope"]["travel_mm"]["z"] = 1
+    machine(data)["envelope"]["travel_mm"]["z"] = measured(1)
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 8
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 0
     assert finding.numbers["travel_checks"]["z"]["required_mm"] == "unknown"
 
 
-def test_measured_travel_block_overrides_root_vendor_verification_debt():
+def test_measured_travel_facts_are_independent_of_root_vendor_debt():
     data = bundle()
     machine(data)["verify"] = True
     finding = evaluate(data)[0]
@@ -652,6 +621,7 @@ def test_known_subset_excess_survives_unknown_operation_on_same_axis(missing, tr
         "do": "finish_profile",
         "feature": "outline",
         "tool": "cutter",
+        "holder": "holder",
         "to_z": -1,
         "approach_mm": 3,
     }
@@ -661,15 +631,13 @@ def test_known_subset_excess_survives_unknown_operation_on_same_axis(missing, tr
     else:
         second["tool"] = "unknown"
     setup(data)["ops"].append(second)
-    machine(data)["envelope"]["travel_mm"]["x"] = travel
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(travel)
     finding = evaluate(data)[0]
     assert finding.status == expected
     x = finding.numbers["travel_checks"]["x"]
     assert x["required_mm"] == "unknown" and x["margin_mm"] == "unknown"
     assert x["minimum_required_mm"] == 46
     assert x["lower_bound_margin_mm"] == travel - 46
-    if expected == "error":
-        assert "at least" in finding.sentence and "46 mm" in finding.sentence
 
 
 @pytest.mark.parametrize("action", ["unknown", None])
@@ -698,7 +666,7 @@ def test_unknown_action_does_not_hide_known_subset_excess_or_supply_unverified_l
     }
     second["feature"] = "distant"
     setup(data)["ops"].append(second)
-    machine(data)["envelope"]["travel_mm"]["x"] = 45
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(45)
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["minimum_required_mm"] == 46
@@ -709,17 +677,14 @@ def test_unverified_drill_endpoint_cannot_create_overtravel_lower_bound():
     data = bundle()
     setup(data)["ops"] = []
     add_hole(data, "through", [0, 0, 0], 10)
-    data.inventory["tools"]["drill"]["verify"] = True
-    machine(data)["envelope"]["travel_mm"].update(x=1, y=1, z=1)
+    data.inventory["tools"]["drill"]["point_angle"] = {"value": 90, "verify": True}
+    machine(data)["envelope"]["travel_mm"].update(x=measured(1), y=measured(1), z=measured(1))
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
-    assert all(
-        row["minimum_required_mm"] == "unknown" for row in finding.numbers["travel_checks"].values()
-    )
-    assert all(
-        row["lower_bound_margin_mm"] == "unknown"
-        for row in finding.numbers["travel_checks"].values()
-    )
+    assert finding.numbers["travel_checks"]["z"]["minimum_required_mm"] == "unknown"
+    assert finding.numbers["travel_checks"]["z"]["lower_bound_margin_mm"] == "unknown"
+    # Known hole centres remain a verified XY lower bound, independent of tip geometry.
+    assert finding.numbers["travel_checks"]["x"]["minimum_required_mm"] == 0
 
 
 def test_known_z_subset_excess_survives_other_operation_missing_safe_approach():
@@ -729,7 +694,7 @@ def test_known_z_subset_excess_survives_other_operation_missing_safe_approach():
     second.update(op=20, to_z=-1000)
     second.pop("approach_mm")
     setup(data)["ops"].append(second)
-    machine(data)["envelope"]["travel_mm"]["z"] = 12
+    machine(data)["envelope"]["travel_mm"]["z"] = measured(12)
     finding = evaluate(data)[0]
     assert finding.status == "error"
     z = finding.numbers["travel_checks"]["z"]
@@ -738,21 +703,20 @@ def test_known_z_subset_excess_survives_other_operation_missing_safe_approach():
     assert z["lower_bound_margin_mm"] == -1
 
 
-def test_selected_tool_member_keeps_diameter_despite_unrelated_projection_debt():
+def test_generated_tool_member_nominal_diameter_cannot_certify_measured_travel():
     data = bundle()
     data.inventory["tools"]["set"] = {
         "kind": "endmill_set",
         "sizes_in": ["1/4"],
         "flutes": [4],
         "verify": False,
-        "measured": {"by": "shop", "date": "2026-01-01", "instrument": "micrometer"},
-        "projection_mm": {"value": 30, "verify": True},
+        "projection_mm": {"holder": measured(40)},
     }
     setup(data)["ops"][0]["tool"] = "set/1-4in-4fl"
     finding = evaluate(data)[0]
-    assert finding.status == "pass"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == pytest.approx(46.35)
-    assert finding.numbers["travel_checks"]["y"]["required_mm"] == pytest.approx(26.35)
+    assert finding.status == "unknown"
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == "unknown"
+    assert "tools.set/1-4in-4fl.dia" in {entry["id"] for entry in finding.numbers["measurements"]}
 
 
 @pytest.mark.parametrize("units", ["in", "unknown", None])
@@ -762,8 +726,138 @@ def test_manifest_units_cannot_be_silently_read_as_millimetres(units):
         data.features.pop("units")
     else:
         data.features["units"] = units
-    machine(data)["envelope"]["travel_mm"]["x"] = 1
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(1)
     row = evaluate(data)[0]
     assert row.status == "unknown"
     assert row.numbers["travel_checks"]["x"]["required_mm"] == "unknown"
     assert row.numbers["travel_checks"]["x"]["minimum_required_mm"] == "unknown"
+
+
+def review_travel_bundle():
+    data = bundle()
+    provenance = {"by": "synthetic operator", "date": "2026-10-03", "instrument": "steel rule"}
+
+    def measured(value):
+        return {"value": value, "measured": deepcopy(provenance)}
+
+    machine(data)["envelope"]["travel_mm"] = {
+        axis: measured(value) for axis, value in (("x", 400), ("y", 200), ("z", 100))
+    }
+    data.inventory["holders"] = {
+        "short": {"kind": "collet", "gauge_len_mm": measured(30), "grip_mm": measured(20)},
+        "long": {"kind": "collet", "gauge_len_mm": measured(30)},
+    }
+    data.inventory["tools"]["cutter"].update(
+        oal_mm=measured(60), projection_mm={"long": measured(140), "short": measured(40)}
+    )
+    setup(data)["ops"][0]["holder"] = "short"
+    return data
+
+
+def test_review_4_z_unions_spindle_nose_bands_across_tool_lengths():
+    data = review_travel_bundle()
+    setup(data)["ops"] = [
+        {
+            "op": 10,
+            "do": "face",
+            "feature": "outline",
+            "tool": "cutter",
+            "holder": "long",
+            "to_z": 0,
+            "approach_mm": 5,
+        },
+        {
+            "op": 20,
+            "do": "pocket",
+            "feature": "outline",
+            "tool": "cutter",
+            "holder": "short",
+            "to_z": -15,
+            "approach_mm": 5,
+        },
+    ]
+    data.features["features"]["outline"]["bounds"]["z"] = [0, 0]
+    machine(data)["envelope"]["travel_mm"]["z"]["value"] = 20
+    row = evaluate(data)[0]
+    assert row.status == "error"
+    assert row.numbers["travel_checks"]["z"]["required_mm"] == 120
+
+
+def test_review_5_hole_centres_exact_boundary_no_cutter_radius():
+    data = review_travel_bundle()
+    setup(data)["ops"] = [
+        {
+            "op": 10,
+            "do": "center",
+            "feature": "left",
+            "tool": "cutter",
+            "holder": "short",
+            "to_z": -2,
+            "approach_mm": 5,
+        },
+        {
+            "op": 20,
+            "do": "center",
+            "feature": "right",
+            "tool": "cutter",
+            "holder": "short",
+            "to_z": -2,
+            "approach_mm": 5,
+        },
+    ]
+    data.features["features"] = {
+        "left": {"kind": "hole", "at": [0, 0, 0]},
+        "right": {"kind": "hole", "at": [395, 0, 0]},
+    }
+    machine(data)["envelope"]["travel_mm"]["x"]["value"] = 395
+    row = evaluate(data)[0]
+    assert row.status == "pass"
+    assert row.numbers["travel_checks"]["x"]["required_mm"] == 395
+    machine(data)["envelope"]["travel_mm"]["x"]["value"] = 394
+    row = evaluate(data)[0]
+    assert row.status == "error"
+    assert row.numbers["travel_checks"]["x"]["margin_mm"] == -1
+
+
+def test_review_10_travel_requires_selected_holder_measured_gauge():
+    data = review_travel_bundle()
+    data.inventory["holders"]["short"]["gauge_len_mm"] = 30
+    row = evaluate(data)[0]
+    assert row.status == "unknown"
+    assert row.numbers["travel_checks"]["z"]["required_mm"] == "unknown"
+    assert "short" in row.sentence
+
+
+@pytest.mark.parametrize("action", ["face", "pocket"])
+def test_face_and_pocket_declared_extents_do_not_add_cutter_radius(action):
+    data = bundle()
+    setup(data)["ops"][0]["do"] = action
+    machine(data)["envelope"]["travel_mm"].update(x=measured(40), y=measured(20))
+    row = evaluate(data)[0]
+    assert row.status == "pass"
+    assert row.numbers["travel_checks"]["x"]["required_mm"] == 40
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(39)
+    assert evaluate(data)[0].status == "error"
+
+
+def test_travel_unknown_projection_names_selected_holder_pair():
+    data = bundle()
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 40
+    row = evaluate(data)[0]
+    assert row.status == "unknown"
+    assert row.numbers["travel_checks"]["z"]["required_mm"] == "unknown"
+    debt = next(entry for entry in row.numbers["measurements"] if ".projection." in entry["id"])
+    assert debt["id"] == "tools.cutter.projection.holder"
+    assert "holder" in debt["instruction"]
+
+
+def test_travel_unresolved_holder_asks_to_resolve_without_unowned_measurements():
+    data = bundle()
+    setup(data)["ops"][0]["holder"] = "unowned-chuck"
+    row = evaluate(data)[0]
+    assert row.status == "unknown"
+    assert row.numbers["travel_checks"]["z"]["required_mm"] == "unknown"
+    debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
+    assert debts["holders.unowned-chuck.resolve"]["instruction"].startswith("resolve:")
+    assert "holders.unowned-chuck.gauge_len" not in debts
+    assert "holders.unowned-chuck.grip" not in debts

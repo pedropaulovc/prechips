@@ -4,51 +4,35 @@ Located cutter envelopes are unioned in setup axes. Unlocated broad cuts use
 conservative stock spans without inventing where that stock sits in the frame.
 """
 
-import math
-
 from prechips.findings import Finding
-from prechips.measurements import measurement_entry
 from prechips.rules import tip_endpoints
 from prechips.rules._envelope import (
+    _band,
+    _known,
+    _point,
+    authoring_entry,
     fact,
     machine_envelope,
     measurement_item,
     setup_frame,
+    spindle_nose_band,
     stock_extents,
     transformed_bounds,
     unknown_sentence,
 )
-from prechips.rules.coordinates import AXES, CENTRE_OPS, frame_point, model_point
+from prechips.rules.coordinates import AXES, CENTRE_OPS
 from prechips.rules.resolution import (
     MANUAL,
     UNKNOWN,
     _citations,
-    number,
     record,
     same_length,
-    uncertain,
 )
 
 
 def _input_cite(item, label):
     item = record(item)
     return [label, *_citations(item.get("cite")), *_citations(item.get("source"))]
-
-
-def _known(value):
-    return number(value) and math.isfinite(value)
-
-
-def _point(feature, source, target):
-    at = feature.get("at")
-    if not isinstance(at, list) or len(at) != 3 or not all(_known(v) for v in at):
-        return UNKNOWN
-    point = frame_point(model_point(at, source), target)
-    return {axis: [point[i], point[i]] for i, axis in enumerate(AXES)}
-
-
-def _band(value):
-    return isinstance(value, list) and len(value) == 2 and all(_known(v) for v in value)
 
 
 def _include(bands, band):
@@ -58,110 +42,6 @@ def _include(bands, band):
 
 def _span(bands):
     return max(band[1] for band in bands) - min(band[0] for band in bands) if bands else UNKNOWN
-
-
-def _z_extent(op, before, extent, endpoint, tool, diameter, debts, cite, missing, errors, label):
-    """Bound the commanded tip, touched top and explicitly authored safe approach."""
-    values = []
-    complete = True
-    if isinstance(extent, dict) and _band(extent.get("z")):
-        values.extend(extent["z"])
-    top = before["top_z"]
-    approach = op.get("approach_mm", UNKNOWN)
-    if _known(top):
-        values.append(top)
-    else:
-        complete = False
-        missing.append(
-            f"Measure {label} current stock top from the setup datum with a height gauge or "
-            "touch-off; record plan.setups.stock_state.top_z in mm"
-        )
-    if _known(approach) and approach < 0:
-        errors.append(f"op {op['op']} approach_mm must be >= 0")
-        complete = False
-    elif _known(approach) and _known(top):
-        values.append(top + approach)
-    else:
-        complete = False
-        missing.append(
-            f"Measure and declare {label}.approach_mm >= 0 with a height gauge or machine "
-            "Z readout in mm above the current stock top for the safe Z approach"
-        )
-
-    targets = []
-    for field in ("to_z", "z_from", "z_to"):
-        if field in op:
-            value = op[field]
-            if _known(value):
-                targets.append(value)
-            else:
-                complete = False
-                missing.append(
-                    f"Measure {label}.{field} from the setup datum using the machine Z "
-                    "readout or depth gauge and record the commanded target in mm"
-                )
-    if op.get("do") in tip_endpoints.HOLE_OPS:
-        endpoint_complete = endpoint is not None and _known(endpoint.get("tip_z"))
-        if endpoint is not None:
-            for field in ("entry_z", "exit_face", "tip_z"):
-                value = endpoint.get(field, UNKNOWN)
-                if _known(value):
-                    targets.append(value)
-        action = op.get("do")
-        if action == "drill":
-            endpoint_complete &= diameter["verified"] and _known(diameter["value"])
-            # A local diameter measurement cannot certify a vendor-debt point angle.
-            angle = tool.get("point_angle", tool.get("point_angle_deg", UNKNOWN))
-            angle_verified = (
-                _known(angle)
-                and 0 < angle < 180
-                and not uncertain(
-                    {
-                        key: tool[key]
-                        for key in ("verify", "present", "coverage", "source")
-                        if key in tool
-                    }
-                )
-            )
-            endpoint_complete &= angle_verified
-            if not angle_verified:
-                entry = measurement_entry("tools", op.get("tool", UNKNOWN), "point_angle")
-                debts[entry["id"]] = entry
-            cite.append(f"inventory.tools.{op.get('tool', UNKNOWN)}.point_angle")
-        elif action == "ream":
-            lead = fact(
-                tool, "lead", "tools", op.get("tool", UNKNOWN), debts, cite, require_measured=False
-            )
-            endpoint_complete &= lead["verified"] and _known(lead["value"])
-        complete &= endpoint_complete
-        if not endpoint_complete:
-            missing.append(
-                f"Measure {label} hole entry and local thickness/depth with a depth gauge, "
-                "drill point or reamer lead with an optical comparator, and exit allowance "
-                "in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm"
-            )
-    if "depth_mm" in op:
-        depth = op["depth_mm"]
-        entry = before["entry_z"].get(op.get("feature"), top)
-        if _known(depth) and depth >= 0 and _known(entry):
-            targets.extend((entry, entry - depth))
-        else:
-            complete = False
-            missing.append(
-                f"Measure {label}.depth_mm and local entry using a depth gauge or machine "
-                "Z readout; record a nonnegative depth and entry_z in mm"
-            )
-    elif not targets and op.get("do") == "center" and isinstance(extent, dict):
-        if _band(extent.get("z")):
-            targets.extend(extent["z"])
-    if not targets:
-        complete = False
-        missing.append(
-            f"Measure and declare {label} commanded to_z, z_from/z_to or depth_mm from "
-            "the setup datum with a depth gauge or machine Z readout in mm"
-        )
-    values.extend(targets)
-    return ([min(values), max(values)] if values else UNKNOWN), complete
 
 
 def evaluate(bundle):
@@ -217,16 +97,6 @@ def evaluate(bundle):
             cite.extend(_input_cite(feature, f"features.features.{name}.bounds/at"))
             cite.extend(_input_cite(source, f"features.frames.{source_name}"))
             tool_ref = op.get("tool", UNKNOWN)
-            tool = measurement_item(bundle, "tools", tool_ref)
-            diameter = fact(tool, "dia", "tools", tool_ref, debts, cite, require_measured=False)
-            radius = diameter["value"] / 2 if _known(diameter["value"]) else UNKNOWN
-            radius_known = diameter["verified"] and _known(radius) and radius > 0
-            if not radius_known:
-                missing.append(
-                    f"Measure inventory.tools.{tool_ref}.dia_mm across the cutting diameter "
-                    "with calipers or a micrometer, in mm; clear verification debt or record "
-                    "a fact-local shop measurement before using its cutter radius"
-                )
             reversed_bounds = [
                 axis
                 for axis, band in record(feature.get("bounds")).items()
@@ -244,7 +114,7 @@ def evaluate(bundle):
                 else UNKNOWN
             )
             point = _point(feature, source, target) if manifest_mm else UNKNOWN
-            if not isinstance(extent, dict) and op.get("do") in CENTRE_OPS:
+            if op.get("do") in CENTRE_OPS:
                 extent = point
             action = op.get("do", UNKNOWN)
             action_known = isinstance(action, str) and action not in {UNKNOWN, ""}
@@ -268,6 +138,15 @@ def evaluate(bundle):
                 )
             base_action = action.removeprefix("rough_").removeprefix("finish_")
             broad = base_action in {"profile", "face", "pocket"}
+            radius_needed = base_action == "profile"
+            tool = measurement_item(bundle, "tools", tool_ref)
+            diameter = (
+                fact(tool, "dia", "tools", tool_ref, debts, cite)
+                if radius_needed and tool and tool.get("kind") != UNKNOWN
+                else {"value": UNKNOWN, "verified": False}
+            )
+            radius = diameter["value"] / 2 if _known(diameter["value"]) else UNKNOWN
+            radius_known = diameter["verified"] and _known(radius) and radius > 0
             fallback = broad and not isinstance(extent, dict)
             if fallback and invalid_stock:
                 errors.append(
@@ -283,7 +162,13 @@ def evaluate(bundle):
                     f"Measure and declare {label}.rough_allowance_mm >= 0 with calipers "
                     "or a micrometer in mm per side of the rough cut"
                 )
-            padding = radius + allowance if radius_known and allowance_known else UNKNOWN
+            padding = (
+                (radius + allowance if radius_known and allowance_known else UNKNOWN)
+                if radius_needed
+                else allowance
+                if allowance_known
+                else UNKNOWN
+            )
             xy = {}
             op_xy_complete = True
             for axis in ("x", "y"):
@@ -324,11 +209,18 @@ def evaluate(bundle):
                     "for a broad cut record plan.stock.length_mm and section_mm/dia_mm "
                     "with calipers instead of using a nominal feature width"
                 )
+                authoring_entry(
+                    debts,
+                    f"{label}.xy_geometry",
+                    missing[-1],
+                    f"features.features.{name}.bounds/at; plan.stock",
+                )
             endpoint = endpoints.get((setup["id"], op["op"], name))
-            z_band, z_complete = _z_extent(
-                op, before, extent, endpoint, tool, diameter, debts, cite, missing, errors, label
+            assembly = spindle_nose_band(
+                bundle, op, before, extent, endpoint, debts, cite, missing, errors, label
             )
-            z_complete &= path_known
+            z_band = assembly["nose_band_mm"]
+            z_complete = assembly["verified"] and path_known
             if z_complete:
                 _include(bands["z"], z_band)
             complete["z"] &= z_complete
@@ -338,6 +230,10 @@ def evaluate(bundle):
                     "do": action,
                     "feature": name,
                     "tool": tool_ref,
+                    "holder": op.get("holder", UNKNOWN),
+                    "holder_gauge_len_mm": assembly["gauge"]["value"],
+                    "tool_projection_mm": assembly["projection"]["value"],
+                    "tip_z_bounds_mm": assembly["tip_band_mm"],
                     "extent_mm": extent,
                     "xy_cutter_bounds_mm": xy,
                     "conservative_stock_spans_mm": stock if fallback else "not_applicable",
@@ -419,8 +315,8 @@ def evaluate(bundle):
         else:
             status = "pass"
             sentence = (
-                f"{setup['id']}: declared cutter spans, tip endpoints and safe Z approaches "
-                "fit measured XYZ travel."
+                f"{setup['id']}: declared XY cutter-centre spans and spindle-nose Z bands "
+                "including safe approaches fit measured XYZ travel."
             )
         findings.append(
             Finding(
