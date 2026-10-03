@@ -4018,17 +4018,17 @@
         "examples/pivot-bracket/features.toml frames.B",
         "examples/inventory/pedro-shop.toml:295-308"
       ],
-      "message": "S2 uses authored 0.05 mm paper and +10 mm check jogs. X/Y/Z Axis Set are -10.54, -23.74, 27.25; expected and mirrored readings are printed. The 0.200 in finder remains unconfirmed, so these are nominal zero recipes, not measured sign proof.",
+      "message": "S2 picks up unfinished upper-stock overhang faces at X -9 and Y -22.2, above the jaw/stop, not the masked finished foot edges. It uses authored 0.05 mm paper and +10 mm check jogs. X/Y/Z Axis Set are -11.54, -24.74, 27.25; expected and mirrored readings are printed. Verify raw blank placement and pickup clearance; the 0.200 in finder remains unconfirmed, so these are nominal zero recipes, not measured sign proof.",
       "numbers": {
         "axes": {
           "x": {
-            "axis_set": -10.54,
-            "check_reading": -0.5399999999999991,
-            "edge": "foot_left",
-            "edge_mm": -8.0,
+            "axis_set": -11.54,
+            "check_reading": -1.5399999999999991,
+            "edge": "raw_overhang_left",
+            "edge_mm": -9.0,
             "from": "-x",
             "jog_mm": 10.0,
-            "mirrored_reading": -20.54,
+            "mirrored_reading": -21.54,
             "paper_mm": "not_applicable",
             "radius_mm": 2.54,
             "radius_verify": true,
@@ -4036,13 +4036,13 @@
             "tool": "edge-finder"
           },
           "y": {
-            "axis_set": -23.74,
-            "check_reading": -13.739999999999998,
-            "edge": "foot_free_end",
-            "edge_mm": -21.2,
+            "axis_set": -24.74,
+            "check_reading": -14.739999999999998,
+            "edge": "raw_overhang_free_end",
+            "edge_mm": -22.2,
             "from": "-y",
             "jog_mm": 10.0,
-            "mirrored_reading": -33.739999999999995,
+            "mirrored_reading": -34.739999999999995,
             "paper_mm": "not_applicable",
             "radius_mm": 2.54,
             "radius_verify": true,
@@ -4168,7 +4168,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "98f2c1d86b1ad42a689825e31598ae73d26d25ec10a75562069be83685f2f482",
+  "hash": "6a29577ac6d0a470eefbe6818f8c89071614716318ded3c824283f7269768b74",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -4184,7 +4184,7 @@
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
-      "sha256": "2f4c6ec97e9377dbcda03874796a4fc59112a947a23c61d20b94b6e2e78e7302"
+      "sha256": "f55035924098e4a33db208c91c999c79c221e825177f536347972b509a81b255"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",

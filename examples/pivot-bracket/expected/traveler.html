@@ -72,7 +72,7 @@ table.ops td:nth-child(7) { white-space: nowrap; padding-left: 1pt; padding-righ
 <tr><td>cross-bore</td><td>height above seat</td><td class="n">25.2</td><td>?</td><td>?</td><td>S3 op 50</td></tr>
 <tr><td>seat face</td><td colspan="5">no toleranced requirement (setup origin plane)</td></tr></table>
 <p class="note">Hold-down holes are #8 close clearance for MHA-143 screws. Calipers record nominal dimensions only; their verification and all acceptance bands remain unresolved. Cutting-data revision 1 has no values; eventual RPM/feed are starting points, not limits. Process coordinates use two decimal places for readable display, not an invented drawing precision.</p>
-<div class="spacer"></div><div class="foot"><span></span><span>prechips 0.1 · report 98f2c1d8</span></div>
+<div class="spacer"></div><div class="foot"><span></span><span>prechips 0.1 · report 6a29577a</span></div>
 </section>
 <section class="page">
 <div class="top"><span><b>PIVOT BRACKET</b> &nbsp; MHA-123 rev ? &nbsp;·&nbsp; qty 2 &nbsp;·&nbsp; Plain Carbon Steel, black oxide</span><span>sheet 2 of 4</span></div>
@@ -104,7 +104,7 @@ table.ops td:nth-child(7) { white-space: nowrap; padding-left: 1pt; padding-righ
 <tr><td>20</td><td>rough foot outline</td><td>same mill · same collet</td><td>?</td><td>?</td><td>seat 0 → −6.00; radial stock 0.30</td><td>conv</td><td>—</td></tr>
 <tr><td>30</td><td>finish foot outline</td><td>same mill · same collet</td><td>?</td><td>?</td><td>seat 0 → −6.00</td><td>conv</td><td>16 × 24.2: calipers</td></tr></table>
 <p class="note">Op 10 removes the authored 1 mm seat allowance. Ops 20–30 cut only the foot's 6 mm height; retain the stock below for S2. Confirm alignment/support before cutting. Sign proof values are nominal until the finder and actual pickup are confirmed.</p>
-<div class="spacer"></div><div class="foot"><span>Sign off ________ &nbsp; first article ________</span><span>prechips 0.1 · report 98f2c1d8</span></div>
+<div class="spacer"></div><div class="foot"><span>Sign off ________ &nbsp; first article ________</span><span>prechips 0.1 · report 6a29577a</span></div>
 </section>
 <section class="page">
 <div class="top"><span><b>PIVOT BRACKET</b> &nbsp; MHA-123 rev ? &nbsp;·&nbsp; qty 2 &nbsp;·&nbsp; Plain Carbon Steel, black oxide</span><span>sheet 3 of 4</span></div>
@@ -121,10 +121,11 @@ table.ops td:nth-child(7) { white-space: nowrap; padding-left: 1pt; padding-righ
 <p class="note">Nominal stack 41.275 above bed; foot top 47.275 vs jaw top 46.355 gives 0.920 clearance. Verify support under both foot edges; keep X 0 drilling line open. Holder clearance remains ?.</p>
 <h3>DRO zero — mm, ABS, radius mode; frame B (foot top Z 0)</h3>
 <table><tr><th>axis</th><th>touch</th><th>with</th><th class="n">Axis Set</th><th>jog, no touch</th><th class="n">must read</th><th class="n">mirrored</th></tr>
-<tr><td>X</td><td>foot left −8.00 from −X</td><td>0.200 in finder</td><td class="n">−10.54</td><td>+X 10.00</td><td class="n">−0.54</td><td class="n">−20.54</td></tr>
-<tr><td>Y</td><td>free end −21.20 from −Y</td><td>0.200 in finder</td><td class="n">−23.74</td><td>+Y 10.00</td><td class="n">−13.74</td><td class="n">−33.74</td></tr>
+<tr><td>X</td><td>unfinished overhang left −9.00 from −X, above jaw</td><td>0.200 in finder</td><td class="n">−11.54</td><td>+X 10.00</td><td class="n">−1.54</td><td class="n">−21.54</td></tr>
+<tr><td>Y</td><td>unfinished overhang free end −22.20 from −Y, above stop</td><td>0.200 in finder</td><td class="n">−24.74</td><td>+Y 10.00</td><td class="n">−14.74</td><td class="n">−34.74</td></tr>
 <tr><td>Z</td><td>raw free-run top 27.20 + 0.05 paper</td><td>3/8 in end mill</td><td class="n">27.25</td><td>+Z 10.00</td><td class="n">37.25</td><td class="n">17.25</td></tr>
 <tr><td>Z</td><td colspan="2">After op 30, each later tool touches finished foot top 0 + 0.05 paper</td><td class="n">0.05</td><td colspan="3">Same end mill remains in place for ops 10–50.</td></tr></table>
+<p class="note">Pick up unfinished stock, not the finished foot: the 1 mm overhang masks its 0.92 mm exposed band, and the stop blocks the finished free end. Verify raw-face placement and finder clearance above the jaw/stop. Corrected offsets preserve frame B; all nominal cut coordinates below remain unchanged.</p>
 <h3>Nominal cutter-centre tables and hole coordinates (mm)</h3>
 <table><tr><th>op / feature</th><th>X centre limits</th><th>Y centre limits</th><th>entry → tip Z</th></tr>
 <tr><td>10 rough L relief</td><td>−13.76…13.76</td><td>−26.96…−8.06; 1 mm parallel sweeps</td><td>27.20 → 0.30</td></tr>
@@ -146,7 +147,7 @@ table.ops td:nth-child(7) { white-space: nowrap; padding-left: 1pt; padding-righ
 <tr><td>80</td><td>spot hold-down B</td><td>#2 centre drill · R8 chuck ✗</td><td>?</td><td>?</td><td>0.00 → −2.00</td><td>—</td><td>—</td></tr>
 <tr><td>90</td><td>drill hold-down B</td><td>#15 drill (4.572) · R8 chuck ✗</td><td>?</td><td>?</td><td>0 → −8 − point ?</td><td>—</td><td>Ø4.572; station 16: calipers</td></tr></table>
 <p class="note">Both holes pass through the local 6 mm foot. Full diameter must extend the authored 2.00 past exit Z −6; tip Z remains unknown until the drill point is known. All caliper checks are nominal records, not tolerance passes.</p>
-<div class="spacer"></div><div class="foot"><span>Sign off ________ &nbsp; first article ________</span><span>prechips 0.1 · report 98f2c1d8</span></div>
+<div class="spacer"></div><div class="foot"><span>Sign off ________ &nbsp; first article ________</span><span>prechips 0.1 · report 6a29577a</span></div>
 </section>
 <section class="page">
 <div class="top"><span><b>PIVOT BRACKET</b> &nbsp; MHA-123 rev ? &nbsp;·&nbsp; qty 2 &nbsp;·&nbsp; Plain Carbon Steel, black oxide</span><span>sheet 4 of 4</span></div>
@@ -187,7 +188,7 @@ table.ops td:nth-child(7) { white-space: nowrap; padding-left: 1pt; padding-righ
 <tr><td>80</td><td>2.09</td><td>37.08</td><td>2.04</td><td>36.78</td><td>180</td><td>−12.06</td><td>25.20</td><td>−11.76</td><td>25.20</td></tr>
 <tr><td>90</td><td>0.00</td><td>37.26</td><td>0.00</td><td>36.96</td><td colspan="5">R7 acceptance band and radius/profile gauge: ?</td></tr></table>
 <p class="note">Open breakout below ear; strap only the free foot, never put 3/8-16 studs through Ø4.572 holes. Predrill leaves 0.15 diametral stock (6.5 − 6.35). Drill/ream full-diameter exit allowance is 2.00; point/lead still needed for tip Z. After unclamping, record nominal bore diameter with caliper inside jaws; height = seat-to-lower-bore-edge + half measured diameter. This does not certify an unspecified reamed fit or tolerance.</p>
-<div class="spacer"></div><div class="foot"><span>Sign off ________ &nbsp; first article ________ &nbsp; bore reads ______</span><span>prechips 0.1 · report 98f2c1d8</span></div>
+<div class="spacer"></div><div class="foot"><span>Sign off ________ &nbsp; first article ________ &nbsp; bore reads ______</span><span>prechips 0.1 · report 6a29577a</span></div>
 </section>
 </body>
 </html>

@@ -2,6 +2,9 @@
 
 Run: uv run python scripts/validate_examples.py
 Only the standard library is used, including Python 3.11+ tomllib.
+
+Z pickups use stock_state.top_z for face = "top"; other named touch surfaces
+must supply edge_mm in the zero recipe. Report values never define the edge.
 """
 
 from __future__ import annotations
@@ -492,7 +495,9 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
         recipe = setup["zero"][axis]
         edge = recipe.get("edge_mm", "unknown")
         if axis == "z":
-            edge = row.get("edge_mm", "unknown")
+            if recipe.get("face") == "top":
+                edge = setup["stock_state"].get("top_z", "unknown")
+            near(row.get("edge_mm", "unknown"), edge, f"{setup['id']}.{axis}: touched edge")
             paper = recipe.get("paper_mm", "unknown")
             expected = edge + paper if numeric(edge) and numeric(paper) else "unknown"
         elif recipe.get("method") == "trial_cut_measure":

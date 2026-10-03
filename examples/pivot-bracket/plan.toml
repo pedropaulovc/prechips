@@ -166,16 +166,23 @@ note = "Seat down; support both foot edges on the 1 in block plus 5/8 in paralle
 from = "S1"
 indicate = ["foot_profile"]
 
+# Pickup option 2: touch the unfinished upper-stock overhang, not the foot.
+# S1 profiles only model Y 0..6: remaining model X -9..9 / Z -4..22.2
+# becomes B X -9..9 / Y -22.2..4 / Z 0..27.2. It masks the finished
+# foot's 0.92 mm exposed band; the stop also blocks its finished free end.
+# Flat, accessible jaw/stop reference faces are not established by inventory.
+# Touch the raw faces above the jaw/stop; verify their nominal blank placement
+# before using these offsets. Finished foot/frame-B cut coordinates stay unchanged.
 [setups.zero.x]
-edge = "foot_left"
-edge_mm = -8.0                   # -FOOT_W / 2
+edge = "raw_overhang_left"
+edge_mm = -9.0                   # unfinished centred blank, not finished foot X = -8
 from = "-x"
 tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
 [setups.zero.y]
-edge = "foot_free_end"
-edge_mm = -21.2                  # model Z = FOOT_Z1 -> B y = -21.2
+edge = "raw_overhang_free_end"
+edge_mm = -22.2                  # unfinished model Z = 22.2 -> B y = -22.2
 from = "-y"
 tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
@@ -339,6 +346,7 @@ check_jog_mm = 10.0              # author's choice
 
 [setups.zero.z]
 face = "ear_inner"
+edge_mm = 0.0                    # named ear inner face; stock top is the raised foot at 18.2
 method = "paper"
 paper_mm = 0.05                  # author's choice
 tool = "endmills-lms-6784/3-8in-4fl" # author's choice
