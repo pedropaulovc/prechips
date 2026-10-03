@@ -70,7 +70,7 @@ SETUP S3 — PM-30MV, PM 6 in vise, jaws along X, part on 3/4 in parallels
              §6.2 Direction, §7.4 Axis Set — set before S1, same every sheet)
     X  touch left end with 0.200 in finder from −X     → ABS, Axis Set −2.54
        then, without touching again, jog +X 10.00: DRO must read +7.46.
-       −7.46 means X counts backwards: stop, set Direction for X, redo.
+       −12.54 means X counts backwards: stop, set Direction for X, redo.
     Y  touch front edge, finder from −Y                → ABS, Axis Set −2.54
        then jog +Y 10.00 without touching: DRO must read +7.46.
     Z  0.05 paper on the blank top, 1/2 in EM (op 10)  → ABS, Axis Set 10.08
@@ -324,6 +324,10 @@ contract:
   hand-written manifest is cross-checked against the drawing's dimension
   count.
 
+Excerpt; the full source-backed manifest is
+`examples/rocker-arm/features.toml` (every value cited to the consumer;
+that file, not this excerpt, is what M1 mirrors):
+
 ```toml
 part = "rocker-arm"
 units = "mm"
@@ -335,7 +339,7 @@ construction = "one_piece"                 # or "built_up_permitted" (drawing no
 note = "SolidWorks part origin: pivot axis, mid-thickness"
 
 [frames.A]                                 # numeric, in model coordinates
-origin = [-146.25, 0.0, -3.53]
+origin = [0.0, 8.0, 3.52825]
 x = [1, 0, 0]
 y = [0, 1, 0]
 z = [0, 0, 1]
@@ -360,22 +364,23 @@ datum = "A"
 
 [features.rod_hole]
 kind = "hole"
-at = [146.25, 5.53]
+at = [133.06740213488345, 16.456064115939025] # on the R816 arc; BASIC from the pivot
 drill = "#47"
-dia = [2.00, 2.10]                         # _hole_spec default +0.10/0
+dia = [1.994, 2.094]                       # #47 + drilled-hole general band +0.10/0
 thru = true
 position_dia = 0.20
-precision = { at = 3, dia = 2 }            # per dimension; `at` is BASIC, never gets a ± default
+precision = { dia = 2, position_dia = 2 }  # per dimension; `at` is BASIC, never gets a ± default
 requirements = ["at", "dia", "thru", "position_dia"]
-position_datums = ["A", "B"]
-faces = ["Face9"]
+position_datums = ["A", "B", "C"]          # C clocks rotation about the pivot axis
+faces = "unknown"                          # until the face-set export (M3)
 
 [features.hub_od]
 kind = "boss"
 at = [0.0, 8.0]
-dia = [13.90, 14.10]
-height = 9.53
-faces = ["Face4", "Face5"]
+dia = [9.692, 10.708]                      # HUB DIA 10.20 under the .XX general band
+coaxiality_dia = 0.50
+coaxial_to = "pivot_bore"
+requirements = ["dia", "coaxiality_dia"]
 
 [features.top]
 kind = "face"
@@ -476,10 +481,11 @@ inventory/plan material string through a small alias table (`"1018 CRS"` →
 `low_carbon_steel`). RPM = 12·sfm / (π·D_in), clamped to the machine, rounded
 to 50; feed = rpm·flutes·chip_load. An inventory tool with `chart = …`
 overrides the row with its own `sfm`/`chip_load`, citing the chart. A
-missing row is a `?` line, never a guessed number. Pilot content: HSS and
-carbide × low-carbon steel, 360 brass, 6061, O1 annealed × face/profile/
-drill/ream/tap, from Machinery's Handbook 31 Table 1, p. 1023 ff. (to be
-transcribed and page-cited at M1).
+missing row is a `?` line, never a guessed number. Content grows with the
+routes that ship: rev 1 carries only the rows M1's rocker setup selects
+(HSS × low-carbon steel × face/profile/drill/ream), each transcribed and
+page-cited from Machinery's Handbook 31 Table 1 or left `"unknown"`; a row
+is added when a shipped route first needs it.
 
 ## 4. What the checker validates (the rule catalogue)
 
@@ -509,11 +515,11 @@ not exist.
 | order: rough→finish, drill→ream/tap, face→spot, release last | plan.ops | M1 | "Op 40 reams before op 30 drills." |
 | tip endpoints from stock state: the setup's `stock_state` advances per op (`to_z`); a through hole's tip endpoint = exit face − point length (`point_angle`, D) − `exit_mm`, reamer: − `lead_mm` − `exit_mm`; blind: depth + point ≤ `features.depth`; tap flute ≥ thread depth; exit face from `local_thickness[feature]`, never the stock section | plan.setups.stock_state, plan.ops.exit_mm/depth_mm/to_z, features.thru/depth, inventory.tools.point_angle/lead_mm/flute_len | M1 | fills the Z column; "6.2 drill to −2.0 leaves 0.14 of cone in the bore; go to −3.86." |
 | speeds/feeds from cutting-data, clamped, rounded | plan.ops, inventory.tools (material, flutes, chart), machine rpm range, cutting-data | M1 | fills the columns; "? no row for O1 hardened" |
-| zero recipe: for each axis, contact reading = (edge coordinate in frame A) − sign·(finder radius) or + paper; the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero, plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
+| zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + paper; the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
 | coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; the arc table for `contour.method = "arc_table"`) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia | M1 | silent when right; prints sheet 3a |
 | inspection per requirement: every entry in a feature's `requirements` that is a tolerance (`dia`, `position_dia`, `finish_ra`, `depth`) has a `checks.<requirement>` on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
-| headroom: parallels + jaw-to-bed height + stock top + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; part + fixture ≤ travel | inventory (vise jaw height and bed height, parallels, tool OAL, holder gauge length, machine envelope — `verify` → `?`), plan.stock_state.top_z, plan.stock section | M1 | "Vise bed height not measured." |
+| headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL, holder gauge length, machine envelope — `verify` → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
 | stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed | plan.setups.hold.stickout_mm, policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
@@ -866,6 +872,17 @@ spot added, arc table on a continuation sheet, §4.6 "does not declare or
 measure". Vocabulary: `error` / `warn` / `info` replaces `block`. Added
 §5.2 non-functional requirements (OpenTelemetry with OTLP exporters by
 standard env, farm-path App Insights acceptance at M1, rich console).
+
+**2026-10-04, fifth adversarial round (GPT-6 Astra on rev 6 + the
+regenerated fixtures), disposition.** Four findings, all folded: the zero
+rule's contact-side sign separated from the jog polarity (`from` gives the
+side; the sketch's reversed X reading is −12.54); headroom uses the stock's
+physical height (`top_z − bottom_z`), jaw height is an obstruction check,
+not a stack layer; the §3 manifest excerpt re-pointed at
+`examples/rocker-arm/features.toml` with its cited values (rod hole on the
+R816 arc, hub Ø10.20 under the .XX band, datums A|B|C); the cutting-data
+pilot matrix cut to the rows M1 selects. Verdict after folding: approved
+for implementation.
 
 Open: who authors the rocker finishing fixture and the rail-release method
 (the plan author, as an S4 with its own sheet — before M1 ships the S3
