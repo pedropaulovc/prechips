@@ -366,7 +366,8 @@ length; tools by short id with diameter, flutes, flute length, OAL, shank,
 material, point angle for drills, and an optional `chart`; gauges; fixtures
 with the dimensions the rules read (vise: jaw width, opening, jaw height
 above the bed; parallels: heights; collet set: sizes; chuck: range; dividing
-head: plate hole counts). A value copied from a vendor page is
+head: `worm_ratio`, `direct_index.positions`, `plate_holes` per plate —
+the sample's BS-0 carries all three, circles `verify = true`). A value copied from a vendor page is
 `verify = true` and anything that depends on it is a `?` on the sheet, never
 a silent pass. The sample inventory already carries the PM 6 in vise
 (`jaw_height_in = 1.825`, `opening_in = 6`) and the PM-30MV envelope
@@ -469,7 +470,7 @@ not exist.
 | vise: gripped faces are a parallel pair; width ≤ opening; grip ≥ `grip_mm` on both jaws; no claimed face inside a jaw solid; parallels exist | plan.hold, inventory.fixtures.vise (jaw_height, opening, width), parallels, STEP | M4 | "Strap is 2.5 mm under the jaw with a 4 mm floor; use the fixture plate." |
 | collet/chuck: stock Ø in the set or range; stick-out (4.1) | plan.hold, inventory | M2 | "No ER collet set confirmed." |
 | thin wall under clamp: wall thickness inside the grip zone < `thin_wall_floor_mm` ⇒ `hold.method` must name soft jaws / mandrel / tape / wax | STEP thickness map, plan.hold, policy.numbers | M4 | "1.2 mm wall under the jaw; name soft jaws or a mandrel." |
-| indexing: angle representable on the named plate/dial within the feature's angular tolerance | plan.hold.index, inventory.fixtures.dividing_head, features.angle_tol | deferred | — |
+| indexing: for `hold.index = { fixture, angle_deg }` and the feature's `angle_tol_deg` (default: the general angular class): representable if `angle_deg` is a multiple of the direct plate step, else if some plate circle `h` has `angle_deg·R·h/360` within `angle_tol_deg·R·h/360` of an integer (R = `worm_ratio`); the sheet prints the plate, circle, turns and holes | plan.hold.index, features.angle_tol_deg / general_tolerances.angular_deg, inventory dividing_head (`worm_ratio`, `direct_index`, `plate_holes`) | M2 | "51.43° (7 divisions): plate B, circle 21, 5 turns + 15 holes; plate circles not confirmed (?)" |
 | tiny parts: part-off last below the collet minimum; profile below footprint threshold declares tabs or a plate | plan.ops, inventory, policy | deferred | — |
 
 ### 4.4 Physics proxies (`!` lines only; policy may promote)
@@ -601,7 +602,8 @@ sheet.
    an empty ops list is rejected; the report is byte-repeatable.
 2. **M2 — `pivot-shaft` and `pivot-bracket`** (lathe frame conventions: Z
    along the spindle, X as diameter; `transfer` zero across setups; the M2
-   rows; `prechips compare` on `cone-pivot-post`).
+   rows, including indexing on the BS-0 for the shaft's cross-hole;
+   `prechips compare` on `cone-pivot-post`).
 3. **M3 — consumer export.** harmonic-analyzer issue (filed with this rev):
    `cad/scripts/export_features.py` emitting `features.toml` beside the
    STEP as a complete manifest with provenance; `swStepExportFaceEdgeProps`
