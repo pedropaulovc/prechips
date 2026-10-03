@@ -255,7 +255,7 @@ def one_setup(*ops):
     return setup("S1", "[10, 20]") + "".join(ops)
 
 
-def test_release_may_precede_the_next_setups_cuts(tmp_path):
+def test_release_may_precede_the_next_setups_cuts(tmp_path, freecad_kernel):
     # PLAN's own route: release the part from S1, then S2 cuts again.
     s1 = one_setup(face(), spot(), drill(), release(40))
     s2 = setup("S2", "[10]", 'stock_in = "S1"\n') + face()
@@ -274,7 +274,9 @@ def test_release_before_a_same_setup_cut_is_an_order_error(tmp_path):
 
 
 @pytest.mark.parametrize("exit_mm,tip_z", [(0.0, -11.802582), (1.0, -12.802582)])
-def test_nonnegative_through_exit_allowance_sets_the_drill_stop(tmp_path, exit_mm, tip_z):
+def test_nonnegative_through_exit_allowance_sets_the_drill_stop(
+    tmp_path, freecad_kernel, exit_mm, tip_z
+):
     code, findings = check(tmp_path, one_setup(face(), spot(), drill(exit_mm=exit_mm)))
     row = findings[("blind_depth", "h1")]
     assert row["status"] == "pass"
@@ -314,7 +316,7 @@ def test_pocket_cut_needs_a_direction(tmp_path, action):
     assert code == 2
 
 
-def test_directed_pocket_and_undirected_point_and_manual_ops_pass(tmp_path):
+def test_directed_pocket_and_undirected_point_and_manual_ops_pass(tmp_path, freecad_kernel):
     ops = (face(), spot(), drill(), pocket("pocket", 'direction = "climb"\n'), release(50))
     code, findings = check(tmp_path, one_setup(*ops))
     row = findings[("hold_fields", "S1")]
@@ -332,7 +334,7 @@ def test_drill_before_its_spot_is_an_order_error(tmp_path):
     assert code == 2
 
 
-def test_spot_then_drill_order_passes(tmp_path):
+def test_spot_then_drill_order_passes(tmp_path, freecad_kernel):
     code, findings = check(tmp_path, one_setup(face(), spot(), drill()))
     assert findings[("order", "S1")]["status"] == "pass"
     assert code == 0

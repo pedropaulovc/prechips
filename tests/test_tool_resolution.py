@@ -39,7 +39,9 @@ def check(tmp_path, inventory):
     "shank,status,code",
     [('shank_in = "3/8"', "pass", 0), ('shank_in = "13/32"', "error", 2)],
 )
-def test_inch_shank_in_mm_collet_compares_physical_size(tmp_path, shank, status, code):
+def test_inch_shank_in_mm_collet_compares_physical_size(tmp_path, request, shank, status, code):
+    if code == 0:
+        request.getfixturevalue("freecad_kernel")
     # 3/8 in converts to 9.524999999999999 mm; it is the 9.525 mm collet, 13/32 is not.
     inventory = INVENTORY.replace("shank_mm = 10.0\nflutes = 4", shank + "\nflutes = 4", 1)
     inventory = inventory.replace("capacity_mm = 10.0", "capacity_mm = 9.525")

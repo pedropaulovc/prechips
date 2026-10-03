@@ -15,12 +15,10 @@ from test_input_contracts import FEATURES, PLAN, bundle_files
 from test_kernel_geometry import (
     _AUTHOR,
     _AUTHORED,
-    FREECAD,
     Engine,
     _op,
     _setup,
     _vise,
-    needs_freecad,
 )
 
 from prechips.inputs import BadInput, Bundle, load_bundle
@@ -35,15 +33,13 @@ from prechips.rules import (
 
 
 @pytest.fixture(scope="module")
-def solids(tmp_path_factory):
+def solids(tmp_path_factory, freecad_kernel):
     """The ``test_kernel_geometry`` authored solids, exported once for this module."""
-    if FREECAD is None:
-        pytest.skip("FreeCAD freecadcmd is not installed")
     directory = tmp_path_factory.mktemp("solids")
     script = directory / "author.py"
     script.write_text(_AUTHOR, encoding="utf-8")
     process = subprocess.run(
-        [FREECAD, str(script), "--", str(directory)],
+        [freecad_kernel, str(script), "--", str(directory)],
         capture_output=True,
         text=True,
         errors="replace",
@@ -55,8 +51,8 @@ def solids(tmp_path_factory):
 
 
 @pytest.fixture
-def engine(tmp_path):
-    return Engine(tmp_path)
+def engine(tmp_path, freecad_kernel):
+    return Engine(tmp_path, freecad_kernel)
 
 
 FLIPPED = {"origin": [0, 0, 0], "x": [1, 0, 0], "y": [0, -1, 0], "z": [0, 0, -1]}
@@ -101,7 +97,6 @@ def _broad(engine, step):
 # --------------------------------------------------------------------------- engine
 
 
-@needs_freecad
 def test_far_side_face_is_a_claim_error_even_with_an_unmeasured_cutter(engine, solids):
     step = solids["step"]
     top, bottom = _broad(engine, step)
@@ -118,7 +113,6 @@ def test_far_side_face_is_a_claim_error_even_with_an_unmeasured_cutter(engine, s
     assert up["tool_hits"] == "unknown" and "radius_mm" in up["reasons"]["tool_hits"]
 
 
-@needs_freecad
 def test_explicit_faces_split_a_two_sided_feature_across_setups(engine, solids):
     step = solids["step"]
     top, bottom = _broad(engine, step)
@@ -134,7 +128,6 @@ def test_explicit_faces_split_a_two_sided_feature_across_setups(engine, solids):
         assert op["sample_count"] > 0 and op["tool_hits"] == 0 and op["min_hits"]["tool"] == 0
 
 
-@needs_freecad
 def test_explicit_claim_overrides_feature_metadata_that_binds_the_far_side(engine, solids):
     step = solids["step"]
     top, bottom = _broad(engine, step)
@@ -146,7 +139,6 @@ def test_explicit_claim_overrides_feature_metadata_that_binds_the_far_side(engin
     assert explicit["claim_errors"] == [] and explicit["claimed_indices"] == [index[top[0]]]
 
 
-@needs_freecad
 def test_explicit_claim_of_an_invalid_ref_is_named_not_guessed(engine, solids):
     step = solids["step"]
     top, bottom = _broad(engine, step)
@@ -160,7 +152,6 @@ def test_explicit_claim_of_an_invalid_ref_is_named_not_guessed(engine, solids):
     assert op["tool_hits"] == "unknown" and wrong in op["reasons"]["tool_hits"]
 
 
-@needs_freecad
 def test_a_face_with_any_normal_facing_away_is_rejected_whole(engine, solids):
     step = solids["puck"]
     od = engine.refs(step, (-10, -10, 0), (10, 10, 20), kind="Cylinder")
@@ -271,9 +262,8 @@ def _two_sided_bundle(tmp_path, monkeypatch, s1_faces, s2_faces):
     return bundle
 
 
-@needs_freecad
 def test_complementary_top_and_bottom_finishing_cuts_cover_a_two_sided_feature(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, freecad_kernel
 ):
     bundle = _two_sided_bundle(tmp_path, monkeypatch, f'faces = ["{TOP}"]', f'faces = ["{BOTTOM}"]')
     for rule in (accessibility, reach):
@@ -283,9 +273,8 @@ def test_complementary_top_and_bottom_finishing_cuts_cover_a_two_sided_feature(
     assert _rows(coverage, bundle)["step-block"].status == "pass"
 
 
-@needs_freecad
 def test_whole_feature_claims_from_both_sides_finish_it_but_each_op_names_its_far_side(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, freecad_kernel
 ):
     bundle = _two_sided_bundle(tmp_path, monkeypatch, "", "")
     rows = _rows(accessibility, bundle)
@@ -295,8 +284,7 @@ def test_whole_feature_claims_from_both_sides_finish_it_but_each_op_names_its_fa
     assert _rows(coverage, bundle)["step-block"].status == "pass"
 
 
-@needs_freecad
-def test_a_far_side_claim_never_credits_finish_or_coverage(tmp_path, monkeypatch):
+def test_a_far_side_claim_never_credits_finish_or_coverage(tmp_path, monkeypatch, freecad_kernel):
     bundle = _two_sided_bundle(tmp_path, monkeypatch, f'faces = ["{BOTTOM}"]', f'faces = ["{TOP}"]')
     finish = _rows(finish_coverage, bundle)["broad"]
     assert finish.status == "error" and "lack a finishing cut" in finish.sentence

@@ -24,8 +24,6 @@ bundle is read where the repository keeps it, ``examples/rocker-arm``.
 import base64
 import hashlib
 import json
-import os
-import shutil
 import struct
 import subprocess
 import tomllib
@@ -52,7 +50,6 @@ STEP_KINDS = {
     "SPHERICAL_SURFACE": "Sphere",
     "TOROIDAL_SURFACE": "Toroid",
 }
-_INSTALLED = Path("C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe")
 IDENTITY = {"origin": [0, 0, 0], "x": [1, 0, 0], "y": [0, 1, 0], "z": [0, 0, 1]}
 
 _STEP = """ISO-10303-21;
@@ -97,20 +94,6 @@ def test_wrong_face_ref_is_rejected_naming_the_ref(ref, message):
 
 # --------------------------------------------------------------------------- FreeCAD
 
-
-def _freecad():
-    override = os.environ.get("FREECAD_CMD")
-    if override:
-        return override if Path(override).exists() else None
-    if _INSTALLED.exists():
-        return str(_INSTALLED)
-    return (
-        shutil.which("freecadcmd.exe") or shutil.which("FreeCADCmd") or shutil.which("freecadcmd")
-    )
-
-
-FREECAD = _freecad()
-needs_freecad = pytest.mark.skipif(FREECAD is None, reason="FreeCAD freecadcmd is not installed")
 
 _AUTHOR = r"""
 import sys
@@ -163,12 +146,12 @@ save("split-top", solid)
 _AUTHORED = 9
 
 
-def _run(payload, directory):
+def _run(payload, directory, executable):
     source, target = directory / "in.json", directory / "out.json"
     source.write_text(json.dumps(payload), encoding="utf-8")
     target.unlink(missing_ok=True)
     process = subprocess.run(
-        [FREECAD, str(ENGINE), "--", str(source), str(target)],
+        [executable, str(ENGINE), "--", str(source), str(target)],
         capture_output=True,
         text=True,
         errors="replace",
@@ -179,14 +162,12 @@ def _run(payload, directory):
 
 
 @pytest.fixture(scope="module")
-def solids(tmp_path_factory):
-    if FREECAD is None:
-        pytest.skip("FreeCAD freecadcmd is not installed")
+def solids(tmp_path_factory, freecad_kernel):
     directory = tmp_path_factory.mktemp("solids")
     script = directory / "author.py"
     script.write_text(_AUTHOR, encoding="utf-8")
     process = subprocess.run(
-        [FREECAD, str(script), "--", str(directory)],
+        [freecad_kernel, str(script), "--", str(directory)],
         capture_output=True,
         text=True,
         errors="replace",
@@ -198,12 +179,13 @@ def solids(tmp_path_factory):
 
 
 class Engine:
-    def __init__(self, directory):
+    def __init__(self, directory, executable):
         self.directory = directory
+        self.executable = executable
         self.inventories = {}
 
     def raw(self, payload):
-        return _run(payload, self.directory)
+        return _run(payload, self.directory, self.executable)
 
     def run(self, payload):
         return json.loads(self.raw(payload))
@@ -248,8 +230,8 @@ class Engine:
 
 
 @pytest.fixture
-def engine(tmp_path):
-    return Engine(tmp_path)
+def engine(tmp_path, freecad_kernel):
+    return Engine(tmp_path, freecad_kernel)
 
 
 def _op(subject, feature, radius, flute, projection, holder_radius=10.0, gauge=30.0, oal=100.0):
@@ -304,7 +286,6 @@ def _setup(ops, hold, frame=IDENTITY, setup_id="S1"):
     return {"id": setup_id, "frame": frame, "hold": hold, "ops": ops}
 
 
-@needs_freecad
 def test_boss_occludes_a_face_but_its_own_side_wall_does_not(engine, solids):
     step = solids["boss"]
     top = engine.refs(step, (0, 0, 10), (60, 40, 10))
@@ -319,7 +300,6 @@ def test_boss_occludes_a_face_but_its_own_side_wall_does_not(engine, solids):
     assert own["sample_count"] > 0 and own["tool_hits"] == 0 and own["obstacles"]["tool"] == []
 
 
-@needs_freecad
 def test_floor_edge_pose_keeps_adjacent_wall_even_when_the_wall_is_claimed(engine, solids):
     step = solids["step"]
     floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
@@ -334,7 +314,6 @@ def test_floor_edge_pose_keeps_adjacent_wall_even_when_the_wall_is_claimed(engin
         assert floor[0] not in detail["hit_refs"]["tool"]
 
 
-@needs_freecad
 def test_corner_samples_keep_claimed_walls_and_unclaimed_pin_as_obstacles(engine, solids):
     step = solids["slot-pin"]
     pin_top = engine.refs(step, (15, 14, 20), (45, 26, 20))
@@ -354,7 +333,6 @@ def test_corner_samples_keep_claimed_walls_and_unclaimed_pin_as_obstacles(engine
     assert op["corner_radii_mm"] == [0.0]
 
 
-@needs_freecad
 def test_holder_hits_the_dimensioned_jaws_only_when_they_stand_high_enough(engine, solids):
     step = solids["channel"]
     channel = engine.refs(step, (0, 5, 10), (60, 35, 20))
@@ -373,7 +351,6 @@ def test_holder_hits_the_dimensioned_jaws_only_when_they_stand_high_enough(engin
     assert low["ops"]["S1:10"]["holder_hits"] == 0
 
 
-@needs_freecad
 def test_vise_contact_width_and_thin_wall_map_follow_the_jaw_zone(engine, solids):
     step = solids["channel"]
     outer = engine.refs(step, (0, 0, 0), (60, 0, 20))
@@ -394,7 +371,6 @@ def test_vise_contact_width_and_thin_wall_map_follow_the_jaw_zone(engine, solids
     assert [[0.0, 5.0], [35.0, 40.0]] in [line["intervals_mm"] for line in lines]
 
 
-@needs_freecad
 @pytest.mark.parametrize("along", ["x", "y"])
 def test_curved_jaw_contact_is_a_measured_line_on_either_clamp_axis(engine, solids, along):
     hold = _vise(8.0, along=along, fixed="rear" if along == "x" else "right")
@@ -403,7 +379,6 @@ def test_curved_jaw_contact_is_a_measured_line_on_either_clamp_axis(engine, soli
     assert setup["parallel_pair"] is False and setup["contact_grip_mm"] == [8.0, 8.0]
 
 
-@needs_freecad
 def test_jaw_centre_places_a_part_longer_than_the_jaws(engine, solids):
     step = solids["channel"]
     channel = engine.refs(step, (0, 5, 10), (60, 35, 20))
@@ -431,7 +406,6 @@ def test_jaw_centre_places_a_part_longer_than_the_jaws(engine, solids):
     assert placed["render_scene"]["jaws"] == "exact"
 
 
-@needs_freecad
 def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(engine, solids):
     step = solids["pocket"]
     parallels = (150.0, 6.0, [[35.0, 5.0], [35.0, 45.0]])
@@ -461,7 +435,6 @@ def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(eng
     assert exact["render_png_base64"] != undeclared["render_png_base64"]
 
 
-@needs_freecad
 def test_pocket_reach_needs_long_projection_and_reports_corner_radius(engine, solids):
     step = solids["pocket"]
     pocket = engine.refs(step, (15, 13, 15), (55, 37, 60))
@@ -479,7 +452,6 @@ def test_pocket_reach_needs_long_projection_and_reports_corner_radius(engine, so
     assert long["holder_wall_hits"] == 0 and long["holder_hits"] == 0
 
 
-@needs_freecad
 def test_corner_radii_sharp_corners_and_unanalysed_floor_fillets(engine, solids):
     sharp = engine.refs(solids["slot"], (15, 14, 14), (45, 26, 20))
     fillet = engine.refs(solids["floor-fillet"], (15, 14, 14), (45, 26, 20))
@@ -498,7 +470,6 @@ def test_corner_radii_sharp_corners_and_unanalysed_floor_fillets(engine, solids)
     )
 
 
-@needs_freecad
 def test_mapping_survives_reordered_import_faces(engine, solids, tmp_path):
     original = solids["pocket"]
     text = original.read_text(encoding="latin-1")
@@ -516,7 +487,6 @@ def test_mapping_survives_reordered_import_faces(engine, solids, tmp_path):
         assert by_ref[face["ref"]]["area_mm2"] == face["area_mm2"]
 
 
-@needs_freecad
 def test_ambiguous_and_invalid_refs_are_named_never_guessed(engine, solids):
     step = solids["split-top"]
     text_faces = StepFile(step.read_text(encoding="latin-1")).faces
@@ -539,7 +509,6 @@ def test_ambiguous_and_invalid_refs_are_named_never_guessed(engine, solids):
     assert result["ops"]["S1:20"]["tool_hits"] == "unknown"
 
 
-@needs_freecad
 @pytest.mark.parametrize("bundle", sorted(LABELLED))
 def test_every_labelled_export_ref_maps_to_its_own_face_in_any_import_order(
     engine, tmp_path, bundle
@@ -599,7 +568,6 @@ def test_every_labelled_export_ref_maps_to_its_own_face_in_any_import_order(
         ], ref
 
 
-@needs_freecad
 def test_coverage_inventory_lists_every_imported_face_and_as_is_refs(engine, solids):
     step = solids["step"]
     faces = engine.faces(step)
@@ -611,7 +579,6 @@ def test_coverage_inventory_lists_every_imported_face_and_as_is_refs(engine, sol
     assert result["mapping_errors"] == {}
 
 
-@needs_freecad
 def test_unknown_inputs_stay_unknown_with_reasons(engine, solids):
     step = solids["pocket"]
     pocket = engine.refs(step, (15, 13, 15), (55, 37, 60))
@@ -653,7 +620,6 @@ def test_unknown_inputs_stay_unknown_with_reasons(engine, solids):
     assert engine.run(stale)["status"] == "unknown"
 
 
-@needs_freecad
 def test_setup_frame_turns_the_part_over_without_moving_model_faces(engine, solids):
     step = solids["step"]
     bottom = engine.refs(step, (0, 0, 0), (60, 40, 0))
@@ -674,7 +640,6 @@ def test_setup_frame_turns_the_part_over_without_moving_model_faces(engine, soli
     assert result["faces"] == engine.faces(step)
 
 
-@needs_freecad
 def test_batch_matches_single_jobs_and_output_is_byte_identical(engine, solids):
     step = solids["channel"]
     channel = engine.refs(step, (0, 5, 10), (60, 35, 20))
@@ -690,7 +655,6 @@ def test_batch_matches_single_jobs_and_output_is_byte_identical(engine, solids):
     assert png[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", png[16:24]) == (640, 480)
 
 
-@needs_freecad
 def test_booleans_on_the_real_filleted_summing_lever(engine):
     faces = engine.faces(SUMMING_LEVER)
     text_refs = [face.ref for face in StepFile(SUMMING_LEVER.read_text(encoding="latin-1")).faces]

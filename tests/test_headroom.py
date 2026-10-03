@@ -338,7 +338,9 @@ def coordinate_finding(report):
     ['at = "unknown"\n', "", "at = [20.0, 10.0]\n", 'at = [20.0, "unknown", 0.0]\n'],
     ids=["unknown", "absent", "2d", "partial"],
 )
-def test_worked_located_feature_needs_complete_reference_point(tmp_path, kind, action, location):
+def test_worked_located_feature_needs_complete_reference_point(
+    tmp_path, freecad_kernel, kind, action, location
+):
     operations = (
         "[[setups.ops]]\nop = 10\ndo = 'spot'\nfeature = 'target'\ntool = 'spot'\ndepth_mm = 0.5\n"
         if kind == "hole"
@@ -385,7 +387,7 @@ def test_worked_located_feature_needs_complete_reference_point(tmp_path, kind, a
     ids=["combined", "rough", "rough-stock-to-leave", "finish"],
 )
 def test_contour_allowances_produce_actual_rough_and_finish_targets(
-    tmp_path, method, action, allowance_field, allowances
+    tmp_path, freecad_kernel, method, action, allowance_field, allowances
 ):
     feature = (
         "kind = 'boss'\nat = [20.0, 10.0, 0.0]\ndia = 20.0\n"

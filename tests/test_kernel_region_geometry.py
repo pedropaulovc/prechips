@@ -5,7 +5,7 @@ import os
 import subprocess
 
 import pytest
-from test_kernel_geometry import ENGINE, FREECAD, Engine, _op, _setup, _vise, needs_freecad
+from test_kernel_geometry import ENGINE, Engine, _op, _setup, _vise
 
 _AUTHOR = r"""
 import sys
@@ -42,8 +42,8 @@ with open(target, "w", encoding="utf-8") as stream:
 
 
 class RegionEngine(Engine):
-    def __init__(self, directory, missing=False):
-        super().__init__(directory)
+    def __init__(self, directory, executable, missing=False):
+        super().__init__(directory, executable)
         self.missing = missing
 
     def raw(self, payload):
@@ -54,7 +54,7 @@ class RegionEngine(Engine):
         target.unlink(missing_ok=True)
         process = subprocess.run(
             [
-                FREECAD,
+                self.executable,
                 str(runner),
                 "--",
                 os.environ.get("PRECHIPS_TEST_REGION_ENGINE", str(ENGINE)),
@@ -72,14 +72,12 @@ class RegionEngine(Engine):
 
 
 @pytest.fixture(scope="module")
-def region_solids(tmp_path_factory):
-    if FREECAD is None:
-        pytest.skip("FreeCAD freecadcmd is not installed")
+def region_solids(tmp_path_factory, freecad_kernel):
     directory = tmp_path_factory.mktemp("region-solids")
     author = directory / "author.py"
     author.write_text(_AUTHOR, encoding="utf-8")
     process = subprocess.run(
-        [FREECAD, str(author), "--", str(directory)],
+        [freecad_kernel, str(author), "--", str(directory)],
         capture_output=True,
         text=True,
         errors="replace",
@@ -90,11 +88,10 @@ def region_solids(tmp_path_factory):
     return paths
 
 
-@needs_freecad
 def test_cutter_wider_than_claimed_through_groove_hits_opposite_claimed_wall(
-    region_solids, tmp_path
+    region_solids, tmp_path, freecad_kernel
 ):
-    engine = RegionEngine(tmp_path)
+    engine = RegionEngine(tmp_path, freecad_kernel)
     step = region_solids["groove"]
     groove = engine.refs(step, (0, 17, 12), (60, 23, 20))
     walls = [
@@ -112,12 +109,11 @@ def test_cutter_wider_than_claimed_through_groove_hits_opposite_claimed_wall(
     assert set(walls).issubset(detail["hit_refs"]["tool"])
 
 
-@needs_freecad
 @pytest.mark.parametrize("radius, blocked", [(5.0, True), (2.5, False)])
 def test_through_groove_wall_poses_discriminate_cutter_width(
-    region_solids, tmp_path, radius, blocked
+    region_solids, tmp_path, freecad_kernel, radius, blocked
 ):
-    engine = RegionEngine(tmp_path)
+    engine = RegionEngine(tmp_path, freecad_kernel)
     step = region_solids["groove"]
     wall = engine.refs(step, (0, 17, 12), (60, 17, 20))
     opposite = engine.refs(step, (0, 23, 12), (60, 23, 20))
@@ -132,9 +128,8 @@ def test_through_groove_wall_poses_discriminate_cutter_width(
         assert detail["tool_hits"] == 0 and detail["hit_refs"]["tool"] == []
 
 
-@needs_freecad
-def test_normal_offset_clears_claimed_own_side_wall(region_solids, tmp_path):
-    engine = RegionEngine(tmp_path)
+def test_normal_offset_clears_claimed_own_side_wall(region_solids, tmp_path, freecad_kernel):
+    engine = RegionEngine(tmp_path, freecad_kernel)
     step = region_solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
     assert len(wall) == 1
@@ -144,11 +139,10 @@ def test_normal_offset_clears_claimed_own_side_wall(region_solids, tmp_path):
     assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == []
 
 
-@needs_freecad
 def test_missing_normal_makes_clearance_and_reach_unknown_naming_affected_face(
-    region_solids, tmp_path
+    region_solids, tmp_path, freecad_kernel
 ):
-    engine = RegionEngine(tmp_path, missing=True)
+    engine = RegionEngine(tmp_path, freecad_kernel, missing=True)
     step = region_solids["block"]
     top = engine.refs(step, (0, 0, 20), (60, 40, 20))
     assert len(top) == 1
@@ -161,9 +155,10 @@ def test_missing_normal_makes_clearance_and_reach_unknown_naming_affected_face(
     assert detail["min_hits"] == {"tool": 0, "holder": 0}
 
 
-@needs_freecad
-def test_missing_normal_keeps_observed_collision_as_certain_lower_bound(region_solids, tmp_path):
-    engine = RegionEngine(tmp_path, missing=True)
+def test_missing_normal_keeps_observed_collision_as_certain_lower_bound(
+    region_solids, tmp_path, freecad_kernel
+):
+    engine = RegionEngine(tmp_path, freecad_kernel, missing=True)
     step = region_solids["groove"]
     wall = engine.refs(step, (0, 17, 12), (60, 17, 20))
     assert len(wall) == 1

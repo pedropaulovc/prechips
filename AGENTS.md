@@ -55,10 +55,13 @@ vise whose `jaw_height`/`jaw_width`/`jaw_depth`/`opening` are explicit and not
 geometry-matched STEP `ADVANCED_FACE` reference, never from import order or
 the nearest face. M2 rules evaluate declared profile, holding, indexing and
 physics inputs; unknown K_c/E, shop limits, `thin_wall_floor_mm` and verified
-capacity remain debt. Tests that need kernel facts must inject a synthetic
-`bundle.kernel` result or point `FREECAD_CMD` and `PRECHIPS_KERNEL_CACHE` at
-temporary locations; never rely on the developer's cache or installed FreeCAD
-for a pass.
+capacity remain debt. Unit tests that need kernel facts must inject a synthetic
+`bundle.kernel` result. Real geometry integration tests must request the shared
+`freecad_kernel` session fixture, use an isolated `PRECHIPS_KERNEL_CACHE`, and
+skip with `FreeCAD kernel not found` if discovery finds no executable.
+Absent-kernel tests must explicitly set `FREECAD_CMD` to a nonexistent path,
+never rely on the host lacking FreeCAD. Preserve discovery order and the
+product's unknown/exit-4 behavior.
 No physical rehearsal or live farm evidence is recorded merely because exporter tests pass.
 
 ## Local validation
@@ -72,6 +75,15 @@ uv run scripts/validate_examples.py
 uv run ruff check .
 uv run ruff format --check .
 ```
+
+Install FreeCAD 1.x and set `FREECAD_CMD` to its command executable if it is
+not discovered on `PATH` or at the installed Windows FreeCAD 1.1 location
+(for example `/opt/freecad/bin/freecadcmd` or
+`C:\Program Files\FreeCAD 1.1\bin\freecadcmd.exe`). An explicit invalid override
+is authoritative. `FREECAD_CMD=/nonexistent uv run pytest -q` exercises the
+kernel-free suite with geometry skips. `PRECHIPS_REQUIRE_KERNEL=1` turns a
+missing kernel into an error; CI sets it and installs the pinned, cached official
+FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
 
 The validator validates authored fixture contracts and expected report integrity;
 it does not certify machining. Its successful exit is 0, while actual example

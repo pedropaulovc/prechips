@@ -14,7 +14,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from test_kernel_geometry import FREECAD, IDENTITY, Engine, _op, _vise, needs_freecad
+from test_kernel_geometry import IDENTITY, Engine, _op, _vise
 
 from prechips import kernel
 from prechips.inputs import Bundle
@@ -262,7 +262,7 @@ class PackagedEngine(Engine):
         source.write_text(json.dumps(payload), encoding="utf-8")
         target.unlink(missing_ok=True)
         process = subprocess.run(
-            [FREECAD, str(ENGINE), "--", str(source), str(target)],
+            [self.executable, str(ENGINE), "--", str(source), str(target)],
             capture_output=True,
             text=True,
             errors="replace",
@@ -276,14 +276,12 @@ class PackagedEngine(Engine):
 
 
 @pytest.fixture(scope="module")
-def solids(tmp_path_factory):
-    if FREECAD is None:
-        pytest.skip("FreeCAD freecadcmd is not installed")
+def solids(tmp_path_factory, freecad_kernel):
     directory = tmp_path_factory.mktemp("stock-solids")
     script = directory / "author.py"
     script.write_text(_AUTHOR, encoding="utf-8")
     process = subprocess.run(
-        [FREECAD, str(script), "--", str(directory)],
+        [freecad_kernel, str(script), "--", str(directory)],
         capture_output=True,
         text=True,
         errors="replace",
@@ -295,8 +293,8 @@ def solids(tmp_path_factory):
 
 
 @pytest.fixture
-def engine(tmp_path):
-    return PackagedEngine(tmp_path)
+def engine(tmp_path, freecad_kernel):
+    return PackagedEngine(tmp_path, freecad_kernel)
 
 
 def _setup(setup_id, ops, hold=None):
@@ -310,7 +308,6 @@ def _floor_op(subject, to_z=None):
     return op
 
 
-@needs_freecad
 def test_later_setup_sees_material_an_earlier_setup_removed(engine, solids):
     step = solids["step"]
     floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
@@ -333,7 +330,6 @@ def test_later_setup_sees_material_an_earlier_setup_removed(engine, solids):
     assert result["ops"]["S2:10"]["tool_hits"] == finished
 
 
-@needs_freecad
 def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
     step = solids["channel"]
     floor = engine.refs(step, (0, 5, 10), (60, 35, 10))
@@ -362,7 +358,6 @@ def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
     assert cleared["ops"]["S2:10"]["tool_hits"] == finished
 
 
-@needs_freecad
 def test_unswept_profile_wall_makes_only_later_stock_unknown(engine, solids):
     step = solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
@@ -392,7 +387,6 @@ def _clearing(bounds, **claim):
     return {**_floor_op("S1:10"), "feature": "wall", "stock_removal_bounds": bounds, **claim}
 
 
-@needs_freecad
 def test_declared_clearing_box_derives_the_next_setup_and_keeps_unclaimed_rails(engine, solids):
     step = solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
@@ -443,7 +437,6 @@ def _refused(engine, step):
     yield _clearing(box), end, "removes 2000.0 mm^3 in 1 piece(s) bordering none of its claimed"
 
 
-@needs_freecad
 def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, solids):
     step = solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
@@ -482,7 +475,6 @@ def _variants(engine, step):
     yield BOX, (), {"stock_in": "S0"}, "stock_in 'S0' of the first setup"
 
 
-@needs_freecad
 def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids):
     step = solids["step"]
     floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
@@ -495,9 +487,8 @@ def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids)
         assert op["tool_hits"] == "unknown" and reason in op["stock_reason"]
 
 
-@needs_freecad
 def test_rocker_s1_holds_the_raw_blank_and_s2_names_the_missing_profile_footprint(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, freecad_kernel
 ):
     from prechips.inputs import load_bundle
 

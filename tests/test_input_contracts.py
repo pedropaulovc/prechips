@@ -169,8 +169,10 @@ def test_shop_path_precedence_and_unknown_environment_fallback(
     ],
 )
 def test_separation_requirement_has_its_own_inspection_contract(
-    tmp_path, value, expected_exit, status
+    tmp_path, request, value, expected_exit, status
 ):
+    if expected_exit == 0:
+        request.getfixturevalue("freecad_kernel")
     feature_text = FEATURES.replace("requirements = []", 'requirements = ["separation"]')
     if value is not None:
         feature_text += f"separation = {value}\n"

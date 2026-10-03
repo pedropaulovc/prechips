@@ -159,8 +159,10 @@ def construction_finding(row):
     ],
 )
 def test_construction_gate_uses_explicit_candidate_and_drawing_permission(
-    tmp_path, construction, permission, status, code
+    tmp_path, request, construction, permission, status, code
 ):
+    if code == 0:
+        request.getfixturevalue("freecad_kernel")
     plan = candidate(
         tmp_path / "inputs", "candidate", construction=construction, permission=permission
     )
@@ -200,7 +202,7 @@ def test_construction_refusal_cannot_be_bypassed_outside_compare(tmp_path, verb,
     ],
 )
 def test_sourced_waste_counts_authored_blank_or_leaf_components_once(
-    tmp_path, stock, expected_stock, net, expected_waste
+    tmp_path, freecad_kernel, stock, expected_stock, net, expected_waste
 ):
     plan = candidate(tmp_path / "inputs", "volume", stock=stock, net=net)
     _, rows = compare([plan], tmp_path / "out")
@@ -237,7 +239,7 @@ def test_sourced_waste_counts_authored_blank_or_leaf_components_once(
         STOCK + 'components = "unknown"\n',
     ],
 )
-def test_unknown_blank_inputs_never_become_geometric_estimates(tmp_path, stock):
+def test_unknown_blank_inputs_never_become_geometric_estimates(tmp_path, freecad_kernel, stock):
     plan = candidate(tmp_path / "inputs", "unknown-stock", stock=stock)
     _, rows = compare([plan], tmp_path / "out")
     assert rows[0]["stock_volume_mm3"] == "unknown"
@@ -257,7 +259,9 @@ def test_unknown_blank_inputs_never_become_geometric_estimates(tmp_path, stock):
         (50.0, ["unknown", " "]),
     ],
 )
-def test_net_volume_needs_a_number_and_a_real_explicit_source(tmp_path, net, net_cite):
+def test_net_volume_needs_a_number_and_a_real_explicit_source(
+    tmp_path, freecad_kernel, net, net_cite
+):
     plan = candidate(tmp_path / "inputs", "unknown-net", net=net, net_cite=net_cite)
     result, rows = compare([plan], tmp_path / "out", json_output=False)
     assert rows[0]["net_volume_mm3"] == "unknown"
@@ -316,7 +320,9 @@ def test_invalid_otherwise_unused_stock_dimensions_exit_three_without_output(tmp
     assert not out.exists()
 
 
-def test_compare_lists_every_authored_workholding_identity_including_machine_index(tmp_path):
+def test_compare_lists_every_authored_workholding_identity_including_machine_index(
+    tmp_path, freecad_kernel
+):
     hold = """fixture = "primary"
 fixed_jaw = "not_applicable"
 stop = "stop"
@@ -364,7 +370,9 @@ index = {fixture = "BS-0", angle_deg = "unknown", positions = "unknown"}
         HOLD + 'index = "unknown"\n',
     ],
 )
-def test_explicit_unknown_fixtures_remain_visible_without_none_sentinels(tmp_path, hold):
+def test_explicit_unknown_fixtures_remain_visible_without_none_sentinels(
+    tmp_path, freecad_kernel, hold
+):
     plan = candidate(tmp_path / "inputs", "unknown-fixture", hold=hold)
     _, rows = compare([plan], tmp_path / "out")
     assert "unknown" in rows[0]["fixtures"]
@@ -396,7 +404,9 @@ def test_same_part_candidate_paths_findings_and_messages_are_distinct_side_by_si
         (("built_up", "unknown", "one_piece"), 2),
     ],
 )
-def test_many_candidate_exit_precedence_uses_shared_findings(tmp_path, states, code):
+def test_many_candidate_exit_precedence_uses_shared_findings(
+    tmp_path, freecad_kernel, states, code
+):
     plans = [
         candidate(tmp_path / "inputs", f"candidate-{index}", construction=state)
         for index, state in enumerate(states)
@@ -407,7 +417,7 @@ def test_many_candidate_exit_precedence_uses_shared_findings(tmp_path, states, c
     ]
 
 
-def test_compare_json_repeats_byte_for_byte_and_keeps_numeric_citations(tmp_path):
+def test_compare_json_repeats_byte_for_byte_and_keeps_numeric_citations(tmp_path, freecad_kernel):
     plans = [
         candidate(tmp_path / "inputs", "round", stock=ROUND, net=10.0),
         candidate(

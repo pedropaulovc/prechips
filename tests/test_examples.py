@@ -29,6 +29,7 @@ _GEOMETRY_RULES = {
 )
 def test_examples_match_reference_bytes_and_repeat(
     tmp_path,
+    freecad_kernel,
     part,
     plan_filename,
     expected_subdir,
@@ -46,28 +47,22 @@ def test_examples_match_reference_bytes_and_repeat(
         outputs.append({path.name: path.read_bytes() for path in out.iterdir() if path.is_file()})
     assert outputs[0] == outputs[1]
     expected = bundle / expected_subdir
-    if any(row["numbers"].get("kernel_unavailable") for row in report["findings"]):
-        assert all(
-            row["status"] == "unknown"
-            for row in report["findings"]
-            if row["rule"] in _GEOMETRY_RULES
-        )
-        assert not report.get("renders")
-    else:
-        assert outputs[0] == {
-            path.name: path.read_bytes()
-            for path in expected.iterdir()
-            if path.is_file()
-            and (path.name in {"report.json", "traveler.html"} or path.suffix == ".png")
-        }
+    assert outputs[0] == {
+        path.name: path.read_bytes()
+        for path in expected.iterdir()
+        if path.is_file()
+        and (path.name in {"report.json", "traveler.html"} or path.suffix == ".png")
+    }
 
 
 @pytest.mark.parametrize("without_kernel", [False, True], ids=["default-kernel", "forced-absent"])
 def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
-    tmp_path, monkeypatch, without_kernel
+    tmp_path, monkeypatch, request, without_kernel
 ):
     if without_kernel:
         monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "no-such-freecadcmd"))
+    else:
+        request.getfixturevalue("freecad_kernel")
     bundle = copy_examples(tmp_path) / "cone-pivot-post"
     outputs = []
     for run in range(2):
@@ -83,11 +78,7 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
         outputs.append((out / "compare.json").read_bytes())
     assert outputs[0] == outputs[1]
     rows = json.loads(outputs[0])
-    if any(
-        finding["numbers"].get("kernel_unavailable")
-        for row in rows
-        for finding in row["rule_findings"]
-    ):
+    if without_kernel:
         for row in rows:
             geometry = [f for f in row["rule_findings"] if f["rule"] in _GEOMETRY_RULES]
             assert {f["rule"] for f in geometry} == _GEOMETRY_RULES

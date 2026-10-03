@@ -628,12 +628,12 @@ def test_jaw_pose_rejects_nonfinite_author_coordinate():
         Hold.model_validate({"jaw_center_along_mm": float("inf")})
 
 
-def test_actual_fixture_scene_distinguishes_author_pose_and_measurement_debt(tmp_path, monkeypatch):
+def test_actual_fixture_scene_distinguishes_author_pose_and_measurement_debt(
+    tmp_path, monkeypatch, freecad_kernel
+):
     from prechips.inputs import load_bundle
     from prechips.model import Hold
 
-    if kernel.discover_kernel() is None:
-        pytest.skip("FreeCAD is required for the actual fixture-scene consumer boundary")
     path = Path(__file__).resolve().parents[1] / "examples/geometry/pocket-reach/long-reach.toml"
     exact = load_bundle(path)
     # Authored synthetic render specification, not a physical shop measurement:
@@ -683,11 +683,11 @@ def test_actual_fixture_scene_distinguishes_author_pose_and_measurement_debt(tmp
     assert finding(accessibility, unverified_support, "S2:10").status == "unknown"
 
 
-def test_actual_selected_projection_precedence_and_fact_local_trust(tmp_path, monkeypatch):
+def test_actual_selected_projection_precedence_and_fact_local_trust(
+    tmp_path, monkeypatch, freecad_kernel
+):
     from prechips.inputs import load_bundle
 
-    if kernel.discover_kernel() is None:
-        pytest.skip("FreeCAD is required for the selected-pair geometry consumer boundary")
     path = Path(__file__).resolve().parents[1] / "examples/geometry/pocket-reach/long-reach.toml"
     known = load_bundle(path)
     op = known.plan["setups"][1]["ops"][0]

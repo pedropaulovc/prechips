@@ -35,10 +35,7 @@ CASES = [
 
 
 def run_fixture(examples, name, plan_filename, out):
-    result, report, html = traveler(examples / "geometry" / name / plan_filename, out)
-    if any(row["numbers"].get("kernel_unavailable") for row in report["findings"]):
-        pytest.skip("FreeCAD kernel is not installed")
-    return result, report, html
+    return traveler(examples / "geometry" / name / plan_filename, out)
 
 
 def finding(report, rule, subject):
@@ -49,10 +46,11 @@ def finding(report, rule, subject):
 
 @pytest.mark.parametrize(("name", "plan_filename", "target_sid", "exit_code", "rules"), CASES)
 def test_numeric_preparation_changes_only_the_next_setup_stock(
-    tmp_path, name, plan_filename, target_sid, exit_code, rules
+    tmp_path, monkeypatch, freecad_kernel, name, plan_filename, target_sid, exit_code, rules
 ):
     examples = copy_examples(tmp_path)
     out = tmp_path / "run"
+    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
     result, report, html = run_fixture(examples, name, plan_filename, out)
     assert result.returncode == report["expected_exit"] == exit_code, result.stderr
     assert "PLANNED" in html
@@ -91,7 +89,7 @@ def test_numeric_preparation_changes_only_the_next_setup_stock(
 
 @pytest.mark.parametrize(("name", "plan_filename", "target_sid", "exit_code", "rules"), CASES)
 def test_fixture_errors_on_its_named_target_rules_only(
-    tmp_path, name, plan_filename, target_sid, exit_code, rules
+    tmp_path, freecad_kernel, name, plan_filename, target_sid, exit_code, rules
 ):
     examples = copy_examples(tmp_path)
     _, report, _ = run_fixture(examples, name, plan_filename, tmp_path / "run")
@@ -112,7 +110,7 @@ def test_fixture_errors_on_its_named_target_rules_only(
         assert len(subjects) == 1
 
 
-def test_reach_rescue_needs_only_the_longer_cutter(tmp_path):
+def test_reach_rescue_needs_only_the_longer_cutter(tmp_path, freecad_kernel):
     examples = copy_examples(tmp_path)
     _, short, _ = run_fixture(examples, "pocket-reach", "plan.toml", tmp_path / "short")
     _, long, _ = run_fixture(examples, "pocket-reach", "long-reach.toml", tmp_path / "long")
@@ -132,7 +130,7 @@ def test_reach_rescue_needs_only_the_longer_cutter(tmp_path):
     assert finding(long, "accessibility", "S2:10")["numbers"]["holder_hits"] == 0
 
 
-def test_coverage_error_names_the_unclaimed_face_reference(tmp_path):
+def test_coverage_error_names_the_unclaimed_face_reference(tmp_path, freecad_kernel):
     examples = copy_examples(tmp_path)
     _, report, _ = run_fixture(examples, "unclaimed-face", "plan.toml", tmp_path / "run")
     coverage = finding(report, "coverage", "step-block")
@@ -141,7 +139,7 @@ def test_coverage_error_names_the_unclaimed_face_reference(tmp_path):
     assert coverage["numbers"]["face_count"] == 8
 
 
-def test_sharp_corner_is_smaller_than_the_quarter_inch_cutter(tmp_path):
+def test_sharp_corner_is_smaller_than_the_quarter_inch_cutter(tmp_path, freecad_kernel):
     examples = copy_examples(tmp_path)
     _, report, _ = run_fixture(examples, "sharp-corner", "plan.toml", tmp_path / "run")
     corner = finding(report, "internal_corner_radius", "S2:10")
@@ -150,7 +148,7 @@ def test_sharp_corner_is_smaller_than_the_quarter_inch_cutter(tmp_path):
     assert corner["numbers"]["tool_radius_mm"] == pytest.approx(3.175)
 
 
-def test_jaw_beside_the_strap_face_occludes_the_cutter_cylinder(tmp_path):
+def test_jaw_beside_the_strap_face_occludes_the_cutter_cylinder(tmp_path, freecad_kernel):
     examples = copy_examples(tmp_path)
     bundle = examples / "geometry" / "rocker-jaw-occluded"
     _, report, _ = run_fixture(examples, "rocker-jaw-occluded", "plan.toml", tmp_path / "run")
@@ -174,7 +172,7 @@ def test_jaw_beside_the_strap_face_occludes_the_cutter_cylinder(tmp_path):
     assert 0 < low["numbers"]["tool_hits"] < access["numbers"]["tool_hits"]
 
 
-def test_declared_pose_is_what_completes_the_scene(tmp_path):
+def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
     examples = copy_examples(tmp_path)
     bundle = examples / "geometry" / "pocket-reach"
     _, exact, _ = run_fixture(examples, "pocket-reach", "long-reach.toml", tmp_path / "exact")
@@ -204,11 +202,11 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path):
     )
 
 
-def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(tmp_path):
+def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
+    tmp_path, freecad_kernel
+):
     examples = copy_examples(tmp_path)
     result, report, html = traveler(examples / "rocker-arm" / "plan.toml", tmp_path / "ref")
-    if any(row["numbers"].get("kernel_unavailable") for row in report["findings"]):
-        pytest.skip("FreeCAD kernel is not installed")
     assert result.returncode == 2, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
     assert raw == (examples / "geometry" / "rocker-jaw-occluded" / "rocker-arm.STEP").read_bytes()
@@ -244,7 +242,7 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
     assert corner["S1:40"]["numbers"]["corner_radii_mm"] == [800.0]
 
 
-def test_periodic_patches_resolve_by_entity_and_ordinal_not_label(tmp_path):
+def test_periodic_patches_resolve_by_entity_and_ordinal_not_label(tmp_path, freecad_kernel):
     examples = copy_examples(tmp_path)
     bundle = examples / "geometry" / "rocker-jaw-occluded"
     step = (bundle / "rocker-arm.STEP").read_text(encoding="latin-1")

@@ -29,6 +29,21 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
+Install [FreeCAD 1.x](https://github.com/FreeCAD/FreeCAD/releases) for real
+geometry checks. Discovery uses `FREECAD_CMD` first, the installed Windows
+FreeCAD 1.1 path next, then `FreeCADCmd`/`freecadcmd` on `PATH`. For example,
+set `FREECAD_CMD=/opt/freecad/bin/freecadcmd` on Linux or
+`$env:FREECAD_CMD = 'C:\Program Files\FreeCAD 1.1\bin\freecadcmd.exe'` in
+PowerShell. An explicit nonexistent override disables discovery rather than
+falling back to the host installation.
+
+Without a kernel, geometry-dependent tests skip with `FreeCAD kernel not found`;
+the remaining tests still run, including explicit absent-kernel contracts.
+Set `PRECHIPS_REQUIRE_KERNEL=1` to make a missing kernel a test-session error.
+CI requires it and caches the official FreeCAD 1.1.0 Linux AppImage, pinned by
+version and SHA-256 and extracted without FUSE. The product still reports
+unknown geometry (`?`, exit 4) without FreeCAD; skips do not change that behavior.
+
 These are development commands, not claims that this documentation change ran
 them. The example validator checks the authored fixture contract; it is not a
 machining checker and its successful exit is 0 even when examples correctly

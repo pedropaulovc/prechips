@@ -103,7 +103,7 @@ def clean_inspection_bundle(tmp_path):
     return plan
 
 
-def test_one_unknown_tolerance_blocks_otherwise_clean_policy(tmp_path):
+def test_one_unknown_tolerance_blocks_otherwise_clean_policy(tmp_path, freecad_kernel):
     plan = clean_inspection_bundle(tmp_path)
     result, baseline, _ = traveler(plan, tmp_path / "known")
     assert result.returncode == 0, result.stderr
@@ -124,7 +124,7 @@ def test_one_unknown_tolerance_blocks_otherwise_clean_policy(tmp_path):
     assert "hub_faces" in (html + result.stderr)
 
 
-def test_approval_stales_when_feature_input_changes(tmp_path):
+def test_approval_stales_when_feature_input_changes(tmp_path, freecad_kernel):
     plan = clean_inspection_bundle(tmp_path)
     result, baseline, _ = traveler(plan, tmp_path / "baseline")
     assert result.returncode == 0, result.stderr
@@ -168,7 +168,11 @@ def test_approval_stales_when_feature_input_changes(tmp_path):
         ("empty", "[required]\n", 0),
     ],
 )
-def test_missing_required_policy_is_unknown_not_empty(tmp_path, state, declaration, expected_exit):
+def test_missing_required_policy_is_unknown_not_empty(
+    tmp_path, request, state, declaration, expected_exit
+):
+    if expected_exit == 0:
+        request.getfixturevalue("freecad_kernel")
     plan = clean_inspection_bundle(tmp_path)
     policy = plan.parent.parent / "shop-policy.toml"
     policy.write_text("revision = 1\n" + declaration + "[numbers]\n", encoding="utf-8")
@@ -197,8 +201,10 @@ def test_missing_required_policy_is_unknown_not_empty(tmp_path, state, declarati
     ],
 )
 def test_missing_requirements_are_unknown_not_known_absence(
-    tmp_path, state, declaration, expected_exit
+    tmp_path, request, state, declaration, expected_exit
 ):
+    if expected_exit == 0:
+        request.getfixturevalue("freecad_kernel")
     plan = clean_inspection_bundle(tmp_path)
     features = plan.with_name("features.toml")
     features.write_text(
@@ -234,8 +240,10 @@ def test_missing_requirements_are_unknown_not_known_absence(
     ],
 )
 def test_missing_retouch_schedule_is_unknown_after_facing(
-    tmp_path, state, declaration, expected_exit, expected_retouch
+    tmp_path, request, state, declaration, expected_exit, expected_retouch
 ):
+    if expected_exit == 0:
+        request.getfixturevalue("freecad_kernel")
     plan = clean_inspection_bundle(tmp_path)
     prefix = plan.read_text(encoding="utf-8").split("[[setups.ops]]", 1)[0]
     prefix = (
