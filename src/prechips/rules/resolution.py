@@ -115,21 +115,9 @@ def inventory_record(value):
 
 
 def length_mm(item, field):
-    if not isinstance(item, dict):
-        return UNKNOWN
-    value = item.get(field + "_mm")
-    if number(value):
-        return value
-    value = item.get(field + "_in")
-    parsed = fraction(value)
-    if parsed is not None:
-        return float(parsed) * 25.4
-    value = item.get(field)
-    if number(value) and item.get("units") == "mm":
-        return value
-    if number(value) and item.get("units") in {"in", "inch"}:
-        return value * 25.4
-    return UNKNOWN
+    from prechips.measurements import nominal_length_mm
+
+    return nominal_length_mm(item, field)
 
 
 def inventory_category(bundle_or_inventory, reference, categories=_INVENTORY_CATEGORIES):

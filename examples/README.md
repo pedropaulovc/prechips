@@ -66,6 +66,32 @@ there is no generated plan-text file. Plans do not request external coordinate
 files: machine-readable numbers are in the report and bench coordinates are on
 the sheet. No operative asset lies outside the bundle.
 
+### M5 inventory and output reconciliation
+
+The original shared shop inventory numbers and `verify = true` flags are
+unchanged. `PM-30MV.envelope` makes vendor max/travel/table values visible as
+vendor-copy debt; minimum spindle clearance, T-slot pitch and installed
+R8/ER-collet-chuck/drill-chuck heights are unknown. Holder gauge/projection
+remain unknown where unmeasured. No measured operator/date/instrument record
+is fabricated for these fixtures.
+
+The new `envelope`, `travel` and `holder_stack` findings add concrete `measure:`
+instructions to the before-you-start lines. Mill travel additionally needs
+explicit safe `approach_mm` and complete feature/stock extents; no approach is
+chosen on the operator's behalf. Lathe mill-envelope/travel rows are
+`not_applicable`; selected lathe-holder gauge lengths still have measurement debt.
+Use `uv run prechips tools --inventory examples/inventory/pedro-shop.toml --measure`
+for one sorted, deduplicated inventory-wide shop checklist.
+
+All five report/traveler goldens and the cone comparison golden are regenerated
+because the operative inventory digest, M5 rule catalogue and correct new
+unresolved findings change their bound hashes/output. Existing exits remain
+**4 / 2 / 2 / 4 / 2**: the default required policy is unchanged; optional M5 `?`
+findings do not introduce a new gate. A shop that requires `envelope` or
+`travel` on `"*"` obtains exit 4 for unresolved measured feasibility unless an
+existing error takes precedence. This is output reconciliation, not evidence
+of a machine measurement, physical rehearsal or first article.
+
 ## Source facts, not the PLAN layout sketch
 
 Consumer citations are relative to the read-only [pedropaulovc/harmonic-analyzer](https://github.com/pedropaulovc/harmonic-analyzer)

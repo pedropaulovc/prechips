@@ -46,6 +46,90 @@ Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
 
+## Measured envelopes and installed tool stacks (M5)
+
+`machines.<id>.envelope` records the usable mill envelope, independently of
+vendor identity data. Lengths may be a scalar Number qualified by a surrounding
+`measured` record, or a fact record:
+
+```toml
+[machines.my_mill.envelope]
+spindle_to_table_max_mm = "unknown"
+spindle_to_table_min_mm = "unknown"
+table_length_mm = "unknown"
+table_width_mm = "unknown"
+t_slot_pitch_mm = "unknown"
+spindle_taper = "unknown"
+
+[machines.my_mill.envelope.travel_mm]
+x = "unknown"
+y = "unknown"
+z = "unknown"
+
+[machines.my_mill.envelope.spindle_stack_mm]
+r8 = "unknown"
+er_collet_chuck = "unknown"
+drill_chuck = "unknown"
+
+[holders.my_holder]
+gauge_len_mm = "unknown"
+projection_mm = "unknown"
+```
+
+For a measured fact replace the unknown with
+`{ value = <actual measurement>, measured = { by = "<operator>", date = "YYYY-MM-DD", instrument = "<actual instrument>" } }`.
+`by`, `date` and `instrument` must be nonblank known strings. Do not put these
+template placeholders into operative inventory. A vendor copy instead carries
+`verify = true`, either on that fact or its enclosing block. Complete fact-local
+measurement evidence qualifies only that dimension; an explicit fact-local
+`verify = true` still leaves it unresolved. Clearing `verify` without measurement
+evidence cannot certify a new envelope limit or holder gauge/projection.
+
+Envelope `travel_mm` / `travel_in` use `x`, `y`, `z`. Max/min, table length/width,
+and T-slot pitch accept `_mm` or `_in`. `spindle_stack_mm` records installed R8,
+ER-collet-chuck and drill-chuck heights. Envelope/block metadata are `measured`,
+`verify`, and `cite`. `measured` may also qualify inventory item scalar lengths.
+Gauge length retains the existing `gauge_len_mm/in` spelling. Gauge is
+**mounted spindle nose to holder exit face**;
+projection is **holder exit face to the installed tool tip**. A holder projection
+belongs to that installed assembly, not every interchangeable tool. A selected
+tool's explicit projection takes precedence over a holder projection; otherwise
+measured tool OAL minus measured holder grip is permitted. Unknown OAL, grip,
+or projection is never replaced with flute length. Explicit tool projection
+`"unknown"` does not fall through to a different assembly's number.
+
+The M5 envelope screen uses the conservative jaw-height/parallel/support
+envelope, distinct from M1's bed-height plus tool-change allowance. Mounted gauge
+already includes spindle/chuck stack height, so the recorded spindle-stack
+height is not added again. Table size, T-slot pitch and taper/stack are visible
+inventory measurements, not a new collision or mounting-certification rule.
+The original PM-30MV vendor max/travel/table values remain unchanged and
+`verify = true`; missing minimum, T-slot pitch and stack heights remain unknown.
+
+`prechips tools --inventory inventory.toml --measure` produces one sorted,
+deduplicated shop checklist. It includes missing M5 envelope/holder dimensions
+and authored unknown/vendor-copy dimensions, with the instrument and units for
+each measurement. JSON emits the same entries with stable ids and citations.
+This inventory-wide list includes unused declared items; it invents no set
+members or purchases. Normal `tools` prints the envelope and marks unmeasured
+facts. Applicable M5 `?` sheet sentences also state what to measure and how.
+
+### Measurement records
+
+| Record | Fields |
+|---|---|
+| `Measurement` | Required strings `by`, ISO calendar `date` (`YYYY-MM-DD`), `instrument`; none may be blank or `"unknown"` |
+| `LengthMeasurement` | Required `value: Number`; optional `measured: Measurement`, `verify: bool`, `cite: Citations` (each may be `"unknown"`) |
+| `MeasuredLength` | `Number` or `LengthMeasurement` |
+| `EnvelopeTravel` | `x`, `y`, `z: MeasuredLength`; optional `measured`, `verify`, `cite` |
+| `SpindleStack` | `r8`, `er_collet_chuck`, `drill_chuck: MeasuredLength`; optional `measured`, `verify`, `cite` |
+| `MachineEnvelope` | `travel_mm/in: EnvelopeTravel`; `spindle_to_table_max_mm/in`, `spindle_to_table_min_mm/in`, `table_length_mm/in`, `table_width_mm/in`, `t_slot_pitch_mm/in: MeasuredLength`; `spindle_taper: str`; `spindle_stack_mm: SpindleStack`; optional `measured`, `verify`, `cite` |
+
+All envelope/stack/travel fields are optional and accept `"unknown"`; their
+absence remains measurement debt. A date or a citation is provenance, not an
+automatic claim that the whole item is measured.
+
+
 All InventoryItems share the declared field set below, regardless of category;
 category-specific usefulness is enforced by rules, not separate subclass schemas.
 Nested dictionaries such as `nominal_dia_mm`, `candidates`, `holders`,
@@ -153,6 +237,8 @@ on hand.
 | `swivel_base` | `bool` |
 | `scroll` | `bool` |
 | `independent` | `bool` |
+| `measured` | `Measurement` |
+| `envelope` | `MachineEnvelope` |
 | `spindle_to_table_max_in` | `float` |
 | `headstock_tilt_deg` | `float` |
 | `swing_over_bed_in` | `float` |
@@ -167,51 +253,51 @@ on hand.
 | `pieces` | `float` |
 | `angle_deg` | `float` |
 | `point_angle` | `float` |
-| `flute_len` | `float` |
-| `oal` | `float` |
+| `flute_len` | `MeasuredLength` |
+| `oal` | `MeasuredLength` |
 | `head_in` | `float` |
 | `max_offset_in` | `float` |
 | `dial_in` | `float` |
-| `length_in` | `float` |
+| `length_in` | `MeasuredLength` |
 | `min_bore_in` | `float` |
 | `tip_in` | `float` |
 | `jaw_width_in` | `float` |
 | `opening_in` | `float` |
-| `jaw_height_in` | `float` |
-| `bed_height_mm` | `float` |
+| `jaw_height_in` | `MeasuredLength` |
+| `bed_height_mm` | `MeasuredLength` |
 | `diameter_in` | `float` |
 | `thickness_in` | `float` |
 | `resolution_in` | `float` |
 | `runout_max_in` | `float` |
-| `gauge_len` | `float` |
-| `grip_mm` | `float` |
+| `gauge_len` | `MeasuredLength` |
+| `grip_mm` | `MeasuredLength` |
 | `max_shank_in` | `float` |
 | `lead_mm` | `float` |
-| `projection_mm` | `float` |
+| `projection_mm` | `MeasuredLength` |
 | `sfm` | `float` |
 | `chip_load_mm_per_tooth` | `float` |
-| `dia_mm` | `float` |
-| `dia_in` | `float` |
-| `shank_mm` | `float` |
-| `flute_len_mm` | `float` |
-| `flute_len_in` | `float` |
-| `oal_mm` | `float` |
-| `oal_in` | `float` |
-| `gauge_len_mm` | `float` |
-| `gauge_len_in` | `float` |
-| `projection_in` | `float` |
+| `dia_mm` | `MeasuredLength` |
+| `dia_in` | `MeasuredLength` |
+| `shank_mm` | `MeasuredLength` |
+| `flute_len_mm` | `MeasuredLength` |
+| `flute_len_in` | `MeasuredLength` |
+| `oal_mm` | `MeasuredLength` |
+| `oal_in` | `MeasuredLength` |
+| `gauge_len_mm` | `MeasuredLength` |
+| `gauge_len_in` | `MeasuredLength` |
+| `projection_in` | `MeasuredLength` |
 | `spindle_to_table_max_mm` | `float` |
-| `jaw_height_mm` | `float` |
-| `height_mm` | `float` |
-| `height_in` | `float` |
-| `length_mm` | `float` |
-| `width_mm` | `float` |
-| `width_in` | `float` |
+| `jaw_height_mm` | `MeasuredLength` |
+| `height_mm` | `MeasuredLength` |
+| `height_in` | `MeasuredLength` |
+| `length_mm` | `MeasuredLength` |
+| `width_mm` | `MeasuredLength` |
+| `width_in` | `MeasuredLength` |
 | `capacity_mm` | `float` |
-| `bed_height_in` | `float` |
+| `bed_height_in` | `MeasuredLength` |
 | `nose_radius_mm` | `float` |
-| `reach_mm` | `float` |
-| `dia` | `Number` |
+| `reach_mm` | `MeasuredLength` |
+| `dia` | `MeasuredLength` |
 | `shank_in` | `float \| str \| dict[str, list[str]]` |
 | `flutes` | `int \| list[int]` |
 | `source` | `str \| Source` |

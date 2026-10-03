@@ -14,9 +14,9 @@
     "construction": "one_piece",
     "exit": 4,
     "findings": {
-      "not_applicable": 77,
+      "not_applicable": 79,
       "pass": 14,
-      "unknown": 113,
+      "unknown": 140,
       "unsupported": 1
     },
     "fixtures": [
@@ -35,7 +35,7 @@
       },
       "inventory": {
         "path": "examples/inventory/pedro-shop.toml",
-        "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+        "sha256": "314a2fd5ea6e036d00d1ce1d5433c800d937ac3be86c5f78a986789635373c66"
       },
       "plan": {
         "path": "examples/cone-pivot-post/plan.toml",
@@ -407,7 +407,7 @@
             },
             "inventory": {
               "path": "examples/inventory/pedro-shop.toml",
-              "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+              "sha256": "314a2fd5ea6e036d00d1ce1d5433c800d937ac3be86c5f78a986789635373c66"
             },
             "plan": {
               "path": "examples/cone-pivot-post/plan.toml",
@@ -1646,6 +1646,445 @@
       },
       {
         "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"
+        ],
+        "message": "Spindle-nose-to-table clearance applies to a mill, not a lathe.",
+        "numbers": {},
+        "rule": "envelope",
+        "status": "not_applicable",
+        "subject": "S1"
+      },
+      {
+        "cite": [
+          "AUTHOR'S CHOICE",
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "inventory.fixtures.unknown.height",
+          "inventory.holders.unknown.gauge_len",
+          "inventory.holders.unknown.grip",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+          "inventory.tools.unknown.oal",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+        ],
+        "message": "S2: spindle envelope remains unmeasured or unresolved. measure: unknown record height, steel rule or calipers, mm; measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: unknown record grip, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: unknown record oal, steel rule or calipers, mm.",
+        "numbers": {
+          "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+          "fixture_height_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.fixtures.unknown.height"
+              ],
+              "id": "fixtures.unknown.height",
+              "instruction": "measure: unknown record height, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.grip"
+              ],
+              "id": "holders.unknown.grip",
+              "instruction": "measure: unknown record grip, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.oal"
+              ],
+              "id": "tools.unknown.oal",
+              "instruction": "measure: unknown record oal, steel rule or calipers, mm"
+            }
+          ],
+          "part_extents_mm": {
+            "x": 120.0,
+            "y": 110.0,
+            "z": 114.0
+          },
+          "spindle_to_table_max_mm": 431.79999999999995,
+          "spindle_to_table_min_mm": "unknown",
+          "stacks": [
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 10,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 20,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 30,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 40,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 50,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 60,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 70,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 80,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 90,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 100,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 110,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            }
+          ]
+        },
+        "rule": "envelope",
+        "status": "unknown",
+        "subject": "S2"
+      },
+      {
+        "cite": [
+          "AUTHOR'S CHOICE",
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "inventory.fixtures.BS-0.height",
+          "inventory.holders.unknown.gauge_len",
+          "inventory.holders.unknown.grip",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+          "inventory.tools.unknown.oal",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+        ],
+        "message": "S3: spindle envelope remains unmeasured or unresolved. measure: BS-0 record height, steel rule or calipers, mm; measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: unknown record grip, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: unknown record oal, steel rule or calipers, mm.",
+        "numbers": {
+          "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+          "fixture_height_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.fixtures.BS-0.height"
+              ],
+              "id": "fixtures.BS-0.height",
+              "instruction": "measure: BS-0 record height, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.grip"
+              ],
+              "id": "holders.unknown.grip",
+              "instruction": "measure: unknown record grip, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.oal"
+              ],
+              "id": "tools.unknown.oal",
+              "instruction": "measure: unknown record oal, steel rule or calipers, mm"
+            }
+          ],
+          "part_extents_mm": {
+            "x": 140.98973427094649,
+            "y": 110.0,
+            "z": 42.011
+          },
+          "spindle_to_table_max_mm": 431.79999999999995,
+          "spindle_to_table_min_mm": "unknown",
+          "stacks": [
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 10,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 20,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 30,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 40,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            }
+          ]
+        },
+        "rule": "envelope",
+        "status": "unknown",
+        "subject": "S3"
+      },
+      {
+        "cite": [
+          "AUTHOR'S CHOICE",
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "inventory.fixtures.unknown.height",
+          "inventory.holders.unknown.gauge_len",
+          "inventory.holders.unknown.grip",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+          "inventory.tools.unknown.oal",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+        ],
+        "message": "S4: spindle envelope remains unmeasured or unresolved. measure: unknown record height, steel rule or calipers, mm; measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: unknown record grip, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: unknown record oal, steel rule or calipers, mm.",
+        "numbers": {
+          "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+          "fixture_height_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.fixtures.unknown.height"
+              ],
+              "id": "fixtures.unknown.height",
+              "instruction": "measure: unknown record height, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.grip"
+              ],
+              "id": "holders.unknown.grip",
+              "instruction": "measure: unknown record grip, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.oal"
+              ],
+              "id": "tools.unknown.oal",
+              "instruction": "measure: unknown record oal, steel rule or calipers, mm"
+            }
+          ],
+          "part_extents_mm": {
+            "x": 120.0,
+            "y": 110.0,
+            "z": 72.0344
+          },
+          "spindle_to_table_max_mm": 431.79999999999995,
+          "spindle_to_table_min_mm": "unknown",
+          "stacks": [
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 10,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 20,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 30,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            }
+          ]
+        },
+        "rule": "envelope",
+        "status": "unknown",
+        "subject": "S4"
+      },
+      {
+        "cite": [
           "PLAN.md §4.1 headroom"
         ],
         "message": "Lathe headroom is outside the mill-only M1 envelope rule.",
@@ -2194,6 +2633,489 @@
         "rule": "hold_fields",
         "status": "unknown",
         "subject": "S4"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+        ],
+        "message": "S1:10: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "qctp-axa-lms-2280/1-turning-facing",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+              ],
+              "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
+              "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S1:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+        ],
+        "message": "S1:20: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "qctp-axa-lms-2280/1-turning-facing",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+              ],
+              "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
+              "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S1:20"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+        ],
+        "message": "S1:30: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "qctp-axa-lms-2280/1-turning-facing",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+              ],
+              "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
+              "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S1:30"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:10: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:100: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:100"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:110: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:110"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:20: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:20"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:30: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:30"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:40: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:40"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:50: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:50"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:60: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:60"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:70: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:70"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:80: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:80"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:90: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:90"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S3:10: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S3:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S3:20: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S3:20"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S3:30: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S3:30"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S3:40: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S3:40"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S4:10: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S4:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S4:20: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S4:20"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S4:30: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S4:30"
       },
       {
         "cite": [
@@ -4798,6 +5720,1063 @@
       },
       {
         "cite": [
+          "plan.setups.S1",
+          "inventory.machines.PM-1127VF-LB",
+          "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/"
+        ],
+        "message": "S1: mill XYZ travel does not apply to a lathe.",
+        "numbers": {},
+        "rule": "travel",
+        "status": "not_applicable",
+        "subject": "S1"
+      },
+      {
+        "cite": [
+          "plan.setups.S2",
+          "inventory.machines.PM-30MV",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "features.frames.M2",
+          "AUTHOR'S CHOICE",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+          "plan.setups.S2.ops.10",
+          "features.features.head.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+          "harmonic-analyzer/cad/config/title_block.yaml:25",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+          "features.frames.body_axis",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+          "inventory.tools.unknown.dia",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.setups.S2.ops.20",
+          "features.features.body.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+          "plan.setups.S2.ops.30",
+          "plan.setups.S2.ops.40",
+          "features.features.crank_boss.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+          "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+          "features.frames.model",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-67,373-376",
+          "plan.setups.S2.ops.50",
+          "features.features.journal_boss.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266",
+          "plan.setups.S2.ops.60",
+          "features.features.mount_west.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+          "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+          "plan.setups.S2.ops.70",
+          "inventory.tools.unknown.point_angle",
+          "plan.setups.S2.ops.80",
+          "features.features.cbore_west.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+          "harmonic-analyzer/cad/config/title_block.yaml:26",
+          "plan.setups.S2.ops.90",
+          "features.features.mount_east.bounds/at",
+          "plan.setups.S2.ops.100",
+          "plan.setups.S2.ops.110",
+          "features.features.cbore_east.bounds/at",
+          "inventory.machines.PM-30MV.envelope.travel.x",
+          "inventory.machines.PM-30MV.envelope.travel.y",
+          "inventory.machines.PM-30MV.envelope.travel.z"
+        ],
+        "message": "S2: declared operation travel remains unmeasured or unresolved. Measure inventory.tools.unknown.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.40.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.50.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.60 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.60.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.70 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.70.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.80.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.90 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.90.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.100 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.100.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S2.ops.110 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.110.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: unknown record dia, steel rule or calipers, mm; measure: unknown included tool point angle, protractor, degrees.",
+        "numbers": {
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.x"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.x",
+              "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.y"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.y",
+              "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.z"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.z",
+              "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.dia"
+              ],
+              "id": "tools.unknown.dia",
+              "instruction": "measure: unknown record dia, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.point_angle"
+              ],
+              "id": "tools.unknown.point_angle",
+              "instruction": "measure: unknown included tool point angle, protractor, degrees"
+            }
+          ],
+          "operations": [
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": 120.0,
+                "y": 110.0,
+                "z": 114.0
+              },
+              "do": "face",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "head",
+              "op": 10,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                114.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": 120.0,
+                "y": 110.0,
+                "z": 114.0
+              },
+              "do": "profile",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "body",
+              "op": 20,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": 120.0,
+                "y": 110.0,
+                "z": 114.0
+              },
+              "do": "profile",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "head",
+              "op": 30,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": 120.0,
+                "y": 110.0,
+                "z": 114.0
+              },
+              "do": "profile",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "crank_boss",
+              "op": 40,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": 120.0,
+                "y": 110.0,
+                "z": 114.0
+              },
+              "do": "profile",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "journal_boss",
+              "op": 50,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "spot",
+              "endpoint": {
+                "depth_mm": 0.5,
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": "not_applicable",
+                "feature": "mount_west",
+                "op": 60,
+                "point_mm": "unknown",
+                "setup": "S2",
+                "tip_z": 85.5
+              },
+              "extent_mm": {
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "mount_west",
+              "op": 60,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                85.5,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "drill",
+              "endpoint": {
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": 0.0,
+                "exit_mm": 0.5,
+                "feature": "mount_west",
+                "local_thickness": 86.0,
+                "op": 70,
+                "point_mm": "unknown",
+                "setup": "S2",
+                "tip_z": "unknown"
+              },
+              "extent_mm": {
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "mount_west",
+              "op": 70,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                0.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "counterbore",
+              "endpoint": {
+                "depth_limit_mm": 6.53,
+                "depth_mm": 6.0198,
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": "not_applicable",
+                "feature": "cbore_west",
+                "op": 80,
+                "point_mm": 0,
+                "setup": "S2",
+                "tip_z": 79.9802,
+                "total_depth_mm": 6.0198
+              },
+              "extent_mm": {
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "cbore_west",
+              "op": 80,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                79.9802,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "spot",
+              "endpoint": {
+                "depth_mm": 0.5,
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": "not_applicable",
+                "feature": "mount_east",
+                "op": 90,
+                "point_mm": "unknown",
+                "setup": "S2",
+                "tip_z": 85.5
+              },
+              "extent_mm": {
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "mount_east",
+              "op": 90,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                85.5,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "drill",
+              "endpoint": {
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": 0.0,
+                "exit_mm": 0.5,
+                "feature": "mount_east",
+                "local_thickness": 86.0,
+                "op": 100,
+                "point_mm": "unknown",
+                "setup": "S2",
+                "tip_z": "unknown"
+              },
+              "extent_mm": {
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "mount_east",
+              "op": 100,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                0.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "counterbore",
+              "endpoint": {
+                "depth_limit_mm": 6.53,
+                "depth_mm": 6.0198,
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": "not_applicable",
+                "feature": "cbore_east",
+                "op": 110,
+                "point_mm": 0,
+                "setup": "S2",
+                "tip_z": 79.9802,
+                "total_depth_mm": 6.0198
+              },
+              "extent_mm": {
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "cbore_east",
+              "op": 110,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                79.9802,
+                86.0
+              ],
+              "z_verified": false
+            }
+          ],
+          "travel_checks": {
+            "x": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 584.1999999999999,
+              "travel_verified": false
+            },
+            "y": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 222.25,
+              "travel_verified": false
+            },
+            "z": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 355.59999999999997,
+              "travel_verified": false
+            }
+          }
+        },
+        "rule": "travel",
+        "status": "unknown",
+        "subject": "S2"
+      },
+      {
+        "cite": [
+          "plan.setups.S3",
+          "inventory.machines.PM-30MV",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "features.frames.J3",
+          "AUTHOR'S CHOICE",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+          "plan.setups.S3.ops.10",
+          "features.features.cone_north_face.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67,268-279",
+          "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+          "inventory.tools.unknown.dia",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.setups.S3.ops.20",
+          "features.features.journal_bore.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+          "features.frames.model",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-67,373-376",
+          "plan.setups.S3.ops.30",
+          "inventory.tools.unknown.point_angle",
+          "plan.setups.S3.ops.40",
+          "inventory.machines.PM-30MV.envelope.travel.x",
+          "inventory.machines.PM-30MV.envelope.travel.y",
+          "inventory.machines.PM-30MV.envelope.travel.z"
+        ],
+        "message": "S3: declared operation travel remains unmeasured or unresolved. Measure inventory.tools.unknown.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S3.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S3.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S3.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S3.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.40.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: unknown record dia, steel rule or calipers, mm; measure: unknown included tool point angle, protractor, degrees.",
+        "numbers": {
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.x"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.x",
+              "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.y"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.y",
+              "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.z"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.z",
+              "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.dia"
+              ],
+              "id": "tools.unknown.dia",
+              "instruction": "measure: unknown record dia, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.point_angle"
+              ],
+              "id": "tools.unknown.point_angle",
+              "instruction": "measure: unknown included tool point angle, protractor, degrees"
+            }
+          ],
+          "operations": [
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": 140.98973427094649,
+                "y": 110.0,
+                "z": 42.011
+              },
+              "do": "face",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "cone_north_face",
+              "op": 10,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                21.0055,
+                21.0055
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "spot",
+              "endpoint": {
+                "depth_mm": 0.5,
+                "entry_from": "S3 op 10 to_z",
+                "entry_z": 21.0055,
+                "exit_face": "not_applicable",
+                "feature": "journal_bore",
+                "op": 20,
+                "point_mm": "unknown",
+                "setup": "S3",
+                "tip_z": 20.5055
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "journal_bore",
+              "op": 20,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                0.0,
+                21.0055
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "drill",
+              "endpoint": {
+                "entry_from": "S3 op 10 to_z",
+                "entry_z": 21.0055,
+                "exit_face": -21.0055,
+                "exit_mm": 0.5,
+                "feature": "journal_bore",
+                "local_thickness": 42.011,
+                "op": 30,
+                "point_mm": "unknown",
+                "setup": "S3",
+                "tip_z": "unknown"
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "journal_bore",
+              "op": 30,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -21.0055,
+                21.0055
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "bore",
+              "endpoint": {
+                "entry_from": "S3 op 10 to_z",
+                "entry_z": 21.0055,
+                "exit_face": -21.0055,
+                "exit_mm": 0.5,
+                "feature": "journal_bore",
+                "local_thickness": 42.011,
+                "op": 40,
+                "point_mm": 0,
+                "setup": "S3",
+                "tip_z": -21.5055
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "journal_bore",
+              "op": 40,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -21.5055,
+                21.0055
+              ],
+              "z_verified": false
+            }
+          ],
+          "travel_checks": {
+            "x": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 584.1999999999999,
+              "travel_verified": false
+            },
+            "y": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 222.25,
+              "travel_verified": false
+            },
+            "z": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 355.59999999999997,
+              "travel_verified": false
+            }
+          }
+        },
+        "rule": "travel",
+        "status": "unknown",
+        "subject": "S3"
+      },
+      {
+        "cite": [
+          "plan.setups.S4",
+          "inventory.machines.PM-30MV",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "features.frames.C4",
+          "AUTHOR'S CHOICE",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+          "plan.setups.S4.ops.10",
+          "features.features.crank_bore.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+          "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+          "features.frames.model",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-67,373-376",
+          "inventory.tools.unknown.dia",
+          "plan.setups.S4.ops.20",
+          "inventory.tools.unknown.point_angle",
+          "plan.setups.S4.ops.30",
+          "inventory.machines.PM-30MV.envelope.travel.x",
+          "inventory.machines.PM-30MV.envelope.travel.y",
+          "inventory.machines.PM-30MV.envelope.travel.z"
+        ],
+        "message": "S4: declared operation travel remains unmeasured or unresolved. Measure inventory.tools.unknown.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S4.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S4.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S4.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S4.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S4.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S4.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: unknown record dia, steel rule or calipers, mm; measure: unknown included tool point angle, protractor, degrees.",
+        "numbers": {
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.x"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.x",
+              "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.y"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.y",
+              "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.z"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.z",
+              "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.dia"
+              ],
+              "id": "tools.unknown.dia",
+              "instruction": "measure: unknown record dia, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.point_angle"
+              ],
+              "id": "tools.unknown.point_angle",
+              "instruction": "measure: unknown included tool point angle, protractor, degrees"
+            }
+          ],
+          "operations": [
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "spot",
+              "endpoint": {
+                "depth_mm": 0.5,
+                "entry_from": "S4 stock_state.top_z",
+                "entry_z": 0.0,
+                "exit_face": "not_applicable",
+                "feature": "crank_bore",
+                "op": 10,
+                "point_mm": "unknown",
+                "setup": "S4",
+                "tip_z": -0.5
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "crank_bore",
+              "op": 10,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -0.5,
+                0.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "drill",
+              "endpoint": {
+                "entry_from": "S4 stock_state.top_z",
+                "entry_z": 0.0,
+                "exit_face": -72.0344,
+                "exit_mm": 0.5,
+                "feature": "crank_bore",
+                "local_thickness": 72.0344,
+                "op": 20,
+                "point_mm": "unknown",
+                "setup": "S4",
+                "tip_z": "unknown"
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "crank_bore",
+              "op": 20,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -72.0344,
+                0.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "bore",
+              "endpoint": {
+                "entry_from": "S4 stock_state.top_z",
+                "entry_z": 0.0,
+                "exit_face": -72.0344,
+                "exit_mm": 0.5,
+                "feature": "crank_bore",
+                "local_thickness": 72.0344,
+                "op": 30,
+                "point_mm": 0,
+                "setup": "S4",
+                "tip_z": -72.5344
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "crank_bore",
+              "op": 30,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -72.5344,
+                0.0
+              ],
+              "z_verified": false
+            }
+          ],
+          "travel_checks": {
+            "x": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 584.1999999999999,
+              "travel_verified": false
+            },
+            "y": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 222.25,
+              "travel_verified": false
+            },
+            "z": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 355.59999999999997,
+              "travel_verified": false
+            }
+          }
+        },
+        "rule": "travel",
+        "status": "unknown",
+        "subject": "S4"
+      },
+      {
+        "cite": [
           "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
           "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
           "harmonic-analyzer/cad/config/title_block.yaml:25",
@@ -5630,9 +7609,9 @@
     "exit": 2,
     "findings": {
       "error": 1,
-      "not_applicable": 83,
+      "not_applicable": 85,
       "pass": 13,
-      "unknown": 124,
+      "unknown": 155,
       "unsupported": 1
     },
     "fixtures": [
@@ -5651,7 +7630,7 @@
       },
       "inventory": {
         "path": "examples/inventory/pedro-shop.toml",
-        "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+        "sha256": "314a2fd5ea6e036d00d1ce1d5433c800d937ac3be86c5f78a986789635373c66"
       },
       "plan": {
         "path": "examples/cone-pivot-post/built-up.toml",
@@ -6023,7 +8002,7 @@
             },
             "inventory": {
               "path": "examples/inventory/pedro-shop.toml",
-              "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+              "sha256": "314a2fd5ea6e036d00d1ce1d5433c800d937ac3be86c5f78a986789635373c66"
             },
             "plan": {
               "path": "examples/cone-pivot-post/built-up.toml",
@@ -7360,6 +9339,537 @@
       },
       {
         "cite": [
+          "AUTHOR'S CHOICE",
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "inventory.fixtures.unknown.height",
+          "inventory.holders.unknown.gauge_len",
+          "inventory.holders.unknown.grip",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+          "inventory.tools.unknown.oal",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+        ],
+        "message": "S0: spindle envelope remains unmeasured or unresolved. measure: unknown record height, steel rule or calipers, mm; measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: unknown record grip, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: unknown record oal, steel rule or calipers, mm.",
+        "numbers": {
+          "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+          "fixture_height_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.fixtures.unknown.height"
+              ],
+              "id": "fixtures.unknown.height",
+              "instruction": "measure: unknown record height, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.grip"
+              ],
+              "id": "holders.unknown.grip",
+              "instruction": "measure: unknown record grip, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.oal"
+              ],
+              "id": "tools.unknown.oal",
+              "instruction": "measure: unknown record oal, steel rule or calipers, mm"
+            }
+          ],
+          "part_extents_mm": {
+            "x": "unknown",
+            "y": "unknown",
+            "z": 92.0
+          },
+          "spindle_to_table_max_mm": 431.79999999999995,
+          "spindle_to_table_min_mm": "unknown",
+          "stacks": [
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 10,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            }
+          ]
+        },
+        "rule": "envelope",
+        "status": "unknown",
+        "subject": "S0"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"
+        ],
+        "message": "Spindle-nose-to-table clearance applies to a mill, not a lathe.",
+        "numbers": {},
+        "rule": "envelope",
+        "status": "not_applicable",
+        "subject": "S1"
+      },
+      {
+        "cite": [
+          "AUTHOR'S CHOICE",
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "inventory.fixtures.unknown.height",
+          "inventory.holders.unknown.gauge_len",
+          "inventory.holders.unknown.grip",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+          "inventory.tools.unknown.oal",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+        ],
+        "message": "S2: spindle envelope remains unmeasured or unresolved. measure: unknown record height, steel rule or calipers, mm; measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: unknown record grip, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: unknown record oal, steel rule or calipers, mm.",
+        "numbers": {
+          "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+          "fixture_height_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.fixtures.unknown.height"
+              ],
+              "id": "fixtures.unknown.height",
+              "instruction": "measure: unknown record height, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.grip"
+              ],
+              "id": "holders.unknown.grip",
+              "instruction": "measure: unknown record grip, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.oal"
+              ],
+              "id": "tools.unknown.oal",
+              "instruction": "measure: unknown record oal, steel rule or calipers, mm"
+            }
+          ],
+          "part_extents_mm": {
+            "x": "unknown",
+            "y": "unknown",
+            "z": 89.0
+          },
+          "spindle_to_table_max_mm": 431.79999999999995,
+          "spindle_to_table_min_mm": "unknown",
+          "stacks": [
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 10,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 20,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 30,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 50,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 60,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 70,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 80,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 90,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 100,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 110,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            }
+          ]
+        },
+        "rule": "envelope",
+        "status": "unknown",
+        "subject": "S2"
+      },
+      {
+        "cite": [
+          "AUTHOR'S CHOICE",
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "inventory.fixtures.BS-0.height",
+          "inventory.holders.unknown.gauge_len",
+          "inventory.holders.unknown.grip",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+          "inventory.tools.unknown.oal",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+        ],
+        "message": "S3: spindle envelope remains unmeasured or unresolved. measure: BS-0 record height, steel rule or calipers, mm; measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: unknown record grip, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: unknown record oal, steel rule or calipers, mm.",
+        "numbers": {
+          "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+          "fixture_height_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.fixtures.BS-0.height"
+              ],
+              "id": "fixtures.BS-0.height",
+              "instruction": "measure: BS-0 record height, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.grip"
+              ],
+              "id": "holders.unknown.grip",
+              "instruction": "measure: unknown record grip, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.oal"
+              ],
+              "id": "tools.unknown.oal",
+              "instruction": "measure: unknown record oal, steel rule or calipers, mm"
+            }
+          ],
+          "part_extents_mm": {
+            "x": "unknown",
+            "y": "unknown",
+            "z": 42.011
+          },
+          "spindle_to_table_max_mm": 431.79999999999995,
+          "spindle_to_table_min_mm": "unknown",
+          "stacks": [
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 10,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 20,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 30,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 40,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            }
+          ]
+        },
+        "rule": "envelope",
+        "status": "unknown",
+        "subject": "S3"
+      },
+      {
+        "cite": [
+          "AUTHOR'S CHOICE",
+          "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "inventory.fixtures.unknown.height",
+          "inventory.holders.unknown.gauge_len",
+          "inventory.holders.unknown.grip",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+          "inventory.tools.unknown.oal",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis"
+        ],
+        "message": "S4: spindle envelope remains unmeasured or unresolved. measure: unknown record height, steel rule or calipers, mm; measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm; measure: unknown record grip, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; measure: unknown record oal, steel rule or calipers, mm.",
+        "numbers": {
+          "basis": "conservative jaw height + parallels/supports + supported stock height + holder gauge + tool projection; not a collision proof",
+          "fixture_height_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.fixtures.unknown.height"
+              ],
+              "id": "fixtures.unknown.height",
+              "instruction": "measure: unknown record height, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.holders.unknown.grip"
+              ],
+              "id": "holders.unknown.grip",
+              "instruction": "measure: unknown record grip, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_max",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
+              ],
+              "id": "machines.PM-30MV.envelope.spindle_to_table_min",
+              "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.oal"
+              ],
+              "id": "tools.unknown.oal",
+              "instruction": "measure: unknown record oal, steel rule or calipers, mm"
+            }
+          ],
+          "part_extents_mm": {
+            "x": "unknown",
+            "y": "unknown",
+            "z": 72.0344
+          },
+          "spindle_to_table_max_mm": 431.79999999999995,
+          "spindle_to_table_min_mm": "unknown",
+          "stacks": [
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 5,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 10,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 20,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            },
+            {
+              "holder": "unknown",
+              "holder_gauge_len_mm": "unknown",
+              "lower_margin_mm": "unknown",
+              "op": 30,
+              "stack_mm": "unknown",
+              "tool": "unknown",
+              "tool_projection_mm": "unknown",
+              "upper_margin_mm": "unknown",
+              "verified": false
+            }
+          ]
+        },
+        "rule": "envelope",
+        "status": "unknown",
+        "subject": "S4"
+      },
+      {
+        "cite": [
           "PLAN.md §4.1 headroom",
           "inventory: machine, fixture, support, tool and holder dimensions",
           "plan: stock state and setup frame"
@@ -8016,6 +10526,535 @@
         "rule": "hold_fields",
         "status": "unknown",
         "subject": "S4"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S0:10: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S0:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+        ],
+        "message": "S1:10: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "qctp-axa-lms-2280/1-turning-facing",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+              ],
+              "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
+              "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S1:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+        ],
+        "message": "S1:20: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "qctp-axa-lms-2280/1-turning-facing",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+              ],
+              "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
+              "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S1:20"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+        ],
+        "message": "S1:30: holder qctp-axa-lms-2280/1-turning-facing gauge length is unmeasured. measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "qctp-axa-lms-2280/1-turning-facing",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.qctp-axa-lms-2280/1-turning-facing.gauge_len"
+              ],
+              "id": "holders.qctp-axa-lms-2280/1-turning-facing.gauge_len",
+              "instruction": "measure: qctp-axa-lms-2280/1-turning-facing mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S1:30"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S1:40: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S1:40"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:10: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:100: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:100"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:110: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:110"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:20: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:20"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:30: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:30"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:50: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:50"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:60: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:60"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:70: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:70"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:80: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:80"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S2:90: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S2:90"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S3:10: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S3:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S3:20: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S3:20"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S3:30: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S3:30"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S3:40: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S3:40"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S4:10: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S4:10"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S4:20: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S4:20"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S4:30: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S4:30"
+      },
+      {
+        "cite": [
+          "PLAN.md §8 M5; docs/rules-setup.md holder_stack: selected holder gauge length",
+          "inventory.holders.unknown.gauge_len"
+        ],
+        "message": "S4:5: holder unknown gauge length is unmeasured. measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm.",
+        "numbers": {
+          "holder": "unknown",
+          "holder_gauge_len_mm": "unknown",
+          "measurements": [
+            {
+              "cite": [
+                "inventory.holders.unknown.gauge_len"
+              ],
+              "id": "holders.unknown.gauge_len",
+              "instruction": "measure: unknown mounted datum to holder exit face (spindle nose to holder face for a mill; toolpost reference for a lathe), steel rule or height gauge, mm"
+            }
+          ]
+        },
+        "rule": "holder_stack",
+        "status": "unknown",
+        "subject": "S4:5"
       },
       {
         "cite": [
@@ -10790,6 +13829,1181 @@
         "rule": "tool_resolves",
         "status": "unknown",
         "subject": "turning-tools-warner-lms-4132/AR"
+      },
+      {
+        "cite": [
+          "plan.setups.S0",
+          "inventory.machines.PM-30MV",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "features.frames.T1",
+          "AUTHOR'S CHOICE",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+          "plan.setups.S0.ops.10",
+          "features.features.foot_seat.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:252,373-376",
+          "harmonic-analyzer/cad/scripts/_surface_finish.py:49-54",
+          "features.frames.model",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-67,373-376",
+          "inventory.tools.unknown.dia",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
+          "plan.setups.stock_state: physical supported stock height",
+          "inventory.machines.PM-30MV.envelope.travel.x",
+          "inventory.machines.PM-30MV.envelope.travel.y",
+          "inventory.machines.PM-30MV.envelope.travel.z"
+        ],
+        "message": "S0: declared operation travel remains unmeasured or unresolved. Measure inventory.tools.unknown.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S0.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S0.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: unknown record dia, steel rule or calipers, mm.",
+        "numbers": {
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.x"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.x",
+              "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.y"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.y",
+              "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.z"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.z",
+              "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.dia"
+              ],
+              "id": "tools.unknown.dia",
+              "instruction": "measure: unknown record dia, steel rule or calipers, mm"
+            }
+          ],
+          "operations": [
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": "unknown",
+                "y": "unknown",
+                "z": 92.0
+              },
+              "do": "face",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "foot_seat",
+              "op": 10,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                0.0,
+                3.0
+              ],
+              "z_verified": false
+            }
+          ],
+          "travel_checks": {
+            "x": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 584.1999999999999,
+              "travel_verified": false
+            },
+            "y": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 222.25,
+              "travel_verified": false
+            },
+            "z": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 355.59999999999997,
+              "travel_verified": false
+            }
+          }
+        },
+        "rule": "travel",
+        "status": "unknown",
+        "subject": "S0"
+      },
+      {
+        "cite": [
+          "plan.setups.S1",
+          "inventory.machines.PM-1127VF-LB",
+          "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/"
+        ],
+        "message": "S1: mill XYZ travel does not apply to a lathe.",
+        "numbers": {},
+        "rule": "travel",
+        "status": "not_applicable",
+        "subject": "S1"
+      },
+      {
+        "cite": [
+          "plan.setups.S2",
+          "inventory.machines.PM-30MV",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "features.frames.M2",
+          "AUTHOR'S CHOICE",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
+          "plan.setups.S2.ops.10",
+          "features.features.head.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+          "harmonic-analyzer/cad/config/title_block.yaml:25",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+          "features.frames.body_axis",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
+          "inventory.tools.unknown.dia",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.setups.S2.ops.20",
+          "features.features.body.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+          "plan.setups.S2.ops.30",
+          "plan.setups.S2.ops.50",
+          "features.features.journal_boss.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266",
+          "features.frames.model",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-67,373-376",
+          "plan.setups.S2.ops.60",
+          "features.features.mount_west.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+          "harmonic-analyzer/cad/config/title_block.yaml:26,66",
+          "plan.setups.S2.ops.70",
+          "inventory.tools.unknown.point_angle",
+          "plan.setups.S2.ops.80",
+          "features.features.cbore_west.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+          "harmonic-analyzer/cad/config/title_block.yaml:26",
+          "plan.setups.S2.ops.90",
+          "features.features.mount_east.bounds/at",
+          "plan.setups.S2.ops.100",
+          "plan.setups.S2.ops.110",
+          "features.features.cbore_east.bounds/at",
+          "inventory.machines.PM-30MV.envelope.travel.x",
+          "inventory.machines.PM-30MV.envelope.travel.y",
+          "inventory.machines.PM-30MV.envelope.travel.z"
+        ],
+        "message": "S2: declared operation travel remains unmeasured or unresolved. Measure inventory.tools.unknown.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.50.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S2.ops.60 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.60.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.70 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.70.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.80.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.90 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.90.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.100 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.100.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S2.ops.110 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S2.ops.110.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: unknown record dia, steel rule or calipers, mm; measure: unknown included tool point angle, protractor, degrees.",
+        "numbers": {
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.x"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.x",
+              "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.y"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.y",
+              "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.z"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.z",
+              "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.dia"
+              ],
+              "id": "tools.unknown.dia",
+              "instruction": "measure: unknown record dia, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.point_angle"
+              ],
+              "id": "tools.unknown.point_angle",
+              "instruction": "measure: unknown included tool point angle, protractor, degrees"
+            }
+          ],
+          "operations": [
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": "unknown",
+                "y": "unknown",
+                "z": 89.0
+              },
+              "do": "face",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "head",
+              "op": 10,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                89.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": "unknown",
+                "y": "unknown",
+                "z": 89.0
+              },
+              "do": "profile",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "body",
+              "op": 20,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": "unknown",
+                "y": "unknown",
+                "z": 89.0
+              },
+              "do": "profile",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "head",
+              "op": 30,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": "unknown",
+                "y": "unknown",
+                "z": 89.0
+              },
+              "do": "profile",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "journal_boss",
+              "op": 50,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                86.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "spot",
+              "endpoint": {
+                "depth_mm": 0.5,
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": "not_applicable",
+                "feature": "mount_west",
+                "op": 60,
+                "point_mm": "unknown",
+                "setup": "S2",
+                "tip_z": 85.5
+              },
+              "extent_mm": {
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "mount_west",
+              "op": 60,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                85.5,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "drill",
+              "endpoint": {
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": 0.0,
+                "exit_mm": 0.5,
+                "feature": "mount_west",
+                "local_thickness": 86.0,
+                "op": 70,
+                "point_mm": "unknown",
+                "setup": "S2",
+                "tip_z": "unknown"
+              },
+              "extent_mm": {
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "mount_west",
+              "op": 70,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                0.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "counterbore",
+              "endpoint": {
+                "depth_limit_mm": 6.53,
+                "depth_mm": 6.0198,
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": "not_applicable",
+                "feature": "cbore_west",
+                "op": 80,
+                "point_mm": 0,
+                "setup": "S2",
+                "tip_z": 79.9802,
+                "total_depth_mm": 6.0198
+              },
+              "extent_mm": {
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "cbore_west",
+              "op": 80,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                79.9802,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "spot",
+              "endpoint": {
+                "depth_mm": 0.5,
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": "not_applicable",
+                "feature": "mount_east",
+                "op": 90,
+                "point_mm": "unknown",
+                "setup": "S2",
+                "tip_z": 85.5
+              },
+              "extent_mm": {
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "mount_east",
+              "op": 90,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                85.5,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "drill",
+              "endpoint": {
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": 0.0,
+                "exit_mm": 0.5,
+                "feature": "mount_east",
+                "local_thickness": 86.0,
+                "op": 100,
+                "point_mm": "unknown",
+                "setup": "S2",
+                "tip_z": "unknown"
+              },
+              "extent_mm": {
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "mount_east",
+              "op": 100,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                0.0,
+                86.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "counterbore",
+              "endpoint": {
+                "depth_limit_mm": 6.53,
+                "depth_mm": 6.0198,
+                "entry_from": "S2 op 10 to_z",
+                "entry_z": 86.0,
+                "exit_face": "not_applicable",
+                "feature": "cbore_east",
+                "op": 110,
+                "point_mm": 0,
+                "setup": "S2",
+                "tip_z": 79.9802,
+                "total_depth_mm": 6.0198
+              },
+              "extent_mm": {
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
+              "feature": "cbore_east",
+              "op": 110,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                79.9802,
+                86.0
+              ],
+              "z_verified": false
+            }
+          ],
+          "travel_checks": {
+            "x": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 584.1999999999999,
+              "travel_verified": false
+            },
+            "y": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 222.25,
+              "travel_verified": false
+            },
+            "z": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 355.59999999999997,
+              "travel_verified": false
+            }
+          }
+        },
+        "rule": "travel",
+        "status": "unknown",
+        "subject": "S2"
+      },
+      {
+        "cite": [
+          "plan.setups.S3",
+          "inventory.machines.PM-30MV",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "features.frames.J3",
+          "AUTHOR'S CHOICE",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+          "plan.setups.S3.ops.10",
+          "features.features.cone_north_face.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67,268-279",
+          "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+          "inventory.tools.unknown.dia",
+          "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355",
+          "plan.setups.stock_state: physical supported stock height",
+          "plan.setups.S3.ops.20",
+          "features.features.journal_bore.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+          "features.frames.model",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-67,373-376",
+          "plan.setups.S3.ops.30",
+          "inventory.tools.unknown.point_angle",
+          "plan.setups.S3.ops.40",
+          "inventory.machines.PM-30MV.envelope.travel.x",
+          "inventory.machines.PM-30MV.envelope.travel.y",
+          "inventory.machines.PM-30MV.envelope.travel.z"
+        ],
+        "message": "S3: declared operation travel remains unmeasured or unresolved. Measure inventory.tools.unknown.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S3.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S3.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S3.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S3.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S3.ops.40.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: unknown record dia, steel rule or calipers, mm; measure: unknown included tool point angle, protractor, degrees.",
+        "numbers": {
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.x"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.x",
+              "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.y"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.y",
+              "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.z"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.z",
+              "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.dia"
+              ],
+              "id": "tools.unknown.dia",
+              "instruction": "measure: unknown record dia, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.point_angle"
+              ],
+              "id": "tools.unknown.point_angle",
+              "instruction": "measure: unknown included tool point angle, protractor, degrees"
+            }
+          ],
+          "operations": [
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": {
+                "x": "unknown",
+                "y": "unknown",
+                "z": 42.011
+              },
+              "do": "face",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "cone_north_face",
+              "op": 10,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                21.0055,
+                21.0055
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "spot",
+              "endpoint": {
+                "depth_mm": 0.5,
+                "entry_from": "S3 op 10 to_z",
+                "entry_z": 21.0055,
+                "exit_face": "not_applicable",
+                "feature": "journal_bore",
+                "op": 20,
+                "point_mm": "unknown",
+                "setup": "S3",
+                "tip_z": 20.5055
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "journal_bore",
+              "op": 20,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                0.0,
+                21.0055
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "drill",
+              "endpoint": {
+                "entry_from": "S3 op 10 to_z",
+                "entry_z": 21.0055,
+                "exit_face": -21.0055,
+                "exit_mm": 0.5,
+                "feature": "journal_bore",
+                "local_thickness": 42.011,
+                "op": 30,
+                "point_mm": "unknown",
+                "setup": "S3",
+                "tip_z": "unknown"
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "journal_bore",
+              "op": 30,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -21.0055,
+                21.0055
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "bore",
+              "endpoint": {
+                "entry_from": "S3 op 10 to_z",
+                "entry_z": 21.0055,
+                "exit_face": -21.0055,
+                "exit_mm": 0.5,
+                "feature": "journal_bore",
+                "local_thickness": 42.011,
+                "op": 40,
+                "point_mm": 0,
+                "setup": "S3",
+                "tip_z": -21.5055
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "journal_bore",
+              "op": 40,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -21.5055,
+                21.0055
+              ],
+              "z_verified": false
+            }
+          ],
+          "travel_checks": {
+            "x": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 584.1999999999999,
+              "travel_verified": false
+            },
+            "y": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 222.25,
+              "travel_verified": false
+            },
+            "z": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 355.59999999999997,
+              "travel_verified": false
+            }
+          }
+        },
+        "rule": "travel",
+        "status": "unknown",
+        "subject": "S3"
+      },
+      {
+        "cite": [
+          "plan.setups.S4",
+          "inventory.machines.PM-30MV",
+          "https://www.precisionmatthews.com/products/pm-30mv",
+          "features.frames.C4",
+          "AUTHOR'S CHOICE",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+          "plan.setups.S4.ops.5",
+          "features.features.crank_boss.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+          "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+          "features.frames.model",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-67,373-376",
+          "inventory.tools.unknown.dia",
+          "plan.setups.S4.ops.10",
+          "features.features.crank_bore.bounds/at",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+          "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+          "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+          "plan.setups.S4.ops.20",
+          "inventory.tools.unknown.point_angle",
+          "plan.setups.S4.ops.30",
+          "inventory.machines.PM-30MV.envelope.travel.x",
+          "inventory.machines.PM-30MV.envelope.travel.y",
+          "inventory.machines.PM-30MV.envelope.travel.z"
+        ],
+        "message": "S4: declared operation travel remains unmeasured or unresolved. Measure inventory.tools.unknown.dia_mm across the cutting diameter with calipers or a micrometer, in mm; clear verification debt or record a fact-local shop measurement before using its cutter radius; Measure plan.setups.S4.ops.5 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S4.ops.5.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; Measure plan.setups.S4.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S4.ops.10.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S4.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S4.ops.20.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.S4.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; Measure and declare plan.setups.S4.ops.30.approach_mm >= 0 with a height gauge or machine Z readout in mm above the current stock top for the safe Z approach; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: unknown record dia, steel rule or calipers, mm; measure: unknown included tool point angle, protractor, degrees.",
+        "numbers": {
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.x"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.x",
+              "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.y"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.y",
+              "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-30MV.envelope.travel.z"
+              ],
+              "id": "machines.PM-30MV.envelope.travel.z",
+              "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.dia"
+              ],
+              "id": "tools.unknown.dia",
+              "instruction": "measure: unknown record dia, steel rule or calipers, mm"
+            },
+            {
+              "cite": [
+                "inventory.tools.unknown.point_angle"
+              ],
+              "id": "tools.unknown.point_angle",
+              "instruction": "measure: unknown included tool point angle, protractor, degrees"
+            }
+          ],
+          "operations": [
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "fit_up",
+              "endpoint": "not_applicable",
+              "extent_mm": "unknown",
+              "feature": "crank_boss",
+              "op": 5,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                0.0,
+                0.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "spot",
+              "endpoint": {
+                "depth_mm": 0.5,
+                "entry_from": "S4 stock_state.top_z",
+                "entry_z": 0.0,
+                "exit_face": "not_applicable",
+                "feature": "crank_bore",
+                "op": 10,
+                "point_mm": "unknown",
+                "setup": "S4",
+                "tip_z": -0.5
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "crank_bore",
+              "op": 10,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -0.5,
+                0.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "drill",
+              "endpoint": {
+                "entry_from": "S4 stock_state.top_z",
+                "entry_z": 0.0,
+                "exit_face": -72.0344,
+                "exit_mm": 0.5,
+                "feature": "crank_bore",
+                "local_thickness": 72.0344,
+                "op": 20,
+                "point_mm": "unknown",
+                "setup": "S4",
+                "tip_z": "unknown"
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "crank_bore",
+              "op": 20,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -72.0344,
+                0.0
+              ],
+              "z_verified": false
+            },
+            {
+              "approach_mm": "unknown",
+              "conservative_stock_spans_mm": "not_applicable",
+              "do": "bore",
+              "endpoint": {
+                "entry_from": "S4 stock_state.top_z",
+                "entry_z": 0.0,
+                "exit_face": -72.0344,
+                "exit_mm": 0.5,
+                "feature": "crank_bore",
+                "local_thickness": 72.0344,
+                "op": 30,
+                "point_mm": 0,
+                "setup": "S4",
+                "tip_z": -72.5344
+              },
+              "extent_mm": {
+                "x": [
+                  0.0,
+                  0.0
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0
+                ]
+              },
+              "feature": "crank_bore",
+              "op": 30,
+              "rough_allowance_mm": 0,
+              "tool": "unknown",
+              "tool_radius_mm": "unknown",
+              "tool_radius_verified": false,
+              "xy_cutter_bounds_mm": {
+                "x": "unknown",
+                "y": "unknown"
+              },
+              "z_bounds_mm": [
+                -72.5344,
+                0.0
+              ],
+              "z_verified": false
+            }
+          ],
+          "travel_checks": {
+            "x": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 584.1999999999999,
+              "travel_verified": false
+            },
+            "y": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 222.25,
+              "travel_verified": false
+            },
+            "z": {
+              "located_span_mm": "unknown",
+              "lower_bound_margin_mm": "unknown",
+              "margin_mm": "unknown",
+              "minimum_required_mm": "unknown",
+              "required_mm": "unknown",
+              "required_verified": false,
+              "travel_mm": 355.59999999999997,
+              "travel_verified": false
+            }
+          }
+        },
+        "rule": "travel",
+        "status": "unknown",
+        "subject": "S4"
       },
       {
         "cite": [

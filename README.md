@@ -4,7 +4,9 @@ Checks before chips: a deterministic, offline checker and printable traveler for
 an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
 plan, workholding, indexing and physics rule families, write a canonical findings
 report, and render Letter-portrait HTML with setup pages and contour continuations.
-It checks declared facts, not a CAD model's machinability, and does not generate CAM toolpaths.
+M5 adds measured machine/holder inventory, envelope/travel screens and a machine
+measurement checklist. It checks declared facts, not a CAD model's machinability,
+and does not generate CAM toolpaths.
 
 The local M1 implementation, PR #5 review corrections and M2 declared-input
 feasibility rules are present. Physical paper rehearsal and live farm/App Insights
@@ -66,7 +68,7 @@ prechips [--json] [--verbose] traveler PLAN [--inventory TOML] [--policy TOML]
     [--cutting-data TOML] [--out DIR] [--approval TOML] [--json] [--verbose]
 prechips [--json] [--verbose] check PLAN [--inventory TOML] [--policy TOML]
     [--cutting-data TOML] [--out DIR] [--approval TOML] [--json] [--verbose]
-prechips [--json] [--verbose] tools [QUERY] [--inventory TOML] [--json] [--verbose]
+prechips [--json] [--verbose] tools [QUERY] [--inventory TOML] [--measure] [--json] [--verbose]
 prechips [--json] [--verbose] compare PLAN [PLAN ...] [--inventory TOML]
     [--policy TOML] [--cutting-data TOML] [--out DIR] [--json] [--verbose]
 prechips [--json] [--verbose] explain REPORT RULE[:SUBJECT] [--json] [--verbose]
@@ -85,6 +87,11 @@ package version. `--json` and `--verbose` default off.
   and verification debt, not an automatic tool choice. Human columns are ID,
   Kind, Diameter mm/in, Holder chain, Verification and Sizing; JSON emits rows.
   Inventory is mandatory through the flag or `PRECHIPS_INVENTORY`.
+  Machine rows also show the envelope with measured/unmeasured markers.
+  **tools --measure** emits one deterministic, deduplicated inventory-wide
+  checklist: missing envelope/holder dimensions and authored unknown or vendor
+  `verify = true` values, each with what to measure, instrument, units and citation.
+  It adds no tool purchases or unlisted set members.
 - **compare** writes `compare.json` and a side-by-side table (JSON with `--json`):
   candidate identity, part, setup count, required fixtures, waste ratio, findings
   and construction permission. Waste is `(stock volume - finished volume) /
@@ -143,6 +150,17 @@ An existing policy without `[required]`, a feature without `requirements`, or a
 Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
 Explicit empty tables/lists remain known empty; no policy file still selects the
 built-in required-rule set.
+
+M5 machine envelopes and installed holder gauge/projection lengths need
+`measured = { by, date, instrument }`; clearing `verify` alone is not measurement.
+The PM-30MV vendor values remain unchanged and unverified, and missing minimum
+clearance, T-slot pitch and spindle/holder stack dimensions stay `"unknown"`.
+Run `uv run prechips tools --inventory examples/inventory/pedro-shop.toml --measure`
+to take the checklist to the shop. A policy may add `envelope = "*"` and
+`travel = "*"` under `[required]` (and `holder_stack = "*"` for holder gauges);
+the default required set is unchanged. Mill envelope/travel remain `?` until
+limits, installed stacks, feature/stock spans and each operation's safe
+`approach_mm` are known. Lathe setups do not acquire a fictitious mill table.
 Omitted setup `machine`, operation `do`, and feature `kind` are normalized to
 `"unknown"` by their schemas, so missing identities stay unresolved rather than
 crashing the checker.
