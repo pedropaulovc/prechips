@@ -142,8 +142,12 @@ All inputs are **TOML**. Deeply nested YAML was the readability failure of
 rev 3; TOML's `[[setups]]` / `[[setups.ops]]` tables keep each record flat and
 self-labelled, and `tomllib` is in the standard library. The merged rev-3
 fixtures under `examples/` are YAML and will be converted when M1 lands.
-TOML has no decimal-precision type (`25.40` reads back as `25.4`), so a
-file that needs display precision says so explicitly (`precision = 2`).
+No text format carries decimal precision (TOML, YAML and JSON all read
+`25.40` back as `25.4`), so a manifest states it: `precision = N` at file
+level is the drawing's general class, and a feature with a tighter
+dimension overrides it (`precision = 3`), which is how the title block's
+`linear_2pl` / `linear_3pl` classes attach to one dimension and not the
+whole sheet.
 
 ### 3.1 `plan.toml` — short, per part
 
@@ -265,7 +269,7 @@ would silently pass the inspection-coverage rule.
 ```toml
 part = "rocker-arm"
 units = "mm"
-precision = 2
+precision = 2                              # .XX general class; a feature may override
 step_sha256 = "…"                          # the STEP this manifest was exported with
 construction = "one_piece"                 # or "built_up_permitted" (drawing note)
 
@@ -303,6 +307,7 @@ drill = "#47"
 dia = [2.00, 2.10]                         # _hole_spec default +0.10/0
 thru = true
 position_dia = 0.20
+precision = 3                              # .XXX: this hole's position class, not the sheet's
 position_datums = ["A", "B"]
 faces = ["Face9"]
 
