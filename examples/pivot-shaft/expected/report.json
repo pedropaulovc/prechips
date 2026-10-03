@@ -978,6 +978,7 @@
             "offset_mm": "unknown",
             "op": 20,
             "rough_allowance_mm": "not_applicable",
+            "stage": "finish",
             "to_z": "unknown",
             "tool": "turning-tools-warner-lms-4132/E",
             "tool_dia": "unknown",
@@ -1313,6 +1314,7 @@
             "offset_mm": "unknown",
             "op": 20,
             "rough_allowance_mm": "not_applicable",
+            "stage": "finish",
             "to_z": "unknown",
             "tool": "turning-tools-warner-lms-4132/E",
             "tool_dia": "unknown",
@@ -3497,7 +3499,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "ca77b86a090912c2b3e688a7f2cc039060923da7c4b200aee3970899da8c6c67",
+  "hash": "d59fdd29fb97ceebe0c9126e271556f6bb07a77bb801df4da6a098ab1422920a",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

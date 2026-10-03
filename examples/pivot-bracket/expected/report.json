@@ -349,6 +349,7 @@
             "offset_mm": 5.062499999999999,
             "op": 20,
             "rough_allowance_mm": 0.3,
+            "stage": "rough",
             "to_z": -6.0,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_dia": 9.524999999999999,
@@ -388,6 +389,7 @@
             "offset_mm": 4.762499999999999,
             "op": 30,
             "rough_allowance_mm": "not_applicable",
+            "stage": "finish",
             "to_z": -6.0,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_dia": 9.524999999999999,
@@ -787,6 +789,7 @@
             "offset_mm": 5.062499999999999,
             "op": 10,
             "rough_allowance_mm": 0.3,
+            "stage": "rough",
             "to_z": 0.3,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_dia": 9.524999999999999,
@@ -1032,6 +1035,7 @@
             "offset_mm": 4.762499999999999,
             "op": 20,
             "rough_allowance_mm": "not_applicable",
+            "stage": "finish",
             "to_z": 0.0,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_dia": 9.524999999999999,
@@ -1071,6 +1075,7 @@
             "offset_mm": 5.062499999999999,
             "op": 40,
             "rough_allowance_mm": 0.3,
+            "stage": "rough",
             "to_z": 0.3,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_dia": 9.524999999999999,
@@ -1110,6 +1115,7 @@
             "offset_mm": 4.762499999999999,
             "op": 50,
             "rough_allowance_mm": "not_applicable",
+            "stage": "finish",
             "to_z": 0.0,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_dia": 9.524999999999999,
@@ -1176,6 +1182,7 @@
             "interpolation": "straight chords at authored step, exact offset joins included",
             "max_chord_sagitta_mm": 0.04590145426831936,
             "method": "arc_table",
+            "offset_mm": 5.062499999999999,
             "op": 10,
             "radius_mm": 12.0625,
             "rows": [
@@ -1446,6 +1453,7 @@
                 "y": 25.2
               }
             ],
+            "stage": "rough",
             "step_deg": 10.0,
             "tip_z": -5.7
           },
@@ -1465,6 +1473,7 @@
             "interpolation": "straight chords at authored step, exact offset joins included",
             "max_chord_sagitta_mm": 0.04475986369584302,
             "method": "arc_table",
+            "offset_mm": 4.762499999999999,
             "op": 20,
             "radius_mm": 11.7625,
             "rows": [
@@ -1735,6 +1744,7 @@
                 "y": 25.2
               }
             ],
+            "stage": "finish",
             "step_deg": 10.0,
             "tip_z": -6.0
           }
@@ -2087,6 +2097,7 @@
             "offset_mm": 5.062499999999999,
             "op": 10,
             "rough_allowance_mm": 0.3,
+            "stage": "rough",
             "to_z": -5.7,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_dia": 9.524999999999999,
@@ -2372,6 +2383,7 @@
             "offset_mm": 4.762499999999999,
             "op": 20,
             "rough_allowance_mm": "not_applicable",
+            "stage": "finish",
             "to_z": -6.0,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_dia": 9.524999999999999,
@@ -2544,7 +2556,6 @@
           "requires_path_check": false
         },
         "parallels_mm": 25.4,
-        "raw_rail_thickness_mm": 34.2,
         "retained_rail_bottom_z": -33.2,
         "spindle_to_table_max_mm": 431.79999999999995,
         "spindle_verify": true,
@@ -2643,7 +2654,6 @@
           "requires_path_check": false
         },
         "parallels_mm": 15.875,
-        "raw_rail_thickness_mm": 33.2,
         "retained_rail_bottom_z": -6.0,
         "spindle_to_table_max_mm": 431.79999999999995,
         "spindle_verify": true,
@@ -2802,7 +2812,6 @@
           "requires_path_check": false
         },
         "parallels_mm": 12.7,
-        "raw_rail_thickness_mm": 24.2,
         "retained_rail_bottom_z": -6.0,
         "spindle_to_table_max_mm": 431.79999999999995,
         "spindle_verify": true,
@@ -5047,7 +5056,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "bf8236d8d42d31e57751fb579ed27317a6cdb0d0c017aa385e9dc045fc170433",
+  "hash": "24d3a175e171a25d5f388ffbbd08730850abf37ecfddddf5655a4af2a3fefcb1",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
