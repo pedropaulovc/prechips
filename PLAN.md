@@ -134,9 +134,9 @@ Tool ids are short and human (`em-3/8-4fl`), set by the inventory.
 
 Exported beside the STEP by the consumer (harmonic-analyzer: from
 `rocker_arm_spec.py`, `_hole_spec.py` and the title-block defaults). prechips
-never reads PMI from the STEP — there is none in the AP214 export — and never
-invents a tolerance. Per feature: kind, frame, centre/axis, size with limits,
-through/blind depth, inspection hint, and where on the drawing it came from:
+never reads PMI from the STEP and never invents a tolerance. Per feature:
+kind, frame, centre/axis, size with limits, through/blind depth, inspection
+hint, and where on the drawing it came from:
 
 ```yaml
 part: rocker-arm
@@ -153,6 +153,20 @@ features:
 
 A feature the generator cannot source is left out, and whatever needed it
 shows up on the sheet as `?`.
+
+**Why not PMI in the STEP.** Semantic PMI needs AP242, and in SolidWorks that
+export is the MBD add-in only (`IModelDocExtension.PublishSTEP242File2`,
+`swPublishStep242_MBDLicenseNotAvailable`); the 2026 help says MBD "is not
+part of any role" and needs a stand-alone licence, and the R2026x Makers
+seat has no MBD add-in registered. Even licensed, AP242 carries DimXpert
+annotations, and harmonic-analyzer deliberately authors plain gtols
+(`_part_pmi.py`) with every size on the 2D drawing, so the export would hold
+a few GD&T frames and no dimensions. The spec scripts are the authority; a
+generated `features.yaml` is the lossless route. **What the STEP should
+carry instead: face/edge ids** — AP214 with `swStepExportFaceEdgeProps` (no
+MBD) names every face, so the generator can add `face: <name>` per feature
+and the kernel resolves a feature to one B-rep face by id, not by matching
+geometric descriptors.
 
 ### 3.3 `inventory.yaml` — the shop (user-supplied; sample in `examples/inventory/`)
 
@@ -217,9 +231,11 @@ CLI: `prechips traveler <plan.yaml>` (writes both; exit per §4),
   stock-form comparison is an authored table the author fills in; prechips
   only counts setups and waste.
 - **Kernel spike before any geometry rule.** `FreeCADCmd` on the real STEP
-  exports: load, bounding box, resolve each feature id to one face. Pass →
-  fixture renders and reach/collision as `!` lines. Fail → prechips stays
-  declared-input only, which is still the whole §2 sheet.
+  exports: load, bounding box, resolve each feature id to one face. The
+  consumer's STEP export turns on `swStepExportFaceEdgeProps` first, so the
+  spike resolves by face name and the descriptor matcher from rev 1 is not
+  built. Pass → fixture renders and reach/collision as `!` lines. Fail →
+  prechips stays declared-input only, which is still the whole §2 sheet.
 - **Pilots**: `pivot-shaft` (lathe, simple), `rocker-arm` (mill, medium),
   `pivot-bracket` (mill, 3 setups, hard); the rev-1 `pivot-bushing` is retired.
 
