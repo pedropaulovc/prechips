@@ -13,8 +13,30 @@ Vector: TypeAlias = list[Number] | Unknown
 Citations: TypeAlias = str | list[str]
 TOLERANCE_REQUIREMENTS = frozenset(
     "dia position_dia finish_ra depth length width height radius thickness coaxiality_dia "
-    "height_above_pivot arc_len bottom_radius bottom_arc_len tip_land land_angle_deg station".split()
+    "height_above_pivot arc_len bottom_radius bottom_arc_len tip_land land_angle_deg station "
+    "groove_width groove_depth separation".split()
 )
+
+
+def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
+    """Preserve unknown identities and every authored numeric requirement band."""
+    requirements = feature.get("requirements", [])
+    if requirements == UNKNOWN:
+        return [UNKNOWN]
+    result = []
+    for requirement in requirements:
+        value = feature.get(requirement)
+        band = (
+            isinstance(value, list)
+            and len(value) == 2
+            and all(
+                item == UNKNOWN or isinstance(item, (int, float)) and not isinstance(item, bool)
+                for item in value
+            )
+        )
+        if requirement == UNKNOWN or requirement in TOLERANCE_REQUIREMENTS or band:
+            result.append(requirement)
+    return sorted(result)
 
 
 class InputModel(BaseModel):
@@ -324,7 +346,7 @@ InventoryItem = record(
     {
         **texts(
             "kind make control operation_mode note coating material coverage by standards "
-            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in standard series chart units"
+            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in standard series chart units taper"
         ),
         "sku": str | int,
         **flags("verify present center_cutting swivel_base scroll independent"),

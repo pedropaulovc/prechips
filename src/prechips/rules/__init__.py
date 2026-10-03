@@ -47,7 +47,7 @@ RULES: list[Rule] = [
 
 def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
     """A shop cannot accidentally obtain checked readiness by naming a missing rule."""
-    from prechips.model import TOLERANCE_REQUIREMENTS
+    from prechips.model import tolerance_requirements
 
     rows = []
     required = bundle.policy.get("required", {})
@@ -63,7 +63,7 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
             subjects = [
                 feature for feature, item in bundle.features["features"].items()
                 if (item.get("kind") in {"hole", "counterbore", "thread"} if selector == "holes"
-                    else bool(set(item.get("requirements", [])) & TOLERANCE_REQUIREMENTS))
+                    else bool(tolerance_requirements(item)))
             ]
         elif selector == "*":
             subjects = [] if actual else ["*"]

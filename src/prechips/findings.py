@@ -63,9 +63,9 @@ def is_required(finding: Finding, policy: dict, bundle: Bundle | None = None) ->
         entry = bundle.features["features"].get(feature, {})
         if selector == "holes":
             return entry.get("kind") in {"hole", "counterbore", "thread"}
-        from prechips.model import TOLERANCE_REQUIREMENTS
+        from prechips.model import tolerance_requirements
 
-        return bool(set(entry.get("requirements", [])) & TOLERANCE_REQUIREMENTS)
+        return bool(tolerance_requirements(entry))
     return finding.subject == selector or feature == selector
 
 
