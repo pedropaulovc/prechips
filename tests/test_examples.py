@@ -103,7 +103,8 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
     ):
         assert row["construction"] == construction
         assert row["stock_volume_mm3"] == pytest.approx(stock)
-        assert row["net_volume_mm3"] == 112300.8902
-        assert row["waste_ratio"] == pytest.approx(1 - 112300.8902 / stock)
+        # The CAD export has face bindings but no sourced analytic volume.
+        assert row["net_volume_mm3"] == "unknown"
+        assert row["waste_ratio"] == "unknown"
         finding = next(f for f in row["rule_findings"] if f["rule"] == "construction")
         assert finding["status"] == gate

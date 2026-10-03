@@ -46,7 +46,7 @@ z = "toward_exposed_end"
 [[setups]]
 id = "S0"
 machine = "PM-30MV"
-frame = "T1"
+frame = "setup" # exported binding unknown; authored T1 coordinates below are unchanged
 stock_in = "authored_block_blank"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.25
@@ -104,7 +104,7 @@ finish_ra = "unknown"
 [[setups]]
 id = "S1"
 machine = "PM-1127VF-LB"
-frame = "C4"
+frame = "setup" # exported binding unknown; authored C4 coordinates below are unchanged
 stock_in = "authored_separate_boss_blank"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.25
@@ -135,7 +135,7 @@ tool = "turning-tools-warner-lms-4132/AR"
 gauge = "micrometers/0-1in"
 check_jog_mm = 10.0
 [setups.zero.z]
-face = "crank_north_face"
+face = "crank_boss_faces"
 edge_mm = 0.0
 from = "+z"
 method = "face_then_set"
@@ -147,7 +147,7 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "face"
-feature = "crank_boss"
+feature = "crank_boss_faces"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0
@@ -180,27 +180,41 @@ feed_mm_rev = 0.03
 note = "AUTHOR'S CHOICE: turn loose boss; final joint/attachment and back-face release tooling are unknown, not permission to press it."
 [setups.ops.checks]
 dia = "micrometers/0-1in"
+
+[[setups.ops]]
+op = 35
+do = "inspect"
+feature = "crank_boss_faces"
+note = "Existing pre-parting length/station checks from op 30, keyed to the exported face owner."
+[setups.ops.checks]
 length = "calipers"
 station = "unknown"
 
 [[setups.ops]]
 op = 40
 do = "part_off"
-feature = "crank_boss"
+feature = "crank_boss_faces"
 tool = "unknown"
 holder = "unknown"
 to_z = -72.0344 # source boss length, spec:55-56
 direction = "radially_inward"
 note = "AUTHOR'S CHOICE: release the finished boss from its sacrificial grip; actual parting tool, kerf and back-face finish allowance remain unknown."
 [setups.ops.checks]
-dia = "micrometers/0-1in"
 length = "calipers"
 station = "unknown"
+
+[[setups.ops]]
+op = 45
+do = "inspect"
+feature = "crank_boss"
+note = "Existing post-parting diameter check, retained on the exported cylindrical owner."
+[setups.ops.checks]
+dia = "micrometers/0-1in"
 
 [[setups]]
 id = "S2"
 machine = "PM-30MV"
-frame = "M2"
+frame = "setup" # exported binding unknown; authored M2 coordinates below are unchanged
 stock_in = "authored_block_blank"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.25
@@ -243,7 +257,7 @@ method = "indicate_axis"
 tool = "dial-indicator"
 check_jog_mm = 10.0
 [setups.zero.z]
-face = "finished_foot"
+face = "foot_seat"
 edge_mm = 0.0
 from = "+z"
 method = "touch_then_set"
@@ -289,14 +303,13 @@ height = "calipers"
 [[setups.ops]]
 op = 50
 do = "profile"
-feature = "journal_boss"
+feature = "cone_boss"
 tool = "unknown"
 holder = "unknown"
 stock_to_leave_mm = 0.0
  direction = "along_inclined_journal_axis"
 [setups.ops.checks]
 dia = "calipers"
-length = "calipers"
 [[setups.ops]]
 op = 60
 do = "spot"
@@ -317,7 +330,7 @@ station = "calipers"
 [[setups.ops]]
 op = 80
 do = "counterbore"
-feature = "cbore_west"
+feature = "mount_west_counterbore"
 tool = "unknown"
 holder = "unknown"
 depth_mm = 6.0198 # spec:81 nominal; acceptance band in manifest
@@ -344,7 +357,7 @@ station = "calipers"
 [[setups.ops]]
 op = 110
 do = "counterbore"
-feature = "cbore_east"
+feature = "mount_east_counterbore"
 tool = "unknown"
 holder = "unknown"
 depth_mm = 6.0198
@@ -355,7 +368,7 @@ depth = "calipers"
 [[setups]]
 id = "S3"
 machine = "PM-30MV"
-frame = "J3"
+frame = "setup" # exported binding unknown; authored J3 coordinates below are unchanged
 stock_in = "S2_body_block"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1 # cone rim limit: cone_gear_shaft_spec.py:79-97,111-113; draw:264
@@ -378,7 +391,7 @@ stop = "AUTHOR'S CHOICE: indicate foot B before changing bore-axis yaw"
 clamp = "AUTHOR'S CHOICE: verify asymmetrical post restraint and mill spindle clearance; adapter unknown"
 [setups.hold.index]
 fixture = "BS-0"
-feature = "journal_bore"
+feature = "crank_bore" # exported owner of the BASIC inter-bore angle
 angle_deg = 12.5182 # spec:62,327,387 BASIC plan angle; not bore tilt
 positions = 1 # AUTHOR'S CHOICE: one angular setting, NO closure claim
 [setups.zero.transfer]
@@ -401,7 +414,7 @@ method = "indicate_axis"
 tool = "dial-indicator"
 check_jog_mm = 10.0
 [setups.zero.z]
-face = "cone_north_face"
+face = "cone_boss_north_face"
 edge_mm = 21.0055
 from = "+z"
 method = "touch_then_set"
@@ -412,13 +425,14 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "face"
-feature = "cone_north_face"
+feature = "cone_boss_north_face"
 tool = "unknown"
 holder = "unknown"
 to_z = 21.0055
  direction = "positive_setup_x"
 [setups.ops.checks]
 finish_ra = "unknown"
+length = "calipers" # existing cone-boss length check, on its exported owner after final facing
 [[setups.ops]]
 op = 20
 do = "spot"
@@ -450,7 +464,7 @@ finish_ra = "unknown"
 [[setups]]
 id = "S4"
 machine = "PM-30MV"
-frame = "C4"
+frame = "setup" # exported binding unknown; authored C4 coordinates below are unchanged
 stock_in = "S3_body_and_S1_separate_boss"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.25
@@ -491,7 +505,7 @@ method = "indicate_axis"
 tool = "dial-indicator"
 check_jog_mm = 10.0
 [setups.zero.z]
-face = "crank_north_face"
+face = "crank_boss_faces"
 edge_mm = 0.0
 from = "+z"
 method = "touch_then_set"
@@ -509,6 +523,12 @@ direction = "along_crank_axis" # AUTHOR'S CHOICE; press/joint hardware is not su
 note = "AUTHOR'S CHOICE: proposed pressed boss, not drawing-authorized. Interface diameter, interference, engagement, joint strength, press and arbor are unknown. STOP; no press fit or purchased hardware is fabricated."
 [setups.ops.checks]
 dia = "calipers"
+[[setups.ops]]
+op = 6
+do = "inspect"
+feature = "crank_boss_faces"
+note = "Existing post-fit-up length/station checks, keyed to the exported face owner."
+[setups.ops.checks]
 length = "calipers"
 station = "unknown"
 [[setups.ops]]

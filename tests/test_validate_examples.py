@@ -10,10 +10,64 @@ from types import SimpleNamespace
 import pytest
 from test_cli import copy_examples
 
+from prechips.inputs import load_bundle
+from prechips.rules.inspection import evaluate as inspection_findings
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
+
+
+@pytest.mark.parametrize(
+    ("part", "plan_filename", "expected"),
+    [
+        (
+            "pivot-shaft",
+            "plan.toml",
+            {
+                "shoulder_north_face:length": "calipers",
+                "shoulder_thrust:length": "calipers",
+            },
+        ),
+        (
+            "rocker-arm",
+            "plan.toml",
+            {
+                "strap_datum_b:thickness": "micrometers/0-1in",
+                "tip_land_pos_x:tip_land": "calipers",
+                "tip_land_neg_x:tip_land": "calipers",
+                "tip_land_pos_x:land_angle_deg": "unknown",
+                "tip_land_neg_x:land_angle_deg": "unknown",
+            },
+        ),
+        (
+            "cone-pivot-post",
+            "plan.toml",
+            {
+                "crank_boss_faces:length": "calipers",
+                "crank_boss_faces:station": "calipers",
+                "cone_boss_north_face:length": "calipers",
+            },
+        ),
+        (
+            "cone-pivot-post",
+            "built-up.toml",
+            {
+                "crank_boss_faces:length": "calipers",
+                "crank_boss_faces:station": "unknown",
+                "cone_boss_north_face:length": "calipers",
+            },
+        ),
+    ],
+)
+def test_exported_split_features_retain_authored_inspection(part, plan_filename, expected):
+    bundle = load_bundle(ROOT / "examples" / part / plan_filename)
+    findings = {finding.subject: finding for finding in inspection_findings(bundle)}
+    for subject, gauge in expected.items():
+        finding = findings[subject]
+        # Missing ownership is an error, not ordinary unverified shop capability.
+        assert finding.status == "unknown", finding.sentence
+        assert finding.numbers["gauge"] == gauge
 
 
 @pytest.mark.parametrize(
@@ -132,7 +186,7 @@ def test_comparison_rejects_bad_arithmetic_and_hidden_built_up_intent(tmp_path, 
     path = folder / "expected" / "compare.json"
     rows = json.loads(path.read_bytes())
     if corruption == "waste":
-        rows[0]["waste_ratio"] += 0.1
+        rows[0]["waste_ratio"] = 0.1
     else:
         built_up = next(row for row in rows if row["plan"] == "built-up.toml")
         built_up["construction"] = "one_piece"
@@ -148,7 +202,7 @@ def test_blind_counterbore_uses_authored_depth_without_through_allowance(corrupt
     entries = VALIDATOR["entries_for"](inventory)
     VALIDATOR["check_endpoints"](plan, features, findings, entries)
     corrupted = copy.deepcopy(findings)
-    row = corrupted["blind_depth", "cbore_west"]["numbers"]["endpoints"][0]
+    row = corrupted["blind_depth", "mount_west_counterbore"]["numbers"]["endpoints"][0]
     if corruption == "tip":
         row["tip_z"] -= 0.5
     elif corruption == "depth":

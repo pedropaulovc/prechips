@@ -378,7 +378,7 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
             z = op.get(field)
             if not number(z):
                 continue
-            unbound = frame.get("binding") == UNKNOWN
+            unbound = not frame or frame.get("binding") == UNKNOWN
             model = model_point([0.0, 0.0, UNKNOWN if unbound else z], frame)
             local = frame_point(model, frame)
             row = {

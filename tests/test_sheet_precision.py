@@ -86,6 +86,19 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
 
 def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     _, report, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    coordinates = next(row for row in findings(report, "coordinates") if row["subject"] == "S3")
+    endpoint = next(
+        row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 10 to_z"
+    )
+    assert coordinates["status"] == "unknown"
+    assert endpoint["setup"] == ["unknown", "unknown", 1.75]
+    assert endpoint["model"] == ["unknown"] * 3
+    assert endpoint["local_from"] == {"op": 10, "field": "to_z", "axis": "z"}
+    coordinate_rows = re.findall(r"<tr>.*?</tr>", "".join(sections(html, "COORDINATES")), re.DOTALL)
+    endpoint_row = next(
+        row for row in coordinate_rows if "op 10 to z" in row and "south dome" in row
+    )
+    assert "<td>1.75</td>" in endpoint_row
     dome = next(
         contour
         for row in findings(report, "coordinates")
@@ -93,9 +106,6 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
         if contour.get("feature") == "south_dome"
     )
     assert "1.75 → 0.25" in text(html)
-    frame = next(table for table in sections(html, "COORDINATES — frame T3") if "<table" in table)
-    assert re.search(r"<td>plain end</td><td>[^<]*</td><td>1\.75</td>", frame)
-    assert "→ 1.75" in text(html)
     page = next(page for page in sections(html, "CONTOUR CONTINUATION") if "south dome" in page)
     table = page[page.index("Z station", page.index("south dome")) :]
     stations = re.findall(r"<tr><td>[^<]*</td><td>([^<]*)</td></tr>", table)

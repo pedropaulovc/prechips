@@ -33,14 +33,20 @@ kernel. Missing approach/extent is plan-input debt and missing measurements
 retain concrete `measure:` instructions keyed by the exact fact consumed; an
 unresolved holder asks to be added or resolved, not measured.
 
-The shipped hand-authored reference bundles are under `examples/`, with shared
-inventory, policy and cutting data. Read [examples/README.md](examples/README.md)
-for current source file/line provenance and drawing coverage. Consumer source
-citations point to the read-only harmonic-analyzer tree; they do not cause the
-checker to read that tree or fetch a URL. Runtime must generate reports/sheets
-from inputs, never load `expected/` as an answer. Reconcile expected fixtures
-only from justified actual rule output and source evidence, never by weakening
-stops or certifying unknowns. Keep fixture LF endings and canonical report hash.
+The shipped reference bundles are under `examples/`, with authored plans and
+shared inventory, policy and cutting data. `rocker-arm`, `pivot-shaft` and
+`cone-pivot-post` consume verbatim consumer-generated `features.toml` and their
+exact adjacent STEP files; never hand-edit those exports or add local provenance
+keys. Record delivery provenance only in [examples/README.md](examples/README.md).
+`pivot-bracket` remains hand-authored: no registered consumer drawing or STEP
+is supplied. Python citations use `file:line` (or line ranges); YAML citations
+use `file:dotted.key.path`, not unstable line numbers. Consumer citations point
+to the read-only harmonic-analyzer tree; they do not cause the checker to read
+that tree or fetch a URL. Runtime must generate reports/sheets from inputs,
+never load `expected/` as an answer. Reconcile expected fixtures only from
+justified actual rule output and source evidence, never by weakening stops,
+rewriting exported facts or certifying unknowns. Keep fixture LF endings,
+raw STEP bytes and canonical report hashes.
 
 Checks must perform **no network activity except explicitly configured OTel
 export**. Inventory chart/source URLs are citations, not downloads. The only
@@ -85,11 +91,14 @@ kernel-free suite with geometry skips. `PRECHIPS_REQUIRE_KERNEL=1` turns a
 missing kernel into an error; CI sets it and installs the pinned, cached official
 FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
 
-The validator validates authored fixture contracts and expected report integrity;
-it does not certify machining. Its successful exit is 0, while actual example
-checker/traveler exits are shaft 4, rocker 2, bracket 2, cone one-piece 4 and
-cone built-up 2. Use the CLI examples in
-[README.md](README.md) and isolated output directories to exercise behavior.
+The validator validates bundle contracts and expected report integrity; it does
+not certify machining. Its successful exit is 0 even when checker/traveler
+outputs correctly stop with 2 or 4. Corrected M3 CLI runs retain pilot exits
+4 / 2 / 2 / 4 / 2. Migrate existing inspection choices to the exact exported
+feature owners rather than dropping checks, inventing methods or changing
+gauges to force an exit. Consult PLAN §8 M3 for the combined gate.
+Use the CLI examples in [README.md](README.md) and isolated output directories
+to exercise behavior.
 The cone's one-piece and built-up candidates also remain PLANNED; comparison
 must refuse built-up construction unless the drawing manifest explicitly permits
 it. Indexing uses one angular setting for the inclined journal, never a fictional

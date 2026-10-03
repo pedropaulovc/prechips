@@ -55,7 +55,7 @@ z = "toward_exposed_end"     # author's choice: +T1/+T2 north, +T3 south; redo s
 [[setups]]
 id = "S1"
 machine = "PM-1127VF-LB"
-frame = "T1"
+frame = "setup" # exported binding unknown; authored T1 coordinates below are unchanged
 coolant = "CRC cutting oil brushed on"  # author's choice; listed consumable, not a cutting-data claim
 deburr_mm = 0.25             # title block: break edges R0.25 OR CHAMFER 0.25 MAX (title_block.yaml:45)
 stock_in = "prepared_blank"
@@ -92,7 +92,7 @@ gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog, +20 on diametric display
 
 [setups.zero.z]
-face = "shoulder_north"
+face = "shoulder_north_face"
 edge_mm = 0.0
 from = "+z"
 method = "face_then_set"                # EL400 §9.2.1 p62: face, withdraw without Z motion
@@ -106,7 +106,7 @@ retouch_after = []
 tool = "turning-tools-warner-lms-4132/E"
 x_method = "touch the cylinder just measured by micrometer; Axis Set its measured diameter"  # author's choice
 gauge = "micrometers/0-1in"
-z_face = "shoulder_north"
+z_face = "shoulder_north_face"
 edge_mm = 0.0
 paper_mm = 0.0              # author's choice: direct contact, no paper
 method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
@@ -115,7 +115,7 @@ before_ops = [80, 90]
 [[setups.ops]]
 op = 10
 do = "face"
-feature = "shoulder"
+feature = "shoulder_north_face"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0                    # creates the shoulder north face = T1 origin
@@ -125,7 +125,7 @@ note = "Cut the shoulder north step 22.5 mm from the prepared blank north end, t
 [[setups.ops]]
 op = 20
 do = "rough_turn"
-feature = "north_journal"
+feature = "pivot_journal"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
@@ -136,7 +136,7 @@ direction = "toward_shoulder"  # author's choice: traverse Z7.5 to Z0; listed en
 [[setups.ops]]
 op = 30
 do = "finish_turn"
-feature = "north_journal"
+feature = "pivot_journal"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
@@ -150,7 +150,7 @@ finish_ra = "unknown"         # no roughness comparator in the inventory
 [[setups.ops]]
 op = 40
 do = "rough_turn"
-feature = "body"
+feature = "pivot_bearing"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = -1.5
@@ -161,7 +161,7 @@ direction = "toward_chuck"  # author's choice: feed toward south supply station,
 [[setups.ops]]
 op = 50
 do = "finish_turn"
-feature = "body"
+feature = "pivot_bearing"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = -1.5
@@ -187,7 +187,7 @@ finish_ra = "unknown"
 [[setups.ops]]
 op = 70
 do = "finish_turn"
-feature = "shoulder"
+feature = "shoulder_od"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = -1.5
@@ -197,6 +197,21 @@ note = "Leave the Ø10 bar as supplied if it measures inside the band; otherwise
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
+
+[[setups.ops]]
+op = 71
+do = "inspect"
+feature = "shoulder_north_face"
+note = "Existing ShoulderLength check from op 70; the export assigns the shared length to both shoulder faces."
+[setups.ops.checks]
+length = "calipers"
+
+[[setups.ops]]
+op = 72
+do = "inspect"
+feature = "shoulder_thrust"
+note = "Same ShoulderLength caliper check, keyed to the exported south-face owner."
+[setups.ops.checks]
 length = "calipers"
 
 [[setups.ops]]
@@ -233,7 +248,7 @@ width = "calipers"
 [[setups]]
 id = "S2"
 machine = "PM-1127VF-LB"
-frame = "T2"
+frame = "setup" # exported binding unknown; authored T2 coordinates below are unchanged
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S1"
@@ -262,7 +277,7 @@ stickout_mm = 27.0          # author's choice: stub Z15 - jaw front Z(-12)
 
 [setups.zero.transfer]
 from = "S1"
-indicate = "body"
+indicate = "pivot_bearing"
 gauge = "dial-indicator"
 runout_limit_mm = "unknown"   # no coaxiality tolerance on the drawing
 
@@ -276,7 +291,7 @@ gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog
 
 [setups.zero.z]
-face = "shoulder_north"
+face = "shoulder_north_face"
 edge_mm = -7.5                # shoulder north face in T2: -(6.0 + 1.5)
 from = "+z"
 method = "touch"              # EL400 §9.2.1 p62: touch, withdraw without Z motion
@@ -289,7 +304,7 @@ retouch_after = []
 tool = "turning-tools-warner-lms-4132/E"
 x_method = "touch the cylinder just measured by micrometer; Axis Set its measured diameter"  # author's choice
 gauge = "micrometers/0-1in"
-z_face = "shoulder_north"
+z_face = "shoulder_north_face"
 edge_mm = -7.5
 paper_mm = 0.0              # author's choice: direct contact
 method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
@@ -326,7 +341,7 @@ height = "With spindle stopped, align outside caliper jaws axially at apex and v
 [[setups.ops]]
 op = 30
 do = "inspect"               # manual: no tool, holder or cut
-feature = "north_journal"
+feature = "pivot_journal"
 note = "JournalLength runs from the dome base edge (formed in op 20) to the shoulder north face."
 
 [setups.ops.checks]
@@ -343,7 +358,7 @@ length = "With spindle stopped, align outside caliper jaws axially at the dome b
 [[setups]]
 id = "S3"
 machine = "PM-1127VF-LB"
-frame = "T3"
+frame = "setup" # exported binding unknown; authored T3 coordinates below are unchanged
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S2"
@@ -372,7 +387,7 @@ stickout_mm = "unknown"     # depends on actual scribe-to-supply-end length, not
 
 [setups.zero.transfer]
 from = "S2"
-indicate = "body"
+indicate = "pivot_bearing"
 gauge = "dial-indicator"
 runout_limit_mm = "unknown"
 
@@ -409,7 +424,7 @@ before_ops = [20]
 [[setups.ops]]
 op = 10
 do = "cut_to_fit"
-feature = "plain_end"
+feature = "south_dome" # exported final surface at the cut-to-fit plain end
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 1.75                # author's choice: midpoint of sourced 1.5–2.0 past-scribe band; not absolute fitted length

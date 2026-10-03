@@ -352,6 +352,21 @@ def test_feature_selector_owns_tolerance_and_absence_falls_back_to_general(tmp_p
 
 
 @pytest.mark.parametrize(
+    "tolerance,status",
+    [(_ABSENT, "unknown"), ("unknown", "unknown"), (0.01, "pass"), (0.009999, "error")],
+)
+def test_basic_dimension_requires_its_own_indexing_tolerance(tmp_path, tolerance, status):
+    subject = bundle(tmp_path, angle=51.43, tolerance=tolerance, general=1.0)
+    subject.features["features"]["indexed"]["dimension_type"] = "basic"
+    finding = result(subject)
+    assert finding.status == status
+    assert finding.numbers["actual_angle_deg"] == pytest.approx(360 / 7)
+    assert finding.numbers["max_position_error_deg"] == 0.01
+    assert finding.numbers["tolerance_source"] == "features.features.indexed.angle_tol_deg"
+    assert finding.numbers["tolerance_deg"] == ("unknown" if tolerance is _ABSENT else tolerance)
+
+
+@pytest.mark.parametrize(
     "angle,positions,tolerance",
     [("unknown", 7, 0.02), (51.43, "unknown", 0.02), (51.43, 7, "unknown")],
 )
