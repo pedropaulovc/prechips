@@ -44,9 +44,14 @@ class Finding:
 
 
 def is_required(finding: Finding, policy: dict, bundle: Bundle | None = None) -> bool:
-    selector = policy.get("required", {}).get(finding.rule)
+    required = policy.get("required", {})
+    if required == "unknown":
+        return True
+    selector = required.get(finding.rule)
     if selector is None:
         return False
+    if finding.subject == "*" and finding.numbers.get("required") == selector:
+        return True
     if selector == "*":
         return True
     if isinstance(selector, list):
@@ -58,7 +63,9 @@ def is_required(finding: Finding, policy: dict, bundle: Bundle | None = None) ->
         entry = bundle.features["features"].get(feature, {})
         if selector == "holes":
             return entry.get("kind") in {"hole", "counterbore", "thread"}
-        return bool(entry.get("requirements", []))
+        from prechips.model import TOLERANCE_REQUIREMENTS
+
+        return bool(set(entry.get("requirements", [])) & TOLERANCE_REQUIREMENTS)
     return finding.subject == selector or feature == selector
 
 
@@ -66,6 +73,8 @@ def exit_code(findings: list[Finding], policy: dict, bundle: Bundle | None = Non
     """Bad inputs are raised before this gate; errors precede unresolved required rows."""
     if any(f.status == Status.ERROR for f in findings):
         return 2
+    if policy.get("required") == "unknown":
+        return 4
     unresolved = {Status.WARN, Status.UNKNOWN, Status.UNSUPPORTED}
     if any(f.status in unresolved and is_required(f, policy, bundle) for f in findings):
         return 4

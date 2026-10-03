@@ -98,7 +98,7 @@ def load_bundle(
     if not features["features"]:
         raise BadInput("The feature manifest has no features.")
     setups = plan["setups"]
-    if not setups:
+    if not isinstance(setups, list) or not setups:
         raise BadInput("The plan has no setups.")
     ids = [setup.get("id", "unknown") for setup in setups]
     if "unknown" in ids or len(set(ids)) != len(ids):
@@ -114,7 +114,7 @@ def load_bundle(
             if op.get("feature") not in features["features"]:
                 raise BadInput(f"{setup['id']}:{op['op']}: feature is not in the manifest.")
         frame = setup.get("frame", "unknown")
-        if frame != "unknown" and frame not in features["frames"]:
+        if isinstance(features["frames"], dict) and frame != "unknown" and frame not in features["frames"]:
             raise BadInput(f"{setup['id']}: frame {frame!r} is not in the manifest.")
     declarations = plan.get("paths", {})
     if not isinstance(declarations, dict):
@@ -128,7 +128,8 @@ def load_bundle(
         ("cutting_data", cutting_data, "cutting_data", None, CuttingData),
     )
     for kind, override, field, variable, model in choices:
-        value = override or declarations.get(field) or (os.environ.get(variable) if variable else None)
+        declared = declarations.get(field)
+        value = override or declared or (os.environ.get(variable) if variable else None)
         if not value or value == "unknown":
             if kind == "shop_policy":
                 # Shop absence uses the shipped required vocabulary, never plan-owned overrides.
@@ -140,13 +141,16 @@ def load_bundle(
                 }
                 continue
             raise BadInput(f"No {kind.replace('_', ' ')} path was supplied.")
-        path = _resolve(value, Path.cwd() if override or (variable and value == os.environ.get(variable)) else plan_path.parent)
+        from_plan = not override and bool(declared)
+        path = _resolve(value, plan_path.parent if from_plan else Path.cwd())
+        if from_plan and not path.is_relative_to(root):
+            raise BadInput(f"The declared {kind.replace('_', ' ')} path escapes the bundle directory.")
         resolved[kind], hashes[kind] = _load(path, model, kind)
         paths[kind] = path
     # Every referenced asset is read, hashed and contained. Citations are never assets.
     for document in (plan, features):
         for field in ("step",):
-            value = document.get(field)
+            value = document.get(field) or (declarations.get(field) if document is plan else None)
             if value and value != "unknown":
                 base = plan_path.parent if document is plan else features_path.parent
                 path = _resolve(value, base)

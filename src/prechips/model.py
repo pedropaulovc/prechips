@@ -12,6 +12,10 @@ Number: TypeAlias = float | Unknown
 Text: TypeAlias = str
 Vector: TypeAlias = list[Number] | Unknown
 Citations: TypeAlias = str | list[str]
+TOLERANCE_REQUIREMENTS = frozenset(
+    "dia position_dia finish_ra depth length width height radius thickness coaxiality_dia "
+    "height_above_pivot arc_len bottom_radius bottom_arc_len tip_land land_angle_deg station".split()
+)
 
 
 class InputModel(BaseModel):
@@ -115,8 +119,14 @@ Zero = record(
     "Zero",
     {"x": AxisZero, "y": AxisZero, "z": AxisZero, "transfer": Transfer, "tool_touches": list[ToolTouch]},
 )
+Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
 Contour = record(
-    "Contour", {**texts("method"), **numbers("step_deg step_mm"), "start_deg": Number, "end_deg": Number}
+    "Contour",
+    {
+        **texts("method sweep_frame open_side"),
+        **numbers("step_deg step_mm start_deg end_deg"),
+        "sweep_bounds": Bounds,
+    },
 )
 Operation = record(
     "Operation",
@@ -152,6 +162,7 @@ Setup = record(
 class Plan(InputModel):
     part: str
     features: str
+    step: str | Unknown = UNKNOWN
     quantity: int | Unknown = UNKNOWN
     quantity_cite: Citations = UNKNOWN
     drawing: Drawing | Unknown = UNKNOWN
@@ -180,7 +191,6 @@ GeneralTolerances = record(
     },
 )
 Plane = record("Plane", {**texts("frame axis"), "value": Number})
-Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
 Notes = record(
     "Notes", {"manufacturing": list[str], **texts("process edge_break"), "cite": Citations}
 )
@@ -189,7 +199,7 @@ Feature = record(
     {
         **texts(
             "kind frame drill process datum coaxial_to height_from note binding dimension_type "
-            "thread construction representation hole_spec arc"
+            "thread construction representation hole_spec arc parent hole top_edge_feature"
         ),
         "requirements": list[str],
         "faces": list[str],
@@ -221,7 +231,7 @@ Feature = record(
                 "radius_nominal station_nominal through_thickness z_south_reference "
                 "corner_radius_max_design apex_z base_z base_radius sphere_radius "
                 "apex_z_reference base_z_reference length_reference cut_past_scribe "
-                "end_past_scribe supply_length"
+                "end_past_scribe supply_length tap_drill_mm bottom_radius_nominal"
             ).split()
         },
     },
@@ -241,8 +251,8 @@ class Features(InputModel):
     drawing: Drawing | Unknown = UNKNOWN
     material: MaterialSpec | Unknown = UNKNOWN
     general_tolerances: GeneralTolerances | Unknown = UNKNOWN
-    frames: dict[str, Frame]
-    datums: dict[str, Datum] | Unknown = UNKNOWN
+    frames: dict[str, Frame | Unknown] | Unknown
+    datums: dict[str, Datum | Unknown] | Unknown = UNKNOWN
     features: dict[str, Feature]
 
     @model_validator(mode="after")
@@ -303,9 +313,9 @@ InventoryItem = record(
             "grip_mm max_shank_in lead_mm projection_mm sfm chip_load_mm_per_tooth "
             "dia_mm dia_in shank_mm flute_len_mm flute_len_in oal_mm oal_in gauge_len_mm "
             "gauge_len_in projection_in spindle_to_table_max_mm jaw_height_mm height_mm "
-            "height_in length_mm width_mm width_in capacity_mm bed_height_in"
+            "height_in length_mm width_mm width_in capacity_mm bed_height_in nose_radius_mm reach_mm"
         ),
-        "dia": float | str,
+        "dia": Number,
         "shank_in": float | str | dict[str, list[str]],
         "flutes": int | list[int],
         "source": str | Source,
@@ -340,16 +350,18 @@ InventoryItem = record(
         "tilt_deg": Tilt,
         "plate_holes": dict[str, Vector],
         "bars": Bars,
+        "members": dict[str, "InventoryItem | Unknown"],
     },
 )
+InventoryItem.model_rebuild()
 
 
 class Inventory(InputModel):
-    machines: dict[str, InventoryItem] | Unknown = UNKNOWN
-    tools: dict[str, InventoryItem] | Unknown = UNKNOWN
-    holders: dict[str, InventoryItem] | Unknown = UNKNOWN
-    fixtures: dict[str, InventoryItem] | Unknown = UNKNOWN
-    gauges: dict[str, InventoryItem] | Unknown = UNKNOWN
+    machines: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
+    tools: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
+    holders: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
+    fixtures: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
+    gauges: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     consumables: dict[str, list[str] | Unknown] | Unknown = UNKNOWN
     stock: list[Stock] | Unknown = UNKNOWN
 
