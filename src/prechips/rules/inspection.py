@@ -6,7 +6,16 @@ from .resolution import TOLERANCES, length_mm, number, operations, record, resol
 def evaluate(bundle):
     result = []
     for name, feature in bundle.features["features"].items():
-        requirements = sorted(set(feature.get("requirements", [])) & TOLERANCES)
+        requirements = sorted(
+            requirement
+            for requirement in feature.get("requirements", [])
+            if requirement in TOLERANCES
+            or (
+                isinstance(feature.get(requirement), list)
+                and len(feature[requirement]) == 2
+                and all(number(value) for value in feature[requirement])
+            )
+        )
         cite = ["PLAN.md §4.1 inspection", "features requirement manifest", "inventory gauge range/resolution/verification"]
         if feature["kind"] == "unknown" or any(o["do"] == "unknown" for _, o in operations(bundle, name)):
             for requirement in requirements or [None]:
