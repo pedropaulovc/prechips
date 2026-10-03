@@ -16,6 +16,7 @@ from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
 from prechips.report import build_report, canonical_bytes, report_hash
+from prechips.rules.resolution import _citations
 
 
 class Parser(argparse.ArgumentParser):
@@ -368,6 +369,191 @@ def _explain(args, tracing: telemetry.Telemetry) -> int:
     return 0
 
 
+def _validate_stock_dimensions(piece: dict, subject: str) -> None:
+    from prechips.rules.resolution import number
+
+    dimensions = [
+        ("dia_mm", piece.get("dia_mm", "unknown")),
+        ("length_mm", piece.get("length_mm", "unknown")),
+    ]
+    section = piece.get("section_mm", "unknown")
+    if isinstance(section, list):
+        if len(section) != 2:
+            raise BadInput(f"{subject}.section_mm must contain two rectangular dimensions.")
+        dimensions.extend((f"section_mm[{index}]", value) for index, value in enumerate(section))
+    for field, value in dimensions:
+        if number(value) and (not math.isfinite(value) or value <= 0):
+            raise BadInput(f"{subject}.{field} must be finite and positive.")
+
+
+def _stock_piece_volume(piece: dict, subject: str) -> dict:
+    """Count only an explicitly shaped, authored solid blank, never a part estimate."""
+    from prechips.rules.resolution import number
+
+    _validate_stock_dimensions(piece, subject)
+
+    form = piece.get("form", "unknown")
+    length = piece.get("length_mm", "unknown")
+    diameter = piece.get("dia_mm", "unknown")
+    section = piece.get("section_mm", "unknown")
+    round_form = form in {"round", "round_bar"}
+    rectangular_form = form in {
+        "rectangular",
+        "rectangular_bar",
+        "rectangular_blank",
+        "prepared_blank",
+        "flat_bar",
+        "square_bar",
+    }
+    volume = "unknown"
+    if round_form and all(number(value) for value in (diameter, length)):
+        volume = math.pi * diameter * diameter * length / 4
+    elif (
+        rectangular_form
+        and isinstance(section, list)
+        and all(number(value) for value in [*section, length])
+    ):
+        volume = section[0] * section[1] * length
+    if number(volume) and (not math.isfinite(volume) or volume <= 0):
+        raise BadInput(f"{subject}: stock volume is not finite and positive.")
+    fields = (
+        "dia_mm, length_mm"
+        if round_form
+        else "section_mm, length_mm"
+        if rectangular_form
+        else "form, length_mm (shape unresolved)"
+    )
+    return {
+        "form": form,
+        "dia_mm": diameter if round_form else "not_applicable",
+        "section_mm": section if rectangular_form else "not_applicable",
+        "length_mm": length,
+        "volume_mm3": volume,
+        "cite": [f"{subject}: authored {fields}"] + _citations(piece.get("cite")),
+    }
+
+
+def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
+    from prechips.rules.resolution import number, record, resolve, selected_references
+
+    stock = record(bundle.plan.get("stock"))
+    components = stock.get("components")
+    if "components" in stock:
+        _validate_stock_dimensions(stock, f"{plan_label}:stock")
+    if isinstance(components, list):
+        if not components:
+            raise BadInput(f"{plan_label}: stock.components must contain at least one blank.")
+        pieces = [
+            _stock_piece_volume(piece, f"{plan_label}:stock.components[{index}]")
+            for index, piece in enumerate(components)
+        ]
+    elif components == "unknown":
+        pieces = []
+    else:
+        pieces = [_stock_piece_volume(stock, f"{plan_label}:stock")]
+    stock_volume = "unknown"
+    if pieces and all(number(piece["volume_mm3"]) for piece in pieces):
+        try:
+            stock_volume = math.fsum(piece["volume_mm3"] for piece in pieces)
+        except OverflowError as exc:
+            raise BadInput(f"{plan_label}: combined stock volume is not finite.") from exc
+        if not math.isfinite(stock_volume):
+            raise BadInput(f"{plan_label}: combined stock volume is not finite.")
+    net_input = bundle.features.get("volume_mm3", "unknown")
+    if number(net_input) and (not math.isfinite(net_input) or net_input < 0):
+        raise BadInput(f"{plan_label}: features.volume_mm3 must be finite and nonnegative.")
+    net_cite = _citations(bundle.features.get("volume_cite"))
+    net_volume = net_input if number(net_input) and net_cite else "unknown"
+    waste = "unknown"
+    if number(stock_volume) and number(net_volume):
+        if net_volume > stock_volume:
+            raise BadInput(f"{plan_label}: sourced net volume exceeds authored stock volume.")
+        waste = (stock_volume - net_volume) / stock_volume
+    holds = [record(setup.get("hold")) for setup in bundle.plan["setups"]]
+    fixture_refs = selected_references({"setups": [{"hold": hold} for hold in holds]})
+    for hold in holds:
+        if hold.get("fixture", "unknown") == "unknown":
+            fixture_refs.add("unknown")
+        for key in ("parallels", "support", "supports", "riser"):
+            if hold.get(key) == "unknown":
+                fixture_refs.add("unknown")
+        supports = hold.get("supports")
+        for support in supports if isinstance(supports, list) else []:
+            if support == "unknown" or (
+                isinstance(support, dict) and support.get("ref", "unknown") == "unknown"
+            ):
+                fixture_refs.add("unknown")
+        if "index" in hold and record(hold["index"]).get("fixture", "unknown") == "unknown":
+            fixture_refs.add("unknown")
+        # These fields can also be prose. Count them only when they name a declared fixture.
+        for key in ("clamp", "stop", "locator", "jaw_protection"):
+            reference = hold.get(key)
+            if resolve(bundle, "fixtures", reference):
+                fixture_refs.add(reference)
+    counts = {}
+    for finding in report["findings"]:
+        counts[finding["status"]] = counts.get(finding["status"], 0) + 1
+    cite = [
+        "PLAN.md §4.5 stock-form comparison, lines 573–577",
+        "docs/rules-comparison.md: stock-volume and waste-ratio equations",
+        f"{plan_label}:setups (authored setup count)",
+    ]
+    cite.extend(_citations(stock.get("cite")))
+    cite.extend(source for piece in pieces for source in piece["cite"])
+    cite.extend(net_cite)
+    return {
+        "plan": plan_label,
+        "part": bundle.plan["part"],
+        "construction": bundle.plan.get("construction", "unknown"),
+        "setups": len(bundle.plan["setups"]),
+        "fixtures": sorted(fixture_refs),
+        "stock_volume_mm3": stock_volume,
+        "net_volume_mm3": net_volume,
+        "waste_ratio": waste,
+        "volume_evidence": {
+            "stock_components": pieces,
+            "net_cite": net_cite,
+            "formula": "(stock_volume_mm3 - net_volume_mm3) / stock_volume_mm3",
+        },
+        "cite": cite,
+        "findings": counts,
+        "rule_findings": report["findings"],
+        "exit": report["expected_exit"],
+        "inputs": report["inputs"],
+    }
+
+
+def _print_comparison(rows: list[dict]) -> None:
+    def cell(value):
+        return str(value).replace("\n", " ").replace("|", "\\|")
+
+    print("Plan | Part | Setups | Waste ratio (stock-net)/stock | Fixtures required | Findings")
+    for row in rows:
+        waste = "?" if row["waste_ratio"] == "unknown" else f"{row['waste_ratio']:.6g}"
+        fixtures = ", ".join("?" if ref == "unknown" else ref for ref in row["fixtures"])
+        print(
+            f"{cell(row['plan'])} | {cell(row['part'])} | {row['setups']} | "
+            f"{waste} | {cell(fixtures)} | {row['findings']}"
+        )
+    print()
+    print("Rule:subject | " + " | ".join(cell(row["plan"]) for row in rows))
+    candidates = [
+        {(finding["rule"], finding["subject"]): finding for finding in row["rule_findings"]}
+        for row in rows
+    ]
+    for key in sorted({key for candidate in candidates for key in candidate}):
+        messages = []
+        for candidate in candidates:
+            finding = candidate.get(key)
+            if finding is None:
+                messages.append("—")
+            else:
+                glyph = telemetry._GLYPHS.get(finding["status"])
+                message = f"{glyph} {finding['message']}" if glyph else finding["message"]
+                messages.append(cell(message))
+        print(f"{cell(':'.join(key))} | " + " | ".join(messages))
+
+
 def _run(args, tracing: telemetry.Telemetry) -> int:
     if args.verb == "tools":
         return _tools(args, tracing)
@@ -391,33 +577,25 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     findings = [_evaluate(bundle, tracing) for bundle in bundles]
     reports = [build_report(bundle, rows) for bundle, rows in zip(bundles, findings, strict=True)]
     if args.verb == "compare":
-        rows = []
-        for bundle, report in zip(bundles, reports, strict=True):
-            counts = {}
-            for finding in report["findings"]:
-                counts[finding["status"]] = counts.get(finding["status"], 0) + 1
-            rows.append(
-                {
-                    "part": bundle.plan["part"],
-                    "setups": len(bundle.plan["setups"]),
-                    "fixtures": sorted(
-                        {s.get("hold", {}).get("fixture", "unknown") for s in bundle.plan["setups"]}
-                    ),
-                    "waste_ratio": "unknown",
-                    "findings": counts,
-                    "exit": report["expected_exit"],
-                }
+        try:
+            comparison_root = Path(
+                os.path.commonpath([str(bundle.paths["plan"].parent) for bundle in bundles])
             )
+            labels = [
+                bundle.paths["plan"].relative_to(comparison_root).as_posix() for bundle in bundles
+            ]
+        except ValueError:
+            # Cross-volume Windows inputs have no common relative root.
+            labels = [bundle.paths["plan"].as_posix() for bundle in bundles]
+        rows = [
+            _comparison_row(bundle, report, label)
+            for bundle, report, label in zip(bundles, reports, labels, strict=True)
+        ]
         _write_outputs(out, {destinations[0]: canonical_bytes(rows)}, tracing)
         if getattr(args, "json", False):
             _json_stdout(rows)
         else:
-            print("Part | Setups | Fixtures required | Findings")
-            for row in rows:
-                print(
-                    f"{row['part']} | {row['setups']} | "
-                    f"{', '.join(row['fixtures'])} | {row['findings']}"
-                )
+            _print_comparison(rows)
         codes = {report["expected_exit"] for report in reports}
         return 2 if 2 in codes else 4 if 4 in codes else 0
     report = reports[0]

@@ -1,0 +1,5567 @@
+{
+  "expected_exit": 4,
+  "findings": [
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "cylinder"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "body"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
+      "numbers": {
+        "endpoints": [
+          {
+            "depth_limit_mm": 6.53,
+            "depth_mm": 6.0198,
+            "entry_from": "S2 op 10 to_z",
+            "entry_z": 86.0,
+            "exit_face": "not_applicable",
+            "feature": "cbore_east",
+            "op": 110,
+            "point_mm": 0,
+            "setup": "S2",
+            "tip_z": 79.9802,
+            "total_depth_mm": 6.0198
+          }
+        ],
+        "kind": "counterbore"
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
+      "subject": "cbore_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
+      "numbers": {
+        "endpoints": [
+          {
+            "depth_limit_mm": 6.53,
+            "depth_mm": 6.0198,
+            "entry_from": "S2 op 10 to_z",
+            "entry_z": 86.0,
+            "exit_face": "not_applicable",
+            "feature": "cbore_west",
+            "op": 80,
+            "point_mm": 0,
+            "setup": "S2",
+            "tip_z": 79.9802,
+            "total_depth_mm": 6.0198
+          }
+        ],
+        "kind": "counterbore"
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
+      "subject": "cbore_west"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "plane"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "cone_north_face"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
+      "numbers": {
+        "endpoints": [
+          {
+            "depth_mm": 0.5,
+            "entry_from": "S4 stock_state.top_z",
+            "entry_z": 0.0,
+            "exit_face": "not_applicable",
+            "feature": "crank_bore",
+            "op": 10,
+            "point_mm": "unknown",
+            "setup": "S4",
+            "tip_z": -0.5
+          },
+          {
+            "entry_from": "S4 stock_state.top_z",
+            "entry_z": 0.0,
+            "exit_face": -72.0344,
+            "exit_mm": 0.5,
+            "feature": "crank_bore",
+            "local_thickness": 72.0344,
+            "op": 20,
+            "point_mm": "unknown",
+            "setup": "S4",
+            "tip_z": "unknown"
+          },
+          {
+            "entry_from": "S4 stock_state.top_z",
+            "entry_z": 0.0,
+            "exit_face": -72.0344,
+            "exit_mm": 0.5,
+            "feature": "crank_bore",
+            "local_thickness": 72.0344,
+            "op": 30,
+            "point_mm": 0,
+            "setup": "S4",
+            "tip_z": -72.5344
+          }
+        ],
+        "kind": "hole"
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
+      "subject": "crank_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "cylinder"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "crank_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "plane"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "foot_seat"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "cylinder"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "head"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
+      "numbers": {
+        "endpoints": [
+          {
+            "depth_mm": 0.5,
+            "entry_from": "S3 op 10 to_z",
+            "entry_z": 21.0055,
+            "exit_face": "not_applicable",
+            "feature": "journal_bore",
+            "op": 20,
+            "point_mm": "unknown",
+            "setup": "S3",
+            "tip_z": 20.5055
+          },
+          {
+            "entry_from": "S3 op 10 to_z",
+            "entry_z": 21.0055,
+            "exit_face": -21.0055,
+            "exit_mm": 0.5,
+            "feature": "journal_bore",
+            "local_thickness": 42.011,
+            "op": 30,
+            "point_mm": "unknown",
+            "setup": "S3",
+            "tip_z": "unknown"
+          },
+          {
+            "entry_from": "S3 op 10 to_z",
+            "entry_z": 21.0055,
+            "exit_face": -21.0055,
+            "exit_mm": 0.5,
+            "feature": "journal_bore",
+            "local_thickness": 42.011,
+            "op": 40,
+            "point_mm": 0,
+            "setup": "S3",
+            "tip_z": -21.5055
+          }
+        ],
+        "kind": "hole"
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
+      "subject": "journal_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "cylinder"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "journal_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
+      "numbers": {
+        "endpoints": [
+          {
+            "depth_mm": 0.5,
+            "entry_from": "S2 op 10 to_z",
+            "entry_z": 86.0,
+            "exit_face": "not_applicable",
+            "feature": "mount_east",
+            "op": 90,
+            "point_mm": "unknown",
+            "setup": "S2",
+            "tip_z": 85.5
+          },
+          {
+            "entry_from": "S2 op 10 to_z",
+            "entry_z": 86.0,
+            "exit_face": 0.0,
+            "exit_mm": 0.5,
+            "feature": "mount_east",
+            "local_thickness": 86.0,
+            "op": 100,
+            "point_mm": "unknown",
+            "setup": "S2",
+            "tip_z": "unknown"
+          }
+        ],
+        "kind": "hole"
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
+      "subject": "mount_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
+      "numbers": {
+        "endpoints": [
+          {
+            "depth_mm": 0.5,
+            "entry_from": "S2 op 10 to_z",
+            "entry_z": 86.0,
+            "exit_face": "not_applicable",
+            "feature": "mount_west",
+            "op": 60,
+            "point_mm": "unknown",
+            "setup": "S2",
+            "tip_z": 85.5
+          },
+          {
+            "entry_from": "S2 op 10 to_z",
+            "entry_z": 86.0,
+            "exit_face": 0.0,
+            "exit_mm": 0.5,
+            "feature": "mount_west",
+            "local_thickness": 86.0,
+            "op": 70,
+            "point_mm": "unknown",
+            "setup": "S2",
+            "tip_z": "unknown"
+          }
+        ],
+        "kind": "hole"
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
+      "subject": "mount_west"
+    },
+    {
+      "cite": [
+        "PLAN.md §5 input-bundle binding"
+      ],
+      "message": "The part model is not bound to verified STEP bytes.",
+      "numbers": {
+        "inputs": {
+          "cutting_data": {
+            "path": "examples/cutting-data.toml",
+            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+          },
+          "features": {
+            "path": "examples/cone-pivot-post/features.toml",
+            "sha256": "d642db5b3457b901ccbc9914210c34935ea69d1d47c8a8523e97e121ff89b5c9"
+          },
+          "inventory": {
+            "path": "examples/inventory/pedro-shop.toml",
+            "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+          },
+          "plan": {
+            "path": "examples/cone-pivot-post/plan.toml",
+            "sha256": "0e8970ebc16391f72020a0927429677ffb56c3c154da4e3a7370fca896fdaf76"
+          },
+          "shop_policy": {
+            "path": "examples/shop-policy.toml",
+            "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+          }
+        },
+        "step_sha256": "unknown"
+      },
+      "rule": "bundle_binding",
+      "status": "unknown",
+      "subject": "inputs"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.5 stock-form comparison, lines 573–577",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:3-9,29-81,284-330,349-388",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:185-268,1127-1138",
+        "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:2-7",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-28,45,66"
+      ],
+      "message": "The candidate uses one-piece construction.",
+      "numbers": {
+        "drawing_construction": "one_piece",
+        "plan_construction": "one_piece"
+      },
+      "rule": "construction",
+      "status": "pass",
+      "subject": "cone-pivot-post"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
+      ],
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "numbers": {
+        "arc_table": [],
+        "binding": "unknown",
+        "contours": [],
+        "entry_surfaces": [
+          {
+            "op": 10
+          },
+          {
+            "op": 20
+          },
+          {
+            "op": 30
+          }
+        ],
+        "frame": "T1",
+        "line_table": [],
+        "operations": [
+          {
+            "direction": "radially_inward",
+            "do": "face",
+            "feature": "foot_seat",
+            "op": 10,
+            "to_z": 0.0,
+            "tool": "turning-tools-warner-lms-4132/AR"
+          },
+          {
+            "direction": "toward_chuck",
+            "do": "rough_turn",
+            "feature": "body",
+            "op": 20,
+            "rough_allowance_mm": 0.4,
+            "tool": "turning-tools-warner-lms-4132/AR",
+            "z_from": 0.0,
+            "z_to": -24.5
+          },
+          {
+            "direction": "toward_chuck",
+            "do": "finish_turn",
+            "feature": "body",
+            "op": 30,
+            "tool": "turning-tools-warner-lms-4132/AR",
+            "z_from": 0.0,
+            "z_to": -24.5
+          }
+        ],
+        "profiles": [],
+        "rows": [
+          {
+            "feature": "foot_seat",
+            "model": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "dia_nominal": "unknown",
+            "feature": "foot_seat",
+            "local_from": {
+              "axis": "z",
+              "field": "to_z",
+              "op": 10
+            },
+            "model": [
+              0.0,
+              "unknown",
+              0.0
+            ],
+            "point": "op 10 to_z",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": "unknown"
+          },
+          {
+            "feature": "body",
+            "model": [
+              0.0,
+              43.0,
+              0.0
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              -43.0
+            ]
+          },
+          {
+            "dia_nominal": 42.011,
+            "feature": "body",
+            "model": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "point": "drawing station 1",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": 42.011
+          },
+          {
+            "dia_nominal": 42.011,
+            "feature": "body",
+            "model": [
+              0.0,
+              86.0,
+              0.0
+            ],
+            "point": "drawing station 2",
+            "setup": [
+              0.0,
+              0.0,
+              -86.0
+            ],
+            "x_target_mm": 42.011
+          },
+          {
+            "dia_nominal": 42.011,
+            "feature": "body",
+            "local_from": {
+              "axis": "z",
+              "field": "z_from",
+              "op": 20
+            },
+            "model": [
+              0.0,
+              "unknown",
+              0.0
+            ],
+            "point": "op 20 z_from",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": 42.011
+          },
+          {
+            "dia_nominal": 42.011,
+            "feature": "body",
+            "local_from": {
+              "axis": "z",
+              "field": "z_to",
+              "op": 20
+            },
+            "model": [
+              0.0,
+              "unknown",
+              0.0
+            ],
+            "point": "op 20 z_to",
+            "setup": [
+              0.0,
+              0.0,
+              -24.5
+            ],
+            "x_target_mm": 42.011
+          },
+          {
+            "dia_nominal": 42.011,
+            "feature": "body",
+            "local_from": {
+              "axis": "z",
+              "field": "z_from",
+              "op": 30
+            },
+            "model": [
+              0.0,
+              "unknown",
+              0.0
+            ],
+            "point": "op 30 z_from",
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "x_target_mm": 42.011
+          },
+          {
+            "dia_nominal": 42.011,
+            "feature": "body",
+            "local_from": {
+              "axis": "z",
+              "field": "z_to",
+              "op": 30
+            },
+            "model": [
+              0.0,
+              "unknown",
+              0.0
+            ],
+            "point": "op 30 z_to",
+            "setup": [
+              0.0,
+              0.0,
+              -24.5
+            ],
+            "x_target_mm": 42.011
+          }
+        ],
+        "x_display": "diameter"
+      },
+      "rule": "coordinates",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
+      ],
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "numbers": {
+        "arc_table": [],
+        "binding": "unknown",
+        "contours": [],
+        "entry_surfaces": [
+          {
+            "op": 10
+          },
+          {
+            "op": 20
+          },
+          {
+            "op": 30
+          },
+          {
+            "op": 40
+          },
+          {
+            "op": 50
+          },
+          {
+            "op": 60
+          },
+          {
+            "op": 70
+          },
+          {
+            "op": 80
+          },
+          {
+            "op": 90
+          },
+          {
+            "op": 100
+          },
+          {
+            "op": 110
+          }
+        ],
+        "frame": "M2",
+        "line_table": [],
+        "operations": [
+          {
+            "direction": "positive_setup_x",
+            "do": "face",
+            "feature": "head",
+            "op": 10,
+            "to_z": 86.0,
+            "tool": "unknown"
+          },
+          {
+            "direction": "around_retained_integral_pads",
+            "do": "profile",
+            "feature": "body",
+            "op": 20,
+            "stock_to_leave_mm": 0.0,
+            "tool": "unknown"
+          },
+          {
+            "direction": "around_retained_crank_boss",
+            "do": "profile",
+            "feature": "head",
+            "op": 30,
+            "stock_to_leave_mm": 0.0,
+            "tool": "unknown"
+          },
+          {
+            "direction": "along_crank_axis",
+            "do": "profile",
+            "feature": "crank_boss",
+            "op": 40,
+            "stock_to_leave_mm": 0.0,
+            "tool": "unknown"
+          },
+          {
+            "direction": "along_inclined_journal_axis",
+            "do": "profile",
+            "feature": "journal_boss",
+            "op": 50,
+            "stock_to_leave_mm": 0.0,
+            "tool": "unknown"
+          },
+          {
+            "do": "spot",
+            "feature": "mount_west",
+            "op": 60,
+            "tool": "unknown"
+          },
+          {
+            "do": "drill",
+            "feature": "mount_west",
+            "op": 70,
+            "tool": "unknown"
+          },
+          {
+            "do": "counterbore",
+            "feature": "cbore_west",
+            "op": 80,
+            "tool": "unknown"
+          },
+          {
+            "do": "spot",
+            "feature": "mount_east",
+            "op": 90,
+            "tool": "unknown"
+          },
+          {
+            "do": "drill",
+            "feature": "mount_east",
+            "op": 100,
+            "tool": "unknown"
+          },
+          {
+            "do": "counterbore",
+            "feature": "cbore_east",
+            "op": 110,
+            "tool": "unknown"
+          }
+        ],
+        "profiles": [],
+        "rows": [
+          {
+            "feature": "head",
+            "model": [
+              0.0,
+              72.7,
+              0.0
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              72.7
+            ]
+          },
+          {
+            "feature": "body",
+            "model": [
+              0.0,
+              43.0,
+              0.0
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              43.0
+            ]
+          },
+          {
+            "feature": "crank_boss",
+            "model": [
+              0.0,
+              72.7,
+              14.6419
+            ],
+            "setup": [
+              0.0,
+              -14.6419,
+              72.7
+            ]
+          },
+          {
+            "feature": "journal_boss",
+            "model": [
+              0.0,
+              33.368,
+              0.0
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              33.368
+            ]
+          },
+          {
+            "feature": "mount_west",
+            "model": [
+              -12.98,
+              86.0,
+              0.0
+            ],
+            "setup": [
+              -12.98,
+              0.0,
+              86.0
+            ]
+          },
+          {
+            "feature": "cbore_west",
+            "model": [
+              -12.98,
+              86.0,
+              0.0
+            ],
+            "setup": [
+              -12.98,
+              0.0,
+              86.0
+            ]
+          },
+          {
+            "feature": "mount_east",
+            "model": [
+              12.98,
+              86.0,
+              0.0
+            ],
+            "setup": [
+              12.98,
+              0.0,
+              86.0
+            ]
+          },
+          {
+            "feature": "cbore_east",
+            "model": [
+              12.98,
+              86.0,
+              0.0
+            ],
+            "setup": [
+              12.98,
+              0.0,
+              86.0
+            ]
+          }
+        ]
+      },
+      "rule": "coordinates",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
+      ],
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "numbers": {
+        "arc_table": [],
+        "binding": "unknown",
+        "contours": [],
+        "entry_surfaces": [
+          {
+            "op": 10
+          },
+          {
+            "op": 20
+          },
+          {
+            "op": 30
+          },
+          {
+            "op": 40
+          }
+        ],
+        "frame": "J3",
+        "line_table": [],
+        "operations": [
+          {
+            "direction": "positive_setup_x",
+            "do": "face",
+            "feature": "cone_north_face",
+            "op": 10,
+            "to_z": 21.0055,
+            "tool": "unknown"
+          },
+          {
+            "do": "spot",
+            "feature": "journal_bore",
+            "op": 20,
+            "tool": "unknown"
+          },
+          {
+            "do": "drill",
+            "feature": "journal_bore",
+            "op": 30,
+            "tool": "unknown"
+          },
+          {
+            "direction": "negative_setup_z",
+            "do": "bore",
+            "feature": "journal_bore",
+            "op": 40,
+            "tool": "unknown"
+          }
+        ],
+        "profiles": [],
+        "rows": [
+          {
+            "feature": "cone_north_face",
+            "model": [
+              -4.552936314157771,
+              33.368,
+              -20.506140572258435
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              21.0055
+            ]
+          },
+          {
+            "feature": "journal_bore",
+            "model": [
+              0.0,
+              33.368,
+              0.0
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ]
+      },
+      "rule": "coordinates",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
+      ],
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "numbers": {
+        "arc_table": [],
+        "binding": "unknown",
+        "contours": [],
+        "entry_surfaces": [
+          {
+            "op": 10
+          },
+          {
+            "op": 20
+          },
+          {
+            "op": 30
+          }
+        ],
+        "frame": "C4",
+        "line_table": [],
+        "operations": [
+          {
+            "do": "spot",
+            "feature": "crank_bore",
+            "op": 10,
+            "tool": "unknown"
+          },
+          {
+            "do": "drill",
+            "feature": "crank_bore",
+            "op": 20,
+            "tool": "unknown"
+          },
+          {
+            "direction": "negative_setup_z",
+            "do": "bore",
+            "feature": "crank_bore",
+            "op": 30,
+            "tool": "unknown"
+          }
+        ],
+        "profiles": [],
+        "rows": [
+          {
+            "feature": "crank_bore",
+            "model": [
+              0.0,
+              72.7,
+              -21.3753
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ]
+      },
+      "rule": "coordinates",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "body"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "cbore_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "cbore_west"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "cone_north_face"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency",
+        "features: datum references and tolerance",
+        "plan: finishing cuts and zero.transfer"
+      ],
+      "message": "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget.",
+      "numbers": {
+        "angularity_datums": [
+          "A",
+          "B"
+        ],
+        "datum_op": "S3:40",
+        "datums": {
+          "A": [
+            "S3:40"
+          ],
+          "B": [
+            "S1:10"
+          ],
+          "journal_bore": [
+            "S3:40"
+          ]
+        },
+        "feature_op": "S4:30",
+        "feature_ops": [
+          "S4:30"
+        ],
+        "from": "journal_bore",
+        "position_datums": [],
+        "refixture_budget_mm": "unknown",
+        "relationships": [
+          {
+            "datum": "A",
+            "datum_feature": "journal_bore",
+            "datum_op": "S3:40",
+            "feature_op": "S4:30",
+            "indicated_transfer": true,
+            "same_setup": false,
+            "status": "pass",
+            "tolerance_mm": 0.1
+          },
+          {
+            "datum": "B",
+            "datum_feature": "foot_seat",
+            "datum_op": "S1:10",
+            "feature_op": "S4:30",
+            "indicated_transfer": true,
+            "same_setup": false,
+            "status": "pass",
+            "tolerance_mm": 0.1
+          },
+          {
+            "datum": "journal_bore",
+            "datum_feature": "journal_bore",
+            "datum_op": "S3:40",
+            "feature_op": "S4:30",
+            "indicated_transfer": true,
+            "same_setup": false,
+            "status": "pass",
+            "tolerance_mm": "unknown"
+          }
+        ],
+        "same_setup": false,
+        "tolerance_mm": "unknown",
+        "transfer": [
+          {
+            "from": "S3",
+            "gauge": "dial-indicator",
+            "indicate": [
+              "journal_bore",
+              "foot_seat"
+            ],
+            "runout_limit_mm": "unknown"
+          }
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "pass",
+      "subject": "crank_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "crank_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "datum": "B",
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "foot_seat"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "head"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency",
+        "features: datum references and tolerance",
+        "plan: finishing cuts and zero.transfer"
+      ],
+      "message": "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget.",
+      "numbers": {
+        "angularity_datums": [],
+        "datum": "A",
+        "datum_op": "S1:10",
+        "datums": {
+          "foot_seat": [
+            "S1:10"
+          ]
+        },
+        "feature_op": "S3:40",
+        "feature_ops": [
+          "S3:40"
+        ],
+        "from": "foot_seat",
+        "position_datums": [],
+        "refixture_budget_mm": "unknown",
+        "relationships": [
+          {
+            "datum": "foot_seat",
+            "datum_feature": "foot_seat",
+            "datum_op": "S1:10",
+            "feature_op": "S3:40",
+            "indicated_transfer": true,
+            "same_setup": false,
+            "status": "pass",
+            "tolerance_mm": "unknown"
+          }
+        ],
+        "same_setup": false,
+        "tolerance_mm": "unknown",
+        "transfer": [
+          {
+            "from": "S2",
+            "gauge": "dial-indicator",
+            "indicate": [
+              "foot_seat",
+              "body"
+            ],
+            "runout_limit_mm": "unknown"
+          }
+        ]
+      },
+      "rule": "datum_consistency",
+      "status": "pass",
+      "subject": "journal_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "journal_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "mount_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "mount_west"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S1:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "operation": "face",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_kind": "insert_holders"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S1:20: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "operation": "rough_turn",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_kind": "insert_holders"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S1:30: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "operation": "finish_turn",
+        "tool": "turning-tools-warner-lms-4132/AR",
+        "tool_kind": "insert_holders"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "face",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:100: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "drill",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:100"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:110: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "counterbore",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:110"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:20: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "profile",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:30: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "profile",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:40: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "profile",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:50: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "profile",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:60: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "spot",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:70: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "drill",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:80: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "counterbore",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:90: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "spot",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S3:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "face",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S3:20: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "spot",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S3:30: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "drill",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S3:40: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "bore",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S4:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "spot",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S4:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S4:20: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "drill",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S4:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S4:30: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "bore",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S4:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom"
+      ],
+      "message": "Lathe headroom is outside the mill-only M1 envelope rule.",
+      "numbers": {},
+      "rule": "headroom",
+      "status": "unsupported",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "inventory: machine, fixture, support, tool and holder dimensions",
+        "plan: stock state and setup frame"
+      ],
+      "message": "S2: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
+      "numbers": {
+        "bed_height_mm": "unknown",
+        "clearance_basis": "nominal input geometry; verification flags are measurement debt",
+        "cut_tip_above_jaws_mm": {},
+        "fixture_height_mm": "unknown",
+        "fixture_verify": "missing",
+        "holder_gauge_len_mm": "unknown",
+        "insertion_mm": 25,
+        "jaw_obstruction": {
+          "jaw_top_z": "unknown",
+          "requires_path_check": false
+        },
+        "parallels_mm": "not_applicable",
+        "retained_rail_bottom_z": 0.0,
+        "spindle_to_table_max_mm": 431.79999999999995,
+        "spindle_verify": true,
+        "stacks": [
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 10,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 20,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 30,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 40,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 50,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 60,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 70,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 80,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 90,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 100,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 110,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          }
+        ],
+        "stock_bottom_z": 0.0,
+        "stock_extent_x_mm": 120.0,
+        "stock_extent_y_mm": "unknown",
+        "stock_height_mm": 114.0,
+        "stock_top_above_jaws_mm": "unknown",
+        "stock_top_z": 114.0,
+        "sum_mm": "unknown",
+        "support_blocks_mm": 0,
+        "tool_oal_mm": "unknown",
+        "travel_checks": {
+          "x": {
+            "fixture_mm": "unknown",
+            "part_mm": 120.0,
+            "required_mm": "unknown",
+            "travel_mm": 584.1999999999999
+          },
+          "y": {
+            "fixture_mm": "unknown",
+            "part_mm": "unknown",
+            "required_mm": "unknown",
+            "travel_mm": 222.25
+          }
+        },
+        "travel_in": {
+          "quill": 3.0,
+          "x": 23.0,
+          "y": 8.75,
+          "z": 14.0
+        }
+      },
+      "rule": "headroom",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "inventory: machine, fixture, support, tool and holder dimensions",
+        "plan: stock state and setup frame"
+      ],
+      "message": "S3: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
+      "numbers": {
+        "bed_height_mm": "unknown",
+        "clearance_basis": "nominal input geometry; verification flags are measurement debt",
+        "cut_tip_above_jaws_mm": {},
+        "fixture_height_mm": "unknown",
+        "fixture_verify": "missing",
+        "holder_gauge_len_mm": "unknown",
+        "insertion_mm": 25,
+        "jaw_obstruction": {
+          "jaw_top_z": "unknown",
+          "requires_path_check": false
+        },
+        "parallels_mm": "not_applicable",
+        "retained_rail_bottom_z": -21.0055,
+        "spindle_to_table_max_mm": 431.79999999999995,
+        "spindle_verify": true,
+        "stacks": [
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 10,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 20,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 30,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 40,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          }
+        ],
+        "stock_bottom_z": -21.0055,
+        "stock_extent_x_mm": 120.0,
+        "stock_extent_y_mm": "unknown",
+        "stock_height_mm": 42.011,
+        "stock_top_above_jaws_mm": "unknown",
+        "stock_top_z": 21.0055,
+        "sum_mm": "unknown",
+        "support_blocks_mm": 0,
+        "tool_oal_mm": "unknown",
+        "travel_checks": {
+          "x": {
+            "fixture_mm": "unknown",
+            "part_mm": 120.0,
+            "required_mm": "unknown",
+            "travel_mm": 584.1999999999999
+          },
+          "y": {
+            "fixture_mm": "unknown",
+            "part_mm": "unknown",
+            "required_mm": "unknown",
+            "travel_mm": 222.25
+          }
+        },
+        "travel_in": {
+          "quill": 3.0,
+          "x": 23.0,
+          "y": 8.75,
+          "z": 14.0
+        }
+      },
+      "rule": "headroom",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "inventory: machine, fixture, support, tool and holder dimensions",
+        "plan: stock state and setup frame"
+      ],
+      "message": "S4: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
+      "numbers": {
+        "bed_height_mm": "unknown",
+        "clearance_basis": "nominal input geometry; verification flags are measurement debt",
+        "cut_tip_above_jaws_mm": {},
+        "fixture_height_mm": "unknown",
+        "fixture_verify": "missing",
+        "holder_gauge_len_mm": "unknown",
+        "insertion_mm": 25,
+        "jaw_obstruction": {
+          "jaw_top_z": "unknown",
+          "requires_path_check": false
+        },
+        "parallels_mm": "not_applicable",
+        "retained_rail_bottom_z": -72.0344,
+        "spindle_to_table_max_mm": 431.79999999999995,
+        "spindle_verify": true,
+        "stacks": [
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 10,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 20,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          },
+          {
+            "holder": "unknown",
+            "holder_gauge_len_mm": "unknown",
+            "margin_mm": "unknown",
+            "op": 30,
+            "sum_mm": "unknown",
+            "tool": "unknown",
+            "tool_oal_mm": "unknown",
+            "tool_projection_mm": "unknown",
+            "verify": true
+          }
+        ],
+        "stock_bottom_z": -72.0344,
+        "stock_extent_x_mm": 120.0,
+        "stock_extent_y_mm": "unknown",
+        "stock_height_mm": 72.0344,
+        "stock_top_above_jaws_mm": "unknown",
+        "stock_top_z": 0.0,
+        "sum_mm": "unknown",
+        "support_blocks_mm": 0,
+        "tool_oal_mm": "unknown",
+        "travel_checks": {
+          "x": {
+            "fixture_mm": "unknown",
+            "part_mm": 120.0,
+            "required_mm": "unknown",
+            "travel_mm": 584.1999999999999
+          },
+          "y": {
+            "fixture_mm": "unknown",
+            "part_mm": "unknown",
+            "required_mm": "unknown",
+            "travel_mm": 222.25
+          }
+        },
+        "travel_in": {
+          "quill": 3.0,
+          "x": 23.0,
+          "y": 8.75,
+          "z": 14.0
+        }
+      },
+      "rule": "headroom",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields"
+      ],
+      "message": "S1: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
+      "numbers": {
+        "coolant": "CRC cutting oil brushed on",
+        "cut_directions": {
+          "10": "radially_inward",
+          "20": "toward_chuck",
+          "30": "toward_chuck"
+        },
+        "deburr_mm": 0.25,
+        "fixture": "chuck-4jaw-6-d1-4",
+        "hold": {
+          "clamp": "AUTHOR'S CHOICE: centre in four-jaw; tighten all jaws and remove key before cutting",
+          "fixed_jaw": "not_applicable",
+          "fixture": "chuck-4jaw-6-d1-4",
+          "grip_mm": 28.0,
+          "grip_on": "sacrificial upper28mm past the final head top",
+          "jaw_above_parallels_mm": "not_applicable",
+          "jaws_along": "not_applicable",
+          "parallels": "not_applicable",
+          "stickout_mm": 92.0,
+          "stop": "AUTHOR'S CHOICE: jaw fronts at T1 Z-86; separately verify tool clearance",
+          "support": "none"
+        },
+        "missing": [],
+        "stock_north_end_z": 6.0,
+        "stock_od_mm": 110.0,
+        "stock_south_end_z": -114.0
+      },
+      "rule": "hold_fields",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields"
+      ],
+      "message": "S2: holding declarations need hold.fixture, ops.10.holder, ops.20.holder, ops.30.holder, ops.40.holder, ops.50.holder, ops.60.holder, ops.70.holder, ops.80.holder, ops.90.holder, ops.100.holder, ops.110.holder.",
+      "numbers": {
+        "coolant": "CRC cutting oil brushed on",
+        "cut_directions": {
+          "10": "positive_setup_x",
+          "20": "around_retained_integral_pads",
+          "30": "around_retained_crank_boss",
+          "40": "along_crank_axis",
+          "50": "along_inclined_journal_axis"
+        },
+        "deburr_mm": 0.25,
+        "fixture": "unknown",
+        "hold": {
+          "clamp": "AUTHOR'S CHOICE: restraint must clear complete head and crank boss; hardware selection unknown",
+          "fixed_jaw": "not_applicable",
+          "fixture": "unknown",
+          "grip_mm": 20.0,
+          "grip_on": "finished lower-body region and foot; contact geometry unknown",
+          "jaw_above_parallels_mm": "not_applicable",
+          "jaws_along": "not_applicable",
+          "parallels": "not_applicable",
+          "stop": "AUTHOR'S CHOICE: indicate foot datum B and body axis; stop geometry unknown",
+          "support": "unknown"
+        },
+        "missing": [
+          "hold.fixture",
+          "ops.10.holder",
+          "ops.20.holder",
+          "ops.30.holder",
+          "ops.40.holder",
+          "ops.50.holder",
+          "ops.60.holder",
+          "ops.70.holder",
+          "ops.80.holder",
+          "ops.90.holder",
+          "ops.100.holder",
+          "ops.110.holder"
+        ],
+        "stock_bottom_z": 0.0,
+        "stock_top_z": 114.0
+      },
+      "rule": "hold_fields",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields"
+      ],
+      "message": "S3: holding declarations need ops.10.holder, ops.20.holder, ops.30.holder, ops.40.holder.",
+      "numbers": {
+        "coolant": "CRC cutting oil brushed on",
+        "cut_directions": {
+          "10": "positive_setup_x",
+          "40": "negative_setup_z"
+        },
+        "deburr_mm": 0.1,
+        "fixture": "BS-0",
+        "hold": {
+          "clamp": "AUTHOR'S CHOICE: verify asymmetrical post restraint and mill spindle clearance; adapter unknown",
+          "fixed_jaw": "not_applicable",
+          "fixture": "BS-0",
+          "grip_mm": 20.0,
+          "grip_on": "AUTHOR'S CHOICE: body, clocked against foot datum B; clamping adapter unknown",
+          "index": {
+            "angle_deg": 12.5182,
+            "feature": "journal_bore",
+            "fixture": "BS-0",
+            "positions": 1
+          },
+          "jaw_above_parallels_mm": "not_applicable",
+          "jaws_along": "not_applicable",
+          "parallels": "not_applicable",
+          "stop": "AUTHOR'S CHOICE: indicate foot B before changing bore-axis yaw",
+          "support": "unknown"
+        },
+        "missing": [
+          "ops.10.holder",
+          "ops.20.holder",
+          "ops.30.holder",
+          "ops.40.holder"
+        ],
+        "stock_bottom_z": -21.0055,
+        "stock_top_z": 21.0055
+      },
+      "rule": "hold_fields",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields"
+      ],
+      "message": "S4: holding declarations need hold.fixture, ops.10.holder, ops.20.holder, ops.30.holder.",
+      "numbers": {
+        "coolant": "CRC cutting oil brushed on",
+        "cut_directions": {
+          "30": "negative_setup_z"
+        },
+        "deburr_mm": 0.25,
+        "fixture": "unknown",
+        "hold": {
+          "clamp": "AUTHOR'S CHOICE: maintain A/B orientation during crank boring; actual hardware unknown",
+          "fixed_jaw": "not_applicable",
+          "fixture": "unknown",
+          "grip_mm": 20.0,
+          "grip_on": "AUTHOR'S CHOICE: finished cone bore A and foot B; fixture/mating arbor unknown",
+          "jaw_above_parallels_mm": "not_applicable",
+          "jaws_along": "not_applicable",
+          "parallels": "not_applicable",
+          "stop": "AUTHOR'S CHOICE: clock on B and indicate finished A, not a pilot hole",
+          "support": "unknown"
+        },
+        "missing": [
+          "hold.fixture",
+          "ops.10.holder",
+          "ops.20.holder",
+          "ops.30.holder"
+        ],
+        "stock_bottom_z": -72.0344,
+        "stock_top_z": 0.0
+      },
+      "rule": "hold_fields",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S1: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S2: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)",
+        "plan.setups.S3.hold.index",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48",
+        "features.features.journal_bore.angle_tol_deg",
+        "inventory.machines.BS-0",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0"
+      ],
+      "message": "S3: Indexing remains tentative: features.features.journal_bore.angle_tol_deg, inventory.machines.BS-0.verify.",
+      "numbers": {
+        "actual_angle_deg": 12.521739130434783,
+        "circle": 23,
+        "closure": "not_applicable",
+        "direction": "forward",
+        "exact": false,
+        "failed": [],
+        "feature": "journal_bore",
+        "fixture": "BS-0",
+        "invalid": [],
+        "max_position_error_deg": 0.0035391304347826085,
+        "method": "worm",
+        "plate": "B",
+        "position_errors_deg": [
+          0.0035391304347826085
+        ],
+        "positions": 1,
+        "requested_angle_deg": 12.5182,
+        "requested_angle_fraction": "62591/5000",
+        "requested_angle_source": "declared",
+        "selection_complete": true,
+        "spaces": 9,
+        "tolerance_deg": "unknown",
+        "tolerance_source": "features.features.journal_bore.angle_tol_deg",
+        "turns": 1,
+        "unresolved": [
+          "features.features.journal_bore.angle_tol_deg",
+          "inventory.machines.BS-0.verify"
+        ],
+        "verified": false
+      },
+      "rule": "indexing",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S4: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "body dia: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.5999999999999943,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          41.2,
+          42.8
+        ],
+        "op": "S2:20",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "dia",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "body:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "body height: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.5999999999999943,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          85.2,
+          86.8
+        ],
+        "op": "S2:20",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "height",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "body:height"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "cbore_east depth: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.0200000000000005,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          5.51,
+          6.53
+        ],
+        "op": "S2:110",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "depth",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "cbore_east:depth"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "cbore_east dia: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.0199999999999996,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          11.0,
+          12.02
+        ],
+        "op": "S2:110",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "dia",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "cbore_east:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "cbore_west depth: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.0200000000000005,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          5.51,
+          6.53
+        ],
+        "op": "S2:80",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "depth",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "cbore_west:depth"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "cbore_west dia: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.0199999999999996,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          11.0,
+          12.02
+        ],
+        "op": "S2:80",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "dia",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "cbore_west:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "cone_north_face finish_ra: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": 1.6,
+        "op": "S3:10",
+        "requirement": "finish_ra"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "cone_north_face:finish_ra"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_bore angularity_dia: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          0.0,
+          0.1
+        ],
+        "op": "S4:30",
+        "requirement": "angularity_dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "crank_bore:angularity_dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_bore dia: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          11.413,
+          11.443
+        ],
+        "op": "S4:30",
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "crank_bore:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_bore finish_ra: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": 1.6,
+        "op": "S4:30",
+        "requirement": "finish_ra"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "crank_bore:finish_ra"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_bore separation: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          39.33,
+          39.7
+        ],
+        "op": "S4:30",
+        "requirement": "separation"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "crank_bore:separation"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_boss dia: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.5999999999999979,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          21.1,
+          22.7
+        ],
+        "op": "S2:40",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "dia",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "crank_boss:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_boss length: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.5999999999999943,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          71.2,
+          72.8
+        ],
+        "op": "S2:40",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "length",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "crank_boss:length"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_boss station: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.0199999999999996,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          20.87,
+          21.89
+        ],
+        "op": "S2:40",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "station",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "crank_boss:station"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "foot_seat finish_ra: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": 3.2,
+        "op": "S1:10",
+        "requirement": "finish_ra"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "foot_seat:finish_ra"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "head dia: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.6000000000000014,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          42.0,
+          43.6
+        ],
+        "op": "S2:30",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "dia",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "head:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "head height: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.5999999999999979,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          25.8,
+          27.4
+        ],
+        "op": "S2:30",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "height",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "head:height"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "journal_bore dia: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          12.2558,
+          12.2858
+        ],
+        "op": "S3:40",
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "journal_bore:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "journal_bore finish_ra: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": 1.6,
+        "op": "S3:40",
+        "requirement": "finish_ra"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "journal_bore:finish_ra"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "journal_bore height: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          33.12,
+          33.62
+        ],
+        "op": "S3:40",
+        "requirement": "height"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "journal_bore:height"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "journal_boss dia: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.6000000000000014,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          16.4,
+          18.0
+        ],
+        "op": "S2:50",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "dia",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "journal_boss:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "journal_boss length: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.5999999999999943,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          41.2,
+          42.8
+        ],
+        "op": "S2:50",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "length",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "journal_boss:length"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "mount_east dia: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          7.14248,
+          7.24248
+        ],
+        "op": "S2:100",
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "mount_east:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "mount_east station: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.0199999999999996,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          12.47,
+          13.49
+        ],
+        "op": "S2:100",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "station",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "mount_east:station"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "mount_west dia: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          7.14248,
+          7.24248
+        ],
+        "op": "S2:70",
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "mount_west:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "mount_west station: named gauge capability needs verification.",
+      "numbers": {
+        "band_mm": 1.0199999999999996,
+        "gauge": "calipers",
+        "gauge_kind": "caliper",
+        "limits": [
+          12.47,
+          13.49
+        ],
+        "op": "S2:70",
+        "range_mm": [
+          0,
+          152.39999999999998
+        ],
+        "requirement": "station",
+        "resolution_mm": 0.0127
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "mount_west:station"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "body: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "rough_turn",
+          "finish_turn",
+          "profile"
+        ],
+        "kind": "cylinder",
+        "ops": [
+          "S1:20",
+          "S1:30",
+          "S2:20"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "body"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "cbore_east: hole prerequisites are present across the route.",
+      "numbers": {
+        "chain": [
+          "counterbore"
+        ],
+        "kind": "counterbore",
+        "ops": [
+          "S2:110"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "pass",
+      "subject": "cbore_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "cbore_west: hole prerequisites are present across the route.",
+      "numbers": {
+        "chain": [
+          "counterbore"
+        ],
+        "kind": "counterbore",
+        "ops": [
+          "S2:80"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "pass",
+      "subject": "cbore_west"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "cone_north_face: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "face"
+        ],
+        "kind": "plane",
+        "ops": [
+          "S3:10"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "cone_north_face"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "crank_bore: hole prerequisites are present across the route.",
+      "numbers": {
+        "chain": [
+          "spot",
+          "drill",
+          "bore"
+        ],
+        "kind": "hole",
+        "ops": [
+          "S4:10",
+          "S4:20",
+          "S4:30"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "pass",
+      "subject": "crank_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "crank_boss: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "profile"
+        ],
+        "kind": "cylinder",
+        "ops": [
+          "S2:40"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "crank_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "foot_seat: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "face"
+        ],
+        "kind": "plane",
+        "ops": [
+          "S1:10"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "foot_seat"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "head: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "face",
+          "profile"
+        ],
+        "kind": "cylinder",
+        "ops": [
+          "S2:10",
+          "S2:30"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "head"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "journal_bore: hole prerequisites are present across the route.",
+      "numbers": {
+        "chain": [
+          "spot",
+          "drill",
+          "bore"
+        ],
+        "kind": "hole",
+        "ops": [
+          "S3:20",
+          "S3:30",
+          "S3:40"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "pass",
+      "subject": "journal_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "journal_boss: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "profile"
+        ],
+        "kind": "cylinder",
+        "ops": [
+          "S2:50"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "journal_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "mount_east: hole prerequisites are present across the route.",
+      "numbers": {
+        "chain": [
+          "spot",
+          "drill"
+        ],
+        "kind": "hole",
+        "ops": [
+          "S2:90",
+          "S2:100"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "pass",
+      "subject": "mount_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "mount_west: hole prerequisites are present across the route.",
+      "numbers": {
+        "chain": [
+          "spot",
+          "drill"
+        ],
+        "kind": "hole",
+        "ops": [
+          "S2:60",
+          "S2:70"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "pass",
+      "subject": "mount_west"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
+      ],
+      "message": "S1: rough/finish, face/spot, hole and release order is consistent.",
+      "numbers": {
+        "sequence": [
+          "10 face foot_seat",
+          "20 rough_turn body",
+          "30 finish_turn body"
+        ],
+        "violations": []
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
+      ],
+      "message": "S2: rough/finish, face/spot, hole and release order is consistent.",
+      "numbers": {
+        "sequence": [
+          "10 face head",
+          "20 profile body",
+          "30 profile head",
+          "40 profile crank_boss",
+          "50 profile journal_boss",
+          "60 spot mount_west",
+          "70 drill mount_west",
+          "80 counterbore cbore_west",
+          "90 spot mount_east",
+          "100 drill mount_east",
+          "110 counterbore cbore_east"
+        ],
+        "violations": []
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
+      ],
+      "message": "S3: rough/finish, face/spot, hole and release order is consistent.",
+      "numbers": {
+        "sequence": [
+          "10 face cone_north_face",
+          "20 spot journal_bore",
+          "30 drill journal_bore",
+          "40 bore journal_bore"
+        ],
+        "violations": []
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
+      ],
+      "message": "S4: rough/finish, face/spot, hole and release order is consistent.",
+      "numbers": {
+        "sequence": [
+          "10 spot crank_bore",
+          "20 drill crank_bore",
+          "30 bore crank_bore"
+        ],
+        "violations": []
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "body: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "kind": "cylinder",
+        "ops": [
+          "S1:20",
+          "S1:30",
+          "S2:20"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "body"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26"
+      ],
+      "message": "cbore_east: selected finishing tool or its measured size is unresolved.",
+      "numbers": {
+        "feature_kind": "counterbore",
+        "hi_mm": 12.02,
+        "kind": "counterbore",
+        "lo_mm": 11.0,
+        "ops": [
+          "S2:110"
+        ],
+        "tool": "unknown",
+        "tool_dia_basis": "inventory geometry",
+        "tool_dia_mm": "unknown",
+        "unit": "mm"
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "cbore_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:69-81,89-96,175-176",
+        "harmonic-analyzer/cad/config/title_block.yaml:26"
+      ],
+      "message": "cbore_west: selected finishing tool or its measured size is unresolved.",
+      "numbers": {
+        "feature_kind": "counterbore",
+        "hi_mm": 12.02,
+        "kind": "counterbore",
+        "lo_mm": 11.0,
+        "ops": [
+          "S2:80"
+        ],
+        "tool": "unknown",
+        "tool_dia_basis": "inventory geometry",
+        "tool_dia_mm": "unknown",
+        "unit": "mm"
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "cbore_west"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67,268-279",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48"
+      ],
+      "message": "cone_north_face: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "plane",
+        "kind": "plane",
+        "ops": [
+          "S3:10"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "cone_north_face"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,132-158,255-259,321,369-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:188-190,221-229,263,1134-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48"
+      ],
+      "message": "crank_bore: selected finishing tool or its measured size is unresolved.",
+      "numbers": {
+        "feature_kind": "hole",
+        "hi_mm": 11.443,
+        "kind": "hole",
+        "lo_mm": 11.413,
+        "ops": [
+          "S4:10",
+          "S4:20",
+          "S4:30"
+        ],
+        "tool": "unknown",
+        "tool_dia_basis": "inventory geometry",
+        "tool_dia_mm": "unknown",
+        "unit": "mm"
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "crank_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26"
+      ],
+      "message": "crank_boss: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "kind": "cylinder",
+        "ops": [
+          "S2:40"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "crank_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:252,373-376",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:49-54"
+      ],
+      "message": "foot_seat: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "plane",
+        "kind": "plane",
+        "ops": [
+          "S1:10"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "foot_seat"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259"
+      ],
+      "message": "head: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "kind": "cylinder",
+        "ops": [
+          "S2:10",
+          "S2:30"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "head"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,132-145,160-168,260-279,322-327,373-387",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-267,1137-1138",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:45-48"
+      ],
+      "message": "journal_bore: selected finishing tool or its measured size is unresolved.",
+      "numbers": {
+        "feature_kind": "hole",
+        "hi_mm": 12.2858,
+        "kind": "hole",
+        "lo_mm": 12.2558,
+        "ops": [
+          "S3:20",
+          "S3:30",
+          "S3:40"
+        ],
+        "tool": "unknown",
+        "tool_dia_basis": "inventory geometry",
+        "tool_dia_mm": "unknown",
+        "unit": "mm"
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "journal_bore"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "journal_boss: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "cylinder",
+        "kind": "cylinder",
+        "ops": [
+          "S2:50"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "journal_boss"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66"
+      ],
+      "message": "mount_east: selected finishing tool or its measured size is unresolved.",
+      "numbers": {
+        "feature_kind": "hole",
+        "hi_mm": 7.24248,
+        "kind": "hole",
+        "lo_mm": 7.14248,
+        "ops": [
+          "S2:90",
+          "S2:100"
+        ],
+        "tool": "unknown",
+        "tool_dia_basis": "inventory geometry",
+        "tool_dia_mm": "unknown",
+        "unit": "mm"
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "mount_east"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30,69-81,89-104,318,353",
+        "harmonic-analyzer/cad/config/title_block.yaml:26,66"
+      ],
+      "message": "mount_west: selected finishing tool or its measured size is unresolved.",
+      "numbers": {
+        "feature_kind": "hole",
+        "hi_mm": 7.24248,
+        "kind": "hole",
+        "lo_mm": 7.14248,
+        "ops": [
+          "S2:60",
+          "S2:70"
+        ],
+        "tool": "unknown",
+        "tool_dia_basis": "inventory geometry",
+        "tool_dia_mm": "unknown",
+        "unit": "mm"
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "mount_west"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 4.330708661417323,
+        "feed_mm_min": "unknown",
+        "flutes": [],
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "face",
+        "rpm": "unknown",
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 1.669724409448819,
+        "feed_mm_min": "unknown",
+        "flutes": [],
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "rough_turn",
+        "rpm": "unknown",
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 1.653976377952756,
+        "feed_mm_min": "unknown",
+        "flutes": [],
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "finish_turn",
+        "rpm": "unknown",
+        "rpm_max": 2200.0,
+        "rpm_min": 70.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "face",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "drill",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:100"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "counterbore",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:110"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "spot",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "drill",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "counterbore",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "spot",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "face",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "spot",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "drill",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "bore",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "spot",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S4:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "drill",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S4:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": "unknown",
+        "feed_mm_min": "unknown",
+        "flutes": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "bore",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": true,
+        "sfm": "unknown",
+        "tool_material": "unknown"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S4:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.setups.stock_state.od_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
+      ],
+      "message": "S1: the finished diameter or geometry in the exposed span is unresolved.",
+      "numbers": {
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": [
+          -86.0,
+          6.0
+        ],
+        "held_diameter_mm": 110.0,
+        "held_diameter_source": "plan.setups.stock_state.od_mm",
+        "segments": [],
+        "stickout_ld_max": "unknown",
+        "stickout_mm": 92.0,
+        "support_status": "not_applicable",
+        "supports": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.stock.dia_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
+      ],
+      "message": "S2: not a lathe setup.",
+      "numbers": {
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": 110.0,
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "support_status": "unknown",
+        "supports": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.stock.dia_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
+      ],
+      "message": "S3: not a lathe setup.",
+      "numbers": {
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": 110.0,
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "support_status": "unknown",
+        "supports": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out (line 541)",
+        "plan.stock.dia_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
+      ],
+      "message": "S4: not a lathe setup.",
+      "numbers": {
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": 110.0,
+        "held_diameter_source": "plan.stock.dia_mm",
+        "segments": [],
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "support_status": "unknown",
+        "supports": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ],
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "not_applicable",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.setups.stock_state.od_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S1: held diameter or selected collet/chuck verification is unresolved.",
+      "numbers": {
+        "diameter_mm": 110.0,
+        "diameter_source": "plan.setups.stock_state.od_mm",
+        "fixture": "chuck-4jaw-6-d1-4",
+        "fixture_kind": "chuck_4jaw",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.stock.dia_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S2: selected collet/chuck identity is unresolved.",
+      "numbers": {
+        "diameter_mm": 110.0,
+        "diameter_source": "plan.stock.dia_mm",
+        "fixture": "unknown",
+        "fixture_kind": "unknown",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.stock.dia_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S3: selected fixture is not a collet/chuck.",
+      "numbers": {
+        "diameter_mm": 110.0,
+        "diameter_source": "plan.stock.dia_mm",
+        "fixture": "BS-0",
+        "fixture_kind": "dividing_head",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck (line 558)",
+        "plan.stock.dia_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S4: selected collet/chuck identity is unresolved.",
+      "numbers": {
+        "diameter_mm": 110.0,
+        "diameter_source": "plan.stock.dia_mm",
+        "fixture": "unknown",
+        "fixture_kind": "unknown",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "BS-0: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "dividing_head",
+        "present": true,
+        "reference": "BS-0",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "BS-0"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "PM-1127VF-LB: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "lathe",
+        "present": true,
+        "reference": "PM-1127VF-LB",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "PM-1127VF-LB"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "PM-30MV: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "mill",
+        "present": true,
+        "reference": "PM-30MV",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "PM-30MV"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S1:10: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S1:20: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S1:30: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "qctp-axa-lms-2280/1-turning-facing",
+        "holder_capacity_mm": "unknown",
+        "holder_standard": "AXA",
+        "machine": "PM-1127VF-LB",
+        "machine_standard": "AXA",
+        "shank_mm": "unknown",
+        "tool": "turning-tools-warner-lms-4132/AR"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:10: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:100: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:100"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:110: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:110"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:20: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:30: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:40: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:50: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:60: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:70: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:80: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:90: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S3:10: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S3:20: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S3:30: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S3:40: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S4:10: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S4:10"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S4:20: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S4:20"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S4:30: assembly fit needs measured shank, holder and machine facts.",
+      "numbers": {
+        "holder": "unknown",
+        "machine": "PM-30MV",
+        "tool": "unknown"
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "S4:30"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "calipers: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "caliper",
+        "present": true,
+        "reference": "calipers",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "calipers"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "chuck-4jaw-6-d1-4: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "chuck_4jaw",
+        "present": true,
+        "reference": "chuck-4jaw-6-d1-4",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "chuck-4jaw-6-d1-4"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "dial-indicator: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "dial_indicator",
+        "present": true,
+        "reference": "dial-indicator",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "dial-indicator"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "micrometers/1-2in: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "micrometer_set",
+        "present": true,
+        "reference": "micrometers/1-2in",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "micrometers/1-2in"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "qctp-axa-lms-2280/1-turning-facing: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "qctp_set",
+        "present": true,
+        "reference": "qctp-axa-lms-2280/1-turning-facing",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "qctp-axa-lms-2280/1-turning-facing"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "turning-tools-warner-lms-4132/AR: listed; presence or catalogue identity needs verification.",
+      "numbers": {
+        "kind": "insert_holders",
+        "present": true,
+        "reference": "turning-tools-warner-lms-4132/AR",
+        "verified": false
+      },
+      "rule": "tool_resolves",
+      "status": "unknown",
+      "subject": "turning-tools-warner-lms-4132/AR"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "harmonic-analyzer/cad/config/title_block.yaml:25",
+        "harmonic-analyzer/cad/config/title_block.yaml:25-26",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:23-33,316-317",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57,319-320,328",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279,322-323",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:193,203,259",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:247-253,260-262",
+        "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:265-266"
+      ],
+      "message": "S1: axial profile geometry or the selected grooving exception is unresolved.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": [
+          -86.0,
+          6.0
+        ],
+        "frame": "T1",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": [
+          "body",
+          "crank_boss",
+          "head",
+          "journal_boss"
+        ]
+      },
+      "rule": "turned_profile",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+      ],
+      "message": "S2: not a lathe setup.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "M2",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": []
+      },
+      "rule": "turned_profile",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+      ],
+      "message": "S3: not a lathe setup.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "J3",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": []
+      },
+      "rule": "turned_profile",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+      ],
+      "message": "S4: not a lathe setup.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "C4",
+        "intervals": [],
+        "segments": [],
+        "transitions": [],
+        "unresolved": []
+      },
+      "rule": "turned_profile",
+      "status": "not_applicable",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
+        "features.features.foot_seat: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:252,373-376",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:49-54"
+      ],
+      "message": "S1:10: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "dia_band_mm": "unknown",
+        "diameter_mm": "unknown",
+        "diameter_tolerance_mm": "unknown",
+        "doc_mm": 0.25,
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "foot_seat",
+        "feature_units": "mm",
+        "feed_mm_rev": 0.05,
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "feature nominal diameter",
+          "kc_n_per_mm2",
+          "e_gpa",
+          "sourced feature diameter tolerance/acceptance threshold"
+        ],
+        "operation": "face",
+        "stickout_mm": 92.0,
+        "support_status": "not_applicable",
+        "supports": [],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
+        "features.features.body: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "S1:20: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "dia_band_mm": [
+          41.2,
+          42.8
+        ],
+        "diameter_mm": 42.011,
+        "diameter_tolerance_mm": 0.7999999999999972,
+        "doc_mm": 0.25,
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "body",
+        "feature_units": "mm",
+        "feed_mm_rev": 0.05,
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "kc_n_per_mm2",
+          "e_gpa"
+        ],
+        "operation": "rough_turn",
+        "stickout_mm": 92.0,
+        "support_status": "not_applicable",
+        "supports": [],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)",
+        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "plan.setups[S1].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
+        "features.features.body: declared nominal diameter and dia acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-30,314-315",
+        "harmonic-analyzer/cad/config/title_block.yaml:25"
+      ],
+      "message": "S1:30: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
+      "numbers": {
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "dia_band_mm": [
+          41.2,
+          42.8
+        ],
+        "diameter_mm": 42.011,
+        "diameter_tolerance_mm": 0.7999999999999972,
+        "doc_mm": 0.1,
+        "e_gpa": "unknown",
+        "e_n_per_mm2": "unknown",
+        "feature": "body",
+        "feature_units": "mm",
+        "feed_mm_rev": 0.03,
+        "force_n": "unknown",
+        "inertia_mm4": "unknown",
+        "kc_n_per_mm2": "unknown",
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verified": true,
+        "missing_inputs": [
+          "verified lathe/operation",
+          "one cited cutting-data material row",
+          "kc_n_per_mm2",
+          "e_gpa"
+        ],
+        "operation": "finish_turn",
+        "stickout_mm": 92.0,
+        "support_status": "not_applicable",
+        "supports": [],
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+      },
+      "rule": "turning_deflection",
+      "status": "unknown",
+      "subject": "S1:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:10: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "head",
+        "operation": "face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:100: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "mount_east",
+        "operation": "drill"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:100"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:110: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "cbore_east",
+        "operation": "counterbore"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:110"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:20: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "body",
+        "operation": "profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:30: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "head",
+        "operation": "profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:40: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "crank_boss",
+        "operation": "profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:50: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "journal_boss",
+        "operation": "profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:60: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "mount_west",
+        "operation": "spot"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:60"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:70: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "mount_west",
+        "operation": "drill"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:70"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:80: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "cbore_west",
+        "operation": "counterbore"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:80"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:90: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "mount_east",
+        "operation": "spot"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:90"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:10: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "cone_north_face",
+        "operation": "face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:20: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "journal_bore",
+        "operation": "spot"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:30: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "journal_bore",
+        "operation": "drill"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:40: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "journal_bore",
+        "operation": "bore"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S4:10: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "crank_bore",
+        "operation": "spot"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S4:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S4:20: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "crank_bore",
+        "operation": "drill"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S4:20"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S4:30: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "crank_bore",
+        "operation": "bore"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S4:30"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
+      ],
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": "unknown",
+            "axis_set_status": "unknown",
+            "check_expression": "D +20",
+            "check_jog_mm": 10.0,
+            "check_reading": "unknown",
+            "dro_direction": "away_from_spindle_axis",
+            "edge_mm": 0.0,
+            "feature": "spindle_axis",
+            "from": "+x",
+            "gauge": "unknown",
+            "jog_mm": 10.0,
+            "method": "trial_cut_measure",
+            "mirrored_expression": "D -20",
+            "mirrored_reading": "unknown",
+            "paper_mm": "not_applicable",
+            "radius_mm": "not_applicable",
+            "sign": 1,
+            "tool": "turning-tools-warner-lms-4132/AR"
+          },
+          "z": {
+            "after_op": 10,
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "toward_exposed_end",
+            "edge_mm": 0.0,
+            "face": "foot_seat",
+            "from": "+z",
+            "jog_mm": 10.0,
+            "method": "face_then_set",
+            "mirrored_reading": -10.0,
+            "paper_mm": 0.0,
+            "radius_mm": "not_applicable",
+            "sign": 1,
+            "tool": "turning-tools-warner-lms-4132/AR"
+          }
+        },
+        "binding": "unknown",
+        "dro": {
+          "mode": "abs",
+          "radius_mode": false
+        },
+        "frame": "T1",
+        "retouch": [],
+        "tool_touches": []
+      },
+      "rule": "zero_check",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
+      ],
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "away_from_spindle_axis",
+            "edge_mm": 0.0,
+            "feature": "body_axis",
+            "from": "indicated",
+            "indicator_verify": true,
+            "jog_mm": 10.0,
+            "method": "indicate_axis",
+            "mirrored_reading": -10.0,
+            "paper_mm": "not_applicable",
+            "radius_mm": 0,
+            "sign": 1,
+            "tool": "dial-indicator"
+          },
+          "y": {
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "away",
+            "edge_mm": 0.0,
+            "feature": "body_axis",
+            "from": "indicated",
+            "indicator_verify": true,
+            "jog_mm": 10.0,
+            "method": "indicate_axis",
+            "mirrored_reading": -10.0,
+            "paper_mm": "not_applicable",
+            "radius_mm": 0,
+            "sign": 1,
+            "tool": "dial-indicator"
+          },
+          "z": {
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "toward_exposed_end",
+            "edge_mm": 0.0,
+            "face": "finished_foot",
+            "from": "+z",
+            "jog_mm": 10.0,
+            "method": "touch_then_set",
+            "mirrored_reading": -10.0,
+            "paper_mm": 0.0,
+            "radius_mm": "not_applicable",
+            "sign": 1,
+            "tool": "unknown"
+          }
+        },
+        "binding": "unknown",
+        "dro": {
+          "mode": "abs",
+          "radius_mode": false
+        },
+        "frame": "M2",
+        "retouch": [],
+        "tool_touches": [],
+        "transfer": {
+          "from": "S1",
+          "gauge": "dial-indicator",
+          "indicate": [
+            "foot_seat",
+            "body"
+          ],
+          "runout_limit_mm": "unknown"
+        }
+      },
+      "rule": "zero_check",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
+      ],
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "away_from_spindle_axis",
+            "edge_mm": 0.0,
+            "feature": "journal_axis",
+            "from": "indicated",
+            "indicator_verify": true,
+            "jog_mm": 10.0,
+            "method": "indicate_axis",
+            "mirrored_reading": -10.0,
+            "paper_mm": "not_applicable",
+            "radius_mm": 0,
+            "sign": 1,
+            "tool": "dial-indicator"
+          },
+          "y": {
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "away",
+            "edge_mm": 0.0,
+            "feature": "journal_axis",
+            "from": "indicated",
+            "indicator_verify": true,
+            "jog_mm": 10.0,
+            "method": "indicate_axis",
+            "mirrored_reading": -10.0,
+            "paper_mm": "not_applicable",
+            "radius_mm": 0,
+            "sign": 1,
+            "tool": "dial-indicator"
+          },
+          "z": {
+            "axis_set": 21.0055,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 31.0055,
+            "dro_direction": "toward_exposed_end",
+            "edge_mm": 21.0055,
+            "face": "cone_north_face",
+            "from": "+z",
+            "jog_mm": 10.0,
+            "method": "touch_then_set",
+            "mirrored_reading": 11.005500000000001,
+            "paper_mm": 0.0,
+            "radius_mm": "not_applicable",
+            "sign": 1,
+            "tool": "unknown"
+          }
+        },
+        "binding": "unknown",
+        "dro": {
+          "mode": "abs",
+          "radius_mode": false
+        },
+        "frame": "J3",
+        "retouch": [],
+        "tool_touches": [],
+        "transfer": {
+          "from": "S2",
+          "gauge": "dial-indicator",
+          "indicate": [
+            "foot_seat",
+            "body"
+          ],
+          "runout_limit_mm": "unknown"
+        }
+      },
+      "rule": "zero_check",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
+      ],
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
+      "numbers": {
+        "axes": {
+          "x": {
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "away_from_spindle_axis",
+            "edge_mm": 0.0,
+            "feature": "crank_axis",
+            "from": "indicated",
+            "indicator_verify": true,
+            "jog_mm": 10.0,
+            "method": "indicate_axis",
+            "mirrored_reading": -10.0,
+            "paper_mm": "not_applicable",
+            "radius_mm": 0,
+            "sign": 1,
+            "tool": "dial-indicator"
+          },
+          "y": {
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "away",
+            "edge_mm": 0.0,
+            "feature": "crank_axis",
+            "from": "indicated",
+            "indicator_verify": true,
+            "jog_mm": 10.0,
+            "method": "indicate_axis",
+            "mirrored_reading": -10.0,
+            "paper_mm": "not_applicable",
+            "radius_mm": 0,
+            "sign": 1,
+            "tool": "dial-indicator"
+          },
+          "z": {
+            "axis_set": 0.0,
+            "axis_set_status": "computed",
+            "check_jog_mm": 10.0,
+            "check_reading": 10.0,
+            "dro_direction": "toward_exposed_end",
+            "edge_mm": 0.0,
+            "face": "crank_north_face",
+            "from": "+z",
+            "jog_mm": 10.0,
+            "method": "touch_then_set",
+            "mirrored_reading": -10.0,
+            "paper_mm": 0.0,
+            "radius_mm": "not_applicable",
+            "sign": 1,
+            "tool": "unknown"
+          }
+        },
+        "binding": "unknown",
+        "dro": {
+          "mode": "abs",
+          "radius_mode": false
+        },
+        "frame": "C4",
+        "retouch": [],
+        "tool_touches": [],
+        "transfer": {
+          "from": "S3",
+          "gauge": "dial-indicator",
+          "indicate": [
+            "journal_bore",
+            "foot_seat"
+          ],
+          "runout_limit_mm": "unknown"
+        }
+      },
+      "rule": "zero_check",
+      "status": "unknown",
+      "subject": "S4"
+    }
+  ],
+  "hash": "4050caaa2f7c94756659b7017c4b043a716200ae0149a8b334b7e41513dabab4",
+  "inputs": {
+    "cutting_data": {
+      "path": "examples/cutting-data.toml",
+      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+    },
+    "features": {
+      "path": "examples/cone-pivot-post/features.toml",
+      "sha256": "d642db5b3457b901ccbc9914210c34935ea69d1d47c8a8523e97e121ff89b5c9"
+    },
+    "inventory": {
+      "path": "examples/inventory/pedro-shop.toml",
+      "sha256": "62518211d54808d36c7800e0327e56fef1ee1e9dd194e03d26bc307aa9466dbf"
+    },
+    "plan": {
+      "path": "examples/cone-pivot-post/plan.toml",
+      "sha256": "0e8970ebc16391f72020a0927429677ffb56c3c154da4e3a7370fca896fdaf76"
+    },
+    "shop_policy": {
+      "path": "examples/shop-policy.toml",
+      "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+    }
+  },
+  "prechips_version": "0.1",
+  "rules_version": "m2-rev6",
+  "step_sha256": "unknown",
+  "verification": "planned"
+}

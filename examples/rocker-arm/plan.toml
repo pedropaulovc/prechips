@@ -7,6 +7,7 @@
 # reamer and supported profile fixture remain explicit machining blockers.
 part = "rocker-arm"
 features = "features.toml"
+construction = "one_piece"   # author's route: all rocker features cut from one prepared blank
 quantity = 20
 quantity_cite = "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:5"
 

@@ -12,12 +12,13 @@ import logging
 import math
 import os
 import sys
+import traceback
 from contextlib import contextmanager
 from threading import Lock
 from typing import Any
 
 from opentelemetry import trace
-from opentelemetry._logs import SeverityNumber
+from opentelemetry._logs import LogRecord, SeverityNumber
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import Resource
@@ -60,13 +61,21 @@ class _OTelHandler(logging.Handler):
             logging.ERROR: SeverityNumber.ERROR,
             logging.CRITICAL: SeverityNumber.FATAL,
         }[record.levelno]
+        if record.exc_info:
+            exception_type, exception, _ = record.exc_info
+            if exception_type is not None:
+                attrs["exception.type"] = exception_type.__qualname__
+            if exception is not None:
+                attrs["exception.message"] = str(exception)
+            attrs["exception.stacktrace"] = "".join(traceback.format_exception(*record.exc_info))
         self.otel_logger.emit(
-            timestamp=int(record.created * 1_000_000_000),
-            severity_number=severity,
-            severity_text=severity.name,
-            body=record.getMessage(),
-            attributes=_attributes(attrs),
-            exception=record.exc_info[1] if record.exc_info else None,
+            LogRecord(
+                timestamp=int(record.created * 1_000_000_000),
+                severity_number=severity,
+                severity_text=severity.name,
+                body=record.getMessage(),
+                attributes=_attributes(attrs),
+            )
         )
 
 

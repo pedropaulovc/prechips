@@ -271,6 +271,7 @@ name = "prechips"
 version = "0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
@@ -286,9 +287,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "opentelemetry-exporter-otlp-proto-grpc", specifier = ">=1.45.0" },
-    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.45.0" },
-    { name = "opentelemetry-sdk", specifier = ">=1.45.0" },
+    { name = "opentelemetry-api", specifier = ">=1.39.1" },
+    { name = "opentelemetry-exporter-otlp-proto-grpc", specifier = ">=1.39.1" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.39.1" },
+    { name = "opentelemetry-sdk", specifier = ">=1.39.1" },
     { name = "pydantic", specifier = ">=2.9,<3" },
     { name = "rich", specifier = ">=15.0.0" },
 ]

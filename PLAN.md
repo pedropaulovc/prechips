@@ -11,8 +11,8 @@
 > no human has to read.
 
 Status: M1 local implementation and PR #5 cross-family/CodeRabbit review
-corrections completed, including strict optional identity handling, tool-size
-comparison and operative traveler precision; physical paper rehearsal and live
+corrections completed; M2 declared-input implementation and all six PR #6
+review corrections are locally verified. Physical paper rehearsal and live
 parented farm/App Insights acceptance remain pending/unobserved. Rev 6, 2026-10-03.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
@@ -538,7 +538,7 @@ not exist.
 | headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL, holder gauge length, machine envelope — `verify` → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
-| stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed | plan.setups.hold.stickout_mm, policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
+| stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
 
 ### 4.2 Setup geometry (on the B-rep — needs the kernel)
 
@@ -557,7 +557,7 @@ not exist.
 | vise: gripped faces are a parallel pair; width ≤ opening; grip ≥ `grip_mm` on both jaws; no claimed face inside a jaw solid; parallels exist | plan.hold, inventory.fixtures.vise (jaw_height, opening, width), parallels, STEP | M4 | "Strap is 2.5 mm under the jaw with a 4 mm floor; use the fixture plate." |
 | collet/chuck: stock Ø in the set or range; stick-out (4.1) | plan.hold, inventory | M2 | "No ER collet set confirmed." |
 | thin wall under clamp: wall thickness inside the grip zone < `thin_wall_floor_mm` ⇒ `hold.method` must name soft jaws / mandrel / tape / wax | STEP thickness map, plan.hold, policy.numbers | M4 | "1.2 mm wall under the jaw; name soft jaws or a mandrel." |
-| indexing: for `hold.index = { fixture, angle_deg, positions }` and the feature's `angle_tol_deg` (default: the general angular class): prefer an **exact** representation (direct plate step, or a circle `h` with `angle_deg·R·h/360` an integer, R = `worm_ratio`); otherwise the nearest, and then check every one of the `positions` and the closure (positions × step vs 360·k) against `angle_tol_deg`, not just one step; the sheet prints plate, circle, turns and hole *spaces* | plan.hold.index, features.angle_tol_deg / general_tolerances.angular_deg, inventory dividing_head (`worm_ratio`, `direct_index`, `plate_holes`) | M2 | "51.43° × 7: plate B, circle 21, 5 turns + 15 spaces (exact); plate circles not confirmed (?)" |
+| indexing: for `hold.index = { fixture, angle_deg, positions }` and the feature's `angle_tol_deg` (default: the general angular class): prefer an **exact** representation (direct plate step, or a circle `h` with `angle_deg·R·h/360` an integer, R = `worm_ratio`); otherwise the nearest, and check every position against `angle_tol_deg`. Closure is checked **only for a full pattern**, `positions ≥ 2` with `angle_deg` omitted (step exactly 360/positions; positions × actual step vs 360·k). An authored `angle_deg` with `positions ≥ 2` is an open pattern: every landing is checked, no closure. `positions = 1` is one angular setting without closure; the sheet prints plate, circle, turns and hole *spaces* | plan.hold.index, features.angle_tol_deg / general_tolerances.angular_deg, inventory dividing_head (`worm_ratio`, `direct_index`, `plate_holes`) | M2 | "51.43° × 7: plate B, circle 21, 5 turns + 15 spaces (exact); plate circles not confirmed (?)" |
 | tiny parts: part-off last below the collet minimum; profile below footprint threshold declares tabs or a plate | plan.ops, inventory, policy | deferred | — |
 
 ### 4.4 Physics proxies (`!` lines only; policy may promote)
@@ -565,7 +565,7 @@ not exist.
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
 | turning deflection: δ = F·L³/(3EI) (cantilever) or /(48EI) (supported), F = K_c·a_p·f, K_c and E from `cutting-data.[[material]]` | plan.hold.stickout_mm, plan.ops (DOC, feed), features.dia, cutting-data.material | M2 | "Expected deflection 0.04 against ±0.1; take the last pass at 0.2." |
-| engagement: tool projection from the holder (inventory `projection_mm` per tool+holder, else OAL − holder grip) / D ≤ 4 else halve DOC | inventory.tools (OAL), inventory.holders (grip_mm), plan.ops.holder | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
+| engagement: only milling cutters (endmill families) on cutting operations with an authored DOC; tool projection from the holder (inventory `projection_mm` per tool+holder, else OAL − holder grip) / D ≤ 4 else halve DOC. Drills, reamers, taps and lathe tools are not applicable | inventory.tools (kind, OAL), inventory.holders (grip_mm), plan.ops (holder, DOC) | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
 | tool life | needs a calibrated life table nobody ships | deferred | — |
 
 ### 4.5 Stock-form comparison (authored candidates, counted by prechips)
@@ -797,7 +797,7 @@ sheet.
    approval gating and generated Letter HTML are implemented for the authored
    reference routes (including their setup pages and contour continuations).
    Examples remain PLANNED with expected exits shaft 4 / rocker 2 / bracket 2;
-   this does not complete M2 feasibility, M3 export or M4 kernel geometry.
+   M1 alone does not complete M2 feasibility, M3 export or M4 kernel geometry.
    Local telemetry/exporter checks are not live farm evidence. **Physical
    `rocker-paper-rehearsal` and §5.2 parented farm telemetry acceptance remain
    pending/unobserved.** The original acceptance criteria remain:
@@ -819,10 +819,31 @@ sheet.
    manifest with one `"unknown"` tolerance among known ones → `?` and exit
    4; editing `features.toml` after approval → `PLANNED` naming the input;
    an empty ops list → exit 3; the report byte-repeatable.
-2. **M2 — `pivot-shaft` and `pivot-bracket`** (lathe frame conventions: Z
-   along the spindle, X as diameter; `transfer` zero across setups; the M2
-   rows, including indexing on the BS-0 for the shaft's cross-hole;
-   `prechips compare` on `cone-pivot-post`).
+2. **M2 — local declared-input implementation completed 2026-10-03.**
+   Turned-profile monotonicity,
+   supported stick-out, collet/chuck diameter capacity, exact-first indexing,
+   turning-deflection and engagement proxies, and gated stock-form comparison
+   are implemented. Lathe Z/spindle, diameter-mode X and cross-setup `transfer`
+   conventions remain the existing shaft route's; no cross-hole is added.
+   The original “shaft's cross-hole” indexing bullet is **superseded**: rev 6
+   declares no such feature. The first BS-0 case is the cone-pivot-post's
+   12.5182° cone-journal inclination (`positions = 1`, no repeated-pattern closure),
+   with authored full-envelope one-piece and block-plus-pressed-boss alternatives.
+   The drawing is one-piece only; the built-up candidate is refused.
+   **Observed local acceptance after PR #6 review corrections:** Ruff check and
+   format check (67 Python files); 575 pytest cases; all 12 TOML inputs / five
+   candidate goldens validated. Actual CLI travelers preserve exits
+   4 / 2 / 2 / 4 / 2 and cone comparison exits 2, with canonical golden parity.
+   The corrections use finished exposed stick-out D, explicit built-up permission,
+   full-pattern-only closure, endmill-with-DOC engagement, machine hold resolution
+   and one shared citation collector. All six findings were reproduced before
+   their fixes. Only changed rule output regenerated goldens (#1, #4 and #5).
+   Chromium showed the synthetic 30° × 3 open pattern's exact landings and
+   “Open pattern: no cycle closure.” This is not physical print evidence.
+   **Unobserved/pending:** measured chuck capacities/support/BS-0 inventory,
+   sourced K_c/E and a sourced BASIC-angle landing allowance, printed traveler/operator
+   rehearsal, independent hand oracle, live farm telemetry and M3/M4 geometry
+   binding. Unknown inputs remain `?`, not a numerical machining approval.
 3. **M3 — consumer export.** harmonic-analyzer issue (filed with this rev):
    `cad/scripts/export_features.py` emitting `features.toml` beside the
    STEP as a complete manifest with provenance; `swStepExportFaceEdgeProps`

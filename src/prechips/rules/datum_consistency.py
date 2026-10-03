@@ -75,11 +75,29 @@ def evaluate(bundle):
     findings = []
     for name, feature in features.items():
         position_datums = feature.get("position_datums", [])
+        angularity_datums = feature.get(
+            "angularity_datums", "unknown" if "angularity_dia" in feature else []
+        )
+        angularity_unknown = angularity_datums == "unknown" or (
+            "angularity_dia" in feature and angularity_datums == []
+        )
         relationships = []
         if isinstance(position_datums, list):
             relationships.extend(
                 (datum, datum_map.get(datum), feature.get("position_dia", "unknown"))
                 for datum in position_datums
+            )
+        if isinstance(angularity_datums, list):
+            band = feature.get("angularity_dia", "unknown")
+            tolerance = (
+                band[1] - band[0]
+                if isinstance(band, list) and len(band) == 2 and all(_number(v) for v in band)
+                else band
+                if _number(band)
+                else "unknown"
+            )
+            relationships.extend(
+                (datum, datum_map.get(datum), tolerance) for datum in angularity_datums
             )
         if "coaxial_to" in feature:
             relationships.append(
@@ -97,10 +115,13 @@ def evaluate(bundle):
                 else "unknown"
             )
             relationships.append((feature["height_from"], feature["height_from"], tolerance))
-        numbers = {"position_datums": position_datums}
+        numbers = {
+            "position_datums": position_datums,
+            "angularity_datums": angularity_datums,
+        }
         if "datum" in feature:
             numbers["datum"] = feature["datum"]
-        if not relationships and position_datums != "unknown":
+        if not relationships and position_datums != "unknown" and not angularity_unknown:
             findings.append(
                 Finding(
                     "datum_consistency",
@@ -123,7 +144,7 @@ def evaluate(bundle):
         )
         if feature_cuts:
             numbers["feature_op"] = _label(feature_cuts[-1])
-        unknown = position_datums == "unknown" or not feature_cuts
+        unknown = position_datums == "unknown" or angularity_unknown or not feature_cuts
         failed = []
         cross_setup = False
         for datum_name, datum_feature, tolerance in relationships:

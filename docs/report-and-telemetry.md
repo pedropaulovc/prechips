@@ -7,6 +7,8 @@
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
+The current catalogue is `rules_version = "m2-rev6"`; changing the operative
+rule catalogue changes the bound report and invalidates prior approvals.
 
 Canonical bytes are UTF-8 JSON, sorted keys, two-space indentation,
 `ensure_ascii=False`, finite numbers only, and **one final LF**. `hash` is the
@@ -152,6 +154,13 @@ clipping/dry-run proof. The paper acceptance remains pending.
 
 
 ## Telemetry and console
+
+The OpenTelemetry API, SDK and OTLP HTTP/gRPC exporters require `>=1.39.1`.
+The API is a direct dependency because this module imports its tracing and log
+record types. Logs use the API `LogRecord` form of `Logger.emit`, with exception
+details carried as standard attributes, rather than a newer `exception` keyword.
+The telemetry suite passes with all four packages pinned to `1.39.1`, including
+local HTTP and gRPC export with correlated finding context.
 
 Every invocation has a `prechips.<verb>` root span (initial usage may be named
 `prechips.usage` when a global flag comes first). Inputs use `input.load`, outputs

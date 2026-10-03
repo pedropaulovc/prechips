@@ -8,6 +8,7 @@
 # are author's choices, not measurements. RPM remains unknown/derived.
 part = "pivot-shaft"
 features = "features.toml"
+construction = "one_piece"   # author's route: all shaft geometry cut from the declared single bar
 quantity = 1                 # harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:6
 
 [drawing]

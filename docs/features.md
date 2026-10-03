@@ -47,6 +47,32 @@ the digest alone is not accepted. Shipped examples have no STEP byte stream.
 `cite`, `cite_root`, and per-dimension citations identify evidence and
 are not file assets fetched or opened during the check. Hand-authored manifests
 must be cross-checked against source drawings; completeness export is M3.
+Citation collection discards blank and `"unknown"` entries individually, without
+losing other known sources in the list. A per-dimension citation map supplies only
+the requested fact; whole-record provenance is collected in sorted key order.
+
+The stick-out rule takes its D from the smallest finished profile diameter along
+setup Z in the unsupported span, using these authored axial stations and frames.
+Unknown exposed stations, diameters or bindings cannot fall back to bar OD.
+
+M2 adds declared lathe profiles (`z_mm` plus a nominal diameter) and angular
+settings (`angle_deg`, `angle_tol_deg`). These are sourced nominal geometry,
+not kernel-derived access proofs. A feature's `angle_tol_deg` is an angular
+landing allowance in degrees; it is not the diametral angularity zone.
+Every declared indexing position is checked against that allowance. Closure
+applies only to a full pattern (`positions >= 2`, `angle_deg` omitted, exact
+step `360 / positions`); an authored angle declares an open pattern with no closure.
+`angularity_dia = [0.0, 0.10]` with `angularity_datums = ["A", "B"]`, listed in
+`requirements`, declares a drawing FCF that needs its own geometric gauge and
+datum-referenced inspection method. It does not convert Ø0.10 into degrees.
+
+The optional root `volume_mm3` and `volume_cite` hold a sourced finished-part
+volume for stock comparison. Missing or unverified volume remains `"unknown"`;
+prechips never substitutes a feature bounding box, guessed cone subtraction,
+or stock volume. Drawing `construction = "one_piece"` does not permit a
+built-up candidate; permission requires the literal `"built_up_permitted"`.
+Unknown or omitted drawing permission retains the one-piece-only restriction;
+it never permits built-up construction. A one-piece candidate needs no permission.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
@@ -75,6 +101,8 @@ of geometric validity; rules perform the applicable checks.
 | `step_sha256` | `str` | Optional |
 | `step` | `str \| Unknown` | Optional |
 | `construction` | `str \| Unknown` | Optional |
+| `volume_mm3` | `Number` | Optional |
+| `volume_cite` | `Citations` | Optional |
 | `cite_root` | `str \| Unknown` | Optional |
 | `cite` | `Citations \| dict[str, Citations]` | Optional |
 | `notes` | `Notes \| Unknown` | Optional |
@@ -174,6 +202,7 @@ of geometric validity; rules perform the applicable checks.
 | `cite` | `Citations \| dict[str, Citations]` |
 | `precision` | `dict[str, int \| Unknown]` |
 | `position_datums` | `list[str]` |
+| `angularity_datums` | `list[str]` |
 | `thru` | `bool` |
 | `mirror_symmetric` | `bool` |
 | `at` | `Vector` |
@@ -186,9 +215,12 @@ of geometric validity; rules perform the applicable checks.
 | `end` | `Vector` |
 | `arc_centre` | `Vector` |
 | `bottom_end` | `Vector` |
+| `angle_deg` | `Number` |
+| `angle_tol_deg` | `Number` |
 | `radial_tip_end` | `Vector` |
 | `dia` | `float \| list[Number]` |
 | `position_dia` | `float \| list[Number]` |
+| `angularity_dia` | `float \| list[Number]` |
 | `finish_ra` | `float \| list[Number]` |
 | `depth` | `float \| list[Number]` |
 | `length` | `float \| list[Number]` |

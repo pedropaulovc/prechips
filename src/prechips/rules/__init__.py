@@ -1,4 +1,4 @@
-"""The M1 rule catalogue; unsupported policy requests stay unresolved."""
+"""The M1/M2 rule catalogue; unsupported policy requests stay unresolved."""
 
 from __future__ import annotations
 
@@ -8,17 +8,24 @@ from dataclasses import dataclass
 from prechips.findings import Finding, Status
 from prechips.inputs import Bundle
 from prechips.rules import (
+    construction,
     coordinates,
     datum_consistency,
+    engagement,
     headroom,
     hold_fields,
+    indexing,
     inspection,
     op_chain,
     op_order,
     sizing,
     speeds_feeds,
+    stickout,
+    stock_diameter,
     tip_endpoints,
     tool_resolves,
+    turned_profile,
+    turning_deflection,
     zero_recipe,
 )
 
@@ -42,6 +49,13 @@ RULES: list[Rule] = [
     Rule("hold_fields", hold_fields.evaluate),
     Rule("headroom", headroom.evaluate),
     Rule("datum_consistency", datum_consistency.evaluate),
+    Rule("turned_profile", turned_profile.evaluate),
+    Rule("stickout", stickout.evaluate),
+    Rule("stock_diameter", stock_diameter.evaluate),
+    Rule("indexing", indexing.evaluate),
+    Rule("turning_deflection", turning_deflection.evaluate),
+    Rule("engagement", engagement.evaluate),
+    Rule("construction", construction.evaluate),
 ]
 
 

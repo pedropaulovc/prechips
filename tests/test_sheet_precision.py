@@ -102,3 +102,10 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     expected = [f"{round(r['z_mm'], 6):g}" for r in dome["rows"]]
     assert stations[: len(expected)] == expected
     assert len(set(expected)) == len(expected)
+
+
+@pytest.mark.parametrize("plan", ["plan.toml", "built-up.toml"])
+def test_machine_backed_workholding_prints_without_missing_label(tmp_path, plan):
+    bundle = copy_examples(tmp_path) / "cone-pivot-post"
+    _, _, html = traveler(bundle / plan, tmp_path / "out")
+    assert "<td>PM-30MV / BS-0</td>" in html

@@ -68,6 +68,7 @@ of geometric validity; rules perform the applicable checks.
 |---|---|---|
 | `part` | `str` | Required |
 | `features` | `str` | Required |
+| `construction` | `Literal['one_piece', 'built_up'] \| Unknown` | Optional |
 | `step` | `str \| Unknown` | Optional |
 | `quantity` | `int \| Unknown` | Optional |
 | `quantity_cite` | `Citations` | Optional |
@@ -115,6 +116,25 @@ of geometric validity; rules perform the applicable checks.
 | `material_cite` | `Citations` |
 | `section_mm` | `Vector` |
 | `as_is_faces` | `list[str]` |
+| `components` | `list[StockComponent]` |
+| `cite` | `Citations` |
+
+For a built-up stock candidate, `components` lists the separately authored
+blanks. Each `StockComponent` accepts `form`, `dia_mm`, `length_mm`,
+`section_mm`, `note`, and `cite` with the same types as the stock fields above.
+A round blank uses diameter and length; a rectangular blank uses two section
+dimensions and length. These are authored purchase/process choices, not
+confirmed on-hand inventory. Missing dimensions or citations keep comparison
+waste unresolved; finished volume comes only from the manifest's explicitly
+sourced `volume_mm3`, never a bounding-box estimate.
+
+Root `construction` declares the candidate route, independently of the
+drawing-side manifest permission. `built_up` is refused unless
+`features.construction = "built_up_permitted"`: unknown or omitted drawing
+permission does not lift the one-piece-only restriction. An explicit `one_piece`
+candidate needs no such permission. Omitting the **plan's** candidate construction
+is unknown rather than an implicit one-piece declaration.
+See [stock-form comparison](rules-comparison.md).
 
 ## Dro
 
@@ -127,6 +147,12 @@ of geometric validity; rules perform the applicable checks.
 | `units` | `str` |
 | `radius_mode` | `bool` |
 | `direction` | `Direction` |
+
+`radius_mode` selects the lathe X display convention: radial physical X jogs
+read once in radius mode and twice in diameter mode. It does not change a known
+mill's linear axes. In a mixed-machine route, the traveler labels the actual
+setup machine's display convention rather than applying the lathe label to all
+setups. Unknown controller/install facts remain unresolved independently.
 
 ## Direction
 
@@ -171,6 +197,11 @@ of geometric validity; rules perform the applicable checks.
 | `local_thickness_cite` | `dict[str, Citations]` |
 | `entry_z` | `dict[str, Number]` |
 
+For lathe stick-out, `north_end_z` / `south_end_z` and `hold.stickout_mm` bound
+the unsupported span. Its D is the smallest finished feature diameter in that
+span after transformation into setup Z; `od_mm` remains the held-stock diameter
+for collet/chuck capacity, not the unsupported-section diameter.
+
 ## Hold
 
 | Field | Type (also accepts `"unknown"`) |
@@ -207,11 +238,26 @@ The `hold.index` record is strict: only the fields below are accepted.
 Each field is optional and also accepts literal `"unknown"`; arbitrary keys
 are bad input (exit 3 before output).
 
-| Field | Type (also accepts `"unknown"`) |
-|---|---|
-| `fixture` | `str` |
-| `angle_deg` | `Number` |
-| `positions` | `int` |
+| Field | Type (also accepts `"unknown"`) | Meaning |
+|---|---|---|
+| `fixture` | `str` | Selected dividing-head identity in inventory. |
+| `feature` | `str` | Feature owning the angular landing allowance. |
+| `angle_deg` | `Number` | Authored step declares an open pattern with no closure; omitted with `positions >= 2` declares a full pattern at exact `360 / positions`. Explicit `"unknown"` stays unresolved. |
+| `positions` | `int` | Number of checked landings; `1` is a single setting. Closure requires both `positions >= 2` and omitted `angle_deg`. |
+
+`feature` selects the journal/pattern's angular tolerance. An omitted selector
+or absent feature allowance falls back to `general_tolerances.angular_deg`;
+an explicitly unknown selector or allowance stays unresolved. Angles are degrees
+and `positions` counts angular settings, not drilled holes inferred from a part
+name. Exactness uses the authored TOML angle value, not rounded sheet text.
+For a full pattern (`positions >= 2` with `angle_deg` omitted), the step is
+exactly `360 / positions`, and both every landing and cycle closure are checked.
+An authored `angle_deg` with `positions >= 2` declares an **open pattern**:
+every position is checked against `angle_tol_deg`, but closure is not applicable,
+even when the authored steps happen to total a whole revolution. Explicit
+`"unknown"` is not omission. `positions = 1` is one explicit angular setting
+with no closure. The traveler prints plate, circle, turns and hole **spaces**,
+with angles at the drawing's declared angular precision.
 
 ## Reference
 
@@ -306,6 +352,11 @@ are bad input (exit 3 before output).
 | `inspection_methods` | `dict[str, str]` |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
+
+`doc_mm` enables the engagement screen only for an endmill-family cutter on a
+cutting operation. Omitted DOC, noncutting actions and known drills, reamers,
+taps or lathe tools are `not_applicable`; an authored unknown DOC on an eligible
+operation remains unresolved, not an invented recommendation.
 
 ## Contour
 

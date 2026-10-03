@@ -32,9 +32,10 @@ stops or certifying unknowns. Keep fixture LF endings and canonical report hash.
 
 Checks must perform **no network activity except explicitly configured OTel
 export**. Inventory chart/source URLs are citations, not downloads. No CAD kernel,
-fixture renderer, CAM, geometry-certification or M2 rule should be implied by an
-M1 input/display field. No physical rehearsal or live farm evidence is recorded
-merely because exporter tests pass.
+fixture renderer, CAM or geometry-certification should be implied by a declared
+input/display field. M2 rules evaluate declared profile, holding, indexing and
+physics inputs; unknown K_c/E, shop limits and verified capacity remain debt.
+No physical rehearsal or live farm evidence is recorded merely because exporter tests pass.
 
 ## Local validation
 
@@ -50,8 +51,16 @@ uv run ruff format --check .
 
 The validator validates authored fixture contracts and expected report integrity;
 it does not certify machining. Its successful exit is 0, while actual example
-checker/traveler exits are shaft 4, rocker 2, bracket 2. Use the CLI examples in
+checker/traveler exits are shaft 4, rocker 2, bracket 2, cone one-piece 4 and
+cone built-up 2. Use the CLI examples in
 [README.md](README.md) and isolated output directories to exercise behavior.
+The cone's one-piece and built-up candidates also remain PLANNED; comparison
+must refuse built-up construction unless the drawing manifest explicitly permits
+it. Indexing uses one angular setting for the inclined journal, never a fictional
+shaft cross-hole. Closure is checked only for a full pattern: `positions >= 2`
+with `angle_deg` omitted (step exactly `360 / positions`). Authored angles are
+open patterns: every landing is checked, with no closure. One setting also has
+no closure.
 Keep regression tests about consumer-visible boundaries, not exact incidental
 prose or copied wiring. Tests must use temporary files and local telemetry
 collectors, not real shop state or production services. During parallel work,
@@ -105,7 +114,7 @@ this parented live farm path. This acceptance is unobserved/pending here.
 ## Documentation and scope
 
 Update README, the five input-format pages, affected rule-family pages and PLAN
-M1 status lines when shipped behavior changes. Follow actual schema/rule
+milestone status lines when shipped behavior changes. Follow actual schema/rule
 sentences, not PLAN sketches' obsolete placeholder dimensions. Physical printed
 Letter clipping checks, operator dry-run and independent hand oracle remain
 separate acceptance work. Do not claim them complete without observation.

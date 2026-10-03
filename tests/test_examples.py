@@ -1,26 +1,77 @@
 """Frozen bundles must be reproduced, not consumed, by the real CLI."""
 
+import json
+import math
+
 import pytest
-from test_cli import copy_examples, traveler
+from test_cli import copy_examples, run_cli, traveler
 
 
 @pytest.mark.parametrize(
-    ("part", "exit_code"),
-    [("pivot-shaft", 4), ("rocker-arm", 2), ("pivot-bracket", 2)],
+    ("part", "plan_filename", "expected_subdir", "exit_code"),
+    [
+        ("pivot-shaft", "plan.toml", "expected", 4),
+        ("rocker-arm", "plan.toml", "expected", 2),
+        ("pivot-bracket", "plan.toml", "expected", 2),
+        ("cone-pivot-post", "plan.toml", "expected", 4),
+        ("cone-pivot-post", "built-up.toml", "expected/built-up", 2),
+    ],
 )
-def test_examples_match_reference_bytes_and_repeat(tmp_path, part, exit_code):
+def test_examples_match_reference_bytes_and_repeat(
+    tmp_path,
+    part,
+    plan_filename,
+    expected_subdir,
+    exit_code,
+):
     examples = copy_examples(tmp_path)
     bundle = examples / part
     outputs = []
     for run in range(2):
         out = tmp_path / f"run-{run}"
-        result, report, html = traveler(bundle / "plan.toml", out)
+        result, report, html = traveler(bundle / plan_filename, out)
         assert result.returncode == exit_code, result.stderr
         assert report["expected_exit"] == exit_code
         assert "PLANNED" in html
         outputs.append(((out / "report.json").read_bytes(), (out / "traveler.html").read_bytes()))
     assert outputs[0] == outputs[1]
     assert outputs[0] == (
-        (bundle / "expected" / "report.json").read_bytes(),
-        (bundle / "expected" / "traveler.html").read_bytes(),
+        (bundle / expected_subdir / "report.json").read_bytes(),
+        (bundle / expected_subdir / "traveler.html").read_bytes(),
     )
+
+
+def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(tmp_path):
+    bundle = copy_examples(tmp_path) / "cone-pivot-post"
+    outputs = []
+    for run in range(2):
+        out = tmp_path / f"compare-{run}"
+        result = run_cli(
+            "compare",
+            bundle / "plan.toml",
+            bundle / "built-up.toml",
+            "--out",
+            out,
+        )
+        assert result.returncode == 2, result.stderr
+        outputs.append((out / "compare.json").read_bytes())
+    assert outputs[0] == outputs[1] == (bundle / "expected" / "compare.json").read_bytes()
+    rows = json.loads(outputs[0])
+    assert [(row["plan"], row["part"]) for row in rows] == [
+        ("plan.toml", "cone-pivot-post"),
+        ("built-up.toml", "cone-pivot-post"),
+    ]
+    stock_volumes = [math.pi * 55**2 * 120, 46 * 50 * 92 + math.pi * 12.5**2 * 100]
+    for row, stock, construction, gate in zip(
+        rows,
+        stock_volumes,
+        ("one_piece", "built_up"),
+        ("pass", "error"),
+        strict=True,
+    ):
+        assert row["construction"] == construction
+        assert row["stock_volume_mm3"] == pytest.approx(stock)
+        assert row["net_volume_mm3"] == 112300.8902
+        assert row["waste_ratio"] == pytest.approx(1 - 112300.8902 / stock)
+        finding = next(f for f in row["rule_findings"] if f["rule"] == "construction")
+        assert finding["status"] == gate

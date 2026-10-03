@@ -68,8 +68,8 @@ coordinate and fixture height is not silently assumed to be bed height.
 ## `datum_consistency`
 
 One subject per feature. Drawing datum names map to actual feature finishing
-cuts, not setup-frame labels. Relationships include position datums, coaxial
-feature and height-from feature. Reamed/bored/tapped datum finishing cuts replace
+cuts, not setup-frame labels. Relationships include position and angularity
+datums, coaxial feature and height-from feature. Reamed/bored/tapped datum finishing cuts replace
 pilots; rough/nonfinishing actions do not establish a final datum. Every feature
 finishing-cut/datum-cut pair is evaluated. Same setup passes; an indicated
 transfer passes only when it names that feature/datum and originates at or
@@ -90,3 +90,23 @@ booleans and status, tolerance, budget and transfer record. Citations: PLAN §4.
 manifest datum/tolerance references, finishing cuts and transfer, plus shop
 budget citation. A nominal frame or a pickup of an earlier pilot never proves
 a later finished drawing datum.
+
+## M2 declared workholding and indexing
+
+The [lathe rules](rules-lathe.md) check a turned profile from the actual chuck
+end, supported stick-out using the smallest finished diameter in the unsupported
+length, and held-stock diameter against a listed collet set or chuck capacity.
+The bar in the jaws is not the stick-out D. A chuck's outside diameter is not
+its grip capacity. Unknown exposed geometry, inventory and policy values stay `?`.
+
+The [indexing rule](rules-indexing.md) considers direct steps and every authored
+worm plate circle, preferring exact arithmetic before nearest alternatives.
+Each of the declared positions must land within its sourced angular tolerance.
+Closure against a whole revolution is checked **only for a full pattern**:
+`positions >= 2` with `angle_deg` omitted, deriving the step exactly as
+`360 / positions`. An authored `angle_deg` with `positions >= 2` is an open
+pattern: every position is checked against `angle_tol_deg`, with no closure.
+`positions = 1` is one angular setting, such as the cone journal's 12.5182°
+inclination, with no closure. The traveler prints plate, circle, turns and hole
+**spaces**, even when that arithmetic remains tentative because inventory
+confirmation is missing.

@@ -27,6 +27,8 @@ SET_KINDS = {
     "lathe_tool_bits",
 }
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"}
+_INVENTORY_CATEGORIES = ("machines", "tools", "holders", "fixtures", "gauges")
+WORKHOLDING_CATEGORIES = ("fixtures", "holders", "machines")
 
 
 def number(value):
@@ -63,6 +65,19 @@ def measured(item, value):
 
 def record(value):
     return value if isinstance(value, dict) else {}
+
+
+def _citations(value, field=None):
+    """Keep usable cited strings; a field selects only that fact from a citation map."""
+    if isinstance(value, dict):
+        if field is not None:
+            return _citations(value.get(field))
+        return [text for key in sorted(value) for text in _citations(value[key])]
+    if isinstance(value, list):
+        return [text for item in value for text in _citations(item, field)]
+    if isinstance(value, str) and value.strip() and value.strip() != UNKNOWN:
+        return [value]
+    return []
 
 
 def inch_sizes(value):
@@ -117,11 +132,23 @@ def length_mm(item, field):
     return UNKNOWN
 
 
+def inventory_category(bundle_or_inventory, reference, categories=_INVENTORY_CATEGORIES):
+    """Return the first inventory category declaring a reference root."""
+    if not isinstance(reference, str):
+        return None
+    inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
+    root = reference.partition("/")[0]
+    for category in categories:
+        if root in record(inventory.get(category)):
+            return category
+    return None
+
+
 def resolve(bundle_or_inventory, category, reference):
     inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
     if not isinstance(reference, str) or reference in {UNKNOWN, "none", "not_applicable"}:
         return None
-    categories = (category,) if category else ("machines", "tools", "holders", "fixtures", "gauges")
+    categories = (category,) if category else _INVENTORY_CATEGORIES
     root, separator, member = reference.partition("/")
     item = None
     unknown_category = False

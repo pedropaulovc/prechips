@@ -12,7 +12,12 @@ import re
 from html import escape
 
 from .model import tolerance_requirements
-from .rules.resolution import MANUAL, resolve
+from .rules.resolution import (
+    MANUAL,
+    WORKHOLDING_CATEGORIES,
+    inventory_category,
+    resolve,
+)
 from .rules.resolution import record as _mapping
 
 _CSS = """@page { size: Letter portrait; margin: .4in; }
@@ -181,17 +186,24 @@ class _Traveler:
             return _text(reference)
         if not isinstance(reference, str):
             return "?"
-        item = resolve(self.bundle, category, reference)
+        identity_category = category
+        if category == "fixtures":
+            identity_category = (
+                inventory_category(self.bundle, reference, WORKHOLDING_CATEGORIES) or category
+            )
+        item = resolve(self.bundle, identity_category, reference)
         root, _, member = reference.partition("/")
-        raw = _mapping(_mapping(self.bundle.inventory.get(category)).get(root)) if category else {}
+        raw = (
+            _mapping(_mapping(self.bundle.inventory.get(identity_category)).get(root))
+            if identity_category
+            else {}
+        )
         if not raw:
-            raw = next(
-                (
-                    _mapping(items[root])
-                    for items in self.bundle.inventory.values()
-                    if isinstance(items, dict) and root in items
-                ),
-                {},
+            raw_category = inventory_category(self.bundle, reference, tuple(self.bundle.inventory))
+            raw = (
+                _mapping(_mapping(self.bundle.inventory.get(raw_category)).get(root))
+                if raw_category
+                else {}
             )
         record = item or raw
         name = record.get("name", record.get("label"))
@@ -276,14 +288,74 @@ class _Traveler:
         }
         parts = []
         for key, value in hold.items():
-            if self.metadata(key) or value == "not_applicable":
+            if self.metadata(key) or value == "not_applicable" or key == "index":
                 continue
             if key in _REFERENCE_FIELDS:
                 value = self.short_reference(value)
             else:
                 value = self.value(value, dimension=key)
             parts.append(f"{names.get(key, _text(key))}: {value}")
-        return _p("Hold: " + self.bench("; ".join(parts)))
+        return _p("Hold: " + self.bench("; ".join(parts))) + self.indexing(setup)
+
+    def indexing(self, setup):
+        hold = _mapping(setup.get("hold"))
+        if "index" not in hold:
+            return ""
+        finding = next(
+            (
+                finding
+                for finding in self.findings
+                if _field(finding, "rule") == "indexing"
+                and _field(finding, "subject") == setup["id"]
+            ),
+            None,
+        )
+        if finding is None:
+            return _p("Index: ? Plate arithmetic not computed.")
+        numbers = _field(finding, "numbers", {})
+        feature = numbers.get("feature")
+        r = self.operative
+        requested = self.value(numbers.get("requested_angle_deg"), feature, "angle_deg")
+        actual = self.value(numbers.get("actual_angle_deg"), feature, "angle_deg")
+        glyph = _GLYPHS.get(_status(finding), "")
+        tentative = "Tentative — " if _status(finding) == "unknown" else ""
+        positions = numbers.get("positions")
+        count = "one angular setting" if positions == 1 else f"{r(positions)} positions"
+        parts = [
+            f"Index: {glyph} {tentative}{self.short_reference(numbers.get('fixture'))}; "
+            f"requested {requested}°; {count}; actual step {actual}°."
+        ]
+        if numbers.get("method") in {"direct", "worm"}:
+            kind = "spindle" if numbers["method"] == "direct" else "crank"
+            direction = "Reverse: " if numbers.get("direction") == "reverse" else ""
+            parts.append(
+                f"{direction}plate {r(numbers.get('plate'))}, "
+                f"circle {r(numbers.get('circle'))}: "
+                f"{r(numbers.get('turns'))} {kind} turns + "
+                f"{r(numbers.get('spaces'))} hole spaces (spaces, not holes counted)."
+            )
+            parts.append("Nominal exact step." if numbers.get("exact") is True else "Nearest step.")
+        else:
+            parts.append("Plate / circle / turns / hole spaces: ?")
+        parts.append(
+            f"Angular tolerance ±{r(numbers.get('tolerance_deg'))}°; "
+            f"maximum cumulative landing error {r(numbers.get('max_position_error_deg'))}°."
+        )
+        closure = numbers.get("closure")
+        if closure == "not_applicable":
+            parts.append(
+                "Single setting: no cycle closure."
+                if positions == 1
+                else "Open pattern: no cycle closure."
+            )
+        elif isinstance(closure, dict):
+            parts.append(
+                f"Cycle closure: {r(closure.get('actual_angle_deg'))}° against "
+                f"{r(closure.get('target_angle_deg'))}°; error {r(closure.get('error_deg'))}°."
+            )
+        else:
+            parts.append("Cycle closure: ?")
+        return _p(self.bench(" ".join(parts)))
 
     def headroom(self, setup):
         numbers = self.records.get(("headroom", setup["id"]), {})
@@ -484,20 +556,28 @@ class _Traveler:
 
     def dro(self, setup):
         numbers = self.records.get(("zero_check", setup["id"]), {})
-        authored = setup.get("zero", {})
-        settings = self.plan.get("dro", {})
-        mode = (
-            "radius"
-            if settings.get("radius_mode") is True
-            else "diameter"
-            if settings.get("radius_mode") is False
-            else "?"
-        )
+        authored = _mapping(setup.get("zero"))
+        settings = _mapping(self.plan.get("dro"))
+        machine = _mapping(resolve(self.bundle, "machines", setup.get("machine")))
+        lathe = machine.get("kind") == "lathe"
+        mode = "linear" if machine.get("kind") == "mill" else "?"
+        if lathe:
+            mode = (
+                "radius"
+                if settings.get("radius_mode") is True
+                else "diameter"
+                if settings.get("radius_mode") is False
+                else "?"
+            )
         pieces = [
             f"<h2>DRO ZERO — frame {escape(_text(setup.get('frame')))}, "
             f"{escape(_text(self.units))}, "
             f"{escape(_text(settings.get('mode')).upper())}, {mode} mode</h2>"
         ]
+        if setup.get("zero") == "unknown":
+            pieces.append(
+                _p("? Zero recipe is unknown; touch, Axis Set and jog checks are unresolved.")
+            )
         pieces.append(
             _p(
                 "Direction (§6.2): "
@@ -711,10 +791,10 @@ class _Traveler:
         return parts or ["—" if op.get("do") in MANUAL else "? tip endpoint"]
 
     def inspection(self, setup, op):
-        rows = []
+        rows = ["? Inspection checks unknown."] if op.get("checks") == "unknown" else []
         feature = op.get("feature")
         definition = self.features.get(feature, {})
-        for requirement, reference in op.get("checks", {}).items():
+        for requirement, reference in _mapping(op.get("checks")).items():
             finding = next(
                 (
                     f

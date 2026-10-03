@@ -100,7 +100,25 @@ def evaluate(bundle):
                         span = [0, maximum] if number(maximum) else "unknown"
                     nums.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
                     method = record(op.get("inspection_methods")).get(requirement)
-                    geometric = requirement in {"position_dia", "coaxiality_dia"}
+                    geometric = requirement in {"position_dia", "coaxiality_dia", "angularity_dia"}
+                    method_known = (
+                        isinstance(method, str)
+                        and bool(method.strip())
+                        and method.strip() != "unknown"
+                    )
+                    angularity_datums = feature.get("angularity_datums", "unknown")
+                    angularity_geometry_known = (
+                        isinstance(angularity_datums, list)
+                        and bool(angularity_datums)
+                        and all(
+                            isinstance(datum, str) and bool(datum.strip()) and datum != "unknown"
+                            for datum in angularity_datums
+                        )
+                    )
+                    if geometric:
+                        nums["inspection_method"] = method or "unknown"
+                    if requirement == "angularity_dia":
+                        nums["angularity_datums"] = angularity_datums
                     complex_shape = requirement in {
                         "radius",
                         "bottom_radius",
@@ -142,6 +160,11 @@ def evaluate(bundle):
                         status, message = "error", "named gauge cannot measure this requirement"
                     elif value == "unknown" or bundle.features.get("units") != "mm":
                         message = "requirement limits or units are unresolved"
+                    elif geometric and (
+                        not method_known
+                        or (requirement == "angularity_dia" and not angularity_geometry_known)
+                    ):
+                        message = "geometric gauge capability or datum inspection method unresolved"
                     elif requirement == "finish_ra":
                         capability = gauge.get("ra_range", gauge.get("range_ra", "unknown"))
                         nums["ra_range"] = capability
@@ -187,7 +210,7 @@ def evaluate(bundle):
                         else:
                             message = "gauge range or resolution unresolved"
                     elif geometric and number(value):
-                        if number(resolution) and resolution <= value and method:
+                        if number(resolution) and resolution <= value and method_known:
                             status, message = (
                                 "pass",
                                 "gauge resolution and declared geometric inspection method "

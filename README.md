@@ -1,15 +1,15 @@
 # prechips
 
 Checks before chips: a deterministic, offline checker and printable traveler for
-an authored manual-machining plan. M1 loads five TOML inputs, evaluates twelve
-rule families, writes a canonical findings report, and renders Letter-portrait
-HTML with a header, setup pages and contour continuations. It checks declared
-facts, not a CAD model's machinability. It does not generate CAM toolpaths.
+an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
+plan, workholding, indexing and physics rule families, write a canonical findings
+report, and render Letter-portrait HTML with setup pages and contour continuations.
+It checks declared facts, not a CAD model's machinability, and does not generate CAM toolpaths.
 
-The local M1 implementation and PR #5 review corrections are present. Physical
-paper rehearsal and live farm/App Insights acceptance remain pending; neither
-is evidence supplied by the reference fixtures. See [PLAN.md](PLAN.md) for the
-remaining milestones.
+The local M1 implementation, PR #5 review corrections and M2 declared-input
+feasibility rules are present. Physical paper rehearsal and live farm/App Insights
+acceptance remain pending; neither is evidence supplied by the reference fixtures.
+See [PLAN.md](PLAN.md) for milestone status and unobserved acceptance work.
 
 ## Install and check
 
@@ -36,16 +36,28 @@ From the repository root (the plans name their shared inputs):
 uv run prechips traveler examples/pivot-shaft/plan.toml --out out/pivot-shaft
 uv run prechips traveler examples/rocker-arm/plan.toml --out out/rocker-arm
 uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracket
+uv run prechips traveler examples/cone-pivot-post/plan.toml --out out/cone-pivot-post
+uv run prechips compare examples/cone-pivot-post/plan.toml examples/cone-pivot-post/built-up.toml --out out/cone-comparison
 ```
 
-Expected checker exits are **4, 2, 2**, respectively: the shaft has required
-unknowns; the rocker lacks an R8 chuck, 6.5 H7 reamer and supported profile
-fixture; the bracket lacks an angle plate, chuck and reamer. Outputs are still
-written for exits 2 and 4. All example sheets remain **PLANNED**. They are
+Observed reference exits are **shaft 4 / rocker 2 / bracket 2 / cone one-piece 4 /
+cone built-up 2**. The shaft and one-piece cone retain required unknowns; the
+rocker and bracket lack named tooling/fixtures; the built-up cone is explicitly
+unauthorized by the drawing. Outputs are still written for exits 2 and 4.
+All example sheets remain **PLANNED**. They are
 hand-authored references, not first articles or certified CAD exports. No STEP
 bytes or verified cutting-table numbers are supplied; unknown RPM/feed cells
 stay unknown. See [examples/README.md](examples/README.md) for source provenance
 and reconciliation details.
+
+The cone candidates are authored **full-envelope one-piece blank** and **block
+plus pressed boss** alternatives, not route generation or a recommendation. The
+built-up route is marked `✗ drawing permits one-piece only`: no drawing note
+permits assembly. Its single 12.5182° journal setting prints BS-0 plate/circle,
+turns and spaces; inventory verification remains due. No shaft cross-hole is
+invented. Cutting-data K_c/E remains `"unknown"`, so deflection is not a
+numerical machining claim. Waste uses the specification's cited analytic
+finished volume and each authored stock envelope, not a guessed CAD measurement.
 
 ## CLI: five noninteractive verbs
 
@@ -73,9 +85,13 @@ package version. `--json` and `--verbose` default off.
   and verification debt, not an automatic tool choice. Human columns are ID,
   Kind, Diameter mm/in, Holder chain, Verification and Sizing; JSON emits rows.
   Inventory is mandatory through the flag or `PRECHIPS_INVENTORY`.
-- **compare** writes `compare.json` and a table (JSON with `--json`): part, setup
-  count, declared fixtures, finding counts and exit. `waste_ratio` is explicitly
-  `"unknown"`; it does not calculate stock waste or choose a route.
+- **compare** writes `compare.json` and a side-by-side table (JSON with `--json`):
+  candidate identity, part, setup count, required fixtures, waste ratio, findings
+  and construction permission. Waste is `(stock volume - finished volume) /
+  stock volume`, only when the authored stock dimensions and sourced manifest
+  volume are known. Unknown finished volume stays `"unknown"`; no route is chosen.
+  Built-up construction is refused unless the drawing explicitly says
+  `built_up_permitted`; unknown or missing drawing permission is not permission.
 - **explain** validates the stored report's canonical hash and selected finding
   records, then prints their message, numbers and citations. A rule alone selects
   every subject; `rule:subject` selects that exact subject. JSON is an object for
@@ -113,7 +129,9 @@ warn once and disable exporters without changing the report or checker exit.
 - Rules: [tools and sizing](docs/rules-tools.md),
   [operations and depth](docs/rules-operations.md),
   [coordinates and zero](docs/rules-coordinates.md),
-  [setup and datum](docs/rules-setup.md), [inspection](docs/rules-inspection.md).
+  [setup and datum](docs/rules-setup.md), [inspection](docs/rules-inspection.md),
+  [lathe feasibility](docs/rules-lathe.md), [indexing](docs/rules-indexing.md),
+  [physics proxies](docs/rules-physics.md), [comparison](docs/rules-comparison.md).
 - [Reports, approval and telemetry](docs/report-and-telemetry.md).
 
 The literal `"unknown"` never means zero, absence, approval or a pass. A
@@ -150,14 +168,22 @@ A report with exit 0 is eligible, but its traveler still needs a matching report
 hash and nonblank first-article evidence to remove **PLANNED**. Approval cannot
 waive errors or required unresolved findings.
 
+Indexing checks every landing; only a full pattern (`positions >= 2` and omitted
+`angle_deg`, step exactly `360 / positions`) has a closure check. Authored angles
+declare open patterns, even when their steps total a whole revolution.
+The engagement screen is for endmill-family cutting operations with an authored
+DOC; drills, reamers, taps, lathe tools and noncutting operations are not applicable.
+Stick-out uses the smallest finished diameter along setup Z in the unsupported
+length, not held bar OD; unknown exposed geometry remains unresolved.
+
 ## Limits
 
-M2 lathe/profile/indexing feasibility rules are not implemented. Some authored
-lathe coordinates, transfer declarations and hole arithmetic are displayed, but
-lathe headroom is `unsupported`, trial-cut measurements remain unknown, and this
-is not a claim of M2 acceptance. M3 automatic complete manifest export and M4
-kernel geometry/workholding/accessibility/collision checks and fixture renders
-are absent. Contour tables use explicit manifest geometry, not extracted STEP
+M2 checks declared profile, stock holding, indexing and physics arithmetic;
+they do not confirm a measured setup. Lathe headroom remains `unsupported`,
+trial-cut measurements and example cutting data remain unknown. M3 automatic
+complete manifest export and M4 kernel geometry/workholding/accessibility/
+collision checks and fixture renders are absent. Contour tables use explicit
+manifest geometry, not extracted STEP
 faces. Holding completeness and nominal clearance arithmetic are not a physical
 setup certification. No measured runtime target, printed-page rehearsal or live
 farm trace is claimed here.
