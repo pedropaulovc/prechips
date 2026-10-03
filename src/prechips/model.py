@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, create_model, model_validator
+from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 
 Unknown: TypeAlias = Literal["unknown"]
 UNKNOWN: Unknown = "unknown"
 Number: TypeAlias = float | Unknown
-Text: TypeAlias = str
 Vector: TypeAlias = list[Number] | Unknown
 Citations: TypeAlias = str | list[str]
 TOLERANCE_REQUIREMENTS = frozenset(
@@ -73,11 +72,12 @@ StockState = record(
     },
 )
 Reference = record("Reference", {**texts("ref orientation note"), **numbers("height_mm")})
+Index = record("Index", {"fixture": str, "angle_deg": Number, "positions": int})
 Hold = record(
     "Hold",
     {
         **texts(
-            "fixture jaws_along fixed_jaw parallels supports support support_orientation "
+            "fixture jaws_along fixed_jaw parallels support support_orientation "
             "grip_on stop clamp note centre_lubrication riser method orientation locator "
             "release jaw_protection locate"
         ),
@@ -86,7 +86,7 @@ Hold = record(
         "stickout_mm": Number,
         "supports": str | list[str | Reference],
         **flags("grip_mm_verify jaw_above_parallels_mm_verify"),
-        "index": dict[str, Any],
+        "index": Index,
     },
 )
 AxisZero = record(
@@ -172,10 +172,34 @@ class Plan(InputModel):
     setups: list[Setup]
 
 
-Frame = record(
-    "Frame",
-    {"origin": Vector, "x": Vector, "y": Vector, "z": Vector, **texts("note binding"), "cite": Citations},
-)
+FrameVector: TypeAlias = Annotated[list[Number], Field(min_length=3, max_length=3)] | Unknown
+
+
+class Frame(InputModel):
+    origin: FrameVector = UNKNOWN
+    x: FrameVector = UNKNOWN
+    y: FrameVector = UNKNOWN
+    z: FrameVector = UNKNOWN
+    note: str | Unknown = UNKNOWN
+    binding: str | Unknown = UNKNOWN
+    cite: Citations = UNKNOWN
+
+    @model_validator(mode="after")
+    def orthonormal_basis(self) -> Frame:
+        axes = (self.x, self.y, self.z)
+        if not all(isinstance(axis, list) and all(v != UNKNOWN for v in axis) for axis in axes):
+            return self
+        for i, left in enumerate(axes):
+            for j, right in enumerate(axes):
+                dot = sum(a * b for a, b in zip(left, right, strict=True))
+                if abs(dot - (1.0 if i == j else 0.0)) > 1e-9:
+                    raise ValueError("Frame axes must be an orthonormal basis.")
+        x, y, z = axes
+        cross = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]]
+        if any(abs(a - b) > 1e-9 for a, b in zip(cross, z, strict=True)):
+            raise ValueError("Frame axes must be right-handed.")
+        return self
+
 Datum = record("Datum", {**texts("feature surface"), "cite": Citations})
 MaterialSpec = record(
     "MaterialSpec", {**texts("spec name finish"), "thickness": Number, "cite": Citations}

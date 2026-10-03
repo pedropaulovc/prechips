@@ -165,6 +165,12 @@ def load_bundle(
                 if features.get("step_sha256", "unknown") not in {"unknown", digest}:
                     raise BadInput("The STEP bytes do not match the manifest digest.")
                 paths[field], hashes[field] = path, digest
+    step_digest = features.get("step_sha256", "unknown")
+    if step_digest != "unknown":
+        if len(step_digest) != 64 or any(char not in "0123456789abcdef" for char in step_digest):
+            raise BadInput("The manifest STEP digest must be lowercase SHA-256 or unknown.")
+        if "step" not in paths:
+            raise BadInput("A known STEP digest requires its STEP bytes in the bundle.")
     return Bundle(
         plan, features, resolved["inventory"], resolved["shop_policy"], resolved["cutting_data"],
         paths, hashes, root,
