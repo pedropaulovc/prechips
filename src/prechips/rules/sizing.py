@@ -1,6 +1,6 @@
 """Compare only the selected size-setting finishing tool to drawing limits."""
 from ..findings import Finding
-from .resolution import length_mm, number, operations, resolve, uncertain
+from .resolution import length_mm, number, operations, record, resolve, uncertain
 
 
 def evaluate(bundle):
@@ -20,7 +20,7 @@ def evaluate(bundle):
             reach = length_mm(tool, "reach") if tool else "unknown"
             width = feature.get("width", "unknown")
             diameter = feature.get("dia", "unknown")
-            stock_dia = bundle.plan.get("stock", {}).get("dia_mm", "unknown")
+            stock_dia = record(bundle.plan.get("stock")).get("dia_mm", "unknown")
             needed = (stock_dia - diameter[0]) / 2 if number(stock_dia) and isinstance(diameter, list) and number(diameter[0]) and bundle.features.get("units") == "mm" else "unknown"
             corner = feature.get("corner_radius_max_design", "unknown")
             nums.update(tool=tool_ref or "unknown", tool_nose_radius_mm=nose, tool_reach_mm=reach, width=width, dia=diameter, corner_radius_max_design_mm=corner, stock_reference_dia_mm=stock_dia, required_radial_reach_mm=needed)

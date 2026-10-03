@@ -23,7 +23,9 @@ def evaluate(bundle):
             errors.append("no spot operation")
         if feature.get("process") == "ream" and "ream" not in actions:
             errors.append("required ream operation absent")
-        if (feature.get("thread") or feature["kind"] in {"thread", "threaded_hole"}) and "tap" not in actions:
+        if feature.get("thread") == "unknown" or feature.get("process") == "unknown":
+            unknown = True
+        if ((feature.get("thread") and feature.get("thread") != "unknown") or feature["kind"] in {"thread", "threaded_hole"}) and "tap" not in actions:
             errors.append("thread requires a tap operation")
         if feature["kind"] == "counterbore" or "counterbore" in actions:
             if "counterbore" not in actions:

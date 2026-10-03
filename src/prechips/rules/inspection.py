@@ -1,6 +1,6 @@
 """Every manifest tolerance needs its own real, capable inspection method."""
 from ..findings import Finding
-from .resolution import TOLERANCES, length_mm, number, operations, resolve, uncertain
+from .resolution import TOLERANCES, length_mm, number, operations, record, resolve, uncertain
 
 
 def evaluate(bundle):
@@ -13,17 +13,20 @@ def evaluate(bundle):
         route = operations(bundle, name)
         finishing = [(s, o) for s, o in route if not o["do"].startswith("rough_") and o["do"] not in {"spot", "deburr", "coating", "release"}]
         for requirement in requirements:
-            checks = [(s, o) for s, o in finishing if requirement in o.get("checks", {})]
+            checks = [(s, o) for s, o in finishing if requirement in record(o.get("checks"))]
             cutters = [i for i, (_, o) in enumerate(finishing) if o["do"] != "inspect"]
             if cutters:
-                checks = [(s, o) for s, o in finishing[cutters[-1]:] if requirement in o.get("checks", {})]
+                checks = [(s, o) for s, o in finishing[cutters[-1]:] if requirement in record(o.get("checks"))]
             value = feature.get(requirement, "unknown")
             nums = {"requirement": requirement, "limits": value, "gauge": "unknown"}
             status = "unknown"
             message = "explicit inspection method is unknown"
             if not checks:
-                status = "error"
-                message = "no requirement-keyed inspection check"
+                if any(o.get("checks") == "unknown" for _, o in finishing[cutters[-1] if cutters else 0:]):
+                    message = "inspection checks are explicitly unknown"
+                else:
+                    status = "error"
+                    message = "no requirement-keyed inspection check"
             else:
                 setup, op = checks[-1]
                 gauge_ref = op["checks"][requirement]
@@ -40,7 +43,7 @@ def evaluate(bundle):
                         maximum = length_mm(gauge, "range")
                         span = [0, maximum] if number(maximum) else "unknown"
                     nums.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
-                    method = op.get("inspection_methods", {}).get(requirement)
+                    method = record(op.get("inspection_methods")).get(requirement)
                     geometric = requirement in {"position_dia", "coaxiality_dia"}
                     complex_shape = requirement in {"radius", "bottom_radius", "arc_len", "bottom_arc_len", "land_angle_deg", "height_above_pivot"}
                     capable = (kind in {"roughness_gauge", "roughness_comparator", "profilometer"} if requirement == "finish_ra"
@@ -49,7 +52,9 @@ def evaluate(bundle):
                                else kind in {"caliper", "micrometer", "micrometer_set", "pin_gauge", "pin_gauge_set", "bore_gauge", "height_gauge", "depth_gauge", "cmm"})
                     if feature["kind"] in {"hole", "thread", "threaded_hole"} and requirement == "dia" and kind in {"micrometer", "micrometer_set"}:
                         capable = False
-                    if not capable:
+                    if kind == "unknown":
+                        message = "gauge identity or capability is explicitly unknown"
+                    elif not capable:
                         status, message = "error", "named gauge cannot measure this requirement"
                     elif value == "unknown" or bundle.features.get("units") != "mm":
                         message = "requirement limits or units are unresolved"

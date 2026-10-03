@@ -1,6 +1,6 @@
 """Check authored execution order, not numeric operation sorting."""
 from ..findings import Finding
-from .resolution import MANUAL, operations
+from .resolution import MANUAL, operations, record
 
 
 def evaluate(bundle):
@@ -36,7 +36,7 @@ def evaluate(bundle):
             if action in {"ream", "tap", "counterbore"}:
                 earlier = [(s, o) for s, o in before if o.get("feature") == prerequisite_feature and o["do"] == "drill"]
                 if earlier and earlier[-1][0]["id"] != sid:
-                    transfer = setup.get("zero", {}).get("transfer", {})
+                    transfer = record(record(setup.get("zero")).get("transfer"))
                     source = setup.get("stock_in")
                     earlier_ids = {s["id"] for s, _ in before}
                     if source not in earlier_ids and transfer.get("from") not in earlier_ids:

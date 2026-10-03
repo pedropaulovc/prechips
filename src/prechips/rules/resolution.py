@@ -23,8 +23,8 @@ def fraction(value):
 
 def uncertain(item):
     if not isinstance(item, dict):
-        return False
-    return (item.get("verify") is True or item.get("present") == UNKNOWN
+        return item == UNKNOWN
+    return (item.get("verify") is True or item.get("verify") == UNKNOWN or item.get("present") == UNKNOWN
             or "verify" in str(item.get("coverage", "")).lower()
             or any(uncertain(v) for v in item.values() if isinstance(v, dict)))
 
@@ -33,7 +33,29 @@ def measured(item, value):
     return UNKNOWN if uncertain(item) else value
 
 
+def record(value):
+    return value if isinstance(value, dict) else {}
+
+
+def inventory_record(value):
+    item = dict(record(value))
+    for key in ("members", "nominal_dia_mm", "nominal_dia_cite", "holders"):
+        if key in item and not isinstance(item[key], dict):
+            item[key] = {}
+            item["verify"] = True
+    for key in ("standard_accessories", "included", "sizes", "sizes_mm", "styles", "ranges_in", "heights_in", "flutes"):
+        if item.get(key) == UNKNOWN:
+            item[key] = []
+            item["verify"] = True
+    if item.get("sizes_in") == UNKNOWN:
+        item["sizes_in"] = {} if item.get("kind") == "endmill_set" else []
+        item["verify"] = True
+    return item
+
+
 def length_mm(item, field):
+    if not isinstance(item, dict):
+        return UNKNOWN
     value = item.get(field + "_mm")
     if number(value):
         return value
@@ -56,17 +78,24 @@ def resolve(bundle_or_inventory, category, reference):
     categories = (category,) if category else ("machines", "tools", "holders", "fixtures", "gauges")
     root, separator, member = reference.partition("/")
     item = None
+    unknown_category = False
     for group in categories:
         entries = inventory.get(group, {})
+        if entries == UNKNOWN:
+            unknown_category = True
+            continue
         if isinstance(entries, dict) and root in entries:
-            item = dict(entries[root])
+            if entries[root] == UNKNOWN:
+                return {"kind": UNKNOWN, "verify": True}
+            item = inventory_record(entries[root])
             break
     if item is None:
         machines = inventory.get("machines", {})
         for machine in machines.values() if isinstance(machines, dict) else ():
+            machine = inventory_record(machine)
             if reference in machine.get("standard_accessories", []) + machine.get("included", []):
                 return {"kind": "accessory", "verify": uncertain(machine), "source": machine.get("source", "inventory machine accessories")}
-        return None
+        return {"kind": UNKNOWN, "verify": True} if unknown_category else None
     if item.get("present") is False:
         return None
     item["verify"] = uncertain(item)
@@ -76,7 +105,10 @@ def resolve(bundle_or_inventory, category, reference):
     kind = item.get("kind")
     size = fraction(member)
     if member in item.get("members", {}):
-        item.update(item["members"][member])
+        selected = item["members"][member]
+        if selected == UNKNOWN:
+            return {"kind": UNKNOWN, "verify": True}
+        item.update(inventory_record(selected))
     elif kind in {"collet_set", "parallels_set", "countersink_set"}:
         choices = item.get("sizes_in", item.get("heights_in", []))
         if size is None or size not in {fraction(v) for v in choices}:
@@ -102,8 +134,8 @@ def resolve(bundle_or_inventory, category, reference):
         if size not in {fraction(v) for v in choices} or flutes not in item.get("flutes", []):
             return None
         item.update(dia_mm=float(size) * 25.4, flutes=flutes)
-        for shank, sizes in item.get("shank_in", {}).items():
-            if size in {fraction(v) for v in sizes}:
+        for shank, sizes in record(item.get("shank_in")).items():
+            if isinstance(sizes, list) and size in {fraction(v) for v in sizes}:
                 item["shank_mm"] = float(fraction(shank)) * 25.4
     elif kind == "center_drill_set":
         selected = member.removeprefix("#")
@@ -175,6 +207,7 @@ def candidate_refs(inventory):
             continue
         for root, item in sorted(entries.items()):
             yield category, root
+            item = inventory_record(item)
             members = set(item.get("members", {}))
             kind = item.get("kind")
             if kind == "endmill_set":
