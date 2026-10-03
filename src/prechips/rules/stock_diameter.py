@@ -15,50 +15,58 @@ from .resolution import (
 from .stickout import held_diameter, held_diameter_source
 
 CAPACITY_FIELDS = ("sizes_mm", "sizes_in", "range_mm", "range_in")
+GRIPPING_KINDS = {"collet_set", "collet", "collet_chuck"}
+
+
+def _category(bundle, reference):
+    """M1 identity lookup order; machines too, as `indexing` resolves a dividing head."""
+    root = reference.partition("/")[0] if isinstance(reference, str) else None
+    for category in ("fixtures", "holders", "machines"):
+        if root in record(bundle.inventory.get(category)):
+            return category
+    return None
 
 
 def _workholding(bundle, reference):
     """Use M1 identities; set-root workholding can check its declared membership."""
     if not isinstance(reference, str) or reference in (UNKNOWN, "none", "not_applicable"):
         return None, UNKNOWN
+    category = _category(bundle, reference)
+    if category is None:
+        return resolve(bundle, "fixtures", reference), UNKNOWN
     root, separator, member = reference.partition("/")
-    for category in ("fixtures", "holders"):
-        entries = record(bundle.inventory.get(category))
-        if root not in entries:
-            continue
-        parent = inventory_record(entries[root])
-        if parent.get("present") is False:
+    parent = inventory_record(bundle.inventory[category][root])
+    if parent.get("present") is False:
+        return None, UNKNOWN
+    if not separator:
+        return resolve(bundle, category, reference) or parent, UNKNOWN
+    children = record(parent.get("members"))
+    if member in children:
+        child = inventory_record(children[member])
+        item = resolve(bundle, category, reference)
+        if item is None:
             return None, UNKNOWN
-        if not separator:
-            return resolve(bundle, category, reference) or parent, UNKNOWN
-        children = record(parent.get("members"))
-        if member in children:
-            child = inventory_record(children[member])
-            item = resolve(bundle, category, reference)
-            if item is None:
-                return None, UNKNOWN
-            # A selected member must not inherit the entire parent set's sizes.
-            for field in CAPACITY_FIELDS:
-                item.pop(field, None)
-                if field in child:
-                    item[field] = child[field]
-            return item, UNKNOWN
-        if parent.get("kind") != "collet_set":
-            return resolve(bundle, category, reference), UNKNOWN
-        if member.endswith("mm"):
-            size = fraction(member.removesuffix("mm"))
-            choices = parent.get("sizes_mm", [])
-            choices = choices if isinstance(choices, list) else []
-            listed = size is not None and size in {fraction(value) for value in choices}
-            diameter = float(size) if listed else UNKNOWN
-        else:
-            size = fraction(member)
-            listed = size is not None and size in {
-                fraction(value) for value in inch_sizes(parent.get("sizes_in"))
-            }
-            diameter = float(size) * 25.4 if listed else UNKNOWN
-        return (parent, diameter) if listed else (None, UNKNOWN)
-    return resolve(bundle, "fixtures", reference), UNKNOWN
+        # A selected member must not inherit the entire parent set's sizes.
+        for field in CAPACITY_FIELDS:
+            item.pop(field, None)
+            if field in child:
+                item[field] = child[field]
+        return item, UNKNOWN
+    if parent.get("kind") != "collet_set":
+        return resolve(bundle, category, reference), UNKNOWN
+    if member.endswith("mm"):
+        size = fraction(member.removesuffix("mm"))
+        choices = parent.get("sizes_mm", [])
+        choices = choices if isinstance(choices, list) else []
+        listed = size is not None and size in {fraction(value) for value in choices}
+        diameter = float(size) if listed else UNKNOWN
+    else:
+        size = fraction(member)
+        listed = size is not None and size in {
+            fraction(value) for value in inch_sizes(parent.get("sizes_in"))
+        }
+        diameter = float(size) * 25.4 if listed else UNKNOWN
+    return (parent, diameter) if listed else (None, UNKNOWN)
 
 
 def _capacity(item, selected_size):
@@ -97,6 +105,17 @@ def _capacity(item, selected_size):
     return sorted(set(sizes)), sorted(ranges), unresolved or not declared
 
 
+def _relevant(item, kind, category):
+    """A collet/chuck kind, or a machine/dividing head declaring its own gripping capacity.
+
+    A vise or plate's opening is not collet/chuck capacity, so fixtures stay kind-gated.
+    """
+    if kind in GRIPPING_KINDS or kind.startswith("chuck"):
+        return True
+    holds_work = kind == "dividing_head" or category == "machines"
+    return holds_work and any(field in item for field in CAPACITY_FIELDS)
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
@@ -104,7 +123,7 @@ def evaluate(bundle):
         item, selected_size = _workholding(bundle, reference)
         item = record(item)
         kind = item.get("kind", UNKNOWN)
-        relevant = kind in {"collet_set", "collet", "collet_chuck"} or kind.startswith("chuck")
+        relevant = _relevant(item, kind, _category(bundle, reference))
         diameter = held_diameter(bundle, setup)
         sizes, ranges, unresolved = _capacity(item, selected_size)
         fits = number(diameter) and (

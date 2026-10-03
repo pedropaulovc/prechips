@@ -14,9 +14,9 @@
     "construction": "one_piece",
     "exit": 4,
     "findings": {
-      "not_applicable": 55,
+      "not_applicable": 56,
       "pass": 14,
-      "unknown": 135,
+      "unknown": 134,
       "unsupported": 1
     },
     "fixtures": [
@@ -4645,18 +4645,18 @@
           "plan.stock.dia_mm",
           "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
         ],
-        "message": "S3: selected collet/chuck identity is unresolved.",
+        "message": "S3: selected fixture is not a collet/chuck.",
         "numbers": {
           "diameter_mm": 110.0,
           "diameter_source": "plan.stock.dia_mm",
           "fixture": "BS-0",
-          "fixture_kind": "unknown",
+          "fixture_kind": "dividing_head",
           "ranges_mm": [],
           "selected_size_mm": "unknown",
           "sizes_mm": []
         },
         "rule": "stock_diameter",
-        "status": "unknown",
+        "status": "not_applicable",
         "subject": "S3"
       },
       {
@@ -5984,9 +5984,9 @@
     "exit": 2,
     "findings": {
       "error": 1,
-      "not_applicable": 59,
+      "not_applicable": 60,
       "pass": 13,
-      "unknown": 148,
+      "unknown": 147,
       "unsupported": 1
     },
     "fixtures": [
@@ -10985,18 +10985,18 @@
           "plan.stock.dia_mm",
           "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
         ],
-        "message": "S3: selected collet/chuck identity is unresolved.",
+        "message": "S3: selected fixture is not a collet/chuck.",
         "numbers": {
           "diameter_mm": "unknown",
           "diameter_source": "plan.stock.dia_mm",
           "fixture": "BS-0",
-          "fixture_kind": "unknown",
+          "fixture_kind": "dividing_head",
           "ranges_mm": [],
           "selected_size_mm": "unknown",
           "sizes_mm": []
         },
         "rule": "stock_diameter",
-        "status": "unknown",
+        "status": "not_applicable",
         "subject": "S3"
       },
       {

@@ -4966,18 +4966,18 @@
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
-      "message": "S3: selected collet/chuck identity is unresolved.",
+      "message": "S3: selected fixture is not a collet/chuck.",
       "numbers": {
         "diameter_mm": "unknown",
         "diameter_source": "plan.stock.dia_mm",
         "fixture": "BS-0",
-        "fixture_kind": "unknown",
+        "fixture_kind": "dividing_head",
         "ranges_mm": [],
         "selected_size_mm": "unknown",
         "sizes_mm": []
       },
       "rule": "stock_diameter",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S3"
     },
     {
@@ -6455,7 +6455,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "676f2bd5451074e03b2994305e91a353798f13ff253cb504b0dfb337b7bd0afb",
+  "hash": "d4eaaa84d2447467306f491298f1df8e969b40b79971ea4fd1da3947bdc9b8d3",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
