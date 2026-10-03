@@ -428,10 +428,12 @@ credits each face only to the direction-valid finishing cuts that claim it.
 and strictly increasing. It declares the material outside the finished part
 that this cutting operation clears inside that volume, leaving everything
 outside it unchanged. Its faces still need valid cutting claims from this
-setup. The box's XY extent cannot exceed the union XY bounding box of its
-direction-valid claimed faces dilated by the cutter radius (zero if unknown);
-an excess is a named geometry error and leaves later stock unresolved. Every
-claim must touch the box and every removed piece must border a claim.
+setup. If the cutter radius is known, the box's XY extent cannot exceed the union
+XY bounding box of its direction-valid claimed faces dilated by that radius;
+an excess is a named geometry error and leaves later stock unresolved. If the
+radius is unknown, the extent check is `?` with a reason naming the missing cutter
+radius, and later stock stays unresolved. Every claim must touch the box and
+every removed piece must border a claim.
 It shapes stock passed to later setups and excludes only this operation's own
 derivable allowance from its flute obstacles; holder, reach and holding facts
 still use setup-entry stock. This is an authored process/fixture volume, not a

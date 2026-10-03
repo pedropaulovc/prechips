@@ -1,6 +1,6 @@
 # rocker-jaw-occluded, failing candidate (PLAN.md rev 6 §4.2 accessibility, §6 round 2:
 # "a jaw standing beside a face"). S1/A and S2/B numerically clear opposite halves
-# of an authored rectangular supply; preparation tool/holder/holding stay unknown.
+# of an authored rectangular supply; only preparation cutter diameter is known.
 # S3/V receives the derived arm and stands it on its tips in a synthetic 320 mm vise.
 # The claimed +Z strap face (exported strap_datum_b) lies 2.27825 mm inside the rear
 # jaw plane; jaw tops reach 4.705 mm above the pivot axis. Expected: accessibility
@@ -24,7 +24,7 @@ origin_mm = [-146.254568, 0.0, -4.52825]
 axis = [0.0, 0.0, 1.0]
 section_axis = [1.0, 0.0, 0.0]
 as_is_faces = []
-note = "Authored synthetic rectangular supply at the STEP's measured global XY bbox, x +/-146.254568, y 0..29.29464 mm, with 1 mm allowance beyond each hub end in Z (+/-4.52825 mm). No XY cutter allowance is invented while preparation tooling is unknown. This is a fixture choice, not measured shop stock; curved and inset source faces are not declared as-is."
+note = "Authored synthetic rectangular supply at the STEP's measured global XY bbox, x +/-146.254568, y 0..29.29464 mm, with 1 mm allowance beyond each hub end in Z (+/-4.52825 mm). The preparation cutter's authored 4 mm radius bounds clearance declarations; this supply adds no XY allowance. This is a fixture choice, not measured shop stock; curved and inset source faces are not declared as-is."
 
 [[setups]]
 id = "S1"
@@ -33,7 +33,7 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
-note = "Authored +Z half preparation. Cutter, holder and holding are intentionally unknown; only the declared numeric clearance derives material for the next setup."
+note = "Authored +Z half preparation. Only the preparation cutter diameter is authored; its other dimensions, holder and holding remain measurement debt. The numeric clearance derives material for the next setup."
 
 hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
 stock_state = { top_z = "unknown", bottom_z = "unknown" }
@@ -42,7 +42,7 @@ stock_state = { top_z = "unknown", bottom_z = "unknown" }
 op = 10
 do = "rough_profile"
 feature = "profile_outer"
-tool = "unknown"
+tool = "em-preparation"
 holder = "unknown"
 direction = "unknown"
 faces = [
@@ -71,7 +71,7 @@ frame = "B"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "S1"
-note = "Opposed -Z half preparation, in authored frame B. All preparation geometry debt stays visible; S3 uses the actual resulting material."
+note = "Opposed -Z half preparation, in authored frame B, with the same diameter-only cutter. Other preparation dimensions, holder and holding remain measurement debt; S3 uses the actual resulting material."
 
 hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
 stock_state = { top_z = "unknown", bottom_z = "unknown" }
@@ -80,7 +80,7 @@ stock_state = { top_z = "unknown", bottom_z = "unknown" }
 op = 10
 do = "rough_profile"
 feature = "profile_outer"
-tool = "unknown"
+tool = "em-preparation"
 holder = "unknown"
 direction = "unknown"
 faces = [

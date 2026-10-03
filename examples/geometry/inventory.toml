@@ -37,6 +37,13 @@ gauge_len_mm = 60.0
 grip_mm = 25.0
 verify = false
 
+# Preparation cutter: only its diameter is authored, to bound stock removal.
+# All other dimensions remain absent; unresolved holders and holding remain debt.
+[tools.em-preparation]
+kind = "endmill"
+dia_mm = 8.0
+verify = false
+
 # Cutters. em-8-std and em-8-long differ only in OAL: with the 25 mm collet grip the
 # standard cutter projects 38 mm (holder nose 7 mm below the pocket-reach top face), the
 # long one projects 75 mm (holder nose 30 mm above it). Both have 19 mm of flute.

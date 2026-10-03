@@ -224,11 +224,13 @@ including drafted walls whose +Z sweep is nonzero. Exact face contact catches
 small retained ears; nearest-contact probes inset from the face boundary
 distinguish a drafted sliver from legitimately retained neighbours.
 An operation can declare numeric `stock_removal_bounds` (one setup-frame box)
-to clear only outside-finished material inside that volume. Its XY extent
-must fit the union XY bounding box of its direction-valid claimed faces,
-dilated by the measured cutter radius (zero if unknown). Excess is a named
-`stock_removal_error`, not clearance for a later setup. Each claim must touch
-the box and every removed piece must border a claim. Synthetic geometry fixtures
+to clear only outside-finished material inside that volume. With a known cutter
+radius, its XY extent must fit the union XY bounding box of its direction-valid
+claimed faces dilated by that radius. Excess is a named `stock_removal_error`,
+not clearance for a later setup. An unknown radius leaves the extent check `?`
+with a reason naming the missing cutter radius, never a zero-radius error;
+later stock stays unresolved. Each claim must touch the box and every removed
+piece must border a claim. Synthetic geometry fixtures
 author these preparation volumes and numeric supply allowances; their target
 setup checks the derived material. Preparation tool/fixture debt stays visible,
 and the fixture policy explicitly requires the target, not fabricated roughing

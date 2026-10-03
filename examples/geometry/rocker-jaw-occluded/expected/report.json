@@ -10,7 +10,8 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-54",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S1: frame and hold",
-        "plan.setups.S1.ops.10: selected action/tool/holder"
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
       "message": "Fixture solids are not declared for this holding kind.",
       "numbers": {},
@@ -27,7 +28,8 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-54",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S2: frame and hold",
-        "plan.setups.S2.ops.10: selected action/tool/holder"
+        "plan.setups.S2.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
       "message": "Fixture solids are not declared for this holding kind.",
       "numbers": {},
@@ -246,11 +248,11 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "92fa16929bfb2089bef44779aff610b61841f5e8bd480c4430be3debb07d415d"
+            "sha256": "8f70e674c4d999686d6b41bd7d70a3be4eab0ac51434f0784779f6bf16578749"
           },
           "plan": {
             "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
-            "sha256": "88d9a95b04856bf2eddd6dc3d820a2cabdd83897b370bcb3f63bdd584177f851"
+            "sha256": "40461ec3ad92f93d777389a73c1627744e2d702fda371fe8a748ec025dce2bcb"
           },
           "shop_policy": {
             "path": "examples/geometry/rocker-jaw-occluded/shop-policy.toml",
@@ -306,7 +308,7 @@
             "do": "rough_profile",
             "feature": "profile_outer",
             "op": 10,
-            "tool": "unknown"
+            "tool": "em-preparation"
           }
         ],
         "profiles": [],
@@ -341,7 +343,7 @@
             "do": "rough_profile",
             "feature": "profile_outer",
             "op": 10,
-            "tool": "unknown"
+            "tool": "em-preparation"
           }
         ],
         "profiles": [],
@@ -541,8 +543,8 @@
       "numbers": {
         "holder": "unknown",
         "operation": "rough_profile",
-        "tool": "unknown",
-        "tool_kind": "unknown"
+        "tool": "em-preparation",
+        "tool_kind": "endmill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -556,8 +558,8 @@
       "numbers": {
         "holder": "unknown",
         "operation": "rough_profile",
-        "tool": "unknown",
-        "tool_kind": "unknown"
+        "tool": "em-preparation",
+        "tool_kind": "endmill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -591,7 +593,7 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S1: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S1.ops.10.tool.",
+      "message": "S1: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -635,14 +637,6 @@
             "id": "plan.setups.S1.ops.10.z_geometry",
             "instruction": "author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
             "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.tools.unknown"
-            ],
-            "id": "tools.unknown.resolve",
-            "instruction": "resolve: add or select an owned tool for unknown in inventory and author plan.setups.S1.ops.10.tool",
-            "units": "identity"
           }
         ],
         "part_extents_mm": {
@@ -662,7 +656,7 @@
             "spindle_nose_table_band_mm": "unknown",
             "stack_mm": "unknown",
             "tip_z_bounds_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_projection_mm": "unknown",
             "upper_margin_mm": "unknown",
             "verified": false
@@ -686,7 +680,7 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S2: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.10.tool.",
+      "message": "S2: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -730,14 +724,6 @@
             "id": "plan.setups.S2.ops.10.z_geometry",
             "instruction": "author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
             "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.tools.unknown"
-            ],
-            "id": "tools.unknown.resolve",
-            "instruction": "resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.10.tool",
-            "units": "identity"
           }
         ],
         "part_extents_mm": {
@@ -757,7 +743,7 @@
             "spindle_nose_table_band_mm": "unknown",
             "stack_mm": "unknown",
             "tip_z_bounds_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_projection_mm": "unknown",
             "upper_margin_mm": "unknown",
             "verified": false
@@ -1106,7 +1092,7 @@
             "margin_mm": "unknown",
             "op": 10,
             "sum_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_oal_mm": "unknown",
             "tool_projection_mm": "unknown",
             "verify": true
@@ -1198,7 +1184,7 @@
             "margin_mm": "unknown",
             "op": 10,
             "sum_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_oal_mm": "unknown",
             "tool_projection_mm": "unknown",
             "verify": true
@@ -1619,12 +1605,21 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-54",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S1: frame and hold",
-        "plan.setups.S1.ops.10: selected action/tool/holder"
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
-      "numbers": {},
+      "message": "S1:10: a claimed internal corner is smaller than the selected cutter radius.",
+      "numbers": {
+        "corner_radii_mm": [
+          0.99695,
+          3.25,
+          800.0
+        ],
+        "minimum_corner_radius_mm": 0.99695,
+        "tool_radius_mm": 4.0
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "error",
       "subject": "S1:10"
     },
     {
@@ -1636,12 +1631,21 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-54",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S2: frame and hold",
-        "plan.setups.S2.ops.10: selected action/tool/holder"
+        "plan.setups.S2.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: selected tool/holder dimensions are unmeasured or unavailable.",
-      "numbers": {},
+      "message": "S2:10: a claimed internal corner is smaller than the selected cutter radius.",
+      "numbers": {
+        "corner_radii_mm": [
+          0.99695,
+          3.25,
+          800.0
+        ],
+        "minimum_corner_radius_mm": 0.99695,
+        "tool_radius_mm": 4.0
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "error",
       "subject": "S2:10"
     },
     {
@@ -1897,7 +1901,8 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-54",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S1: frame and hold",
-        "plan.setups.S1.ops.10: selected action/tool/holder"
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
       "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
@@ -1914,7 +1919,8 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-54",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S2: frame and hold",
-        "plan.setups.S2.ops.10: selected action/tool/holder"
+        "plan.setups.S2.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
       "message": "S2:10: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
@@ -2127,7 +2133,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
+        "diameter_in": 0.31496062992125984,
         "feed_mm_min": "unknown",
         "flutes": "unknown",
         "material": "unknown",
@@ -2155,7 +2161,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
+        "diameter_in": 0.31496062992125984,
         "feed_mm_min": "unknown",
         "flutes": "unknown",
         "material": "unknown",
@@ -2427,7 +2433,7 @@
       "numbers": {
         "holder": "unknown",
         "machine": "test-mill",
-        "tool": "unknown"
+        "tool": "em-preparation"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2442,7 +2448,7 @@
       "numbers": {
         "holder": "unknown",
         "machine": "test-mill",
-        "tool": "unknown"
+        "tool": "em-preparation"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -2483,6 +2489,23 @@
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "em-8-std"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "em-preparation: listed inventory identity resolves.",
+      "numbers": {
+        "dia_mm": 8.0,
+        "kind": "endmill",
+        "present": true,
+        "reference": "em-preparation",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "em-preparation"
     },
     {
       "cite": [
@@ -2562,6 +2585,7 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:42-45",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "inventory.tools.em-preparation.dia",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -2571,7 +2595,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S1.ops.10.tool.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
       "numbers": {
         "measurements": [
           {
@@ -2624,11 +2648,11 @@
           },
           {
             "cite": [
-              "inventory.tools.unknown"
+              "inventory.tools.em-preparation.dia"
             ],
-            "id": "tools.unknown.resolve",
-            "instruction": "resolve: add or select an owned tool for unknown in inventory and author plan.setups.S1.ops.10.tool",
-            "units": "identity"
+            "id": "tools.em-preparation.dia",
+            "instruction": "measure: em-preparation selected cutter diameter, micrometer, mm",
+            "units": "mm"
           }
         ],
         "operations": [
@@ -2648,9 +2672,9 @@
             "op": 10,
             "rough_allowance_mm": "unknown",
             "tip_z_bounds_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_projection_mm": "unknown",
-            "tool_radius_mm": "unknown",
+            "tool_radius_mm": 4.0,
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": "unknown",
@@ -2711,6 +2735,7 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:42-45",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "inventory.tools.em-preparation.dia",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -2720,7 +2745,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S2: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S2.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.10.tool.",
+      "message": "S2: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S2.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
       "numbers": {
         "measurements": [
           {
@@ -2773,11 +2798,11 @@
           },
           {
             "cite": [
-              "inventory.tools.unknown"
+              "inventory.tools.em-preparation.dia"
             ],
-            "id": "tools.unknown.resolve",
-            "instruction": "resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.10.tool",
-            "units": "identity"
+            "id": "tools.em-preparation.dia",
+            "instruction": "measure: em-preparation selected cutter diameter, micrometer, mm",
+            "units": "mm"
           }
         ],
         "operations": [
@@ -2797,9 +2822,9 @@
             "op": 10,
             "rough_allowance_mm": "unknown",
             "tip_z_bounds_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_projection_mm": "unknown",
-            "tool_radius_mm": "unknown",
+            "tool_radius_mm": 4.0,
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": "unknown",
@@ -3221,7 +3246,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "a737a238af150b3b04e38c266089f56e69095586b9c409a51ec4a6472ef2ca47",
+  "hash": "bd63c41d5c3f59040f19a6a6292579b8c7043f43f7273f59ecf700f88e75b7b1",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3233,11 +3258,11 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "92fa16929bfb2089bef44779aff610b61841f5e8bd480c4430be3debb07d415d"
+      "sha256": "8f70e674c4d999686d6b41bd7d70a3be4eab0ac51434f0784779f6bf16578749"
     },
     "plan": {
       "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
-      "sha256": "88d9a95b04856bf2eddd6dc3d820a2cabdd83897b370bcb3f63bdd584177f851"
+      "sha256": "40461ec3ad92f93d777389a73c1627744e2d702fda371fe8a748ec025dce2bcb"
     },
     "render:S1": {
       "path": "setup-S1.png",

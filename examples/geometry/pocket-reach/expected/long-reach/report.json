@@ -8,7 +8,8 @@
         "features.pocket: faces and requirements",
         "examples/geometry/author_solids.py: pocket_block (synthetic test specification)",
         "plan.setups.S1: frame and hold",
-        "plan.setups.S1.ops.10: selected action/tool/holder"
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
       "message": "Fixture solids are not declared for this holding kind.",
       "numbers": {},
@@ -79,11 +80,11 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "92fa16929bfb2089bef44779aff610b61841f5e8bd480c4430be3debb07d415d"
+            "sha256": "8f70e674c4d999686d6b41bd7d70a3be4eab0ac51434f0784779f6bf16578749"
           },
           "plan": {
             "path": "examples/geometry/pocket-reach/long-reach.toml",
-            "sha256": "b4891a8de64edf016d184fafcaba1afadb2adc8e06c7f42d7fe49ecf34b10375"
+            "sha256": "605e773c276d0bb6bab722067e7d4ec964de0e38bbd8df94f67dd62215d15fb8"
           },
           "shop_policy": {
             "path": "examples/geometry/shop-policy.toml",
@@ -138,7 +139,7 @@
             "do": "rough_pocket",
             "feature": "pocket",
             "op": 10,
-            "tool": "unknown"
+            "tool": "em-preparation"
           }
         ],
         "profiles": [],
@@ -222,8 +223,8 @@
       "numbers": {
         "holder": "unknown",
         "operation": "rough_pocket",
-        "tool": "unknown",
-        "tool_kind": "unknown"
+        "tool": "em-preparation",
+        "tool_kind": "endmill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -257,7 +258,7 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S1: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S1.ops.10.tool.",
+      "message": "S1: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -301,14 +302,6 @@
             "id": "plan.setups.S1.ops.10.z_geometry",
             "instruction": "author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
             "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.tools.unknown"
-            ],
-            "id": "tools.unknown.resolve",
-            "instruction": "resolve: add or select an owned tool for unknown in inventory and author plan.setups.S1.ops.10.tool",
-            "units": "identity"
           }
         ],
         "part_extents_mm": {
@@ -328,7 +321,7 @@
             "spindle_nose_table_band_mm": "unknown",
             "stack_mm": "unknown",
             "tip_z_bounds_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_projection_mm": "unknown",
             "upper_margin_mm": "unknown",
             "verified": false
@@ -531,7 +524,7 @@
             "margin_mm": "unknown",
             "op": 10,
             "sum_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_oal_mm": "unknown",
             "tool_projection_mm": "unknown",
             "verify": true
@@ -778,12 +771,19 @@
         "features.pocket: faces and requirements",
         "examples/geometry/author_solids.py: pocket_block (synthetic test specification)",
         "plan.setups.S1: frame and hold",
-        "plan.setups.S1.ops.10: selected action/tool/holder"
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
-      "numbers": {},
+      "message": "S1:10: concave corner radii admit the selected cutter.",
+      "numbers": {
+        "corner_radii_mm": [
+          6.0
+        ],
+        "minimum_corner_radius_mm": 6.0,
+        "tool_radius_mm": 4.0
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:10"
     },
     {
@@ -872,7 +872,8 @@
         "features.pocket: faces and requirements",
         "examples/geometry/author_solids.py: pocket_block (synthetic test specification)",
         "plan.setups.S1: frame and hold",
-        "plan.setups.S1.ops.10: selected action/tool/holder"
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-preparation: explicit-unit verified dimensions"
       ],
       "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
@@ -933,7 +934,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
+        "diameter_in": 0.31496062992125984,
         "feed_mm_min": "unknown",
         "flutes": "unknown",
         "material": "unknown",
@@ -1113,7 +1114,7 @@
       "numbers": {
         "holder": "unknown",
         "machine": "test-mill",
-        "tool": "unknown"
+        "tool": "em-preparation"
       },
       "rule": "tool_resolves",
       "status": "unknown",
@@ -1154,6 +1155,23 @@
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "em-8-long"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "em-preparation: listed inventory identity resolves.",
+      "numbers": {
+        "dia_mm": 8.0,
+        "kind": "endmill",
+        "present": true,
+        "reference": "em-preparation",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "em-preparation"
     },
     {
       "cite": [
@@ -1237,7 +1255,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S1.ops.10.tool.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm.",
       "numbers": {
         "measurements": [
           {
@@ -1287,14 +1305,6 @@
             "id": "plan.setups.S1.ops.10.z_geometry",
             "instruction": "author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
             "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.tools.unknown"
-            ],
-            "id": "tools.unknown.resolve",
-            "instruction": "resolve: add or select an owned tool for unknown in inventory and author plan.setups.S1.ops.10.tool",
-            "units": "identity"
           }
         ],
         "operations": [
@@ -1314,7 +1324,7 @@
             "op": 10,
             "rough_allowance_mm": "unknown",
             "tip_z_bounds_mm": "unknown",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "tool_projection_mm": "unknown",
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
@@ -1662,7 +1672,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "8575123f9c61444068b35c5857f84fb561ceb9e2d68a5a211e44c821551ebf44",
+  "hash": "3043b5c0971bfca2bcd198fd605cfe4eeb483b32dfdb2da2f9be25bb71cb3d15",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -1674,11 +1684,11 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "92fa16929bfb2089bef44779aff610b61841f5e8bd480c4430be3debb07d415d"
+      "sha256": "8f70e674c4d999686d6b41bd7d70a3be4eab0ac51434f0784779f6bf16578749"
     },
     "plan": {
       "path": "examples/geometry/pocket-reach/long-reach.toml",
-      "sha256": "b4891a8de64edf016d184fafcaba1afadb2adc8e06c7f42d7fe49ecf34b10375"
+      "sha256": "605e773c276d0bb6bab722067e7d4ec964de0e38bbd8df94f67dd62215d15fb8"
     },
     "render:S1": {
       "path": "setup-S1.png",

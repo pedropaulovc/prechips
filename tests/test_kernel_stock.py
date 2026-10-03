@@ -554,8 +554,15 @@ def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearan
             stock={**BOX, "section_mm": [40.0, 22.0]},
         )
     )
-    reason = result["ops"]["S1:10"].get("stock_removal_error", "")
-    assert "stock_removal_bounds extends" in reason and "claimed faces" in reason
+    first = result["ops"]["S1:10"]
+    if radius is None:
+        assert "stock_removal_error" not in first
+        reason = first["reasons"]["stock_removal_bounds"]
+        assert "cutter radius" in reason
+        assert first["tool_hits"] == "unknown"
+    else:
+        reason = first["stock_removal_error"]
+        assert "stock_removal_bounds extends" in reason and "claimed faces" in reason
     second = result["setups"]["S2"]
     assert reason in second["stock_reason"]
     assert "stock_volume_mm3" not in second and "render_png_base64" not in second

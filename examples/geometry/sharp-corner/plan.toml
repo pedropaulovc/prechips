@@ -1,5 +1,5 @@
 # sharp-corner, failing candidate (PLAN.md rev 6 §4.2 internal corner radius).
-# S1 numerically clears the authored supply with unknown preparation tooling. S2
+# S1 numerically clears the authored supply with a diameter-only preparation cutter. S2
 # finishes the vertical sharp-cornered pocket walls with the 1/4 in end mill (R3.175).
 # Expected: internal_corner_radius error; prescribed corner poses may also collide.
 part = "slot-block"
@@ -35,7 +35,7 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
-note = "Synthetic rough preparation clears top allowance and pocket before S2. Preparation cutter, holder and holding remain intentionally unknown."
+note = "Synthetic rough preparation clears top allowance and pocket before S2. Only the preparation cutter diameter is authored; its other dimensions, holder and holding remain measurement debt."
 
 hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
 stock_state = { top_z = "unknown", bottom_z = "unknown" }
@@ -44,7 +44,7 @@ stock_state = { top_z = "unknown", bottom_z = "unknown" }
 op = 10
 do = "rough_pocket"
 feature = "pocket"
-tool = "unknown"
+tool = "em-preparation"
 holder = "unknown"
 direction = "unknown"
 faces = [

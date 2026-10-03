@@ -95,7 +95,16 @@ def test_fixture_errors_on_its_named_target_rules_only(
     examples = copy_examples(tmp_path)
     _, report, _ = run_fixture(examples, name, plan_filename, tmp_path / "run")
     assert {row["rule"] for row in report["findings"]} >= GEOMETRY_RULES
-    assert {row["rule"] for row in report["findings"] if row["status"] == "error"} == rules
+    errors = [row for row in report["findings"] if row["status"] == "error"]
+    preparation_subjects = {"rocker-jaw-occluded": {"S1:10", "S2:10"}, "sharp-corner": {"S1:10"}}
+    bundle = load_bundle(examples / "geometry" / name / plan_filename)
+    preparation_prefixes = tuple(f"{setup['id']}:" for setup in bundle.plan["setups"][:-1])
+    preparation_errors = [row for row in errors if row["subject"].startswith(preparation_prefixes)]
+    assert {(row["rule"], row["subject"]) for row in preparation_errors} == {
+        ("internal_corner_radius", subject) for subject in preparation_subjects.get(name, set())
+    }
+    target_errors = [row for row in errors if row not in preparation_errors]
+    assert {row["rule"] for row in target_errors} == rules
     assert all(
         row["status"] in {"pass", "not_applicable"}
         for row in report["findings"]
@@ -107,7 +116,7 @@ def test_fixture_errors_on_its_named_target_rules_only(
         )
     )
     if rules:
-        subjects = {row["subject"] for row in report["findings"] if row["status"] == "error"}
+        subjects = {row["subject"] for row in target_errors}
         assert len(subjects) == 1
 
 

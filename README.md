@@ -177,6 +177,9 @@ on one length fact it leaves only that fact unresolved.
 No invented tool dimension, Handbook page, measurement or drawing tolerance
 fills a gap. Sources are citations, never network fetches at check time. The
 only optional network activity is explicitly configured OpenTelemetry export.
+An unknown cutter radius leaves the `stock_removal_bounds` XY-extent check `?`
+with a missing-radius reason and later stock unresolved; it never substitutes
+zero or manufactures a definite extent error.
 An existing policy without `[required]`, a feature without `requirements`, or a
 Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
 Explicit empty tables/lists remain known empty; no policy file still selects the

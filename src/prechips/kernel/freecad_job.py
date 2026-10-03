@@ -990,9 +990,9 @@ class _Setup:
     def _bounded(self, bounds, stock, valid, away, to_z, radius):
         """(stock outside the finished part inside the declared box or None, or why not).
 
-        Its XY extent is limited to the claimed faces' union bbox plus cutter radius
-        (zero when unknown). Every claim must face the approach and touch the box;
-        every removed piece must border a claim.
+        Its XY extent is limited to the claimed faces' union bbox plus a known
+        cutter radius; an unknown radius leaves the extent unresolved. Every claim
+        must face the approach and touch the box; every removed piece must border a claim.
         """
         box, why = _clearing_box(bounds)
         if box is None:
@@ -1036,10 +1036,11 @@ class _Setup:
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
     def _bounds_error(self, box, valid, radius):
-        """Reject authored clearance beyond the claims' cutter-dilated XY footprint."""
+        """Explain excess clearance or the missing radius that prevents checking it."""
         if not valid:
             return None
-        radius = radius or 0.0
+        if radius is None:
+            return "stock_removal_bounds XY extent is unresolved: missing measured cutter radius_mm"
         bounds = _bbox(box)
         excess = max(
             max(
@@ -1639,9 +1640,13 @@ class _Setup:
         if "stock_removal_bounds" in op and valid and not away and not undefined:
             box, _ = _clearing_box(op["stock_removal_bounds"])
             if box is not None:
-                error = self._bounds_error(box, valid, _positive(op, "radius_mm"))
+                radius = _positive(op, "radius_mm")
+                error = self._bounds_error(box, valid, radius)
                 if error:
-                    facts["stock_removal_error"] = error
+                    if radius is None:
+                        reasons["stock_removal_bounds"] = error
+                    else:
+                        facts["stock_removal_error"] = error
         if undefined:
             facts["claimed_indices"] = UNKNOWN
             reasons["claimed_indices"] = self._undefined(undefined)
@@ -1677,7 +1682,12 @@ class _Setup:
                             reasons[key] = reasons["claimed_indices"]
         unknown = [
             reasons[key]
-            for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm")
+            for key in (
+                "stock_removal_bounds",
+                "claimed_indices",
+                *self._MEASURED,
+                "corner_radii_mm",
+            )
             if key in reasons
         ]
         if unknown:

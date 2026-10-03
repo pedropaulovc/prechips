@@ -10,15 +10,23 @@ Each candidate starts from a numerically placed blank with stock allowance.
 One or two preparation setups declare the removed volumes with
 `stock_removal_bounds`; the target setup therefore receives stock derived from
 **earlier** setups, rather than silently borrowing the finished STEP solid.
-Preparation tooling and holding remain explicit measurement debt. The local
-policy requires target operation/setup geometry and the part-wide coverage
-and finish checks; it does not certify the preparation operations.
+Preparation selects the dedicated synthetic `em-preparation` cutter with an
+authored Ø8 mm diameter (4 mm radius). All its other dimensions, its holder
+and preparation holding remain explicit measurement debt. The local policy
+requires target operation/setup geometry and the part-wide coverage and finish
+checks; it does not certify the preparation operations.
+The known preparation radius also exposes real `internal_corner_radius` errors
+on the rocker preparations and the sharp-corner preparation. These remain visible
+but are not required by the target-only policy; numeric removal declarations
+are still not proof that those preparation toolpaths are safe.
 
-Clearing boxes must fit the claimed faces' union XY bbox plus cutter radius
-(zero for unknown tooling). The synthetic rocker therefore uses the STEP's
-measured global XY bbox, `x = ±146.254568`, `y = 0..29.29464` mm, for both
-its rectangular supply and opposed clearance boxes; its 1 mm allowance on
-each Z end remains. The former extra XY margins had no claimed cutter radius.
+Clearing boxes must fit the claimed faces' union XY bbox plus a known cutter
+radius; an unknown radius cannot derive stock. The synthetic preparation
+cutter's authored 4 mm radius provides that bound without certifying reach
+or accessibility. The rocker uses the STEP's measured global XY bbox,
+`x = ±146.254568`, `y = 0..29.29464` mm, for both its rectangular supply and
+opposed clearance boxes; its 1 mm allowance on each Z end remains. The
+supply itself adds no XY cutter allowance.
 
 | bundle | STEP | expected exit | discriminating finding |
 |---|---|---|---|

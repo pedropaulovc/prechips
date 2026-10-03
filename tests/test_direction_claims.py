@@ -225,7 +225,7 @@ def _two_sided_bundle(tmp_path, monkeypatch, s1_faces, s2_faces):
             "op": 10,
             "do": "rough_pocket",
             "feature": "step",
-            "tool": "unknown",
+            "tool": "em-preparation",
             "holder": "unknown",
             "to_z": 10.0,
             "stock_removal_bounds": {
