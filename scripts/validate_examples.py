@@ -24,28 +24,83 @@ STATUSES = {"pass", "error", "warn", "info", "unknown", "unsupported", "not_appl
 FEATURE_RULES = {"sizing", "op_chain", "blind_depth", "datum_consistency"}
 SETUP_RULES = {"order", "hold_fields", "headroom", "zero_check", "coordinates"}
 TOLERANCES = {
-    "dia", "position_dia", "finish_ra", "depth", "length", "width", "height",
-    "thickness", "separation", "coaxiality_dia", "height_above_pivot",
-    "radius", "station", "arc_len", "bottom_radius", "bottom_arc_len", "tip_land",
+    "dia",
+    "position_dia",
+    "finish_ra",
+    "depth",
+    "length",
+    "width",
+    "height",
+    "thickness",
+    "separation",
+    "coaxiality_dia",
+    "height_above_pivot",
+    "radius",
+    "station",
+    "arc_len",
+    "bottom_radius",
+    "bottom_arc_len",
+    "tip_land",
     "land_angle_deg",
 }
 SET_KINDS = {
-    "endmill_set", "collet_set", "parallels_set", "center_drill_set", "drill_index",
-    "drill_set", "tap_die_set", "tap_set", "reamers", "countersink_set", "qctp_set",
-    "insert_holders", "micrometer_set", "lathe_tool_bits",
+    "endmill_set",
+    "collet_set",
+    "parallels_set",
+    "center_drill_set",
+    "drill_index",
+    "drill_set",
+    "tap_die_set",
+    "tap_set",
+    "reamers",
+    "countersink_set",
+    "qctp_set",
+    "insert_holders",
+    "micrometer_set",
+    "lathe_tool_bits",
 }
 REFERENCE_KEYS = {
-    "machine", "tool", "holder", "gauge", "fixture", "parallels", "support", "clamps",
-    "riser", "support_blocks", "ref",
+    "machine",
+    "tool",
+    "holder",
+    "gauge",
+    "fixture",
+    "parallels",
+    "support",
+    "clamps",
+    "riser",
+    "support_blocks",
+    "ref",
 }
 # These are plan-author decisions, not measurements awaiting an external source.
 # RPM is deliberately absent: it still depends on sourced cutting data.
 AUTHOR_CHOICE_FIELDS = {
-    "form", "section_mm", "length_mm", "north_allowance_mm", "south_grip_mm",
-    "top_z", "bottom_z", "edge_mm", "grip_mm", "jaw_above_parallels_mm",
-    "stop", "clamp", "fixed_jaw", "check_jog_mm", "paper_mm", "direction",
-    "to_z", "stock_to_leave_mm", "rough_allowance_mm", "depth_mm", "exit_mm",
-    "coolant", "contour", "method", "step_deg", "step_mm",
+    "form",
+    "section_mm",
+    "length_mm",
+    "north_allowance_mm",
+    "south_grip_mm",
+    "top_z",
+    "bottom_z",
+    "edge_mm",
+    "grip_mm",
+    "jaw_above_parallels_mm",
+    "stop",
+    "clamp",
+    "fixed_jaw",
+    "check_jog_mm",
+    "paper_mm",
+    "direction",
+    "to_z",
+    "stock_to_leave_mm",
+    "rough_allowance_mm",
+    "depth_mm",
+    "exit_mm",
+    "coolant",
+    "contour",
+    "method",
+    "step_deg",
+    "step_mm",
 }
 
 
@@ -61,8 +116,10 @@ def numeric(value) -> bool:
 def near(actual, expected, where: str) -> None:
     if numeric(expected):
         require(numeric(actual), f"{where}: numeric result lost to {actual!r}")
-        require(math.isclose(actual, expected, rel_tol=1e-10, abs_tol=1e-8),
-                f"{where}: {actual!r} != {expected!r}")
+        require(
+            math.isclose(actual, expected, rel_tol=1e-10, abs_tol=1e-8),
+            f"{where}: {actual!r} != {expected!r}",
+        )
     else:
         require(actual == "unknown", f"{where}: unresolved input must yield unknown")
 
@@ -74,19 +131,23 @@ def check_author_choices(plan: dict) -> None:
                 walk(child, f"{path}.{key}", authored or key in AUTHOR_CHOICE_FIELDS)
         elif isinstance(value, list):
             for index, child in enumerate(value):
-                label = (child.get("id", child.get("op", index))
-                         if isinstance(child, dict) else index)
+                label = (
+                    child.get("id", child.get("op", index)) if isinstance(child, dict) else index
+                )
                 walk(child, f"{path}[{label}]", authored)
         else:
-            require(not (authored and value == "unknown"),
-                    f"{path}: author's choice must be stated, not unknown")
+            require(
+                not (authored and value == "unknown"),
+                f"{path}: author's choice must be stated, not unknown",
+            )
 
     walk(plan, "plan")
 
 
 def canonical(value: dict) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2,
-                       allow_nan=False) + "\n").encode("utf-8")
+    return (
+        json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
+    ).encode("utf-8")
 
 
 def sha256(path: Path) -> str:
@@ -148,12 +209,18 @@ def resolves(ref: str, entries: dict) -> bool:
         if re.fullmatch("[A-Z]", selected):
             return True
         size = fraction(selected)
-        return (size is not None and Fraction(1, 16) <= size <= Fraction(1, 2)
-                and (size * 64).denominator == 1)
+        return (
+            size is not None
+            and Fraction(1, 16) <= size <= Fraction(1, 2)
+            and (size * 64).denominator == 1
+        )
     if kind == "qctp_set":
-        choices = {"1-turning-facing": "#1 turning/facing",
-                   "2-boring-turning-facing": "#2 boring/turning/facing",
-                   "4-heavy-boring": "#4 heavy boring", "7-parting": "#7 parting (1/2 blade)"}
+        choices = {
+            "1-turning-facing": "#1 turning/facing",
+            "2-boring-turning-facing": "#2 boring/turning/facing",
+            "4-heavy-boring": "#4 heavy boring",
+            "7-parting": "#7 parting (1/2 blade)",
+        }
         return choices.get(selected, selected) in entry.get("holders", {})
     if kind == "insert_holders":
         return selected in entry.get("styles", [])
@@ -169,8 +236,11 @@ def uncertain(ref: str, entries: dict, seen: tuple = ()) -> bool:
 
     def walk(value) -> bool:
         if isinstance(value, dict):
-            if (value.get("verify") is True or value.get("present") == "unknown"
-                    or "verify" in str(value.get("coverage", "")).lower()):
+            if (
+                value.get("verify") is True
+                or value.get("present") == "unknown"
+                or "verify" in str(value.get("coverage", "")).lower()
+            ):
                 return True
             if "ref" in value and uncertain(value["ref"], entries, (*seen, root)):
                 return True
@@ -200,6 +270,7 @@ def selected_refs(plan: dict):
         elif isinstance(value, list):
             for child in value:
                 yield from walk(child)
+
     return set(walk(plan))
 
 
@@ -212,8 +283,11 @@ def tool_diameter(ref: str, entries: dict):
         return float(size) * 25.4 if size is not None else "unknown"
     if entry.get("kind") == "drill_index":
         size = fraction(member)
-        return float(size) * 25.4 if size is not None else entry.get(
-            "nominal_dia_mm", {}).get(member, "unknown")
+        return (
+            float(size) * 25.4
+            if size is not None
+            else entry.get("nominal_dia_mm", {}).get(member, "unknown")
+        )
     return entry.get("dia", "unknown")
 
 
@@ -229,30 +303,44 @@ def tool_field(ref: str, key: str, entries: dict):
 def frame_point(point: list, frame: dict) -> list:
     result = []
     for axis in ("x", "y", "z"):
-        terms = [(point[i], frame["origin"][i], frame[axis][i]) for i in range(3)
-                 if frame[axis][i] != 0]
-        result.append(sum((p - origin) * scale for p, origin, scale in terms)
-                      if all(numeric(p) for p, _, _ in terms) else "unknown")
+        terms = [
+            (point[i], frame["origin"][i], frame[axis][i]) for i in range(3) if frame[axis][i] != 0
+        ]
+        result.append(
+            sum((p - origin) * scale for p, origin, scale in terms)
+            if all(numeric(p) for p, _, _ in terms)
+            else "unknown"
+        )
     return result
 
+
 def model_point(point: list, frame: dict) -> list:
-    return [frame["origin"][i] + sum(point[j] * frame[axis][i]
-            for j, axis in enumerate(("x", "y", "z"))) for i in range(3)]
+    return [
+        frame["origin"][i]
+        + sum(point[j] * frame[axis][i] for j, axis in enumerate(("x", "y", "z")))
+        for i in range(3)
+    ]
 
 
 def check_frames(features: dict) -> None:
     for name, frame in features["frames"].items():
         for key in ("origin", "x", "y", "z"):
-            require(isinstance(frame.get(key), list) and len(frame[key]) == 3
-                    and all(numeric(v) for v in frame[key]), f"frame {name}.{key}: numeric triple")
+            require(
+                isinstance(frame.get(key), list)
+                and len(frame[key]) == 3
+                and all(numeric(v) for v in frame[key]),
+                f"frame {name}.{key}: numeric triple",
+            )
         axes = [frame[k] for k in ("x", "y", "z")]
         for i in range(3):
             for j in range(3):
-                near(sum(a * b for a, b in zip(axes[i], axes[j], strict=True)),
-                     1 if i == j else 0, f"frame {name}: orthonormal basis")
+                near(
+                    sum(a * b for a, b in zip(axes[i], axes[j], strict=True)),
+                    1 if i == j else 0,
+                    f"frame {name}: orthonormal basis",
+                )
         x, y, z = axes
-        cross = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2],
-                 x[0] * y[1] - x[1] * y[0]]
+        cross = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]]
         for actual, expected in zip(cross, z, strict=True):
             near(actual, expected, f"frame {name}: right-handed basis")
 
@@ -260,11 +348,14 @@ def check_frames(features: dict) -> None:
 def read_report(path: Path) -> dict:
     def invalid_constant(value):
         raise ValueError(f"non-finite JSON value {value}")
+
     report = json.loads(path.read_bytes(), parse_constant=invalid_constant)
     require(path.read_bytes() == canonical(report), f"{path}: noncanonical JSON")
     payload = {k: v for k, v in report.items() if k != "hash"}
-    require(report.get("hash") == hashlib.sha256(canonical(payload)).hexdigest(),
-            f"{path}: report hash mismatch")
+    require(
+        report.get("hash") == hashlib.sha256(canonical(payload)).hexdigest(),
+        f"{path}: report hash mismatch",
+    )
     require(report.get("verification") == "planned", f"{path}: unearned readiness")
     previous = None
     for finding in report["findings"]:
@@ -274,16 +365,21 @@ def read_report(path: Path) -> dict:
         require(finding["status"] in STATUSES, f"{key}: invalid status")
         require(isinstance(finding.get("numbers"), dict), f"{key}: missing numbers")
         require(isinstance(finding.get("cite"), list) and finding["cite"], f"{key}: missing cite")
-        require(isinstance(finding.get("message"), str) and finding["message"],
-                f"{key}: missing finding sentence")
+        require(
+            isinstance(finding.get("message"), str) and finding["message"],
+            f"{key}: missing finding sentence",
+        )
         require("severity" not in finding, f"{key}: obsolete severity vocabulary")
     return report
 
 
 def input_paths(folder: Path, plan: dict) -> dict:
     paths = {"plan": folder / "plan.toml", "features": folder / plan["features"]}
-    for key, field in (("inventory", "inventory"), ("shop_policy", "policy"),
-                       ("cutting_data", "cutting_data")):
+    for key, field in (
+        ("inventory", "inventory"),
+        ("shop_policy", "policy"),
+        ("cutting_data", "cutting_data"),
+    ):
         paths[key] = (folder / plan["paths"][field]).resolve()
     for path in paths.values():
         require(path.is_relative_to(EXAMPLES), f"input escapes examples: {path}")
@@ -294,8 +390,10 @@ def report_exit(report: dict, policy: dict) -> int:
     if any(f["status"] == "error" for f in report["findings"]):
         return 2
     required = policy["required"]
-    if any(f["rule"] in required and f["status"] in {"unknown", "unsupported", "warn"}
-           for f in report["findings"]):
+    if any(
+        f["rule"] in required and f["status"] in {"unknown", "unsupported", "warn"}
+        for f in report["findings"]
+    ):
         return 4
     return 0
 
@@ -303,17 +401,21 @@ def report_exit(report: dict, policy: dict) -> int:
 def check_subjects(plan: dict, features: dict, findings: dict) -> None:
     def has(rule: str, subject: str) -> None:
         require((rule, subject) in findings, f"missing finding {rule}:{subject}")
+
     for name, feature in features["features"].items():
         requirements = feature.get("requirements")
-        require(isinstance(requirements, list) and len(requirements) == len(set(requirements)),
-                f"{name}: invalid requirements")
+        require(
+            isinstance(requirements, list) and len(requirements) == len(set(requirements)),
+            f"{name}: invalid requirements",
+        )
         for requirement in requirements:
             require(requirement in feature, f"{name}: omitted required field {requirement}")
-        require(feature.get("faces") == "unknown" or isinstance(feature.get("faces"), list),
-                f"{name}: faces must be set or unknown")
+        require(
+            feature.get("faces") == "unknown" or isinstance(feature.get("faces"), list),
+            f"{name}: faces must be set or unknown",
+        )
         if requirements:
-            require(isinstance(feature.get("precision"), dict),
-                    f"{name}: per-dimension precision")
+            require(isinstance(feature.get("precision"), dict), f"{name}: per-dimension precision")
         for rule in FEATURE_RULES:
             has(rule, name)
         tolerances = set(requirements) & TOLERANCES
@@ -322,10 +424,16 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
         for requirement in tolerances:
             subject = f"{name}:{requirement}"
             has("inspection", subject)
-            finishing = [op for setup in plan["setups"] for op in setup["ops"]
-                         if op["feature"] == name and requirement in op.get("checks", {})]
-            require(finishing or findings["inspection", subject]["status"] == "error",
-                    f"{subject}: no check entry or report error")
+            finishing = [
+                op
+                for setup in plan["setups"]
+                for op in setup["ops"]
+                if op["feature"] == name and requirement in op.get("checks", {})
+            ]
+            require(
+                finishing or findings["inspection", subject]["status"] == "error",
+                f"{subject}: no check entry or report error",
+            )
     setups = plan.get("setups")
     require(isinstance(setups, list) and setups, "empty plan setups")
     ids = [setup["id"] for setup in setups]
@@ -340,8 +448,10 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
         axes = ("x", "z") if setup["machine"] == "PM-1127VF-LB" else ("x", "y", "z")
         for axis in axes:
             recipe = setup["zero"].get(axis)
-            require(isinstance(recipe, dict) and "check_jog_mm" in recipe,
-                    f"{sid}: missing {axis} check jog")
+            require(
+                isinstance(recipe, dict) and "check_jog_mm" in recipe,
+                f"{sid}: missing {axis} check jog",
+            )
         require("retouch_after" in setup["zero"]["z"], f"{sid}: missing retouch contract")
         for rule in SETUP_RULES:
             has(rule, sid)
@@ -362,8 +472,10 @@ def check_references(plan: dict, entries: dict, findings: dict) -> list:
         require(key in findings, f"missing reference finding for {ref}")
         finding = findings[key]
         if not resolves(ref, entries):
-            require(finding["status"] == "error" and finding["numbers"].get("reference") == ref,
-                    f"{ref}: missing item must have exact named error")
+            require(
+                finding["status"] == "error" and finding["numbers"].get("reference") == ref,
+                f"{ref}: missing item must have exact named error",
+            )
             missing.append(ref)
         elif uncertain(ref, entries):
             require(finding["status"] == "unknown", f"{ref}: inherited verify must be unknown")
@@ -400,15 +512,21 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
         require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
         scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
         for field, factor in (("check_reading", 1), ("mirrored_reading", -1)):
-            result = expected + factor * sign * scale * jog if all(
-                numeric(v) for v in (expected, jog)) else "unknown"
+            result = (
+                expected + factor * sign * scale * jog
+                if all(numeric(v) for v in (expected, jog))
+                else "unknown"
+            )
             near(row.get(field, "unknown"), result, f"{setup['id']}.{axis}: {field}")
     top = setup["stock_state"].get("top_z", "unknown")
     after = {}
     for op in setup["ops"]:
         top_feature = setup["stock_state"].get("top_feature")
-        if (op["do"] in {"face", "finish_face", "rough_face"} and "to_z" in op
-                and (top_feature is None or op["feature"] == top_feature)):
+        if (
+            op["do"] in {"face", "finish_face", "rough_face"}
+            and "to_z" in op
+            and (top_feature is None or op["feature"] == top_feature)
+        ):
             top = op["to_z"]
         after[op["op"]] = top
     for row in numbers.get("retouch", []):
@@ -417,6 +535,7 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
         near(row["top_z"], top, f"{setup['id']}: advanced top")
         expected = top + paper if numeric(top) and numeric(paper) else "unknown"
         near(row["axis_set"], expected, f"{setup['id']}: retouch Axis Set")
+
 
 def check_endpoints(plan: dict, findings: dict, entries: dict) -> None:
     setups = {setup["id"]: setup for setup in plan["setups"]}
@@ -429,8 +548,11 @@ def check_endpoints(plan: dict, findings: dict, entries: dict) -> None:
             require(op["feature"] == row["feature"], "endpoint mismatched feature")
             if op["do"] == "spot":
                 depth = op.get("depth_mm", "unknown")
-                tip = row["entry_z"] - depth if all(numeric(v) for v in (
-                    row["entry_z"], depth)) else "unknown"
+                tip = (
+                    row["entry_z"] - depth
+                    if all(numeric(v) for v in (row["entry_z"], depth))
+                    else "unknown"
+                )
                 near(row["tip_z"], tip, "spot endpoint")
                 continue
             allowance = op.get("exit_mm", "unknown")
@@ -441,21 +563,29 @@ def check_endpoints(plan: dict, findings: dict, entries: dict) -> None:
                 near(row.get("lead_mm", "unknown"), point, "reamer lead")
             else:
                 angle = tool_field(op.get("tool", "unknown"), "point_angle", entries)
-                point = diameter / (2 * math.tan(math.radians(angle / 2))) if all(
-                    numeric(v) for v in (diameter, angle)) else "unknown"
+                point = (
+                    diameter / (2 * math.tan(math.radians(angle / 2)))
+                    if all(numeric(v) for v in (diameter, angle))
+                    else "unknown"
+                )
                 near(row.get("point_mm", "unknown"), point, "drill point")
-            thickness = setup["stock_state"].get("local_thickness", {}).get(
-                op["feature"], "unknown")
+            thickness = (
+                setup["stock_state"].get("local_thickness", {}).get(op["feature"], "unknown")
+            )
             entry = row.get("entry_z", "unknown")
             exit_face = entry - thickness if numeric(entry) and numeric(thickness) else "unknown"
             near(row["exit_face"], exit_face, "local exit face")
-            tip = exit_face - point - allowance if all(
-                numeric(v) for v in (exit_face, point, allowance)) else "unknown"
+            tip = (
+                exit_face - point - allowance
+                if all(numeric(v) for v in (exit_face, point, allowance))
+                else "unknown"
+            )
             near(row["tip_z"], tip, "tip endpoint")
 
 
-def check_speeds(setup: dict, op: dict, finding: dict, entries: dict,
-                 cutting: dict, features: dict) -> None:
+def check_speeds(
+    setup: dict, op: dict, finding: dict, entries: dict, cutting: dict, features: dict
+) -> None:
     row = finding["numbers"]
     if finding["status"] == "not_applicable":
         return
@@ -466,8 +596,9 @@ def check_speeds(setup: dict, op: dict, finding: dict, entries: dict,
             diameter = 2 * feature["base_radius"]
         if op["do"] == "rough_turn":
             allowance = op["rough_allowance_mm"]  # lathe allowance is on diameter
-            diameter = (diameter + allowance
-                        if numeric(diameter) and numeric(allowance) else "unknown")
+            diameter = (
+                diameter + allowance if numeric(diameter) and numeric(allowance) else "unknown"
+            )
         # A turned face/end can cut several diameters. Its workpiece envelope
         # is cited in the report, not inferred from a single-point tool's size.
     else:
@@ -476,9 +607,11 @@ def check_speeds(setup: dict, op: dict, finding: dict, entries: dict,
         near(row["diameter_in"], diameter / 25.4, "cutting diameter")
     sfm = row.get("sfm", "unknown")
     if numeric(sfm):
-        require(any(c["sfm"] == sfm and c["cite"] != "unknown" for c in cutting["cut"])
-                or tool_field(op["tool"], "chart", entries) != "unknown",
-                "numeric speed lacks source table/chart")
+        require(
+            any(c["sfm"] == sfm and c["cite"] != "unknown" for c in cutting["cut"])
+            or tool_field(op["tool"], "chart", entries) != "unknown",
+            "numeric speed lacks source table/chart",
+        )
         raw = 12 * sfm / (math.pi * row["diameter_in"])
         rpm = round(max(row["rpm_min"], min(row["rpm_max"], raw)) / 50) * 50
         near(row["rpm"], rpm, f"{setup['id']}:{op['op']}: RPM")
@@ -504,15 +637,20 @@ def check_coordinates(setup: dict, features: dict, finding: dict) -> None:
         transformed = frame_point(row["model"], frame)
         if "local_from" in row:
             source = row["local_from"]
-            require(source["axis"] == "z" and source["field"] in {"to_z", "z_from", "z_to"},
-                    "local coordinate must name an authored Z endpoint")
-            require(frame["binding"] == "unknown" and transformed[2] == "unknown",
-                    "local target cannot replace a known model transform")
+            require(
+                source["axis"] == "z" and source["field"] in {"to_z", "z_from", "z_to"},
+                "local coordinate must name an authored Z endpoint",
+            )
+            require(
+                frame["binding"] == "unknown" and transformed[2] == "unknown",
+                "local target cannot replace a known model transform",
+            )
             op = next(op for op in setup["ops"] if op["op"] == source["op"])
             transformed[2] = op[source["field"]]
             require(numeric(transformed[2]), "local endpoint is not an authored number")
         for actual, expected in zip(row["setup"], transformed, strict=True):
             near(actual, expected, "setup coordinate")
+
 
 class SheetText(HTMLParser):
     def __init__(self):
@@ -538,18 +676,26 @@ def check_sheet(folder: Path, report: dict) -> None:
     parser = SheetText()
     parser.feed(html)
     text = " ".join(parser.text)
-    require("PLANNED" in text and not re.search(r"(?<!NOT )\bCHECKED\b", text),
-            "sheet claims unchecked approval")
+    require(
+        "PLANNED" in text and not re.search(r"(?<!NOT )\bCHECKED\b", text),
+        "sheet claims unchecked approval",
+    )
     require(f"prechips 0.1 · report {report['hash'][:8]}" in text, "sheet/report footer mismatch")
-    require("@page" in html and re.search(r"size\s*:\s*(?:letter|8.5in)", html, re.I),
-            "missing Letter print CSS")
-    require(not re.search(r"\.(?:toml|yaml|json|py|csv)\b|cad/|examples/", text),
-            "bench sheet contains file paths")
+    require(
+        "@page" in html and re.search(r"size\s*:\s*(?:letter|8.5in)", html, re.I),
+        "missing Letter print CSS",
+    )
+    require(
+        not re.search(r"\.(?:toml|yaml|json|py|csv)\b|cad/|examples/", text),
+        "bench sheet contains file paths",
+    )
     rules = FEATURE_RULES | SETUP_RULES | {"tool_resolves", "speeds_feeds", "inspection"}
     machine_ids = "|".join(sorted(rule for rule in rules if "_" in rule))
     labelled_ids = "|".join(sorted(rules))
-    require(not re.search(rf"\b(?:{machine_ids})\b|\brule[\s:]+(?:{labelled_ids})\b", text, re.I),
-            "bench sheet contains rule ids")
+    require(
+        not re.search(rf"\b(?:{machine_ids})\b|\brule[\s:]+(?:{labelled_ids})\b", text, re.I),
+        "bench sheet contains rule ids",
+    )
     require("?" in text, "sheet hides required unknowns")
     if any(f["status"] == "error" for f in report["findings"]):
         require("✗" in text, "sheet hides errors")
@@ -583,11 +729,19 @@ def validate_fixture(part: str, documents: dict) -> tuple[int, list]:
         check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
         check_coordinates(setup, features, findings["coordinates", setup["id"]])
         for op in setup["ops"]:
-            check_speeds(setup, op, findings["speeds_feeds", f"{setup['id']}:{op['op']}"],
-                         entries, cutting, features)
+            check_speeds(
+                setup,
+                op,
+                findings["speeds_feeds", f"{setup['id']}:{op['op']}"],
+                entries,
+                cutting,
+                features,
+            )
     exit_code = report_exit(report, policy)
-    require(exit_code == report["expected_exit"] == EXPECTED_EXIT[part],
-            f"{part}: expected exit mismatch ({exit_code})")
+    require(
+        exit_code == report["expected_exit"] == EXPECTED_EXIT[part],
+        f"{part}: expected exit mismatch ({exit_code})",
+    )
     check_sheet(folder, report)
     return exit_code, missing
 
@@ -596,8 +750,9 @@ def main() -> int:
     try:
         paths = sorted(EXAMPLES.rglob("*.toml"))
         require(paths, "no TOML fixtures found")
-        documents = {path.resolve(): tomllib.loads(path.read_text(encoding="utf-8"))
-                     for path in paths}
+        documents = {
+            path.resolve(): tomllib.loads(path.read_text(encoding="utf-8")) for path in paths
+        }
         require(not list(EXAMPLES.rglob("*.yaml")), "obsolete YAML examples remain")
         require(not list(EXAMPLES.rglob("*.csv")), "obsolete external coordinate files remain")
         print(f"Parsed {len(documents)} TOML files.")
