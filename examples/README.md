@@ -70,21 +70,24 @@ Shared inputs:
   The generic `Plain Carbon Steel` alias is a candidate classification, not a
   sourced grade or measured carbon content; no material-property claim follows.
 
-Corrected consumer CLI outputs have exits **4 / 2 / 2 / 4 / 2** for shaft,
-rocker, bracket, cone one-piece and cone built-up respectively; cone comparison
-exits **2**. Existing inspection choices follow the exported feature owners,
-using separate inspection steps where needed, without changing gauges or
+Current expected consumer CLI exits are **4 / 2 / 2 / 2 / 2** for shaft,
+rocker, bracket, cone one-piece and cone built-up respectively. The one-piece cone
+moved from 4 to 2 because the export's `mount_west` station nominal conflicts
+with its band and restored milling frames expose far-side boss claims.
+Existing inspection choices follow the exported feature
+owners, using separate inspection steps where needed, without changing gauges or
 inventing methods. The earlier split-feature inspection errors were migration
 regressions, not legitimate new debt; they are corrected. Regenerated CLI
-outputs and combined gate evidence are recorded in PLAN §8 M3.
+outputs, the cone comparison exit and combined gate evidence are recorded in
+PLAN §8 M3.
 
 | Part | What it demonstrates | Current exit |
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
 | `rocker-arm` | Three-setup route, integral hub, retained rails/ears and supported final profiling, consuming the exported datum and tip-land features. | **2**: original missing tools and supported profile fixture remain stops. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. Missing drawing contract stays explicit. | **2**: absent angle plate, R8 chuck and 6.5 mm reamer. |
-| `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **4**: no errors; required unknowns remain. |
-| `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction; no note authorizes a pressed joint. |
+| `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
+| `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
 
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats
 required unknown/unsupported/warn; only clean required subjects permit exit 0.
@@ -235,14 +238,48 @@ volume below is historical context, not permission to modify the export.
 Setup bindings, missing inventory, material choice, inspection methods and
 physical readiness remain separate debt.
 
-The shaft and cone plans reference exported `frames.setup = "unknown"` while
-preserving authored local coordinates and process choices. The former
-handwritten T1/T2/T3/M2/J3/C4 transforms are not present in these exports and
-must not be recreated as CAD facts. The cone's indexing feature is now
-`crank_bore`, which owns `land_angle_nominal_deg = 12.5182` and the BASIC
-relationship. Omitted `angle_tol_deg` on that BASIC feature remains unresolved:
-it cannot inherit the title-block ±1° or convert Ø0.10 angularity to a degree
-allowance. A separately sourced explicit allowance would be required.
+The shaft and cone exports carry `frames.setup = "unknown"`. Their plans restore
+the former shaft T1/T2/T3 and cone/built-up lathe and M2/J3/C4 transforms as
+plan-authored `[frames.<name>]` tables. These are **author's choices** with plan
+citations, not CAD facts, and the verbatim exports are not edited. The plan
+frames restore coordinate/DRO, turned-profile, stick-out and envelope numbers
+only where the exported geometry supports them. The exports have no turned-feature
+axial extents (`z_mm`) and no dome `base_radius`. Segments that need `z_mm`
+therefore stay unknown, and so does the shaft S2:20/S3:20 dome `diameter_in`.
+
+The rocker exports `top_edge_feature = "top_edge"` on `profile_outer` and on
+both tip lands. The coordinate rule examines every linked feature, so the R800
+top-edge cutter-centre tables in S1 op 40, S2 op 40 and S3 op 30 are restored.
+
+The shaft export's `pivot_bearing` has only the `CUT TO FIT` note and
+`length_ref = 156.67`. It has no cut-to-fit length requirement or end-past-scribe
+band. The plan declares the calipers check as an explicit
+`missing_requirements = { length = "calipers" }` on a `pivot_bearing` inspect op.
+The report therefore keeps an unknown `pivot_bearing:length` row with
+`missing_requirement = true` and does not drop the inspection.
+
+The cone's indexing feature is now `crank_bore`, which owns
+`land_angle_nominal_deg = 12.5182` and the BASIC relationship. Its omitted
+`angle_tol_deg` remains unresolved. The consumer does not apply the title-block
+±1° to a BASIC angle, and it does not convert the Ø0.10 angularity zone into
+degrees itself. HA does derive `CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795°
+(`cad/scripts/cone_pivot_post_spec.py:373`), but it does not export that value.
+The exported `mount_west.station_nominal = -12.98` is signed, while its
+`station` band [12.47, 13.49] is absolute (`cad/scripts/export_features.py:566`).
+The consumer's generic nominal-within-band check reports `mount_west:station`
+as an `error`, so the one-piece cone exits 2. This is an HA export follow-up.
+Prechips does not flip the sign or drop the field.
+
+The restored milling frames also expose genuine far-side face claims on
+one-piece S2:40/50 and built-up S2:50. These remain errors and need an authored
+route/claim correction, not an HA sign fix. By contrast, the engine's −Z-only
+approach model does not cover radial lathe cuts: their directional geometry
+and dependent finish coverage are `unsupported`, not false failures or passes.
+The radial lathe approach model is a separate prechips follow-up in PLAN §8 M3.
+
+These gaps and the missing HA `check:traveler_pivot_shaft` /
+`check:traveler_cone_pivot_post` tasks are listed as open HA items in PLAN §8 M3.
+Only the consumer side of M3 is done.
 
 ### Historical M1 source reconciliation
 

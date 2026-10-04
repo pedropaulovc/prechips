@@ -16,6 +16,12 @@ manifest geometry even when the M4 kernel rules run on the same bundle.
 A feature-local point is transformed to model coordinates as
 `model = feature_frame.origin + sum(local[j]*feature_frame.basis[j])`.
 A setup coordinate is `(model - setup.origin) dot setup.basis[axis]`.
+Feature frames always come from the exported manifest. The setup frame is the
+exported manifest frame of that name, otherwise the plan-owned
+[`frames`](plan.md#frames) entry; a plan frame may not reuse an exported name.
+A plan-owned setup frame adds `plan.frames.<name>: author-declared setup frame`
+and its own citations to the finding, and its stated `binding` decides whether
+the transform is nominal or unbound exactly as for an exported frame.
 Unknown components propagate only through nonzero coefficients. Tolerance-band
 midpoints never define nominal geometry: explicit `*_nominal` values take
 precedence, otherwise only scalar dimensions are usable as nominal geometry.
@@ -56,10 +62,13 @@ exact endpoints and angular grid checkpoints. `start_deg`/`end_deg` are accepted
 schema fields but the current rule derives bounds from geometry rather than
 using those fields to override the arc. A full circle needs continuous
 interpolation; its checkpoints are not straight-chord cuts. Finite arc records
-include sagitta `R*(1-cos(min(step,span)/2))` and exact offset joins. Linked
-`top_edge_feature` geometry supplies line-circle intersections and a line-line
-miter; mirrored sides are explicit. Degenerate/unknown joins do not become
-invented paths.
+include sagitta `R*(1-cos(min(step,span)/2))` and exact offset joins. Every
+feature linked through `top_edge_feature` contributes its upper land's
+line-circle intersection: an outline and separately exported tip lands can
+share that top arc. Mirrored −X/+X lands must agree after reflection; an
+unknown or inconsistent linked join leaves the top table unknown. The lower
+outline also supplies its line-line miter and bottom line-circle intersection,
+with mirrored sides explicit. Degenerate joins do not become invented paths.
 
 `linear_table` transforms explicit box bounds (or `sweep_bounds` in
 `sweep_frame`). Exterior rectangular paths expand by offset; pockets require an
@@ -79,7 +88,8 @@ When unresolved it appends:
 
 Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
-manifest frames/nominal geometry, authored contour steps/targets/allowances,
+manifest frames/nominal geometry, plan-owned setup frames, authored contour
+steps/targets/allowances,
 and selected inventory cutter nominal diameter.
 
 ## `zero_check`

@@ -4,9 +4,9 @@ import hashlib
 import json
 
 import pytest
-from test_cli import run_cli
+from test_cli import copy_examples, run_cli
 
-from prechips.inputs import load_bundle
+from prechips.inputs import BadInput, load_bundle
 
 PLAN = """part = "scratch"
 features = "features.toml"
@@ -198,3 +198,43 @@ def test_separation_requirement_has_its_own_inspection_contract(
         )
         assert finding["status"] == status
         assert finding["numbers"]["limits"] == json.loads(value)
+
+
+@pytest.mark.parametrize("requirements", ["[]", '["dia"]', '"unknown"', '["unknown"]'])
+def test_checks_must_belong_to_the_selected_exported_feature(tmp_path, requirements):
+    feature_text = FEATURES.replace("requirements = []", f"requirements = {requirements}")
+    feature_text += (
+        "dia = [9.9, 10.1]\n"
+        '[features.other]\nkind = "face"\nrequirements = ["length"]\nlength = [5.0, 6.0]\n'
+    )
+    plan_text = PLAN.replace('checks = "unknown"', 'checks = {length = "calipers"}')
+    with pytest.raises(
+        BadInput, match=r"subject checks\.length is not in the exported requirements"
+    ):
+        load_bundle(bundle_files(tmp_path, plan_text, feature_text))
+
+
+@pytest.mark.parametrize("value", ["[5.0, 6.0]", '"unknown"'])
+def test_exported_requirement_cannot_be_declared_missing(tmp_path, value):
+    feature_text = FEATURES.replace("requirements = []", 'requirements = ["length"]')
+    feature_text += f"length = {value}\n"
+    plan_text = PLAN.replace('checks = "unknown"', 'missing_requirements = {length = "calipers"}')
+    with pytest.raises(BadInput, match=r"missing_requirements\.length is already exported"):
+        load_bundle(bundle_files(tmp_path, plan_text, feature_text))
+
+
+def test_shaft_cut_to_fit_length_check_on_south_dome_is_bad_input(tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    authored = plan.read_text(encoding="utf-8")
+    plan.write_text(
+        authored.replace(
+            'do = "cut_to_fit"\n',
+            'do = "cut_to_fit"\nchecks = {length = "calipers"}\n',
+            1,
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        BadInput, match=r"south_dome checks\.length is not in the exported requirements"
+    ):
+        load_bundle(plan)

@@ -13,8 +13,8 @@ quantity_cite = "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:5"
 
 [drawing]
 number = "MHA-071"
-revision = "unknown" # release.yaml:3 configures v38; no certified STEP/drawing export pairs with this plan
-cite = ["harmonic-analyzer/cad/config/parts/rocker-arm.yaml:2", "harmonic-analyzer/cad/config/release.yaml:1-3"]
+revision = "unknown" # export declares unreleased v40 (release.yaml:next_revision); operator/released-plan match not established
+cite = ["harmonic-analyzer/cad/config/parts/rocker-arm.yaml:2", "harmonic-analyzer/cad/config/release.yaml:next_revision"]
 
 [paths]
 inventory = "../inventory/pedro-shop.toml"

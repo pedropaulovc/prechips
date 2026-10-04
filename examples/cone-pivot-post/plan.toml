@@ -40,12 +40,56 @@ x = "away_from_spindle_axis" # AUTHOR'S CHOICE; verify each machine's positive s
 y = "away" # AUTHOR'S CHOICE: existing EL400 positive mill-Y convention
 z = "toward_exposed_end"
 
+# Plan-owned setup frames (PLAN.md §4.1; docs/plan.md "frames"). The exported
+# manifest declares only `model` and an unknown `setup`; these restore the
+# pre-export T1/M2/J3/C4 transforms and citations verbatim (3a561db
+# examples/cone-pivot-post/features.toml). Origins and axes are model
+# coordinates; every physical binding remains unknown.
+[frames.T1]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 0.0, 1.0]
+z = [0.0, -1.0, 0.0]
+binding = "unknown"
+note = "AUTHOR'S CHOICE: foot-exposed frame (one-piece lathe S1, built-up mill S0); +Z toward the foot, +X radial withdrawal on the lathe."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"]
+
+# Head top at Z86 = exported body height_nominal.
+[frames.M2]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 0.0, -1.0]
+z = [0.0, 1.0, 0.0]
+binding = "unknown"
+note = "AUTHOR'S CHOICE: foot-down milling; Z0 at finished foot, head top at Z86."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"]
+
+# Origin = exported journal_bore at; setup -Z = exported journal_bore axis.
+[frames.J3]
+origin = [0.0, 33.368, 0.0]
+x = [0.9762272058393484, 0.0, -0.21674972336567902]
+y = [0.0, -1.0, 0.0]
+z = [-0.21674972336567902, 0.0, -0.9762272058393484]
+binding = "unknown"
+note = "AUTHOR'S CHOICE: spindle toward the north cone-boss face; trig basis derived from the 12.5182 degree horizontal plan angle, not a tilt."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279"]
+
+# Origin = exported crank_bore at Y72.7 and crank_boss_faces station_nominal 21.3753.
+[frames.C4]
+origin = [0.0, 72.7, -21.3753]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "unknown"
+note = "AUTHOR'S CHOICE: crank boss north face Z0; depth goes into boss along negative setup Z."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
+
 # S1 only turns BELOW the inclined pad (lowest pad Y33.368-17.2/2=24.768).
 # Do not turn the full body/head and thereby remove either integral boss.
 [[setups]]
 id = "S1"
 machine = "PM-1127VF-LB"
-frame = "setup" # exported binding unknown; authored T1 coordinates below are unchanged
+frame = "T1" # plan.frames.T1, AUTHOR'S CHOICE; exported `setup` and physical binding stay unknown
 stock_in = "authored_round_blank"
 coolant = "CRC cutting oil brushed on" # AUTHOR'S CHOICE; inventory consumable, not speed evidence
 deburr_mm = 0.25 # title_block.yaml:45
@@ -129,7 +173,7 @@ height = "calipers"
 [[setups]]
 id = "S2"
 machine = "PM-30MV"
-frame = "setup" # exported binding unknown; authored M2 coordinates below are unchanged
+frame = "M2" # plan.frames.M2, AUTHOR'S CHOICE; physical binding unknown
 stock_in = "S1_integral_blank"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.25
@@ -301,7 +345,7 @@ depth = "calipers"
 [[setups]]
 id = "S3"
 machine = "PM-30MV"
-frame = "setup" # exported binding unknown; authored J3 coordinates below are unchanged
+frame = "J3" # plan.frames.J3, AUTHOR'S CHOICE; physical binding unknown
 stock_in = "S2_integral_profile"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1 # cone rim limit: cone_gear_shaft_spec.py:79-97,111-113; draw:264
@@ -397,7 +441,7 @@ finish_ra = "unknown"
 [[setups]]
 id = "S4"
 machine = "PM-30MV"
-frame = "setup" # exported binding unknown; authored C4 coordinates below are unchanged
+frame = "C4" # plan.frames.C4, AUTHOR'S CHOICE; physical binding unknown
 stock_in = "S3_finished_datum_A"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.25

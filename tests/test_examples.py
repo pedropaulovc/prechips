@@ -23,7 +23,7 @@ _GEOMETRY_RULES = {
         ("pivot-shaft", "plan.toml", "expected", 4),
         ("rocker-arm", "plan.toml", "expected", 2),
         ("pivot-bracket", "plan.toml", "expected", 2),
-        ("cone-pivot-post", "plan.toml", "expected", 4),
+        ("cone-pivot-post", "plan.toml", "expected", 2),
         ("cone-pivot-post", "built-up.toml", "expected/built-up", 2),
     ],
 )
@@ -86,7 +86,7 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
                 f["status"] == "unknown" and f["numbers"].get("kernel_unavailable")
                 for f in geometry
             )
-        assert [row["exit"] for row in rows] == [4, 2]
+        assert [row["exit"] for row in rows] == [2, 2]
     else:
         assert outputs[0] == (bundle / "expected" / "compare.json").read_bytes()
     assert [(row["plan"], row["part"]) for row in rows] == [

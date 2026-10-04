@@ -18,14 +18,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: numeric setup frame is unknown.",
+      "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:10"
     },
     {
@@ -51,14 +56,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:20: numeric setup frame is unknown.",
+      "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:20"
     },
     {
@@ -84,14 +94,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.30: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:30: numeric setup frame is unknown.",
+      "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:30"
     },
     {
@@ -117,14 +132,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.40: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:40: numeric setup frame is unknown.",
+      "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:40"
     },
     {
@@ -150,14 +170,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.50: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:50: numeric setup frame is unknown.",
+      "message": "S1:50: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:50"
     },
     {
@@ -181,14 +206,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.60: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:60: numeric setup frame is unknown.",
+      "message": "S1:60: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:60"
     },
     {
@@ -206,14 +236,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.70: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:70: numeric setup frame is unknown.",
+      "message": "S1:70: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:70"
     },
     {
@@ -233,6 +268,11 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.71: selected action/tool/holder"
       ],
       "message": "S1:71: inspect does not cut geometry.",
@@ -262,6 +302,11 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.72: selected action/tool/holder"
       ],
       "message": "S1:72: inspect does not cut geometry.",
@@ -290,14 +335,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.80: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:80: numeric setup frame is unknown.",
+      "message": "S1:80: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:80"
     },
     {
@@ -320,14 +370,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.90: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:90: numeric setup frame is unknown.",
+      "message": "S1:90: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:90"
     },
     {
@@ -348,14 +403,18 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: numeric setup frame is unknown.",
+      "message": "S2:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S2:10"
     },
     {
@@ -376,14 +435,18 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: numeric setup frame is unknown.",
+      "message": "S2:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S2:20"
     },
     {
@@ -409,6 +472,10 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.30: selected action/tool/holder"
       ],
       "message": "S2:30: inspect does not cut geometry.",
@@ -435,14 +502,19 @@
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
         "plan.setups.S3.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: numeric setup frame is unknown.",
+      "message": "S3:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S3:10"
     },
     {
@@ -463,15 +535,56 @@
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
         "plan.setups.S3.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: numeric setup frame is unknown.",
+      "message": "S3:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "features.pivot_bearing: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+        "plan.setups.S3.ops.30: selected action/tool/holder"
+      ],
+      "message": "S3:30: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "accessibility",
+      "status": "not_applicable",
+      "subject": "S3:30"
     },
     {
       "cite": [
@@ -638,7 +751,7 @@
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
-            "sha256": "78fd33b52ac02171203ad85147259dddeeaa6fa970250115faaf2d783dccbd79"
+            "sha256": "ec5b6ed2d3e1ba6a9a83cc968c5ef2e18a5d2930f4bed07c3c86ca5c0022b3fc"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -674,7 +787,12 @@
         "PLAN.md §4.1 coordinates",
         "features declared frames and nominal geometry",
         "plan contour steps, operation targets and stock allowances",
-        "inventory selected cutter nominal diameter"
+        "inventory selected cutter nominal diameter",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117"
       ],
       "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
@@ -716,7 +834,7 @@
             "op": 90
           }
         ],
-        "frame": "setup",
+        "frame": "T1",
         "line_table": [],
         "operations": [
           {
@@ -816,20 +934,15 @@
           {
             "dia_nominal": "unknown",
             "feature": "shoulder_north_face",
-            "local_from": {
-              "axis": "z",
-              "field": "to_z",
-              "op": 10
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -6.0
             ],
             "point": "op 10 to_z",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               0.0
             ],
             "x_target_mm": "unknown"
@@ -842,28 +955,23 @@
               -3.0
             ],
             "setup": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              3.0
             ]
           },
           {
             "dia_nominal": 6.35,
             "feature": "pivot_journal",
-            "local_from": {
-              "axis": "z",
-              "field": "z_from",
-              "op": 20
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -6.0
             ],
             "point": "op 20 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               0.0
             ],
             "x_target_mm": 6.35
@@ -871,20 +979,15 @@
           {
             "dia_nominal": 6.35,
             "feature": "pivot_journal",
-            "local_from": {
-              "axis": "z",
-              "field": "z_to",
-              "op": 20
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              1.5
             ],
             "point": "op 20 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               7.5
             ],
             "x_target_mm": 6.35
@@ -892,20 +995,15 @@
           {
             "dia_nominal": 6.35,
             "feature": "pivot_journal",
-            "local_from": {
-              "axis": "z",
-              "field": "z_from",
-              "op": 30
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -6.0
             ],
             "point": "op 30 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               0.0
             ],
             "x_target_mm": 6.35
@@ -913,20 +1011,15 @@
           {
             "dia_nominal": 6.35,
             "feature": "pivot_journal",
-            "local_from": {
-              "axis": "z",
-              "field": "z_to",
-              "op": 30
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              1.5
             ],
             "point": "op 30 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               7.5
             ],
             "x_target_mm": 6.35
@@ -939,28 +1032,23 @@
               -17.5
             ],
             "setup": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -11.5
             ]
           },
           {
             "dia_nominal": 6.35,
             "feature": "pivot_bearing",
-            "local_from": {
-              "axis": "z",
-              "field": "z_from",
-              "op": 40
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -7.5
             ],
             "point": "op 40 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -1.5
             ],
             "x_target_mm": 6.35
@@ -968,20 +1056,15 @@
           {
             "dia_nominal": 6.35,
             "feature": "pivot_bearing",
-            "local_from": {
-              "axis": "z",
-              "field": "z_to",
-              "op": 40
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -173.5
             ],
             "point": "op 40 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -167.5
             ],
             "x_target_mm": 6.35
@@ -989,20 +1072,15 @@
           {
             "dia_nominal": 6.35,
             "feature": "pivot_bearing",
-            "local_from": {
-              "axis": "z",
-              "field": "z_from",
-              "op": 50
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -7.5
             ],
             "point": "op 50 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -1.5
             ],
             "x_target_mm": 6.35
@@ -1010,20 +1088,15 @@
           {
             "dia_nominal": 6.35,
             "feature": "pivot_bearing",
-            "local_from": {
-              "axis": "z",
-              "field": "z_to",
-              "op": 50
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -173.5
             ],
             "point": "op 50 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -167.5
             ],
             "x_target_mm": 6.35
@@ -1031,20 +1104,15 @@
           {
             "dia_nominal": "unknown",
             "feature": "shoulder_thrust",
-            "local_from": {
-              "axis": "z",
-              "field": "to_z",
-              "op": 60
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -7.5
             ],
             "point": "op 60 to_z",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -1.5
             ],
             "x_target_mm": "unknown"
@@ -1065,20 +1133,15 @@
           {
             "dia_nominal": 10.0,
             "feature": "shoulder_od",
-            "local_from": {
-              "axis": "z",
-              "field": "z_from",
-              "op": 70
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -7.5
             ],
             "point": "op 70 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -1.5
             ],
             "x_target_mm": 10.0
@@ -1086,20 +1149,15 @@
           {
             "dia_nominal": 10.0,
             "feature": "shoulder_od",
-            "local_from": {
-              "axis": "z",
-              "field": "z_to",
-              "op": 70
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -6.0
             ],
             "point": "op 70 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               0.0
             ],
             "x_target_mm": 10.0
@@ -1112,28 +1170,23 @@
               -5.0
             ],
             "setup": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              1.0
             ]
           },
           {
             "dia_nominal": 5.7,
             "feature": "north_relief",
-            "local_from": {
-              "axis": "z",
-              "field": "z_from",
-              "op": 80
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -6.0
             ],
             "point": "op 80 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               0.0
             ],
             "x_target_mm": 5.7
@@ -1141,20 +1194,15 @@
           {
             "dia_nominal": 5.7,
             "feature": "north_relief",
-            "local_from": {
-              "axis": "z",
-              "field": "z_to",
-              "op": 80
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -4.0
             ],
             "point": "op 80 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               2.0
             ],
             "x_target_mm": 5.7
@@ -1167,28 +1215,23 @@
               -8.5
             ],
             "setup": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -2.5
             ]
           },
           {
             "dia_nominal": 5.7,
             "feature": "south_relief",
-            "local_from": {
-              "axis": "z",
-              "field": "z_from",
-              "op": 90
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -7.5
             ],
             "point": "op 90 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -1.5
             ],
             "x_target_mm": 5.7
@@ -1196,20 +1239,15 @@
           {
             "dia_nominal": 5.7,
             "feature": "south_relief",
-            "local_from": {
-              "axis": "z",
-              "field": "z_to",
-              "op": 90
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -9.5
             ],
             "point": "op 90 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -3.5
             ],
             "x_target_mm": 5.7
@@ -1226,7 +1264,11 @@
         "PLAN.md §4.1 coordinates",
         "features declared frames and nominal geometry",
         "plan contour steps, operation targets and stock allowances",
-        "inventory selected cutter nominal diameter"
+        "inventory selected cutter nominal diameter",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431"
       ],
       "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
@@ -1418,7 +1460,7 @@
             "op": 30
           }
         ],
-        "frame": "setup",
+        "frame": "T2",
         "line_table": [],
         "operations": [
           {
@@ -1468,20 +1510,15 @@
           {
             "dia_nominal": "unknown",
             "feature": "north_dome",
-            "local_from": {
-              "axis": "z",
-              "field": "to_z",
-              "op": 10
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              1.5
             ],
             "point": "op 10 to_z",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               0.0
             ],
             "x_target_mm": "unknown"
@@ -1489,20 +1526,15 @@
           {
             "dia_nominal": "unknown",
             "feature": "north_dome",
-            "local_from": {
-              "axis": "z",
-              "field": "z_from",
-              "op": 20
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              1.5
             ],
             "point": "op 20 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               0.0
             ],
             "x_target_mm": "unknown"
@@ -1510,20 +1542,15 @@
           {
             "dia_nominal": "unknown",
             "feature": "north_dome",
-            "local_from": {
-              "axis": "z",
-              "field": "z_to",
-              "op": 20
-            },
             "model": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              0.0
             ],
             "point": "op 20 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               -1.5
             ],
             "x_target_mm": "unknown"
@@ -1536,9 +1563,9 @@
               -3.0
             ],
             "setup": [
-              "unknown",
-              "unknown",
-              "unknown"
+              0.0,
+              0.0,
+              -4.5
             ]
           }
         ],
@@ -1553,12 +1580,17 @@
         "PLAN.md §4.1 coordinates",
         "features declared frames and nominal geometry",
         "plan contour steps, operation targets and stock allowances",
-        "inventory selected cutter nominal diameter"
+        "inventory selected cutter nominal diameter",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433"
       ],
       "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
-        "binding": "nominal",
+        "binding": "unknown",
         "contours": [
           {
             "apex_z_mm": 1.75,
@@ -1740,9 +1772,12 @@
           },
           {
             "op": 20
+          },
+          {
+            "op": 30
           }
         ],
-        "frame": "setup",
+        "frame": "T3",
         "line_table": [],
         "operations": [
           {
@@ -1761,6 +1796,11 @@
             "tool": "turning-tools-warner-lms-4132/E",
             "z_from": 1.75,
             "z_to": 0.25
+          },
+          {
+            "do": "inspect",
+            "feature": "pivot_bearing",
+            "op": 30
           }
         ],
         "profiles": [
@@ -1793,14 +1833,14 @@
               "op": 10
             },
             "model": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               "unknown"
             ],
             "point": "op 10 to_z",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               1.75
             ],
             "x_target_mm": "unknown"
@@ -1814,14 +1854,14 @@
               "op": 20
             },
             "model": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               "unknown"
             ],
             "point": "op 20 z_from",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               1.75
             ],
             "x_target_mm": "unknown"
@@ -1835,17 +1875,30 @@
               "op": 20
             },
             "model": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               "unknown"
             ],
             "point": "op 20 z_to",
             "setup": [
-              "unknown",
-              "unknown",
+              0.0,
+              0.0,
               0.25
             ],
             "x_target_mm": "unknown"
+          },
+          {
+            "feature": "pivot_bearing",
+            "model": [
+              0.0,
+              0.0,
+              -17.5
+            ],
+            "setup": [
+              0.0,
+              0.0,
+              -139.17
+            ]
           }
         ],
         "x_display": "diameter"
@@ -2268,6 +2321,21 @@
     },
     {
       "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S3:30: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "inspect",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
         "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"
       ],
       "message": "Spindle-nose-to-table clearance applies to a mill, not a lathe.",
@@ -2367,12 +2435,20 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
         "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"
       ],
-      "message": "pivot_bearing: finish face references or finishing operation claims are unresolved.",
+      "message": "pivot_bearing: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {
-        "finish_ra": 1.6
+        "finish_ra": 1.6,
+        "required_faces": [
+          2,
+          15
+        ],
+        "uncovered_faces": [
+          2,
+          15
+        ]
       },
       "rule": "finish_coverage",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "pivot_bearing"
     },
     {
@@ -2396,12 +2472,20 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
         "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"
       ],
-      "message": "pivot_journal: finish face references or finishing operation claims are unresolved.",
+      "message": "pivot_journal: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {
-        "finish_ra": 1.6
+        "finish_ra": 1.6,
+        "required_faces": [
+          6,
+          7
+        ],
+        "uncovered_faces": [
+          6,
+          7
+        ]
       },
       "rule": "finish_coverage",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "pivot_journal"
     },
     {
@@ -2467,12 +2551,18 @@
         "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44"
       ],
-      "message": "shoulder_thrust: finish face references or finishing operation claims are unresolved.",
+      "message": "shoulder_thrust: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {
-        "finish_ra": 1.6
+        "finish_ra": 1.6,
+        "required_faces": [
+          12
+        ],
+        "uncovered_faces": [
+          12
+        ]
       },
       "rule": "finish_coverage",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "shoulder_thrust"
     },
     {
@@ -2834,6 +2924,25 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
+      "message": "pivot_bearing length: requirement is absent from the exported manifest; acceptance limits are unresolved.",
+      "numbers": {
+        "gauge": "calipers",
+        "inspection_method": "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears.",
+        "limits": "unknown",
+        "missing_requirement": true,
+        "op": "S3:30",
+        "requirement": "length"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "pivot_bearing:length"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
       "message": "pivot_journal dia: named gauge capability needs verification.",
       "numbers": {
         "band_mm": 0.019999999999999574,
@@ -3095,14 +3204,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: numeric setup frame is unknown.",
+      "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:10"
     },
     {
@@ -3128,14 +3242,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:20: numeric setup frame is unknown.",
+      "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:20"
     },
     {
@@ -3161,14 +3280,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.30: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:30: numeric setup frame is unknown.",
+      "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:30"
     },
     {
@@ -3194,14 +3318,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.40: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:40: numeric setup frame is unknown.",
+      "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:40"
     },
     {
@@ -3227,14 +3356,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.50: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:50: numeric setup frame is unknown.",
+      "message": "S1:50: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:50"
     },
     {
@@ -3258,14 +3392,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.60: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:60: numeric setup frame is unknown.",
+      "message": "S1:60: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:60"
     },
     {
@@ -3283,14 +3422,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.70: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:70: numeric setup frame is unknown.",
+      "message": "S1:70: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:70"
     },
     {
@@ -3310,6 +3454,11 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.71: selected action/tool/holder"
       ],
       "message": "S1:71: inspect does not cut geometry.",
@@ -3339,6 +3488,11 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.72: selected action/tool/holder"
       ],
       "message": "S1:72: inspect does not cut geometry.",
@@ -3367,14 +3521,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.80: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:80: numeric setup frame is unknown.",
+      "message": "S1:80: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:80"
     },
     {
@@ -3397,14 +3556,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.90: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:90: numeric setup frame is unknown.",
+      "message": "S1:90: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:90"
     },
     {
@@ -3425,14 +3589,18 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: numeric setup frame is unknown.",
+      "message": "S2:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S2:10"
     },
     {
@@ -3453,14 +3621,18 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: numeric setup frame is unknown.",
+      "message": "S2:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S2:20"
     },
     {
@@ -3486,6 +3658,10 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.30: selected action/tool/holder"
       ],
       "message": "S2:30: inspect does not cut geometry.",
@@ -3512,14 +3688,19 @@
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
         "plan.setups.S3.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: numeric setup frame is unknown.",
+      "message": "S3:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S3:10"
     },
     {
@@ -3540,15 +3721,56 @@
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
         "plan.setups.S3.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: numeric setup frame is unknown.",
+      "message": "S3:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "features.pivot_bearing: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+        "plan.setups.S3.ops.30: selected action/tool/holder"
+      ],
+      "message": "S3:30: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S3:30"
     },
     {
       "cite": [
@@ -3602,12 +3824,14 @@
       "numbers": {
         "chain": [
           "rough_turn",
-          "finish_turn"
+          "finish_turn",
+          "inspect"
         ],
         "kind": "shaft",
         "ops": [
           "S1:40",
-          "S1:50"
+          "S1:50",
+          "S3:30"
         ]
       },
       "rule": "op_chain",
@@ -3797,7 +4021,8 @@
       "numbers": {
         "sequence": [
           "10 cut_to_fit south_dome",
-          "20 form_dome south_dome"
+          "20 form_dome south_dome",
+          "30 inspect pivot_bearing"
         ],
         "violations": []
       },
@@ -3822,14 +4047,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: numeric setup frame is unknown.",
+      "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:10"
     },
     {
@@ -3855,14 +4085,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:20: numeric setup frame is unknown.",
+      "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:20"
     },
     {
@@ -3888,14 +4123,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.30: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:30: numeric setup frame is unknown.",
+      "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:30"
     },
     {
@@ -3921,14 +4161,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.40: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:40: numeric setup frame is unknown.",
+      "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:40"
     },
     {
@@ -3954,14 +4199,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.50: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:50: numeric setup frame is unknown.",
+      "message": "S1:50: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:50"
     },
     {
@@ -3985,14 +4235,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.60: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:60: numeric setup frame is unknown.",
+      "message": "S1:60: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:60"
     },
     {
@@ -4010,14 +4265,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.70: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:70: numeric setup frame is unknown.",
+      "message": "S1:70: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:70"
     },
     {
@@ -4037,6 +4297,11 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.71: selected action/tool/holder"
       ],
       "message": "S1:71: inspect does not cut geometry.",
@@ -4066,6 +4331,11 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.72: selected action/tool/holder"
       ],
       "message": "S1:72: inspect does not cut geometry.",
@@ -4094,14 +4364,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.80: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:80: numeric setup frame is unknown.",
+      "message": "S1:80: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:80"
     },
     {
@@ -4124,14 +4399,19 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
         "plan.setups.S1.ops.90: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:90: numeric setup frame is unknown.",
+      "message": "S1:90: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S1:90"
     },
     {
@@ -4152,14 +4432,18 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: numeric setup frame is unknown.",
+      "message": "S2:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S2:10"
     },
     {
@@ -4180,14 +4464,18 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: numeric setup frame is unknown.",
+      "message": "S2:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S2:20"
     },
     {
@@ -4213,6 +4501,10 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
         "plan.setups.S2.ops.30: selected action/tool/holder"
       ],
       "message": "S2:30: inspect does not cut geometry.",
@@ -4239,14 +4531,19 @@
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
         "plan.setups.S3.ops.10: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: numeric setup frame is unknown.",
+      "message": "S3:10: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S3:10"
     },
     {
@@ -4267,15 +4564,56 @@
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
         "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
         "plan.setups.S3.ops.20: selected action/tool/holder",
         "inventory.tools.turning-tools-warner-lms-4132/E: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: numeric setup frame is unknown.",
+      "message": "S3:20: lathe approach model not implemented (engine approaches along -Z only).",
       "numbers": {},
       "rule": "reach",
-      "status": "unknown",
+      "status": "unsupported",
       "subject": "S3:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "features.pivot_bearing: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+        "plan.setups.S3.ops.30: selected action/tool/holder"
+      ],
+      "message": "S3:30: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "reach",
+      "status": "not_applicable",
+      "subject": "S3:30"
     },
     {
       "cite": [
@@ -4384,7 +4722,8 @@
         "kind": "shaft",
         "ops": [
           "S1:40",
-          "S1:50"
+          "S1:50",
+          "S3:30"
         ]
       },
       "rule": "sizing",
@@ -4994,6 +5333,18 @@
     },
     {
       "cite": [
+        "PLAN.md §4.1 speeds/feeds"
+      ],
+      "message": "This manual operation has no cutting speed or feed.",
+      "numbers": {
+        "operation": "inspect"
+      },
+      "rule": "speeds_feeds",
+      "status": "not_applicable",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
@@ -5226,7 +5577,12 @@
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories"
+        "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117"
       ],
       "message": "S1: thin_wall_under_clamp has no vise grip-zone facts for chuck_3jaw holding.",
       "numbers": {},
@@ -5240,7 +5596,11 @@
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories"
+        "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431"
       ],
       "message": "S2: thin_wall_under_clamp has no vise grip-zone facts for chuck_3jaw holding.",
       "numbers": {},
@@ -5254,7 +5614,12 @@
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories"
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433"
       ],
       "message": "S3: thin_wall_under_clamp has no vise grip-zone facts for chuck_3jaw holding.",
       "numbers": {},
@@ -5715,7 +6080,12 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107"
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117"
       ],
       "message": "S1: axial profile geometry or the selected grooving exception is unresolved.",
       "numbers": {
@@ -5724,7 +6094,7 @@
           -168.5,
           22.5
         ],
-        "frame": "setup",
+        "frame": "T1",
         "intervals": [],
         "segments": [],
         "transitions": [],
@@ -5760,7 +6130,11 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80"
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431"
       ],
       "message": "S2: axial profile geometry or the selected grooving exception is unresolved.",
       "numbers": {
@@ -5769,7 +6143,7 @@
           -12.0,
           15.0
         ],
-        "frame": "setup",
+        "frame": "T2",
         "intervals": [],
         "segments": [],
         "transitions": [],
@@ -5805,13 +6179,18 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107"
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433"
       ],
       "message": "S3: axial profile geometry or the selected grooving exception is unresolved.",
       "numbers": {
         "direction": "+setup Z toward exposed end",
         "exposed_z_mm": "unknown",
-        "frame": "setup",
+        "frame": "T3",
         "intervals": [],
         "segments": [],
         "transitions": [],
@@ -6620,11 +6999,29 @@
     },
     {
       "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:30: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "pivot_bearing",
+        "operation": "inspect"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:30"
+    },
+    {
+      "cite": [
         "PLAN.md §4.3 vise",
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories"
+        "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117"
       ],
       "message": "S1: vise has no vise grip-zone facts for chuck_3jaw holding.",
       "numbers": {},
@@ -6638,7 +7035,11 @@
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories"
+        "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431"
       ],
       "message": "S2: vise has no vise grip-zone facts for chuck_3jaw holding.",
       "numbers": {},
@@ -6652,7 +7053,12 @@
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories"
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433"
       ],
       "message": "S3: vise has no vise grip-zone facts for chuck_3jaw holding.",
       "numbers": {},
@@ -6664,7 +7070,12 @@
       "cite": [
         "PLAN.md §4.1 zero recipe",
         "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
-        "plan zero and stock_state; inventory finder nominal size"
+        "plan zero and stock_state; inventory finder nominal size",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117"
       ],
       "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
       "numbers": {
@@ -6713,7 +7124,7 @@
           "mode": "abs",
           "radius_mode": false
         },
-        "frame": "setup",
+        "frame": "T1",
         "retouch": [],
         "tool_touches": [
           {
@@ -6741,7 +7152,11 @@
       "cite": [
         "PLAN.md §4.1 zero recipe",
         "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
-        "plan zero and stock_state; inventory finder nominal size"
+        "plan zero and stock_state; inventory finder nominal size",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431"
       ],
       "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
       "numbers": {
@@ -6789,7 +7204,7 @@
           "mode": "abs",
           "radius_mode": false
         },
-        "frame": "setup",
+        "frame": "T2",
         "retouch": [],
         "tool_touches": [
           {
@@ -6822,7 +7237,12 @@
       "cite": [
         "PLAN.md §4.1 zero recipe",
         "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
-        "plan zero and stock_state; inventory finder nominal size"
+        "plan zero and stock_state; inventory finder nominal size",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433"
       ],
       "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
       "numbers": {
@@ -6865,12 +7285,12 @@
             "tool": "turning-tools-warner-lms-4132/AR"
           }
         },
-        "binding": "nominal",
+        "binding": "unknown",
         "dro": {
           "mode": "abs",
           "radius_mode": false
         },
-        "frame": "setup",
+        "frame": "T3",
         "retouch": [],
         "tool_touches": [
           {
@@ -6901,7 +7321,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "b1e28ca9f22b6ec7dc349382cf3e630a5061dbcdedcab1a63de1de6921013089",
+  "hash": "c9c61ee2b8c592ab97eadffe4012c3cf5f248f24d645faa0bc7b4d3400a8a97e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -6917,7 +7337,7 @@
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
-      "sha256": "78fd33b52ac02171203ad85147259dddeeaa6fa970250115faaf2d783dccbd79"
+      "sha256": "ec5b6ed2d3e1ba6a9a83cc968c5ef2e18a5d2930f4bed07c3c86ca5c0022b3fc"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",

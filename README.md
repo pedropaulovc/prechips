@@ -62,12 +62,19 @@ uv run prechips traveler examples/cone-pivot-post/plan.toml --out out/cone-pivot
 uv run prechips compare examples/cone-pivot-post/plan.toml examples/cone-pivot-post/built-up.toml --out out/cone-comparison
 ```
 
-Corrected consumer CLI runs observed **shaft 4 / rocker 2 / bracket 2 / cone
-one-piece 4 / cone built-up 2**. Existing inspection choices follow the exported
-feature owners without inventing methods or changing gauges. Shaft and cone
-retain required unknowns; missing tooling/fixtures and one-piece-only
-construction retain their stops. Current combined gate evidence is recorded
-separately in PLAN §8 M3. Outputs are still written for exits 2 and 4.
+Current expected consumer CLI exits are **shaft 4 / rocker 2 / bracket 2 / cone
+one-piece 2 / cone built-up 2**. Existing inspection choices follow the exported
+feature owners without inventing methods or changing gauges. The shaft keeps
+required unknowns. Missing tooling/fixtures and one-piece-only construction keep
+their stops. The one-piece cone stops on an exported inconsistency:
+`mount_west.station_nominal = -12.98` lies outside its own `station` band
+[12.47, 13.49]. That is an HA export follow-up, not a sign the consumer may fix.
+Restored milling frames also expose far-side boss-face claims (one-piece S2:40/50,
+built-up S2:50); those remain errors requiring an authored route/claim correction.
+Lathe approach-dependent geometry is explicitly unsupported until a radial
+lathe approach model exists; the engine's −Z-only milling model is not a lathe test.
+Only the consumer side of M3 is done; the HA follow-ups and the combined gate
+evidence are in PLAN §8 M3. Outputs are still written for exits 2 and 4.
 All example plans remain **authored** and their sheets **PLANNED**. The shaft,
 rocker and cone consume verbatim harmonic-analyzer `features.toml` exports
 with their exact adjacent STEP files. The pivot-bracket manifest remains

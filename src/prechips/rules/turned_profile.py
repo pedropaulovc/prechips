@@ -2,7 +2,16 @@
 
 from ..findings import Finding
 from .coordinates import frame_point, model_point
-from .resolution import UNKNOWN, _citations, number, record, resolve, same_length
+from .resolution import (
+    UNKNOWN,
+    _citations,
+    number,
+    plan_frame_cite,
+    record,
+    resolve,
+    same_length,
+    setup_frame,
+)
 
 PROFILE_OPS = {
     "turn",
@@ -98,10 +107,11 @@ def _grooving(setup, name, bundle):
 def exposed_profile(bundle, setup):
     """Reuse the declared setup-Z geometry for profile and unsupported-diameter checks."""
     features = bundle.features["features"]
+    # Source frames stay manifest-only; the setup frame may be exported or plan-owned.
     frames = record(bundle.features.get("frames"))
     units = bundle.features.get("units", UNKNOWN)
     scale = 25.4 if units == "in" else 1.0 if units == "mm" else None
-    frame = _frame_mm(frames.get(setup.get("frame")), scale or 1.0)
+    frame = _frame_mm(setup_frame(bundle, setup), scale or 1.0)
     claimed = {op.get("feature", UNKNOWN) for op in setup["ops"] if op["do"] in PROFILE_OPS}
     names = {
         name for name, feature in features.items() if feature.get("kind") in AXIAL_KINDS
@@ -330,6 +340,7 @@ def evaluate(bundle):
                     "features declared nominal diameters/z_mm/frame; "
                     "plan setup frame and current/preceding grooving ops; 25.4 mm/in",
                     *citations,
+                    *plan_frame_cite(bundle, setup),
                 ],
                 f"{setup['id']}: {message}.",
             )

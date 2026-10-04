@@ -91,9 +91,11 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
         row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 10 to_z"
     )
     assert coordinates["status"] == "unknown"
-    assert endpoint["setup"] == ["unknown", "unknown", 1.75]
-    assert endpoint["model"] == ["unknown"] * 3
+    # Plan frame T3 restores X/Y; its unbound Z keeps the authored local endpoint.
+    assert endpoint["setup"] == [0.0, 0.0, 1.75]
+    assert endpoint["model"] == [0.0, 0.0, "unknown"]
     assert endpoint["local_from"] == {"op": 10, "field": "to_z", "axis": "z"}
+    assert any("frame T3" in heading for heading in sections(html, "COORDINATES"))
     coordinate_rows = re.findall(r"<tr>.*?</tr>", "".join(sections(html, "COORDINATES")), re.DOTALL)
     endpoint_row = next(
         row for row in coordinate_rows if "op 10 to z" in row and "south dome" in row
@@ -119,3 +121,27 @@ def test_machine_backed_workholding_prints_without_missing_label(tmp_path, plan)
     bundle = copy_examples(tmp_path) / "cone-pivot-post"
     _, _, html = traveler(bundle / plan, tmp_path / "out")
     assert "<td>PM-30MV / BS-0</td>" in html
+
+
+def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path):
+    _, report, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    row = next(
+        row
+        for row in re.findall(r"<tr>.*?</tr>", html, re.DOTALL)
+        if "missing requirement pivot_bearing:length" in row
+    )
+    sheet = text(row)
+    assert "<td>inspect</td>" in row
+    assert "<td>pivot bearing</td>" in row
+    assert "? length ?:" in sheet
+    assert "missing requirement pivot_bearing:length" in sheet
+    assert (
+        "Measure 1.75 past the actual scribe to the cut face with calipers; after doming "
+        "verify cylinder end 0.25 past scribe and trial fit over the installed ears."
+    ) in sheet
+    assert "156.67" not in sheet
+    finding = next(
+        row for row in findings(report, "inspection") if row["subject"] == "pivot_bearing:length"
+    )
+    assert finding["status"] == "unknown"
+    assert finding["numbers"]["missing_requirement"] is True

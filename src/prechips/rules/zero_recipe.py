@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from ..findings import Finding
-from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import (
+    UNKNOWN,
+    length_mm,
+    number,
+    plan_frame_cite,
+    resolve,
+    setup_frame,
+    uncertain,
+)
 from .tip_endpoints import mapping, records, stock_states
 
 DIRECTIONS = {
@@ -44,7 +52,7 @@ def evaluate(bundle):
     result = []
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
-        frame = mapping(mapping(bundle.features.get("frames")).get(setup.get("frame")))
+        frame = setup_frame(bundle, setup)
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe" or "lathe" in str(machine.get("type", "")).lower()
         zero = mapping(setup.get("zero"))
@@ -203,6 +211,7 @@ def evaluate(bundle):
                     "PLAN.md §4.1 zero recipe",
                     "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
                     "plan zero and stock_state; inventory finder nominal size",
+                    *plan_frame_cite(bundle, setup),
                 ],
                 sentence,
             )

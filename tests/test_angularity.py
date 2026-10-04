@@ -1,6 +1,7 @@
 """Drawing angularity requires datum inspection and a viable datum pickup."""
 
 import pytest
+from test_cli import ROOT
 
 from prechips.inputs import load_bundle
 from prechips.rules import datum_consistency, inspection
@@ -154,3 +155,97 @@ def test_shared_setup_needs_no_refixture_budget(tmp_path):
 @pytest.mark.parametrize("datums", [None, "[]", '["A", "unknown"]', '["missing"]'])
 def test_missing_angularity_datum_geometry_is_unresolved(tmp_path, datums):
     assert datum_finding(angularity_bundle(tmp_path, datums=datums)).status == "unknown"
+
+
+def test_shaft_cut_to_fit_length_remains_a_named_missing_requirement():
+    bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
+    row = next(row for row in inspection.evaluate(bundle) if row.subject == "pivot_bearing:length")
+    assert row.status == "unknown"
+    assert row.numbers["missing_requirement"] is True
+    assert row.numbers["limits"] == "unknown"
+    assert "band_mm" not in row.numbers
+    assert row.numbers["gauge"] == "calipers"
+    assert row.numbers["op"] == "S3:30"
+    ops = bundle.plan["setups"][-1]["ops"]
+    inspection_index = next(
+        index for index, op in enumerate(ops) if "length" in op.get("missing_requirements", {})
+    )
+    doming_index = next(
+        index
+        for index, op in enumerate(ops)
+        if op["feature"] == "south_dome" and op["do"] == "form_dome"
+    )
+    assert inspection_index > doming_index
+    assert row.numbers["inspection_method"] == (
+        "Measure 1.75 past the actual scribe to the cut face with calipers; after doming "
+        "verify cylinder end 0.25 past scribe and trial fit over the installed ears."
+    )
+
+
+def test_unknown_export_can_only_leave_a_missing_length_inspection_unresolved(tmp_path):
+    bundle = angularity_bundle(tmp_path, requirement="length", check=False)
+    feature = bundle.features["features"]["cone"]
+    feature["requirements"] = "unknown"
+    feature["length_ref"] = 5.5
+    op = bundle.plan["setups"][-1]["ops"][-1]
+    op["do"] = "inspect"
+    op["missing_requirements"] = {"length": "gauge"}
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["cone:unknown"].status == "unknown"
+    assert rows["cone:length"].status == "unknown"
+    assert rows["cone:length"].numbers["missing_requirement"] is True
+    assert rows["cone:length"].numbers["limits"] == "unknown"
+    assert "band_mm" not in rows["cone:length"].numbers
+
+
+@pytest.mark.parametrize("field", ["length_nominal", "nominal_length"])
+@pytest.mark.parametrize("nominal", [4.99, 5.0, 5.5, 6.0, 6.01])
+@pytest.mark.parametrize("gauge_state", ["verified", "unknown", "unverified", "missing"])
+def test_exported_nominal_must_be_inside_the_inclusive_band(tmp_path, field, nominal, gauge_state):
+    bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]", gauge="caliper")
+    bundle.features["features"]["cone"][field] = nominal
+    gauge = bundle.inventory["gauges"]["gauge"]
+    if gauge_state == "unknown":
+        gauge["kind"] = "unknown"
+    elif gauge_state == "unverified":
+        gauge["verify"] = True
+    elif gauge_state == "missing":
+        bundle.inventory["gauges"].pop("gauge")
+    row = inspection_finding(bundle, "length")
+    outside = nominal < 5.0 or nominal > 6.0
+    assert row.status == (
+        "error" if outside else "pass" if gauge_state == "verified" else "unknown"
+    )
+    if outside:
+        assert row.numbers["nominal_field"] == field
+        assert row.numbers["nominal"] == nominal
+        assert row.numbers["limits"] == [5.0, 6.0]
+        assert "exported nominal is outside" in row.sentence
+
+
+def test_exported_nominal_contradiction_survives_unknown_applicability(tmp_path):
+    bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]")
+    bundle.features["features"]["cone"].update(kind="unknown", length_nominal=6.01)
+    assert inspection_finding(bundle, "length").status == "error"
+
+
+def test_west_mount_export_reports_its_nominal_band_contradiction():
+    bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "plan.toml")
+    row = next(row for row in inspection.evaluate(bundle) if row.subject == "mount_west:station")
+    assert row.status == "error"
+    assert row.numbers["nominal_field"] == "station_nominal"
+    assert row.numbers["nominal"] == -12.98
+    assert row.numbers["limits"] == [12.47, 13.49]
+
+
+@pytest.mark.parametrize("band", ['"unknown"', '[5.0, "unknown"]', "5.5"])
+def test_nominal_without_a_numeric_acceptance_band_stays_unresolved(tmp_path, band):
+    bundle = angularity_bundle(tmp_path, requirement="length", band=band, gauge="caliper")
+    bundle.features["features"]["cone"]["length_nominal"] = 99.0
+    assert inspection_finding(bundle, "length").status == "unknown"
+
+
+def test_reference_length_does_not_contradict_a_different_exported_requirement(tmp_path):
+    bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]", gauge="caliper")
+    bundle.features["features"]["cone"]["length_ref"] = 99.0
+    assert inspection_finding(bundle, "length").status == "pass"

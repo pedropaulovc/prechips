@@ -93,10 +93,15 @@ FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
 
 The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
-outputs correctly stop with 2 or 4. Corrected M3 CLI runs retain pilot exits
-4 / 2 / 2 / 4 / 2. Migrate existing inspection choices to the exact exported
-feature owners rather than dropping checks, inventing methods or changing
-gauges to force an exit. Consult PLAN §8 M3 for the combined gate.
+outputs correctly stop with 2 or 4. Current expected M3 CLI exits are
+4 / 2 / 2 / 2 / 2 (shaft / rocker / bracket / cone one-piece / cone built-up).
+The one-piece cone stops on the exported `mount_west` nominal lying outside its
+band; never flip or drop exported facts to recover an exit. Migrate existing
+inspection choices to the exact exported feature owners rather than dropping
+checks, inventing methods or changing gauges to force an exit. A check whose
+requirement the export lacks stays visible as an explicit `missing_requirements`
+unknown. Only the consumer side of M3 is done. Consult PLAN §8 M3 for the open
+HA items and the combined gate.
 Use the CLI examples in [README.md](README.md) and isolated output directories
 to exercise behavior.
 The cone's one-piece and built-up candidates also remain PLANNED; comparison

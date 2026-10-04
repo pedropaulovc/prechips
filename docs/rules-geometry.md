@@ -60,16 +60,19 @@ The STEP must be bound before the kernel is called: an unknown `step_sha256`,
 no `step` asset, or bytes whose SHA-256 differs from the manifest value give
 `unknown` rows with `STEP bytes and their manifest SHA-256 are required for
 FreeCAD geometry.` or `STEP bytes do not match the manifest SHA-256; face
-identity is unresolved.` Three reference bundles have no STEP bytes, so
-every geometry row of theirs is `?` for this reason even with a kernel
-installed. `examples/rocker-arm` binds the consumer's labelled export
+identity is unresolved.` Only the hand-authored `examples/pivot-bracket` bundle
+has no STEP bytes, so every one of its geometry rows is `?` for this reason even
+with a kernel installed. `examples/rocker-arm`, `examples/pivot-shaft` and
+`examples/cone-pivot-post` bind the consumer's labelled exports
 (`HAF_<FEATURE>__P<nn>` labels; a periodic surface arrives as several
 `ADVANCED_FACE` patches under one feature label, each bound by its own
-entity/ordinal) with each feature's `faces` copied from that export; the
-export's `strap_faces` names only the −Z broad face. S1's upper strap operations
+entity/ordinal) with each feature's `faces` copied from that export. In the
+rocker export, `strap_faces` names only the −Z broad face. S1's upper strap operations
 explicitly claim the exported `strap_datum_b` face in the plan; they do not
-rewrite the manifest's face identity. The two exported tip lands remain
-unclaimed. Unmeasured stock/fixture inputs remain named geometry debts, not
+rewrite the manifest's face identity. The outline profile operations in S1, S2
+and S3 explicitly claim both exported tip lands (`tip_land_pos_x`,
+`tip_land_neg_x`) together with `profile_outer`, so the rocker reports no
+unclaimed faces. Unmeasured stock/fixture inputs remain named geometry debts, not
 finished-solid clearance passes.
 
 The engine itself answers `unknown` for a STEP that imports as anything but
@@ -140,6 +143,31 @@ report, every rule that needs the feature is `error` with
 rows `unknown` (`feature face references are unknown or unmapped`). Imported
 faces that no reference names are labelled `imported face index <n>`
 (0-based) wherever the kernel has to name them, for example in `coverage`.
+
+## Milling-only approach model
+
+The engine's directional claims and prescribed cutter/holder poses approach
+along −setup Z. This is a milling model, not a radial turning approach. An
+operation whose resolved machine kind is `lathe`, or whose action is in the
+existing turning/forming/grooving catalogue (also `part_off` / `cut_to_fit`),
+has `unsupported` approach-dependent rows, with the reason exactly:
+
+`lathe approach model not implemented (engine approaches along -Z only)`
+
+Invalid STEP face references remain `error` before this boundary; missing or
+unmapped claimed references remain `unknown`. Otherwise `accessibility`,
+`reach` and `internal_corner_radius` do not use the raw engine's lathe
+direction, collision, reach, stock-removal or corner verdicts. A raw lathe
+`claimed_indices` array never establishes cutting or finishing coverage.
+Supported milling claims and explicit as-stock faces can still establish
+coverage independently; a lathe-only claim cannot produce either a pass or a
+false far-side failure. A radial lathe approach model is a prechips follow-up,
+not harmonic-analyzer export debt.
+
+The generic `profile` action is shared with milling routes, so it alone does not
+identify turning; like facing actions, it is unsupported here only when its
+resolved machine is a lathe. Explicit turning/forming/grooving actions retain
+the unsupported boundary even on a missing or nonlathe machine.
 
 ## Inputs the job accepts
 
@@ -282,9 +310,10 @@ any of those inputs missing the scene records `parallels not drawn: … undeclar
 
 Needs the five tool/holder dimensions (radius, flute length, projection,
 holder radius, holder gauge length) and a vise without input debt for a pass.
-Missing inputs normally yield `unknown`, but positive observed minimum tool
-or holder hits still error despite unknown stock, fixture or dimensions.
-Invalid face claims and rejected clearing bounds remain errors first.
+Within the supported milling domain, missing inputs normally yield `unknown`,
+but positive observed minimum tool or holder hits still error despite unknown
+stock, fixture or dimensions. Invalid face claims and rejected clearing bounds
+remain errors first.
 On the claimed face set the kernel samples a cell-centred
 5×5 UV grid per face plus 2–12 points along every boundary edge and gives
 each sample one prescribed tool pose (the PLAN §4.2 convention, confirmed
@@ -300,10 +329,10 @@ intersected with the setup's material minus a thin inward offset shell of
 this op's derivable outside-finished allowance; the holder still sees it.
 The shell removes numerical self-contact, not a cutter-radius slab and not
 another finished face of the same feature. A cutter wider than a claimed
-groove therefore still intersects the opposite claimed wall. A far-side face
-(outward normal opposing setup
-+Z by more than 90°) is an invalid cutting claim, reported as an error naming
-the face before tool-dimension debt can hide it.
+groove therefore still intersects the opposite claimed wall. For milling, a
+far-side face (outward normal opposing setup +Z by more than 90°) is an invalid
+cutting claim, reported as an error naming the face before tool-dimension debt
+can hide it.
 
 The kernel tests pin the discriminations: a boss beside a claimed plate top
 is a hit naming the boss face; an offset cutter tangent to its claimed side
@@ -395,6 +424,12 @@ face sets claimed by cutting operations and `stock.as_is_faces`. Numbers:
 - `every imported face is claimed by a cutting op or declared as-stock.` (pass)
 - `Imported STEP face inventory is unresolved.` (unknown)
 
+Only supported, direction-valid milling claims are credited. If every remaining
+face has a mapped cutting claim but needs the unsupported lathe approach model,
+the row is `unsupported` with the milling-only-model reason above. Known missing
+claims outside that unsupported set still error. Invalid references outrank
+unsupported; unresolved claims/as-stock references remain `unknown`.
+
 ## `finish_coverage`
 
 One row per feature. A feature with a known `requirements` list that neither
@@ -406,6 +441,14 @@ finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`.
 - `finish-required faces lack a finishing cut.` (error)
 - `every finish-required face is claimed by a finishing cut.` (pass)
 - `finish face references or finishing operation claims are unresolved.` (unknown)
+- `lathe approach model not implemented (engine approaches along -Z only).` (unsupported)
+
+Unsupported turning finish cuts name possible coverage only: their raw engine
+indices never credit a finishing approach. A feature is `unsupported` when all
+of its uncovered faces have mapped turning finish claims. A genuinely unclaimed
+face still errors, and a complete set of supported milling finish claims still
+passes even when other lathe operations exist. Invalid/missing face mappings
+retain their error/unknown precedence.
 
 ## `vise`
 

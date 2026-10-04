@@ -1,11 +1,14 @@
 """Physical mill stack arithmetic, independent of authored reference outputs."""
 
 import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from test_cli import traveler
 
+from prechips.inputs import load_bundle
+from prechips.rules import coordinates
 from prechips.rules.headroom import evaluate
 
 MEASURED = {"by": "test", "date": "2026-10-03", "instrument": "steel rule"}
@@ -443,3 +446,47 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
             if method == "arc_table"
             else [-8.0 - allowance, -5.0 - allowance]
         )
+
+
+@pytest.mark.parametrize(("setup_id", "op_id"), [("S1", 40), ("S2", 40), ("S3", 30)])
+def test_exported_rocker_top_edge_keeps_cutter_table_with_all_linked_features(setup_id, op_id):
+    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
+    finding = next(row for row in coordinates.evaluate(data) if row.subject == setup_id)
+    arc = next(
+        (
+            arc
+            for arc in finding.numbers["arc_table"]
+            if arc["feature"] == "top_edge" and arc["op"] == op_id
+        ),
+        None,
+    )
+    assert arc is not None
+    top = next(
+        profile
+        for profile in finding.numbers["profiles"]
+        if profile["feature"] == "top_edge" and profile["op"] == op_id
+    )
+    assert arc["cutter_centre_radius_mm"] == pytest.approx(800.0 - top["offset_mm"])
+    assert arc["rows"][0]["model_xy"][0] == pytest.approx(-arc["rows"][-1]["model_xy"][0])
+    assert arc["rows"][0]["model_xy"][1] == pytest.approx(arc["rows"][-1]["model_xy"][1])
+
+
+@pytest.mark.parametrize("corruption", ["missing", "inconsistent"])
+@pytest.mark.parametrize("linked_feature", ["profile_outer", "tip_land_pos_x", "tip_land_neg_x"])
+def test_top_edge_does_not_ignore_missing_or_conflicting_linked_geometry(
+    linked_feature, corruption
+):
+    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
+    linked = data.features["features"][linked_feature]
+    if corruption == "missing":
+        linked["radial_tip_end"] = "unknown"
+    else:
+        linked["radial_tip_end"][1] += 1.0
+    finding = coordinates.evaluate(data)[0]
+    assert not any(arc["feature"] == "top_edge" for arc in finding.numbers["arc_table"])
+    top = next(
+        profile
+        for profile in finding.numbers["profiles"]
+        if profile["feature"] == "top_edge" and profile["op"] == 40
+    )
+    assert top["cutter_centre"] == "unknown"

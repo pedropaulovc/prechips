@@ -301,3 +301,41 @@ def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(act
         row["tip_z"] -= 1.0
     with pytest.raises(ValueError):
         VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries)
+
+
+def test_validator_rejects_a_check_without_its_feature_requirement():
+    plan = {
+        "setups": [
+            {"id": "S3", "ops": [{"op": 10, "feature": "dome", "checks": {"length": "calipers"}}]}
+        ]
+    }
+    features = {"features": {"dome": {"requirements": ["height"]}}}
+    with pytest.raises(ValueError, match="dome has no requirement length"):
+        VALIDATOR["check_inspection_declarations"](plan, features, {})
+
+
+@pytest.mark.parametrize("status,missing", [("pass", True), ("unknown", False), (None, None)])
+def test_validator_rejects_silently_dropped_or_cleared_missing_requirement(status, missing):
+    plan = {
+        "setups": [
+            {
+                "id": "S3",
+                "ops": [
+                    {
+                        "op": 30,
+                        "feature": "bearing",
+                        "missing_requirements": {"length": "calipers"},
+                    }
+                ],
+            }
+        ]
+    }
+    features = {"features": {"bearing": {"requirements": ["dia"]}}}
+    findings = {
+        ("inspection", "bearing:length"): {
+            "status": status,
+            "numbers": {"missing_requirement": missing},
+        }
+    }
+    with pytest.raises(ValueError, match="missing requirement inspection"):
+        VALIDATOR["check_inspection_declarations"](plan, features, findings)

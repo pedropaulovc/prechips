@@ -107,6 +107,7 @@ def load_bundle(
     ids = [setup.get("id", "unknown") for setup in setups]
     if "unknown" in ids or len(set(ids)) != len(ids):
         raise BadInput("Setup ids must be known and unique.")
+    planned_frames = plan.get("frames") if isinstance(plan.get("frames"), dict) else {}
     for setup in setups:
         ops = setup.get("ops")
         if not isinstance(ops, list) or not ops:
@@ -117,13 +118,45 @@ def load_bundle(
         for op in ops:
             if op.get("feature") not in features["features"]:
                 raise BadInput(f"{setup['id']}:{op['op']}: feature is not in the manifest.")
+            feature = features["features"][op["feature"]]
+            requirements = feature.get("requirements")
+            exported = requirements if isinstance(requirements, list) else []
+            checks = op.get("checks")
+            if isinstance(checks, dict):
+                for requirement in checks:
+                    if requirement not in exported:
+                        raise BadInput(
+                            f"{setup['id']}:{op['op']}: {op['feature']} checks.{requirement} "
+                            "is not in the exported requirements; use missing_requirements "
+                            "for an absent requirement."
+                        )
+            missing = op.get("missing_requirements")
+            if isinstance(missing, dict):
+                for requirement in missing:
+                    if requirement in exported:
+                        raise BadInput(
+                            f"{setup['id']}:{op['op']}: {op['feature']} "
+                            f"missing_requirements.{requirement} is already exported; "
+                            "use checks for that requirement."
+                        )
         frame = setup.get("frame", "unknown")
         if (
             isinstance(features["frames"], dict)
             and frame != "unknown"
             and frame not in features["frames"]
+            and frame not in planned_frames
         ):
-            raise BadInput(f"{setup['id']}: frame {frame!r} is not in the manifest.")
+            raise BadInput(
+                f"{setup['id']}: frame {frame!r} is neither exported in the manifest "
+                "nor declared in plan.frames."
+            )
+    exported_frames = features["frames"] if isinstance(features["frames"], dict) else {}
+    shadowed = sorted(set(planned_frames) & set(exported_frames))
+    if shadowed:
+        raise BadInput(
+            f"plan.frames {', '.join(map(repr, shadowed))} would shadow exported manifest "
+            "frames; rename the plan-owned setup frame."
+        )
     declarations = plan.get("paths", {})
     if not isinstance(declarations, dict):
         declarations = {}

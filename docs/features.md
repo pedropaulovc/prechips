@@ -100,7 +100,9 @@ operation endpoints (`to_z`, `z_from`, `z_to`) remain setup-local Z targets with
 `local_from` operation provenance. They do not establish model coordinates or
 setup X/Y when the basis is absent, and drawing stations remain unresolved.
 Neither retaining a local endpoint nor the exported model frame supplies a
-measured setup transform or permission to backfill former handwritten frames.
+measured setup transform. Setup transforms the CAD export does not carry are
+authored in the plan's `frames` table ([plan format](plan.md#frames)); they are
+never written back into, merged with or allowed to shadow the exported manifest.
 
 The optional root `volume_mm3` and `volume_cite` hold a sourced finished-part
 volume for stock comparison. Missing or unverified volume remains `"unknown"`;

@@ -26,7 +26,7 @@ EXPECTED_EXIT = {
     "pivot-shaft": 4,
     "rocker-arm": 2,
     "pivot-bracket": 2,
-    "cone-pivot-post": 4,
+    "cone-pivot-post": 2,
     "cone-pivot-post/built-up.toml": 2,
 }
 GEOMETRY_CASES = (
@@ -292,7 +292,7 @@ def selected_refs(plan: dict):
                 if key in REFERENCE_KEYS - {"ref"} and isinstance(child, str):
                     if child not in {"unknown", "not_applicable", "none"}:
                         yield child
-                elif key == "checks" and isinstance(child, dict):
+                elif key in {"checks", "missing_requirements"} and isinstance(child, dict):
                     yield from (v for v in child.values() if v != "unknown")
                 elif key not in {"ref", "item"}:
                     yield from walk(child)
@@ -382,8 +382,36 @@ def model_point(point: list, frame: dict) -> list:
     return result
 
 
-def check_frames(features: dict) -> None:
-    for name, frame in features["frames"].items():
+def plan_frames(plan: dict, features: dict) -> dict:
+    """Plan-owned setup frames; an exported name may never be shadowed."""
+    planned = plan.get("frames", {})
+    require(isinstance(planned, dict), "plan.frames must be a table of frames")
+    exported = features["frames"] if isinstance(features["frames"], dict) else {}
+    shadowed = sorted(set(planned) & set(exported))
+    require(not shadowed, f"plan frames shadow exported frames {shadowed}")
+    return planned
+
+
+def setup_frame(setup: dict, plan: dict, features: dict):
+    """Independent lookup: the exported manifest frame, else the plan-owned frame."""
+    exported = features["frames"] if isinstance(features["frames"], dict) else {}
+    name = setup.get("frame", "unknown")
+    if name in exported:
+        return exported[name]
+    return plan_frames(plan, features).get(name, "unknown")
+
+
+def check_frames(features: dict, plan: dict) -> None:
+    planned = plan_frames(plan, features)
+    for name, frame in planned.items():
+        require(frame.get("binding") is not None, f"plan frame {name}: binding must be stated")
+        require(
+            "AUTHOR'S CHOICE" in frame.get("cite", [])
+            and "AUTHOR'S CHOICE" in frame.get("note", ""),
+            f"plan frame {name}: author's choice must be distinguished from source geometry",
+        )
+    exported = features["frames"] if isinstance(features["frames"], dict) else {}
+    for name, frame in [*exported.items(), *planned.items()]:
         if frame == "unknown":
             continue
         for key in ("origin", "x", "y", "z"):
@@ -565,7 +593,10 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
     require(len(ids) == len(set(ids)), "duplicate setup id")
     for setup in setups:
         sid = setup["id"]
-        require(setup["frame"] in features["frames"], f"{sid}: missing frame")
+        require(
+            setup["frame"] in features["frames"] or setup["frame"] in plan_frames(plan, features),
+            f"{sid}: missing frame",
+        )
         require(setup.get("ops"), f"{sid}: empty operations")
         require(isinstance(setup.get("stock_state"), dict), f"{sid}: missing stock state")
         require(isinstance(setup.get("hold"), dict), f"{sid}: missing hold")
@@ -590,6 +621,31 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
             if "tool" in op:
                 require("holder" in op, f"{sid}:{op['op']}: omitted holder")
                 has("tool_resolves", f"{sid}:{op['op']}")
+
+
+def check_inspection_declarations(plan: dict, features: dict, findings: dict) -> None:
+    for setup in plan["setups"]:
+        for op in setup["ops"]:
+            name = op["feature"]
+            requirements = features["features"][name].get("requirements", "unknown")
+            exported = set(requirements) if isinstance(requirements, list) else set()
+            for requirement in op.get("checks", {}):
+                require(
+                    requirement in exported,
+                    f"{setup['id']}:{op['op']}: {name} has no requirement {requirement}",
+                )
+            for requirement in op.get("missing_requirements", {}):
+                require(
+                    requirement not in exported,
+                    f"{setup['id']}:{op['op']}: {name}.{requirement} is an exported requirement",
+                )
+                subject = f"{name}:{requirement}"
+                row = findings.get(("inspection", subject), {})
+                require(
+                    row.get("status") == "unknown"
+                    and row.get("numbers", {}).get("missing_requirement") is True,
+                    f"{subject}: missing requirement inspection must remain explicitly unknown",
+                )
 
 
 def check_references(plan: dict, entries: dict, findings: dict) -> list:
@@ -783,8 +839,13 @@ def check_speeds(
     near(row.get("feed_mm_min", "unknown"), feed, "feed per tooth")
 
 
-def check_coordinates(setup: dict, features: dict, finding: dict) -> None:
-    frame = features["frames"][setup["frame"]]
+def check_coordinates(setup: dict, features: dict, finding: dict, plan: dict) -> None:
+    frame = setup_frame(setup, plan, features)
+    if setup["frame"] in plan.get("frames", {}):
+        require(
+            f"plan.frames.{setup['frame']}: author-declared setup frame" in finding["cite"],
+            f"{setup['id']}: plan-owned frame provenance missing from coordinates",
+        )
     for row in finding["numbers"].get("rows", []):
         require(row["feature"] in features["features"], "unknown coordinate feature")
         feature = features["features"][row["feature"]]
@@ -994,7 +1055,7 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
         require(finding["status"] == "unknown", "unverified angular setting must remain tentative")
 
 
-def finished_exposed_diameter(setup: dict, features: dict):
+def finished_exposed_diameter(setup: dict, features: dict, plan: dict | None = None):
     """Independent midpoint oracle for the fixtures' declared finished profile."""
     units = features.get("units")
     scale = 1 if units == "mm" else 25.4 if units == "in" else None
@@ -1006,7 +1067,7 @@ def finished_exposed_diameter(setup: dict, features: dict):
     upper = max(ends)
     lower = upper - length
     frames = features.get("frames", {})
-    target = frames.get(setup.get("frame"), {})
+    target = setup_frame(setup, plan or {}, features)
     if (
         not isinstance(target, dict)
         or target.get("binding") == "unknown"
@@ -1085,7 +1146,7 @@ def check_stickout(setup: dict, plan: dict, features: dict, policy: dict, findin
     held = setup["stock_state"].get("od_mm", plan["stock"].get("dia_mm", "unknown"))
     if not numeric(held) or held <= 0:
         held = "unknown"
-    diameter = finished_exposed_diameter(setup, features)
+    diameter = finished_exposed_diameter(setup, features, plan)
     length = setup["hold"].get("stickout_mm", "unknown")
     near(row["held_diameter_mm"], held, "stick-out held diameter evidence")
     near(row["diameter_mm"], diameter, "stick-out finished exposed diameter")
@@ -1131,8 +1192,8 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "cone_boss": {"dia_nominal": 17.2},
         "cone_boss_north_face": {"length_nominal": 42.011},
         "journal_bore": {"nominal_dia": 12.2808},
-        "mount_west": {"nominal_dia": 7.14248, "station_nominal": -12.98},
-        "mount_east": {"nominal_dia": 7.14248, "station_nominal": 12.98},
+        "mount_west": {"nominal_dia": 7.14248},
+        "mount_east": {"nominal_dia": 7.14248},
     }.items():
         for field, expected in fields.items():
             near(geometry[name][field], expected, f"cone source {name}.{field}")
@@ -1157,6 +1218,10 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "exported cone features lost STEP face bindings",
     )
     require(features["frames"]["setup"] == "unknown", "unverified setup binding")
+    require(
+        all(frame["binding"] == "unknown" for frame in plan.get("frames", {}).values()),
+        "cone plan frames claim a physical binding",
+    )
     require(plan["stock"]["on_hand"] is False, "authored cone blanks are not on-hand inventory")
     pieces = plan["stock"].get("components", [plan["stock"]])
     require(
@@ -1304,13 +1369,14 @@ def validate_fixture(
     check_construction(plan, features, findings["construction", part])
     if part == "cone-pivot-post":
         check_cone_facts(plan, features)
-    check_frames(features)
+    check_frames(features, plan)
     check_subjects(plan, features, findings)
+    check_inspection_declarations(plan, features, findings)
     missing = check_references(plan, entries, findings)
     check_endpoints(plan, features, findings, entries)
     for setup in plan["setups"]:
         check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
-        check_coordinates(setup, features, findings["coordinates", setup["id"]])
+        check_coordinates(setup, features, findings["coordinates", setup["id"]], plan)
         check_indexing(setup, features, entries, findings["indexing", setup["id"]])
         check_stickout(setup, plan, features, policy, findings["stickout", setup["id"]])
         for op in setup["ops"]:

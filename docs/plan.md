@@ -4,8 +4,9 @@
 a nonempty setup list, known unique setup ids, a nonempty operation list per
 setup, known unique operation numbers within each setup, and every operation's
 feature in the manifest. Plan and manifest part names must agree; a known setup
-frame must exist in a known manifest frame map; an unknown frame map stays unresolved. Execution follows authored array order, not
-numeric sorting of operation ids.
+frame must name an exported manifest frame or a plan-owned frame in
+[`frames`](#frames). A literal `"unknown"` setup frame stays unresolved.
+Execution follows authored array order, not numeric sorting of operation ids.
 
 `features` is relative to the plan; it must stay inside the bundle root. The
 root is the repository above `examples` or the first ancestor with
@@ -39,9 +40,25 @@ retouch rows using the stock top after each listed operation, including a face
 cut that changes the touched top. A known list does not certify that the authored
 schedule is physically sufficient.
 
-`checks` maps tolerance requirement names to inventory gauge references;
-`inspection_methods` supplies a method for datum/geometric checks. A missing
-check is different from `checks.dia = "unknown"`. `to_z` is an authored endpoint;
+`checks` maps exported requirement names to inventory gauge references.
+Every key must belong to the selected feature's exported `requirements` list;
+otherwise loading raises `BadInput`, even if another feature exports that name.
+A wholly unknown requirements list cannot establish membership and does not
+authorize arbitrary checks. `inspection_methods` supplies the authored procedure
+for datum/geometric checks and missing requirements. A missing check is different
+from `checks.dia = "unknown"`.
+
+When an inspection requirement has no exported owner/band, an explicit operation
+may declare `missing_requirements = { length = "calipers" }` and
+`inspection_methods.length`. This uses the same gauge-reference mapping type as
+`checks`, but produces a named unknown inspection row with
+`missing_requirement = true`, not an acceptance band or a dimensional pass.
+The sheet prints `?`, the exact missing requirement identity and the authored
+procedure; reference-only dimensions such as `length_ref` are not substitutes.
+A name already in that feature's exported requirements is `BadInput` in
+`missing_requirements`; use `checks` so actual requirements cannot be bypassed.
+
+`to_z` is an authored endpoint;
 `to_z_band` is a range, not a substitute for measured setup binding. An
 `arc_table` contour needs explicit nominal geometry and positive angular steps;
 finite bounds come from that geometry, not an invented full circle. Linear
@@ -79,7 +96,32 @@ of geometric validity; rules perform the applicable checks.
 | `paths` | `Paths \| Unknown` | Optional |
 | `stock` | `Stock \| Unknown` | Optional |
 | `dro` | `Dro \| Unknown` | Optional |
+| `frames` | `dict[str, PlanFrame] \| Unknown` | Optional |
 | `setups` | `list[Setup]` | Required |
+
+## Frames
+
+`[frames.<name>]` declares an author-owned setup frame for a setup transform the
+CAD export does not carry. Its fields are the manifest
+[`Frame`](features.md#frame) fields, with the same three-component,
+orthonormal, right-handed basis checks: `origin` and `x/y/z` are in the model
+frame. Two fields that the manifest may omit are required here, because the
+plan, not the CAD export, owns the choice:
+
+- `binding` must be stated, if only as `"unknown"`. `"nominal"` lets the
+  transform place model geometry in setup coordinates; `"unknown"` keeps the
+  numeric transform for display while operation Z endpoints stay setup-local.
+- `cite` must be non-empty. The bundled examples begin it, and the `note`, with
+  `AUTHOR'S CHOICE` before the drawing/model citations the transform rests on.
+
+A setup's `frame` resolves to the exported manifest frame of that name, otherwise
+to the plan frame. A plan frame whose name is already exported (including an
+exported `"unknown"` frame such as `setup`) is bad input, so a plan can never
+shadow CAD-owned geometry. Feature `frame` references and `sweep_frame` stay
+manifest-only. Plan frames are never merged into the manifest or its hash; rule
+citations carry `plan.frames.<name>: author-declared setup frame` followed by
+the frame's own `cite`, while exported setup frames keep their manifest
+provenance.
 
 ## Drawing
 
@@ -407,6 +449,7 @@ with angles at the drawing's declared angular precision.
 | `to_z_cite` | `Citations` |
 | `note_cite` | `Citations` |
 | `checks` | `dict[str, str]` |
+| `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str]` |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |

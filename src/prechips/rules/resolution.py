@@ -63,6 +63,37 @@ def record(value):
     return value if isinstance(value, dict) else {}
 
 
+EXPORTED_FRAMES = "features.frames"
+PLAN_FRAMES = "plan.frames"
+
+
+def setup_frame_ref(bundle, setup):
+    """The setup's frame and its owner: the exported manifest, else the plan's own frames.
+
+    Loading rejects plan frames that reuse an exported name, and an exported name still
+    wins here, so a plan never shadows CAD. Feature source frames are manifest-only.
+    """
+    name = setup.get("frame", UNKNOWN)
+    exported = record(bundle.features.get("frames"))
+    planned = record(bundle.plan.get("frames"))
+    if name not in exported and name in planned:
+        return record(planned[name]), PLAN_FRAMES
+    return record(exported.get(name)), EXPORTED_FRAMES
+
+
+def setup_frame(bundle, setup):
+    return setup_frame_ref(bundle, setup)[0]
+
+
+def plan_frame_cite(bundle, setup):
+    """Name a plan-owned setup frame and its cites; exported frames keep existing cites."""
+    frame, owner = setup_frame_ref(bundle, setup)
+    if owner == EXPORTED_FRAMES:
+        return []
+    label = f"{owner}.{setup.get('frame')}: author-declared setup frame"
+    return [label, *_citations(frame.get("cite"))]
+
+
 def _citations(value, field=None):
     """Keep usable cited strings; a field selects only that fact from a citation map."""
     if isinstance(value, dict):
@@ -291,7 +322,7 @@ def selected_references(plan):
                         if isinstance(v, str) and v not in {UNKNOWN, "none", "not_applicable"}
                     )
                     walk(child)
-                elif key == "checks" and isinstance(child, dict):
+                elif key in {"checks", "missing_requirements"} and isinstance(child, dict):
                     result.update(v for v in child.values() if isinstance(v, str) and v != UNKNOWN)
                 elif (
                     key == "clamp"

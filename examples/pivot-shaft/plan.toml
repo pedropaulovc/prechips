@@ -13,7 +13,7 @@ quantity = 1                 # harmonic-analyzer/cad/config/parts/pivot-shaft.ya
 
 [drawing]
 number = "MHA-065"           # parts/pivot-shaft.yaml:2
-revision = "unknown"         # no certified STEP/drawing pair supplied
+revision = "unknown"         # export v40 exists (harmonic-analyzer/cad/config/release.yaml:next_revision); release/operator matching pending
 
 [paths]
 inventory = "../inventory/pedro-shop.toml"
@@ -51,11 +51,66 @@ radius_mode = false          # author's choice: X diametric; a physical 10 mm X 
 x = "away_from_spindle_axis" # author's choice: positive radial tool withdrawal
 z = "toward_exposed_end"     # author's choice: +T1/+T2 north, +T3 south; redo sign check after rechuck
 
+# Plan-owned setup frames (PLAN.md §4.1; docs/plan.md "frames"). The exported
+# manifest declares only `model` and an unknown `setup`; these restore the
+# pre-export T1/T2/T3 transforms and citations verbatim (3a561db
+# examples/pivot-shaft/features.toml). Origins and axes are model coordinates.
+# The frame choice is the author's; the cited source geometry is CAD's.
+
+# S1: origin on the shoulder north face, z = -JournalLength = -6.0
+# (exported shoulder_north_face plane z = -6.0).
+[frames.T1]
+origin = [0.0, 0.0, -6.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"   # the face is cut in S1 op 10 and the DRO set on it
+note = "AUTHOR'S CHOICE: shoulder north face (seats on the north ear); +Z toward the north end"
+cite = [
+  "AUTHOR'S CHOICE",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+  "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
+]
+
+# S2: origin at the north apex plane, z = +DomeHeight = +1.5
+# (exported north_dome base_z 0.0 + height_nominal 1.5).
+[frames.T2]
+origin = [0.0, 0.0, 1.5]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"   # found by touching the shoulder north face (T2 z = -7.5)
+note = "AUTHOR'S CHOICE: north apex plane; +Z toward the north end"
+cite = [
+  "AUTHOR'S CHOICE",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+]
+
+# S3: origin at the scribe the fitter makes at the south ear's outer face,
+# +Z toward the plain end. Nominal model position = -ShaftLength REF
+# (-156.67; exported south_dome base_z); the real position is the
+# installed-ear span, which no input supplies.
+[frames.T3]
+origin = [0.0, 0.0, -156.67]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "unknown"   # awaiting the measured span over both installed MHA-123 ears
+note = "AUTHOR'S CHOICE: scribe at the south ear outer face, shoulder pushed north; +Z toward the plain end"
+cite = [
+  "AUTHOR'S CHOICE",
+  "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+  "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+]
+
 # ---------------------------------------------------------------- S1
 [[setups]]
 id = "S1"
 machine = "PM-1127VF-LB"
-frame = "setup" # exported binding unknown; authored T1 coordinates below are unchanged
+frame = "T1"                 # plan.frames.T1 (author's choice; exported `setup` stays unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice; listed consumable, not a cutting-data claim
 deburr_mm = 0.25             # title block: break edges R0.25 OR CHAMFER 0.25 MAX (title_block.yaml:45)
 stock_in = "prepared_blank"
@@ -248,7 +303,7 @@ width = "calipers"
 [[setups]]
 id = "S2"
 machine = "PM-1127VF-LB"
-frame = "setup" # exported binding unknown; authored T2 coordinates below are unchanged
+frame = "T2"                 # plan.frames.T2 (author's choice; exported `setup` stays unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S1"
@@ -358,7 +413,7 @@ length = "With spindle stopped, align outside caliper jaws axially at the dome b
 [[setups]]
 id = "S3"
 machine = "PM-1127VF-LB"
-frame = "setup" # exported binding unknown; authored T3 coordinates below are unchanged
+frame = "T3"                 # plan.frames.T3 (author's choice; physical binding unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S2"
@@ -432,12 +487,6 @@ to_z_band = [1.5, 2.0]        # "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE"
 direction = "radially_inward"  # author's choice: repeated facing, not an undeclared parting blade
 note = "Face the excess and grip remnant off; no parting blade selected."
 
-[setups.ops.checks]
-length = "calipers"         # author's choice: scribe-to-face transfer, then assembly fit check
-
-[setups.ops.inspection_methods]
-length = "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears."  # author's choice; actual span remains unknown
-
 [[setups.ops]]
 op = 20
 do = "form_dome"
@@ -454,3 +503,12 @@ height = "calipers"         # author's choice: axial outside-jaw contact at apex
 
 [setups.ops.inspection_methods]
 height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim and trial fit the assembly."  # author's choice
+
+[[setups.ops]]
+op = 30
+do = "inspect"
+feature = "pivot_bearing"
+missing_requirements = { length = "calipers" }  # author's choice: scribe-to-face transfer, then assembly fit check
+
+[setups.ops.inspection_methods]
+length = "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears."  # author's choice; actual span remains unknown

@@ -9,14 +9,21 @@ from prechips.rules._envelope import (
     fact,
     fixture_height,
     machine_envelope,
-    setup_frame,
     spindle_nose_band,
     stock_extents,
     transformed_bounds,
     unknown_sentence,
 )
 from prechips.rules.coordinates import CENTRE_OPS
-from prechips.rules.resolution import MANUAL, UNKNOWN, number, record, same_length
+from prechips.rules.resolution import (
+    MANUAL,
+    UNKNOWN,
+    number,
+    plan_frame_cite,
+    record,
+    same_length,
+    setup_frame_ref,
+)
 
 
 def evaluate(bundle):
@@ -67,7 +74,8 @@ def evaluate(bundle):
         elif height <= 0:
             errors.append("supported stock height is not positive")
         fixture, fixture_verified = fixture_height(bundle, setup, debts, cite)
-        target = setup_frame(bundle, setup)
+        target, owner = setup_frame_ref(bundle, setup)
+        cite.extend(plan_frame_cite(bundle, setup))
         initial_top = record(setup.get("stock_state")).get("top_z", UNKNOWN)
         if missing:
             authoring_entry(
@@ -91,7 +99,7 @@ def evaluate(bundle):
                 [
                     f"features.features.{name}.bounds/at",
                     f"features.frames.{feature.get('frame', 'model')}; "
-                    f"features.frames.{setup.get('frame')}",
+                    f"{owner}.{setup.get('frame')}",
                 ]
             )
             assembly = spindle_nose_band(

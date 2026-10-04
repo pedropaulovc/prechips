@@ -13,7 +13,7 @@ from fractions import Fraction
 
 from prechips.findings import Finding
 from prechips.measurements import length_fact, measurement_entry
-from prechips.rules.resolution import MANUAL, length_mm, resolve, uncertain
+from prechips.rules.resolution import MANUAL, length_mm, resolve, setup_frame, uncertain
 
 _UNKNOWN = "unknown"
 
@@ -222,7 +222,7 @@ def evaluate(bundle):
             stock.get("length_mm", _UNKNOWN),
             section[0] if isinstance(section, list) and section else _UNKNOWN,
         )
-        frame = _mapping(_mapping(bundle.features.get("frames")).get(setup.get("frame")))
+        frame = setup_frame(bundle, setup)
         axes = [frame.get("x"), frame.get("y")]
         extents = [
             stock_x,
