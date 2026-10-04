@@ -993,6 +993,51 @@ sheet.
    a separate prechips planning follow-up; fixing HA's station sign alone
    does not clear these machining stops.
 
+   **Post-review consumer gate, observed 2026-10-03:** on implementation
+   `68aef8f`, `uv run ruff check . && uv run ruff format --check . &&
+   uv run pytest -q && uv run python scripts/validate_examples.py` exited 0
+   with `FREECAD_CMD=C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe`
+   and `PRECHIPS_REQUIRE_KERNEL=1`: Ruff passed, **100 Python files** were
+   formatted, **1282 tests passed** (534.59 s), and all **24 TOML inputs** and
+   rev-6 reference bundles validated. Actual CLI regeneration and the final
+   frozen-output tests cover all five travelers and the cone comparison.
+   Traveler exits are **4 / 2 / 2 / 2 / 2**; comparison exits 2, with both
+   candidate exits 2 and cone net volume/waste still unknown.
+
+   **Legitimate golden changes from `7616f0a`:**
+   - Rocker `coordinates` S1/S2 op 40 and S3 op 30 regain the R800 top-edge
+     tables, **23 rows each**, with cutter-centre radii 795.0375 / 795.0375 /
+     795.2375 mm. Every linked profile/tip-land supplies and agrees on its
+     join; no link is ignored to manufacture the table.
+   - Shaft `inspection:pivot_bearing:length` is an explicit `unknown` at
+     S3:15, between cut op 10 and dome op 20. Its calipers gauge and original
+     procedure remain visible; zero/order findings do not change. Directional
+     rows for lathe cuts and their dependent finish rows now say `unsupported`,
+     not an invented axial-engine pass or failure.
+   - Shaft/cone setup coordinates and envelope facts regain plan-authored
+     transforms and their original citations; numeric facts are still nominal,
+     not measured setup bindings. Turned-profile axial segment arrays and the
+     diameter-in/stick-out facts needing missing `z_mm` / dome `base_radius`
+     remain explicitly unresolved (HA items 3–4 above), rather than invented.
+   - Cone `inspection:mount_west:station` changes from `unknown` to `error`
+     because exported −12.98 is outside [12.47, 13.49]. Restored milling
+     frames also expose the named, genuine far-side claims above; these stops
+     outrank the remaining unknown volume/allowance facts. The one-piece exit
+     therefore changes 4 → 2 and the comparison candidate exit follows it.
+   - Pivot-bracket finding content is unchanged. All six delivered STEP/feature
+     assets remain byte-identical to the original exports; goldens do not patch
+     or normalize the upstream data.
+
+   **Independent revision review:** the original seven findings and four
+   follow-up timing/diagnostic/domain/nominal-contract findings are resolved.
+   The read-only Opus review approved `68aef8f` with **zero open findings**;
+   it confirmed byte-identical exports, preserved zero/order findings, distinct
+   unsupported versus genuinely unclaimed faces, and no golden pass → nonpass
+   or error → pass transition. Chromium inspection of the regenerated shaft
+   shows cut / `? length ?` inspect / dome in order 10 / 15 / 20, with the
+   exact missing requirement and original procedure; the rocker displays all
+   three numeric top-edge cutter tables.
+
    **Historical pre-review consumer gate, observed 2026-10-03:** on implementation
    `5f51a2c` (before the seven findings above), `uv run ruff check . && uv run ruff format --check . &&
    uv run pytest -q && uv run python scripts/validate_examples.py` exited 0
