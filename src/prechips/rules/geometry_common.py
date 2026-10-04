@@ -19,14 +19,19 @@ from prechips.rules.turned_profile import PROFILE_OPS
 UNKNOWN = "unknown"
 _NONCUTTING = MANUAL | {"fit_up", "transfer"}
 LATHE_APPROACH_REASON = "lathe approach model not implemented (engine approaches along -Z only)"
-# The generic profile action is also authored on mills; machine kind decides that one.
-_TURNING_ACTIONS = (PROFILE_OPS - {"profile"}) | {"part_off", "cut_to_fit"}
+# Shared profile/form/groove actions also occur on mills; resolve their machine kind.
+_TURNING_ACTIONS = (
+    PROFILE_OPS - {"profile", "form", "groove", "rough_groove", "finish_groove"}
+) | {"part_off", "cut_to_fit"}
 
 
 def approach_model_reason(bundle, setup, op):
     """Name the unsupported domain before consuming the engine's milling-only facts."""
     machine = record(resolve(bundle, "machines", setup.get("machine")))
-    if machine.get("kind") == "lathe" or op.get("do") in _TURNING_ACTIONS:
+    kind, action = machine.get("kind"), op.get("do")
+    if kind == "lathe" or action in _TURNING_ACTIONS:
+        return LATHE_APPROACH_REASON
+    if kind != "mill" and action in PROFILE_OPS:
         return LATHE_APPROACH_REASON
     return None
 

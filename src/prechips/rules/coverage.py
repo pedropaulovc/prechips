@@ -98,6 +98,18 @@ def evaluate(bundle):
     elif unclaimed and set(unclaimed) <= unsupported:
         status, message = "unsupported", LATHE_APPROACH_REASON
     elif unclaimed:
+        # A mixed error names only truly missing claims, not unsupported candidates.
+        candidates = set(unclaimed) & unsupported
+        if candidates:
+            unclaimed = sorted(set(unclaimed) - unsupported)
+            values.update(
+                unclaimed_faces=[face.get("ref") for face in faces if face["index"] in unclaimed],
+                unclaimed_indices=unclaimed,
+                unsupported_faces=[
+                    face.get("ref") for face in faces if face["index"] in candidates
+                ],
+                unsupported_indices=sorted(candidates),
+            )
         names = [
             face.get("ref") or f"imported face index {face['index']}"
             for face in faces

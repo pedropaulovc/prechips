@@ -78,6 +78,11 @@ def evaluate(bundle):
                 if missing and set(missing) <= unsupported:
                     status, message = "unsupported", LATHE_APPROACH_REASON
                 else:
+                    # Keep unsupported-only rows intact; partition a mixed error's faces.
+                    candidates = set(missing) & unsupported
+                    if candidates:
+                        missing = sorted(set(missing) - unsupported)
+                        values.update(uncovered_faces=missing, unsupported_faces=sorted(candidates))
                     status = "error" if missing else "pass"
                     message = (
                         "finish-required faces lack a finishing cut"

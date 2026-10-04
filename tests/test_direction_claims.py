@@ -586,7 +586,19 @@ LATHE_APPROACH_REASON = "lathe approach model not implemented (engine approaches
 
 @pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
 @pytest.mark.parametrize("machine", ["lathe", "mill", "unknown"])
-@pytest.mark.parametrize("action", ["finish_turn", "form_dome", "finish_groove", "part_off"])
+@pytest.mark.parametrize(
+    "action",
+    [
+        "turn",
+        "rough_turn",
+        "finish_turn",
+        "profile_turn",
+        "form_dome",
+        "form_relief",
+        "part_off",
+        "cut_to_fit",
+    ],
+)
 def test_turning_actions_never_use_milling_direction_verdicts(bundle, rule, machine, action):
     setup = bundle.plan["setups"][0]
     setup["machine"] = machine
@@ -665,15 +677,28 @@ def test_supported_milling_claims_can_complete_coverage_alongside_lathe(bundle):
     assert _rows(finish_coverage, bundle)["ends"].status == "pass"
 
 
-def test_unsupported_lathe_claim_does_not_hide_uncovered_milling_faces(bundle):
+@pytest.mark.parametrize("missing_op", [False, True])
+def test_unsupported_lathe_claim_does_not_hide_uncovered_milling_faces(bundle, missing_op):
     lathe = bundle.plan["setups"][0]["ops"][0]
     lathe.update(do="finish_turn", faces=["#1"])
     mill = bundle.plan["setups"][1]["ops"][0]
     mill.update(faces=["#2"])
     bundle.kernel["ops"]["S2:10"] = _facts([], ["#2"])
-    assert _rows(accessibility, bundle)["S2:10"].status == "error"
-    assert _rows(coverage, bundle)["block"].status == "error"
-    assert _rows(finish_coverage, bundle)["ends"].status == "error"
+    if missing_op:
+        del bundle.plan["setups"][1]
+    else:
+        assert _rows(accessibility, bundle)["S2:10"].status == "error"
+    cover = _rows(coverage, bundle)["block"]
+    assert cover.status == "error"
+    assert cover.numbers["unclaimed_faces"] == ["#2"]
+    assert cover.numbers["unclaimed_indices"] == [2]
+    assert cover.numbers["unsupported_faces"] == ["#1"]
+    assert cover.numbers["unsupported_indices"] == [1]
+    assert "#2" in cover.sentence and "#1" not in cover.sentence
+    finish = _rows(finish_coverage, bundle)["ends"]
+    assert finish.status == "error"
+    assert finish.numbers["uncovered_faces"] == [2]
+    assert finish.numbers["unsupported_faces"] == [1]
 
 
 def test_finish_coverage_limits_unsupported_to_faces_needed_by_each_feature(bundle):
@@ -695,8 +720,12 @@ def test_finish_coverage_limits_unsupported_to_faces_needed_by_each_feature(bund
 
 
 @pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
-def test_generic_milling_profile_keeps_its_real_direction_error(bundle, rule):
-    bundle.plan["setups"][0]["ops"][0]["do"] = "profile"
+@pytest.mark.parametrize("action", ["profile", "form", "groove", "rough_groove", "finish_groove"])
+def test_shared_actions_on_known_mills_keep_their_real_direction_error(bundle, rule, action):
+    setup = bundle.plan["setups"][0]
+    setup["machine"] = "selected-machine"
+    setup["ops"][0]["do"] = action
+    bundle.inventory["machines"]["selected-machine"] = {"kind": "mill"}
     row = _rows(rule, bundle)["S1:10"]
     assert row.status == "error"
     assert row.numbers["claim_errors"] == ["#2"]
@@ -710,3 +739,33 @@ def test_generic_profile_on_a_resolved_lathe_is_still_unsupported(bundle):
     row = _rows(accessibility, bundle)["S1:10"]
     assert row.status == "unsupported"
     assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
+
+
+@pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
+@pytest.mark.parametrize("kind", ["lathe", "unknown"])
+@pytest.mark.parametrize("action", ["profile", "form", "groove", "rough_groove", "finish_groove"])
+def test_shared_actions_without_a_known_mill_do_not_use_milling_facts(bundle, rule, kind, action):
+    setup = bundle.plan["setups"][0]
+    setup["machine"] = "selected-machine"
+    setup["ops"][0]["do"] = action
+    bundle.inventory["machines"]["selected-machine"] = {"kind": kind}
+    row = _rows(rule, bundle)["S1:10"]
+    assert row.status == "unsupported"
+    assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
+    assert "claim_errors" not in row.numbers
+
+
+@pytest.mark.parametrize("action", ["profile", "form", "groove", "rough_groove", "finish_groove"])
+@pytest.mark.parametrize("reachable", [False, True])
+def test_shared_milling_actions_use_direction_valid_coverage(bundle, action, reachable):
+    del bundle.plan["setups"][1]
+    bundle.plan["setups"][0]["ops"][0]["do"] = action
+    bundle.kernel["ops"]["S1:10"] = _facts([1, 2], []) if reachable else _facts([], ["#1", "#2"])
+    cover = _rows(coverage, bundle)["block"]
+    finish = _rows(finish_coverage, bundle)["ends"]
+    finished = reachable and action != "rough_groove"
+    assert cover.status == ("pass" if reachable else "error")
+    assert finish.status == ("pass" if finished else "error")
+    assert cover.numbers["claimed_face_count"] == (3 if reachable else 1)
+    assert cover.numbers["unclaimed_faces"] == ([] if reachable else ["#1", "#2"])
+    assert finish.numbers["uncovered_faces"] == ([] if finished else [1, 2])

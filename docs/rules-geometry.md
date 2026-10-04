@@ -148,9 +148,10 @@ faces that no reference names are labelled `imported face index <n>`
 
 The engine's directional claims and prescribed cutter/holder poses approach
 along −setup Z. This is a milling model, not a radial turning approach. An
-operation whose resolved machine kind is `lathe`, or whose action is in the
-existing turning/forming/grooving catalogue (also `part_off` / `cut_to_fit`),
-has `unsupported` approach-dependent rows, with the reason exactly:
+operation whose resolved machine kind is `lathe`, or whose action is explicitly
+`turn`, `rough_turn`, `finish_turn`, `profile_turn`, `form_dome`, `form_relief`,
+`part_off` or `cut_to_fit`, has `unsupported` approach-dependent rows, with
+the reason exactly:
 
 `lathe approach model not implemented (engine approaches along -Z only)`
 
@@ -164,10 +165,12 @@ coverage independently; a lathe-only claim cannot produce either a pass or a
 false far-side failure. A radial lathe approach model is a prechips follow-up,
 not harmonic-analyzer export debt.
 
-The generic `profile` action is shared with milling routes, so it alone does not
-identify turning; like facing actions, it is unsupported here only when its
-resolved machine is a lathe. Explicit turning/forming/grooving actions retain
-the unsupported boundary even on a missing or nonlathe machine.
+The shared `profile`, `form`, `groove`, `rough_groove` and `finish_groove`
+actions do not alone identify turning: a resolved mill receives the normal
+milling direction verdict, not an unsupported exemption. With an unresolved
+machine kind they conservatively remain unsupported; a resolved lathe is
+always unsupported. Explicit turning actions listed above retain the boundary
+even on a missing or nonlathe machine.
 
 ## Inputs the job accepts
 
@@ -430,6 +433,11 @@ the row is `unsupported` with the milling-only-model reason above. Known missing
 claims outside that unsupported set still error. Invalid references outrank
 unsupported; unresolved claims/as-stock references remain `unknown`.
 
+In a mixed error, `unclaimed_faces` names only faces with genuinely missing
+claims, while `unsupported_faces` / `unsupported_indices` separately name
+possible lathe-model coverage. An unsupported-only row's remaining-face list
+means coverage is not proved; it is not an absence-of-operation diagnosis.
+
 ## `finish_coverage`
 
 One row per feature. A feature with a known `requirements` list that neither
@@ -449,6 +457,10 @@ of its uncovered faces have mapped turning finish claims. A genuinely unclaimed
 face still errors, and a complete set of supported milling finish claims still
 passes even when other lathe operations exist. Invalid/missing face mappings
 retain their error/unknown precedence.
+
+In a mixed error, `uncovered_faces` names only genuinely missing finishing
+claims and `unsupported_faces` lists the model-dependent finishing candidates
+separately. The error sentence never labels those candidates as having no cut.
 
 ## `vise`
 
@@ -525,11 +537,11 @@ report and captioned is in
 ## Limits
 
 - Lathe setups: no chuck/collet solid exists; `vise` is `not_applicable`,
-  `thin_wall_under_clamp` is `unsupported`, and `accessibility` needs placed
-  jaws so lathe cutting ops stay `?`. `reach` and `internal_corner_radius`
-  still measure the B-rep along the declared frame's +Z when the tool
-  dimensions are known; that axis is the frame's, not a lathe spindle model.
-  Lathe headroom stays `unsupported` as before.
+  `thin_wall_under_clamp` is `unsupported`, and directional `accessibility`,
+  `reach` and `internal_corner_radius` are `unsupported` under the milling-only
+  approach model. A numeric frame or tool dimension cannot turn the axial
+  engine verdict into a radial lathe proof. Lathe headroom stays `unsupported`
+  as before.
 - Only a vise whose `jaw_height` / `jaw_width` / `jaw_depth` / `opening`
   facts each resolve without their own debt is modeled, seated at the part's
   lowest Z. The exact jaw pose along the jaws and the parallel solids exist
