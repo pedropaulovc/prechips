@@ -449,7 +449,7 @@ finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`.
 - `finish-required faces lack a finishing cut.` (error)
 - `every finish-required face is claimed by a finishing cut.` (pass)
 - `finish face references or finishing operation claims are unresolved.` (unknown)
-- `lathe approach model not implemented (engine approaches along -Z only).` (unsupported)
+- `lathe approach model not implemented (engine approaches along -Z only)` (unsupported)
 
 Unsupported turning finish cuts name possible coverage only: their raw engine
 indices never credit a finishing approach. A feature is `unsupported` when all
