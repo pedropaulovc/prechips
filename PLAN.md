@@ -927,8 +927,10 @@ sheet.
      `note = "CUT TO FIT: SPAN OVER BOTH MHA-123 EARS"` and `length_ref = 156.67`.
      It has no length requirement or end-past-scribe band. The former `plain_end:length`
      inspection is not dropped: the plan declares the calipers check as
-     `missing_requirements = { length = "calipers" }` on a `pivot_bearing`
-     inspect op, and the report keeps an unknown `pivot_bearing:length` row with
+     `missing_requirements = { length = "calipers" }` on the `pivot_bearing`
+     inspect op S3:15, between the cut and doming so the cut face can still be
+     checked/reworked; the existing post-doming verification stays a forward
+     instruction. The report keeps an unknown `pivot_bearing:length` row with
      `missing_requirement = true`. A `checks` entry for a requirement the feature
      does not export is bad input, so a check can no longer be silently unread.
    - **Cone volume.** The export has no `volume_mm3`/`volume_cite`, so comparison

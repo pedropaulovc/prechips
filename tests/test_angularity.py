@@ -165,17 +165,18 @@ def test_shaft_cut_to_fit_length_remains_a_named_missing_requirement():
     assert row.numbers["limits"] == "unknown"
     assert "band_mm" not in row.numbers
     assert row.numbers["gauge"] == "calipers"
-    assert row.numbers["op"] == "S3:30"
     ops = bundle.plan["setups"][-1]["ops"]
     inspection_index = next(
         index for index, op in enumerate(ops) if "length" in op.get("missing_requirements", {})
     )
+    cut_index = next(index for index, op in enumerate(ops) if op["do"] == "cut_to_fit")
+    assert row.numbers["op"] == f"S3:{ops[inspection_index]['op']}"
     doming_index = next(
         index
         for index, op in enumerate(ops)
         if op["feature"] == "south_dome" and op["do"] == "form_dome"
     )
-    assert inspection_index > doming_index
+    assert cut_index < inspection_index < doming_index
     assert row.numbers["inspection_method"] == (
         "Measure 1.75 past the actual scribe to the cut face with calipers; after doming "
         "verify cylinder end 0.25 past scribe and trial fit over the installed ears."

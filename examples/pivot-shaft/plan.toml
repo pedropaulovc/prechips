@@ -488,6 +488,15 @@ direction = "radially_inward"  # author's choice: repeated facing, not an undecl
 note = "Face the excess and grip remnant off; no parting blade selected."
 
 [[setups.ops]]
+op = 15
+do = "inspect"
+feature = "pivot_bearing"
+missing_requirements = { length = "calipers" }  # author's choice: scribe-to-face transfer, then assembly fit check
+
+[setups.ops.inspection_methods]
+length = "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears."  # author's choice; actual span remains unknown
+
+[[setups.ops]]
 op = 20
 do = "form_dome"
 feature = "south_dome"
@@ -504,11 +513,3 @@ height = "calipers"         # author's choice: axial outside-jaw contact at apex
 [setups.ops.inspection_methods]
 height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim and trial fit the assembly."  # author's choice
 
-[[setups.ops]]
-op = 30
-do = "inspect"
-feature = "pivot_bearing"
-missing_requirements = { length = "calipers" }  # author's choice: scribe-to-face transfer, then assembly fit check
-
-[setups.ops.inspection_methods]
-length = "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears."  # author's choice; actual span remains unknown

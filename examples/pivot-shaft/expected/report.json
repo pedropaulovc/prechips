@@ -521,6 +521,42 @@
       "cite": [
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "features.pivot_bearing: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+        "plan.setups.S3.ops.15: selected action/tool/holder"
+      ],
+      "message": "S3:15: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "accessibility",
+      "status": "not_applicable",
+      "subject": "S3:15"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "features.south_dome: faces and requirements",
         "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
         "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
@@ -549,42 +585,6 @@
       "rule": "accessibility",
       "status": "unsupported",
       "subject": "S3:20"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 accessibility",
-        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
-        "features.pivot_bearing: faces and requirements",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
-        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
-        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
-        "plan.setups.S3: frame and hold",
-        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories",
-        "plan.frames.T3: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
-        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
-        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
-        "plan.setups.S3.ops.30: selected action/tool/holder"
-      ],
-      "message": "S3:30: inspect does not cut geometry.",
-      "numbers": {},
-      "rule": "accessibility",
-      "status": "not_applicable",
-      "subject": "S3:30"
     },
     {
       "cite": [
@@ -751,7 +751,7 @@
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
-            "sha256": "ec5b6ed2d3e1ba6a9a83cc968c5ef2e18a5d2930f4bed07c3c86ca5c0022b3fc"
+            "sha256": "e42013d62fc8a51960a50b1f0bac6bed18b072e1db1aa415ac73b1578a794d5f"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -1771,10 +1771,10 @@
             "op": 10
           },
           {
-            "op": 20
+            "op": 15
           },
           {
-            "op": 30
+            "op": 20
           }
         ],
         "frame": "T3",
@@ -1789,6 +1789,11 @@
             "tool": "turning-tools-warner-lms-4132/AR"
           },
           {
+            "do": "inspect",
+            "feature": "pivot_bearing",
+            "op": 15
+          },
+          {
             "direction": "apex_to_base",
             "do": "form_dome",
             "feature": "south_dome",
@@ -1796,11 +1801,6 @@
             "tool": "turning-tools-warner-lms-4132/E",
             "z_from": 1.75,
             "z_to": 0.25
-          },
-          {
-            "do": "inspect",
-            "feature": "pivot_bearing",
-            "op": 30
           }
         ],
         "profiles": [
@@ -2308,6 +2308,21 @@
       "cite": [
         "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
+      "message": "S3:15: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "inspect",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:15"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
       "message": "S3:20: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
@@ -2318,21 +2333,6 @@
       "rule": "engagement",
       "status": "not_applicable",
       "subject": "S3:20"
-    },
-    {
-      "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
-      ],
-      "message": "S3:30: engagement applies only to an endmill cutting operation with an authored DOC.",
-      "numbers": {
-        "holder": "unknown",
-        "operation": "inspect",
-        "tool": "unknown",
-        "tool_kind": "unknown"
-      },
-      "rule": "engagement",
-      "status": "not_applicable",
-      "subject": "S3:30"
     },
     {
       "cite": [
@@ -2930,7 +2930,7 @@
         "inspection_method": "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears.",
         "limits": "unknown",
         "missing_requirement": true,
-        "op": "S3:30",
+        "op": "S3:15",
         "requirement": "length"
       },
       "rule": "inspection",
@@ -3707,6 +3707,42 @@
       "cite": [
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "features.pivot_bearing: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+        "plan.setups.S3.ops.15: selected action/tool/holder"
+      ],
+      "message": "S3:15: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S3:15"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "features.south_dome: faces and requirements",
         "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
         "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
@@ -3735,42 +3771,6 @@
       "rule": "internal_corner_radius",
       "status": "unsupported",
       "subject": "S3:20"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 internal_corner_radius",
-        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
-        "features.pivot_bearing: faces and requirements",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
-        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
-        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
-        "plan.setups.S3: frame and hold",
-        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories",
-        "plan.frames.T3: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
-        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
-        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
-        "plan.setups.S3.ops.30: selected action/tool/holder"
-      ],
-      "message": "S3:30: inspect does not cut geometry.",
-      "numbers": {},
-      "rule": "internal_corner_radius",
-      "status": "not_applicable",
-      "subject": "S3:30"
     },
     {
       "cite": [
@@ -3831,7 +3831,7 @@
         "ops": [
           "S1:40",
           "S1:50",
-          "S3:30"
+          "S3:15"
         ]
       },
       "rule": "op_chain",
@@ -4021,8 +4021,8 @@
       "numbers": {
         "sequence": [
           "10 cut_to_fit south_dome",
-          "20 form_dome south_dome",
-          "30 inspect pivot_bearing"
+          "15 inspect pivot_bearing",
+          "20 form_dome south_dome"
         ],
         "violations": []
       },
@@ -4550,6 +4550,42 @@
       "cite": [
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "features.pivot_bearing: faces and requirements",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+        "plan.setups.S3.ops.15: selected action/tool/holder"
+      ],
+      "message": "S3:15: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "reach",
+      "status": "not_applicable",
+      "subject": "S3:15"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
         "features.south_dome: faces and requirements",
         "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
         "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
@@ -4578,42 +4614,6 @@
       "rule": "reach",
       "status": "unsupported",
       "subject": "S3:20"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 reach",
-        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
-        "features.pivot_bearing: faces and requirements",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
-        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
-        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
-        "plan.setups.S3: frame and hold",
-        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
-        "pm-1127 standard accessories",
-        "plan.frames.T3: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
-        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
-        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
-        "plan.setups.S3.ops.30: selected action/tool/holder"
-      ],
-      "message": "S3:30: inspect does not cut geometry.",
-      "numbers": {},
-      "rule": "reach",
-      "status": "not_applicable",
-      "subject": "S3:30"
     },
     {
       "cite": [
@@ -4723,7 +4723,7 @@
         "ops": [
           "S1:40",
           "S1:50",
-          "S3:30"
+          "S3:15"
         ]
       },
       "rule": "sizing",
@@ -5305,6 +5305,18 @@
     },
     {
       "cite": [
+        "PLAN.md §4.1 speeds/feeds"
+      ],
+      "message": "This manual operation has no cutting speed or feed.",
+      "numbers": {
+        "operation": "inspect"
+      },
+      "rule": "speeds_feeds",
+      "status": "not_applicable",
+      "subject": "S3:15"
+    },
+    {
+      "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
         "cutting-data aliases and rows"
@@ -5330,18 +5342,6 @@
       "rule": "speeds_feeds",
       "status": "unknown",
       "subject": "S3:20"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.1 speeds/feeds"
-      ],
-      "message": "This manual operation has no cutting speed or feed.",
-      "numbers": {
-        "operation": "inspect"
-      },
-      "rule": "speeds_feeds",
-      "status": "not_applicable",
-      "subject": "S3:30"
     },
     {
       "cite": [
@@ -6950,6 +6950,19 @@
     },
     {
       "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:15: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "pivot_bearing",
+        "operation": "inspect"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:15"
+    },
+    {
+      "cite": [
         "PLAN.md:563-568 (§4.4 physics proxies)",
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
@@ -6996,19 +7009,6 @@
       "rule": "turning_deflection",
       "status": "unknown",
       "subject": "S3:20"
-    },
-    {
-      "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
-      ],
-      "message": "S3:30: the static turning proxy does not apply to this operation.",
-      "numbers": {
-        "feature": "pivot_bearing",
-        "operation": "inspect"
-      },
-      "rule": "turning_deflection",
-      "status": "not_applicable",
-      "subject": "S3:30"
     },
     {
       "cite": [
@@ -7321,7 +7321,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "c9c61ee2b8c592ab97eadffe4012c3cf5f248f24d645faa0bc7b4d3400a8a97e",
+  "hash": "f827b011c48dd01bc6b28ca295f42e967bf428863b09107b3741f5a4ca7e349a",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -7337,7 +7337,7 @@
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
-      "sha256": "ec5b6ed2d3e1ba6a9a83cc968c5ef2e18a5d2930f4bed07c3c86ca5c0022b3fc"
+      "sha256": "e42013d62fc8a51960a50b1f0bac6bed18b072e1db1aa415ac73b1578a794d5f"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",

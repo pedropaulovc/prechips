@@ -22,6 +22,12 @@ use that unit; M1 does not silently convert drawing tolerance limits into mm.
 dimension to its decimal places. Nominal/reference dimensions and BASIC
 coordinates do not acquire invented acceptance bands. Dimension fields accept
 a scalar or list of Numbers; list limits conventionally mean `[low, high]`.
+For a banded requirement, `<requirement>_nominal` / `nominal_<requirement>`
+means its intended in-band target; inspection checks inclusive membership.
+It is not a general fit-system basic-size field: displaced g6/p6 zones can
+exclude the reference basic size, and interpreting those fit semantics is not
+implemented. Do not conflate a fit's reference geometry with its acceptance
+target.
 `separation` is a supported dimension/tolerance field: for example,
 `requirements = ["separation"]` with `separation = [9.9, 10.1]` declares a band
 that needs its own `checks.separation` inspection gauge. Supplying
@@ -91,8 +97,11 @@ angular tolerance. An explicit `angle_tol_deg` remains authoritative, whether
 numeric or `"unknown"`; non-BASIC features retain the general-angle fallback.
 The current cone export puts the 12.5182° BASIC relationship on `crank_bore`
 as `land_angle_nominal_deg`, with Ø0.10 angularity to A/B but no
-`angle_tol_deg`. Neither the BASIC nominal nor that diametral zone supplies a
-degree-based indexing acceptance band.
+`angle_tol_deg`. HA already computes `CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795°
+(`cad/scripts/cone_pivot_post_spec.py:373`) but omits it from the export.
+Export that derived allowance (or state why it is not an indexing landing
+allowance); the consumer neither derives it from the bare FCF nor inherits
+the title-block ±1°. The missing field is HA export debt, not a missing source.
 
 The shaft and cone exports leave `frames.setup = "unknown"`. A bare unknown
 frame is unbound just like a frame with `binding = "unknown"`. Numeric authored

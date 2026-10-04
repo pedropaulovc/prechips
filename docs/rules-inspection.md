@@ -45,6 +45,10 @@ band from a nominal/reference dimension. A known empty/no-tolerance list with
 such a declaration has the named unknown row, not a bare not-applicable finding.
 The sheet renders a normal `?` check row naming the exact absent requirement and
 preserves the authored procedure.
+Place that unresolved check at its authored process point. The shaft's S3:15
+check is after cutting the scribe-to-face target but before S3:20 doming:
+measure the cut face while recutting is still possible, then follow the
+existing forward instruction to verify the cylinder end after doming.
 
 Gauge kinds must suit the requirement. Roughness needs a roughness gauge,
 comparator or profilometer; position/coaxiality/angularity needs CMM, indicator or height
@@ -69,6 +73,13 @@ an exporter-fact error regardless of gauge verification or unknown inspection
 applicability. The error records the exact nominal field/value and exported
 limits; no absolute-value/sign correction or nominal/reference inference is made.
 An in-band, unknown or absent nominal leaves normal inspection evidence unchanged.
+This contract assumes those nominal fields are **acceptance-band targets**,
+not a fit system's reference basic size. A g6/p6-type fit band can legitimately
+exclude its basic size; the checker does not interpret fit-class offsets and
+such a basic size must not be exported as an in-band target under these names.
+Reference geometry is not acceptance evidence. Supporting displaced fit-class
+basic sizes needs separately identified semantics, not a sign change or a
+nominal-band exception guessed from the numbers.
 
 Sentence templates:
 
