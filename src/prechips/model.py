@@ -209,6 +209,7 @@ Operation = record(
         "note_cite": Citations,
         "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
+        "missing_requirements": dict[str, str],
         "inspection_methods": dict[str, str],
         "to_z_band": Vector,
         "contour": Contour,
@@ -243,7 +244,17 @@ class Plan(InputModel):
     paths: Paths | Unknown = UNKNOWN
     stock: Stock | Unknown = UNKNOWN
     dro: Dro | Unknown = UNKNOWN
+    # Author-declared setup frames in model coordinates; never feature source frames.
+    frames: dict[str, PlanFrame] | Unknown = UNKNOWN
     setups: list[Setup]
+
+    @model_validator(mode="after")
+    def named_frames(self) -> Plan:
+        if isinstance(self.frames, dict) and any(
+            not name.strip() or name == UNKNOWN for name in self.frames
+        ):
+            raise ValueError("Plan frame names must be known, non-empty names.")
+        return self
 
 
 type FrameVector = Annotated[list[Number], Field(min_length=3, max_length=3)] | Unknown
@@ -272,6 +283,18 @@ class Frame(InputModel):
         cross = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]]
         if any(abs(a - b) > 1e-9 for a, b in zip(cross, z, strict=True)):
             raise ValueError("Frame axes must be right-handed.")
+        return self
+
+
+class PlanFrame(Frame):
+    """A plan-owned setup frame: its owner and physical binding are never implied."""
+
+    @model_validator(mode="after")
+    def authored_provenance(self) -> PlanFrame:
+        if "binding" not in self.model_fields_set:
+            raise ValueError("A plan frame must state its binding, even if unknown.")
+        if self.cite == UNKNOWN or not self.cite:
+            raise ValueError("A plan frame must cite its author's choice and source geometry.")
         return self
 
 

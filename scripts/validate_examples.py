@@ -1,4 +1,4 @@
-"""Validate the rev-6 authored bundles; this is not a machining checker.
+"""Validate exported/reference bundles; this is not a machining checker.
 
 Run: uv run python scripts/validate_examples.py
 Only the standard library is used, including Python 3.11+ tomllib.
@@ -26,7 +26,7 @@ EXPECTED_EXIT = {
     "pivot-shaft": 4,
     "rocker-arm": 2,
     "pivot-bracket": 2,
-    "cone-pivot-post": 4,
+    "cone-pivot-post": 2,
     "cone-pivot-post/built-up.toml": 2,
 }
 GEOMETRY_CASES = (
@@ -292,7 +292,7 @@ def selected_refs(plan: dict):
                 if key in REFERENCE_KEYS - {"ref"} and isinstance(child, str):
                     if child not in {"unknown", "not_applicable", "none"}:
                         yield child
-                elif key == "checks" and isinstance(child, dict):
+                elif key in {"checks", "missing_requirements"} and isinstance(child, dict):
                     yield from (v for v in child.values() if v != "unknown")
                 elif key not in {"ref", "item"}:
                     yield from walk(child)
@@ -349,6 +349,8 @@ def tool_length_mm(ref: str, field: str, entries: dict):
 
 
 def frame_point(point: list, frame: dict) -> list:
+    if frame == "unknown":
+        return ["unknown"] * 3
     result = []
     for axis in ("x", "y", "z"):
         terms = [
@@ -363,15 +365,55 @@ def frame_point(point: list, frame: dict) -> list:
 
 
 def model_point(point: list, frame: dict) -> list:
-    return [
-        frame["origin"][i]
-        + sum(point[j] * frame[axis][i] for j, axis in enumerate(("x", "y", "z")))
-        for i in range(3)
-    ]
+    if frame == "unknown":
+        return ["unknown"] * 3
+    result = []
+    for i in range(3):
+        terms = [
+            (point[j], frame[axis][i])
+            for j, axis in enumerate(("x", "y", "z"))
+            if frame[axis][i] != 0
+        ]
+        result.append(
+            frame["origin"][i] + sum(value * scale for value, scale in terms)
+            if numeric(frame["origin"][i]) and all(numeric(value) for value, _ in terms)
+            else "unknown"
+        )
+    return result
 
 
-def check_frames(features: dict) -> None:
-    for name, frame in features["frames"].items():
+def plan_frames(plan: dict, features: dict) -> dict:
+    """Plan-owned setup frames; an exported name may never be shadowed."""
+    planned = plan.get("frames", {})
+    require(isinstance(planned, dict), "plan.frames must be a table of frames")
+    exported = features["frames"] if isinstance(features["frames"], dict) else {}
+    shadowed = sorted(set(planned) & set(exported))
+    require(not shadowed, f"plan frames shadow exported frames {shadowed}")
+    return planned
+
+
+def setup_frame(setup: dict, plan: dict, features: dict):
+    """Independent lookup: the exported manifest frame, else the plan-owned frame."""
+    exported = features["frames"] if isinstance(features["frames"], dict) else {}
+    name = setup.get("frame", "unknown")
+    if name in exported:
+        return exported[name]
+    return plan_frames(plan, features).get(name, "unknown")
+
+
+def check_frames(features: dict, plan: dict) -> None:
+    planned = plan_frames(plan, features)
+    for name, frame in planned.items():
+        require(frame.get("binding") is not None, f"plan frame {name}: binding must be stated")
+        require(
+            "AUTHOR'S CHOICE" in frame.get("cite", [])
+            and "AUTHOR'S CHOICE" in frame.get("note", ""),
+            f"plan frame {name}: author's choice must be distinguished from source geometry",
+        )
+    exported = features["frames"] if isinstance(features["frames"], dict) else {}
+    for name, frame in [*exported.items(), *planned.items()]:
+        if frame == "unknown":
+            continue
         for key in ("origin", "x", "y", "z"):
             require(
                 isinstance(frame.get(key), list)
@@ -512,7 +554,8 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
             f"{name}: invalid requirements",
         )
         for requirement in requirements:
-            require(requirement in feature, f"{name}: omitted required field {requirement}")
+            if requirement != "unknown":
+                require(requirement in feature, f"{name}: omitted required field {requirement}")
         require(
             feature.get("faces") == "unknown" or isinstance(feature.get("faces"), list),
             f"{name}: faces must be set or unknown",
@@ -522,7 +565,14 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
         for rule in FEATURE_RULES:
             has(rule, name)
         tolerances = set(requirements) & TOLERANCES
-        if not tolerances:
+        if "unknown" in requirements:
+            subject = f"{name}:unknown"
+            has("inspection", subject)
+            require(
+                findings["inspection", subject]["status"] == "unknown",
+                f"{subject}: unresolved requirement must remain unknown",
+            )
+        if not tolerances and "unknown" not in requirements:
             has("inspection", name)
         for requirement in tolerances:
             subject = f"{name}:{requirement}"
@@ -543,7 +593,10 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
     require(len(ids) == len(set(ids)), "duplicate setup id")
     for setup in setups:
         sid = setup["id"]
-        require(setup["frame"] in features["frames"], f"{sid}: missing frame")
+        require(
+            setup["frame"] in features["frames"] or setup["frame"] in plan_frames(plan, features),
+            f"{sid}: missing frame",
+        )
         require(setup.get("ops"), f"{sid}: empty operations")
         require(isinstance(setup.get("stock_state"), dict), f"{sid}: missing stock state")
         require(isinstance(setup.get("hold"), dict), f"{sid}: missing hold")
@@ -568,6 +621,31 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
             if "tool" in op:
                 require("holder" in op, f"{sid}:{op['op']}: omitted holder")
                 has("tool_resolves", f"{sid}:{op['op']}")
+
+
+def check_inspection_declarations(plan: dict, features: dict, findings: dict) -> None:
+    for setup in plan["setups"]:
+        for op in setup["ops"]:
+            name = op["feature"]
+            requirements = features["features"][name].get("requirements", "unknown")
+            exported = set(requirements) if isinstance(requirements, list) else set()
+            for requirement in op.get("checks", {}):
+                require(
+                    requirement in exported,
+                    f"{setup['id']}:{op['op']}: {name} has no requirement {requirement}",
+                )
+            for requirement in op.get("missing_requirements", {}):
+                require(
+                    requirement not in exported,
+                    f"{setup['id']}:{op['op']}: {name}.{requirement} is an exported requirement",
+                )
+                subject = f"{name}:{requirement}"
+                row = findings.get(("inspection", subject), {})
+                require(
+                    row.get("status") == "unknown"
+                    and row.get("numbers", {}).get("missing_requirement") is True,
+                    f"{subject}: missing requirement inspection must remain explicitly unknown",
+                )
 
 
 def check_references(plan: dict, entries: dict, findings: dict) -> list:
@@ -761,16 +839,22 @@ def check_speeds(
     near(row.get("feed_mm_min", "unknown"), feed, "feed per tooth")
 
 
-def check_coordinates(setup: dict, features: dict, finding: dict) -> None:
-    frame = features["frames"][setup["frame"]]
+def check_coordinates(setup: dict, features: dict, finding: dict, plan: dict) -> None:
+    frame = setup_frame(setup, plan, features)
+    if setup["frame"] in plan.get("frames", {}):
+        require(
+            f"plan.frames.{setup['frame']}: author-declared setup frame" in finding["cite"],
+            f"{setup['id']}: plan-owned frame provenance missing from coordinates",
+        )
     for row in finding["numbers"].get("rows", []):
         require(row["feature"] in features["features"], "unknown coordinate feature")
         feature = features["features"][row["feature"]]
         # A named station/apex on a turned part is not a feature centre.
         if "point" not in row:
-            at = feature.get("at")
+            at = feature.get("at", ["unknown"] * 3)
             require(isinstance(at, list) and len(at) == 3, "coordinate has no feature centre")
-            model = model_point(at, features["frames"][feature.get("frame", "model")])
+            source = features["frames"][feature.get("frame", "model")]
+            model = model_point(at, source)
             for actual, expected in zip(row["model"], model, strict=True):
                 near(actual, expected, "model coordinate")
         transformed = frame_point(row["model"], frame)
@@ -781,7 +865,8 @@ def check_coordinates(setup: dict, features: dict, finding: dict) -> None:
                 "local coordinate must name an authored Z endpoint",
             )
             require(
-                frame["binding"] == "unknown" and transformed[2] == "unknown",
+                (frame == "unknown" or frame.get("binding") == "unknown")
+                and transformed[2] == "unknown",
                 "local target cannot replace a known model transform",
             )
             op = next(op for op in setup["ops"] if op["op"] == source["op"])
@@ -934,7 +1019,12 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
     near(row["requested_angle_deg"], float(requested), "indexing requested angle")
     near(row["actual_angle_deg"], float(actual), "indexing nearest setting")
     feature = features["features"][declaration["feature"]]
-    tolerance = feature.get("angle_tol_deg", features["general_tolerances"]["angular_deg"])
+    tolerance = feature.get(
+        "angle_tol_deg",
+        "unknown"
+        if feature.get("dimension_type") == "basic"
+        else features["general_tolerances"]["angular_deg"],
+    )
     near(row["tolerance_deg"], tolerance, "indexing explicit feature tolerance")
     errors = [
         float(position * (actual - requested))
@@ -965,7 +1055,7 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
         require(finding["status"] == "unknown", "unverified angular setting must remain tentative")
 
 
-def finished_exposed_diameter(setup: dict, features: dict):
+def finished_exposed_diameter(setup: dict, features: dict, plan: dict | None = None):
     """Independent midpoint oracle for the fixtures' declared finished profile."""
     units = features.get("units")
     scale = 1 if units == "mm" else 25.4 if units == "in" else None
@@ -977,8 +1067,12 @@ def finished_exposed_diameter(setup: dict, features: dict):
     upper = max(ends)
     lower = upper - length
     frames = features.get("frames", {})
-    target = frames.get(setup.get("frame"), {})
-    if target.get("binding") == "unknown" or not isinstance(target.get("z"), list):
+    target = setup_frame(setup, plan or {}, features)
+    if (
+        not isinstance(target, dict)
+        or target.get("binding") == "unknown"
+        or not isinstance(target.get("z"), list)
+    ):
         return "unknown"
     target = dict(target, origin=[v * scale for v in target["origin"]])
     claimed = {
@@ -1052,7 +1146,7 @@ def check_stickout(setup: dict, plan: dict, features: dict, policy: dict, findin
     held = setup["stock_state"].get("od_mm", plan["stock"].get("dia_mm", "unknown"))
     if not numeric(held) or held <= 0:
         held = "unknown"
-    diameter = finished_exposed_diameter(setup, features)
+    diameter = finished_exposed_diameter(setup, features, plan)
     length = setup["hold"].get("stickout_mm", "unknown")
     near(row["held_diameter_mm"], held, "stick-out held diameter evidence")
     near(row["diameter_mm"], diameter, "stick-out finished exposed diameter")
@@ -1082,8 +1176,6 @@ def check_stickout(setup: dict, plan: dict, features: dict, policy: dict, findin
 
 def check_cone_facts(plan: dict, features: dict) -> None:
     require(features["construction"] == "one_piece", "cone drawing has no built-up permission")
-    near(features["volume_mm3"], 112300.8902, "cone sourced analytic volume")
-    require(features["volume_cite"] != "unknown", "cone volume must retain its real source")
     for field, expected in (
         ("linear_1pl", 0.8),
         ("linear_2pl", 0.51),
@@ -1094,30 +1186,41 @@ def check_cone_facts(plan: dict, features: dict) -> None:
     for name, fields in {
         "body": {"dia_nominal": 42.011, "height_nominal": 86.0},
         "head": {"dia_nominal": 42.7506, "height_nominal": 26.6},
-        "crank_boss": {"dia_nominal": 21.93, "length_nominal": 72.0344, "station_nominal": 21.3753},
-        "crank_bore": {"dia_nominal": 11.438},
-        "journal_boss": {"dia_nominal": 17.2, "length_nominal": 42.011},
-        "journal_bore": {"dia_nominal": 12.2808, "height_nominal": 33.368, "angle_deg": 12.5182},
-        "mount_west": {"dia_nominal": 7.14248, "station_nominal": 12.98},
-        "mount_east": {"dia_nominal": 7.14248, "station_nominal": 12.98},
+        "crank_boss": {"dia_nominal": 21.93},
+        "crank_boss_faces": {"length_nominal": 72.0344, "station_nominal": 21.3753},
+        "crank_bore": {"nominal_dia": 11.438, "land_angle_nominal_deg": 12.5182},
+        "cone_boss": {"dia_nominal": 17.2},
+        "cone_boss_north_face": {"length_nominal": 42.011},
+        "journal_bore": {"nominal_dia": 12.2808},
+        "mount_west": {"nominal_dia": 7.14248},
+        "mount_east": {"nominal_dia": 7.14248},
     }.items():
         for field, expected in fields.items():
             near(geometry[name][field], expected, f"cone source {name}.{field}")
-    require(geometry["journal_bore"]["precision"]["angle_deg"] == 4, "BASIC angle lost four places")
     require(
-        geometry["journal_bore"]["angle_tol_deg"] == "unknown", "BASIC angle acquired a +/- band"
+        geometry["crank_bore"]["precision"]["land_angle_nominal_deg"] == 4,
+        "BASIC angle lost four places",
     )
-    require(geometry["crank_bore"]["angularity_dia"] == [0.0, 0.10], "cone lost diametral FCF")
+    require(geometry["crank_bore"]["dimension_type"] == "basic", "cone angle lost BASIC identity")
+    require(
+        geometry["crank_bore"].get("angle_tol_deg", "unknown") == "unknown",
+        "BASIC angle acquired a +/- band",
+    )
+    near(geometry["crank_bore"]["angularity_dia"], 0.10, "cone diametral FCF")
     require(
         geometry["crank_bore"]["angularity_datums"] == ["A", "B"], "cone lost ordered A/B datums"
     )
     require("angularity_dia" in geometry["crank_bore"]["requirements"], "FCF inspection omitted")
     require(features["datums"]["A"]["feature"] == "journal_bore", "datum A is not the cone bore")
     require(features["datums"]["B"]["feature"] == "foot_seat", "datum B is not the foot")
-    require(all(f["faces"] == "unknown" for f in geometry.values()), "unprovided STEP face binding")
     require(
-        all(f["binding"] == "unknown" for f in features["frames"].values()),
-        "unverified setup binding",
+        all(isinstance(f["faces"], list) and f["faces"] for f in geometry.values()),
+        "exported cone features lost STEP face bindings",
+    )
+    require(features["frames"]["setup"] == "unknown", "unverified setup binding")
+    require(
+        all(frame["binding"] == "unknown" for frame in plan.get("frames", {}).values()),
+        "cone plan frames claim a physical binding",
     )
     require(plan["stock"]["on_hand"] is False, "authored cone blanks are not on-hand inventory")
     pieces = plan["stock"].get("components", [plan["stock"]])
@@ -1130,7 +1233,10 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         # cannot contain the integral boss. This is nominal stock coverage,
         # not a cutter sweep or verified jaw/tool clearance.
         boss = geometry["crank_boss"]
-        radial_bound = math.hypot(boss["z_mm"][1], boss["dia_nominal"] / 2)
+        ends = geometry["crank_boss_faces"]
+        radial_bound = math.hypot(
+            ends["length_nominal"] - ends["station_nominal"], boss["dia_nominal"] / 2
+        )
         require(plan["stock"]["dia_mm"] / 2 >= radial_bound, "one-piece blank excludes crank boss")
         require(
             plan["stock"]["length_mm"] >= geometry["body"]["height_nominal"],
@@ -1176,8 +1282,10 @@ def check_comparison(folder: Path, documents: dict) -> None:
         volumes = [blank_volume(piece) for piece in pieces]
         stock = sum(volumes) if all(numeric(v) for v in volumes) else "unknown"
         near(row["stock_volume_mm3"], stock, "comparison leaf blank volume")
-        source = features.get("volume_cite", "unknown")
-        net = features["volume_mm3"] if source != "unknown" and source else "unknown"
+        source = features.get("volume_cite", [])
+        source = [source] if isinstance(source, str) and source != "unknown" else source
+        source = [] if source == "unknown" else source
+        net = features.get("volume_mm3", "unknown") if source else "unknown"
         near(row["net_volume_mm3"], net, "comparison sourced net volume")
         waste = 1 - net / stock if numeric(net) and numeric(stock) else "unknown"
         near(row["waste_ratio"], waste, "comparison waste ratio")
@@ -1261,13 +1369,14 @@ def validate_fixture(
     check_construction(plan, features, findings["construction", part])
     if part == "cone-pivot-post":
         check_cone_facts(plan, features)
-    check_frames(features)
+    check_frames(features, plan)
     check_subjects(plan, features, findings)
+    check_inspection_declarations(plan, features, findings)
     missing = check_references(plan, entries, findings)
     check_endpoints(plan, features, findings, entries)
     for setup in plan["setups"]:
         check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
-        check_coordinates(setup, features, findings["coordinates", setup["id"]])
+        check_coordinates(setup, features, findings["coordinates", setup["id"]], plan)
         check_indexing(setup, features, entries, findings["indexing", setup["id"]])
         check_stickout(setup, plan, features, policy, findings["stickout", setup["id"]])
         for op in setup["ops"]:

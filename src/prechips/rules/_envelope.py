@@ -6,7 +6,15 @@ from itertools import product
 from prechips.measurements import angle_fact, length_fact, measurement_entry
 from prechips.rules import tip_endpoints
 from prechips.rules.coordinates import AXES, frame_point, model_point
-from prechips.rules.resolution import UNKNOWN, _citations, number, record, resolve
+from prechips.rules.resolution import (
+    EXPORTED_FRAMES,
+    UNKNOWN,
+    _citations,
+    number,
+    record,
+    resolve,
+    setup_frame_ref,
+)
 
 
 def measurement_item(bundle, category, reference):
@@ -70,10 +78,6 @@ def unknown_sentence(setup, description, debts, missing=()):
     return f"{setup}: {description}. " + "; ".join([*extra, *instructions]) + "."
 
 
-def setup_frame(bundle, setup):
-    return record(record(bundle.features.get("frames")).get(setup.get("frame")))
-
-
 def transformed_bounds(bounds, source_frame, target_frame):
     """Project all eight declared box corners; never guess an omitted axis."""
     bands = [record(bounds).get(axis) for axis in AXES]
@@ -107,7 +111,9 @@ def _supported_extents(extents, setup):
 
 def stock_extents(bundle, setup):
     """Use an already-returned STEP bbox, else the authored blank, in setup axes."""
-    frame = setup_frame(bundle, setup)
+    frame, owner = setup_frame_ref(bundle, setup)
+    # Exported frames keep their historical label; a plan-owned frame names itself.
+    basis = owner if owner == EXPORTED_FRAMES else f"{owner}.{setup.get('frame')}"
     kernel = record(getattr(bundle, "kernel", None))
     bbox = kernel.get("bbox_mm")
     if kernel.get("status") == "ok" and isinstance(bbox, list) and len(bbox) == 6:
@@ -122,7 +128,7 @@ def stock_extents(bundle, setup):
                 "plan.setups.stock_state: physical supported stock height",
             ]
         return _supported_extents({axis: UNKNOWN for axis in AXES}, setup), [
-            "kernel.bbox_mm; features.frames setup basis",
+            f"kernel.bbox_mm; {basis} setup basis",
             "plan.setups.stock_state: physical supported stock height",
         ]
     stock = record(bundle.plan.get("stock"))
@@ -138,7 +144,7 @@ def stock_extents(bundle, setup):
     else:
         dimensions = [UNKNOWN] * 3
     extent_cite = [
-        "plan.stock.section_mm/length_mm/dia_mm; features.frames setup basis",
+        f"plan.stock.section_mm/length_mm/dia_mm; {basis} setup basis",
         *_citations(stock.get("cite")),
     ]
     if not all(number(value) for value in dimensions) and bundle.features.get("units") == "mm":

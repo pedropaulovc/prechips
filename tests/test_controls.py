@@ -206,6 +206,14 @@ def test_missing_requirements_are_unknown_not_known_absence(
     if expected_exit == 0:
         request.getfixturevalue("freecad_kernel")
     plan = clean_inspection_bundle(tmp_path)
+    # This control varies the requirement declaration, not an invalid plan check.
+    # Checks cannot claim an acceptance requirement the selected feature lacks.
+    plan.write_text(
+        plan.read_text(encoding="utf-8").replace(
+            'checks = { dia = "control-micrometer", length = "control-micrometer" }\n', ""
+        ),
+        encoding="utf-8",
+    )
     features = plan.with_name("features.toml")
     features.write_text(
         features.read_text(encoding="utf-8").replace(

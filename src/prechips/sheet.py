@@ -797,7 +797,8 @@ class _Traveler:
         rows = ["? Inspection checks unknown."] if op.get("checks") == "unknown" else []
         feature = op.get("feature")
         definition = self.features.get(feature, {})
-        for requirement, reference in _mapping(op.get("checks")).items():
+        missing = _mapping(op.get("missing_requirements"))
+        for requirement, reference in (_mapping(op.get("checks")) | missing).items():
             finding = next(
                 (
                     f
@@ -807,9 +808,11 @@ class _Traveler:
                 ),
                 None,
             )
-            glyph = _GLYPHS.get(_status(finding)) if finding else "?"
-            target = definition.get(requirement)
-            method = op.get("inspection_methods", {}).get(requirement)
+            glyph = (
+                "?" if requirement in missing or finding is None else _GLYPHS.get(_status(finding))
+            )
+            target = None if requirement in missing else definition.get(requirement)
+            method = _mapping(op.get("inspection_methods")).get(requirement)
             datums = definition.get("position_datums") if requirement == "position_dia" else None
             names = {
                 "dia": "Ø",
@@ -828,10 +831,12 @@ class _Traveler:
                 f"{glyph + ' ' if glyph else ''}{names.get(requirement, _text(requirement))} "
                 f"{target_text}: {self.short_reference(reference, 'gauges')}"
             )
+            if requirement in missing:
+                line += f"; missing requirement {feature}:{requirement}"
             if datums:
                 line += " to " + "|".join(map(_text, datums))
             if method:
-                line += "; " + self.bench(method)
+                line += "; " + (method if requirement in missing else self.bench(method))
             rows.append(line)
         if op.get("inspection_note"):
             rows.append(self.bench(op["inspection_note"]))

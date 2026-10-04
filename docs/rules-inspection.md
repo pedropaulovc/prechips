@@ -30,6 +30,26 @@ entry is an error, while literal `"unknown"` is an unresolved method. An entire
 named gauge's missing-item error belongs to `tool_resolves`; inspection reports
 its capability as unknown.
 
+Loading rejects any `checks.<requirement>` absent from that operation's feature
+exported `requirements` list, including when the list is wholly unknown. A name
+exported on another feature does not establish ownership. To retain an authored
+inspection for a requirement absent from the export, declare a separate inspect
+operation with `missing_requirements = { length = "calipers" }` and its
+`inspection_methods.length` procedure. A name already exported on the selected
+feature is rejected in `missing_requirements`; actual requirements must use checks.
+Each explicit missing declaration emits `feature:requirement` with unknown
+status, `missing_requirement = true`, `limits = "unknown"`, named gauge, operation
+and inspection method evidence. This remains unknown even if the feature's
+applicability or requirement list is unknown; it does not infer an acceptance
+band from a nominal/reference dimension. A known empty/no-tolerance list with
+such a declaration has the named unknown row, not a bare not-applicable finding.
+The sheet renders a normal `?` check row naming the exact absent requirement and
+preserves the authored procedure.
+Place that unresolved check at its authored process point. The shaft's S3:15
+check is after cutting the scribe-to-face target but before S3:20 doming:
+measure the cut face while recutting is still possible, then follow the
+existing forward instruction to verify the cylinder end after doming.
+
 Gauge kinds must suit the requirement. Roughness needs a roughness gauge,
 comparator or profilometer; position/coaxiality/angularity needs CMM, indicator or height
 gauge. Both scalar and banded geometric requirements additionally need a known,
@@ -47,11 +67,26 @@ inventory schema does not expose the rule's `ra_range`/`range_ra` lookup, so do
 not add those extra keys to an M1 input or claim a shipped roughness capability
 pass. Scalar dimensions without an implemented capability branch stay unknown.
 
+A numeric requirement band must contain any explicitly exported numeric
+`<requirement>_nominal` or `nominal_<requirement>`, inclusively. A contradiction is
+an exporter-fact error regardless of gauge verification or unknown inspection
+applicability. The error records the exact nominal field/value and exported
+limits; no absolute-value/sign correction or nominal/reference inference is made.
+An in-band, unknown or absent nominal leaves normal inspection evidence unchanged.
+This contract assumes those nominal fields are **acceptance-band targets**,
+not a fit system's reference basic size. A g6/p6-type fit band can legitimately
+exclude its basic size; the checker does not interpret fit-class offsets and
+such a basic size must not be exported as an in-band target under these names.
+Reference geometry is not acceptance evidence. Supporting displaced fit-class
+basic sizes needs separately identified semantics, not a sign change or a
+nominal-band exception guessed from the numbers.
+
 Sentence templates:
 
 - `{feature}: no tolerance requirement to inspect.`
 - `{feature}: inspection applicability or finishing action is explicitly unknown.`
 - `{feature}: requirement identity is explicitly unknown.`
+- `{feature} {requirement}: requirement is absent from the exported manifest; acceptance limits are unresolved.`
 - `{feature} {requirement}: {message}.`, where message is exactly one of:
   - `explicit inspection method is unknown`
   - `inspection checks are explicitly unknown`
@@ -72,6 +107,7 @@ Sentence templates:
   - `inspection capability for requirement unresolved`
   - `named gauge capability needs verification`
   - `unverified gauge dimensions cannot establish capability`
+  - `exported nominal is outside the requirement band`
 
 Evidence: requirement, limits, finishing/check op, named gauge, kind, range,
 resolution and band width where available. Citations: PLAN §4.1 inspection,

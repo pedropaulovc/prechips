@@ -328,13 +328,14 @@ contract:
   per feature lists exactly which fields are requirements, so a missing
   field that is not in the list is a generator error, not an unknown.
 - An omitted *feature* is impossible to detect from the manifest alone,
-  which is why the generator, not a hand, writes it (M3) and why the M1
-  hand-written manifest is cross-checked against the drawing's dimension
-  count.
+  which is why the generator, not a hand, writes it (M3). The historical M1
+  hand-written manifests were cross-checked against drawing dimension counts;
+  the undrawn pivot-bracket remains authored with unknown drawing requirements.
 
-Excerpt; the full source-backed manifest is
-`examples/rocker-arm/features.toml` (every value cited to the consumer;
-that file, not this excerpt, is what M1 mirrors):
+**Historical design sketch, not the current manifest.** The excerpt below
+predates M3: placeholder face names, inch-derived bands and material/profile
+assumptions are not current exported facts. The verbatim source-backed manifest
+is `examples/rocker-arm/features.toml`; that file is the operative input.
 
 ```toml
 part = "rocker-arm"
@@ -380,7 +381,7 @@ position_dia = 0.20
 precision = { dia = 2, position_dia = 2 }  # per dimension; `at` is BASIC, never gets a ± default
 requirements = ["at", "dia", "thru", "position_dia"]
 position_datums = ["A", "B", "C"]          # C clocks rotation about the pivot axis
-faces = "unknown"                          # until the face-set export (M3)
+faces = "unknown"                          # historical: before the M3 face-set export
 
 [features.hub_od]
 kind = "boss"
@@ -401,16 +402,14 @@ requirements = []                          # drawing carries no profile toleranc
 faces = ["Face2", "Face3", "Face6"]
 ```
 
-**What the generator can and cannot source today** (rocker arm): nominal
-centres and limits (`rocker_arm_spec.py:32–59,72,107`), #47 diameter and
-its default band (`_hole_spec.py:82,104`, `title_block.yaml:66`), position
-Ø0.20 to A|B (`rocker_arm_spec.py:124`), through-ness
-(`rocker_arm_notes.py:60`), the datum scheme (`draw_rocker_arm.py:447–548`),
-general tolerances (`title_block.yaml:19–27`), deburr limit
-(`title_block.yaml:43–45`). It cannot source: a profile tolerance, the
-built-up permission (no drawing note exists; `construction` defaults to
-`one_piece`), and STEP face names until the export change below. Those are
-`unknown` entries and `?` lines.
+**Historical source assessment:** the original sketch combined rocker spec
+geometry, hole defaults, notes, datum annotations and title-block tolerances.
+The current export supplies the actual A|B|C position datum chain, rendered
+metric general bands, material alternatives and all labelled face sets,
+including separate strap datum B and both tip lands. Unknown tip-land angular
+acceptance and setup binding remain unknown; no drawing note authorizes
+built-up construction. The generated manifest and its per-fact citations,
+not this sketch's field names or face ordinals, are authoritative.
 
 **Why not PMI in the STEP.** Semantic PMI needs AP242, and in SolidWorks that
 export is the MBD add-in only (`IModelDocExtension.PublishSTEP242File2`,
@@ -422,14 +421,13 @@ annotations, and harmonic-analyzer deliberately authors plain gtols
 a few GD&T frames and no dimensions. The spec scripts are the authority; a
 generated `features.toml` is the lossless route.
 
-**What the STEP should carry instead: face ids, as sets.** AP214 with
-`swStepExportFaceEdgeProps` (no MBD) names every face. A feature is a face
-*set*, not one face: the v38 `rocker-arm.STEP` already holds the pivot bore
-as two Ø6.5 cylinder patches of equal area (faces 1 and 16). The generator
-must resolve each spec feature to its native SolidWorks faces (the
-`CylinderFace`/`PlanarFace` matcher `_part_pmi.py:223–259` already uses) and
-emit the exported names of all of them, bound to that STEP's digest, failing
-loud on ambiguity. Tracked as a harmonic-analyzer issue (§8, M3).
+**What the STEP carries instead: face ids, as sets.** The consumer exports
+labelled AP214 faces without requiring semantic PMI. A feature is a face
+*set*, not one face: even the historical v38 rocker spike held the pivot bore
+as two cylindrical patches. M3 now supplies generated feature-to-face sets
+bound to each adjacent STEP digest; prechips checks references before matching
+imported geometry, never assuming imported face order. Delivery evidence is
+recorded in `examples/README.md`; integration status is in §8 M3.
 
 ### 3.3 `inventory.toml` — the shop (user-supplied; sample in `examples/inventory/`)
 
@@ -571,6 +569,18 @@ not exist.
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default | features.faces, plan.ops.faces, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence) | features.finish_ra/faces, plan.ops.faces | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
+
+The −setup-Z approach model in this section applies to milling only. A resolved
+`lathe` machine or a known turning/forming/grooving action (including `part_off`
+and `cut_to_fit`) makes approach-dependent geometry `unsupported`, with reason
+exactly `lathe approach model not implemented (engine approaches along -Z only)`.
+Invalid STEP face references still error first; missing/unmapped references
+remain unknown. Raw lathe direction arrays never credit cutting or finishing
+coverage. Coverage is unsupported when its remaining faces depend only on mapped
+lathe claims; complete supported milling/as-stock coverage may still pass,
+and genuinely missing milling claims remain errors.
+The generic `profile` action is also used by milling routes and follows resolved
+machine kind, not the action-only turning fallback.
 
 ### 4.3 Workholding (geometry + inventory — needs the kernel for the solids)
 
@@ -781,9 +791,9 @@ cylinder plus the holder against the actual setup material, excluding only
 a thin shell of the sampled face, and the fixture. The round-2 script
 intersected the cylinder with the jaws only, at a fixed 40 mm height, with no holder, so it
 proved jaw proximity and nothing more (§4.2); features carry face *sets*
-(§3.2); face names still need the consumer's `swStepExportFaceEdgeProps`
-export and a tested mapping (§3.2, §8 M3) — order stability across exports
-is observed once, not relied on. Required before any §4.2/4.3 verdict ships:
+(§3.2). At the time of the spike, consumer face export was still pending;
+M3 now supplies it (§8). The once-observed export order stability is not
+relied on. The original required §4.2/4.3 discriminators were:
 the cylinder against a boss (must occlude), the claimed side wall
 (offset must clear; removing the offset must fail), an oversized cutter in
 a through-groove (opposing claimed wall must occlude), holder versus jaws,
@@ -858,7 +868,7 @@ sheet.
    12.5182° cone-journal inclination (`positions = 1`, no repeated-pattern closure),
    with authored full-envelope one-piece and block-plus-pressed-boss alternatives.
    The drawing is one-piece only; the built-up candidate is refused.
-   **Observed local acceptance after PR #6 review corrections:** Ruff check and
+   **Historical local acceptance after PR #6 review corrections:** Ruff check and
    format check (67 Python files); 575 pytest cases; all 12 TOML inputs / five
    candidate goldens validated. Actual CLI travelers preserve exits
    4 / 2 / 2 / 4 / 2 and cone comparison exits 2, with canonical golden parity.
@@ -869,16 +879,188 @@ sheet.
    Chromium showed the synthetic 30° × 3 open pattern's exact landings and
    “Open pattern: no cycle closure.” This is not physical print evidence.
    **Unobserved/pending:** measured chuck capacities/support/BS-0 inventory,
-   sourced K_c/E and a sourced BASIC-angle landing allowance, printed traveler/operator
-   rehearsal, independent hand oracle, live farm telemetry and M3/M4 geometry
-   binding. Unknown inputs remain `?`, not a numerical machining approval.
-3. **M3 — consumer export.** harmonic-analyzer issue (filed with this rev):
-   `cad/scripts/export_features.py` emitting `features.toml` beside the
-   STEP as a complete manifest with provenance; `swStepExportFaceEdgeProps`
-   on in `export_models.py`; a tested spec-feature → exported-face-set
-   mapping bound to the STEP digest, failing on ambiguity; a drawing-note
-   contract for `construction`; `check:traveler_<stem>` doit task under
-   `cad/process/`. Replaces the hand-written manifests.
+   sourced K_c/E and a BASIC-angle landing allowance (now an HA export
+   follow-up, M3 item 7), printed traveler/operator rehearsal, independent hand
+   oracle and live prechips farm telemetry. The
+   then-pending M3/M4 binding is superseded by the delivered exports and kernel
+   work below. Unknown inputs remain `?`, not a numerical machining approval.
+3. **M3 — consumer export: consumer side done 2026-10-03; HA traveler tasks
+   and export fields remain open (listed below).**
+   `examples/rocker-arm/`, `examples/pivot-shaft/` and
+   `examples/cone-pivot-post/` now contain verbatim generated `features.toml`
+   and their exact adjacent STEP files. Each manifest names that STEP, binds
+   its SHA-256, declares drawing revision and one-piece construction, preserves
+   sourced requirement/precision/citation records, and carries labelled
+   entity/ordinal face sets. These are actual exported inputs, not the former
+   hand-authored substitutes. Export delivery provenance and exact digests are
+   recorded only in [examples/README.md](examples/README.md#m3-export-delivery-provenance).
+   Python citations remain `file:line`; YAML citations are `file:dotted.key.path`.
+   All plans remain authored and PLANNED. The undrawn pivot-bracket remains
+   hand-authored with no STEP or invented drawing contract.
+
+   The exported contracts include expanded rocker datum/tip features, shaft
+   face splits, the cone journal's unknown requirement identity, and rendered
+   metric general bands. Current expected pilot exits are 4 / 2 / 2 / 2 / 2
+   (shaft / rocker / bracket / cone one-piece / cone built-up). The one-piece cone
+   moved from 4 to 2 because its exported `mount_west` nominal conflicts with its
+   band and restored milling frames expose far-side boss-face claims.
+   Existing inspection choices follow the split exported feature owners with
+   unchanged gauges. Unknown requirement identities, measurements and methods
+   remain unresolved, not invented. Consumer handling of the export as delivered:
+
+   - **Rocker top edge.** The export sets `top_edge_feature = "top_edge"` on
+     `profile_outer`, `tip_land_pos_x` and `tip_land_neg_x`. The coordinate rule
+     examines every linked feature instead of giving up when more than one
+     links, so the R800 top-edge cutter-centre tables are back in S1 op 40,
+     S2 op 40 and S3 op 30.
+   - **Shaft/cone setup frames.** Both exports carry `frames.setup = "unknown"`.
+     The former shaft T1/T2/T3 and cone/built-up lathe and M2/J3/C4 transforms
+     are again plan-authored `[frames.<name>]` tables (existing Frame schema,
+     with author's-choice notes and plan citations), and the setups name them. They
+     are process-plan choices, not CAD facts; the verbatim exports are
+     unchanged. They restore coordinate/DRO, turned-profile, stick-out and
+     envelope numbers only where the exported geometry supports them. The exports
+     have no turned-feature axial extents (`z_mm`), so turned-profile and stick-out
+     segments that need them stay unknown. Neither dome exports a `base_radius`,
+     so shaft S2:20/S3:20 `speeds_feeds` `diameter_in` stays unknown.
+   - **Shaft cut-to-fit length.** The export's `pivot_bearing` carries only
+     `note = "CUT TO FIT: SPAN OVER BOTH MHA-123 EARS"` and `length_ref = 156.67`.
+     It has no length requirement or end-past-scribe band. The former `plain_end:length`
+     inspection is not dropped: the plan declares the calipers check as
+     `missing_requirements = { length = "calipers" }` on the `pivot_bearing`
+     inspect op S3:15, between the cut and doming so the cut face can still be
+     checked/reworked; the existing post-doming verification stays a forward
+     instruction. The report keeps an unknown `pivot_bearing:length` row with
+     `missing_requirement = true`. A `checks` entry for a requirement the feature
+     does not export is bad input, so a check can no longer be silently unread.
+   - **Cone volume.** The export has no `volume_mm3`/`volume_cite`, so comparison
+     keeps net volume and waste unknown. The historical handwritten analytic value
+     is not imported.
+   - **BASIC indexing angle.** `crank_bore` exports a BASIC angle
+     (`dimension_type`, cited to `BASIC_DIMENSIONS`) and no `angle_tol_deg`.
+     The consumer does not let a BASIC angle inherit the title-block ±1°, and it
+     does not turn the Ø0.10 angularity zone into degrees itself. So cone S3
+     `indexing` stays unknown. A source does exist in HA: it derives
+     `CRANK_BORE_ANGLE_LIMIT_DEG = degrees(atan(0.10 / CRANK_BOSS_LENGTH))`
+     ≈ 0.0795° (`cad/scripts/cone_pivot_post_spec.py:373`). That value is used
+     at `crank_mesh_stack.py:80` and tested at `test_cone_pivot_post_drawing.py:439`,
+     but it is not exported.
+   - **`mount_west` sign.** The export has `station_nominal = -12.98` (signed X)
+     but `station = [12.47, 13.49]` (built from `abs(ATTACHMENT_X)`). The
+     consumer's generic nominal-within-band input check reports
+     `mount_west:station` as an `error`, so the one-piece cone exits 2. This is an
+     honest stop on an exported inconsistency. Prechips does not flip the sign or
+     drop the field.
+
+   **Open M3 items owned by harmonic-analyzer**, cited at `b11124ecf`. Each one
+   blocks claiming full HA integration:
+
+   1. Add `check:traveler_pivot_shaft` and `check:traveler_cone_pivot_post` doit
+      tasks. Only `check:traveler_rocker_arm` exists (`dodo.py:3521-3538`), and
+      no run of it has been observed.
+   2. Setup frames: the shaft/cone exports have `frames.setup = "unknown"`. The
+      prechips plan frames are author's choices. Either HA exports setup frames
+      the way the rocker exports `frames.A/B` (`rocker_arm_spec.py:72,117`), or
+      the plan frames stay the authority.
+   3. Export axial extents (`z_mm`) for the shaft/cone turned features.
+   4. Export `base_radius` for the shaft's `north_dome`/`south_dome`.
+   5. Export cone `volume_mm3` with `volume_cite`.
+   6. Export the shaft cut-to-fit length requirement: the owning feature and an
+      end-past-scribe acceptance band. The former hand-authored manifest carried
+      `cut_past_scribe = [1.5, 2.0]` and `end_past_scribe = [0.0, 0.5]`; those
+      are historical, not imported. Until HA exports the requirement, the
+      `pivot_bearing:length` inspection stays unknown.
+   7. Export `crank_bore.angle_tol_deg` from `CRANK_BORE_ANGLE_LIMIT_DEG`
+      (≈ 0.0795°, `cone_pivot_post_spec.py:373`) with its citation, or record in
+      HA why that bound is not an indexing landing allowance. The general ±1°
+      is not that allowance.
+   8. Make `mount_west.station_nominal` (−12.98) and its `station` band
+      [12.47, 13.49] use the same sign (`cad/scripts/export_features.py:566`).
+      This clears the cone's `mount_west:station` error.
+
+   **Prechips follow-up (separate from the HA export list):** implement a radial
+   lathe approach model. The current engine approaches only along −setup Z, so
+   turning direction, cutter/holder geometry and dependent cutting/finish
+   coverage remain `unsupported` rather than a false far-side failure or pass.
+   The reason is `lathe approach model not implemented (engine approaches along -Z only)`.
+   Restoring authored shaft spindle frames does not make that milling model
+   applicable to lathe cuts; no change to the delivered exports can supply it.
+   Restored cone milling frames also expose real directional claim errors:
+   one-piece S2:40 (`crank_boss`) and S2:50 (`cone_boss`), and built-up S2:50
+   (`cone_boss`), claim entire cylindrical face sets including faces pointing
+   away from the milling approach. These remain `error`, not the lathe
+   `unsupported` case. Resolving the authored milling route/face claims is
+   a separate prechips planning follow-up; fixing HA's station sign alone
+   does not clear these machining stops.
+
+   **Post-review consumer gate, observed 2026-10-03:** on implementation
+   `68aef8f`, `uv run ruff check . && uv run ruff format --check . &&
+   uv run pytest -q && uv run python scripts/validate_examples.py` exited 0
+   with `FREECAD_CMD=C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe`
+   and `PRECHIPS_REQUIRE_KERNEL=1`: Ruff passed, **100 Python files** were
+   formatted, **1282 tests passed** (534.59 s), and all **24 TOML inputs** and
+   rev-6 reference bundles validated. Actual CLI regeneration and the final
+   frozen-output tests cover all five travelers and the cone comparison.
+   Traveler exits are **4 / 2 / 2 / 2 / 2**; comparison exits 2, with both
+   candidate exits 2 and cone net volume/waste still unknown.
+
+   **Legitimate golden changes from `7616f0a`:**
+   - Rocker `coordinates` S1/S2 op 40 and S3 op 30 regain the R800 top-edge
+     tables, **23 rows each**, with cutter-centre radii 795.0375 / 795.0375 /
+     795.2375 mm. Every linked profile/tip-land supplies and agrees on its
+     join; no link is ignored to manufacture the table.
+   - Shaft `inspection:pivot_bearing:length` is an explicit `unknown` at
+     S3:15, between cut op 10 and dome op 20. Its calipers gauge and original
+     procedure remain visible; zero/order findings do not change. Directional
+     rows for lathe cuts and their dependent finish rows now say `unsupported`,
+     not an invented axial-engine pass or failure.
+   - Shaft/cone setup coordinates and envelope facts regain plan-authored
+     transforms and their original citations; numeric facts are still nominal,
+     not measured setup bindings. Turned-profile axial segment arrays and the
+     diameter-in/stick-out facts needing missing `z_mm` / dome `base_radius`
+     remain explicitly unresolved (HA items 3–4 above), rather than invented.
+   - Cone `inspection:mount_west:station` changes from `unknown` to `error`
+     because exported −12.98 is outside [12.47, 13.49]. Restored milling
+     frames also expose the named, genuine far-side claims above; these stops
+     outrank the remaining unknown volume/allowance facts. The one-piece exit
+     therefore changes 4 → 2 and the comparison candidate exit follows it.
+   - Pivot-bracket finding content is unchanged. All six delivered STEP/feature
+     assets remain byte-identical to the original exports; goldens do not patch
+     or normalize the upstream data.
+
+   **Independent revision review:** the original seven findings and four
+   follow-up timing/diagnostic/domain/nominal-contract findings are resolved.
+   The read-only Opus review approved `68aef8f` with **zero open findings**;
+   it confirmed byte-identical exports, preserved zero/order findings, distinct
+   unsupported versus genuinely unclaimed faces, and no golden pass → nonpass
+   or error → pass transition. Chromium inspection of the regenerated shaft
+   shows cut / `? length ?` inspect / dome in order 10 / 15 / 20, with the
+   exact missing requirement and original procedure; the rocker displays all
+   three numeric top-edge cutter tables.
+
+   **Historical pre-review consumer gate, observed 2026-10-03:** on implementation
+   `5f51a2c` (before the seven findings above), `uv run ruff check . && uv run ruff format --check . &&
+   uv run pytest -q && uv run python scripts/validate_examples.py` exited 0
+   with `FREECAD_CMD=C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe`
+   and `PRECHIPS_REQUIRE_KERNEL=1`: Ruff passed, 99 Python files were formatted,
+   **1042 tests passed** (519.14 s), and all 24 TOML inputs and reference bundles
+   validated. Actual CLI regeneration wrote all five report/traveler goldens,
+   the rocker S1 render and cone comparison; exits remain **4 / 2 / 2 / 4 / 2**
+   and comparison 2, with unknown cone net volume/waste. The suite reproduced
+   the frozen CLI bytes twice. FreeCAD mapped all exported references without
+   errors: rocker **18/18**, shaft **18/18**, cone **36/36**.
+   An extracted `git archive` implementation copy preserved all six delivered
+   assets byte-for-byte with matching adjacent STEP digests; its actual rocker
+   traveler exited 2 without invalid face references or inspection errors.
+   The first review confirmed the export byte/face binding, but the later Opus
+   review found seven numeric-content, inspection and disclosure regressions;
+   passing the old goldens did not detect those regressions.
+   Prior M1/M2/M4/M5 results below are historical, not the post-review gate.
+   The CAD-producing farm run is not a parented `prechips check` farm trace.
+   HA's existing `check:traveler_rocker_arm` invocation and §5.2 live telemetry
+   acceptance require their own observed evidence; the shaft/cone task names
+   are absent (open item 1 above). Physical paper rehearsal, independent hand
+   oracle and first-article approval remain separate.
 4. **M4 — geometry and workholding local deliverable** (§4.2–4.3).
    Seven sampled B-rep rules execute in a separate FreeCAD process. STEP
    byte identity and entity/ordinal/label references are checked before
@@ -932,19 +1114,20 @@ sheet.
    without an OAL−grip fallback. M5 physical stack/envelope readiness still
    requires its separately qualified shop measurements.
 
-   The production rocker manifest remains the truthful exported face sets.
-   S1 strap operations claim the exported +Z datum-B face `#492` explicitly.
-   Its S1 image is the authored rectangular supply; S2/S3 stock stays unknown
-   naming the unprovided interrupted rail/ear profile footprint. No final
-   STEP part is substituted for that process material.
+   Historically, the pre-M3 production rocker S1 strap operations explicitly
+   claimed the then-exported +Z datum-B face `#492`. The current M3 export uses
+   its own `strap_datum_b` face identity; old entity numbers are not portable.
+   The S1 supply is still authored rectangular stock; later unprovided
+   rail/ear footprints remain debt, not a finished-STEP substitute.
    Synthetic fixtures author numeric supply allowances and earlier clearing
    setups. The synthetic rocker supply/clearance now fits the STEP global XY
    bbox, retaining its 1 mm Z allowances, so unknown preparation tooling does
    not invent a cutter-dilated footprint. Preparation tooling/holding debt stays
    visible; target checks remain required and all errors remain fatal.
 
-   **Observed scoped evidence:** archived PNG signatures and STEP/report
-   digests pass after binary restaging. A Ø10 cutter in a 6 mm through-groove
+   **Historical scoped M4 evidence (before the M3 consumption cutover):**
+   archived PNG signatures and STEP/report digests passed after binary
+   restaging. A Ø10 cutter in a 6 mm through-groove
    reports 135 tool hits. The claimed-sidewall normal-offset test passes on
    the offset engine and fails its hand-written no-offset mutant with 45
    own-wall hits. Undefined normals yield named unknowns on clear faces,
@@ -977,7 +1160,7 @@ sheet.
    a named missing jaw-depth caption and no later stock images. The long-
    reach target showed its prepared pocket, exact jaws/parallels and the
    setup-entry-stock caption; both 640 × 480 images loaded successfully.
-   **Project-wide acceptance observed after Opus r2 / CodeRabbit r1 fixes:**
+   **Historical project-wide acceptance after Opus r2 / CodeRabbit r1 fixes:**
    `uv run ruff check . && uv run ruff format --check . && uv run pytest -q
    && uv run python scripts/validate_examples.py` exited 0: 99 Python files
    formatted, 1033 tests passed and all 24 TOML inputs plus frozen

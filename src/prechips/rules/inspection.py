@@ -5,6 +5,17 @@ from ..model import tolerance_requirements
 from .resolution import length_mm, number, operations, record, resolve, uncertain
 
 
+def _nominal_band_error(feature, requirement):
+    limits = feature.get(requirement)
+    if not (isinstance(limits, list) and len(limits) == 2 and all(number(v) for v in limits)):
+        return {}
+    for field in (f"{requirement}_nominal", f"nominal_{requirement}"):
+        nominal = feature.get(field)
+        if number(nominal) and not limits[0] <= nominal <= limits[1]:
+            return {"nominal_field": field, "nominal": nominal, "limits": limits}
+    return {}
+
+
 def evaluate(bundle):
     result = []
     for name, feature in bundle.features["features"].items():
@@ -14,24 +25,50 @@ def evaluate(bundle):
             "features requirement manifest",
             "inventory gauge range/resolution/verification",
         ]
-        if feature["kind"] == "unknown" or any(
-            o["do"] == "unknown" for _, o in operations(bundle, name)
-        ):
+        route = operations(bundle, name)
+        missing_checks = False
+        for setup, op in route:
+            for requirement, gauge in record(op.get("missing_requirements")).items():
+                missing_checks = True
+                result.append(
+                    Finding(
+                        "inspection",
+                        f"{name}:{requirement}",
+                        "unknown",
+                        {
+                            "requirement": requirement,
+                            "missing_requirement": True,
+                            "limits": "unknown",
+                            "gauge": gauge,
+                            "op": f"{setup['id']}:{op['op']}",
+                            "inspection_method": record(op.get("inspection_methods")).get(
+                                requirement, "unknown"
+                            ),
+                        },
+                        cite,
+                        f"{name} {requirement}: requirement is absent from the exported "
+                        "manifest; acceptance limits are unresolved.",
+                    )
+                )
+        if feature["kind"] == "unknown" or any(o["do"] == "unknown" for _, o in route):
             for requirement in requirements or [None]:
                 subject = f"{name}:{requirement}" if requirement else name
+                nominal_error = _nominal_band_error(feature, requirement)
                 result.append(
                     Finding(
                         "inspection",
                         subject,
-                        "unknown",
-                        {"requirement": requirement or "unknown"},
+                        "error" if nominal_error else "unknown",
+                        {"requirement": requirement or "unknown", **nominal_error},
                         cite,
-                        f"{name}: inspection applicability or finishing action is "
+                        f"{name} {requirement}: exported nominal is outside the requirement band."
+                        if nominal_error
+                        else f"{name}: inspection applicability or finishing action is "
                         "explicitly unknown.",
                     )
                 )
             continue
-        if not requirements:
+        if not requirements and not missing_checks:
             result.append(
                 Finding(
                     "inspection",
@@ -42,7 +79,6 @@ def evaluate(bundle):
                     f"{name}: no tolerance requirement to inspect.",
                 )
             )
-        route = operations(bundle, name)
         finishing = [
             (s, o)
             for s, o in route
@@ -229,6 +265,10 @@ def evaluate(bundle):
                             "unknown",
                             "unverified gauge dimensions cannot establish capability",
                         )
+            nominal_error = _nominal_band_error(feature, requirement)
+            if nominal_error:
+                nums.update(nominal_error)
+                status, message = "error", "exported nominal is outside the requirement band"
             result.append(
                 Finding(
                     "inspection",

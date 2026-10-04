@@ -13,7 +13,13 @@ from pathlib import Path
 
 from prechips.measurements import length_fact
 from prechips.rules._envelope import measurement_item, tool_projection
-from prechips.rules.resolution import WORKHOLDING_CATEGORIES, inventory_category, number, record
+from prechips.rules.resolution import (
+    WORKHOLDING_CATEGORIES,
+    inventory_category,
+    number,
+    record,
+    setup_frame,
+)
 
 UNKNOWN = "unknown"
 
@@ -181,11 +187,10 @@ def build_job(bundle):
     from prechips.rules.geometry_common import cutting_action, finishing_subjects
 
     units = bundle.features.get("units", UNKNOWN)
-    frames = record(bundle.features.get("frames"))
     setups = []
     finishing = finishing_subjects(bundle)
     for setup in bundle.plan["setups"]:
-        frame = record(frames.get(setup.get("frame")))
+        frame = setup_frame(bundle, setup)
         transformed = {key: frame.get(key, UNKNOWN) for key in ("origin", "x", "y", "z")}
         if units not in {"mm", "in"} or not all(
             isinstance(value, list) and len(value) == 3 and all(number(v) for v in value)

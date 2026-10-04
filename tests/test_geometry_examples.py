@@ -216,11 +216,11 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
     tmp_path, freecad_kernel
 ):
     examples = copy_examples(tmp_path)
-    result, report, html = traveler(examples / "rocker-arm" / "plan.toml", tmp_path / "ref")
+    plan = examples / "rocker-arm" / "plan.toml"
+    features = load_bundle(plan).features["features"]
+    result, report, _ = traveler(plan, tmp_path / "ref")
     assert result.returncode == 2, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
-    assert raw == (examples / "geometry" / "rocker-jaw-occluded" / "rocker-arm.STEP").read_bytes()
-    assert b"\r\n" in raw  # the consumer's bytes, not a newline-normalised copy
     assert (
         report["step_sha256"]
         == report["inputs"]["step"]["sha256"]
@@ -231,8 +231,7 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
     for setup in ("S2", "S3"):
         row = finding(report, "accessibility", setup + ":10")
         assert row["status"] == "unknown"
-        assert "S1:40" in row["message"]
-        assert "#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01" in row["message"]
+        assert any(ref in row["message"] for ref in features["top_edge"]["faces"])
         assert not (tmp_path / "ref" / f"setup-{setup}.png").exists()
     assert all(render["fixture"] != "modeled" for render in report["renders"].values())
     assert not any(
@@ -241,10 +240,8 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
     coverage = finding(report, "coverage", "rocker-arm")
     assert coverage["status"] == "unknown"
     assert coverage["numbers"]["face_count"] == 18
-    assert coverage["numbers"]["unclaimed_faces"] == [
-        "#248/ADVANCED_FACE[6]/HAF_TIP_LAND_POS_X__P01",
-        "#431/ADVANCED_FACE[10]/HAF_TIP_LAND_NEG_X__P01",
-    ]
+    assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"]
+    assert coverage["numbers"]["unclaimed_faces"] == []
     corner = {
         row["subject"]: row for row in report["findings"] if row["rule"] == "internal_corner_radius"
     }

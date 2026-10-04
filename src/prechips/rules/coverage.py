@@ -1,7 +1,16 @@
 """All imported faces need a cutting claim or explicit as-stock declaration."""
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import cutting_action, op_claims, provenance, unavailable
+from prechips.rules.geometry_common import (
+    LATHE_APPROACH_REASON,
+    approach_model_reason,
+    claim_refs,
+    cutting_action,
+    known_refs,
+    op_claims,
+    provenance,
+    unavailable,
+)
 from prechips.rules.resolution import operations, record
 
 
@@ -30,6 +39,8 @@ def evaluate(bundle):
         ]
     all_faces = {face["index"] for face in faces}
     claimed, errors, debt = set(), [], False
+    unsupported = set()
+    mapping = record(facts.get("mapping"))
     for setup, op in operations(bundle):
         action = cutting_action(op)
         if action is False:
@@ -37,11 +48,19 @@ def evaluate(bundle):
         if action is None:
             debt = True
             continue
-        # Faces an op names but which point away from its setup are never credited.
+        # Unsupported lathe claims are candidates only, never direction-valid credit.
         indices, _, invalid = op_claims(bundle, facts, setup, op)
         errors.extend(invalid)
         if indices is None:
-            debt = True
+            refs = claim_refs(bundle, op)
+            if (
+                approach_model_reason(bundle, setup, op)
+                and known_refs(refs)
+                and all(ref in mapping for ref in refs)
+            ):
+                unsupported.update(mapping[ref] for ref in refs)
+            else:
+                debt = True
         else:
             claimed.update(indices)
     refs = record(bundle.plan.get("stock")).get("as_is_faces", "unknown")
@@ -76,7 +95,21 @@ def evaluate(bundle):
             "unknown",
             "cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown",
         )
+    elif unclaimed and set(unclaimed) <= unsupported:
+        status, message = "unsupported", LATHE_APPROACH_REASON
     elif unclaimed:
+        # A mixed error names only truly missing claims, not unsupported candidates.
+        candidates = set(unclaimed) & unsupported
+        if candidates:
+            unclaimed = sorted(set(unclaimed) - unsupported)
+            values.update(
+                unclaimed_faces=[face.get("ref") for face in faces if face["index"] in unclaimed],
+                unclaimed_indices=unclaimed,
+                unsupported_faces=[
+                    face.get("ref") for face in faces if face["index"] in candidates
+                ],
+                unsupported_indices=sorted(candidates),
+            )
         names = [
             face.get("ref") or f"imported face index {face['index']}"
             for face in faces

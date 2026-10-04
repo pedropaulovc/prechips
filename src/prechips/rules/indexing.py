@@ -182,6 +182,11 @@ def evaluate(bundle):
             tolerance = _rational(feature["angle_tol_deg"])
             tolerance_source = f"features.features.{feature_name}.angle_tol_deg"
             cite.extend(_citations(feature.get("cite"), "angle_tol_deg"))
+        elif isinstance(feature, dict) and feature.get("dimension_type") == "basic":
+            # A BASIC angle is controlled geometrically, not by a title-block ± band.
+            tolerance = None
+            tolerance_source = f"features.features.{feature_name}.angle_tol_deg"
+            cite.extend(_citations(feature.get("cite"), "dimension_type"))
         else:
             general = record(bundle.features.get("general_tolerances"))
             tolerance = _rational(general.get("angular_deg"))

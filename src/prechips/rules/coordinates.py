@@ -12,7 +12,15 @@ import itertools
 import math
 
 from ..findings import Finding
-from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import (
+    UNKNOWN,
+    length_mm,
+    number,
+    plan_frame_cite,
+    resolve,
+    setup_frame,
+    uncertain,
+)
 from .tip_endpoints import HOLE_OPS, stock_states
 
 AXES = ("x", "y", "z")
@@ -124,6 +132,27 @@ def _circle_join(point, direction, centre, radius, target):
     return min(candidates, key=lambda p: math.dist(p, target))
 
 
+def _top_join(top, linked, offset):
+    """The upper arc's join needs each linked land, not its lower outline arc."""
+    centre = top.get("arc_centre", top.get("at"))
+    a, b = top.get("end"), linked.get("radial_tip_end")
+    radius = _nominal(top, "radius")
+    if not (
+        all(isinstance(point, list) and len(point) >= 2 for point in (centre, a, b))
+        and all(number(value) for point in (centre, a, b) for value in point)
+        and all(number(value) for value in (radius, offset))
+        and radius > offset
+        and linked.get("frame", "model") == top.get("frame", "model")
+    ):
+        return None
+    # The table spans the mirrored top arc. The -X land describes the same
+    # join with reversed handedness, so evaluate it in the +X half-plane.
+    a = [centre[0] + abs(a[0] - centre[0]), a[1]]
+    b = [centre[0] + abs(b[0] - centre[0]), b[1]]
+    land = _offset_line(a, b, offset)
+    return _circle_join(*land, centre[:2], radius - offset, a) if land else None
+
+
 def _joins(top, outer, offset):
     centre = outer.get("arc_centre")
     a, b, c = top.get("end"), outer.get("radial_tip_end"), outer.get("bottom_end")
@@ -184,10 +213,15 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
         else:
             cutter_radius = radius - offset
             linked = [f for f in features.values() if f.get("top_edge_feature") == feature_name]
-            joins = _joins(feature, linked[0], offset) if len(linked) == 1 else None
-            if linked and joins is None:
-                return None, []
-            endpoint = joins[0] if joins else feature.get("end")
+            endpoints = [_top_join(feature, linked_feature, offset) for linked_feature in linked]
+            if linked:
+                if any(point is None for point in endpoints):
+                    return None, []
+                endpoint = endpoints[0]
+                if any(math.dist(endpoint, point) > 1e-9 for point in endpoints[1:]):
+                    return None, []
+            else:
+                endpoint = feature.get("end")
         if not isinstance(endpoint, list) or not all(number(v) for v in endpoint):
             return None, []
         half = math.degrees(math.atan2(endpoint[0] - centre[0], centre[1] - endpoint[1]))
@@ -378,7 +412,7 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
             z = op.get(field)
             if not number(z):
                 continue
-            unbound = frame.get("binding") == UNKNOWN
+            unbound = not frame or frame.get("binding") == UNKNOWN
             model = model_point([0.0, 0.0, UNKNOWN if unbound else z], frame)
             local = frame_point(model, frame)
             row = {
@@ -438,10 +472,11 @@ def _dome(name, feature, op, radius_mode):
 def evaluate(bundle):
     result = []
     features = bundle.features["features"]
+    # Feature source frames are manifest-only; setups resolve exported or plan-owned frames.
     frames = mapping(bundle.features.get("frames"))
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
-        frame = mapping(frames.get(setup.get("frame")))
+        frame = setup_frame(bundle, setup)
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"
         numbers = {
@@ -589,6 +624,7 @@ def evaluate(bundle):
                     "features declared frames and nominal geometry",
                     "plan contour steps, operation targets and stock allowances",
                     "inventory selected cutter nominal diameter",
+                    *plan_frame_cite(bundle, setup),
                 ],
                 sentence,
             )

@@ -9,12 +9,31 @@ from prechips.rules.resolution import (
     inventory_category,
     number,
     operations,
+    plan_frame_cite,
     record,
     resolve,
+    setup_frame,
 )
+from prechips.rules.turned_profile import PROFILE_OPS
 
 UNKNOWN = "unknown"
 _NONCUTTING = MANUAL | {"fit_up", "transfer"}
+LATHE_APPROACH_REASON = "lathe approach model not implemented (engine approaches along -Z only)"
+# Shared profile/form/groove actions also occur on mills; resolve their machine kind.
+_TURNING_ACTIONS = (
+    PROFILE_OPS - {"profile", "form", "groove", "rough_groove", "finish_groove"}
+) | {"part_off", "cut_to_fit"}
+
+
+def approach_model_reason(bundle, setup, op):
+    """Name the unsupported domain before consuming the engine's milling-only facts."""
+    machine = record(resolve(bundle, "machines", setup.get("machine")))
+    kind, action = machine.get("kind"), op.get("do")
+    if kind == "lathe" or action in _TURNING_ACTIONS:
+        return LATHE_APPROACH_REASON
+    if kind != "mill" and action in PROFILE_OPS:
+        return LATHE_APPROACH_REASON
+    return None
 
 
 def cutting_action(op):
@@ -59,8 +78,10 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
                 cite.extend(
                     _citations(item.get("source")) if isinstance(item.get("source"), str) else []
                 )
-        frame = record(record(bundle.features.get("frames")).get(setup.get("frame")))
-        cite.extend(_citations(frame.get("cite")))
+        # Exported frames keep their own cites; a plan-owned frame names its owner too.
+        cite.extend(
+            plan_frame_cite(bundle, setup) or _citations(setup_frame(bundle, setup).get("cite"))
+        )
     if op is not None:
         cite.append(f"plan.setups.{setup['id']}.ops.{op['op']}: selected action/tool/holder")
         for category, reference in (("tools", op.get("tool")), ("holders", op.get("holder"))):
@@ -128,9 +149,9 @@ def known_refs(refs):
 def op_claims(bundle, facts, setup, op):
     """(valid claimed indices or None, far-side refs, invalid refs) from the op's kernel facts.
 
-    Claims are the engine's verdict on the faces the op names: only faces that face the
-    setup approach are credited; faces pointing away are claim errors; unresolved
-    directions leave the claim unknown.
+    For supported milling operations, only faces that face the setup approach are
+    credited; faces pointing away are claim errors; unresolved directions leave
+    the claim unknown. Lathe claims never credit raw milling approach verdicts.
     """
     refs = claim_refs(bundle, op)
     errors = record(facts.get("mapping_errors"))
@@ -143,6 +164,8 @@ def op_claims(bundle, facts, setup, op):
     )
     if invalid or not known_refs(refs):
         return None, [], invalid
+    if approach_model_reason(bundle, setup, op):
+        return None, [], []
     away = detail.get("claim_errors")
     away = sorted(ref for ref in away if isinstance(ref, str)) if isinstance(away, list) else []
     indices = detail.get("claimed_indices", UNKNOWN)
@@ -166,7 +189,9 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
         cite = provenance(bundle, rule, setup, op, op.get("feature"))
         blocked = unavailable(bundle, rule, subject, facts, cite)
         inputs = jobs.get(subject, {})
-        detail = record(record(facts.get("ops")).get(subject))
+        approach_reason = approach_model_reason(bundle, setup, op)
+        # Even observed -Z collision/stock/corner facts cannot establish lathe errors.
+        detail = {} if approach_reason else record(record(facts.get("ops")).get(subject))
         if blocked is None:
             if cutting_action(op) is False:
                 blocked = Finding(
@@ -192,7 +217,12 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
                         cite,
                         f"{subject}: invalid STEP face reference(s): {', '.join(invalid)}.",
                     )
-                elif not known_refs(claim_refs(bundle, op)):
+                elif not known_refs(claim_refs(bundle, op)) or (
+                    approach_reason
+                    and any(
+                        ref not in record(facts.get("mapping")) for ref in claim_refs(bundle, op)
+                    )
+                ):
                     blocked = Finding(
                         rule,
                         subject,
@@ -200,6 +230,15 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
                         {},
                         cite,
                         f"{subject}: claimed face references are unknown or unmapped.",
+                    )
+                elif approach_reason:
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unsupported",
+                        {},
+                        cite,
+                        f"{subject}: {approach_reason}.",
                     )
                 elif frames[setup["id"]] == UNKNOWN:
                     blocked = Finding(

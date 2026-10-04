@@ -12,9 +12,10 @@ not a CAM simulation or a CAD model's machinability, and does not generate
 toolpaths.
 
 The local M1 implementation, PR #5 review corrections, M2 declared-input
-feasibility rules, M4 kernel rules and M5 measured-inventory screens are
-present. Physical paper rehearsal and live farm/App Insights acceptance remain
-pending; neither is evidence supplied by the reference fixtures.
+feasibility rules, M3 consumer-export bundles, M4 kernel rules and M5
+measured-inventory screens are present. Physical paper rehearsal and live
+prechips farm/App Insights acceptance remain pending; exported CAD inputs
+are not evidence of either.
 See [PLAN.md](PLAN.md) for milestone status and unobserved acceptance work.
 
 ## Install and check
@@ -61,17 +62,27 @@ uv run prechips traveler examples/cone-pivot-post/plan.toml --out out/cone-pivot
 uv run prechips compare examples/cone-pivot-post/plan.toml examples/cone-pivot-post/built-up.toml --out out/cone-comparison
 ```
 
-Observed reference exits are **shaft 4 / rocker 2 / bracket 2 / cone one-piece 4 /
-cone built-up 2**. The shaft and one-piece cone retain required unknowns; the
-rocker and bracket lack named tooling/fixtures; the built-up cone is explicitly
-unauthorized by the drawing. Outputs are still written for exits 2 and 4.
-All example sheets remain **PLANNED**. They are
-hand-authored references, not first articles or certified CAD exports. No
-verified cutting-table numbers are supplied; unknown RPM/feed cells stay
-unknown. The shaft, bracket and cone bundles carry no STEP bytes, so every
-geometry rule row of theirs is `?`; the rocker binds the consumer's labelled
-STEP export. See [examples/README.md](examples/README.md) for source provenance,
-reconciliation details and the synthetic geometry fixtures that also carry STEP bytes.
+Current expected consumer CLI exits are **shaft 4 / rocker 2 / bracket 2 / cone
+one-piece 2 / cone built-up 2**. Existing inspection choices follow the exported
+feature owners without inventing methods or changing gauges. The shaft keeps
+required unknowns. Missing tooling/fixtures and one-piece-only construction keep
+their stops. The one-piece cone stops on an exported inconsistency:
+`mount_west.station_nominal = -12.98` lies outside its own `station` band
+[12.47, 13.49]. That is an HA export follow-up, not a sign the consumer may fix.
+Restored milling frames also expose far-side boss-face claims (one-piece S2:40/50,
+built-up S2:50); those remain errors requiring an authored route/claim correction.
+Lathe approach-dependent geometry is explicitly unsupported until a radial
+lathe approach model exists; the engine's −Z-only milling model is not a lathe test.
+Only the consumer side of M3 is done; the HA follow-ups and the combined gate
+evidence are in PLAN §8 M3. Outputs are still written for exits 2 and 4.
+All example plans remain **authored** and their sheets **PLANNED**. The shaft,
+rocker and cone consume verbatim harmonic-analyzer `features.toml` exports
+with their exact adjacent STEP files. The pivot-bracket manifest remains
+hand-authored, without a registered consumer drawing or STEP bytes.
+Exported geometry does not certify the route, tooling, setup or first article.
+No verified cutting-table numbers are supplied; unknown RPM/feed cells stay
+unknown. See [examples/README.md](examples/README.md) for export provenance,
+source-contract changes and the separate synthetic geometry fixtures.
 
 The cone candidates are authored **full-envelope one-piece blank** and **block
 plus pressed boss** alternatives, not route generation or a recommendation. The
@@ -79,8 +90,9 @@ built-up route is marked `✗ drawing permits one-piece only`: no drawing note
 permits assembly. Its single 12.5182° journal setting prints BS-0 plate/circle,
 turns and spaces; inventory verification remains due. No shaft cross-hole is
 invented. Cutting-data K_c/E remains `"unknown"`, so deflection is not a
-numerical machining claim. Waste uses the specification's cited analytic
-finished volume and each authored stock envelope, not a guessed CAD measurement.
+numerical machining claim. The current exported cone manifest supplies no
+finished volume: comparison must leave net volume and waste unknown, rather
+than transplanting the former hand-authored analytic-volume fact into the export.
 
 ## CLI: five noninteractive verbs
 
@@ -287,18 +299,20 @@ Nothing here is a toolpath or a certification of the physical setup. See
 M2 checks declared profile, stock holding, indexing and physics arithmetic;
 they do not confirm a measured setup. Lathe headroom remains `unsupported`,
 trial-cut measurements and example cutting data remain unknown. The
-consumer's labelled face-set export exists for three parts and is bound
-for the rocker; the M3 consumer-side integration (automatic manifest
-export, live farm/trace rehearsal) is a separate milestone and nothing here
-claims it. M4 geometry is sampled B-rep measurement
+consumer's labelled manifests and adjacent STEP exports are consumed for all
+three drawn pilot parts (M3); pivot-bracket remains authored. Export delivery
+does not establish live prechips farm/trace acceptance or physical readiness.
+M4 geometry is sampled B-rep measurement
 with a vise as the only modeled fixture: lathe setups have no chuck/collet
 solid (`vise` not applicable, `thin_wall_under_clamp` unsupported,
-accessibility unresolved). Shaft, bracket and cone reference bundles carry
-no STEP bytes; the rocker binds the consumer's labelled export
-(`HAF_<FEATURE>__P<nn>` face labels, kept byte-for-byte) with each
-feature's default `faces` taken from that export. S1's upper strap operations
-explicitly claim exported datum face B in the plan; the two tip lands remain
-unclaimed. All four select the shipped vise, which declares no `jaw_depth`
+accessibility unresolved). Only the authored bracket lacks STEP bytes.
+Shaft, rocker and cone preserve their consumer-exported face sets and exact
+adjacent STEP files; exported face identities do not establish operation
+coverage. The rocker's S1 upper strap operations explicitly claim the exported
+datum-B face in the plan. Its whole-outline operations S1:50, S2:50 and S3:40
+explicitly claim `profile_outer` plus both separately exported radial-land
+faces, preserving the authored whole-outline intent. The shipped vise
+declares no `jaw_depth`
 (its item-level `verify = true` no longer withholds the jaw dimensions it
 does declare), and an unknown `thin_wall_floor_mm`, so their setup rows are
 `?`. Contour tables use

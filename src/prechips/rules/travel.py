@@ -14,7 +14,6 @@ from prechips.rules._envelope import (
     fact,
     machine_envelope,
     measurement_item,
-    setup_frame,
     spindle_nose_band,
     stock_extents,
     transformed_bounds,
@@ -27,6 +26,7 @@ from prechips.rules.resolution import (
     _citations,
     record,
     same_length,
+    setup_frame_ref,
 )
 
 
@@ -73,8 +73,8 @@ def evaluate(bundle):
         bands = {axis: [] for axis in AXES}
         scalar_spans = {axis: [] for axis in AXES}
         complete = {axis: True for axis in AXES}
-        target = setup_frame(bundle, setup)
-        cite.extend(_input_cite(target, f"features.frames.{setup.get('frame', UNKNOWN)}"))
+        target, owner = setup_frame_ref(bundle, setup)
+        cite.extend(_input_cite(target, f"{owner}.{setup.get('frame', UNKNOWN)}"))
         stock, stock_cite = stock_extents(bundle, setup)
         authored_stock = record(bundle.plan.get("stock"))
         dimensions = [

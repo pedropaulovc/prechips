@@ -13,7 +13,7 @@ quantity = 1                 # harmonic-analyzer/cad/config/parts/pivot-shaft.ya
 
 [drawing]
 number = "MHA-065"           # parts/pivot-shaft.yaml:2
-revision = "unknown"         # no certified STEP/drawing pair supplied
+revision = "unknown"         # export v40 exists (harmonic-analyzer/cad/config/release.yaml:next_revision); release/operator matching pending
 
 [paths]
 inventory = "../inventory/pedro-shop.toml"
@@ -51,11 +51,66 @@ radius_mode = false          # author's choice: X diametric; a physical 10 mm X 
 x = "away_from_spindle_axis" # author's choice: positive radial tool withdrawal
 z = "toward_exposed_end"     # author's choice: +T1/+T2 north, +T3 south; redo sign check after rechuck
 
+# Plan-owned setup frames (PLAN.md §4.1; docs/plan.md "frames"). The exported
+# manifest declares only `model` and an unknown `setup`; these restore the
+# pre-export T1/T2/T3 transforms and citations verbatim (3a561db
+# examples/pivot-shaft/features.toml). Origins and axes are model coordinates.
+# The frame choice is the author's; the cited source geometry is CAD's.
+
+# S1: origin on the shoulder north face, z = -JournalLength = -6.0
+# (exported shoulder_north_face plane z = -6.0).
+[frames.T1]
+origin = [0.0, 0.0, -6.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"   # the face is cut in S1 op 10 and the DRO set on it
+note = "AUTHOR'S CHOICE: shoulder north face (seats on the north ear); +Z toward the north end"
+cite = [
+  "AUTHOR'S CHOICE",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+  "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
+]
+
+# S2: origin at the north apex plane, z = +DomeHeight = +1.5
+# (exported north_dome base_z 0.0 + height_nominal 1.5).
+[frames.T2]
+origin = [0.0, 0.0, 1.5]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"   # found by touching the shoulder north face (T2 z = -7.5)
+note = "AUTHOR'S CHOICE: north apex plane; +Z toward the north end"
+cite = [
+  "AUTHOR'S CHOICE",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431",
+]
+
+# S3: origin at the scribe the fitter makes at the south ear's outer face,
+# +Z toward the plain end. Nominal model position = -ShaftLength REF
+# (-156.67; exported south_dome base_z); the real position is the
+# installed-ear span, which no input supplies.
+[frames.T3]
+origin = [0.0, 0.0, -156.67]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "unknown"   # awaiting the measured span over both installed MHA-123 ears
+note = "AUTHOR'S CHOICE: scribe at the south ear outer face, shoulder pushed north; +Z toward the plain end"
+cite = [
+  "AUTHOR'S CHOICE",
+  "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+  "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+  "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
+]
+
 # ---------------------------------------------------------------- S1
 [[setups]]
 id = "S1"
 machine = "PM-1127VF-LB"
-frame = "T1"
+frame = "T1"                 # plan.frames.T1 (author's choice; exported `setup` stays unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice; listed consumable, not a cutting-data claim
 deburr_mm = 0.25             # title block: break edges R0.25 OR CHAMFER 0.25 MAX (title_block.yaml:45)
 stock_in = "prepared_blank"
@@ -92,7 +147,7 @@ gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog, +20 on diametric display
 
 [setups.zero.z]
-face = "shoulder_north"
+face = "shoulder_north_face"
 edge_mm = 0.0
 from = "+z"
 method = "face_then_set"                # EL400 §9.2.1 p62: face, withdraw without Z motion
@@ -106,7 +161,7 @@ retouch_after = []
 tool = "turning-tools-warner-lms-4132/E"
 x_method = "touch the cylinder just measured by micrometer; Axis Set its measured diameter"  # author's choice
 gauge = "micrometers/0-1in"
-z_face = "shoulder_north"
+z_face = "shoulder_north_face"
 edge_mm = 0.0
 paper_mm = 0.0              # author's choice: direct contact, no paper
 method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
@@ -115,7 +170,7 @@ before_ops = [80, 90]
 [[setups.ops]]
 op = 10
 do = "face"
-feature = "shoulder"
+feature = "shoulder_north_face"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0                    # creates the shoulder north face = T1 origin
@@ -125,7 +180,7 @@ note = "Cut the shoulder north step 22.5 mm from the prepared blank north end, t
 [[setups.ops]]
 op = 20
 do = "rough_turn"
-feature = "north_journal"
+feature = "pivot_journal"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
@@ -136,7 +191,7 @@ direction = "toward_shoulder"  # author's choice: traverse Z7.5 to Z0; listed en
 [[setups.ops]]
 op = 30
 do = "finish_turn"
-feature = "north_journal"
+feature = "pivot_journal"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
@@ -150,7 +205,7 @@ finish_ra = "unknown"         # no roughness comparator in the inventory
 [[setups.ops]]
 op = 40
 do = "rough_turn"
-feature = "body"
+feature = "pivot_bearing"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = -1.5
@@ -161,7 +216,7 @@ direction = "toward_chuck"  # author's choice: feed toward south supply station,
 [[setups.ops]]
 op = 50
 do = "finish_turn"
-feature = "body"
+feature = "pivot_bearing"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = -1.5
@@ -187,7 +242,7 @@ finish_ra = "unknown"
 [[setups.ops]]
 op = 70
 do = "finish_turn"
-feature = "shoulder"
+feature = "shoulder_od"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = -1.5
@@ -197,6 +252,21 @@ note = "Leave the Ø10 bar as supplied if it measures inside the band; otherwise
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
+
+[[setups.ops]]
+op = 71
+do = "inspect"
+feature = "shoulder_north_face"
+note = "Existing ShoulderLength check from op 70; the export assigns the shared length to both shoulder faces."
+[setups.ops.checks]
+length = "calipers"
+
+[[setups.ops]]
+op = 72
+do = "inspect"
+feature = "shoulder_thrust"
+note = "Same ShoulderLength caliper check, keyed to the exported south-face owner."
+[setups.ops.checks]
 length = "calipers"
 
 [[setups.ops]]
@@ -233,7 +303,7 @@ width = "calipers"
 [[setups]]
 id = "S2"
 machine = "PM-1127VF-LB"
-frame = "T2"
+frame = "T2"                 # plan.frames.T2 (author's choice; exported `setup` stays unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S1"
@@ -262,7 +332,7 @@ stickout_mm = 27.0          # author's choice: stub Z15 - jaw front Z(-12)
 
 [setups.zero.transfer]
 from = "S1"
-indicate = "body"
+indicate = "pivot_bearing"
 gauge = "dial-indicator"
 runout_limit_mm = "unknown"   # no coaxiality tolerance on the drawing
 
@@ -276,7 +346,7 @@ gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog
 
 [setups.zero.z]
-face = "shoulder_north"
+face = "shoulder_north_face"
 edge_mm = -7.5                # shoulder north face in T2: -(6.0 + 1.5)
 from = "+z"
 method = "touch"              # EL400 §9.2.1 p62: touch, withdraw without Z motion
@@ -289,7 +359,7 @@ retouch_after = []
 tool = "turning-tools-warner-lms-4132/E"
 x_method = "touch the cylinder just measured by micrometer; Axis Set its measured diameter"  # author's choice
 gauge = "micrometers/0-1in"
-z_face = "shoulder_north"
+z_face = "shoulder_north_face"
 edge_mm = -7.5
 paper_mm = 0.0              # author's choice: direct contact
 method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
@@ -326,7 +396,7 @@ height = "With spindle stopped, align outside caliper jaws axially at apex and v
 [[setups.ops]]
 op = 30
 do = "inspect"               # manual: no tool, holder or cut
-feature = "north_journal"
+feature = "pivot_journal"
 note = "JournalLength runs from the dome base edge (formed in op 20) to the shoulder north face."
 
 [setups.ops.checks]
@@ -343,7 +413,7 @@ length = "With spindle stopped, align outside caliper jaws axially at the dome b
 [[setups]]
 id = "S3"
 machine = "PM-1127VF-LB"
-frame = "T3"
+frame = "T3"                 # plan.frames.T3 (author's choice; physical binding unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S2"
@@ -372,7 +442,7 @@ stickout_mm = "unknown"     # depends on actual scribe-to-supply-end length, not
 
 [setups.zero.transfer]
 from = "S2"
-indicate = "body"
+indicate = "pivot_bearing"
 gauge = "dial-indicator"
 runout_limit_mm = "unknown"
 
@@ -409,7 +479,7 @@ before_ops = [20]
 [[setups.ops]]
 op = 10
 do = "cut_to_fit"
-feature = "plain_end"
+feature = "south_dome" # exported final surface at the cut-to-fit plain end
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 1.75                # author's choice: midpoint of sourced 1.5–2.0 past-scribe band; not absolute fitted length
@@ -417,8 +487,11 @@ to_z_band = [1.5, 2.0]        # "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE"
 direction = "radially_inward"  # author's choice: repeated facing, not an undeclared parting blade
 note = "Face the excess and grip remnant off; no parting blade selected."
 
-[setups.ops.checks]
-length = "calipers"         # author's choice: scribe-to-face transfer, then assembly fit check
+[[setups.ops]]
+op = 15
+do = "inspect"
+feature = "pivot_bearing"
+missing_requirements = { length = "calipers" }  # author's choice: scribe-to-face transfer, then assembly fit check
 
 [setups.ops.inspection_methods]
 length = "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears."  # author's choice; actual span remains unknown
@@ -439,3 +512,4 @@ height = "calipers"         # author's choice: axial outside-jaw contact at apex
 
 [setups.ops.inspection_methods]
 height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim and trial fit the assembly."  # author's choice
+

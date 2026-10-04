@@ -9,7 +9,7 @@ from test_cli import run_cli
 from prechips.findings import exit_code
 from prechips.inputs import Bundle
 from prechips.report import build_report, canonical_bytes
-from prechips.rules import stickout, stock_diameter, turned_profile
+from prechips.rules import coordinates, stickout, stock_diameter, turned_profile
 
 
 def bundle():
@@ -90,6 +90,27 @@ def bundle():
 
 def setup(data):
     return data.plan["setups"][0]
+
+
+def test_unknown_setup_frame_preserves_only_authored_local_lathe_endpoints():
+    data = bundle()
+    data.features["frames"]["T"] = "unknown"
+    setup(data)["ops"][0].update(to_z=0.0, z_from=-2.0, z_to=1.75)
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "unknown"
+    rows = {row["point"]: row for row in finding.numbers["rows"]}
+    for field, value in {"to_z": 0.0, "z_from": -2.0, "z_to": 1.75}.items():
+        row = rows[f"op 10 {field}"]
+        assert row["setup"] == ["unknown", "unknown", value]
+        assert row["model"] == ["unknown"] * 3
+        assert row["local_from"] == {"op": 10, "field": field, "axis": "z"}
+    assert rows["drawing station 1"]["setup"] == ["unknown"] * 3
+    data.features["frames"]["T"] = deepcopy(data.features["frames"]["model"])
+    bound_rows = coordinates.evaluate(data)[0].numbers["rows"]
+    endpoint = next(row for row in bound_rows if row["point"] == "op 10 z_to")
+    assert endpoint["setup"] == [0.0, 0.0, 1.75]
+    assert endpoint["model"] == [0.0, 0.0, 1.75]
+    assert "local_from" not in endpoint
 
 
 def long_stickout_bundle():
