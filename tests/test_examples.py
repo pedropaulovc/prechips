@@ -9,7 +9,7 @@ from test_cli import copy_examples, traveler
     [
         ("pivot-shaft", "plan.toml", "expected", 0),
         ("rocker-arm", "plan.toml", "expected", 0),
-        ("pivot-bracket", "plan.toml", "expected", 2),
+        ("pivot-bracket", "plan.toml", "expected", 0),
         ("cone-pivot-post", "built-up.toml", "expected/built-up", 0),
     ],
 )
