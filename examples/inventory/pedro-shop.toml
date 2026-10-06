@@ -178,16 +178,6 @@ oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", 
 [tools.endmills-lms-6784.members."3-8in-4fl".projection_mm]
 "r8-collets-lms-4860/3-8in" = { value = 38.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
 
-[tools.endmills-lms-6784.members."3-8in-2fl"]
-dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
-shank_in = "3/8"
-flutes = 2
-flute_len_mm = { value = 22.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
-oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
-
-[tools.endmills-lms-6784.members."3-8in-2fl".projection_mm]
-"r8-collets-lms-4860/3-8in" = { value = 38.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
-
 # --- cone-pivot-post additions ---
 # 7/16 in two-flute, centre cutting: plunges the cone post's Ø11.51 mounting counterbores.
 [tools.endmills-lms-6784.members."7-16in-2fl"]
@@ -1182,6 +1172,16 @@ solids = [
 # rev-3 inventory line 165: none on hand (2026-10-02)
 
 # --- rocker-arm additions ---
+[tools.endmills-lms-6784.members."3-8in-2fl"]
+dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
+shank_in = "3/8"
+flutes = 2
+flute_len_mm = { value = 22.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.endmills-lms-6784.members."3-8in-2fl".projection_mm]
+"r8-collets-lms-4860/3-8in" = { value = 38.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, collet nose to tool tip after inserting the rocker rougher 0.5 mm deeper" } }
+
 # Shop-made ground riser bars, 64 mm across: they sit inside the rocker's 65 mm jaw
 # opening (0.5 mm each side) under both parallels' full footprints; a 1-2-3 block's
 # 50.8 mm edge cannot carry both parallels and its 76.2 mm edge cannot fit the opening.
@@ -1337,7 +1337,7 @@ solids = [
 # rod hole's radial position. Tip ends at Z-2.4, below the upper strap face. The
 # collar's underside seats on the plate top (Z-15); its 3.0 m6 shank is a standard
 # location fit in the plate's 3.0 H7 hole, both drawn at the nominal 3.000 fit
-# envelope. It is the positive clock stop for the S4 closing profile pass (op 42)
+# envelope. It is the positive clock stop for the S4 closing profile pass (op 40)
 # only, after the retained web is cut (the web reacts the earlier passes); in S3 the
 # straps react the loads. Before tightening, the part is preloaded CCW (viewed from
 # above, looking down -Z) against it. It is never a clamp or lift.
@@ -1443,10 +1443,14 @@ range_mm = [0.0, 0.8]
 resolution_mm = 0.001
 
 # Rocker-only digital height gauge on the granite plate for the rod hole's
-# Ø0.20 A|B|C position check (the shared 0.001 in height gauge stays as is).
+# Ø0.20 A|B|C position check (the shared 0.001 in height gauge stays as is). Its
+# 0.001 mm display is not its accuracy (example scale accuracy about
+# +-0.02-0.03 mm over the travel), so the check does not use its absolute scale:
+# it is the rigid carrier for the 1 µm test indicator, compared against wrung
+# gauges.rocker-position-blocks stacks at each pin height.
 [gauges.rocker-position-height-gauge]
 kind = "height_gauge"
-note = "illustrative example item: 0-300 mm digital height gauge reading 0.001 mm, used on the granite surface plate for the Ø0.20 A|B|C rod-hole position inspection"
+note = "illustrative example item: 0-300 mm digital height gauge reading 0.001 mm (example scale accuracy about +-0.02-0.03 mm over the travel, labelled example, not measured), used on the granite surface plate only as the rigid carrier for the 1 µm test indicator zeroed on calibrated gauge-block stacks for the Ø0.20 A|B|C rod-hole position inspection; its absolute scale reading is not used"
 # measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "gauge block comparison" } (range_mm is a plain number list in the schema)
 range_mm = [0.0, 300.0]
 # measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "gauge block comparison" } (resolution_mm is a plain number in the schema)
@@ -1507,6 +1511,140 @@ oal_mm = { value = 49.0, measured = { by = "example (plausible, not measured)", 
 
 [tools.rocker-rod-reamer.members."2.0mm".projection_mm]
 "drill-chuck-r8" = { value = 34.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } }
+
+# Ø0.20 A|B|C rod-position inspection reference (illustrative example rocker-only
+# assembly, one owner; inspection accessory only, never a machining hold). A hollow
+# cast-iron box, 120 mm cube with 8 mm walls, carries a fixed ground C stop bar.
+# Frame (box frame): origin at the outer corner where the left face, the front face
+# and the base meet; +x toward the right side, +y from the front face into the box
+# (the body is y >= 0), +z up. Ground reference faces: base z = 0, right side
+# x = 120 (example squareness <= 0.003 mm per 100 mm to the base) and front face
+# y = 0 (datum B simulator, square to both). The C stop bar is doweled and screwed to
+# the front face: top z = 12.7 (datum C simulator, ground parallel to the base after
+# doweling), projecting y = -12..0 so the whole 2.5 mm C land thickness bears; its
+# underside is relieved 0.5 mm above the base plane so only the box base sits on the
+# granite. Reading 1 (base down): part B face on y = 0, C land (outward normal -z) on
+# the bar top, pivot A at x = 0 and z ≈ 159.392 (hub clear above the box top), rod
+# hole near x = 15.843, z = 27.0, C land x = 5.43..11.02. Two light toolmaker's
+# clamps (fixtures.rocker-inspection-clamps) grip part strap + front wall (2.5 + 8 =
+# 10.5 mm) through the two left-side windows; they reach no further right than
+# x = 18 and no lower than z = 42, never x > 120 or z < 0. Reading 2: tip the
+# whole assembly onto the ground right side x = 120 without unclamping (the bar
+# keeps C contact). The back window is access/lightening only. No base,
+# right-side or front-face reference area is cut. All primitives below are
+# example values, not shop measurements.
+[fixtures.rocker-inspection-box]
+kind = "inspection_box"
+note = "illustrative example shop-made inspection reference: 120 mm hollow cast-iron box (8 mm walls, base/right/front ground, base-to-right squareness <= 0.003 mm per 100 mm), two left clamp windows and a back access window, with a 40 x 12 x 12.2 mm hardened ground C stop bar on two 4 mm dowels and two M4 screws; inspection only, not a certificate or a measurement"
+length_mm = { value = 120.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, left face to ground right side" } }
+width_mm = { value = 120.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground front face to back face" } }
+height_mm = { value = 120.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge on granite, ground base to top face" } }
+solids = [
+  { name = "shell", shape = "box", at_mm = [0.0, 0.0, 0.0], size_mm = [120.0, 120.0, 120.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "granite surface plate, cylindrical square and 1 µm test indicator: base z0 and right side x120 ground perpendicular within 0.003 mm per 100 mm, front face y0 ground flat and square to both (example capability, not a certificate)" } },
+  { name = "cavity", void = true, cuts = ["shell"], shape = "box", at_mm = [8.0, 8.0, 8.0], size_mm = [104.0, 104.0, 104.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "ultrasonic thickness gauge, 8 mm cast walls" } },
+  { name = "left-window-lower", void = true, cuts = ["shell"], shape = "box", at_mm = [-0.1, 8.0, 38.0], size_mm = [8.2, 32.0, 24.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule, cast window" } },
+  { name = "left-window-upper", void = true, cuts = ["shell"], shape = "box", at_mm = [-0.1, 8.0, 83.0], size_mm = [8.2, 32.0, 24.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule, cast window" } },
+  { name = "back-window", void = true, cuts = ["shell"], shape = "box", at_mm = [20.0, 111.9, 20.0], size_mm = [80.0, 8.2, 80.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, cast window" } },
+  { name = "c-stop-bar", shape = "box", at_mm = [0.0, -12.0, 0.5], size_mm = [40.0, 12.0, 12.2], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge and 1 µm test indicator on granite: top 12.7 above the box base, parallel to it within 0.002 over the bar; calipers, length and projection" } },
+  { name = "bar-screw-cbore-left", void = true, cuts = ["c-stop-bar"], shape = "cylinder", at_mm = [6.0, -12.1, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 8.0, length_mm = 4.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, counterbore dia and depth" } },
+  { name = "bar-screw-hole-left", void = true, cuts = ["c-stop-bar"], shape = "cylinder", at_mm = [6.0, -7.7, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.5, length_mm = 7.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
+  { name = "bar-screw-tap-left", void = true, cuts = ["shell"], shape = "cylinder", at_mm = [6.0, -0.1, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.1, length_mm = 8.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M4x0.7 thread plug gauge; drawn at major dia + 0.1" } },
+  { name = "bar-screw-head-left", shape = "cylinder", at_mm = [6.0, -11.6, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 7.0, length_mm = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M4 socket head cap screw head" } },
+  { name = "bar-screw-shank-left", shape = "cylinder", at_mm = [6.0, -7.6, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.0, length_mm = 12.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M4x12 screw major dia and length" } },
+  { name = "bar-screw-cbore-right", void = true, cuts = ["c-stop-bar"], shape = "cylinder", at_mm = [26.0, -12.1, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 8.0, length_mm = 4.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, counterbore dia and depth" } },
+  { name = "bar-screw-hole-right", void = true, cuts = ["c-stop-bar"], shape = "cylinder", at_mm = [26.0, -7.7, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.5, length_mm = 7.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
+  { name = "bar-screw-tap-right", void = true, cuts = ["shell"], shape = "cylinder", at_mm = [26.0, -0.1, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.1, length_mm = 8.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M4x0.7 thread plug gauge; drawn at major dia + 0.1" } },
+  { name = "bar-screw-head-right", shape = "cylinder", at_mm = [26.0, -11.6, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 7.0, length_mm = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M4 socket head cap screw head" } },
+  { name = "bar-screw-shank-right", shape = "cylinder", at_mm = [26.0, -7.6, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.0, length_mm = 12.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M4x12 screw major dia and length" } },
+  { name = "bar-dowel-hole-left", void = true, cuts = ["c-stop-bar", "shell"], shape = "cylinder", at_mm = [16.0, -12.1, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.0, length_mm = 17.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "nominal 4.000 H7 fit envelope (design value, not an actual reading), reamed through bar and wall together; pin gauges" } },
+  { name = "bar-dowel-left", shape = "cylinder", at_mm = [16.0, -11.0, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.0, length_mm = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "nominal 4.000 m6 fit envelope (design value, not an actual reading); micrometer, 4 x 16 dowel" } },
+  { name = "bar-dowel-hole-right", void = true, cuts = ["c-stop-bar", "shell"], shape = "cylinder", at_mm = [35.0, -12.1, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.0, length_mm = 17.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "nominal 4.000 H7 fit envelope (design value, not an actual reading), reamed through bar and wall together; pin gauges" } },
+  { name = "bar-dowel-right", shape = "cylinder", at_mm = [35.0, -11.0, 6.6], axis = [0.0, 1.0, 0.0], dia_mm = 4.0, length_mm = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "nominal 4.000 m6 fit envelope (design value, not an actual reading); micrometer, 4 x 16 dowel" } },
+]
+
+# Light toolmaker's parallel clamp for the inspection box (illustrative example
+# matched pair, rocker-only, one owner). Frame: origin on the outer jaw's gripping
+# face at the jaw tip, centred on the jaw section; +x from the screws toward the tip
+# (jaws lie at x <= 0), +y across the throat from the outer jaw's gripping face to
+# the inner jaw's, +z = x × y. The throat is drawn set to 10.5 mm (2.5 mm part strap
+# + 8 mm box front wall). The front screw threads into the inner jaw with its knob
+# outside the outer jaw; the rear screw threads through the inner jaw and bears on
+# the outer jaw. Box-frame poses (x = [1, 0, 0], z = [0, 0, 1]): lower clamp origin
+# [18.0, -2.5, 50.0], upper clamp origin [15.0, -2.5, 95.0]. The outer jaw bears on
+# the part's lower strap face (box y = -2.5), the inner jaw on the front wall's
+# inner face (box y = 8) inside the cavity, entering through the matching left
+# window; screws and knobs stay at box x < -3, jaws at x <= 18 and z 43.65..101.35.
+# Tighten finger-light only: the clamps hold B on the front face, never load C.
+[fixtures.rocker-inspection-clamps]
+kind = "parallel_clamp"
+note = "illustrative example matched pair of light 3 in toolmaker's parallel clamps: 76.2 x 12.7 x 12.7 mm steel jaws, two M8 screws with 16 mm knurled knobs, about 50 mm capacity; finger-light inspection clamping only"
+solids = [
+  { name = "outer-jaw", shape = "box", at_mm = [-76.2, -12.7, -6.35], size_mm = [76.2, 12.7, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw section and length" } },
+  { name = "inner-jaw", shape = "box", at_mm = [-76.2, 10.5, -6.35], size_mm = [76.2, 12.7, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw section and length; throat set to 10.5 over the gripped stack" } },
+  { name = "front-screw", shape = "cylinder", at_mm = [-30.0, -12.7, 0.0], axis = [0.0, 1.0, 0.0], dia_mm = 8.0, length_mm = 35.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M8 screw major dia; steel rule, outer jaw back to inner jaw back" } },
+  { name = "front-knob", shape = "cylinder", at_mm = [-30.0, -26.7, 0.0], axis = [0.0, 1.0, 0.0], dia_mm = 16.0, length_mm = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, knurled knob dia and length" } },
+  { name = "rear-screw", shape = "cylinder", at_mm = [-65.0, 0.0, 0.0], axis = [0.0, 1.0, 0.0], dia_mm = 8.0, length_mm = 23.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M8 screw major dia; steel rule, outer jaw face to inner jaw back" } },
+  { name = "rear-knob", shape = "cylinder", at_mm = [-65.0, 23.2, 0.0], axis = [0.0, 1.0, 0.0], dia_mm = 16.0, length_mm = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, knurled knob dia and length" } },
+]
+
+# Close-fit metric gauge pins for the Ø0.20 A|B|C position check: the largest pin
+# whose actual (calibrated) diameter passes freely is chosen per part for the rod
+# hole (2.000..2.010) and for datum bore A (6.500..6.530). Illustrative example item
+# with example calibration labels, not a real certificate; the per-pin expanded
+# uncertainty has no schema field and is stated in the note. range_mm is the overall
+# envelope; coverage is only the two 0.001 mm bands listed in sizes_mm (42 pins).
+[gauges.rocker-position-pins]
+kind = "pin_gauge_set"
+note = "illustrative example item: 42 metric gauge pins, 2.000-2.010 mm and 6.500-6.530 mm in 0.001 mm steps, each marked with its actual diameter at expanded uncertainty U <= 0.0005 mm (k = 2); choose the largest freely passing pin by actual diameter; example labels, not a calibration certificate or measurement"
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "count of pins in the case" } (pieces is a plain number in the schema)
+pieces = 42
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bench micrometer against a gauge block stack" } (range_mm is a plain number list in the schema)
+range_mm = [2.0, 6.53]
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bench micrometer against a gauge block stack" } (sizes_mm is a plain number list in the schema)
+sizes_mm = [
+  2.000, 2.001, 2.002, 2.003, 2.004, 2.005, 2.006, 2.007, 2.008, 2.009, 2.010,
+  6.500, 6.501, 6.502, 6.503, 6.504, 6.505, 6.506, 6.507, 6.508, 6.509, 6.510,
+  6.511, 6.512, 6.513, 6.514, 6.515, 6.516, 6.517, 6.518, 6.519, 6.520, 6.521,
+  6.522, 6.523, 6.524, 6.525, 6.526, 6.527, 6.528, 6.529, 6.530,
+]
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bench micrometer against a gauge block stack, actual diameter U <= 0.0005 mm (k = 2)" } (resolution_mm is a plain number in the schema)
+resolution_mm = 0.001
+
+# Metric gauge-block set (illustrative example item, rocker-only) for the Ø0.20
+# A|B|C comparison readings: at each pin height a calibrated stack is wrung on the
+# granite beside the pin, the 1 µm test indicator (gauges.rocker-datum-indicator,
+# carried on gauges.rocker-position-height-gauge) is zeroed on the stack and the
+# pin-top deviation from it is read, so no long absolute height-gauge scale enters
+# the result: centre = actual stack height + indicator deviation - actual pin
+# radius, the same way in both box orientations. Example stacks (chosen per part,
+# not fixed measurements): reading 1 about 162.5 (100 + 50 + 12.5) at the A pin and
+# 28 (25 + 3) at the rod pin; reading 2 about 123 (100 + 23) and 105 (100 + 5).
+# Standard 103-piece metric composition: 1.005; 1.01-1.49 by 0.01; 0.5-24.5 by
+# 0.5; 25, 50, 75, 100. Grade and per-block calibration are example labels in the
+# note, not a certificate; range_mm/sizes_mm/resolution_mm/pieces are plain
+# numbers in the schema.
+[gauges.rocker-position-blocks]
+kind = "gauge_block_set"
+note = "illustrative example item: 103-piece metric steel gauge-block set, ISO 3650 grade 1 (example), each block's actual length on an example calibration sheet with expanded uncertainty U <= 0.10 µm + 1 ppm (k = 2); stacks wrung on the granite as comparison references for the 1 µm test indicator; example labels, not a calibration certificate or measurement"
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "count of blocks in the case" } (pieces is a plain number in the schema)
+pieces = 103
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "interferometric comparison against reference blocks (example calibration)" } (range_mm is a plain number list in the schema)
+range_mm = [0.5, 100.0]
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "interferometric comparison against reference blocks (example calibration)" } (sizes_mm is a plain number list in the schema)
+sizes_mm = [
+  1.005, 1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.07, 1.08, 1.09, 1.10, 1.11,
+  1.12, 1.13, 1.14, 1.15, 1.16, 1.17, 1.18, 1.19, 1.20, 1.21, 1.22, 1.23,
+  1.24, 1.25, 1.26, 1.27, 1.28, 1.29, 1.30, 1.31, 1.32, 1.33, 1.34, 1.35,
+  1.36, 1.37, 1.38, 1.39, 1.40, 1.41, 1.42, 1.43, 1.44, 1.45, 1.46, 1.47,
+  1.48, 1.49, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0,
+  5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0,
+  11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0,
+  17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0,
+  23.5, 24.0, 24.5, 25.0, 50.0, 75.0, 100.0,
+]
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "smallest size step in the set (1.005 / 1.01 series)" } (resolution_mm is a plain number in the schema)
+resolution_mm = 0.005
+
 # --- pivot-bracket additions ---
 [gauges.radius-gauge]
 kind = "radius_gauge"

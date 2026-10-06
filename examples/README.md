@@ -121,7 +121,7 @@ PLAN §8 M3.
 | Part | What it demonstrates | Current exit |
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
-| `rocker-arm` | Four setups: retained rail frame with a modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (legacy proof)**: `940cb9d` artifacts are stale. Legal cutter-centre/occluder handling and physical-stop rendering await current-source exit-0/all-scene proof. |
+| `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (last CLI proof)**: all four native fixtures are modeled without fixture debts. Exit-0 still needs complete explicit-face ownership and legal cutter poses; S4's cut-state render is separately blocked by the engine's blanket stock-split guard despite independently held part and scrap. Checked-in goldens remain stale. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: physical inventory and authored setup data are complete; all three native fixture scenes are modeled without debts. Legal planar cutter poses, the finish-floor cut plane and preceding-operation stock clearance remain engine-owned accessibility stops. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: the `mount_west` nominal conflict and S2:50 far-side cone-boss claims. |
 
@@ -131,27 +131,48 @@ The illustrative rocker plan binds the exported `v40` drawing revision and
 uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
 a clean checker exit is released-plan approval or a measured first article.
 
-The checked-in rocker artifacts are a **stale legacy baseline** from
-`940cb9d`, not verification of the current engine or the revised physical
-holding below. The native distance and setup-entry removal-mask fixes are now
-integrated; StockRoutes' legal cutter-centre/occluder correction and
-SetupRender's physical-stop rendering are still being completed. Fresh
-exit-0/all-scene output, not the historical baseline, is the acceptance proof.
+The checked-in rocker artifacts are regenerated from the actual required-kernel
+CLI with integration `f5c8182` and the revised route below. They honestly retain
+exit **2**: 189 passes, 165 not-applicable findings, eleven accessibility errors
+and one unresolved datum-transfer finding, with no warnings or unsupported
+findings. All four fixtures are modeled with exact components and no fixture
+debts; S1/S2/S3 have no render debts. S4 still explicitly shows arriving stock
+only because the current stock-split guard rejects separating the retained
+scrap frame from the independently clamped part. This needs
+positive-holding-aware stock derivation, not permission for uncontrolled loose
+pieces. Complete explicit-face ownership and legal cutter-centre/occluder
+correction also remain engine-owned. Senior-machinist review of the actual
+traveler additionally caught direction-blind contour order: S1/S4 right-hand
+joins direct a climb pass, while the rolled S2 basis requires the left-hand join
+and its outer-arc rows reversed instead. Top-edge arcs and S2 hub circles also
+need local-frame-aware conventional traversal. The source fix must honor the
+actual local outward normal and CW spindle, preserving the CCW pin preload on C.
+Fresh exit-0/all-scene output with that direction issue fixed is the acceptance
+proof; these stopped artifacts are not an approved or complete pilot.
 
 The four holding states are explicit, rather than pretending a clamp can move
 halfway through a fixed setup:
 
 - **S1/S2 — retained rail frame in the vise.** A **340 × 65 × 16 mm** example
   blank puts the full-thickness rails and end ears outside the entire 9.525 mm
-  roughing-cutter sweep, not just its centreline. Opposed roughing retains a
-  0.40 mm connecting web. The 1/2 in parallels sit entirely beneath the rails
+  roughing-cutter sweep, not just its centreline.
+  Both sides rough-face only the bounded internal field using the two-flute
+  cutter in axial steps no greater than 1.5 mm, leaving 0.20 mm for a separate
+  four-flute finishing pass. The rails and ears are never faced; later rests and
+  clamps use their retained raw 16 mm thickness. After the first rough face,
+  the top is +0.20 mm and the 0.05 mm paper pickup is set to +0.25 mm.
+  The rocker-only rougher is inserted to a 38.0 mm projection, below the
+  four-diameter engagement limit; the shared finish cutter retains 38.5 mm.
+  Opposed roughing retains a 0.40 mm connecting web. The 1/2 in parallels sit
+  entirely beneath the rails
   on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance
   to each closed jaw and 6.8453 mm nominal vertical jaw engagement. A modeled
   magnetic end stop touches the left blank end for positioning only; it carries
   no cutting load and does not modify Pedro's vise. S2 adds adjustable passive
   jacks under the S1-finished strap, set to just contact without lifting the
   rails. The rod hole is spotted, drilled 1.90 mm and reamed 2.00 mm before the
-  outside pockets leave only the web.
+  outside pockets leave only the web. The visible process HOLD uses GO 2.000 /
+  NO-GO 2.010; the wider drawing band alone does not authorize loading the pin.
 - **S3 — supported upper hub and ream.** Stepped padded straps press over the
   fixture pads; their studs are outside the whole blank and their bridges
   clear the retained rails. Indicate the empty plate bore first, lower the blank
@@ -167,21 +188,46 @@ halfway through a fixed setup:
   stop. Preload counterclockwise viewed from above (looking down setup -Z)
   before tightening, then indicate the screw head ground coaxial with its shoulder.
   The screw prevents lift and the twelve pads carry Z, not cutting torque.
-  Separate toe clamps retain the scrap rails on matched shimmed rests, so
-  neither the part nor the scrap becomes loose when the final web releases.
+  Separate toe clamps retain the scrap rails on matched shimmed rests. Op 30
+  opens the web; op 40 finishes the actual complete outline, including both
+  tip lands and tapers. Both cuts use light conventional feed to keep positive
+  pin contact. Keep all four scrap clamps in place until op 40 is complete.
+  The shoulder screw and four rail clamps declare `restraint = "press"`; the
+  diamond pin declares `"locate"` and receives no lift-restraint credit.
+  A separate native contact probe of the final cut found a clamp-bearing →
+  stock → anchored-support witness for each of the two released solids:
+  washer to hub stand for the part, and rail beams to matched shims for the
+  connected scrap frame. This is a necessary holding-geometry screen, not a
+  certification of thread engagement, tightening torque, friction or capacity.
 
-Final inspection checks both hub patches against the reamed datum, and rod
-position against A|B|C with face B seated and the finished rod-side land C
-squared. Fixture dimensions and primitive solids in the rocker additions
-block carry `example (plausible, not measured)` labels; these are authored
-example clearances, not approved CAM toolpaths or actual shop measurements.
+Final inspection checks both hub patches against the reamed datum. The rod
+position check keeps the finished C land on a fixed ground bar on the
+`rocker-inspection-box`; the strap B contacts its front face and the hub clears
+the top. The whole clamped box tips onto its ground right side without
+re-squaring the tiny land. Largest freely passing calibrated metric pins,
+near-face probing and the A-pin slope check control datum-fitting errors.
+The CAD-derived centre-height differences are **132.3912 / 15.8429 mm** in
+these two fixed-C views, not the milling setup XY coordinates. The drawing
+remains **Ø0.20 RFS**; the **Ø0.16** shop HOLD is an illustrative guardband.
+The tipped-view reseating check holds the part if either reading shifts by
+more than 0.002 mm. Native proof at A offsets -5 / 0 / +5 mm found full C
+contact, both clamps bearing, no part/fixture penetration and clear granite
+in both views. Fixture dimensions and primitive solids carry
+`example (plausible, not measured)` labels, not actual calibration or
+first-article certification.
 The letter-D pilot leaves about 0.264 mm diametral reaming stock. Custom metric
 GO/NO-GO plugs verify the 6.500..6.530 bore. The rod's process GO 2.000 /
 NO-GO 2.010 plugs control a reamed hole, not an unrealistically close twist
 drill; the 1.9875 mm stop has 0.0125..0.0225 mm diametral clearance.
 A 1 µm test indicator records pivot pilot-to-ream centre shift against the
-0.020 mm radial process limit, and final rod position uses a 1 µm digital
-height gauge. The pin takes tangential finish loads but no clamp or lift load.
+0.020 mm radial process limit. For rod position, the digital height gauge is
+only a carrier for that indicator: zero on known calibrated gauge-block
+stacks near each pin top and read the local deviation. A 1 µm display is not
+an accuracy claim across 132 mm. The pin takes tangential finish loads but
+no clamp or lift load.
+The authored transfer limits are 0.02 mm TIR at each drilled pivot-pilot pickup
+and 0.01 mm TIR at the ground shoulder-screw head; these are example acceptance
+criteria, not invented measured runout readings.
 
 
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats
