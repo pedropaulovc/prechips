@@ -33,7 +33,7 @@ EXPECTED_EXIT = {
     "pivot-shaft": 0,
     "rocker-arm": 2,
     "pivot-bracket": 0,
-    "cone-pivot-post/built-up.toml": 2,
+    "cone-pivot-post/built-up.toml": 0,
 }
 # (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
 # errors on). Setups outside the modeled set must render as partial pictures with debts.
@@ -713,6 +713,10 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict) -> None
             "violations": result["violations"],
             "missing": result["missing"],
         }
+        if joint["method"] == "retaining_compound":
+            expected.update(
+                cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"]
+            )
         row = findings["joint_fit", sid]
         require(row["numbers"] == expected, f"{sid}: joint fit evidence differs from the plan")
         status = "unknown" if result["missing"] else "error" if result["violations"] else "pass"

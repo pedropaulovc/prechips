@@ -5,14 +5,14 @@
 #       the raw bar beyond the head is a sacrificial tail for every later chucking.
 #   S2  lathe: turn the cone sleeve (Ø17.2 x 42.011) from round bar, face the north cap.
 #   S3  lathe: turn the crank sleeve (Ø21.93 x 72.0344) from round bar.
-#   S4  BS-0 on the mill, tail in the four-jaw: drill and ream the crank socket.
+#   S4  BS-0 on the mill, spindle along table X, tail in the four-jaw: drill and ream the crank socket.
 #   S5  same chucking, index 12.5182 deg: drill and ream the cone cross-bore.
 #   S6  bench: bond the cone sleeve with retaining compound; cure.
 #   S7  bench: bond the crank sleeve with retaining compound; cure.
 #   S8  BS-0, tail re-chucked, crank sleeve face up: drill and ream the crank bore.
 #   S9  same chucking, index 12.5182 deg: drill and ream journal bore A through the cone sleeve.
-#   S10 bandsaw: saw the tail off 1 mm above the head top.
-#   S11 vise, foot down: face the head top, drill and counterbore the mounting holes.
+#   S10 bandsaw, post in a saw cradle under a cap bridge: saw the tail off 1 mm above the head top.
+#   S11 vise with soft jaws on the cone caps, foot down: face the head top, drill and counterbore the mounting holes.
 # All shop facts are plausible examples, not measurements of Pedro's real equipment.
 part = "cone-pivot-post"
 features = "features.toml"

@@ -126,7 +126,7 @@ PLAN §8 M3.
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
 | `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (last CLI proof)**: all four native fixtures are modeled without fixture debts. Exit-0 still needs complete explicit-face ownership and legal cutter poses; S4's cut-state render is separately blocked by the engine's blanket stock-split guard despite independently held part and scrap. Checked-in goldens remain stale. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all three native fixture scenes are modeled with no fixture or render debts. |
-| `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: the `mount_west` nominal conflict and S2:50 far-side cone-boss claims. |
+| `cone-pivot-post/built-up.toml` | Eleven setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0 (native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all eleven fixture scenes are modeled with exact components and no fixture or render debts. |
 
 ### Rocker-arm supported route
 
@@ -291,19 +291,31 @@ process choices, not stock-on-hand or first-article evidence.
 | S1 | lathe, 3-jaw on the raw tail | face foot B; rough and finish head Ø42.7506 and body Ø42.011; r0.1 parting-blade corner pass leaves the body/head step at R0.25 max |
 | S2 | lathe, 3-jaw on a 25 mm grip | cone sleeve: face the north cap, turn the Ø17.194–17.206 spigot, spring pass, part off |
 | S3 | lathe, 3-jaw on a 25 mm grip | crank sleeve: face, turn the Ø21.924–21.936 spigot, spring pass, part off |
-| S4 | mill, BS-0 dividing head, 4-jaw on the tail | spot, drill and ream the Ø22.000–22.020 crank socket through the head |
+| S4 | mill, BS-0 dividing head along table X, 4-jaw on the tail | spot, drill and ream the Ø22.000–22.020 crank socket through the head |
 | S5 | same chucking, indexed 12.5182° | spot, drill and ream the Ø17.250–17.270 cone socket through the body |
 | S6 | bench, modeled `cone-bond-cradle` | bond the cone sleeve; 24 h cure |
 | S7 | bench, same cradle | bond the crank sleeve; 24 h cure |
-| S8 | mill, BS-0 | spot, drill and ream crank bore Ø11.413–11.443 through the bonded sleeve |
+| S8 | mill, BS-0 along table X, tail re-chucked | spot, drill and ream crank bore Ø11.413–11.443 through the bonded sleeve |
 | S9 | same chucking, indexed 12.5182° | spot, drill and ream journal bore A through the bonded cone sleeve |
-| S10 | 4 × 6 bandsaw, saw vise on the tail | saw the tail off 1 mm above the head top |
-| S11 | mill, PM 6 in vise on parallels | face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes |
+| S10 | 4 × 6 bandsaw, shop-made `cone-saw-cradle` in the saw vise, `cone-cap-bridge` strap on the south cap | saw the tail off 1 mm above the head top |
+| S11 | mill, PM 6 in vise with tall aluminium soft jaws on the two cone caps, foot B on parallels | face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes |
 
 The sleeve chuckings grip 25 mm of sacrificial bar. The crank sleeve leaves
 85 mm exposed, below the 87.72 mm four-diameter limit at its finished 21.930 mm
 OD, and parts off 6.9656 mm ahead of the jaw fronts; the cone sleeve leaves
 50 mm exposed and parts off 6.989 mm ahead of them.
+
+The dividing-head setups put the BS-0 spindle along the PM-30MV's 23 in table
+X travel, head at the left end; along the 8.75 in Y travel the ~350 mm head,
+chuck and post stack would overhang the table. The head's illustrative
+160 × 150 mm base footprint matches its drawn solids. The raw tail seats on the
+four-jaw body face, so no stock is drawn inside the chuck body. S1 rough- and
+finish-turns the body to the head shoulder, so the claimed body face is turned
+over its whole length, and the parting-blade pass clears the R0.4 nose fillet.
+A plain vise on round stock has no parallel planar grip pair: S10 lays the post
+in a shop-made saw cradle under a cap bridge whose load runs down the cone
+sleeve onto a cap pad, and S11 grips the two flush cone-sleeve caps in tall soft
+jaws. All cradle, bridge and soft-jaw dimensions are illustrative.
 
 The pre-bond sockets and spigots are plan-owned joint features, not invented
 STEP faces. The cone joint gives 0.044–0.076 mm diametral clearance inside its

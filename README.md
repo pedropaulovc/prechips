@@ -73,7 +73,7 @@ uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-p
 ```
 
 Current expected consumer CLI exits are **shaft 0 / rocker 2 / bracket 2 / cone
-built-up 2**. Inspection choices follow the exported feature owners. Missing
+built-up 0**. Inspection choices follow the exported feature owners. Missing
 tooling, holding and inspection capability keep their stops. The cone example
 carries explicitly labelled construction, signed-station, step-corner and copied
 length/height-band divergences from the upstream export; these are not claims

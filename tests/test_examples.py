@@ -10,7 +10,7 @@ from test_cli import copy_examples, traveler
         ("pivot-shaft", "plan.toml", "expected", 0),
         ("rocker-arm", "plan.toml", "expected", 2),
         ("pivot-bracket", "plan.toml", "expected", 2),
-        ("cone-pivot-post", "built-up.toml", "expected/built-up", 2),
+        ("cone-pivot-post", "built-up.toml", "expected/built-up", 0),
     ],
 )
 def test_examples_match_reference_bytes_and_repeat(

@@ -142,7 +142,7 @@ FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
 The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
 outputs correctly stop with 2 or 4. Current expected M3 CLI exits are
-4 / 2 / 2 / 2 (shaft / rocker / bracket / cone built-up).
+4 / 2 / 2 / 0 (shaft / rocker / bracket / cone built-up).
 Approved source-backed example corrections must retain their documented
 provenance, not erase requirements to recover an exit. Migrate existing
 inspection choices to the exact exported feature owners rather than dropping

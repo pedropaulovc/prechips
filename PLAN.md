@@ -1142,7 +1142,9 @@ sheet.
    head with a cone sleeve and a crank sleeve, both turned on the lathe and
    bonded with retaining compound (`examples/README.md`, "Built-up cone route
    provenance"), so no cone-boss face is milled. Fixing HA's station sign alone
-   never cleared a machining stop.
+   never cleared a machining stop. The built-up candidate now exits **0** on
+   the native CLI: every finding is pass or not_applicable and all eleven
+   setup scenes are modeled from exact components with no debts.
 
    **Post-review consumer gate, observed 2026-10-03:** on implementation
    `68aef8f`, `uv run ruff check . && uv run ruff format --check . &&
