@@ -22,7 +22,7 @@ from prechips.rules._envelope import (
     transformed_bounds,
     unknown_sentence,
 )
-from prechips.rules.coordinates import AXES, CENTRE_OPS
+from prechips.rules.coordinates import AXES, CENTRE_OPS, located_by
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -47,19 +47,6 @@ def _include(bands, band):
 
 def _span(bands):
     return max(band[1] for band in bands) - min(band[0] for band in bands) if bands else UNKNOWN
-
-
-def _located(features, name, feature):
-    """The feature whose ``at`` locates ``name``, that feature's frame name and its name.
-
-    An explicit ``at`` (even ``unknown``) wins; otherwise a child names its
-    parent hole and is located at that parent's ``at`` in the parent's frame.
-    """
-    parent = feature.get("hole", feature.get("parent"))
-    if "at" in feature or not isinstance(parent, str):
-        return feature, feature.get("frame", "model"), name
-    owner = record(features.get(parent))
-    return owner, owner.get("frame", "model"), parent
 
 
 def evaluate(bundle):
@@ -144,7 +131,7 @@ def evaluate(bundle):
                 if manifest_mm
                 else UNKNOWN
             )
-            locator, locator_frame, locator_name = _located(features, name, feature)
+            locator, locator_frame, locator_name = located_by(features, name, feature)
             locator_source = record(frames.get(locator_frame))
             if locator_name != name:
                 cite.extend(

@@ -390,3 +390,44 @@ def test_kernel_measures_revolved_spans_of_an_authored_shaft_and_dome(
     shaft, dome = second["revolved"]["shaft"], second["revolved"]["dome"]
     assert shaft["z_mm"] == approx([1.5, 31.5])
     assert dome["z_mm"] == approx([0.0, 1.5]) and dome["end_radii_mm"] == approx([0.0, 4.0])
+
+
+def test_kernel_measures_requested_revolved_facts_in_mill_setups(
+    tmp_path, freecad_kernel, shaft_dome
+):
+    """A setup without turning measures only the features the host asks to locate."""
+    engine = Engine(tmp_path, freecad_kernel)
+    features = {
+        "shaft": engine.refs(shaft_dome, (-4, -4, 0), (4, 4, 30), kind="Cylinder"),
+        "dome": engine.refs(shaft_dome, (-4, -4, 30), (4, 4, 31.5), kind="Sphere"),
+        "end": engine.refs(shaft_dome, (-4, -4, 0), (4, 4, 0), kind="Plane"),
+        "flat": engine.refs(shaft_dome, (-4, 3.5, 10), (4, 3.5, 15), kind="Plane"),
+    }
+    assert all(features.values()), features
+    # M1 turns the part over and swaps X/Y: setup z = 31.5 - model z. M2 is shifted 2 mm
+    # off the shaft axis. M3 asks for nothing.
+    swapped = {"origin": [0, 0, 31.5], "x": [0, 1, 0], "y": [1, 0, 0], "z": [0, 0, -1]}
+    shifted = {**IDENTITY, "origin": [2, 0, 0]}
+    hold = {"kind": "vise", "reason": "test: the vise is not placed"}
+    asked = ["dome", "flat", "shaft"]
+    setups = [
+        {"id": "M1", "frame": swapped, "hold": hold, "ops": [], "locate_revolved": asked},
+        {"id": "M2", "frame": shifted, "hold": hold, "ops": [], "locate_revolved": ["shaft"]},
+        {"id": "M3", "frame": IDENTITY, "hold": hold, "ops": [], "locate_revolved": []},
+    ]
+    result = engine.run(engine.job(shaft_dome, features, setups))
+    assert result["status"] == "ok", result
+    first, second, third = (result["setups"][key] for key in ("M1", "M2", "M3"))
+    approx = pytest.approx
+
+    assert sorted(first["revolved"]) == ["dome", "shaft"]
+    assert first["revolved"]["shaft"]["z_mm"] == approx([1.5, 31.5])
+    assert first["revolved"]["shaft"]["radii_mm"] == approx([4.0, 4.0])
+    assert first["revolved"]["dome"]["z_mm"] == approx([0.0, 1.5])
+    # Only requested features are measured; a flat is omitted with its reason.
+    assert list(first["revolved_reasons"]) == ["flat"]
+    assert "not revolved about setup Z" in first["revolved_reasons"]["flat"]
+    # Off the setup axis the same cylinder locates nothing.
+    assert second["revolved"] == {}
+    assert "not revolved about setup Z" in second["revolved_reasons"]["shaft"]
+    assert "revolved" not in third
