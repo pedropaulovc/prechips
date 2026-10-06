@@ -293,9 +293,9 @@ def test_envelope_skips_dedicated_saw_setup_and_saw_ops_in_mixed_setup():
 TOOL_CYLINDER_RULES = [accessibility, reach, internal_corner_radius]
 
 
-def add_saw(bundle):
-    bundle.inventory["tools"]["blade"] = {"kind": "bandsaw", "kerf_mm": 1.0, "verify": False}
-    bundle.plan["setups"][0]["ops"].append(
+def add_saw(data):
+    data.inventory["tools"]["blade"] = {"kind": "bandsaw", "kerf_mm": 1.0, "verify": False}
+    data.plan["setups"][0]["ops"].append(
         {**deepcopy(SAW_OP), "feature": "pocket", "faces": ["#2"]}
     )
 

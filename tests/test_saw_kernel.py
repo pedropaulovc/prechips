@@ -147,7 +147,9 @@ def test_zero_blade_plane_is_not_missing_in_a_translated_frame(saw_engine, saw_t
         (1.0, {"axis": "y", "value": 8.5, "keep": "unknown"}, "cut_plane"),
     ],
 )
-def test_missing_saw_inputs_leave_downstream_stock_unknown(saw_engine, saw_target, kerf, plane, missing):
+def test_missing_saw_inputs_leave_downstream_stock_unknown(
+    saw_engine, saw_target, kerf, plane, missing
+):
     op = _saw(kerf=kerf)
     op["cut_plane"] = plane
     result = _run(saw_engine, saw_target, op)
@@ -197,7 +199,9 @@ def test_multiple_saws_use_successive_stock_and_keep_fixture_render(saw_engine, 
     first = _setup(_saw("y"), hold=fixture)
     first["ops"].append(_saw("x", subject="S1:20"))
     third = _setup(_saw("z", subject="S2:10"), sid="S2", machine="mill")
-    result = saw_engine.run(saw_engine.job(saw_target, setups=[first, third, _setup(sid="S3")], stock=BOX))
+    result = saw_engine.run(
+        saw_engine.job(saw_target, setups=[first, third, _setup(sid="S3")], stock=BOX)
+    )
     assert result["ops"]["S1:20"]["stock_volume_before_mm3"] == pytest.approx(800.0)
     assert result["ops"]["S1:20"]["stock_volume_after_mm3"] == pytest.approx(640.0)
     assert result["ops"]["S2:10"]["stock_volume_after_mm3"] == pytest.approx(512.0)
@@ -247,9 +251,7 @@ def test_saw_rejects_retained_fragmentation_of_one_connected_stock_piece(
     stock = {"components": {"left": left, "right": right, "bridge": bridge}}
     first = _setup(_saw("z"))
     first["stock_in"] = ["stock.left", "stock.right", "stock.bridge"]
-    result = saw_engine.run(
-        saw_engine.job(target, setups=[first, _setup(sid="S2")], stock=stock)
-    )
+    result = saw_engine.run(saw_engine.job(target, setups=[first, _setup(sid="S2")], stock=stock))
     detail = result["ops"]["S1:10"]
     assert "saw_error" in detail and "saw_reason" not in detail, detail
     assert detail["kerf_volume_mm3"] == pytest.approx(20.0)
@@ -277,14 +279,10 @@ def test_saw_retains_preexisting_disconnected_stock_components(
             "section_mm": [2.0, 1.0],
         }
         first["stock_in"].append("stock.discard")
-    result = saw_engine.run(
-        saw_engine.job(target, setups=[first, _setup(sid="S2")], stock=stock)
-    )
+    result = saw_engine.run(saw_engine.job(target, setups=[first, _setup(sid="S2")], stock=stock))
     detail = result["ops"]["S1:10"]
     assert "saw_error" not in detail and "saw_reason" not in detail, detail
-    assert detail["stock_volume_before_mm3"] == pytest.approx(
-        84.0 if discarded_component else 80.0
-    )
+    assert detail["stock_volume_before_mm3"] == pytest.approx(84.0 if discarded_component else 80.0)
     assert detail["stock_volume_after_mm3"] == pytest.approx(64.0)
     assert detail["kerf_volume_mm3"] == pytest.approx(8.0)
     assert detail["offcut_volume_mm3"] == pytest.approx(12.0 if discarded_component else 8.0)
@@ -302,7 +300,9 @@ def test_unknown_scene_inputs_cannot_prove_retained_saw_stock(saw_engine, saw_ta
         first["frame"] = "unknown"
     else:
         stock = {"reason": "stock placement is unknown"}
-    result = saw_engine.run(saw_engine.job(saw_target, setups=[first, _setup(sid="S2")], stock=stock))
+    result = saw_engine.run(
+        saw_engine.job(saw_target, setups=[first, _setup(sid="S2")], stock=stock)
+    )
     detail = result["ops"]["S1:10"]
     assert missing in detail["saw_reason"]
     assert "saw_error" not in detail and "tool_hits" not in detail
@@ -315,11 +315,20 @@ def _host_bundle(tmp_path, target):
     bundle.features["step_sha256"] = kernel.hashlib.sha256(target.read_bytes()).hexdigest()
     bundle.features["features"] = {}
     bundle.plan["stock"] = {key: value for key, value in BOX.items() if key != "shape"}
-    bundle.inventory["tools"] = {"blade": {"kind": "bandsaw", "kerf_in": {"value": "1/16", "verify": False}}}
+    bundle.inventory["tools"] = {
+        "blade": {"kind": "bandsaw", "kerf_in": {"value": "1/16", "verify": False}}
+    }
     bundle.inventory["machines"] = {"bench": {"kind": "bench"}}
     setup = bundle.plan["setups"][0]
     setup["machine"] = "bench"
-    setup["ops"] = [{"op": 10, "do": "cut_off", "tool": "blade", "cut_plane": {"axis": "y", "value": 8.79375, "keep": "below"}}]
+    setup["ops"] = [
+        {
+            "op": 10,
+            "do": "cut_off",
+            "tool": "blade",
+            "cut_plane": {"axis": "y", "value": 8.79375, "keep": "below"},
+        }
+    ]
     bundle.plan["setups"].append({**deepcopy(setup), "id": "S2", "stock_in": "S1", "ops": []})
     return bundle
 
@@ -352,9 +361,7 @@ def test_fact_local_kerf_debt_cannot_be_promoted_by_item_or_source(
     assert "stock_bbox_mm" not in bundle.kernel["setups"]["S2"]
 
 
-def test_plan_plane_uses_feature_units(
-    tmp_path, saw_target, freecad_kernel, kernel_cache
-):
+def test_plan_plane_uses_feature_units(tmp_path, saw_target, freecad_kernel, kernel_cache):
     bundle = _host_bundle(tmp_path, saw_target)
     bundle.features["units"] = "in"
     bundle.features["frames"]["A"]["origin"] = [0, 8.0 / 25.4, 0]
