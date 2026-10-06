@@ -226,16 +226,25 @@ setup frame; the frame is the author's declaration, not a measured setup.
 
 ## In-process stock
 
-Each setup's checks and image use the material entering that setup: the
-authored box/round supply minus the derivable claimed regions removed by
-**earlier setups**, in authored order. Current-setup removals determine the
-next setup's stock, not the current holding facts, image, reach or holder
-obstacles. The flute alone excludes the current op's own derivable allowance
-above the sampled finished face within its claimed clearing footprint: that
-material is being cut, not an obstacle. No other op's removal is borrowed.
-The first `stock_in` must be `"stock"`; later setups name the immediately
-previous setup. Finished face indices stay bound to the original STEP even
-when booleans change the stock's face order.
+Each setup's checks and image use the material explicitly selected by `stock_in`.
+`"stock"` selects a single supply; `"stock.<id>"` selects a built-up component;
+any earlier setup id selects that setup's output, even when it is not the
+immediately previous setup. A nonempty array joins the selected solids by
+Boolean union in model coordinates. Unknown or forward authored references
+are bad input (exit 3), including authored `"unknown"` as a source. Omitted
+`stock_in` remains named stock debt, never an inferred linear route. Supplies and outputs all stay in the
+model frame; assembly does not implicitly transform a reference.
+Joined references must have disjoint supply ancestry. Duplicate entries or
+`["stock", "S1"]` when S1 consumes stock are bad input (exit 3), naming the
+shared supply ancestor. Independent forks may start from the same supply again
+as route alternatives, but cannot join that material lineage twice.
+Each setup output subtracts only that setup's derivable claimed removals from
+its selected input. Current-setup removals do not change current holding facts,
+image, reach or holder obstacles. The flute alone excludes the current op's own
+derivable allowance above the sampled finished face within its claimed clearing
+footprint: that material is being cut, not an obstacle. No other op's removal is
+borrowed. Finished face indices stay bound to the original STEP even when
+booleans change the stock's face order.
 
 The supply needs the positive dimensions and model-frame placement described
 under [plan stock](plan.md#stock). As-is face references do not define a stock
@@ -247,6 +256,19 @@ finished-solid corner radii still establish errors (exit 2 takes precedence
 over required unknowns' exit 4). No stock picture is drawn.
 `stock_state` values name local received/touched surfaces; retained rails can extend beyond them, so
 they are not silently treated as the stock's global bounding-box extrema.
+Each built-up component has its own required id and model-frame pose and must
+contain only its own piece, not the full finished STEP. Missing component
+geometry remains debt for that component; another known supply cannot fill it.
+Component ids are known, nonempty and unique exact identifiers, with no ASCII
+character whitelist. Independently known branches remain usable while another
+component's geometry is missing. When all component envelopes are known, their
+full union must contain the finished STEP; otherwise all component references
+carry geometry debt.
+A nonempty root `as_is_faces` declaration checks the full joined supply exterior,
+requiring every component envelope to be known; it can therefore withhold an
+otherwise-known branch. Empty or omitted declarations add no cross-component
+dependency. Removal fragmentation is checked per input solid: deleting one
+assembly piece cannot mask splitting another.
 
 For a derivable face footprint, removal is clipped to the authored `to_z`
 endpoint and to material outside the finished solid. Every claimed face with

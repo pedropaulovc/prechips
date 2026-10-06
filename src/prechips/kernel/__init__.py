@@ -233,13 +233,20 @@ def _vector(value):
 
 
 def stock_inputs(bundle):
-    """The authored supplied-stock envelope in model mm, or why it cannot be built."""
+    """Authored model-frame supplies; each component keeps its own geometry debt."""
     stock = record(bundle.plan.get("stock"))
     if not stock:
         return {"reason": "plan stock is unknown; in-process stock cannot be derived"}
     components = stock.get("components", UNKNOWN)
     if isinstance(components, list) and components:
-        return {"reason": "built-up stock components are not one authored stock envelope"}
+        return {
+            "components": {component["id"]: _stock_envelope(component) for component in components}
+        }
+    return _stock_envelope(stock)
+
+
+def _stock_envelope(stock):
+    """One box/round supply's explicit dimensions and placement, never a STEP substitute."""
     section, dia = stock.get("section_mm", UNKNOWN), stock.get("dia_mm", UNKNOWN)
     if section != UNKNOWN and dia != UNKNOWN:
         return {"reason": "stock declares both section_mm and dia_mm; its envelope is ambiguous"}
