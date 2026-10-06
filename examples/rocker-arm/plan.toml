@@ -13,7 +13,7 @@ quantity_cite = "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:5"
 
 [drawing]
 number = "MHA-071"
-revision = "unknown" # export declares unreleased v40 (release.yaml:next_revision); operator/released-plan match not established
+revision = "v40" # source manifest revision; illustrative plan, not released or approved
 cite = ["harmonic-analyzer/cad/config/parts/rocker-arm.yaml:2", "harmonic-analyzer/cad/config/release.yaml:next_revision"]
 
 [paths]
