@@ -396,8 +396,46 @@ blind cone can make it fail), an intersection-join offset may be used
 instead, but only if it is valid, contains the finished solid and keeps the
 same solid count. It is conservative and leaves extra material at convex
 corners, never less than the leave, and there is never a fallback to the
-nominal finished solid or a zero leave. If both constructions fail, the
-result is named offset debt.
+nominal finished solid or a zero leave. Where both whole-part constructions
+fail (a zero-height land tangent to a cylinder, as on the cone pivot post's
+journal pads, makes OCC fail at any leave), the op's guard is built
+exactly in each box where one of its consumers subtracts it: its claimed
+faces grown by its wall-check reach (`max(a, carried) + 0.01` mm, also
+covering its band and pose contacts), and its clearing box above `to_z` or
+its whole unclipped +Z claim sweep. In each box the finished part's offset
+equals the arc-join offset of the finished part within the box grown by
+`2a`, cropped to the box. Every positive-volume source and cropped component
+is kept, each piece must offset to one valid solid containing it, and the
+crop must contain the finished material in the box. Every Boolean in the
+construction must be valid; one that meets nothing is empty, but faces
+without a solid are debt, never taken as empty. Only arc joins qualify, and
+each consumer subtracts only inside its own box. The lineage band of a
+lower-leave op then needs no whole-part offset by the carried leave. Its
+candidates are the carried-leave skin of the claimed faces: each face
+thickened, plus on each convex edge two claimed faces share a tube (an arc
+pipe must have volume πr²L) with a ball on each of its vertices. An edge's
+kind is decided only where it is exact along the whole edge: a line both
+faces are invariant along (planes, cylinders with a parallel axis, cones
+through their apex) or a circle both are invariant around (coaxial planes,
+cylinders, cones, tori, spheres). Tangent and concave shared edges add
+nothing, and any other shared edge is debt. Each candidate is cut on its
+own, and every positive band fragment, however small, is kept, grouped by
+contact, never fused; the band is the groups that border a claimed lateral
+face. No piece may overlap the finished part or an unclaimed neighbour slab
+by more than 1e-3 mm³. The op's own clearance is cut first, then each band
+group in turn. A group is skipped only if none of it is in the stock piece,
+or if the cuts before it took all but at most 1e-6 mm³ of a group that held
+more, because cutting material that is already gone only adds OCC
+coincident-face artefacts. A tiny group still whole, or one whose remainder
+is not valid topology, is cut. No more than 1e-3 mm³ of the band may survive
+in the stock the setup leaves, and that stock must be one valid solid;
+otherwise the stock reason names the removal that broke it ("its own
+clearance" or "lineage band group N"). If any construction fails, the result
+is named offset debt.
+Every offset and pipe is built on a deep copy of the solid, face or edge it
+starts from. OCC's offset rewrites the edge tolerances and pcurves of the
+shape it runs on, so offsetting a face shared with the finished part would
+change that part, and every later Boolean against it, by call order.
 
 **User decision, 2026-10-05:** at a concave edge shared by a floor and a
 rising wall, the floor-sample cutter axis shifts one cutter radius into the
