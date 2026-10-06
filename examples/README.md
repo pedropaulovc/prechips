@@ -1,13 +1,33 @@
 # PLAN rev 6 reference bundles
 
 The **plans remain authored** and every example traveler remains **PLANNED**.
-`rocker-arm/`, `pivot-shaft/` and `cone-pivot-post/` consume verbatim
-harmonic-analyzer `features.toml` exports and their exact adjacent STEP files.
-Each candidate also consumes the three shared shop inputs. `pivot-bracket/`
-remains hand-authored, without a registered consumer drawing or STEP bytes;
-its missing drawing requirements and geometry must stay unresolved.
+`rocker-arm/`, `pivot-shaft/` and `cone-pivot-post/` consume harmonic-analyzer
+`features.toml` exports and their exact adjacent STEP files; the patched keys
+listed under "Example divergences" below mean those manifests are no longer
+verbatim exports. Each candidate also consumes the three shared shop inputs.
+`pivot-bracket/` is hand-authored against the v39 consumer STEP
+(`pivot-bracket.STEP`, sha256 `6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`)
+and drawing, with geometry-matched `#id/ADVANCED_FACE[n]/NONE` face refs.
 Neither export delivery nor a CAD face identity is a tooling measurement,
 clearance proof, approved route or first article.
+
+### Examples policy: plausible, labelled values
+
+The examples are illustrative. Shop facts the checker needs but nobody has
+measured (tool, holder, gauge, machine and fixture dimensions) carry plausible
+values labelled `measured = { by = "example (plausible, not measured)", ... }`;
+Pedro's real `vise-pm-6` measurements are the only true measurements. Cutting
+rows and policy floors cite `example (plausible)`. Unknown semantics are
+unchanged: anything still `unknown` keeps its finding unknown.
+
+### Example divergences from consumer exports
+
+| File | Key | Export value → example value | Why |
+|---|---|---|---|
+| `cone-pivot-post/features.toml` | `construction` | `"one_piece"` → `"built_up_permitted"` | user-approved: treat the drawing as permitting built-up so `built-up.toml` is not refused |
+| `cone-pivot-post/features.toml` | `features.mount_west.station_nominal` | `-12.98` → `12.98` | sign bug, [HA #1214](https://github.com/pedropaulovc/harmonic-analyzer/issues/1214) |
+| `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
+| `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
 
 ### M3 export delivery provenance
 
