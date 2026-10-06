@@ -158,7 +158,7 @@ def evaluate(bundle):
                     f"{e.get('rest')} jaws set on the work with the tool at its start "
                     f"Z{e.get('start_z_mm')} meet {', '.join(e.get('meets', []))}: "
                     + (
-                        f"set them only once the tool has passed Z{e['engage_z_mm']}"
+                        f"set them only once the tool has passed Z{e['engage_z_mm']:.3f}"
                         if number(e.get("engage_z_mm"))
                         else "no clear jaw position before the cut is established"
                     )
