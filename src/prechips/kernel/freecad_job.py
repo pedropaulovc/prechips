@@ -710,6 +710,20 @@ def _normal_at(face, point):
     return face.normalAt(u, v)
 
 
+def _on_surface(face, point, precision):
+    """``point`` moved onto ``face``'s own surface when it lies within the face's BRep
+    precision of it, else unchanged. Boundary samples come from edge curves that need only
+    lie within their own tolerance of the surface: the approximated (spline) edges of a
+    split cylinder wander tenths of a micron about its radius, and meridians built from them
+    turn one analytic surface into a jagged, self-intersecting set of revolved bands."""
+    try:
+        surface = face.Surface
+        snapped = surface.value(*surface.parameter(point))
+    except Exception:
+        return point
+    return snapped if (snapped - point).Length <= precision else point
+
+
 def _distance(a, b):
     """``a.distToShape(b)``, measured from ``b`` when OCC cannot finish it from ``a``.
 
@@ -7194,9 +7208,12 @@ class _Setup:
         with an axial normal (a dome's apex), which the grid never lands on, is one too.
         """
         if index not in self.revolutions:
-            found, skipped = _face_samples(self.faces[index], 1.0)
+            face = self.faces[index]
+            found, skipped = _face_samples(face, 1.0)
+            precision = face.getTolerance(1)
             verdict, meridian = "external", []
             for point, normal in found:
+                point = _on_surface(face, point, precision)
                 rho = math.hypot(point.x, point.y)
                 if rho <= AXIS_TOL:
                     if math.hypot(normal.x, normal.y) > REVOLVED_TOL:
@@ -7213,7 +7230,6 @@ class _Setup:
                     verdict = "internal"
                 meridian.append(((rho, point.z), (radial, normal.z)))
             if verdict == "external" and found:
-                face = self.faces[index]
                 for vertex in face.Vertexes:
                     point = vertex.Point
                     if math.hypot(point.x, point.y) > BBOX_TOL:

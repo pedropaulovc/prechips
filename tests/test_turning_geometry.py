@@ -38,8 +38,41 @@ ring = Part.makeCylinder(4, 2, V(0, 0, 30)).cut(Part.makeCylinder(3, 2, V(0, 0, 
 save("grooved", sharp.cut(ring))
 domed = Part.makeCylinder(6, 20).fuse(Part.makeCylinder(4, 16, V(0, 0, 20)))
 save("domed", domed.fuse(Part.makeSphere(4, V(0, 0, 36))).removeSplitter())
+
+import math
+
+def seam(theta0, freq, phase, wave=3e-4):
+    # A split edge up the r4 cylinder whose spline strays up to `wave` off the radius, within
+    # its own tolerance, as a CAD exporter's approximated intersection curve does.
+    points = []
+    for k in range(61):
+        t = k / 60
+        theta = theta0 + 0.3 * math.sin(math.pi * t)
+        r = 4 + wave * math.sin(freq * math.pi * t + phase) * math.sin(math.pi * t)
+        points.append(V(r * math.cos(theta), r * math.sin(theta), 20 + 20 * t))
+    curve = Part.BSplineCurve()
+    curve.interpolate(points)
+    return curve.toShape()
+
+surface = Part.Cylinder()
+surface.Radius, surface.Center = 4, V(0, 0, 20)
+starts = [2 * math.pi * k / 3 for k in range(3)]
+seams = [seam(s, 5 + 2 * k, 0.7 * k) for k, s in enumerate(starts)]
+faces = []
+for k, lo in enumerate(starts):
+    hi = lo + 2 * math.pi / 3
+    arcs = [Part.Edge(Part.Circle(V(0, 0, z), V(0, 0, 1), 4), lo, hi) for z in (20, 40)]
+    edges = [arcs[0], seams[(k + 1) % 3], arcs[1], seams[k]]
+    face = Part.Face(surface, Part.Wire(Part.__sortEdges__(edges)))
+    face.fix(1e-7, 1e-7, 1e-3)
+    faces.append(face)
+for z in (20, 40):
+    faces.append(Part.Face(Part.Wire([Part.Circle(V(0, 0, z), V(0, 0, 1), 4).toShape()])))
+shell = Part.Shell(faces)
+shell.sewShape()
+save("seamed", Part.makeCylinder(6, 20).fuse(Part.Solid(shell)))
 """
-_AUTHORED = 6
+_AUTHORED = 7
 FINISHED_MM3 = math.pi * (36 * 20 + 16 * 20)
 
 
@@ -343,6 +376,32 @@ def test_turned_and_faced_stock_is_what_the_next_setup_receives(engine, shafts):
         )
     )["setups"]["S2"]["stock_volume_mm3"]
     assert ends == pytest.approx(FINISHED_MM3 + fillet, rel=1e-6)
+
+
+def test_turning_a_cylinder_split_by_tolerant_seams_leaves_its_analytic_radius(engine, shafts):
+    # The r4 cylinder is split into three faces by spline seams that stray up to 0.3 um off
+    # the radius within their own tolerance. All three lie on one analytic surface, so
+    # roughing and the spring pass leave exactly that radius, not a jagged meridian.
+    step = shafts["seamed"]
+    thirds = engine.refs(step, (-4.01, -4.01, 20), (4.01, 4.01, 40), kind="Cylinder")
+    assert len(thirds) == 3
+    hold = {"reason": "chuck not modelled here"}
+    passes = [
+        _turn("S1:10", "small", do="rough_turn", z_from=40.0, z_to=20.0),
+        _turn("S1:20", "small", z_from=40.0, z_to=20.0),
+    ]
+    result = engine.run(
+        engine.job(
+            step,
+            {"small": thirds},
+            [_lathe(passes), {**_lathe([], "S2"), "hold": hold}],
+            stock=_bar(),
+        )
+    )
+    assert "stock_out_reason" not in result["setups"]["S1"]
+    # 2e-3 mm^3 over the 503 mm^2 turned wall is a 4 nm mean radius error: the meridians'
+    # own 1 nm push into the material passes; a seam's stray of tenths of a micron does not.
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(FINISHED_MM3, abs=2e-3)
 
 
 def _fillet_ring_mm3():
