@@ -945,6 +945,8 @@ Bars = record(
 # primitives, or only from those named in ``cuts``. ``locates`` names the part face it
 # locates or carries, ``fastener`` its thread / fastener, and ``shim`` marks an
 # adjustable shim stack whose drawn thickness is the nominal (traveler fixture table).
+# ``supply``: made with its owner (default), ``bought`` hardware, or ``existing`` in the
+# shop (a machine's vise jaw drawn for clearance); only made solids are make-table rows.
 FixtureSolid = record(
     "FixtureSolid",
     {
@@ -955,6 +957,7 @@ FixtureSolid = record(
         **numbers("dia_mm length_mm"),
         "void": bool,
         "shim": bool,
+        "supply": Literal["made", "bought", "existing"],
         "cuts": list[str],
         "measured": Measurement,
         "verify": bool,
