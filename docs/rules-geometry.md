@@ -558,7 +558,11 @@ allowance. An explicit `to_z` caps the endpoint rather than adding to the
 leave: the tip is the higher of `to_z` and the floor plus its leave, so a
 `to_z` already at the rough floor plus a 0.2 mm leave is that endpoint, not
 0.4 mm above the floor. The tip never goes below the retained leave, and
-numerical lift still separates it from the finished face. An unknown
+numerical lift still separates it from the finished face. A finishing op's
+numeric `to_z` above the sampled face is likewise its actual tip: a spring
+pass to 0.1 mm above the floor samples there, matching its own cut, so the
+skin it leaves is stock below the tip rather than a hit, and a later
+full-depth pass removes that skin as its own cut. An unknown
 authored leave makes the op's accessibility `unknown` and later stock that
 depends on it debt. The protected solid is built by offsetting the finished
 solid outward by the leave. Where that offset's arc join cannot be built (a
@@ -569,15 +573,37 @@ corners, never less than the leave, and there is never a fallback to the
 nominal finished solid or a zero leave. If both constructions fail, the
 result is named offset debt.
 
-**User decision, 2026-10-05:** at a concave edge shared by a floor and a
-rising wall, the floor-sample cutter axis shifts one cutter radius into the
-floor, away from the wall. At a two-wall concave floor corner the pose is
-tangent to both walls; nearby concave-corner edge samples also use both-wall
-tangency when the second wall lies within a cutter radius. This replaces the
-former boundary-centred floor pose; convex edges and ordinary interior
-samples are unchanged. Convex wall/wall island vertices retain their legacy
-samples without an added corner pose. Tangency selects a pose, not a
-corner-radius certification. Floor-only claims do not certify wall/wall
+**User decision, 2026-10-05, extended to every concave floor edge:** a planar
+floor sample on or within one cutter radius of any concave floor/rising-wall
+edge, straight or curved (pocket walls and boss feet alike), moves its cutter
+axis away from that edge along the wall's in-plane normal at the edge's
+nearest point until the cutter is tangent. Every such edge bounds the axis at
+once, so a two-wall concave floor corner, and a sample near one, stands
+tangent to both walls. The axis is the smallest move meeting every bound: a
+circular wall concave toward the floor whose radius is at least the cutter's
+bounds it by its exact tangent circle, any other edge by its tangent
+half-plane at the nearest point, and the move is one of finitely many analytic
+candidates (no search). A shifted axis may come within a radius of a concave
+edge the sample was not near (the far wall of an acute cusp), or be carried
+across a wall into its material (an island inside a narrow V); that edge then
+joins the bounds and the axis is solved again. An axis has crossed a wall when
+that wall's floor edge is its nearest and it stands straight behind the edge's
+interior; a sample's own position never counts as crossing, so a floor sample
+beside a thin rib is not bounded by the rib's far face. This finite constraint
+closure only adds walls not yet bounding, at most once each, and is not a pose
+search.
+A sample beyond an edge's end counts that edge only at
+a concave wall/wall corner there, so convex wall/wall island vertices add no
+bound and no corner pose. When no axis clears every bounding wall (a cutter
+wider than the slot, gap or pocket circle), the sample keeps its own axis and
+its collision is a real hit; an unclassifiable floor edge remains localized
+pose debt. On a non-circular concave curve, or a circle smaller than the
+cutter, the nearest-point half-plane may still leave the pose crossing the
+wall, which is reported as a hit, never cleared. Convex floor edges, samples
+farther than a radius from every concave edge and wall samples are
+unchanged. This is a per-sample rule, not a whole-face or centroid pose.
+Tangency selects a pose, not a corner-radius certification. Floor-only
+claims do not certify wall/wall
 corner radii: `internal_corner_radius` still checks a sharp wall/wall corner
 only when the op claims both walls, with its existing scope unchanged.
 Adjacent finished walls are not removed to manufacture clearance, and
@@ -677,9 +703,16 @@ For milling, a far-side face (outward normal opposing setup +Z by more than
 90°) is an invalid cutting claim, reported as an error naming the face before
 tool-dimension debt can hide it.
 
-The kernel tests pin the discriminations: a boss beside a claimed plate top
-is a hit naming the boss face; an offset cutter tangent to its claimed side
-wall clears while the sample-centred mutant intersects the wall; a Ø10 cutter
+The kernel tests pin the discriminations: a plate-top sample within a cutter
+radius of a boss stands tangent to it and clears, as do samples near an R10 or
+exactly cutter-sized circular pocket wall, an arc/chord corner and the walls
+of a groove exactly two radii wide, while a cutter wider than its circle or
+groove reports the real wall hit; samples near a 40° V tip whose two-wall axis
+lands inside an r0.5 island stand past the island (only the two samples whose
+island and V-wall bounds conflict report the hit), and plate samples beside a
+1 mm rib clear it; an offset cutter tangent to
+its claimed side wall clears while the sample-centred mutant intersects the
+wall; a Ø10 cutter
 in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the
 holder only when they stand high enough. The concave floor-edge convention
 above changes the prescribed pose, not the obstacle solid. There is no pose
