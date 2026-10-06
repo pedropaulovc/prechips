@@ -115,15 +115,6 @@ cite = "illustrative example value (plausible hobby-lathe carbide starting point
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "carbide"
-operation = "form_relief"
-diameter_range = [0.0, 125.0]
-sfm = 250
-feed_mm_rev = 0.04
-cite = "illustrative example value (plausible hobby-lathe carbide starting point), not transcribed from a handbook"
-
-[[cut]]
-material_class = "low_carbon_steel"
-tool_material = "carbide"
 operation = "form_dome"
 diameter_range = [0.0, 125.0]
 sfm = 250
@@ -132,17 +123,26 @@ cite = "illustrative example value (plausible hobby-lathe carbide starting point
 
 [[cut]]
 material_class = "low_carbon_steel"
-tool_material = "carbide"
-operation = "cut_to_fit"
+tool_material = "M2"
+operation = "part_off"
 diameter_range = [0.0, 125.0]
-sfm = 250
-feed_mm_rev = 0.05
-cite = "illustrative example value (plausible hobby-lathe carbide starting point), not transcribed from a handbook"
+sfm = 70
+feed_mm_rev = 0.03
+cite = "illustrative example value (plausible hobby-lathe HSS parting starting point), not transcribed from a handbook"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "M2"
-operation = "part_off"
+operation = "form_relief"
+diameter_range = [0.0, 125.0]
+sfm = 70
+feed_mm_rev = 0.03
+cite = "illustrative example value (plausible hobby-lathe HSS plunge-grooving starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M2"
+operation = "cut_to_fit"
 diameter_range = [0.0, 125.0]
 sfm = 70
 feed_mm_rev = 0.03

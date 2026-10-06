@@ -60,6 +60,9 @@ cross_slide_travel_in = 6
 compound_travel_in = 3
 weight_lb = 575
 standard_accessories = ["chuck-3jaw-6-d1-4", "chuck-4jaw-6-d1-4", "faceplate-d1-4", "steady_rest", "follow_rest", "thread_dial", "dead_centre_headstock", "dead_centre_tailstock_mt3"]
+# --- pivot-shaft additions ---
+control = "manual; illustrative example item (plausible, not on hand): Electronica EL400 two-axis lathe DRO, X scale on the cross slide, Z scale on the bed"
+# --- end pivot-shaft additions ---
 
 [machines.PM-1127VF-LB.spindle]
 ranges_rpm = [[70, 380], [380, 2200]]
@@ -473,13 +476,9 @@ head_len_mm = { value = 12.7, measured = { by = "example (plausible, not measure
 shank_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
 functional_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
 projection_mm = { "qctp-axa-lms-2280/7-parting" = { value = 18.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to blade tip" } } }
+shank_in = "1/2"             # blade height clamped by the #7 holder (size_in 1/16 x 1/2 x 4-1/2)
+# Drill-only point_angle/flute_len/oal/flutes/dia fields removed: a parting blade has none.
 # --- end pivot-shaft additions ---
-point_angle = "unknown"
-flute_len = "unknown"
-oal = "unknown"
-flutes = "unknown"
-dia = "unknown"
-shank = "unknown"
 
 [tools.parting-blade-lms-1728.source]
 vendor = "LittleMachineShop"
