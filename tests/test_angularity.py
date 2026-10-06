@@ -233,7 +233,8 @@ def test_reference_length_does_not_contradict_a_different_exported_requirement(t
 
 @pytest.mark.parametrize("key", ["height_above_pivot", "height", "separation"])
 @pytest.mark.parametrize(
-    ("band", "status"), [("[5.0, 5.25]", "pass"), ("[5.0, 5.09]", "error"), ('"unknown"', "unknown")]
+    ("band", "status"),
+    [("[5.0, 5.25]", "pass"), ("[5.0, 5.09]", "error"), ('"unknown"', "unknown")],
 )
 def test_height_from_tolerance_is_the_declared_height_band(tmp_path, key, band, status):
     bundle = angularity_bundle(tmp_path, requirement=key, band=band, datums="[]")

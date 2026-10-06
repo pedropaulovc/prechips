@@ -1073,9 +1073,13 @@ def _kernel_clip(subject, arcs, lines, clips):
             if a[x] and b[y] and _joined(a[x + 1], b[y + 1]):
                 count -= 1
     if not result["arc_table"] and not result["line_table"]:
-        return [], [], (
-            "no part of its cutter-centre path is clear of stock outside its "
-            "stock_removal_bounds"
+        return (
+            [],
+            [],
+            (
+                "no part of its cutter-centre path is clear of stock outside its "
+                "stock_removal_bounds"
+            ),
         )
     debt = None
     if count > 1:
@@ -1377,11 +1381,7 @@ def evaluate(bundle, *, pre_kernel=False):
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
         status = (
-            "error"
-            if residuals
-            else "unknown"
-            if unknown or unordered or clip_debts
-            else "pass"
+            "error" if residuals else "unknown" if unknown or unordered or clip_debts else "pass"
         )
         sentence = (
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "

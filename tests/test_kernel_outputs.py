@@ -5,12 +5,15 @@ import hashlib
 import struct
 import zlib
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
 from prechips.cli import _output_paths, _write_outputs
 from prechips.inputs import BadInput, load_bundle
 from prechips.report import build_report, render_assets
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _png(color):
@@ -27,7 +30,7 @@ def _png(color):
 
 
 def test_render_content_changes_approval_binding_without_changing_source_inputs():
-    bundle = load_bundle("examples/pivot-shaft/plan.toml")
+    bundle = load_bundle(ROOT / "examples/pivot-shaft/plan.toml")
     setup = bundle.plan["setups"][0]["id"]
 
     def rendered(color):
@@ -205,7 +208,7 @@ def test_check_after_traveler_removes_stale_assets_and_binds_current_render(
         return [bundle.kernel for bundle in bundles]
 
     monkeypatch.setattr(kernel, "run_geometries", render_bundles)
-    plan = "examples/pivot-shaft/plan.toml"
+    plan = str(ROOT / "examples/pivot-shaft/plan.toml")
     args = [plan, "--out", str(tmp_path)]
     assert cli.main(["traveler", *args]) in {0, 2, 4}
     prior_report = json.loads((tmp_path / "report.json").read_bytes())
