@@ -23,11 +23,15 @@ Measurement conventions (setup frame, tool axis +Z):
   flat tools use an r x flute_len cylinder. The holder starts at tip + projection.
   Both shrink/lift by ``LIFT``.
   Far-side faces cannot be claimed from that setup; undefined normals remain debt.
-* Obstacles: setup-entry stock minus the sampled face's ``LIFT``-thick inward
-  shell, plus placed fixture solids. A hole's known matched cap keeps unmodified stock instead
-  of an unrepresentable apex shell. The flute alone excludes its own actual cut.
-  Unrelated finished features remain obstacles, and holders retain all entry-stock
-  obstacles. A hole's own bore radius is sizing, not a corner.
+* Obstacles: stock minus the sampled face's ``LIFT``-thick inward shell, plus
+  placed fixture solids. A hole's known matched cap keeps unmodified stock instead
+  of an unrepresentable apex shell. The flute meets the stock this setup's earlier
+  ops leave, derived once in op order before measuring, less its own actual cut;
+  later cuts are never credited, and after an underivable earlier cut only
+  finished material counts and tool hits stay unknown. Holders and reach retain
+  all setup-entry stock. Unrelated finished features remain obstacles. Milling
+  only: turning keeps its own turned-profile obstacle. A hole's own bore radius
+  is sizing, not a corner.
   Supply and earlier setups' removals determine the held stock and holder/reach
   obstacles. A rough mill op's ``rough_allowance_mm`` leave moves its poses along the unit
   normal (floor-edge limits r + a) and stays in derived stock; authored clearing boxes
@@ -1375,6 +1379,12 @@ class _Setup:
         self.stock_out, self.stock_out_reason = None, self.stock_reason
         # Setup-frame stock entering the setup and after each op that changes it.
         self.stock_states = []
+        # Stock builder (:meth:`_build`): id(op) -> (setup-frame stock before it, the removal
+        # derived for it or None, None) or (None, None, why that stock is unknown); the facts
+        # of each saw it reached; and (end stock, None) or (None, why it stopped).
+        self.cuts = {}
+        self.saws = {}
+        self.built = None
         self.matrix = None
         self.finished = None  # the finished solid in the setup frame
         self.faces = []  # its faces: every face index/label refers to these
@@ -1487,8 +1497,12 @@ class _Setup:
         # geometry, independent of the entering stock).
         if any(_turned(op) for op in self.ops):
             self._revolution_facts(facts)
-        # Every op and the render see the stock as it enters the setup; this setup's own
-        # removals only shape the stock handed to the next one.
+        # The stock builder derives every op's before-op stock, the saw facts and the end stock
+        # once, before measuring: a flute meets the stock this setup's earlier cuts leave, while
+        # holders, reach, fixtures and the render see the stock as it enters the setup.
+        if self.stock_reason is None:
+            with _timed(phases, "stock_states"):
+                self.built = self._build()
         ops = {}
         for op in self.ops:
             with _timed(op_clocks, self._subject(op)):
@@ -1499,7 +1513,7 @@ class _Setup:
         self._rest_interference(facts, ops)
         if self.stock_reason is None:
             with _timed(phases, "stock_output"):
-                self.stock_out, self.stock_out_reason = self._output(ops)
+                self.stock_out, self.stock_out_reason = self._finish(ops)
             with _timed(phases, "render"):
                 png, scene = self._render()
             facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
@@ -1568,103 +1582,145 @@ class _Setup:
         self.culled_part = None
         self.regions = {}
 
-    def _output(self, ops):
-        """(model-frame stock this setup leaves, or None, and why it cannot be derived).
+    def _where(self):
+        return f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
+
+    def _build(self):
+        """(setup-frame stock after this setup's cuts, or None, and why it cannot be derived).
+
+        One pass in op order, before any op is measured: ``cuts`` records the stock before
+        each op and the removal derived for it (:meth:`_cut`), ``saws`` each reached saw's
+        facts (:meth:`_saw_stock`) and ``stock_states`` every changed state. Each input stock
+        solid loses its removal separately and must stay one valid piece. The first op whose
+        cut cannot be derived (or splits, empties or fails a boolean) stops the pass: its own
+        before-op stock stays known, every later op's is unknown for that reason, and no
+        later cut is ever credited to an earlier op.
+        """
+        where = self._where()
+        stock, stopped = self.part, None
+        self.stock_states = [stock]
+        for op in self.ops:
+            subject = self._subject(op)
+            if stopped is not None:
+                self.cuts[id(op)] = (None, None, stopped)
+                continue
+            before, removal = stock, None
+            try:
+                if _sawn(op):
+                    after, detail = self._saw_stock(op, stock)
+                    self.saws[id(op)] = detail
+                    why = detail.get("saw_error") or detail.get("saw_reason")
+                    if why is not None:
+                        stopped = f"{subject}: {why}; {where}"
+                    else:
+                        stock = after
+                        self.stock_states.append(stock)
+                    continue
+                removal, why = self._cut(op, stock)
+                if why is not None:
+                    stopped = f"{subject} {why}; {where}"
+                elif removal is not None:
+                    pieces = []
+                    for original in stock.Solids:
+                        kept = [p for p in original.cut(removal).Solids if p.Volume > STOCK_MM3]
+                        if len(kept) > 1 or not all(piece.isValid() for piece in kept):
+                            stopped = (
+                                f"{subject}: removing its claimed clearance splits an input "
+                                f"stock piece into {len(kept)} piece(s); {where}"
+                            )
+                            break
+                        pieces.extend(kept)
+                    if stopped is None and not pieces:
+                        stopped = f"{subject}: claimed clearance leaves no stock; {where}"
+                    if stopped is None:
+                        stock = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
+                        self.stock_states.append(stock)
+            except Exception as exc:
+                stopped = f"in-process stock boolean failed ({exc}); {where}"
+            finally:
+                self.cuts[id(op)] = (before, removal, None)
+        return (None, stopped) if stopped is not None else (stock, None)
+
+    def _cut(self, op, stock):
+        """(stock ``op`` removes from ``stock``, or None, and why it cannot be derived).
 
         A hole op (``hole`` metadata) removes its geometry-located bore cylinder (see
         :meth:`_hole_cut`). Other ops remove only stock outside their guard: the finished
         solid offset by their own rough leave (:meth:`_guard`). An authored clearing box
         removes that within the box above ``to_z``, leaving unclaimed hole columns to
-        their own ops; its pieces must border a claim on the stock entering the setup, as
-        its flute mask does, so an earlier op clearing the bridge between a claim and the
-        rest of its box never strands that box. Other ops sweep direction-valid claims
-        along +Z, keeping unclaimed rails, ears, webs and overstock. A lower-leave op also
-        cuts the lineage leave off its claimed lateral faces (:meth:`_band`). Every
-        profile-claimed face with a horizontal normal component must be clear of overstock
-        beyond its op's guard at its interior after the setup's removals; merely sweeping a
-        sliver from a drafted wall does not prove it cleared. Each complete-form hole op's
-        own claimed caps (``cap_completion`` in its ``ops`` facts) must likewise be clear of
-        the setup's final stock; touched caps are named there and make the output stock debt.
+        their own ops; its pieces must border a claim on the stock entering the setup, so
+        an earlier op clearing the bridge between a claim and the rest of its box never
+        strands that box. Other ops sweep direction-valid claims along +Z, keeping
+        unclaimed rails, ears, webs and overstock. A lower-leave op also cuts the lineage
+        leave off its claimed lateral faces of ``stock`` (:meth:`_band`).
         """
-        where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
-        stock, walls, forms = self.part, [], []
-        self.stock_states = [stock]
+        valid, away, why = self._claims(op)
+        if not isinstance(valid, list):
+            return None, f"claimed faces are unresolved ({why})"
+        to_z = op.get("to_z")
+        if to_z is not None and not _number(to_z):
+            return None, "to_z is unknown"
+        if _turned(op):
+            return self._turn_removal(op, valid)
+        if isinstance(op.get("hole"), dict):
+            cut = self._hole_cut(op, valid, _positive(op, "radius_mm"))
+            return cut["removal"], cut["reason"]
+        leave, why = self._guarded(op)
+        if why is not None:
+            return None, why
+        if "stock_removal_bounds" in op:
+            # Removing the entry-stock pieces from the current stock only cuts.
+            removal, why = self._bounded(
+                op["stock_removal_bounds"],
+                self.part,
+                valid,
+                away,
+                to_z,
+                _positive(op, "radius_mm"),
+                leave,
+            )
+            if why is not None:
+                return None, why
+        else:
+            removal = self._removal(valid, to_z, op.get("do"), leave)
+        band, why = self._band(stock, valid, to_z, leave, self._carried(op))
+        if why is not None:
+            return None, why
+        if band is not None:
+            removal = band if removal is None else removal.fuse(band)
+        return removal, None
+
+    def _finish(self, ops):
+        """(model-frame stock this setup leaves, or None, and why it cannot be derived).
+
+        Judged once on the builder's end stock, after every op is measured; neither debt
+        changes any op's before-op stock. Every face an unbounded milling op claims with a
+        horizontal normal component must be clear of overstock beyond its op's guard at its
+        interior; merely sweeping a sliver from a drafted wall does not prove it cleared.
+        Each complete-form hole op's own claimed caps (``cap_completion`` in its ``ops``
+        facts) must likewise be clear of it, even when its cut removes nothing new; touched
+        caps are named there and make the output stock debt.
+        """
+        stock, why = self.built
+        if why is not None:
+            return None, why
+        where = self._where()
         try:
             for op in self.ops:
-                subject = self._subject(op)
-                if _sawn(op):
-                    stock, detail = self._saw_stock(op, stock)
-                    if stock is not None:
-                        self.stock_states.append(stock)
-                    ops[subject] = detail
-                    why = detail.get("saw_error") or detail.get("saw_reason")
-                    if why is not None:
-                        return None, f"{subject}: {why}; {where}"
+                if (
+                    _sawn(op)
+                    or _turned(op)
+                    or isinstance(op.get("hole"), dict)
+                    or "stock_removal_bounds" in op
+                ):
                     continue
-                valid, away, why = self._claims(op)
-                if not isinstance(valid, list):
-                    return None, f"{subject} claimed faces are unresolved ({why}); {where}"
-                to_z = op.get("to_z")
-                if to_z is not None and not _number(to_z):
-                    return None, f"{subject} to_z is unknown; {where}"
-                if _turned(op):
-                    removal, why = self._turn_removal(op, valid)
-                    if why is not None:
-                        return None, f"{subject} {why}; {where}"
-                elif isinstance(op.get("hole"), dict):
-                    # A hole cut derives later stock but never joins the profile-wall check.
-                    cut = self._hole_cut(op, valid, _positive(op, "radius_mm"))
-                    if cut["reason"] is not None:
-                        return None, f"{subject} {cut['reason']}; {where}"
-                    removal = cut["removal"]
-                    # Judged on the final stock even when this cut removes nothing new.
-                    if "cap_completion" in ops[subject]:
-                        forms.append((subject, ops[subject]["cap_completion"]))
-                else:
-                    leave, why = self._guarded(op)
-                    if why is not None:
-                        return None, f"{subject} {why}; {where}"
-                    carried = self._carried(op)
-                    if "stock_removal_bounds" in op:
-                        # Removing the entry-stock pieces from the current stock only cuts.
-                        removal, why = self._bounded(
-                            op["stock_removal_bounds"],
-                            self.part,
-                            valid,
-                            away,
-                            to_z,
-                            _positive(op, "radius_mm"),
-                            leave,
-                        )
-                        if why is not None:
-                            return None, f"{subject} {why}; {where}"
-                    else:
-                        removal = self._removal(valid, to_z, op.get("do"), leave)
-                        walls.append((subject, self._indices(op), to_z, leave, carried))
-                    band, why = self._band(stock, valid, to_z, leave, carried)
-                    if why is not None:
-                        return None, f"{subject} {why}; {where}"
-                    if band is not None:
-                        removal = band if removal is None else removal.fuse(band)
-                if removal is None:
-                    continue
-                pieces = []
-                for original in stock.Solids:
-                    kept = [p for p in original.cut(removal).Solids if p.Volume > STOCK_MM3]
-                    if len(kept) > 1 or not all(piece.isValid() for piece in kept):
-                        return None, (
-                            f"{subject}: removing its claimed clearance splits an input "
-                            f"stock piece into {len(kept)} piece(s); {where}"
-                        )
-                    pieces.extend(kept)
-                if not pieces:
-                    return None, f"{subject}: claimed clearance leaves no stock; {where}"
-                stock = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
-                self.stock_states.append(stock)
-            for subject, claimed, to_z, leave, carried in walls:
+                subject, to_z = self._subject(op), op.get("to_z")
+                leave, carried = self._guarded(op)[0], self._carried(op)
                 # Raw stock beyond the larger of its own and the lineage leave is uncleared.
                 overstock = stock.cut(self._guard(leave)[0])
-                covered = self._covered(overstock, claimed, to_z, max(leave, carried) + COVER_MM)
+                covered = self._covered(
+                    overstock, self._indices(op), to_z, max(leave, carried) + COVER_MM
+                )
                 if covered:
                     return None, (
                         f"{subject}: overstock still touches claimed wall(s) "
@@ -1673,6 +1729,11 @@ class _Setup:
                         "stock_removal_bounds (cleared XY footprint, retained rail/ear volume "
                         f"of an interrupted profile) for it; {where}"
                     )
+            forms = [
+                (self._subject(op), ops[self._subject(op)]["cap_completion"])
+                for op in self.ops
+                if isinstance(op.get("hole"), dict) and "cap_completion" in ops[self._subject(op)]
+            ]
             # The exact wall contact test without a to_z clip or leave: a complete-form
             # cut is never rough, and stock left below its floor still leaves a cap unformed.
             residue = stock.cut(self.finished) if forms else None
@@ -3314,9 +3375,12 @@ class _Setup:
 
     def _op(self, op):
         if _sawn(op):
-            return self._saw_facts(
-                op, self.stock_reason or "in-process stock before this saw operation cannot be derived"
-            )
+            # The stock builder's facts; otherwise why the stock before this saw is unknown.
+            if self.stock_reason is not None:
+                return self._saw_facts(op, self.stock_reason)
+            if id(op) in self.saws:
+                return self.saws[id(op)]
+            return self._saw_facts(op, self.cuts[id(op)][2])
         owner = self.owner
         refs, what = self._claim_refs(op)
         if refs is None:
@@ -3362,7 +3426,7 @@ class _Setup:
                 caps = sorted(self._own_caps(valid))
                 if caps:
                     # Its claimed caps must be formed by the setup's final stock: run()
-                    # fills ``unformed`` from :meth:`_output`, or why it stays unknown.
+                    # fills ``unformed`` from :meth:`_finish`, or why it stays unknown.
                     facts["cap_completion"] = {"caps": caps, "unformed": UNKNOWN}
         # Faces whose normals are only partly evaluable are still sampled: a hit on them
         # is a definite hit (``min_hits``), but no measured fact may pass on them while
@@ -3785,58 +3849,36 @@ class _Setup:
             return None
         return columns[0].fuse(columns[1:]) if len(columns) > 1 else columns[0]
 
-    def _flute_regions(self, op, regions, radius, hole_cut=None):
-        """Only this op's derivable allowance is cutting material, not a flute obstacle.
+    def _flute_regions(self, op, regions, hole_cut=None):
+        """The material a flute meets: the stock before this op (:meth:`_build`) less this
+        op's own removal, each region keeping its sampled face's shell out.
 
-        A hole op uses its (prepared or computed) :meth:`_hole_cut` removal; a milling op
-        cuts what :meth:`_output` removes for it, its guard's leave excepted. Holder
-        obstacles never see this.
+        Earlier ops' material is absent only because their derived cuts removed it; later
+        cuts are never credited. A hole op's own removal is its ``hole_cut``; a milling op's
+        is the builder's removal for it, unless a claim faces away from the approach. Once
+        an earlier cut is underivable the stock before this op is unknown: only finished
+        material, present in any real stock, remains a flute obstacle. Holder obstacles and
+        reach never see this; they keep the setup-entry ``regions``.
         """
         if self.stock_reason is not None:
             return regions
-        if isinstance(op.get("hole"), dict):
-            if hole_cut is None:
-                valid, _, _ = self._claims(op)
-                if not isinstance(valid, list):
-                    return regions
-                hole_cut = self._hole_cut(op, valid, radius)
-            if hole_cut["reason"] is not None:
-                return regions
-            removal = hole_cut["removal"]
+        before, removal, unknown = self.cuts[id(op)]
+        if unknown is not None:
+            stock = self.finished
         else:
-            valid, away, why = self._claims(op)
-            to_z = op.get("to_z")
-            if (
-                not isinstance(valid, list)
-                or away
-                or why
-                or (to_z is not None and not _number(to_z))
-            ):
-                return regions
-            leave, why = self._guarded(op)
-            if why:
-                return regions
-            carried = self._carried(op)
-            if "stock_removal_bounds" in op:
-                removal, why = self._bounded(
-                    op["stock_removal_bounds"], self.part, valid, away, to_z, radius, leave
-                )
-                if why:
-                    return regions
-            else:
-                removal = self._removal(valid, to_z, op.get("do"), leave)
-            band, why = self._band(self.part, valid, to_z, leave, carried)
-            if why:
-                return regions
-            if band is not None:
-                removal = band if removal is None else removal.fuse(band)
-        if removal is None:
+            if isinstance(op.get("hole"), dict):
+                removal = hole_cut["removal"]
+            elif self._claims(op)[1]:
+                removal = None
+            stock = before if removal is None else before.cut(removal)
+        if stock is self.part:
             return regions
-        removal = self.part.common(removal)
-        if removal.Volume <= HIT_MM3:
+        gone = self.part.cut(stock)
+        if gone.Volume <= HIT_MM3:
             return regions
+        # Fresh per op: its culling memos describe only this op's flute material.
         return {
-            index: (_Culled(region.shape.cut(removal)), None) if region is not None else (None, why)
+            index: (_Culled(region.shape.cut(gone)), None) if region is not None else (None, why)
             for index, (region, why) in regions.items()
         }
 
@@ -4092,7 +4134,9 @@ class _Setup:
             index: (self._culled_part(), None) if index in caps else self._region(index)
             for index in indices
         }
-        flute_regions = self._flute_regions(op, regions, radius, hole_cut=hole_cut)
+        flute_regions = self._flute_regions(op, regions, hole_cut)
+        # Why the stock before this op is unknown: its flute then met finished material only.
+        unbuilt = None if self.stock_reason is not None else self.cuts[id(op)][2]
         region_reason = (
             "; ".join(reason for _, reason in regions.values() if reason is not None) or None
         )
@@ -4162,6 +4206,12 @@ class _Setup:
             elif not ready:
                 facts[key] = UNKNOWN
                 reasons[key] = missing
+            elif kind == "tool" and unbuilt is not None:
+                facts[key] = UNKNOWN
+                reasons[key] = (
+                    f"the stock before this op is unknown ({unbuilt}); "
+                    f"{certain} sample(s) certainly hit finished or fixture material"
+                )
             elif not self.fixture_ready:
                 facts[key] = UNKNOWN
                 reasons[key] = (
