@@ -162,9 +162,15 @@ type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
 # A fixture-local frame placed in the setup frame (mm): origin plus unit x and z axes.
 Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
 # ``restraint``: press holds stock down onto the fixture; locate only positions it.
+# ``torque_nm``: the declared tightening torque the traveler prints in the clamp order.
 ClampPlacement = record(
     "ClampPlacement",
-    {**texts("ref note"), "pose": Pose, "restraint": Literal["press", "locate", "none"]},
+    {
+        **texts("ref note"),
+        "pose": Pose,
+        "restraint": Literal["press", "locate", "none"],
+        "torque_nm": Number,
+    },
 )
 type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
 Hold = record(
@@ -886,16 +892,19 @@ Bars = record(
 # One primitive of a fixture body, in its owner's local frame (plain mm). Its own
 # measured/verify qualify it, like a LengthMeasurement; nothing above it does. A ``void``
 # primitive (bore, tapped hole, slot) is not drawn: it is cut from the owner's other
-# primitives, or only from those named in ``cuts``.
+# primitives, or only from those named in ``cuts``. ``locates`` names the part face it
+# locates or carries, ``fastener`` its thread / fastener, and ``shim`` marks an
+# adjustable shim stack whose drawn thickness is the nominal (traveler fixture table).
 FixtureSolid = record(
     "FixtureSolid",
     {
-        **texts("name shape note label"),
+        **texts("name shape note label locates fastener"),
         "at_mm": Point3,
         "size_mm": Point3,
         "axis": Point3,
         **numbers("dia_mm length_mm"),
         "void": bool,
+        "shim": bool,
         "cuts": list[str],
         "measured": Measurement,
         "verify": bool,
@@ -910,7 +919,7 @@ InventoryItem = record(
             "standard series chart units taper"
         ),
         "sku": str | int,
-        **flags("verify present center_cutting swivel_base scroll independent"),
+        **flags("verify present center_cutting swivel_base scroll independent shop_made"),
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "

@@ -12,6 +12,7 @@ import math
 import re
 from html import escape
 
+from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .model import tolerance_requirements
 from .rules.coordinates import OVERSHOOT_NOTE, dro_grid, dro_z, row_id
@@ -283,6 +284,82 @@ _STOCK_FORMS = {
 }
 # Stock / stock-state keys that place solids for the kernel; not bench instructions.
 _PLACEMENT_KEYS = {"origin_mm", "axis", "section_axis", "as_is_faces", "id", "components"}
+# A ``hold.clamps`` label's role word in the HOLD text (see clamp_labels).
+_CLAMP_ROLES = {"C": "clamp", "LOC": "locator", "SUP": "support"}
+# Machine kinds whose top a shop-made fixture's base stands on, in shop words.
+_FIXTURE_SURFACES = {"mill": "table", "drill_press": "table", "bench": "bench"}
+
+
+def _pose_axes(pose):
+    """(origin, x, y, z) of a declared orthonormal fixture pose (y = z × x), else None."""
+    pose = _mapping(pose)
+    vectors = [pose.get(key) for key in ("origin_mm", "x", "z")]
+    if not all(isinstance(v, list) and len(v) == 3 and all(_known(c) for c in v) for v in vectors):
+        return None
+    origin, x, z = vectors
+    if (
+        abs(math.hypot(*x) - 1) > 1e-6
+        or abs(math.hypot(*z) - 1) > 1e-6
+        or abs(sum(a * b for a, b in zip(x, z, strict=True))) > 1e-6
+    ):
+        return None
+    y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]]
+    return origin, x, y, z
+
+
+def _place(axes, point, translate=True):
+    """A fixture-local point (or, untranslated, a direction) in the setup frame."""
+    origin, x, y, z = axes
+    return [
+        (origin[i] if translate else 0.0) + point[0] * x[i] + point[1] * y[i] + point[2] * z[i]
+        for i in range(3)
+    ]
+
+
+def _setup_axis(direction):
+    """``(index, sign)`` of the setup axis a unit direction lies along, else None."""
+    for index, component in enumerate(direction):
+        if abs(abs(component) - 1) <= 1e-6:
+            return index, 1 if component > 0 else -1
+    return None
+
+
+def _solid_extents(solid, axes):
+    """Setup-frame (low, high) corners of a box solid, or a cylinder's (start, end) axis
+    points; None for a malformed primitive."""
+    at = solid.get("at_mm")
+    if not (isinstance(at, list) and len(at) == 3 and all(_known(v) for v in at)):
+        return None
+    if solid.get("shape") == "box":
+        size = solid.get("size_mm")
+        if not (isinstance(size, list) and len(size) == 3 and all(_known(v) for v in size)):
+            return None
+        corners = [
+            _place(axes, [at[i] + (size[i] if (corner >> i) & 1 else 0.0) for i in range(3)])
+            for corner in range(8)
+        ]
+        return (
+            [min(c[i] for c in corners) for i in range(3)],
+            [max(c[i] for c in corners) for i in range(3)],
+        )
+    if solid.get("shape") == "cylinder":
+        axis, length = solid.get("axis"), solid.get("length_mm")
+        if not (isinstance(axis, list) and len(axis) == 3 and all(_known(v) for v in axis)):
+            return None
+        if not _known(length):
+            return None
+        start = _place(axes, at)
+        direction = _place(axes, axis, translate=False)
+        return start, [start[i] + direction[i] * length for i in range(3)]
+    return None
+
+
+def _solid_name(name):
+    """A solid's slug in words; short side codes (``r1``, ``ll``) print as capitals."""
+    words = re.split(r"[-_\s]+", str(name).strip())
+    return " ".join(
+        w.upper() if len(w) <= 2 or re.fullmatch(r"[a-z]\d+", w) else w for w in words if w
+    )
 
 
 def _status(finding):
@@ -490,6 +567,8 @@ class _Traveler:
         self.setup_stops = {}
         # Ops of the current setup with a block on its contour sheet; set by contours().
         self.contour_ops = set()
+        # (shop-made reference, its poses) -> the setup whose sheet 2 prints its table.
+        self.shop_made_homes = {}
 
     # ------------------------------------------------------------------ numbers
     def precision(self, feature=None, dimension=None):
@@ -838,10 +917,12 @@ class _Traveler:
             return value not in (None, "none", "not_applicable")
 
         fixture = hold.get("fixture", "unknown")
+        uses = self.shop_made_uses(setup)
         if fixture == "unknown":
             steps.append("STOP: holding not chosen — do not run.")
         else:
             mount = "Mount the " + self.reference(fixture, "fixtures")
+            mount += self.shop_made_pointer(setup, fixture, uses)
             if stated("chuck"):
                 mount += " with the " + self.reference(hold["chuck"], "fixtures")
             if stated("jaws_along"):
@@ -849,17 +930,24 @@ class _Traveler:
             if stated("fixed_jaw"):
                 mount += f"; fixed jaw {_text(hold['fixed_jaw'])}"
             steps.append(mount + ".")
+            steps.extend(self.fixture_setting(setup, hold, uses))
         if stated("parallels") and hold["parallels"] != "unknown":
             line = "Parallels: " + self.reference(hold["parallels"])
             if stated("riser"):
                 line += ", standing on " + self.reference(hold["riser"])
+                line += self.shop_made_pointer(setup, hold["riser"], uses)
             if stated("support_orientation"):
                 line += f" ({_text(hold['support_orientation'])} up)"
             steps.append(line + ".")
         supports = hold.get("supports")
         if isinstance(supports, str) and supports not in ("none", "not_applicable", "unknown"):
             if not (stated("riser") and supports == hold.get("riser")):
-                steps.append("Supports: " + self.reference(supports) + ".")
+                steps.append(
+                    "Supports: "
+                    + self.reference(supports)
+                    + self.shop_made_pointer(setup, supports, uses)
+                    + "."
+                )
         for support in supports if isinstance(supports, list) else []:
             support = _mapping(support)
             line = "Support: " + self.bench(support.get("ref", "?"))
@@ -877,6 +965,11 @@ class _Traveler:
                 if _known(hold.get("quill_extension_mm")):
                     line += f", quill out {self.operative(hold['quill_extension_mm'])} mm"
                 steps.append(line + ".")
+        stop_pointer = self.shop_made_pointer(setup, hold.get("stop_fixture"), uses)
+        if stop_pointer:
+            steps.append(
+                f"Work stop: {self.reference(hold['stop_fixture'], 'fixtures')}{stop_pointer}."
+            )
         for key, label in (
             ("locate", "Locate"),
             ("grip_on", "Grip on"),
@@ -889,14 +982,19 @@ class _Traveler:
                 step = self.bench(step, setup)
                 if step:
                     steps.append(step[:1].upper() + step[1:] + ".")
-        for index, clamp in enumerate(
-            hold.get("clamps") if isinstance(hold.get("clamps"), list) else [], 1
-        ):
+        clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
+        for label, clamp in zip(clamp_labels(hold), clamps, strict=True):
             clamp = _mapping(clamp)
-            line = f"Clamp {index}: {self.reference(clamp.get('ref'))}"
+            role = _CLAMP_ROLES[label.rstrip("0123456789")]
+            line = f"{label} {role}: {self.reference(clamp.get('ref'))}"
+            line += self.shop_made_pointer(setup, clamp.get("ref"), uses)
             if clamp.get("note"):
                 line += " — " + self.bench(clamp["note"], setup)
             steps.append(line + ".")
+        steps.extend(self.shim_steps(setup, uses))
+        tighten = self.tightening(hold)
+        if tighten:
+            steps.append(tighten)
         for key, label in (
             ("jaw_protection", "Jaw protection"),
             ("centre_lubrication", "Centre"),
@@ -947,6 +1045,294 @@ class _Traveler:
         if _known(clock) and clock and not lathe:
             facts.append(("jaw 1 clocked °", _number(clock)))
         return facts
+
+    # ------------------------------------------------------------ shop-made
+    def shop_made(self, reference):
+        """The inventory record of a shop-made holding item (``kind = "custom"`` or flagged
+        ``shop_made``), else None."""
+        if not isinstance(reference, str) or reference in ("unknown", "none", "not_applicable"):
+            return None
+        category = inventory_category(self.bundle, reference, WORKHOLDING_CATEGORIES)
+        item = _mapping(resolve(self.bundle, category or "fixtures", reference))
+        return item if item.get("kind") == "custom" or item.get("shop_made") is True else None
+
+    def shop_made_uses(self, setup):
+        """``{reference: [(label, pose)]}`` for each shop-made item the hold uses, in HOLD
+        order: the fixture at ``hold.pose``, each clamp entry at its own pose (labelled by
+        :func:`clamp_labels`), the work stop at ``stop_pose``; risers and supports carry
+        no pose."""
+        hold = _mapping(setup.get("hold"))
+        clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
+        placed = [(hold.get("fixture"), None, hold.get("pose"))]
+        placed += [
+            (_mapping(clamp).get("ref"), label, _mapping(clamp).get("pose"))
+            for label, clamp in zip(clamp_labels(hold), clamps, strict=True)
+        ]
+        placed.append((hold.get("stop_fixture"), "stop", hold.get("stop_pose")))
+        placed += [(hold.get(key), None, None) for key in ("riser", "supports")]
+        uses = {}
+        for reference, label, pose in placed:
+            if self.shop_made(reference) is None or (pose is None and reference in uses):
+                continue
+            uses.setdefault(reference, []).append((label, pose))
+        return uses
+
+    def shop_made_home(self, setup, reference, uses):
+        """The setup whose sheet 2 prints this item's table: its first use at these poses."""
+        key = (reference, repr([pose for _, pose in uses[reference]]))
+        return self.shop_made_homes.setdefault(key, setup["id"])
+
+    def shop_made_pointer(self, setup, reference, uses):
+        """`` (shop-made: …)`` naming the sheet with the item's table; empty otherwise."""
+        if not isinstance(reference, str) or reference not in uses:
+            return ""
+        home = self.shop_made_home(setup, reference, uses)
+        where = "sheet 2" if home == setup["id"] else f"Setup {home} sheet 2"
+        return f" (shop-made: SHOP-MADE FIXTURE table, {where})"
+
+    def fact(self, value):
+        """A fixture size or position: authored values of up to four decimals print as
+        authored; computed residue prints at DRO resolution."""
+        if not _known(value):
+            return "?"
+        rounded = round(value, 6)
+        if abs(rounded - round(rounded, 4)) < 1e-9:
+            return _number(rounded)
+        return self.operative(value)
+
+    def fixture_setting(self, setup, hold, uses):
+        """Placement of a posed angle plate or shop-made fixture body: the base on the
+        table/bench, an angle plate's working face (its local y = 0 face, facing local
+        -y) and the hold-down the base solid declares."""
+        fixture = hold.get("fixture")
+        if not isinstance(fixture, str):
+            return []
+        category = inventory_category(self.bundle, fixture, WORKHOLDING_CATEGORIES)
+        item = _mapping(resolve(self.bundle, category or "fixtures", fixture))
+        angle_plate = item.get("kind") == "angle_plate"
+        axes = _pose_axes(hold.get("pose"))
+        solids = item.get("solids") if isinstance(item.get("solids"), list) else []
+        if axes is None or not (angle_plate or fixture in uses):
+            return []
+        boxes = [
+            (solid, _solid_extents(solid, axes))
+            for solid in solids
+            if isinstance(solid, dict) and solid.get("shape") == "box" and not solid.get("void")
+        ]
+        boxes = [(solid, extents) for solid, extents in boxes if extents]
+        if not boxes:
+            return []
+        f = self.fact
+        base, (low, _) = min(boxes, key=lambda pair: pair[1][0][2])
+        surface = _FIXTURE_SURFACES.get(self.machine(setup).get("kind"))
+        level = _setup_axis(_place(axes, [0.0, 0.0, 1.0], translate=False)) == (2, 1)
+        name = "Angle plate" if angle_plate else self.reference(fixture, "fixtures")
+        name = name[:1].upper() + name[1:]
+        line = (
+            f"{name}: base flat on the {surface}, underside at Z {f(low[2])}"
+            if surface and level
+            else f"{name}: base underside at Z {f(low[2])}"
+        )
+        if angle_plate:
+            face = _setup_axis(_place(axes, [0.0, -1.0, 0.0], translate=False))
+            if face:
+                axis, sign = face
+                line += (
+                    f"; upright working face at {'XYZ'[axis]} {f(axes[0][axis])}, "
+                    f"facing {'+' if sign > 0 else '−'}{'XYZ'[axis]}"
+                )
+        if base.get("fastener"):
+            line += f"; hold the base down with {self.bench(base['fastener'], setup)}"
+        return [line + "."]
+
+    def shim_steps(self, setup, uses):
+        """Adjustable shim stacks of the shop-made items in use, at their nominal size."""
+        stacks = {}
+        for reference in uses:
+            for solid in self.shop_made(reference).get("solids") or []:
+                solid = _mapping(solid)
+                if solid.get("shim") is not True:
+                    continue
+                size = solid.get("size_mm")
+                thickness = (
+                    size[2]
+                    if solid.get("shape") == "box" and isinstance(size, list) and len(size) == 3
+                    else solid.get("length_mm")
+                )
+                key = (self.fact(thickness), solid.get("locates"))
+                stacks.setdefault(key, []).append(_solid_name(solid.get("name", "?")))
+        steps = []
+        for (thickness, locates), names in stacks.items():
+            under = f" under the {self.bench(locates, setup)}" if locates else ""
+            count = f"{len(names)} shim stacks" if len(names) > 1 else "Shim stack"
+            steps.append(
+                f"{count}{under} ({', '.join(names)}): {thickness} mm nominal; build each "
+                "to fit its actual gap with feeler gauges, without lifting the part."
+            )
+        return steps
+
+    def tightening(self, hold):
+        """The declared ``clamp_order`` as a two-pass tightening step, after seating the
+        part on its locators (and its declared preload), with any declared torque."""
+        order = hold.get("clamp_order")
+        clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
+        labels = clamp_labels(hold)
+        steps = [
+            i
+            for i in (order if isinstance(order, list) else [])
+            if isinstance(i, int) and 1 <= i <= len(clamps)
+        ]
+        if not steps:
+            return ""
+        named = ", ".join(labels[i - 1] for i in steps)
+        if len(steps) == 1:
+            text = f"Tighten {named}: snug it, then tighten fully"
+        else:
+            text = (
+                f"Tighten in order {named}: snug each in turn, then tighten each fully "
+                "in the same order"
+            )
+        torques = {
+            labels[i - 1]: _mapping(clamps[i - 1]).get("torque_nm")
+            for i in steps
+            if _known(_mapping(clamps[i - 1]).get("torque_nm"))
+        }
+        if torques and len(torques) == len(steps) and len(set(torques.values())) == 1:
+            text += f" to {_number(next(iter(torques.values())))} N·m"
+        elif torques:
+            text += "; torque " + ", ".join(f"{k} {_number(v)} N·m" for k, v in torques.items())
+        locators = [label for label in labels if label.startswith("LOC")]
+        if locators:
+            seat = f"Seat the part against {', '.join(locators)}"
+            preload = hold.get("preload_direction")
+            if preload in ("clockwise", "counterclockwise"):
+                seat += f", turning it {preload} (viewed from above) to take up the clearance"
+            text = f"{seat}; then {text[:1].lower()}{text[1:]}"
+        return text + "."
+
+    def solid_size(self, solid):
+        f = self.fact
+        void = solid.get("void") is True
+        if solid.get("shape") == "box" and isinstance(solid.get("size_mm"), list):
+            size = " × ".join(f(v) for v in solid["size_mm"])
+            return f"cut-out {size}" if void else size
+        if solid.get("shape") == "cylinder":
+            size = f"Ø{f(solid.get('dia_mm'))} × {f(solid.get('length_mm'))}"
+            return f"hole {size}" if void else size
+        return "?"
+
+    def solid_position(self, solid, axes):
+        """Setup-frame position: a box's X/Y/Z extents, a cylinder's axis."""
+        extents = _solid_extents(solid, axes) if axes else None
+        if extents is None:
+            return "? not posed"
+        f = self.fact
+        first, second = extents
+        if solid.get("shape") == "box":
+            return ", ".join(f"{a} {f(first[i])}…{f(second[i])}" for i, a in enumerate("XYZ"))
+        direction = _place(axes, solid["axis"], translate=False)
+        along = _setup_axis(direction)
+        if along:
+            i = along[0]
+            j, k = (n for n in range(3) if n != i)
+            low, high = sorted((first[i], second[i]))
+            return (
+                f"axis at {'XYZ'[j]} {f(first[j])}, {'XYZ'[k]} {f(first[k])}; "
+                f"{'XYZ'[i]} {f(low)}…{f(high)}"
+            )
+        nearest = max(range(3), key=lambda n: abs(direction[n]))
+        tilt = math.degrees(math.acos(min(1.0, abs(direction[nearest]))))
+        sign = "+" if direction[nearest] > 0 else "−"
+        return (
+            f"axis from ({', '.join(f(v) for v in first)}) to "
+            f"({', '.join(f(v) for v in second)}), {self.angle(tilt)}° off {sign}{'XYZ'[nearest]}"
+        )
+
+    def shop_made_tables(self, setup):
+        """One SHOP-MADE FIXTURE table per shop-made item first used (at these poses) in
+        this setup; a later setup using it at the same poses points back here."""
+        uses = self.shop_made_uses(setup)
+        return "".join(
+            self.shop_made_table(setup, reference, placements)
+            for reference, placements in uses.items()
+            if self.shop_made_home(setup, reference, uses) == setup["id"]
+        )
+
+    def shop_made_table(self, setup, reference, placements):
+        """The item's solids as make-and-set rows: identical solids share a row (an
+        authored ``label`` names the group), each row lists every setup-frame position."""
+        sid = setup["id"]
+        item = self.shop_made(reference)
+        solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
+        placed = [(label, _pose_axes(pose)) for label, pose in placements]
+        groups = {}
+        for solid in solids:
+            key = (
+                solid.get("label"),
+                solid.get("shape"),
+                repr(solid.get("size_mm")),
+                solid.get("dia_mm"),
+                solid.get("length_mm"),
+                solid.get("void") is True,
+                solid.get("locates"),
+                solid.get("fastener"),
+            )
+            groups.setdefault(key, []).append(solid)
+        rows = []
+        for (label, *_), members in groups.items():
+            names = [_solid_name(solid.get("name", "?")) for solid in members]
+            positions = []
+            for solid, name in zip(members, names, strict=True):
+                for tag, axes in placed:
+                    parts = (tag if len(placed) > 1 else None, name if len(members) > 1 else None)
+                    prefix = " ".join(part for part in parts if part)
+                    where = self.solid_position(solid, axes)
+                    positions.append(f"{prefix}: {where}" if prefix else where)
+            first = members[0]
+            rows.append(
+                [
+                    self.bench(label) if label else " / ".join(names),
+                    self.solid_size(first),
+                    positions,
+                    self.bench(first["locates"]) if first.get("locates") else "—",
+                    self.bench(first["fastener"]) if first.get("fastener") else "—",
+                ]
+            )
+        if not solids:
+            dims = [_amount(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")]
+            size = " × ".join(self.fact(v) for v in dims) if None not in dims else "? not declared"
+            rows.append(["body", size, ["? not posed"], "—", "—"])
+        headings = [
+            "Component",
+            "Size mm",
+            f"Position, Setup {sid} X / Y / Z mm",
+            "Locates",
+            "Fastener",
+        ]
+        widths = [17, 15, 40, 14, 14]
+        keep = [0, 1, 2] + [c for c in (3, 4) if any(row[c] != "—" for row in rows)]
+        spare = sum(w for c, w in enumerate(widths) if c not in keep)
+        widths = [widths[c] + (spare if c == 2 else 0) for c in keep]
+        users = [label for label, _ in placements if label and label != "stop"]
+        title = f"SHOP-MADE FIXTURE — {self.reference(reference, 'fixtures')}"
+        title += f" ({', '.join(users)})" if users else ""
+        intro = (
+            f"Make before Setup {sid}. Positions are in the Setup {sid} frame: boxes give "
+            "their X / Y / Z extents, cylinders their axis."
+        )
+        if any(
+            str(_mapping(s.get("measured")).get("by", "")).startswith("example") for s in solids
+        ):
+            intro += " Example dimensions (plausible, not measured): confirm before making."
+        return (
+            f"<h2>{escape(title)}</h2>"
+            + _p(intro)
+            + _table(
+                [headings[c] for c in keep],
+                [[row[c] for c in keep] for row in rows],
+                widths=widths,
+            )
+        )
 
     def jaw_front_z(self, setup):
         """A lathe chuck's pose origin is the jaw-face centre on the spindle axis."""
@@ -2601,6 +2987,7 @@ class _Traveler:
 
         details = [
             self.fixture_render(setup),
+            self.shop_made_tables(setup),
             self.clearance(setup),
             self.feature_map(setup),
             notes_html,

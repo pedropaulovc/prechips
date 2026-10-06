@@ -155,6 +155,19 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   centre after applying `hold.pose`, and records the label and posed centre in
   `scene.fixture_detail_labels`. The caption neither creates geometry nor
   overrides the void's measurement or verification debt.
+- A shop-made item (`kind = "custom"`, or any item / member flagged
+  `shop_made = true`) gets one SHOP-MADE FIXTURE table on sheet 2 of the first
+  setup using it at those poses; later setups at the same poses point back to it.
+  Each row is one primitive (identical primitives sharing a `label` group into
+  one row) with its size and setup-frame position (box X / Y / Z extents,
+  cylinder axis), placed by `hold.pose`, the clamp entry's `pose` or
+  `stop_pose`. Optional per-primitive texts `locates = "<part face>"` and
+  `fastener = "<thread / fastener>"` fill its Locates and Fastener columns;
+  `shim = true` marks an adjustable shim stack whose drawn thickness HOLD
+  prints as the nominal to fit with feeler gauges. An angle plate's (or posed
+  shop-made fixture's) lowest box is its base: HOLD prints its underside Z, an
+  angle plate's working face (local y = 0, facing local -y) and the base's
+  `fastener` as the hold-down. None of these texts creates geometry or trust.
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
