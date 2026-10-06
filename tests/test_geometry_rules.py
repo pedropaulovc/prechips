@@ -394,6 +394,114 @@ def test_holds_without_clamps_stay_unsupported(bundle):
     assert finding(thin_wall_under_clamp, bundle).status == "unsupported"
 
 
+def _noncutting(bundle):
+    """S1 explicitly declares no clamp and only fits and inspects."""
+    setup = bundle.plan["setups"][0]
+    setup["hold"]["clamp"] = "none"
+    setup["ops"] = [
+        {"op": 10, "do": "fit", "feature": "pocket"},
+        {"op": 20, "do": "inspect", "feature": "pocket"},
+    ]
+
+
+def _gravity_hold(bundle):
+    """S1 rests on posed fixture solids with no clamp member."""
+    _strap_hold(bundle)
+    bundle.plan["setups"][0]["hold"].pop("clamps")
+    _noncutting(bundle)
+
+
+@pytest.mark.parametrize("clamp", ["none", "not_applicable"])
+def test_unclamped_hold_under_noncutting_ops_is_not_applicable(bundle, clamp):
+    _gravity_hold(bundle)
+    bundle.plan["setups"][0]["hold"]["clamp"] = clamp
+    # No clamp loads the wall, including one far below the shop floor.
+    bundle.kernel["setups"]["S1"]["min_wall_mm"] = 0.1
+    assert finding(thin_wall_under_clamp, bundle).status == "not_applicable"
+
+
+def _setup(bundle):
+    return bundle.plan["setups"][0]
+
+
+@pytest.mark.parametrize(
+    "change,status",
+    [
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(clamp="gravity only"), "unsupported", id="prose"
+        ),
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(clamp="toe-clamp-kit"), "unsupported", id="named"
+        ),
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(clamp="unknown"), "unsupported", id="unknown"
+        ),
+        pytest.param(lambda b: _setup(b)["hold"].pop("clamp"), "unsupported", id="omitted"),
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(clamps="unknown"), "unsupported", id="clamps"
+        ),
+        pytest.param(
+            lambda b: _setup(b)["ops"].append(
+                {
+                    "op": 30,
+                    "do": "finish_profile",
+                    "feature": "pocket",
+                    "tool": "em",
+                    "holder": "holder",
+                }
+            ),
+            "unsupported",
+            id="cutting-op",
+        ),
+        pytest.param(
+            lambda b: _setup(b)["ops"][0].update(do="unknown"), "unsupported", id="unknown-op"
+        ),
+        pytest.param(lambda b: _setup(b).update(ops=[]), "unsupported", id="no-ops"),
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(fixture="unknown"), "unknown", id="identity"
+        ),
+        pytest.param(lambda b: _setup(b)["hold"].pop("pose"), "unknown", id="pose"),
+        pytest.param(lambda b: b.features["frames"].update(A="unknown"), "unknown", id="frame"),
+        pytest.param(
+            lambda b: b.kernel["setups"]["S1"].update(stock_reason="stock_in is unresolved"),
+            "unknown",
+            id="stock",
+        ),
+        pytest.param(
+            lambda b: b.kernel["setups"]["S1"].update(assembly_error="pieces overlap"),
+            "error",
+            id="assembly",
+        ),
+        pytest.param(
+            lambda b: b.kernel.update(status="unknown", reason="FreeCAD job failed"),
+            "unknown",
+            id="kernel",
+        ),
+        pytest.param(lambda b: b.kernel["setups"].pop("S1"), "unknown", id="unreported"),
+    ],
+)
+def test_unproven_absence_of_clamping_is_not_a_waiver(bundle, change, status):
+    _gravity_hold(bundle)
+    change(bundle)
+    assert finding(thin_wall_under_clamp, bundle).status == status
+
+
+@pytest.mark.parametrize(
+    "hold,wall,status",
+    [
+        ("vise", 1.9, "error"),
+        ("strap", 1.9, "error"),
+        ("unposed-strap", "unknown", "unknown"),
+    ],
+)
+def test_jaws_and_straps_load_walls_even_without_cutting(bundle, hold, wall, status):
+    if hold != "vise":
+        _strap_hold(bundle, pose=hold == "strap")
+    _noncutting(bundle)
+    bundle.kernel["setups"]["S1"]["min_wall_mm"] = wall
+    assert finding(thin_wall_under_clamp, bundle).status == status
+
+
 @pytest.mark.parametrize(
     "clashes,debts,status",
     [
@@ -581,7 +689,10 @@ def test_machine_inventory_workholding_identity_is_not_misclassified_as_unknown(
 @pytest.mark.parametrize(
     "wall,method,status", [(2.0, "hard_jaws", "pass"), (1.9, "hard_jaws", "error")]
 )
-def test_dividing_head_chuck_jaws_load_the_thin_wall_floor(bundle, wall, method, status):
+@pytest.mark.parametrize("noncutting", [False, True], ids=["cutting", "noncutting"])
+def test_dividing_head_chuck_jaws_load_the_thin_wall_floor(
+    bundle, wall, method, status, noncutting
+):
     bundle.inventory["machines"]["BS-0"] = {"kind": "dividing_head", "verify": False}
     bundle.inventory["fixtures"]["head-chuck"] = {
         "kind": "chuck_3jaw",
@@ -601,6 +712,8 @@ def test_dividing_head_chuck_jaws_load_the_thin_wall_floor(bundle, wall, method,
         "grip_mm": 10.0,
         "method": method,
     }
+    if noncutting:
+        _noncutting(bundle)
     bundle.kernel["setups"]["S1"]["min_wall_mm"] = wall
     assert finding(thin_wall_under_clamp, bundle).status == status
 

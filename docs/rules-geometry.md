@@ -1284,7 +1284,18 @@ One row per setup. Holding other than a vise, a chuck (a lathe `chuck_3jaw` /
 `chuck_4jaw`, or a `dividing_head` that names its `hold.chuck`) or a
 posed-solids fixture with `clamps` is `unsupported` (`{setup}:
 thin_wall_under_clamp has no vise grip-zone facts for {kind} holding.`), as
-is a dividing head that names no chuck. Inside the jaw zone the kernel runs clamp-direction lines through
+is a dividing head that names no chuck. The exception is a posed-solids fixture
+whose `hold.clamp` is `"none"` / `"not_applicable"`, with no clamp members or
+debts, in a setup whose every op is explicitly non-cutting (`inspect`, `fit`,
+`deburr`, `coating`, `release`, `scribe`, `transfer`): it is `not_applicable`,
+never `pass`. This applies only after the kernel facts, assembly, holding
+identity, numeric frame, in-process stock and fixture pose resolve; each
+otherwise keeps its unknown/error row. Clamp prose (even "gravity only"), a
+named clamp, an omitted or unknown `clamp` / `clamps`, or any cutting or unknown
+action keeps the `unsupported` row. Vise, chuck, dividing-head and drawn/owed
+strap loads are not exempted by non-cutting operations.
+
+Inside the jaw zone the kernel runs clamp-direction lines through
 the part on six Z levels and 8–64 columns along the jaws (about 1 mm pitch),
 keeps only lines that meet material at both jaw planes (a loaded wall), and
 reports the thinnest material interval among them as `min_wall_mm`; no loaded

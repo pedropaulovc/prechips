@@ -114,8 +114,11 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     )
     page = next(page for page in sections(html, "CONTOURS") if "south dome" in page)
     table = page[page.index("<table", page.index("south dome")) :]
+    headings = re.findall(r"<th>([^<]*)</th>", table[: table.index("</thead>")])
+    # A compensated dome also prints tool X/Z; the stations are the surface Z column.
+    column = headings.index("surface Z" if "surface Z" in headings else "Z")
     rows = re.findall(r"<tr>((?:<td>[^<]*</td>)+)</tr>", table)
-    stations = [float(re.findall(r"<td>([^<]*)</td>", row)[-1]) for row in rows]
+    stations = [float(re.findall(r"<td>([^<]*)</td>", row)[column]) for row in rows]
     expected = [round(r["z_mm"], 2) for r in dome["rows"]]
     assert stations[: len(expected)] == expected
     assert len(set(expected)) == len(expected)
@@ -196,20 +199,52 @@ def test_hold_text_has_no_pose_vectors(tmp_path):
 
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
-    # The job page is read first; it must never look clear over a stopped setup.
-    _, _, html = traveler(
-        ROOT / "examples" / "pivot-shaft" / "plan.toml",
-        tmp_path / "out",
-        setup=SYNTHETIC_KERNEL,
+    # The job page is read first; it must never look clear over a stopped setup. Each
+    # shaft setup parts or grooves with the blade; unselecting it stops all three.
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    authored = plan.read_text(encoding="utf-8")
+    unselected = authored.replace(
+        'tool = "parting-blade-lms-1728"\nholder', 'tool = "unknown"\nholder'
     )
+    plan.write_text(unselected, encoding="utf-8")
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     stopped = [
         re.match(r"\s*SETUP (\S+)", page)[1]
         for page in html.split("<h2>")[1:]
         if page.startswith("SETUP ") and '<div class="stop">' in page
     ]
-    assert stopped
+    assert len(set(stopped)) == 3
     job = sections(html, "JOB STATUS")[0]
     box = job[job.index('<div class="stop">') :]
     box = box[: box.index("</div>")]
     for setup in stopped:
         assert re.search(rf"\b{setup}\b", text(box))
+
+
+def test_front_sheet_pointers_lead_to_attached_sheets_of_the_same_setup(tmp_path):
+    # The machinist follows "contour table on S2 sheet 3" from an op row; that page must
+    # exist, belong to the same setup and carry the op's table.
+    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    pages = {}
+    for page in html.split('<section class="page"')[1:]:
+        heading = re.search(r"<h2>SETUP (\S+) — (?:[^<]*?· )?sheet (\d+) of (\d+)", page)
+        if heading:
+            pages[(heading[1], heading[2])] = (int(heading[3]), page)
+    assert pages
+    for (setup, number), (count, page) in pages.items():
+        assert set(range(1, count + 1)) == {int(n) for s, n in pages if s == setup}
+        if number != "1":
+            continue
+        followed = 0
+        for op, cells in re.findall(r"<tbody[^>]*><tr><td>(\d+)</td>(.*?)</tbody>", page, re.S):
+            for kind, target, sheet in re.findall(
+                r"(note|contour table) on (\S+) sheet (\d+)", text(cells)
+            ):
+                assert target == setup
+                attached = pages[(setup, sheet)][1]
+                if kind == "contour table":
+                    assert f"{setup} op {op} —" in text(attached)
+                    followed += 1
+        if setup in ("S2", "S3"):
+            # Both shaft turning setups profile a contour.
+            assert followed

@@ -502,6 +502,13 @@ the work) or `none`; undeclared is `none`. Only a press clamp can hold a stock
 piece an op splits off, and only when the kernel proves the load path onto an
 anchored support (rules-geometry, held split).
 
+`clamp` is the clamping instruction, or a declared clamp fixture's name. An
+explicit `clamp = "none"` or `"not_applicable"` with no `clamps` members
+declares a hold with no clamping load (for example gravity in a cradle); prose
+such as "gravity only", an omitted or `"unknown"` value is not that declaration.
+Under only non-cutting ops such a posed-solids hold makes
+`thin_wall_under_clamp` not applicable (rules-geometry).
+
 `clamp_order` is the declared tightening-action sequence for drawing badges,
 not an automatic interpretation of the `clamps` array. A locating pin may
 belong to that array for its posed solids without being a tightening action;

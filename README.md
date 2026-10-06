@@ -3,9 +3,12 @@
 Checks before chips: a deterministic, offline checker and printable traveler for
 an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
 plan, workholding, indexing and physics rule families, write a canonical findings
-report, and render a Letter-portrait shop traveler: one setup per page with
-holding steps, DRO zero, tools, operations, speeds/feeds and inspection, plus
-contour tables (see docs/report-and-telemetry.md, "Generated traveler").
+report, and render a Letter-portrait shop traveler: per setup, one front sheet
+(STOP box, holding steps beside the picture, tools, DRO zero and operations with
+speeds/feeds and inspection, ops continuing on its back when long) plus attached
+sheets for the full-size picture, clearance, notes and contour tables; print it
+double-sided, and blank backs keep every sheet starting on a front side (see
+docs/report-and-telemetry.md, "Generated traveler").
 M4 adds eight geometry and workholding rules measured on the bundle's STEP by a
 local FreeCAD kernel, plus a deterministic setup render on the sheet. M5 adds
 measured machine/holder inventory, envelope/travel screens and a machine
@@ -313,6 +316,10 @@ order and posed inventory stops are shown explicitly. Dashed machine-context
 outlines are schematic, not measured fixture geometry, and unresolved drawing
 items remain plain-language warnings. The image is hashed into `report.json`
 with its scene record so an approval binds to it; it is not a toolpath.
+Shallow contour insets explicitly label Y-only graphic magnification; their
+coordinate tables and the setup view remain unchanged. Custom-fixture pad and
+clamp badges sit outside the projected fixture and part outline, with leaders
+to their actual positions. Optional authored void labels identify mounting holes.
 The lathe's filled meridian section keeps the retained core visible inside the
 removed annulus; its jaw-end inset magnifies nearby shoulders and reliefs.
 Dashed nominal part outlines locate mill/custom-fixture targets without

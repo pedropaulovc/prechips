@@ -107,12 +107,27 @@ X is the declared radius/diameter DRO target and whose Z is the table station.
 The same `P1`, `P2`, … keys annotate the profile inset and traveler coordinate
 rows. Both mirrored sides remain explicit. Dense mill sketches use separate
 operation panels so repeated corners keep every coordinate key legible.
+Shallow contour panels label their Y-only graphic magnification (`Y EXAG X…`);
+the declared coordinate values, waypoint identities and setup-view axes do not
+change. The faint nominal underlay uses that same labelled panel scale.
+Direction arrows are spaced along the drawn path, including subpixel chords,
+rather than disappearing when an arc is sampled finely.
+Lathe inset paths and their keys locate the nominal finished surface; they
+are not compensated tool-tip feed targets. If the contour table also gives
+tool X/Z columns, those columns control the feed, not the drawn surface line.
 Numbered custom-clamp badges follow authored `hold.clamp_order`, not an order
 inferred from prose; an explicit empty list means no accessory tightening
 actions. Holding/fit-up-only setups show no invented cutter.
 Fixture construction primitives remain visible as geometry and individually
 named in `scene.components`; printed callouts group body/support hardware so
 bolt and shim details do not force the pad, pin and clamp labels into tiny text.
+Custom-fixture badge boxes remain outside the projected stock, fixture plate,
+other fixture components and nominal part outline; leaders return to the
+unchanged physical component centres. A trusted, explicitly labelled fixture
+void gets a shop-caption leader at its posed centre, with `{name, label, role,
+center_mm}` recorded separately in `scene.fixture_detail_labels`. These
+annotations do not create solids, change geometry checks or resolve measurement
+debt.
 
 Exact posed fixture solids remain the only basis for `fixture = "modeled"`.
 Dashed table, vise-body and machine-context outlines are clearly marked
@@ -131,7 +146,7 @@ rule/subject yields 4; an explicitly unknown required policy also yields 4.
 Otherwise the report has exit 0 and `verification = "checked"`.
 The implemented gate does not block required `info` or `not_applicable`. Without
 approval the traveler still prints `PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE`.
-The footer text is `prechips <version> · report <first 8 hash chars>`.
+The header line of every page ends with `prechips <version> · report <first 8 hash chars>`.
 That short id is only a paper lookup aid, never the approval's full binding.
 The renderer additionally requires the normalized approval `approved = true`,
 no approval warnings, a lowercase 64-hex report hash, and first-article text
@@ -227,26 +242,72 @@ setup → machine → holding table) and **DRAWING REQUIREMENTS** (feature →
 limits). Authored values keep their digits (a 1.9875 mm pin, a 0.0254 mm
 runout limit); only computed numbers are cut to DRO resolution.
 
-Each setup then starts on a new page, in this order:
+Each setup then prints as one **front sheet** to run the setup from, followed
+by attached sheets the front sheet points to. Every sheet starts on a new
+page and its heading repeats the setup id and `sheet N of M`. All text is at
+least 8 pt.
+
+The front sheet is one physical sheet. When the op table does not fit on the
+front page it continues on the back under the repeated heading `SETUP S2 —
+sheet 1, back: operations continued` and the op column headings; a setup with
+few ops has a single-page front sheet.
+
+Print the whole file double-sided. A small inline script in `traveler.html`
+(the same bytes every run; it changes only the page in the browser) lays out
+every sheet on load and again just before printing. It measures the sheet at the
+printed width, places each page break itself (headings stay with what follows,
+the sign-off stays with the last op row, table headings repeat), and adds a
+`This side intentionally blank — SETUP S2 sheet 1 back` page after any sheet
+with an odd page count, the job page included. Every sheet therefore starts on a
+front side, and a single-page front sheet has a blank back. Contour blocks print
+in rows of three under the script and in three newspaper columns without it.
+With scripts disabled the same content prints without padding (sheets may then
+start on a back side, so print single-sided).
+
+Front sheet (sheet 1), in this order:
 
 1. Title and status boxes. *STOP — do not run until resolved* lists one plain
    line per real problem with the ops it applies to (`Op 20 — tool or holder
    hits the part or the holding`); repeats are collapsed. *Not verified by the
    planner — confirm at the machine* names the unproved topics with their ops.
    Errors never print as `?`; unknowns never read as passes.
-2. **HOLD**: a numbered clamping sequence (mount, supports, grip, stop,
-   tighten, then the authored notes) and a small table of grip length,
-   stickout, jaw-front Z and, on a lathe, centre tip Z and quill extension.
-   Pose vectors and planner field names are not printed.
-3. The holding picture with a caption of the form `Setup S2 — part as it
-   arrives from Setup S1, held in the 6 in 3-jaw chuck. Picture shows the
-   holding only, not the cuts.` (or the render's own `scene.shows`; the key is
-   drawn in the picture, not repeated in the caption),
-   followed by bold `NOT SHOWN:` lines for each scene debt. Without a render the
-   setup prints `NO PICTURE — the holding is not modelled; set up from the HOLD
-   steps above.` The image is referenced by relative filename.
-4. Coolant and edge-break limit.
-5. **CLEARANCE**, machine specific. A lathe shows chuck Ø against swing,
+2. **HOLD** beside the picture. The wider left column is a numbered clamping
+   sequence (mount, supports, grip, stop, tighten, then the authored notes).
+   The right column is a small overview of the holding picture, captioned with
+   where the full-size copy is (`Setup S2 overview — labels and key are
+   readable on the full-size picture, S2 sheet 2.`) plus bold `NOT SHOWN:`
+   lines for each scene debt. Without a render it prints `NO PICTURE — the
+   holding is not modelled; set up from the HOLD steps.` Below them, full
+   width, a small table of grip length, stickout, jaw-front Z and, on a lathe,
+   centre tip Z and quill extension. Pose vectors and planner field names are
+   not printed.
+3. Coolant and edge-break limit.
+4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
+   QCTP station and the ops that use it. Op rows carry only the `T#`.
+5. **DRO ZERO**: positive directions, then one row per axis — what to touch
+   or pick up (tool, side, paper or edge-finder radius), the Axis Set value, a
+   no-touch jog, the value the display must read and the value it would read if
+   the axis were reversed — plus re-indicate and tool-change touch-offs.
+6. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
+   Z target, cut direction and `limit: gauge` inspection. Lathe feed prints as
+   `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
+   `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool stop, dead
+   centre at the work end, tool tip within 3 mm of the jaw top) and per-op STOP
+   or CAUTION findings print as boxed lines under the op row, followed by a
+   plain pointer to the attached sheets: `See note on S2 sheet 2 · contour
+   table on S2 sheet 3`. An inspection procedure is cited as `[S2 sheet 2 note
+   1]`. An op row and its boxed lines never split across the front and back.
+7. The sign-off line, after the last op row (on the back when the ops run
+   over).
+
+Sheet 2, *full-size picture, clearance, feature map and notes*:
+
+1. The same picture at full page width with the full caption (`Setup S2 — part
+   as it arrives from Setup S1, held in the 6 in 3-jaw chuck. Picture shows the
+   holding only, not the cuts.`, or the render's own `scene.shows`; the key is
+   drawn in the picture) and its `NOT SHOWN:` lines. The image is referenced by
+   relative filename; the front overview uses the same file.
+2. **CLEARANCE**, machine specific. A lathe shows chuck Ø against swing,
    work Ø against swing over the cross-slide, length against between-centres,
    quill extension and the jaw-front distance to the closest tool stop. A mill
    shows the spindle-to-table stack for the tallest op (holding, work, tool
@@ -254,36 +315,30 @@ Each setup then starts on a new page, in this order:
    per-op tool stickout and spare travel, jaw top Z and table travel.
    Uncomputed items are grouped into one `Not computed — check at the machine`
    line.
-6. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
-   QCTP station and the ops that use it. Op rows refer to tools by `T#`.
-7. **DRO ZERO**: positive directions, then one row per axis — what to touch
-   or pick up (tool, side, paper or edge-finder radius), the Axis Set value, a
-   no-touch jog, the value the display must read and the value it would read if
-   the axis were reversed — plus re-indicate and tool-change touch-offs.
-8. **FEATURE MAP** (feature, Ø or X/Y, Z from/to in the setup zero). Feature
+3. **FEATURE MAP** (feature, Ø or X/Y, Z from/to in the setup zero). Feature
    locations, not tool tips.
-9. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
-   Z target, cut direction and `limit: gauge` inspection. Lathe feed prints as
-   `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
-   `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool stop, dead
-   centre at the work end, tool tip within 3 mm of the jaw top) and per-op STOP
-   or CAUTION findings print as boxed lines under the op row. Tip-depth
-   derivations and multi-sentence inspection procedures move to numbered *Op
-   notes* / *Inspection notes*; the table and its notes print as one block.
-10. **CONTOURS**: one block per contour op with its tool and direction, the
-   table at DRO precision and, when the render supplies `scene.waypoints`, a
-   `P` column keyed to the labels drawn in the picture. A missing tool prints
-   `STOP … tool not selected; do not run` instead of a table; a lathe dome table
-   prints the imaginary-tip tool X/Z columns when the nose compensation is known,
-   otherwise it says the nose radius compensation is not computed.
+4. **OP AND INSPECTION NOTES**: tip-depth derivations, authored op notes and
+   numbered inspection procedures, each starting with its setup and op (`S2 op
+   30: …`) so a page that runs over still names its setup.
 
-Every setup ends with the sign-off line, kept on the page with the setup's last
-block. Setup coordinates, Z targets and DRO values print at the DRO's display
+Sheet 3, *contours* (only when the setup has contour ops): **CONTOURS**, one
+block per contour op titled with its setup, op, tool and direction (`S2 op 50
+— top edge · T2 …`), the table at DRO precision and, when the render supplies
+`scene.waypoints`, a `P` column keyed to the labels drawn in the picture. A
+missing tool prints `STOP … tool not selected; do not run` instead of a table;
+a lathe dome table prints the imaginary-tip `tool X (Ø)` / `tool Z` columns,
+read on the same X display as `surface X (Ø)` (`radius` in radius mode), when
+the nose compensation is known; otherwise it says the nose radius compensation
+is not computed. Long contour tables may run onto more pages ("paper is cheap"); every
+block still names its setup.
+
+The job page and each front sheet end with the sign-off line. Setup
+coordinates, Z targets and DRO values print at the DRO's display
 precision (2 decimals in mm, 4 in inches); drawing limits keep the drawing's
 precision. Plan text is cleaned for the bench: author's-choice tags, face ids,
 inventory slugs, frame names and hashes are dropped, and frame `T1` reads as
 `Setup S1 zero`. Rule ids, source paths, uncertainty detail and full hashes
-stay in `report.json`; the footer short id is the report lookup. Print CSS is
+stay in `report.json`; the short id in the header line is the report lookup. Print CSS is
 not a physical dry run, and presentation never changes PLANNED readiness.
 
 
