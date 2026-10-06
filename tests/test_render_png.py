@@ -379,3 +379,51 @@ def test_contour_direction_arrows_survive_subpixel_tessellation(reverse):
     assert _pixel(fine.canvas, 500, 400) == colour
     # A three-pixel path cannot colour this row; visible arrowhead wings can.
     assert any(_pixel(fine.canvas, x, 404) == colour for x in range(300, 700))
+
+
+def test_stickout_dimension_starts_at_the_jaw_front_marker_not_the_stock_end():
+    spec = {
+        "setup_id": "S1",
+        "view": "lathe",
+        "stock_box": [-10, -10, -60, 10, 10, 40],
+        "jaw_front_z_mm": -40,
+        "stickout_mm": 80,
+    }
+    diagram = _Diagram([], spec)
+    diagram.render()
+
+    start, end = diagram.dimensions["STICKOUT 80 mm"]
+    assert start[0] == pytest.approx(diagram.jaw_marker[0])
+    assert end[0] == pytest.approx(diagram.canvas.project((0, 0, 40))[0])
+    # The stock length runs from the bar's buried end, a different extension line.
+    assert diagram.dimensions["STOCK Z 100 mm"][0][0] < start[0] - 10
+
+
+def test_arc_apex_below_its_ends_keys_below_and_no_leader_grazes_another_point():
+    diagram = _Diagram([], {"view": "plan", "stock_box": [0, 0, 0, 10, 10, 1]})
+    # A semicircle sagging below its ends, keyed end, apex, end as the table lists it.
+    left, apex, right = (420, 300), (500, 330), (580, 300)
+    waypoints = [{"label": "P1", "xy": left}, {"label": "P2", "xy": apex}]
+    waypoints.append({"label": "P3", "xy": right})
+
+    diagram._waypoint_badges(waypoints, lambda point: point, (360, 200, 640, 480), perimeter=True)
+
+    # Badge centres as printed (the label text is centred in its badge).
+    badges = {
+        text: ((x0 + x1) / 2, (y0 + y1) / 2)
+        for text, x0, y0, x1, y1 in diagram.canvas.text_boxes
+        if text in ("P1", "P2", "P3")
+    }
+    points = {"P1": left, "P2": apex, "P3": right}
+    assert badges["P2"][1] > apex[1]
+    assert badges["P1"][1] < left[1] and badges["P3"][1] < right[1]
+    for label, badge in badges.items():
+        others = [point for other, point in points.items() if other != label]
+        assert all(_leader_clearance(other, points[label], badge) >= 9 for other in others)
+
+
+def _leader_clearance(point, a, b):
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    t = ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / (dx * dx + dy * dy)
+    t = min(1.0, max(0.0, t))
+    return math.dist(point, (a[0] + t * dx, a[1] + t * dy))

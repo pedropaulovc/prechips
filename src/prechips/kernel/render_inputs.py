@@ -4,8 +4,9 @@ Only explicit setup-frame values and geometry-matched feature identities cross
 this boundary. Display annotations never certify a holding or a toolpath.
 """
 
+from prechips.clamp_labels import clamp_labels
 from prechips.rules.coordinates import row_id
-from prechips.rules.resolution import number, record, resolve
+from prechips.rules.resolution import number, record, resolve, workholding_category
 from prechips.sheet import tool_label
 
 
@@ -31,7 +32,7 @@ def contour_annotations(numbers, scale, setup_id):
     """
     paths, waypoints = [], []
 
-    def add_path(op, points, candidates, directed, ids=None):
+    def add_path(op, points, candidates, directed, ids=None, raster=None):
         points = [_xy(value, scale) for value in points]
         if any(point is None for point in points):
             return
@@ -39,6 +40,8 @@ def contour_annotations(numbers, scale, setup_id):
             return
         op = str(op)
         paths.append({"op": op, "xy": points, "directed": directed})
+        if raster is not None:
+            paths[-1]["raster"] = raster
         for index in candidates:
             point = points[index]
             rows = [] if ids is None else [ids[index]]
@@ -93,12 +96,14 @@ def contour_annotations(numbers, scale, setup_id):
             points = [[point.get("x"), point.get("y")] for point in points]
         if isinstance(points[0], list) and points[0] and isinstance(points[0][0], list):
             # A raster table contains independent straight passes, not joins between passes.
+            # Its rows are numbered passes, never P keys: the picture names passes the same way.
             for index, segment in enumerate(points):
                 add_path(
                     profile.get("op"),
                     segment,
-                    range(len(segment)) if index in (0, len(points) - 1) else [],
+                    [],
                     False,
+                    raster={"pass": index + 1, "of": len(points)},
                 )
         else:
             add_path(profile.get("op"), points, range(len(points)), _directed(profile))
@@ -114,14 +119,49 @@ def _clamps(bundle, hold):
     }
     result = []
     clamps = hold.get("clamps", [])
+    codes = clamp_labels(hold)
     for index, clamp in enumerate(clamps if isinstance(clamps, list) else [], start=1):
         if not isinstance(clamp, dict):
             continue
         ref = clamp.get("ref", "unknown")
         kind = record(resolve(bundle, "fixtures", ref)).get("kind")
         label = kinds.get(kind, str(ref).split(".", 1)[-1].replace("-", " ").replace("_", " "))
-        result.append({"index": index, "owner": f"clamp {index} {ref}", "label": label})
+        result.append(
+            {
+                "index": index,
+                "code": codes[index - 1],
+                "owner": f"clamp {index} {ref}",
+                "label": label,
+            }
+        )
     return result
+
+
+_HOLDING_NAMES = {"chuck_3jaw": "3-JAW CHUCK", "chuck_4jaw": "4-JAW CHUCK"}
+
+
+def _holding_name(bundle, reference):
+    """The shop name of a holding item's kind ('DIVIDING HEAD', '4-JAW CHUCK'), or None."""
+    if not isinstance(reference, str) or reference in ("unknown", "none", "not_applicable"):
+        return None
+    category = workholding_category(bundle, reference)
+    kind = record(resolve(bundle, category, reference)).get("kind")
+    if not isinstance(kind, str) or kind == "unknown":
+        return None
+    return _HOLDING_NAMES.get(kind, kind.replace("_", " ").upper())
+
+
+def _target(setup):
+    """The one feature every op of a setup cuts, else None: a picture names it as the target."""
+    features = {op.get("feature") for op in setup["ops"]}
+    if len(features) != 1:
+        return None
+    (feature,) = features
+    if not isinstance(feature, str) or feature == "unknown":
+        return None
+    ops = [str(op["op"]) for op in setup["ops"]]
+    span = f"OP {ops[0]}" if len(ops) == 1 else f"OPS {ops[0]}-{ops[-1]}"
+    return {"feature": feature, "label": f"TARGET: {feature.replace('_', ' ')} ({span})"}
 
 
 def setup_annotations(bundle, setup, numbers):
@@ -163,7 +203,13 @@ def setup_annotations(bundle, setup, numbers):
             for op in setup["ops"]
             if isinstance(op.get("direction"), str) and op["direction"] != "unknown"
         },
+        "holding_name": _holding_name(bundle, hold.get("fixture")),
+        "chuck_name": _holding_name(bundle, hold.get("chuck")),
+        "target": _target(setup),
     }
+    index = record(hold.get("index"))
+    if number(index.get("angle_deg")):
+        result["index_deg"] = index["angle_deg"]
     result["paths"], result["waypoints"] = (
         contour_annotations(numbers, scale, setup["id"]) if scale else ([], [])
     )
