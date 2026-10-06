@@ -202,13 +202,13 @@ def test_validator_rejects_silently_dropped_or_cleared_missing_requirement(statu
     ],
 )
 def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(missing):
-    plan, features, _, _, report = cone_inputs()
+    plan, features, inventory, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     # The exported fixture's fit action has tool="unknown", but no cutting assembly.
-    VALIDATOR["check_subjects"](plan, features, findings)
+    VALIDATOR["check_subjects"](plan, features, findings, inventory)
     del findings[missing]
     with pytest.raises(ValueError, match=f"missing finding {missing[0]}:{missing[1]}"):
-        VALIDATOR["check_subjects"](plan, features, findings)
+        VALIDATOR["check_subjects"](plan, features, findings, inventory)
 
 
 @pytest.mark.parametrize(
@@ -218,8 +218,23 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
     plan, features, _, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     VALIDATOR["check_joint_declarations"](plan, features, findings)
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "S7")
     fit = findings["joint_fit", "S7"]
     assembly = findings["joint_assembly", "S7"]
+    if corruption in {"fit_pass", "missing", "assembly_pass"}:
+        # The shipped joint resolves, so declare numeric debt in the plan: the
+        # report must then carry it and neither row may approve.
+        setup["joint"]["clearance_mm"] = "unknown"
+        result = VALIDATOR["fit"](SimpleNamespace(plan=plan, features=features), setup)
+        fit["numbers"].update(
+            band_mm="unknown",
+            guaranteed_mm="unknown",
+            engagement_mm="unknown",
+            engagement_dia_mm="unknown",
+            missing=result["missing"],
+        )
+        fit["status"], assembly["status"] = "unknown", "unknown"
+        VALIDATOR["check_joint_declarations"](plan, features, findings)
     if corruption == "fit_pass":
         fit["status"] = "pass"
     elif corruption == "missing":
@@ -236,7 +251,7 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
 
 @pytest.mark.parametrize("corruption", ["shared_ancestor", "wrong_role", "finished_face"])
 def test_joint_identity_and_exported_face_contract_remain_strict(corruption):
-    plan, features, _, _, report = cone_inputs()
+    plan, features, inventory, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     setup = next(setup for setup in plan["setups"] if setup["id"] == "S7")
     if corruption == "shared_ancestor":
@@ -246,7 +261,7 @@ def test_joint_identity_and_exported_face_contract_remain_strict(corruption):
     else:
         features["features"]["crank_boss"]["faces"] = ["plan.joint_features.crank_spigot"]
     with pytest.raises(ValueError, match="ancestor|kind cylinder_bore|finished STEP faces"):
-        VALIDATOR["check_subjects"](plan, features, findings)
+        VALIDATOR["check_subjects"](plan, features, findings, inventory)
 
 
 @pytest.mark.parametrize("rule", ["joint_fit", "joint_assembly"])
