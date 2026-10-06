@@ -20,6 +20,9 @@ V = FreeCAD.Vector
 Part.makeCylinder(10, 30).exportStep(out + "/bar.step")
 # 40 x 20 x 10 plate.
 Part.makeBox(40, 20, 10).exportStep(out + "/plate.step")
+# 60 x 20 x 3 web with a 20 x 20 boss standing 12 mm above it at x 40..60 (15 tall there).
+web = Part.makeBox(60, 20, 3).fuse(Part.makeBox(20, 20, 15, V(40, 0, 0))).removeSplitter()
+web.exportStep(out + "/web.step")
 """
 
 MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "test fixture author"}
@@ -38,7 +41,7 @@ def parts(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 2, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 3, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -199,6 +202,48 @@ def test_undrawn_fixture_components_leave_clear_samples_unknown(engine, parts):
     )
     assert setup["fixture_rendered"] is False
     assert "not drawn: clamp 1 'kit/strap' pose is undeclared" in setup["render_scene"]["debts"]
+
+
+def _web_hold(*origins):
+    """The web part on a bare custom floor solid, one strap (along y) per footprint origin."""
+    across = {"x": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0]}
+    clamps = [
+        {**_strap(origin), "name": f"clamp {i} kit/strap", "pose": {"origin_mm": origin, **across}}
+        for i, origin in enumerate(origins, start=1)
+    ]
+    return {
+        **_plate_hold(),
+        "fixture_kind": "custom",
+        "solids": [_box("nest:floor", [-10.0, -10.0, -5.0], [80.0, 40.0, 5.0])],
+        "clamps": clamps,
+    }
+
+
+@pytest.mark.parametrize(
+    "origins,wall",
+    [
+        ([[15.0, 10.0, 3.0]], 3.0),  # strap over the thin web
+        ([[50.0, 10.0, 15.0]], 15.0),  # strap over the thick boss
+        ([[50.0, 10.0, 15.0], [15.0, 10.0, 3.0]], 3.0),  # the thinner footprint governs
+    ],
+)
+def test_strap_wall_is_the_material_run_under_its_footprint(engine, parts, origins, wall):
+    setup = _scene(engine.run(engine.job(parts["web"], setups=[_setup([], _web_hold(*origins))])))
+    assert setup["min_wall_mm"] == pytest.approx(wall, abs=1e-6)
+    assert setup["strap_wall_debts"] == []
+    # The 50 mm strap overhangs the 20 mm wide part: those samples are over air, not loaded.
+    loaded = {row["loaded"] for row in setup["strap_wall_map"]}
+    assert loaded == {True, False}
+
+
+def test_strap_that_bears_on_nothing_leaves_the_wall_unknown(engine, parts):
+    hold = _web_hold([15.0, 10.0, 5.0])  # 2 mm above the web
+    setup = _scene(engine.run(engine.job(parts["web"], setups=[_setup([], hold)])))
+    assert setup["min_wall_mm"] == "unknown"
+    assert (
+        "clamp 1 kit/strap has no sampled footprint point bearing on the stock"
+        in (setup["reasons"]["min_wall_mm"])
+    )
 
 
 # --------------------------------------------------------------------------- host inputs

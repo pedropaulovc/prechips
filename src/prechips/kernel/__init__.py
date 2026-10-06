@@ -356,25 +356,29 @@ def _centre_inputs(bundle, machine, hold, result, gaps):
 
 
 def _clamp_inputs(bundle, hold, result, gaps):
+    """Posed clamp members' solids; every undrawn clamp is a gap and a strap-wall debt."""
     clamps = hold.get("clamps", [])
-    placed = []
+    placed, debts = [], []
     for index, clamp in enumerate(clamps if isinstance(clamps, list) else [], start=1):
         clamp = record(clamp)
         reference = clamp.get("ref", UNKNOWN)
         item = measurement_item(bundle, "fixtures", reference) if reference != UNKNOWN else {}
         pose = _pose(clamp.get("pose"))
         if not item:
-            gaps.append(f"clamp {index} {reference!r} is not a listed fixture")
+            debts.append(f"clamp {index} {reference!r} is not a listed fixture")
             continue
         if pose is None:
-            gaps.append(f"clamp {index} {reference!r} pose is undeclared or not orthonormal")
+            debts.append(f"clamp {index} {reference!r} pose is undeclared or not orthonormal")
             continue
-        solids, debts = _solids(item, f"clamp {index} {reference}")
-        gaps.extend(debts)
+        solids, missing = _solids(item, f"clamp {index} {reference}")
+        debts.extend(missing)
         if solids:
             placed.append({"name": f"clamp {index} {reference}", "pose": pose, "solids": solids})
+    gaps.extend(debts)
     if placed:
         result["clamps"] = placed
+    if debts:
+        result["clamp_debts"] = debts
 
 
 def _supports_gaps(hold, result, gaps):
@@ -582,6 +586,7 @@ _ENGINE_COMMON = (
     "parallels_centres_mm",
     "parallels_along",
     "clamps",
+    "clamp_debts",
     "debts",
     "gaps",
 )

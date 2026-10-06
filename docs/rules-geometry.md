@@ -513,18 +513,35 @@ parallels were installed, the part was seated, or the vise torqued.
 
 ## `thin_wall_under_clamp`
 
-One row per setup. Non-vise holding is `unsupported`
-(`{setup}: thin_wall_under_clamp has no vise grip-zone facts for {kind}
-holding.`). Inside the jaw zone the kernel runs clamp-direction lines through
+One row per setup. Holding other than a vise or a posed-solids fixture with
+`clamps` is `unsupported` (`{setup}: thin_wall_under_clamp has no vise
+grip-zone facts for {kind} holding.`). Inside the jaw zone the kernel runs clamp-direction lines through
 the part on six Z levels and 8–64 columns along the jaws (about 1 mm pitch),
 keeps only lines that meet material at both jaw planes (a loaded wall), and
 reports the thinnest material interval among them as `min_wall_mm`; no loaded
-line is a named debt. The rule compares that with
+line is a named debt.
+
+For an angle plate, custom fixture or any other posed-solids hold that
+declares `clamps`, each drawn strap loads the stock along its pose's −z. The
+kernel takes every flat strap face that faces that force and touches the
+setup-entry stock, samples a cell-centred grid on it (4–16 per side, about
+1 mm pitch), runs a line along the force from each sample and records the
+first material interval at the contact as that sample's run; samples over air
+are not loaded. `min_wall_mm` is the thinnest loaded run over all straps. A
+clamp that is unlisted, unposed or has an unverified/unmeasured solid, and a
+drawn strap with no loaded sample, is a named `strap_wall_debts` entry: with
+no loaded strap the wall stays unknown with `strap walls unresolved: …`; a
+drawn strap's certainly thin run still decides `error`/protective `pass`, but
+a run that meets the floor is `unknown` (`drawn straps meet the shop floor but
+other clamps are unresolved: …`) while any debt remains.
+
+The rule compares the wall with
 `shop-policy.numbers.thin_wall_floor_mm`; a `numbers_verify` flag that is
 true or unknown makes the floor unknown. Numbers: `min_wall_mm`,
-`thin_wall_floor_mm`, `method`.
+`thin_wall_floor_mm`, `method` (plus `strap_wall_debts` when present).
 
-- wall ≥ floor: `minimum wall inside the grip zone meets the shop floor.` (pass)
+- wall ≥ floor: `minimum wall inside the grip zone meets the shop floor.`
+  (`under the strap footprints` for strap holds) (pass)
 - wall < floor and `hold.method` is one of `soft_jaws` / `soft jaws` / `mandrel` / `tape` / `wax` (case-insensitive): `wall is below the shop floor with a named protective holding method.` (pass)
 - wall < floor, unknown method: `wall is below the shop floor and protective holding method is unknown.` (unknown)
 - wall < floor, other method: `wall is below the shop floor; name soft jaws, mandrel, tape or wax.` (error)

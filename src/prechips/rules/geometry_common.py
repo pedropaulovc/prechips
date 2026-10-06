@@ -312,7 +312,10 @@ def setup_contexts(bundle, rule):
                 blocked = Finding(
                     rule, subject, "unknown", {}, cite, f"{subject}: holding identity is unknown."
                 )
-            elif inputs["kind"] != "vise":
+            elif inputs["kind"] != "vise" and not (
+                # Posed straps load the stock: the engine measures their footprint runs.
+                rule == "thin_wall_under_clamp" and strap_clamped(inputs)
+            ):
                 status = "not_applicable" if rule == "vise" else "unsupported"
                 blocked = Finding(
                     rule,
@@ -343,6 +346,11 @@ def setup_contexts(bundle, rule):
             elif inputs.get("reason"):
                 blocked = Finding(rule, subject, "unknown", {}, cite, inputs["reason"])
         yield setup, facts, detail, inputs, cite, blocked
+
+
+def strap_clamped(inputs):
+    """A posed-solids hold that declares clamps (drawn or with named clamp debts)."""
+    return "solids" in inputs and bool(inputs.get("clamps") or inputs.get("clamp_debts"))
 
 
 def fact_reason(detail, fields, fallback):

@@ -213,7 +213,7 @@
           },
           "plan": {
             "path": "examples/geometry/fixture-holds/plan.toml",
-            "sha256": "934e12ddc13701b78a1bc39bc746ce81ad01b3a02dfef87b3b0a3e4a3e6a484e"
+            "sha256": "19d383cbf1af72e249f42a66a8598c56da42eae20e38f29638dd7046e2bdc1ad"
           },
           "shop_policy": {
             "path": "examples/geometry/shop-policy.toml",
@@ -3133,12 +3133,17 @@
         "PLAN.md §4.3 thin_wall_under_clamp",
         "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
         "plan.setups.S2: frame and hold",
-        "inventory.fixtures.test-angle-plate: declared dimensions"
+        "inventory.fixtures.test-angle-plate: declared dimensions",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S2: thin_wall_under_clamp has no vise grip-zone facts for angle_plate holding.",
-      "numbers": {},
+      "message": "S2: minimum wall under the strap footprints meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 20.0,
+        "thin_wall_floor_mm": 2.0
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unsupported",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -3146,12 +3151,17 @@
         "PLAN.md §4.3 thin_wall_under_clamp",
         "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
         "plan.setups.S3: frame and hold",
-        "inventory.fixtures.test-nest: declared dimensions"
+        "inventory.fixtures.test-nest: declared dimensions",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S3: thin_wall_under_clamp has no vise grip-zone facts for custom holding.",
-      "numbers": {},
+      "message": "S3: minimum wall under the strap footprints meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 20.0,
+        "thin_wall_floor_mm": 2.0
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unsupported",
+      "status": "pass",
       "subject": "S3"
     },
     {
@@ -4866,7 +4876,7 @@
       "subject": "S6"
     }
   ],
-  "hash": "76207bfb8511b6f19fda47ce92dc63b73ef788b9d5da9527e95581bb9aef8d0a",
+  "hash": "c4c66f60eb7861f3409c9be2ec35d75b64e332665b76f706eb87a79a7254d387",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -4882,7 +4892,7 @@
     },
     "plan": {
       "path": "examples/geometry/fixture-holds/plan.toml",
-      "sha256": "934e12ddc13701b78a1bc39bc746ce81ad01b3a02dfef87b3b0a3e4a3e6a484e"
+      "sha256": "19d383cbf1af72e249f42a66a8598c56da42eae20e38f29638dd7046e2bdc1ad"
     },
     "render:S1": {
       "path": "setup-S1.png",

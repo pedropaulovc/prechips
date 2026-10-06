@@ -77,6 +77,7 @@ PARALLEL = 1 - 1e-9  # |cos| beyond which directions are parallel
 CONCAVE_PROBE = 1e-2  # mm step used to classify an edge as concave
 WALL_LEVELS = 6  # z levels of the thin-wall map
 WALL_COLUMNS = (8, 64)  # along-jaw columns of the thin-wall map (1 mm pitch, clamped)
+STRAP_GRID = (4, 16)  # samples per side of a strap's bearing footprint (1 mm pitch, clamped)
 WIDTH, HEIGHT = 640, 480
 V = FreeCAD.Vector
 Z = V(0, 0, 1)
@@ -1326,6 +1327,13 @@ class _Setup:
             self.fixture_reason = reason
         if self.hold is not None:
             self._accessories()
+        if (
+            self.fixture_ready
+            and hold["kind"] == "solids"
+            and (hold.get("clamps") or hold.get("clamp_debts"))
+        ):
+            # Posed straps load the stock: their footprint runs are the wall facts here.
+            self._strap_walls(facts)
         if reason is not None:
             for key in _VISE_FACTS:
                 if facts[key] == UNKNOWN:
@@ -1520,6 +1528,10 @@ class _Setup:
                 for spec in clamp["solids"]
             ]
             clamps.append((clamp["name"], parts))
+        self.clamp_parts = [
+            (name, V(*clamp["pose"]["z"]) * -1, parts)
+            for (name, parts), clamp in zip(clamps, hold.get("clamps", []), strict=True)
+        ]
         self.fixture_debts.extend(str(debt) for debt in hold.get("debts", []))
         self.fixture_gaps.extend(str(gap) for gap in hold.get("gaps", []))
         if hold.get("kind") == "vise":
@@ -1786,6 +1798,79 @@ class _Setup:
             )
         else:
             facts["min_wall_mm"] = _r(thinnest)
+
+    def _strap_walls(self, facts):
+        """Thinnest material run under each strap's bearing footprint along its clamp force.
+
+        The force is the strap pose's -z. Footprint samples are a cell-centred grid on every
+        flat strap face that faces the force and touches the entry stock; from each sample a
+        line runs along the force and the first material interval it meets at the contact is
+        the run. A sample over air is not loaded. Undrawn or non-bearing clamps keep the wall
+        unknown unless a drawn strap already proves it thin.
+        """
+        debts = [str(debt) for debt in self.hold.get("clamp_debts", [])]
+        span = self.part.BoundBox.DiagonalLength + 1.0
+        rows, thinnest = [], None
+        for name, force, parts in self.clamp_parts:
+            loaded = 0
+            for part in parts:
+                for face in part.Faces:
+                    if not isinstance(face.Surface, Part.Plane):
+                        continue
+                    u0, u1, v0, v1 = face.ParameterRange
+                    if face.normalAt((u0 + u1) / 2, (v0 + v1) / 2).dot(force) < 1 - 1e-6:
+                        continue
+                    if face.distToShape(self.part)[0] > STOCK_TOL:
+                        continue
+                    nu, nv = (
+                        min(STRAP_GRID[1], max(STRAP_GRID[0], math.ceil(hi - lo)))
+                        for lo, hi in ((u0, u1), (v0, v1))
+                    )
+                    for i in range(nu):
+                        for j in range(nv):
+                            point = face.valueAt(
+                                u0 + (i + 0.5) * (u1 - u0) / nu, v0 + (j + 0.5) * (v1 - v0) / nv
+                            )
+                            if not face.isInside(point, PLANE_TOL, True):
+                                continue
+                            run = self._strap_run(point, force, span)
+                            rows.append(
+                                {
+                                    "clamp": name,
+                                    "point_mm": [_r(c) for c in point],
+                                    "loaded": run is not None,
+                                    "run_mm": UNKNOWN if run is None else _r(run),
+                                }
+                            )
+                            if run is not None:
+                                loaded += 1
+                                thinnest = run if thinnest is None else min(thinnest, run)
+            if not loaded:
+                debts.append(f"{name} has no sampled footprint point bearing on the stock")
+        facts["strap_wall_map"] = rows
+        facts["strap_wall_debts"] = debts
+        if thinnest is not None:
+            facts["min_wall_mm"] = _r(thinnest)
+        else:
+            facts["reasons"]["min_wall_mm"] = "strap walls unresolved: " + "; ".join(debts)
+
+    def _strap_run(self, point, force, span):
+        """Material length from ``point`` along ``force`` until the first air, or None."""
+        start = point - force * 0.01
+        line = Part.LineSegment(start, point + force * span).toShape()
+        intervals = sorted(
+            sorted((vertex.Point - point).dot(force) for vertex in edge.Vertexes)
+            for edge in line.common(self.part).Edges
+        )
+        merged = []
+        for lo, hi in intervals:
+            if merged and lo - merged[-1][1] <= PLANE_TOL:
+                merged[-1][1] = max(merged[-1][1], hi)
+            else:
+                merged.append([lo, hi])
+        if not merged or merged[0][0] > STOCK_TOL:
+            return None
+        return merged[0][1] - max(merged[0][0], 0.0)
 
     def _render(self):
         """PNG of the stock entering the setup (claimed surfaces tinted) and the fixture."""

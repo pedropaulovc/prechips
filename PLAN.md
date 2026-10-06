@@ -1106,7 +1106,10 @@ sheet.
    an undrawn possible obstacle keeps clear samples `?`. The report scene
    names `fixture_kind` and every component; `modeled` requires all of them
    exact and no debt (`examples/geometry/fixture-holds` holds one synthetic
-   puck all six ways, observed 2026-10-05 with FreeCAD 1.1). Raster
+   puck all six ways, observed 2026-10-05 with FreeCAD 1.1). Posed straps on
+   angle-plate/custom holds also resolve `thin_wall_under_clamp`: the
+   thinnest material run under each bearing strap footprint along its pose
+   −z; unposed/unverified clamps stay `?` with named debts. Raster
    PNGs are bound by hash and preserved by `*.png binary`; STEP files retain
    `-text`. Successful `traveler`/`check` runs transactionally remove
    unreferenced old setup images, including absent-kernel runs. `check` also
