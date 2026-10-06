@@ -549,6 +549,9 @@ errors. A far-side face whose outward normal opposes the setup's +Z approach
 by more than 90° is an error naming the face and earns no coverage credit.
 Complementary setups can explicitly claim opposite sides; finishing coverage
 credits each face only to the direction-valid finishing cuts that claim it.
+A claimed hole cap also needs its feature's last drill/ream/bore/counterbore
+setup to leave it clear of stock; a tap or pilot claim never stands in for that
+(see [geometry](rules-geometry.md#finish_coverage)). No plan field selects that op.
 
 `stock_removal_bounds` is an explicit setup-frame clearing box:
 `{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric
