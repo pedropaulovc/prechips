@@ -151,7 +151,11 @@ Index = record("Index", {"fixture": str, "feature": str, "angle_deg": Number, "p
 type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
 # A fixture-local frame placed in the setup frame (mm): origin plus unit x and z axes.
 Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
-ClampPlacement = record("ClampPlacement", {**texts("ref note"), "pose": Pose})
+# ``restraint``: press holds stock down onto the fixture; locate only positions it.
+ClampPlacement = record(
+    "ClampPlacement",
+    {**texts("ref note"), "pose": Pose, "restraint": Literal["press", "locate", "none"]},
+)
 type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
 Hold = record(
     "Hold",

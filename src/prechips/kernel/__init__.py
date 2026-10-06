@@ -568,7 +568,16 @@ def _clamp_inputs(bundle, hold, result, gaps):
         solids, missing = _solids(item, f"clamp {index} {reference}")
         debts.extend(missing)
         if solids:
-            placed.append({"name": f"clamp {index} {reference}", "pose": pose, "solids": solids})
+            placed.append(
+                {
+                    "name": f"clamp {index} {reference}",
+                    "pose": pose,
+                    "solids": solids,
+                    # Undeclared is no restraint; a press is credited only by the kernel's
+                    # contact and support proof, never by this label alone.
+                    "restraint": clamp.get("restraint", "none"),
+                }
+            )
     gaps.extend(debts)
     if placed:
         result["clamps"] = placed

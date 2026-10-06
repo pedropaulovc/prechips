@@ -444,9 +444,13 @@ for collet/chuck capacity, not the unsupported-section diameter.
 
 `Pose` is `{origin_mm, x, z}`, each `[Number, Number, Number]` in setup-frame
 mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
-`ClampPlacement` is `{ref, note, pose}`: `ref` names a fixture or a
+`ClampPlacement` is `{ref, note, pose, restraint}`: `ref` names a fixture or a
 `kit/member` such as a clamping-kit strap, and its authored `solids` are
-placed by `pose` (origin at the strap underside on the work).
+placed by `pose` (origin at the strap underside on the work). `restraint` is
+`press` (it holds the work down along pose -z), `locate` (it only positions
+the work) or `none`; undeclared is `none`. Only a press clamp can hold a stock
+piece an op splits off, and only when the kernel proves the load path onto an
+anchored support (rules-geometry, held split).
 
 `clamp_order` is the declared tightening-action sequence for drawing badges,
 not an automatic interpretation of the `clamps` array. A locating pin may
