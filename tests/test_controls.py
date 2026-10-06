@@ -330,8 +330,7 @@ def test_missing_retouch_schedule_is_unknown_after_facing(
         + "[setups.zero]\ntool_touches = []\n"
         + finders
         + '\n[setups.zero.z]\nface = "top"\nmethod = "paper"\npaper_mm = 0.05\n'
-        'tool = "control-face"\ncheck_jog_mm = 10.0\n'
-        + declaration
+        'tool = "control-face"\ncheck_jog_mm = 10.0\n' + declaration
     )
     ops = "".join(
         f'\n[[setups.ops]]\nop = {op}\ndo = "face"\nfeature = "hub_faces"\n'

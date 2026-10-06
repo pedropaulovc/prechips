@@ -106,12 +106,8 @@ def _multi_job(engine, step, *, method="retaining_compound"):
         "sleeve-spigot": _primitive(
             "sleeve-spigot", "cylinder_spigot", "sleeve", 9.8, (9.7, 9.8), 20
         ),
-        "sleeve-socket": _primitive(
-            "sleeve-socket", "cylinder_bore", "sleeve", 6, (6, 6.1), 20
-        ),
-        "shaft-spigot": _primitive(
-            "shaft-spigot", "cylinder_spigot", "shaft", 5.8, (5.7, 5.8), 30
-        ),
+        "sleeve-socket": _primitive("sleeve-socket", "cylinder_bore", "sleeve", 6, (6, 6.1), 20),
+        "shaft-spigot": _primitive("shaft-spigot", "cylinder_spigot", "shaft", 5.8, (5.7, 5.8), 30),
     }
     reverse = {"origin": [0, 0, 0], "x": [1, 0, 0], "y": [0, -1, 0], "z": [0, 0, -1]}
     setups = []
@@ -319,7 +315,9 @@ def test_later_socket_preparation_cannot_be_reused_after_consumption(engine, mul
     assert "stock_out_volume_mm3" not in row
 
 
-def test_lost_required_sleeve_wall_is_not_authorized_by_its_planned_inner_bore(engine, multi_solids):
+def test_lost_required_sleeve_wall_is_not_authorized_by_its_planned_inner_bore(
+    engine, multi_solids
+):
     job = _multi_job(engine, multi_solids["multi"])
     damage = copy.deepcopy(job["setups"][1]["ops"][0])
     damage["subject"] = "sleeve-turn:20"
@@ -356,12 +354,14 @@ def _lost_cap_job(engine, step):
     lost = _setup(
         "lost-cap",
         "spigot-cut",
-        [{
-            **_op("lost-cap:10", "top", 1, 25, 50),
-            "do": "face",
-            "to_z": 15.0,
-            "stock_removal_bounds": {"x": [-6, 6], "y": [-6, 6], "z": [15, 20]},
-        }],
+        [
+            {
+                **_op("lost-cap:10", "top", 1, 25, 50),
+                "do": "face",
+                "to_z": 15.0,
+                "stock_removal_bounds": {"x": [-6, 6], "y": [-6, 6], "z": [15, 20]},
+            }
+        ],
     )
     job["setups"].insert(2, lost)
     join = job["setups"][3]
@@ -381,15 +381,19 @@ def test_unused_decoy_spigot_cannot_hide_lost_finished_material(
     job["joint_features"]["decoy-spigot"] = decoy
     if joined_elsewhere:
         job["stock"]["components"]["decoy-body"] = _bar(20, 5, at=(0, 0, 15))
-        socket = _primitive(
-            "decoy-socket", "cylinder_bore", "decoy-body", 10, (10, 10.1), 5
-        )
+        socket = _primitive("decoy-socket", "cylinder_bore", "decoy-body", 10, (10, 10.1), 5)
         socket["at_mm"] = [0, 0, 15]
         job["joint_features"]["decoy-socket"] = socket
-        job["setups"].append(_join(
-            "unrelated", "decoy-socket", "decoy-spigot", "stock.decoy-body", "stock.decoy",
-            method="silver_braze",
-        ))
+        job["setups"].append(
+            _join(
+                "unrelated",
+                "decoy-socket",
+                "decoy-spigot",
+                "stock.decoy-body",
+                "stock.decoy",
+                method="silver_braze",
+            )
+        )
     facts = engine.run(job)
     assert facts["setups"]["lost-cap"]["stock_out_volume_mm3"] == pytest.approx(
         math.pi * 4.9**2 * 15, abs=2e-3
@@ -407,16 +411,22 @@ def test_later_overlapping_new_joint_leaves_prior_assemblies_and_unrelated_stock
     pin = _primitive("pin-spigot", "cylinder_spigot", "pin", 5.8, (5.7, 5.8), 30)
     socket = _primitive("body-socket-2", "cylinder_bore", "body", 10, (10, 10.1), 10)
     job["joint_features"].update({"pin-spigot": pin, "body-socket-2": socket})
-    job["setups"][0]["ops"].append({
-        **_op("body-bore:20", "body-socket-2", 1, 40, 60),
-        "do": "bore",
-        "joint_cut": _prep("body-socket-2", socket),
-    })
+    job["setups"][0]["ops"].append(
+        {
+            **_op("body-bore:20", "body-socket-2", 1, 40, 60),
+            "do": "bore",
+            "joint_cut": _prep("body-socket-2", socket),
+        }
+    )
     job["setups"] += [
         _setup("independent", "stock.independent"),
-        _setup("pin-turn", "stock.pin", [
-            _turn("pin-turn:10", "pin-spigot", joint_cut=_prep("pin-spigot", pin)),
-        ]),
+        _setup(
+            "pin-turn",
+            "stock.pin",
+            [
+                _turn("pin-turn:10", "pin-spigot", joint_cut=_prep("pin-spigot", pin)),
+            ],
+        ),
         _join("join-pin", "body-socket-2", "pin-spigot", "join-shaft", "pin-turn"),
     ]
     facts = engine.run(job)
@@ -569,9 +579,7 @@ def test_small_through_socket_detects_a_real_closed_cap_by_contact_area(engine, 
     job["stock"]["components"]["body"]["length_mm"] = 15
     job["joint_features"]["body-socket"].update(nominal_dia_mm=1.0, dia_mm=[1.0, 1.0])
     setup = job["setups"][0]
-    setup["ops"][0]["joint_cut"].update(
-        nominal_dia_mm=1.0, diameter_mm=1.0, dia_mm=[1.0, 1.0]
-    )
+    setup["ops"][0]["joint_cut"].update(nominal_dia_mm=1.0, diameter_mm=1.0, dia_mm=[1.0, 1.0])
     setup["ops"][0]["radius_mm"] = 0.2
     job["setups"] = [setup]
     facts = engine.run(job)

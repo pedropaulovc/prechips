@@ -800,5 +800,3 @@ binding = "nominal"
         assert span["z_mm"] == pytest.approx(expected)
         assert span["diameter_mm"] == pytest.approx(9.875)
         assert "kernel" not in span["sources"].values()
-
-
