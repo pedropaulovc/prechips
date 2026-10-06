@@ -201,6 +201,85 @@ def test_ordinary_prejoin_turning_uses_component_owned_protection(engine, joint_
     assert "assembly_error" not in facts["setups"]["join"]
 
 
+def _exposed_boss(engine, step):
+    """Indices of the finished boss cylinder left exposed above the body (z=10..20, Ø9.8)."""
+    refs = engine.refs(step, (-4.9, -4.9, 10), (4.9, 4.9, 20), kind="Cylinder")
+    indices = {face["ref"]: face["index"] for face in engine.faces(step)}
+    return sorted(indices[ref] for ref in refs)
+
+
+def test_finishing_spigot_turn_certifies_exposed_final_face_inside_its_cut(engine, joint_solids):
+    step = joint_solids["joined"]
+    facts = engine.run(_joint_job(engine, step))
+    detail = facts["ops"]["spigot-cut:10"]
+    exposed = _exposed_boss(engine, step)
+    assert len(exposed) == 1
+    assert detail["certified_indices"] == exposed
+    # The analytic claim itself stays transient; only the measured certificate names STEP faces.
+    assert all(index >= len(facts["faces"]) for index in detail["claimed_indices"])
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["wrong_diameter", "slightly_oversize", "off_axis", "out_of_window", "partial_face"],
+)
+def test_accepted_spigot_turn_certifies_no_face_outside_its_exact_cut(engine, joint_solids, case):
+    step = joint_solids["joined"]
+    job = _joint_job(engine, step)
+    cut = job["setups"][1]["ops"][0]["joint_cut"]
+    if case == "wrong_diameter":
+        # Same axis and window, but the accepted finish diameter leaves stock on the face.
+        band = {"nominal_dia_mm": 10.0, "dia_mm": [9.7, 10.0]}
+        job["joint_features"]["spigot"].update(band)
+        cut.update(band, diameter_mm=10.0)
+    elif case == "slightly_oversize":
+        # 0.0008 mm of radial stock still covers the face: below any stock tolerance, yet
+        # the face is not the surface this cut leaves.
+        job["joint_features"]["spigot"]["dia_mm"] = [9.7, 9.802]
+        cut.update(dia_mm=[9.7, 9.802], diameter_mm=9.8016)
+    elif case == "off_axis":
+        # The same diameter turned about a spigot axis 0.0005 mm off the finished boss axis
+        # (the spindle follows the spigot) leaves up to 0.001 mm of stock on one side.
+        off = {"at_mm": [0.0005, 0, 0], "nominal_dia_mm": 9.801, "dia_mm": [9.7, 9.802]}
+        job["joint_features"]["spigot"].update(off)
+        job["setups"][1]["frame"] = {**IDENTITY, "origin": [0.0005, 0, 0]}
+        cut.update(off, diameter_mm=9.801)
+    elif case == "out_of_window":
+        cut.update(z_from=0.0, z_to=10.0)  # meets the exposed face only along its edge
+    else:
+        cut.update(z_from=0.0, z_to=15.0)  # covers only half of the exposed face
+    facts = engine.run(job)
+    detail = facts["ops"]["spigot-cut:10"]
+    assert "joint_error" not in detail
+    assert "stock_out_volume_mm3" in facts["setups"]["spigot-cut"]
+    assert detail["certified_indices"] == []
+
+
+@pytest.mark.parametrize("case", ["unknown", "rough", "rejected", "stopped"])
+def test_unknown_rough_rejected_or_stopped_spigot_turn_certifies_nothing(
+    engine, joint_solids, case
+):
+    step = joint_solids["joined"]
+    job = _joint_job(engine, step)
+    setup = job["setups"][1]
+    op = setup["ops"][0]
+    cut = op["joint_cut"]
+    if case == "unknown":
+        cut["reason"] = "the joint cut action is unknown"
+    elif case == "rough":
+        # The same geometry as a finishing pass, but roughing never earns finish credit.
+        op.update(do="rough_turn", finishing=False)
+        cut.update(action="rough_turn", finishing=False)
+    elif case == "rejected":
+        # In band, but the cut removes component-owned finished boss material.
+        cut.update(dia_mm=[9.7, 9.8], diameter_mm=9.7)
+    else:
+        setup["ops"].insert(0, _turn("spigot-cut:5", "missing"))
+    detail = engine.run(job)["ops"]["spigot-cut:10"]
+    assert ("joint_error" in detail) == (case == "rejected")
+    assert "certified_indices" not in detail
+
+
 def test_join_backstop_refuses_lost_final_material_outside_finite_spigot(engine, joint_solids):
     step = joint_solids["joined"]
     job = _joint_job(engine, step)

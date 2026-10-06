@@ -222,6 +222,10 @@ def op_claims(bundle, facts, setup, op):
     credited: milling faces that face -Z, lathe faces of revolution about setup Z;
     others are claim errors; unresolved directions leave the claim unknown. Lathe
     claims credit only turning-model facts, never raw -Z milling verdicts.
+
+    A transient joint-feature op's analytic claims never credit finished faces: it earns
+    only the kernel's ``certified_indices``, the exported faces its accepted finishing cut
+    measurably leaves as its own surface, and otherwise an empty set (never debt).
     """
     refs = claim_refs(bundle, op)
     errors = record(facts.get("mapping_errors"))
@@ -234,18 +238,33 @@ def op_claims(bundle, facts, setup, op):
     )
     if invalid or not known_refs(refs):
         return None, [], invalid
-    if approach_model_reason(bundle, setup, op):
-        return None, [], []
-    if not approach_facts(bundle, facts, setup, op):
-        return None, [], []
+    joint = bool(record(record(bundle.feature_definitions.get(op.get("feature"))).get("joint")))
+    if approach_model_reason(bundle, setup, op) or not approach_facts(bundle, facts, setup, op):
+        return (set() if joint else None), [], []
     away = detail.get("claim_errors")
     away = sorted(ref for ref in away if isinstance(ref, str)) if isinstance(away, list) else []
+    if joint:
+        return _certified(facts, detail), away, []
     indices = detail.get("claimed_indices", UNKNOWN)
     if not isinstance(indices, list) or not all(
         isinstance(i, int) and not isinstance(i, bool) and i >= 0 for i in indices
     ):
         return None, away, []
     return set(indices), away, []
+
+
+def _certified(facts, detail):
+    """A joint op's certified finished-face indices; any non-STEP index voids them all."""
+    indices = detail.get("certified_indices")
+    faces = facts.get("faces")
+    step = {
+        face.get("index")
+        for face in (faces if isinstance(faces, list) else [])
+        if isinstance(face, dict) and _face_index(face.get("index"))
+    }
+    if not isinstance(indices, list) or not all(_face_index(i) and i in step for i in indices):
+        return set()
+    return set(indices)
 
 
 def _face_index(value):

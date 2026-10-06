@@ -112,6 +112,12 @@ Measurement conventions (setup frame, tool axis +Z):
   radius).  Chuck grip-zone walls are radial lines through each jaw: the
   material run starting at the jaw contact.  The result is a deterministic
   sampled screen: it proves no tool path, chip flow, cutting load or chatter.
+* Joint certificates: a joint op's analytic claims are transient indices, never STEP
+  faces. Once the stock builder accepts a finishing spigot turn, ``certified_indices``
+  lists each imported face it leaves as its own surface: an outward cylinder face whose
+  full area lies inside the turned radius +-``STOCK_TOL`` over the finite cut window,
+  inside the branch's component-owned finished material and on the accepted after-op
+  stock (exact face-minus-solid areas, never samples).
 * Rotary (mill ops with ``approach = "rotary"``; dividing-head setups): the head
   axis is the chuck pose z through its origin and must be perpendicular to setup Z
   (otherwise the op is unsupported). Claimable portions are the positive-area
@@ -3092,6 +3098,9 @@ class _Setup:
         self.protected = None
         self.certain = None
         self.joint_errors = {}
+        # Subject -> finished STEP face indices an accepted finishing spigot turn leaves as
+        # its own cut surface (:meth:`_certify_joint`); no entry certifies nothing.
+        self.certified = {}
         # Model-frame stock this setup receives, or why it is unknown.
         self.held, self.stock_reason = (None, stock_reason) if held is None else (held, None)
         # Model-frame stock this setup leaves for the next one, or why it is unknown.
@@ -3315,6 +3324,9 @@ class _Setup:
                 completion["reason"] = self.stock_out_reason
         for subject, error in self.joint_errors.items():
             ops[subject]["joint_error"] = error
+        for subject, indices in self.certified.items():
+            if subject not in self.joint_errors:
+                ops[subject]["certified_indices"] = indices
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -3539,6 +3551,76 @@ class _Setup:
         self.owner._prepared(model, name, {**self.state, "completed": {name: record}})
         self.completed[name] = record
 
+    def _certify_joint(self, op, after):
+        """Record the finished STEP faces an accepted finishing spigot turn leaves as its cut.
+
+        Credit comes from the cut geometry, never from feature identity: a face of the
+        exported part qualifies only when it is an outward cylinder face lying on the turned
+        cylinder itself (radius and axis within ``PLANE_TOL`` over the face's whole extent,
+        so no stock a stock tolerance would forgive still covers it), whose full area lies
+        inside the op's finite cut window, inside this branch's component-owned finished
+        material and on ``after``, the stock :meth:`_build` accepted for this op. Rough,
+        unknown, stopped or rejected cuts never reach here or record nothing; a failed
+        boolean withholds the whole certificate. Transient joint faces are never candidates.
+        """
+        _, spec, _ = self._joint_check(op)
+        if spec["kind"] != "cylinder_spigot" or not (
+            spec.get("finishing") and spec.get("completes")
+        ):
+            return
+        radius = spec["diameter_mm"] / 2
+        if radius <= STOCK_TOL or self.protected.Volume <= HIT_MM3:
+            return
+        at = self.matrix.multVec(V(*spec["at_mm"]))
+        axis = (self.matrix.multVec(V(*spec["at_mm"]) + V(*spec["axis"])) - at).normalize()
+
+        def off_axis(point):
+            offset = point - at
+            return (offset - axis * offset.dot(axis)).Length
+
+        certified = []
+        try:
+            # The turned surface over the finite cut window, thickened by STOCK_TOL each way.
+            band = self._placed(
+                _joint_cylinder(spec, 2 * (radius + STOCK_TOL)).cut(
+                    _joint_cylinder(spec, 2 * (radius - STOCK_TOL))
+                )
+            )
+            box = _bbox(band)
+            for index in range(len(self.finished.Faces)):
+                face, bounds = self.faces[index], self.face_boxes[index]
+                surface = face.Surface
+                if (
+                    not isinstance(surface, Part.Cylinder)
+                    or abs(surface.Radius - radius) > PLANE_TOL
+                    or not all(
+                        box[k] - STOCK_TOL <= bounds[k] and bounds[k + 3] <= box[k + 3] + STOCK_TOL
+                        for k in range(3)
+                    )
+                ):
+                    continue
+                # The face's axis must be the spigot axis wherever the face lies: distance to
+                # a line is convex along another line, so both ends of the span bound it.
+                own = V(surface.Axis).normalize()
+                mid = (face.BoundBox.Center - surface.Center).dot(own)
+                half = face.BoundBox.DiagonalLength / 2
+                ends = (surface.Center + own * (mid - half), surface.Center + own * (mid + half))
+                if any(off_axis(end) > PLANE_TOL for end in ends):
+                    continue
+                point = _inner_point(face)
+                if point is None:
+                    continue
+                outward = point - at
+                outward = outward - axis * outward.dot(axis)
+                if _normal_at(face, point).dot(outward) <= 0:
+                    continue  # Material outside the face: not a turned spigot surface.
+                limit = max(AREA_ABS, face.Area * AREA_REL)
+                if all(face.cut(shape).Area <= limit for shape in (band, self.protected, after)):
+                    certified.append(index)
+        except Part.OCCError:
+            return
+        self.certified[self._subject(op)] = certified
+
     def _where(self):
         return f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
 
@@ -3603,6 +3685,8 @@ class _Setup:
                     except ValueError as exc:
                         self.joint_errors[subject] = str(exc)
                         stopped = f"{subject}: {exc}; {where}"
+                    else:
+                        self._certify_joint(op, after)
                 if stopped is None and after is not stock:
                     stock = after
                     self.stock_states.append(stock)
