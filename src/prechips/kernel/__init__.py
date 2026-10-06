@@ -28,6 +28,7 @@ from prechips.rules.resolution import (
     resolve,
     setup_frame,
 )
+
 from .render_inputs import setup_annotations
 
 UNKNOWN = "unknown"
@@ -119,7 +120,9 @@ def _turning_values(bundle, op):
     return values, sorted(set(missing))
 
 
-def op_inputs(bundle, setup, op, finishing=None, complete=None):
+def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
+    """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
+    cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
     from prechips.joint_features import joint_operation
     from prechips.rules.geometry_common import (
         TURNING,
@@ -221,6 +224,10 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None):
             result["hole"]["point_angle_deg"] = point["value"] if point["verified"] else UNKNOWN
     if "stock_removal_bounds" in op:
         result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
+    if tables is not None and not turned:
+        table = table_checkpoints(subject, tables, op["op"], units)
+        if table is not None:
+            result["checkpoints"] = table
     if turned:
         # The declared turned span (setup-frame Z) bounds and extends the revolved removal.
         for key in ("z_from", "z_to"):
@@ -242,6 +249,43 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None):
     if missing:
         result["reason"] = (
             "Selected tool/holder dimensions unmeasured or unavailable: " + ", ".join(missing)
+        )
+    return result
+
+
+def table_checkpoints(subject, tables, op, units):
+    """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
+    ``xy_mm`` and ``tip_z_mm``, each printed table's ``paths`` (``xy_mm`` in cutting order
+    and its ``tip_z_mm``), and why any is unknown; None when it prints none."""
+    from prechips.rules.coordinates import checkpoints
+
+    printed = [path for path in checkpoints(subject, tables, op) if path]
+    if not printed:
+        return None
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    if scale is None:
+        return {"rows": [], "paths": [], "reason": f"feature units {units!r} are not mm or in"}
+    rows, paths, unknown = [], [], []
+    for path in printed:
+        points = []
+        for name, xy, tip in path:
+            if isinstance(xy, list) and len(xy) == 2 and all(number(v) for v in (*xy, tip)):
+                xy_mm = [v * scale for v in xy]
+                points.append({"id": name, "xy_mm": xy_mm, "tip_z_mm": tip * scale})
+            else:
+                unknown.append(name)
+        rows.extend(points)
+        if len(points) == len(path) and len({point["tip_z_mm"] for point in points}) == 1:
+            paths.append(
+                {"xy_mm": [point["xy_mm"] for point in points], "tip_z_mm": points[0]["tip_z_mm"]}
+            )
+        elif len(points) == len(path):
+            unknown.append(f"{path[0][0]} (its rows stand at different tips)")
+    result = {"rows": rows, "paths": paths}
+    if unknown:
+        more = f" (+{len(unknown) - 3} more)" if len(unknown) > 3 else ""
+        result["reason"] = (
+            "printed checkpoint setup XY or tip Z is unknown: " + ", ".join(unknown[:3]) + more
         )
     return result
 
@@ -778,7 +822,7 @@ def build_job(bundle):
                 "frame": transformed,
                 "hold": hold_inputs(bundle, setup),
                 "ops": [
-                    op_inputs(bundle, setup, op, finishing, complete)
+                    op_inputs(bundle, setup, op, finishing, complete, coordinates.get(setup["id"]))
                     for op in setup["ops"]
                     if cutting_action(op) is not False
                 ],
@@ -883,6 +927,7 @@ _ENGINE_OP = (
     "holder_gauge_len_mm",
     "projection_mm",
     "to_z",
+    "checkpoints",
     "rough_allowance_mm",
     "stock_removal_bounds",
     "approach",

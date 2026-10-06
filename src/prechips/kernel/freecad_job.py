@@ -540,6 +540,22 @@ def _boxes_overlap(a, b):
     return all(a[i] < b[i + 3] - PLANE_TOL and b[i] < a[i + 3] - PLANE_TOL for i in range(3))
 
 
+def _common(solid, shape):
+    """``solid`` ∩ ``shape`` when it holds more than HIT_MM3, else None; only boxes that do
+    not even touch skip the boolean."""
+    a, b = _bbox(solid), _bbox(shape)
+    if any(a[i] > b[i + 3] or b[i] > a[i + 3] for i in range(3)):
+        return None
+    common = solid.common(shape)
+    return common if common.Volume > HIT_MM3 else None
+
+
+def _shared(solid, shape):
+    """The common volume of ``solid`` and ``shape`` above HIT_MM3, else 0."""
+    common = _common(solid, shape)
+    return 0.0 if common is None else common.Volume
+
+
 def _distant_box(box, other):
     """Tolerance-grown bounds prove distance > 1e-6; overlap never proves contact."""
     return (
@@ -1420,6 +1436,19 @@ def _stadium(start, end, radius):
     band = Part.Face(Part.makePolygon(corners))
     discs = [Part.Face(Part.Wire(Part.makeCircle(radius, point))) for point in (start, end)]
     return band.fuse(discs)
+
+
+def _path_area(centre, radius):
+    """The level region within ``radius`` of the level wire ``centre``: a 2r band round a
+    closed path, a sausage with r discs round an open path's ends."""
+    ends = _straight(centre)
+    if ends is not None:  # OCC finds no plane for a straight path
+        return _stadium(*ends, radius)
+    if centre.isClosed():
+        return centre.makeOffset2D(radius, 0, True, False, False).fuse(
+            centre.makeOffset2D(-radius, 0, True, False, False)
+        )
+    return centre.makeOffset2D(radius, 0, True, False, False)
 
 
 def _sweep_window(sweep):
@@ -2564,6 +2593,11 @@ class _Setup:
         # None, why that stock is unknown); the facts of each saw it reached; and (end
         # stock, None) or (None, why it stopped).
         self.cuts = {}
+        # id(op) -> (the cut it applies with no printed run-out credited, its band groups),
+        # each profile op's removal less its run-out (``uncredited``), and the setup's output
+        # with no run-out credited (:meth:`_uncredited_output`), or None until derived.
+        self.plans, self.uncredited, self.unrun = {}, {}, None
+        self.run_outs = {}  # id(op) -> (its printed run-out sweep or None, why unknown)
         self.clamp_parts = []
         self.clamp_restraints = {}  # clamp name -> declared restraint (press/locate/none)
         self.split_holds = {}  # op subject -> per-piece held-split witnesses
@@ -2672,6 +2706,7 @@ class _Setup:
             for op in self.ops:
                 with _timed(op_clocks, self._subject(op)):
                     ops[self._subject(op)] = self._op_unknown(op, frame_reason)
+                    self._checkpoint_facts(op, ops[self._subject(op)], frame_reason)
             return facts, ops
         if self.stock_reason is None:
             self._use(self._placed(self.held))
@@ -2715,6 +2750,7 @@ class _Setup:
                 result = self._op(op)
                 if self.stock_reason is not None and not _sawn(op):
                     self._unproven(result, self.stock_reason)
+                self._checkpoint_facts(op, result)
                 if self._subject(op) in self.split_holds:
                     result["split_hold"] = self.split_holds[self._subject(op)]
                 ops[self._subject(op)] = result
@@ -3028,6 +3064,7 @@ class _Setup:
                     stopped = f"{subject} {why}; {where}"
                     continue
                 own, groups = plan
+                self.plans[id(op)] = (self.uncredited.get(id(op), own), groups)
                 after = stock
                 if own is not None or groups:
                     pieces = []
@@ -3156,6 +3193,9 @@ class _Setup:
             )
         else:
             removal, why = self._removal(op, valid, to_z, leave)
+            if why is None and op.get("do") in PROFILE_ACTIONS and "checkpoints" in op:
+                # The same cut without its printed run-out: the setup's uncredited output.
+                self.uncredited[id(op)], why = self._removal(op, valid, to_z, leave, False)
         if why is not None:
             return None, why
         band, why = self._band(
@@ -3436,16 +3476,16 @@ class _Setup:
             return None, None
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
-    def _removal(self, op, valid, to_z, leave):
+    def _removal(self, op, valid, to_z, leave, run_out=True):
         """(stock outside the op's guard its claims sweep (:meth:`_op_sweep`), or None, and
         why not).
 
         A facing action sweeps each planar claim's outer loop, so raw pins over hole
         mouths go too; subtracting the guard still keeps islands, bosses and the leave. The
         whole sweep is guarded and its pieces judged by claim contact before ``to_z``
-        clips them.
+        clips them. ``run_out`` False leaves a profile op's printed run-out uncredited.
         """
-        faces, sweep, why = self._op_sweep(op, valid, to_z)
+        faces, sweep, why = self._op_sweep(op, valid, to_z, run_out)
         if why is not None:
             return None, why
         if sweep is None:
@@ -3468,13 +3508,15 @@ class _Setup:
                 return None, None
         return removal, None
 
-    def _op_sweep(self, op, valid, to_z):
+    def _op_sweep(self, op, valid, to_z, run_out=True):
         """(swept claims, the volume an op without a clearing box may clear or None, and
         why that is unknown).
 
         Claims sweep along +Z (:meth:`_sweep`), except a profile op's vertical walls: its
-        cutter only clears its own corridor beside them (:meth:`_corridor`), never the
-        stock past it, so an unclaimed web or clamped rail beyond the corridor stays.
+        cutter only clears its own corridor beside them (:meth:`_corridor`) and, with
+        ``run_out``, along the cutter-centre paths the sheet prints for it
+        (:meth:`_run_out`), never the stock past them, so an unclaimed web or clamped rail
+        beyond both stays.
         """
         action = op.get("do")
         if action not in PROFILE_ACTIONS:
@@ -3482,16 +3524,68 @@ class _Setup:
         walls = [index for index in valid if _vertical(self.faces[index], Z)]
         rest = [index for index in valid if index not in walls]
         faces, sweep = self._sweep(rest, action) if rest else ([], None)
-        if not walls:
+        printed = run_out and isinstance(op.get("checkpoints"), dict)
+        if not walls and not printed:
             return faces, sweep, None
         radius = _positive(op, "radius_mm")
         if radius is None:
             return [], None, "the cutter radius is unknown, so its profile corridor is unknown"
-        corridor, why = self._corridor(walls, radius, to_z)
-        if why is not None:
-            return [], None, why
-        faces = faces + [self.faces[index] for index in walls]
-        return faces, corridor if sweep is None else sweep.fuse(corridor), None
+        parts = [] if sweep is None else [sweep]
+        if walls:
+            corridor, why = self._corridor(walls, radius, to_z)
+            if why is not None:
+                return [], None, why
+            faces = faces + [self.faces[index] for index in walls]
+            parts.append(corridor)
+        if printed:
+            path, why = self._run_out(op, radius)
+            if why is not None:
+                return [], None, why
+            if path is not None:
+                parts.append(path)
+        if not parts:
+            return faces, None, None
+        return faces, parts[0].fuse(parts[1:]) if len(parts) > 1 else parts[0], None
+
+    def _run_out(self, op, radius):
+        """(the solid a cutter of ``radius`` sweeps along ``op``'s printed cutter-centre
+        paths, or None, and why that is unknown), cached per op.
+
+        Each printed table (``checkpoints`` ``paths``: an arc's rows as chords, a join's
+        points) is one level polyline; every point within the radius of it stands from the
+        table's tip to above the setup-entry stock, as :meth:`_corridor` does.
+        """
+        if id(op) in self.run_outs:
+            return self.run_outs[id(op)]
+        table, pieces, result = op["checkpoints"], [], (None, None)
+        top = _bbox(self.part)[5] + COVER_MM
+        try:
+            if table.get("reason"):
+                raise ValueError(table["reason"])
+            for path in table.get("paths", []):
+                points = []
+                for x, y in path["xy_mm"]:
+                    point = V(x, y, 0)
+                    if not points or (point - points[-1]).Length > PLANE_TOL:
+                        points.append(point)
+                z0 = path["tip_z_mm"]
+                if z0 >= top:
+                    continue
+                if len(points) == 1:
+                    area = Part.Face(Part.Wire(Part.makeCircle(radius, points[0])))
+                else:
+                    if len(points) > 2 and (points[-1] - points[0]).Length <= PLANE_TOL:
+                        points[-1] = points[0]
+                    area = _path_area(Part.makePolygon(points), radius)
+                area.translate(V(0, 0, z0))
+                pieces.extend(face.extrude(V(0, 0, top - z0)) for face in area.Faces)
+            if pieces:
+                swept = pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
+                result = swept.removeSplitter(), None
+        except Exception as exc:  # an unknown printed row and OCC offset failures alike
+            result = None, f"its printed cutter-centre run-out is unknown ({exc})"
+        self.run_outs[id(op)] = result
+        return result
 
     def _corridor(self, walls, radius, to_z):
         """(the solid a cutter of ``radius`` sweeps beside vertical claimed ``walls``, or
@@ -3534,15 +3628,7 @@ class _Setup:
                         "a profile wall's outward side is ambiguous, so its corridor is unknown",
                     )
                     return self.corridors[key]
-                ends = _straight(centre)
-                if ends is not None:  # OCC finds no plane for a straight path
-                    area = _stadium(*ends, radius)
-                elif centre.isClosed():
-                    area = centre.makeOffset2D(radius, 0, True, False, False).fuse(
-                        centre.makeOffset2D(-radius, 0, True, False, False)
-                    )
-                else:  # a closed sausage: r discs round both path ends
-                    area = centre.makeOffset2D(radius, 0, True, False, False)
+                area = _path_area(centre, radius)
                 area.translate(V(0, 0, z0))
                 # Each face as its own solid, fused and merged below: an extruded shell
                 # would leave the two sides of a closed path as separate solids.
@@ -5340,6 +5426,136 @@ class _Setup:
             facts[key] = UNKNOWN
             facts["reasons"][key] = reason
         return facts
+
+    def _checkpoint_stock(self, op):
+        """(setup-frame stock a printed checkpoint of ``op`` must not meet, or None, its
+        obstacle name, and why it is unknown).
+
+        The one definition of a checkpoint's stock obstacle. A bounded op's (its
+        ``stock_removal_bounds``) is its before-op stock outside its clearing box: the box is
+        all it may remove. Any other op's is the stock its setup leaves when no op is
+        credited its printed run-out (:meth:`_uncredited_output`): a printed path may run on
+        through stock an earlier or later cut of the setup removes, never through stock the
+        setup keeps. :meth:`_checkpoint_facts` measures only its part outside the finished
+        part, its own obstacle.
+        """
+        if self.stock_reason is not None:
+            return None, None, f"in-process stock unknown: {self.stock_reason}"
+        if "stock_removal_bounds" not in op:
+            stock, why = self._uncredited_output()
+            return stock, "stock the setup keeps", why
+        name = "stock outside its stock_removal_bounds"
+        before, _, stopped = self.cuts.get(id(op), (None, None, "the stock builder skipped it"))
+        if stopped is not None:
+            return None, name, f"the stock before this op is unknown ({stopped})"
+        span, why = _clearing_span(op["stock_removal_bounds"], _bbox(self.stock_states[0]))
+        if span is None:
+            return None, name, why
+        try:
+            return before.cut(_box_shape(span)), name, None
+        except Exception as exc:
+            return None, name, f"its stock outside the box could not be derived ({exc})"
+
+    def _uncredited_output(self):
+        """(setup-frame stock this setup leaves with no printed run-out credited, or None,
+        and why not), derived once: the entry stock less every op's cut, a profile op's
+        without its run-out. Material only a run-out removes stays in it."""
+        if self.unrun is None:
+            stock, why = self.built if self.built is not None else (None, "not built")
+            saws = [self._subject(op) for op in self.ops if _sawn(op)]
+            if why is not None:
+                self.unrun = None, f"the setup's output stock is not derived ({why})"
+            elif saws and self.uncredited:
+                self.unrun = None, (
+                    "the setup's output without run-out credit is not derived across its saw "
+                    "op(s) " + ", ".join(saws)
+                )
+            elif not self.uncredited:
+                self.unrun = stock, None
+            else:
+                try:
+                    stock = self.stock_states[0]
+                    for op in self.ops:
+                        own, groups = self.plans[id(op)]
+                        for cut in ([] if own is None else [own]) + [p for g in groups for p in g]:
+                            if stock.Solids and _boxes_overlap(_bbox(stock), _bbox(cut)):
+                                stock = stock.cut(cut)
+                    self.unrun = stock, None
+                except Exception as exc:
+                    self.unrun = None, f"the setup's output without run-out credit failed ({exc})"
+        return self.unrun
+
+    def _checkpoint_facts(self, op, facts, frame_reason=None):
+        """Printed DRO checkpoints (``checkpoints``) against the stock model.
+
+        Each coordinates-table row stands the op's cutter cylinder (``radius_mm``) at its
+        setup XY from its tip up above the setup-entry stock. Its common volume with the
+        finished part, with each placed fixture component and with the op's stock obstacle
+        (:meth:`_checkpoint_stock`) outside the finished part must stay within HIT_MM3.
+        ``checkpoint_errors`` lists each certain hit by row, obstacle and volume;
+        ``checkpoint_hits`` counts the rows hit, unknown (``checkpoint_reason``) when a row,
+        the radius, the frame, the stock obstacle or the fixture is unknown. Certain hits
+        stay errors whatever else is unknown.
+        """
+        table = op.get("checkpoints")
+        if not isinstance(table, dict) or _turned(op) or _sawn(op):
+            return
+        rows = [row for row in table.get("rows", []) if isinstance(row, dict)]
+        facts["checkpoint_count"] = len(rows)
+        why = [table["reason"]] if table.get("reason") else []
+        radius = _positive(op, "radius_mm")
+        retained = None
+        if frame_reason is not None or radius is None or radius <= LIFT:
+            why.append(
+                f"setup frame is unusable ({frame_reason})"
+                if frame_reason is not None
+                else "op lacks a measured cutter radius_mm"
+            )
+            rows = []
+        else:
+            retained, name, unknown = self._checkpoint_stock(op)
+            if unknown is not None:
+                why.append(unknown)
+            if not self.fixture_ready:
+                why.append(f"fixture solids unresolved ({self.fixture_reason})")
+        top = self.box[5] + COVER_MM if rows else None
+        errors, gapped, extended = [], 0, 0
+        for row in rows:
+            (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
+            if z0 >= top:
+                continue
+            cylinder = (x, y, radius - LIFT, z0, top)
+            tool = Part.makeCylinder(radius - LIFT, top - z0, V(x, y, z0))
+            hits = [("finished part", _shared(tool, self.finished))]
+            if retained is not None:
+                # The finished part inside the stock is its own obstacle, never stock.
+                common = _common(tool, retained)
+                hits.append((name, 0.0 if common is None else common.cut(self.finished).Volume))
+            for component in self.fixture if self.fixture_ready else []:
+                subjects = component.get("subjects", "all")
+                if subjects != "all" and self._subject(op) not in subjects:
+                    continue
+                if _cylinder_hits_box(*cylinder, component["envelope_bbox"]):
+                    hits.append((component["name"], _shared(tool, component["envelope"])))
+            hits = [(obstacle, volume) for obstacle, volume in hits if volume > HIT_MM3]
+            errors.extend(
+                {"row": row["id"], "obstacle": obstacle, "volume_mm3": _r(volume)}
+                for obstacle, volume in hits
+            )
+            if not hits and self.fixture_ready:
+                gapped += bool(self.fixture_gaps)
+                extended += any(_tool_hits_box(cylinder, box) for _, box in self.fixture_possible)
+        if gapped:
+            why.append(f"undrawn fixture components ({'; '.join(self.fixture_gaps)})")
+        if extended:
+            why.append(f"{extended} clear checkpoint(s) reach the undeclared jaw extension")
+        hit = len(dict.fromkeys(error["row"] for error in errors))
+        facts["checkpoint_errors"] = errors
+        facts["checkpoint_hits"] = UNKNOWN if why else hit
+        if why:
+            facts["checkpoint_reason"] = "; ".join(why) + (
+                f"; {hit} printed checkpoint(s) certainly hit" if hit else ""
+            )
 
     def _joint_axial_op(self, op):
         """Centred real axial tool/holder solids, never tangent offset cylinders on a cone."""

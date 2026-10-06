@@ -1606,6 +1606,19 @@ class _Traveler:
         reason = table.get("cut_order_reason", "not established")
         return text + f"; rows NOT in an established cutting order: {reason}"
 
+    @staticmethod
+    def clip(table, markers):
+        """Where coordinates clipped this table at its op's stock_removal_bounds."""
+        clipped = list(dict.fromkeys(_text(marker) for marker in markers if marker))
+        text = ""
+        if clipped:
+            text = "; path clipped where the cutter meets " + ", ".join(clipped)
+            text += " (points past it are not cut by this op)"
+        fragment = table.get("fragment")
+        if isinstance(fragment, list) and len(fragment) == 2:
+            text += f"; separate piece {fragment[0]} of {fragment[1]}, not linked by a cut"
+        return text
+
     def contours(self, setup, tools):
         """One block per contour op; both sides of a symmetric profile print explicitly."""
         numbers = self.records.get(("coordinates", setup["id"]), {})
@@ -1646,7 +1659,9 @@ class _Traveler:
                 description += f", chord error ≤ {o(arc['max_chord_sagitta_mm'])}"
             if arc.get("interpolation"):
                 description += "; " + self.bench(arc["interpolation"])
-            description += self.cut_order(arc)
+            description += self.cut_order(arc) + self.clip(
+                arc, [row.get("clipped_at") for row in arc.get("rows", [])]
+            )
             entry["parts"].append((description, ["P", "angle °", "X", "Y", "Z"], rows))
         for line in numbers.get("line_table", []):
             entry = block(line.get("op"))
@@ -1664,6 +1679,7 @@ class _Traveler:
                 )
             side = _text(line.get("side"))
             description = f"Straight joins on the {side} side" + self.cut_order(line)
+            description += self.clip(line, line.get("clipped_at") or [])
             entry["parts"].append((description, ["P", "", "X", "Y", "Z"], rows))
         arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
         for profile in numbers.get("profiles", []):

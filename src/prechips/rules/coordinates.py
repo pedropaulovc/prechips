@@ -238,11 +238,256 @@ def _xy_model(point, feature, frames):
     return model_point([point[0], point[1], 0.0], frames.get(feature.get("frame", "model")))
 
 
-def _arc(feature_name, feature, op, offset, frame, frames, features, sense, order):
-    """(arc table, join lines), each listed in cutting order for ``sense`` (see cut_order).
+# Plan units within which a cutter centre on an inset bound still counts as inside it.
+_CLIP_TOL = 1e-9
+# Plan units within which two table ends are one join of the same cutter path.
+_JOIN_TOL = 1e-6
+
+
+def _centre_box(op, radius, units):
+    """(the cutter-centre box an op's stock_removal_bounds authorise, or None, and why not).
+
+    The bounds are the op's setup-frame clearing box (plan units, docs/plan.md); the stock
+    model credits removal only inside it, so a cutter of ``radius`` mm stays in that removal
+    only while its centre stays r inside each XY bound. Each axis is ``(lo + r, hi - r, lo
+    marker, hi marker)``; an op without bounds gives (None, None).
+    """
+    if "stock_removal_bounds" not in op:
+        return None, None
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    if scale is None:
+        return None, f"feature units {units!r} are not mm or in, so its bounds cannot clip"
+    if not (number(radius) and radius > 0):
+        return None, "the cutter radius is unknown, so its stock_removal_bounds cannot clip"
+    bounds, r, box = mapping(op["stock_removal_bounds"]), radius / scale, []
+    for axis in ("x", "y"):
+        span = bounds.get(axis)
+        if not (
+            isinstance(span, list)
+            and len(span) == 2
+            and all(number(v) for v in span)
+            and span[0] < span[1]
+        ):
+            return None, f"stock_removal_bounds {axis} is not a numeric [lo, hi] span"
+        lo, hi = (float(v) for v in span)
+        box.append(
+            (
+                lo + r,
+                hi - r,
+                f"stock_removal_bounds {axis} {lo} + r",
+                f"stock_removal_bounds {axis} {hi} − r",
+            )
+        )
+    return tuple(box), None
+
+
+def _inside(xy, box):
+    return all(lo - _CLIP_TOL <= xy[i] <= hi + _CLIP_TOL for i, (lo, hi, _, _) in enumerate(box))
+
+
+def _length(points):
+    return sum(math.dist(a, b) for a, b in itertools.pairwise(points))
+
+
+def _arc_crossings(a, b, ellipse, box):
+    """(angle, marker) where the arc between row angles ``a`` and ``b`` meets an inset
+    bound strictly between them, in travel order. ``ellipse`` is (p0, c, s): the setup
+    frame is affine, so the cutter centre at angle t is p0 + cos(t) c + sin(t) s."""
+    p0, c, s = ellipse
+    low, high = sorted((a, b))
+    found = []
+    for axis, bound in enumerate(box):
+        amplitude = math.hypot(c[axis], s[axis])
+        phase = math.degrees(math.atan2(s[axis], c[axis]))
+        for value, marker in ((bound[0], bound[2]), (bound[1], bound[3])):
+            if amplitude == 0 or abs(value - p0[axis]) > amplitude:
+                continue
+            half = math.degrees(math.acos((value - p0[axis]) / amplitude))
+            for angle in {phase + half, phase - half}:
+                angle += 360.0 * math.ceil((low - angle) / 360.0)
+                while angle < high:
+                    if angle > low:
+                        found.append((angle, marker))
+                    angle += 360.0
+    found.sort(reverse=b < a)
+    return found
+
+
+def _clip_rows(rows, box, row_at):
+    """Pieces of an arc's rows (cutting order) inside ``box``. Each crossing is an exact
+    row on the arc marked ``clipped_at`` with the bound it meets; rows past it are dropped.
+    Between checkpoints the inside test follows the arc itself, not its chords."""
+    p = [row_at(angle)["setup_xy"] for angle in (0.0, 90.0, 180.0)]
+    p0 = [(p[0][i] + p[2][i]) / 2 for i in range(2)]
+    ellipse = (p0, [(p[0][i] - p[2][i]) / 2 for i in range(2)], [p[1][i] - p0[i] for i in range(2)])
+    pieces, current = [], None
+    for index, row in enumerate(rows):
+        if index == 0:
+            current = [row] if _inside(row["setup_xy"], box) else None
+            continue
+        a, b = rows[index - 1]["angle_deg"], row["angle_deg"]
+        stops = [(a, None), *_arc_crossings(a, b, ellipse, box), (b, None)]
+        for (start, marker), (stop, _) in itertools.pairwise(stops):
+            inside = _inside(row_at((start + stop) / 2)["setup_xy"], box)
+            if inside and current is None:
+                current = [{**row_at(start), "clipped_at": marker} if marker else rows[index - 1]]
+            elif not inside and current is not None:
+                if marker:
+                    current.append({**row_at(start), "clipped_at": marker})
+                pieces.append(current)
+                current = None
+        if current is not None:
+            current.append(row)
+    if current is not None:
+        pieces.append(current)
+    return [piece for piece in pieces if _length([r["setup_xy"] for r in piece]) > _CLIP_TOL]
+
+
+def _segment_span(a, b, box):
+    """(t in, t out, marker in, marker out) of segment a->b inside ``box``, or None."""
+    enter, leave, entered, left = 0.0, 1.0, None, None
+    for axis, (lo, hi, lo_marker, hi_marker) in enumerate(box):
+        delta = b[axis] - a[axis]
+        if delta == 0:
+            if not lo - _CLIP_TOL <= a[axis] <= hi + _CLIP_TOL:
+                return None
+            continue
+        near, far = ((lo, lo_marker), (hi, hi_marker))[:: 1 if delta > 0 else -1]
+        if (t := (near[0] - a[axis]) / delta) > enter:
+            enter, entered = t, near[1]
+        if (t := (far[0] - a[axis]) / delta) < leave:
+            leave, left = t, far[1]
+    if _inside(a, box):
+        enter, entered = 0.0, None
+    if _inside(b, box):
+        leave, left = 1.0, None
+    return None if enter > leave else (enter, leave, entered, left)
+
+
+def _clip_points(model, setup, box):
+    """Pieces of a join polyline inside ``box`` as (model point, setup point, marker)
+    triples; a clip point carries the bound it meets, the original points None."""
+
+    def at(index, t, marker):
+        a, b = index - 1, index
+        return (
+            [model[a][i] + t * (model[b][i] - model[a][i]) for i in range(2)],
+            [setup[a][i] + t * (setup[b][i] - setup[a][i]) for i in range(2)],
+            marker,
+        )
+
+    pieces, current = [], None
+    for index in range(1, len(setup)):
+        span = _segment_span(setup[index - 1], setup[index], box)
+        if span is None:
+            if current is not None:
+                pieces.append(current)
+                current = None
+            continue
+        enter, leave, entered, left = span
+        if current is None or entered is not None:
+            if current is not None:
+                pieces.append(current)
+            start = (model[index - 1], setup[index - 1], None)
+            current = [at(index, enter, entered) if entered else start]
+        current.append(at(index, leave, left) if left else (model[index], setup[index], None))
+        if left is not None:
+            pieces.append(current)
+            current = None
+    if current is not None:
+        pieces.append(current)
+    return [piece for piece in pieces if _length([p[1] for p in piece]) > _CLIP_TOL]
+
+
+def _authorised(arc, lines, box, row_at):
+    """([arc pieces], [line pieces], debt or None): one stage clipped at ``box``.
+
+    Each table keeps its cutting order; a crossing becomes an exact point marked
+    ``clipped_at`` with the bound it meets and the points past it are dropped. Tables
+    sharing an end are one path where the shared point is kept, and a closed table whose
+    seam is kept runs on through it as one piece. A path left in more than one piece, or
+    none, is debt: no credited cut links the pieces and none is reconnected; a table cut
+    into pieces lists each as ``fragment`` [k, n].
+    """
+    points = [row["setup_xy"] for row in arc["rows"]]
+    points += [point for line in lines for point in line["setup_xy"]]
+    if not all(number(v) for point in points for v in point):
+        return [arc], lines, "cutter-centre setup XY is unknown, so its bounds clip is unknown"
+
+    def end(pieces, first):
+        """The table's own end point if a piece keeps it unclipped, else None."""
+        if not pieces:
+            return None
+        point = pieces[0][0] if first else pieces[-1][-1]
+        return point if isinstance(point, dict) else point[1] if point[2] is None else None
+
+    tables = []  # (record, pieces, original first point, original last point, kept points)
+    rows = arc["rows"]
+    candidates = [(arc, _clip_rows(rows, box, row_at), rows[0], rows[-1])]
+    for line in lines:
+        clipped = _clip_points(line["model_xy"], line["setup_xy"], box)
+        candidates.append((line, clipped, line["setup_xy"][0], line["setup_xy"][-1]))
+    for record, pieces, first, last in candidates:
+        kept = sum(not _clipped(point) for piece in pieces for point in piece)
+        seam = end(pieces, True) is first and end(pieces, False) is last
+        if len(pieces) > 1 and seam and math.dist(_xy(first), _xy(last)) <= _JOIN_TOL:
+            pieces = [pieces[-1] + pieces[0][1:], *pieces[1:-1]]
+        tables.append((record, pieces, first, last, kept))
+    count, ends = 0, []
+    for _, pieces, first, last, _ in tables:
+        count += len(pieces)
+        ends.append((end(pieces, True) is first, first, end(pieces, False) is last, last))
+    for a, b in itertools.combinations(ends, 2):
+        for x, y in ((0, 0), (0, 2), (2, 0), (2, 2)):
+            if a[x] and b[y] and math.dist(_xy(a[x + 1]), _xy(b[y + 1])) <= _JOIN_TOL:
+                count -= 1
+    arcs, joins = [], []
+    for index, (record, pieces, _, _, kept) in enumerate(tables):
+        unchanged = len(pieces) == 1 and ends[index][0] and ends[index][2]
+        unchanged = unchanged and all(not _clipped(point) for point in pieces[0])
+        if unchanged:
+            (arcs if index == 0 else joins).append(record)
+            continue
+        for k, piece in enumerate(pieces, 1):
+            if index == 0:
+                part = {**record, "rows": piece, "dropped_rows": len(rows) - kept}
+            else:
+                part = {
+                    **record,
+                    "model_xy": [point[0] for point in piece],
+                    "setup_xy": [point[1] for point in piece],
+                    "clipped_at": [point[2] for point in piece],
+                    "dropped_points": len(record["setup_xy"]) - kept,
+                }
+            if len(pieces) > 1:
+                part["fragment"] = [k, len(pieces)]
+            (arcs if index == 0 else joins).append(part)
+    if count <= 0:
+        return [], [], "its cutter-centre path lies wholly outside its bounds inset by r"
+    if count > 1:
+        return arcs, joins, (
+            f"its bounds inset by r split its cutter-centre path into {count} pieces; "
+            "no credited cut links them"
+        )
+    return arcs, joins, None
+
+
+def _xy(point):
+    return point["setup_xy"] if isinstance(point, dict) else point
+
+
+def _clipped(point):
+    return point.get("clipped_at") if isinstance(point, dict) else point[2]
+
+
+def _arc(feature_name, feature, op, offset, frame, frames, features, sense, order, box=None):
+    """([arc table fragments], join lines, clip debt or None), in cutting order for
+    ``sense`` (see cut_order).
 
     The cutter-side wall normal is radial: outward when the cutter centre runs outside the
     wall radius, inward on a concave wall. A join's normal is its offset land's normal.
+    ``box`` (:func:`_centre_box`) clips the path at the op's stock_removal_bounds
+    (:func:`_authorised`).
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -260,7 +505,7 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
         and len(centre) == 3
         and all(number(v) for v in centre)
     ):
-        return None, []
+        return [], [], None
     cutter_radius = radius + offset
     start, end = 0.0, 360.0 if full else 180.0
     vertical_angle = False
@@ -271,7 +516,7 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
             top = mapping(features.get(feature.get("top_edge_feature")))
             joins = _joins(top, feature, offset)
             if joins is None:
-                return None, []
+                return [], [], None
             endpoint = joins[2] if joins else feature.get("bottom_end")
         else:
             cutter_radius = radius - offset
@@ -279,24 +524,24 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
             endpoints = [_top_join(feature, linked_feature, offset) for linked_feature in linked]
             if linked:
                 if any(point is None for point in endpoints):
-                    return None, []
+                    return [], [], None
                 endpoint = endpoints[0]
                 if any(math.dist(endpoint, point) > 1e-9 for point in endpoints[1:]):
-                    return None, []
+                    return [], [], None
             else:
                 endpoint = feature.get("end")
         if not isinstance(endpoint, list) or not all(number(v) for v in endpoint):
-            return None, []
+            return [], [], None
         half = math.degrees(math.atan2(endpoint[0] - centre[0], centre[1] - endpoint[1]))
         start, end = -half, half
     elif not full and feature.get("arc") != "upper_semicircle":
-        return None, []
+        return [], [], None
     if cutter_radius <= 0:
-        return None, []
+        return [], [], None
     step = mapping(op.get("contour")).get("step_deg", UNKNOWN)
     angles = _samples(start, end, step)
-    rows = []
-    for angle in angles:
+
+    def row_at(angle):
         theta = math.radians(angle)
         xy = (
             [
@@ -310,16 +555,16 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
             ]
         )
         local = frame_point(_xy_model(xy, feature, frames), frame)
-        rows.append(
-            {
-                "angle_deg": angle,
-                "model_xy": xy,
-                "setup_xy": local[:2],
-                "x": local[0],
-                "y": local[1],
-                "tip_z": op.get("to_z", UNKNOWN),
-            }
-        )
+        return {
+            "angle_deg": angle,
+            "model_xy": xy,
+            "setup_xy": local[:2],
+            "x": local[0],
+            "y": local[1],
+            "tip_z": op.get("to_z", UNKNOWN),
+        }
+
+    rows = [row_at(angle) for angle in angles]
     model_centre = model_point(centre, frames.get(feature.get("frame", "model")))
     centre_xy = frame_point(model_centre, frame)[:2]
     reverse = None
@@ -387,7 +632,11 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
             }
             reverse = _reversal(local[0], local[1], normal, sense)
             lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
-    return arc if rows else None, lines
+    if not rows:
+        return [], [], None
+    if box is None:
+        return [arc], lines, None
+    return _authorised(arc, lines, box, row_at)
 
 
 def _boundary(feature, frame, frames):
@@ -583,6 +832,35 @@ def _dome(name, feature, op, radius_mode):
     }
 
 
+def checkpoints(subject, numbers, op):
+    """Each printed cutter-centre table of op ``op``'s arc_table output, in cutting order,
+    as its (row id, setup XY, tip Z) checkpoints in plan units: each stage's arc rows
+    (``S1:40 rough arc row 3``) and join points (``S1:40 rough line +X[0]``); a fragment
+    adds ``fragment k``."""
+    result = []
+    for kind in ("arc_table", "line_table"):
+        for table in numbers.get(kind, []):
+            if table.get("op") != op:
+                continue
+            name = f"{subject} {table.get('stage')} " + (
+                "arc" if kind == "arc_table" else f"line {table.get('side')}"
+            )
+            if "fragment" in table:
+                name += f" fragment {table['fragment'][0]}"
+            tip = table.get("tip_z")
+            if kind == "arc_table":
+                rows = table.get("rows", [])
+                path = [
+                    (f"{name} row {i}", row.get("setup_xy"), row.get("tip_z", tip))
+                    for i, row in enumerate(rows)
+                ]
+            else:
+                points = table.get("setup_xy", [])
+                path = [(f"{name}[{i}]", xy, tip) for i, xy in enumerate(points)]
+            result.append(path)
+    return result
+
+
 def evaluate(bundle):
     result = []
     features = bundle.feature_definitions
@@ -602,6 +880,7 @@ def evaluate(bundle):
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"
         unordered = set()  # why a contour table's cutting order is unknown
+        clip_debts = []  # why a clipped contour path is split, empty or unclipped
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -694,6 +973,7 @@ def evaluate(bundle):
                 else [("finish", 0)]
             )
             sense, order = cut_order(machine, op)
+            box, clip_why = _centre_box(op, radius, bundle.features.get("units"))
             for stage, allowance in stages:
                 offset = radius + allowance if number(radius) and number(allowance) else UNKNOWN
                 profile = {
@@ -713,19 +993,27 @@ def evaluate(bundle):
                 }
                 generated = False
                 if contour.get("method") == "arc_table":
-                    arc, lines = _arc(
-                        name, feature, op, offset, frame, frames, features, sense, order
+                    arcs, lines, debt = _arc(
+                        name, feature, op, offset, frame, frames, features, sense, order, box
                     )
-                    if arc:
-                        arc.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
-                        numbers["arc_table"].append(arc)
+                    debt = clip_why if arcs and clip_why else debt
+                    if debt:
+                        profile["clip_reason"] = debt
+                        clip_debts.append(f"op {op['op']} {stage}: {debt}")
+                    if arcs or lines:
+                        for arc in arcs:
+                            arc.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
+                        numbers["arc_table"].extend(arcs)
                         for line in lines:
                             line["stage"] = stage
                         numbers["line_table"].extend(lines)
-                        profile["cutter_centre"] = arc["rows"]
+                        # Clip pieces stay separate lists: nothing reconnects them.
+                        profile["cutter_centre"] = (
+                            arcs[0]["rows"] if len(arcs) == 1 else [arc["rows"] for arc in arcs]
+                        )
                         unordered.update(
                             item["cut_order_reason"]
-                            for item in (arc, *lines)
+                            for item in (*arcs, *lines)
                             if item["cut_order"] == UNKNOWN
                         )
                         generated = True
@@ -752,7 +1040,7 @@ def evaluate(bundle):
                 unknown |= not generated or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
-        status = "unknown" if unknown or unordered else "pass"
+        status = "unknown" if unknown or unordered or clip_debts else "pass"
         sentence = (
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
             "nominal geometry and authored allowance."
@@ -763,6 +1051,8 @@ def evaluate(bundle):
             )
         if unordered:
             sentence += " Cutting order is unknown: " + "; ".join(sorted(unordered)) + "."
+        if clip_debts:
+            sentence += " Stock-removal clip debt: " + "; ".join(clip_debts) + "."
         result.append(
             Finding(
                 "coordinates",
