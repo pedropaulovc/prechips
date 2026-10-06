@@ -1,7 +1,7 @@
 """Check authored execution order, not numeric operation sorting."""
 
 from ..findings import Finding
-from .resolution import MANUAL, operations, record
+from .resolution import MANUAL, op_feature, operations, record
 
 
 def evaluate(bundle):
@@ -40,7 +40,7 @@ def evaluate(bundle):
                 continue
             before = route[:index]
             after = route[index + 1 :]
-            feature = op.get("feature")
+            feature = op_feature(op)
             action = op["do"]
             spec = bundle.feature_definitions.get(feature, {})
             prerequisite_feature = (

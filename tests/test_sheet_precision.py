@@ -1,6 +1,7 @@
 """Host-only traveler precision and wording with synthetic kernel facts."""
 
 import re
+import tomllib
 from html import unescape
 
 import pytest
@@ -24,13 +25,9 @@ def findings(report, rule):
 
 @pytest.fixture(scope="module")
 def bracket(tmp_path_factory):
-    """The bracket traveler with an explicitly unknown scratch S1 deburr limit."""
+    """The bracket traveler."""
     root = tmp_path_factory.mktemp("bracket")
     plan = copy_examples(root) / "pivot-bracket" / "plan.toml"
-    authored = plan.read_text(encoding="utf-8")
-    authored, deburrs = re.subn(r"(?m)^deburr_mm = .*$", 'deburr_mm = "unknown"', authored, count=1)
-    assert deburrs == 1
-    plan.write_text(authored, encoding="utf-8")
     _, report, html = traveler(plan, root / "out", setup=SYNTHETIC_KERNEL)
     return report, html
 
@@ -94,8 +91,6 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
                     and abs(float(b) - tip) < grid["step"]
                     for a, a_digits, b, b_digits in printed
                 ), (endpoint, printed)
-    # The scratch S1 deburr_mm is unknown: the sentinel survives the precision fallback.
-    assert re.search(r"Break edges[^|]*\?", text(html))
 
 
 def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
@@ -249,3 +244,162 @@ def test_front_sheet_pointers_lead_to_attached_sheets_of_the_same_setup(tmp_path
         if setup in ("S2", "S3"):
             # Both shaft turning setups profile a contour.
             assert followed
+
+
+def setup_pages(html):
+    """Each setup's sheets, joined: {setup id: html}."""
+    parts = re.split(r'<section class="page" data-sheet="SETUP (\S+) sheet \d+"', html)
+    pages = {}
+    for setup, page in zip(parts[1::2], parts[2::2], strict=True):
+        pages[setup] = pages.get(setup, "") + page
+    return pages
+
+
+def test_bench_and_saw_setups_print_no_machine_zero_or_clearance(tmp_path):
+    # A bench fit/inspect setup has no spindle, DRO or axes, and a saw cut-off is located
+    # by its cut plane: their sheets carry no DRO ZERO and no CLEARANCE, while the
+    # machine setups keep both.
+    plan = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    authored = tomllib.loads(plan.read_text(encoding="utf-8"))
+    inventory = tomllib.loads(
+        (ROOT / "examples" / "inventory" / "pedro-shop.toml").read_text(encoding="utf-8")
+    )
+    kinds = {
+        s["id"]: inventory["machines"].get(s["machine"], {}).get("kind") for s in authored["setups"]
+    }
+    pages = setup_pages(html)
+    bench = [sid for sid, kind in kinds.items() if kind == "bench"]
+    saws = [sid for sid, kind in kinds.items() if kind == "bandsaw"]
+    mills = [sid for sid, kind in kinds.items() if kind == "mill"]
+    assert bench and saws and mills
+    for sid in bench + saws:
+        assert "DRO ZERO" not in pages[sid] and "CLEARANCE" not in pages[sid], sid
+    for sid in mills:
+        assert "DRO ZERO" in pages[sid] and "CLEARANCE" in pages[sid], sid
+
+
+def test_a_setup_edge_break_tighter_than_the_drawing_prints_on_its_own_sheet(tmp_path):
+    # The job page carries the drawing's edge break once; a setup that must break its
+    # edges smaller (a bonded socket mouth) says so on its own sheet, and a setup on the
+    # drawing's limit does not repeat it.
+    plan = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    authored = tomllib.loads(plan.read_text(encoding="utf-8"))
+    pages = setup_pages(html)
+    tighter = [s["id"] for s in authored["setups"] if 0 < s.get("deburr_mm", 0) < 0.25]
+    drawing = [s["id"] for s in authored["setups"] if s.get("deburr_mm") == 0.25]
+    assert tighter and drawing
+    for sid in tighter:
+        assert re.search(
+            r"Break edges 0\.10* mm max in this setup, not the drawing's 0\.25", text(pages[sid])
+        ), sid
+    for sid in drawing:
+        assert "Break edges" not in text(pages[sid]), sid
+
+
+@pytest.mark.parametrize(
+    ("record_hash", "evidence", "expected"),
+    [
+        ("current", "FA-001 measured and signed", "a first article is recorded for this input"),
+        ("current", "", "no first article is recorded for this input bundle"),
+        ("other", "FA-001 measured and signed", "the recorded first article is for other inputs"),
+    ],
+    ids=["recorded-unchecked", "no-evidence", "stale"],
+)
+def test_job_status_states_the_first_article_record_it_was_given(
+    record_hash, evidence, expected, tmp_path
+):
+    # The job page tells the operator whether a first article exists for these inputs;
+    # a recorded one on an unchecked plan is not "none recorded, make a new one".
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    _, report, _ = traveler(plan, tmp_path / "plain", setup=SYNTHETIC_KERNEL)
+    assert report["verification"] != "checked"
+    digest = report["hash"] if record_hash == "current" else "0" * 64
+    approval = tmp_path / "approvals.toml"
+    approval.write_text(f'hash = "{digest}"\nfirst_article = "{evidence}"\n', encoding="utf-8")
+    _, _, html = traveler(plan, tmp_path / "out", "--approval", approval, setup=SYNTHETIC_KERNEL)
+    job = text(sections(html, "JOB STATUS")[0])
+    assert f"NOT APPROVED: {expected}" in job
+    assert ("sign it off below" in job) == (
+        expected != "a first article is recorded for this input"
+    )
+
+
+def test_a_named_inventory_item_prints_its_name_not_its_kind_or_slug(tmp_path):
+    # The shop names what it owns; the traveler prints that name, not the item's kind or
+    # identity key. A member's name is its own: naming the kit does not rename a piece.
+    examples = copy_examples(tmp_path)
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    named = inventory.read_text(encoding="utf-8")
+    for header, name in (
+        ("[machines.bandsaw-4x6]", "4x6 bandsaw"),
+        ("[fixtures.cone-cap-bridge]", "cap bridge clamp"),
+        ("[fixtures.clamping-kit-lms-1144]", "LMS 58-piece clamping kit"),
+    ):
+        assert named.count(f"\n{header}\n") == 1, header
+        named = named.replace(f"\n{header}\n", f'\n{header}\nname = "{name}"\n')
+    inventory.write_text(named, encoding="utf-8")
+    _, _, cone = traveler(
+        examples / "cone-pivot-post" / "built-up.toml", tmp_path / "cone", setup=SYNTHETIC_KERNEL
+    )
+    sheets = text(cone)
+    assert re.search(r"SETUP S\d+ — 4x6 bandsaw · sheet 1", sheets)
+    assert "Clamp 1: cap bridge clamp —" in sheets
+    assert "bandsaw-4x6" not in sheets and "cone-cap-bridge" not in sheets
+    _, _, bracket = traveler(
+        examples / "pivot-bracket" / "plan.toml", tmp_path / "bracket", setup=SYNTHETIC_KERNEL
+    )
+    assert "Clamp 1: bracket bridge strap clamp —" in text(bracket)
+    assert "LMS 58-piece clamping kit" not in text(bracket)
+
+
+def test_job_status_lists_stock_to_obtain_before_the_first_setup(tmp_path):
+    # The shaft bar is not on hand: the job page says so beside NOT APPROVED and never
+    # reads clear; once the bar is on hand the prerequisite line goes.
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    _, _, html = traveler(plan, tmp_path / "missing", setup=SYNTHETIC_KERNEL)
+    job = text(sections(html, "JOB STATUS")[0])
+    assert "Before S1: obtain the stock" in job and "NOT APPROVED" in job
+    assert "No stops, cautions" not in job
+    authored = plan.read_text(encoding="utf-8")
+    plan.write_text(authored.replace("on_hand = false", "on_hand = true", 1), encoding="utf-8")
+    _, _, html = traveler(plan, tmp_path / "held", setup=SYNTHETIC_KERNEL)
+    assert "obtain the stock" not in text(sections(html, "JOB STATUS")[0])
+
+
+def test_job_page_states_each_machine_dro_grid(bracket, tmp_path):
+    # DRO targets print on the machine's declared resolution; with none declared the
+    # job page says the default grid is used rather than implying a measured one.
+    _, html = bracket
+    assert re.search(r"DRO resolution: [^|]*PM-30MV 0\.005 mm(?! \(resolution)", text(html))
+    examples = copy_examples(tmp_path)
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    stripped, removed = re.subn(
+        r"(?m)^resolution_mm = .*\n", "", inventory.read_text(encoding="utf-8"), count=1
+    )
+    assert removed == 1
+    inventory.write_text(stripped, encoding="utf-8")
+    _, _, html = traveler(
+        examples / "pivot-bracket" / "plan.toml", tmp_path / "out", setup=SYNTHETIC_KERNEL
+    )
+    assert "PM-30MV 0.001 mm (resolution not in the shop list: default grid)" in text(html)
+
+
+def test_op_notes_print_under_their_own_row_on_the_front_sheet(tmp_path):
+    # The machinist reads an op's note where the op is run, not on another sheet.
+    plan = ROOT / "examples" / "pivot-shaft" / "plan.toml"
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    authored = tomllib.loads(plan.read_text(encoding="utf-8"))
+    noted = 0
+    for setup in authored["setups"]:
+        front = html.split(f'data-sheet="SETUP {setup["id"]} sheet 1"')[1].split("</section>")[0]
+        rows = dict(re.findall(r"<tbody[^>]*><tr><td>(\d+)</td>(.*?)</tbody>", front, re.S))
+        for op in setup["ops"]:
+            if op.get("note"):
+                # The bench reading may rename a leading feature id; the words after it stay.
+                words = " ".join(op["note"].split()[1:5]).lower()
+                assert words in text(rows[str(op["op"])]).lower(), op["op"]
+                noted += 1
+    assert noted
+    assert "See note on" not in text(html)

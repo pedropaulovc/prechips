@@ -197,6 +197,9 @@ Hold = record(
         "clamp_order": list[Annotated[int, Field(gt=0)]],
         "preload_direction": Literal["clockwise", "counterclockwise"] | Unknown,
         "stop_fixture": str,
+        # The face the work is set against: a feature already on the arriving stock, or
+        # the stock's own end. Checked against the arriving stock by hold_fields.
+        "stop_face": str,
         "stop_pose": Pose,
     },
 )
@@ -253,11 +256,43 @@ SawPlane = record(
     "SawPlane",
     {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
 )
+
+
+class ProcessHold(InputModel):
+    """A shop limit inside one drawing requirement band, held for a stated process reason
+    (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit."""
+
+    feature: str
+    requirement: str
+    band: Annotated[list[float], Field(min_length=2, max_length=2)]
+    gauge: str
+    reason: str
+
+    @model_validator(mode="after")
+    def stated(self) -> ProcessHold:
+        for value, what in (
+            (self.feature, "feature"),
+            (self.requirement, "requirement"),
+            (self.reason, "reason"),
+        ):
+            _known_text(value, f"A process hold {what}")
+        if not self.band[0] < self.band[1]:
+            raise ValueError("A process hold band must be an ordered [lo, hi] band, lo < hi.")
+        return self
+
+
 Operation = record(
     "Operation",
     {
         "op": int,
-        **texts("do feature tool holder direction note inspection_note"),
+        "do": str,
+        # One manifest feature; an inspect op may name several (one drawing dimension
+        # split across features is read once).
+        "feature": str | Annotated[list[str], Field(min_length=2)],
+        **texts("tool holder direction note inspection_note"),
+        # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
+        "process": str | Annotated[list[str], Field(min_length=1)],
+        "process_holds": Annotated[list[ProcessHold], Field(min_length=1)],
         **numbers(
             "to_z depth_mm exit_mm rough_allowance_mm stock_to_leave_mm z_from z_to "
             "to_dia rpm feed_mm_min doc_mm feed_mm_rev approach_mm"
@@ -496,6 +531,21 @@ class Plan(InputModel):
             not name.strip() or name == UNKNOWN for name in self.frames
         ):
             raise ValueError("Plan frame names must be known, non-empty names.")
+        return self
+
+    @model_validator(mode="after")
+    def operation_fields(self) -> Plan:
+        """A feature list is an inspect op's; a process is a coating op's."""
+        for setup in self.setups:
+            for op in setup.ops if isinstance(setup.ops, list) else ():
+                where = f"Setup {setup.id} op {op.op}"
+                if isinstance(op.feature, list):
+                    if op.do != "inspect":
+                        raise ValueError(f"{where}: only an inspect op may name a feature list.")
+                    if len(set(op.feature)) != len(op.feature) or UNKNOWN in op.feature:
+                        raise ValueError(f"{where}: a feature list names distinct known features.")
+                if "process" in op.model_fields_set and op.do != "coating":
+                    raise ValueError(f"{where}: only a coating op names a coating process.")
         return self
 
     @model_validator(mode="after")
@@ -909,7 +959,7 @@ InventoryItem = record(
     "InventoryItem",
     {
         **texts(
-            "kind make control operation_mode note coating material coverage by standards "
+            "name kind make control operation_mode note coating material coverage by standards "
             "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in hand "
             "standard series chart units taper"
         ),
@@ -1116,6 +1166,8 @@ class Inventory(InputModel):
     holders: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     fixtures: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     gauges: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
+    # Outside processes the shop sends work to (a coating vendor): not shop-owned kit.
+    services: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     consumables: dict[str, list[str] | Unknown] | Unknown = UNKNOWN
     stock: list[Stock] | Unknown = UNKNOWN
 
@@ -1123,7 +1175,7 @@ class Inventory(InputModel):
     @classmethod
     def unambiguous_lengths(cls, values: Any) -> Any:
         if isinstance(values, dict):
-            for category in ("machines", "tools", "holders", "fixtures", "gauges"):
+            for category in ("machines", "tools", "holders", "fixtures", "gauges", "services"):
                 items = values.get(category)
                 if isinstance(items, dict):
                     for identity, item in items.items():

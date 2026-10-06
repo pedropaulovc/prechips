@@ -12,6 +12,7 @@ from prechips.rules.resolution import (
     inventory_category,
     known_refs,
     number,
+    op_feature,
     operations,
     plan_frame_cite,
     record,
@@ -351,7 +352,7 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
     frames = {setup["id"]: setup["frame"] for setup in job["setups"]}
     for setup, op in operations(bundle):
         subject = f"{setup['id']}:{op['op']}"
-        cite = provenance(bundle, rule, setup, op, op.get("feature"))
+        cite = provenance(bundle, rule, setup, op, op_feature(op))
         if op.get("do") in SAW_OPS:
             # Before kernel availability: the tool-cylinder model never applies to a blade.
             yield (

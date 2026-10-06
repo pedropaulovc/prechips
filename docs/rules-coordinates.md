@@ -184,8 +184,10 @@ path that leaves and re-enters legality leaves each piece as a `fragment`
 reconnected, so the setup's coordinates finding is `unknown`. A path with no
 legal part, no kernel result, a kernel clip that is unknown or a clip that does
 not match the printed table prints nothing and is unknown, never the unclipped
-path. The traveler notes "path clipped at the cutter's first contact with
-stock outside stock removal bounds" and "separate piece k of n". The sheet's
+path. The traveler names the printed point a clipped table starts or stops at
+("stops at P7: the stock past it is outside this op's area") and "piece k of
+n: no cut links the pieces, so the stock between them is not cleared by this
+op". The sheet's
 tables, this check, the kernel's row check and the setup picture's waypoints
 all use these clipped rows and their ids; the op's removal stays its box.
 
@@ -202,16 +204,35 @@ value. Every table carries `dro_tip_z`, and each profile and operation
 `dro_to_z`: the authored depth rounded up, never deeper (−2.07825 prints −2.078
 on the default grid). The op rows and contour table headers print the same
 value, and so does every later Z printed for that face: a start Z, a Z zero and
-its Axis Set and jog readings, a hole entry, a tip's height over the jaw tops.
-A face links to the facing or pocketing op of its own or an earlier same-frame
-setup that last cut it to that Z, or to the op that advanced a stock-state top
-or entry; any other surface Z prints on the grid by `dro_z`. Hole endpoints
+its Axis Set and jog readings, a hole entry, a feature map end, a tip's height
+over the jaw tops.
+One provenance source (`tip_endpoints.operative_z`) picks the op that produced
+that face. It looks first among the setup's own ops scheduled before the reading.
+For a Z zero's `top`, those are the ops up to and including its `after_op`,
+never a later recut. It then walks the selected stock ancestry: the setup's
+`stock_in` chain, the same one the kernel builds, joint branches included, and
+same-frame setups only. A setup outside that chain never counts, even if it cut
+the same nominal face. The producer is the op that advanced a stock-state top
+or entry, or the facing or pocketing op that last cut the face proven to be the
+one read: for `top`, a facing op on `top_feature`; for a feature (a zero face, an
+op's own feature for its start and end Z, a feature map row), an op on that
+feature or one whose feature's X/Y `bounds` hold its whole footprint (its own
+`bounds`, else a Z-axis round feature's `at` ± half its largest `dia`); overlap
+is not cover. An equal Z alone is never proof, and with no footprint to prove it
+there is no producer.
+It counts only if it cut that face to that Z. Its
+value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
+the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other
+surface Z prints on the grid by `dro_z`. Hole endpoints
 carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
 printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
-STOP, and so does a blind `dro_depth_mm` below the feature's `depth` band (a bare
-`depth` is an upper limit only: a depth the rounding changed is then unknown, a
-STOP). A final forming cut whose `to_z` ends on its finished face (no `exit_mm`)
+STOP. Every row that prints a rounded depth carries `depth_floor_mm`: the lower
+end of the feature's `depth` band, or for a tap its `thread_depth` (else `depth`)
+band. Any other kind of row, and a bare `depth` (an upper limit only), has an
+unknown floor. A `dro_depth_mm` below its floor prints a STOP, and so does a depth
+the rounding changed when the floor is unknown. A final forming cut whose `to_z`
+ends on its finished face (no `exit_mm`)
 and whose rounded-up depth leaves more skin than its feature's narrowest
 numeric tolerance band is an error (`dro_z_residual_errors`). Every join record
 carries its `stage`, `allowance_mm` (the rough leave, 0 for finish) and

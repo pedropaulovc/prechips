@@ -533,7 +533,7 @@ boxes. A missing or withheld entry box leaves travel unresolved. Equality
 with a measured travel limit passes; exceeding it fails.
 
 A machine with inventory `kind = "bench"` or `"manual"` whose non-empty
-operation list contains only `fit` and `inspect` needs no DRO or spindle
+operation list contains only `fit`, `inspect`, `deburr` and `coating` needs no DRO or spindle
 screen: `zero_check`, `coordinates` and `headroom` are `not_applicable`.
 Joint geometry and modeled holding still apply. Adding any cutting or unknown
 operation reinstates the normal machine screens.
