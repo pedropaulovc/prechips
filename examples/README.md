@@ -943,6 +943,10 @@ The strap force points toward the seat, and the foot-end ledge takes the
 downward tool load rather than relying only on clamp friction.
 The indicated transfer includes the actual `seat_face` height datum; the Y
 edge-finder pickup uses the plate front beside the part, not the thin seat lip.
+Datum A is labelled "finished seat face" at the bench, not by a CAD-frame coordinate.
+The two setup transfers use an authored 0.001 in (0.0254 mm) TIR limit, two
+divisions of the existing 0.0005 in test indicator; this is an alignment target,
+not a claim that the setup has already been measured.
 After the shared outer face is finished, S3:11 checks the final 6 mm ear thickness
 (the S2 in-process ear was still 7 mm). The R7 arch gets a radius-gauge check.
 The crown's explicit S3 clearance box removes the retained cap without using
