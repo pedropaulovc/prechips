@@ -128,7 +128,7 @@ depth = 42.7506
 thru = true
 requirements = ["dia"]
 precision = { dia = 3 }
-note = "AUTHOR'S CHOICE: transient sleeve socket; diametral capillary clearance 0.064-0.096 mm to the specified spigot. Finish the final crank bore only after the joint cools."
+note = "AUTHOR'S CHOICE: sleeve assembly socket; diametral capillary clearance 0.064-0.096 mm to the specified spigot. Finish the final crank bore only after the joint cools."
 cite = ["AUTHOR'S CHOICE: illustrative BAg-7 capillary-braze joint", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
 
 [joint_features.crank_spigot]
@@ -318,7 +318,7 @@ direction = "toward_chuck"
 doc_mm = 0.01
 feed_mm_rev = 0.03
 approach_mm = 3.0
-note = "AUTHOR'S CHOICE: light final spring pass at the same 21.930 mm diameter setting, not a second diameter reduction. Finish the actual STEP external sleeve cylinders; the transient spigot operation alone cannot claim these faces. Stop at Z-73, eleven millimetres ahead of the jaws."
+note = "AUTHOR'S CHOICE: take a light spring pass over the complete sleeve at the same 21.930 mm diameter setting, not a second diameter reduction. Stop at Z-73, eleven millimetres ahead of the jaws, and check for taper or chatter before parting."
 [setups.ops.checks]
 dia = "micrometers/0-1in"
 
@@ -326,7 +326,7 @@ dia = "micrometers/0-1in"
 op = 37
 do = "inspect"
 feature = "crank_spigot"
-note = "AUTHOR'S CHOICE: after the final spring pass, recheck the capillary-fit diameter at both ends and the middle against 21.924-21.936 mm; the wider finished-STEP OD band alone is not fit acceptance."
+note = "AUTHOR'S CHOICE: after the final spring pass, gauge the capillary-fit diameter at both ends and the middle against 21.924-21.936 mm. Passing the wider overall sleeve-diameter tolerance does not establish the brazing fit."
 [setups.ops.checks]
 dia = "micrometers/0-1in"
 
@@ -456,7 +456,7 @@ stock_to_leave_mm = 0.0
 doc_mm = 0.5
 approach_mm = 5.0
 direction = "conventional"
-note = "AUTHOR'S CHOICE: use the 3/8 in cutter only from body Y59.4 down to Y48, safely above the pad walls. Finish these cylindrical lands to 42.011 mm and skim the narrow Y59.4 shoulder annulus (#395) with the cutter flank. #431 is the still-unfinished head cap at Y86. Axial limits are along the dividing-head axis from the Y100 jaw mouth, not spindle Z."
+note = "AUTHOR'S CHOICE: use the 3/8 in cutter only from body Y59.4 down to Y48, safely above the pad walls. Finish these cylindrical lands to 42.011 mm and skim the narrow shoulder annulus at Y59.4 with the cutter flank. Leave the head top at Y86 for the later saw-and-face setting. Measure the axial limits from the Y100 chuck mouth along the dividing-head axis, not spindle Z."
 [setups.ops.checks]
 dia = "calipers"
 
@@ -1115,7 +1115,7 @@ doc_mm = 0.5
 approach_mm = 5.0
 direction = "conventional"
 stock_removal_bounds = { x = [-21.3753, 21.3753], y = [-21.3753, 21.3753], z = [86.0, 87.0] }
-note = "AUTHOR'S CHOICE: face the remaining 1 mm sawn allowance in 0.5 mm layers with the normal 3/8 in cutter, then take a light finish pass. Establish 86 mm overall height by caliper measurements from the accessible edge of finished foot B and set the head-cap DRO coordinate Z86 only after that height is established. Do not try to touch B through the vise. #431 is the actual head cap, not the shoulder. Preserve the complete joined sleeve below this plane."
+note = "AUTHOR'S CHOICE: face the remaining 1 mm sawn allowance in 0.5 mm layers with the normal 3/8 in cutter, then take a light finish pass. Establish 86 mm overall height by caliper measurements from the accessible edge of finished foot B and set the head-top DRO coordinate Z86 only after that height is established. Do not try to touch B through the vise. Finish the head top, not the shoulder, and preserve the complete joined sleeve below this plane."
 [setups.ops.checks]
 dia = "calipers"
 height = "calipers"
