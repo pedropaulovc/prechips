@@ -2095,17 +2095,28 @@ class _Traveler:
         when a fixture component is within the crash zone of it: the clearance, and how
         far out the start may go when that was found; None otherwise."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-        o = self.operative
+        step, decimals = dro_grid(self.bundle, setup)
+
+        def snap(value, up):
+            """``value`` on the setup's DRO grid, rounded the safe way."""
+            steps = (math.ceil if up else math.floor)(value / step + (-1e-6 if up else 1e-6))
+            return _number(steps * step, decimals)
+
         for pose in numbers.get("window_poses") or []:
             pose = _mapping(pose)
-            clear = pose.get("clearance_mm")
+            clear, z = pose.get("clearance_mm"), pose.get("z_mm")
             if pose.get("end") != "z_from" or not _known(clear) or clear > _CRASH_ZONE_MM:
                 continue
-            text = (
-                f"START Z {o(pose.get('z_mm'))}: {o(clear)} CLEAR OF {pose.get('nearest_fixture')}"
-            )
-            if _known(pose.get("max_start_z_mm")):
-                text += f" — start no further out than Z {o(pose['max_start_z_mm'])}"
+            # The kernel names a placed component "<role> <inventory ref>"; print the shop
+            # name of the ref when it is one, else the component as named.
+            name = str(pose.get("nearest_fixture"))
+            ref = name.rsplit(" ", 1)[-1]
+            if resolve(self.bundle, "fixtures", ref):
+                name = "the " + self.short_reference(ref, "fixtures")
+            text = f"START Z {snap(z, False)}: {snap(clear, False)} CLEAR OF {name}"
+            start = pose.get("max_start_z_mm")
+            if _known(start) and _known(z):
+                text += f" — start no further out than Z {snap(start, start < z)}"
             return _Box(text)
         return None
 
