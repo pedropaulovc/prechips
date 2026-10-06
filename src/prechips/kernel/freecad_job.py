@@ -5052,10 +5052,11 @@ class _Setup:
         self._place_steady_rests(hold)
         if hold.get("kind") == "vise":
             return
+        stock = self.part if self.centre_seat is None else self.part.cut(self.centre_seat)
         for component in self.fixture:
             if component["role"] not in _SOLID_ROLES:
                 continue
-            common = component["solid"].common(self.part)
+            common = component["solid"].common(stock)
             if common.Volume > STOCK_MM3:
                 self.fixture_debts.append(
                     f"{component['name']} intersects the setup-entry stock "
