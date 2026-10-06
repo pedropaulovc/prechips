@@ -953,7 +953,7 @@ def _clearing_box(bounds, within=None):
     if within is not None:
         lo = [max(v, within[axis] - 1.0) for axis, v in enumerate(lo)]
         hi = [min(v, within[axis + 3] + 1.0) for axis, v in enumerate(hi)]
-        if any(a >= b for a, b in zip(lo, hi)):
+        if any(a >= b for a, b in zip(lo, hi, strict=True)):
             return None, "stock_removal_bounds lie wholly outside the stock"
     return _box_shape((*lo, *hi)), None
 
@@ -1667,12 +1667,14 @@ class _Setup:
         :meth:`_hole_cut`). Other ops remove only stock outside their guard: the finished
         solid offset by their own rough leave (:meth:`_guard`). An authored clearing box
         removes that within the box above ``to_z``, leaving unclaimed hole columns to
-        their own ops. Other ops sweep direction-valid claims along +Z, keeping unclaimed
-        rails, ears, webs and overstock. A lower-leave op also cuts the lineage leave off
-        its claimed lateral faces (:meth:`_band`). Every profile-claimed face with a
-        horizontal normal component must be clear of overstock beyond its op's guard at
-        its interior after the setup's removals; merely sweeping a sliver from a drafted
-        wall does not prove it cleared.
+        their own ops; its pieces must border a claim on the stock entering the setup, as
+        its flute mask does, so an earlier op clearing the bridge between a claim and the
+        rest of its box never strands that box. Other ops sweep direction-valid claims
+        along +Z, keeping unclaimed rails, ears, webs and overstock. A lower-leave op also
+        cuts the lineage leave off its claimed lateral faces (:meth:`_band`). Every
+        profile-claimed face with a horizontal normal component must be clear of overstock
+        beyond its op's guard at its interior after the setup's removals; merely sweeping a
+        sliver from a drafted wall does not prove it cleared.
         """
         where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
         stock, walls = self.part, []
@@ -1711,9 +1713,10 @@ class _Setup:
                         return None, f"{subject} {why}; {where}"
                     carried = self._carried(op)
                     if "stock_removal_bounds" in op:
+                        # Removing the entry-stock pieces from the current stock only cuts.
                         removal, why = self._bounded(
                             op["stock_removal_bounds"],
-                            stock,
+                            self.part,
                             valid,
                             away,
                             to_z,
@@ -3431,11 +3434,11 @@ class _Setup:
             through = True
         else:
             return debt("hole thru is unknown and the op has no to_z; its bottom is unknown", axes)
-        centres = [V(x, y, level) for (x, y, _), level in zip(axes, bottoms)]
+        centres = [V(x, y, level) for (x, y, _), level in zip(axes, bottoms, strict=True)]
         bottom = min(bottoms)
         top = self.box[5] + 1.0
         tools = []
-        for (x, y, _), level in zip(axes, bottoms):
+        for (x, y, _), level in zip(axes, bottoms, strict=True):
             # A through cut starts LIFT past its exit so no face is coincident with it.
             low = level - LIFT if through else level
             if top - low <= LIFT:

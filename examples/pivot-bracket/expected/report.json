@@ -6,6 +6,7 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.seat_face: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -20,7 +21,15 @@
       "message": "S1:10: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 51
+        "certain_tool_hits": 51,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 51,
+        "tool_hits": 51
       },
       "rule": "accessibility",
       "status": "error",
@@ -31,6 +40,7 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_profile: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -42,13 +52,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:20: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S1:20: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 119
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 119,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:20"
     },
     {
@@ -56,6 +74,7 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_profile: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -67,13 +86,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:30: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S1:30: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 119
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 119,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:30"
     },
     {
@@ -81,21 +108,25 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.10: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:10: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 24
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "error",
       "subject": "S2:10"
     },
     {
@@ -103,21 +134,25 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.20: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:20: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 24
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "error",
       "subject": "S2:20"
     },
     {
@@ -125,15 +160,16 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_top: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.30: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
       "message": "S2:30: selected cutter or holder is certainly occluded by part/fixture material.",
@@ -150,18 +186,19 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.40: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:40: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -172,18 +209,42 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.45: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:45: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:45"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.50: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:50: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -193,22 +254,46 @@
       "cite": [
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.hold_down_a: faces and requirements",
+        "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.55: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:55: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.hold_down_a: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.60: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
       "message": "S2:60: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "certain_holder_hits": 76,
-        "certain_tool_hits": 0
+        "certain_holder_hits": 14,
+        "certain_tool_hits": 64
       },
       "rule": "accessibility",
       "status": "error",
@@ -219,10 +304,11 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_a: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
@@ -230,7 +316,7 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:70: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:70: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -241,21 +327,22 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_b: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.80: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
       "message": "S2:80: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "certain_holder_hits": 76,
-        "certain_tool_hits": 0
+        "certain_holder_hits": 14,
+        "certain_tool_hits": 62
       },
       "rule": "accessibility",
       "status": "error",
@@ -266,10 +353,11 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_b: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
@@ -277,7 +365,7 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:90: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:90: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -288,6 +376,7 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.outer_face: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -297,7 +386,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:10: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -307,7 +396,27 @@
       "cite": [
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.angle-plate: declared dimensions",
+        "plan.frames.TC: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S3.ops.11: selected action/tool/holder"
+      ],
+      "message": "S3:11: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "accessibility",
+      "status": "not_applicable",
+      "subject": "S3:11"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_arch: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -317,7 +426,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:15: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:15: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -328,6 +437,7 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_arch: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -337,7 +447,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:20: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -348,19 +458,23 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S3.ops.30: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:30: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 64
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "error",
       "subject": "S3:30"
     },
     {
@@ -368,6 +482,7 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -377,7 +492,7 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:40: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -388,6 +503,7 @@
         "PLAN.md §4.2 accessibility",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -417,15 +533,15 @@
       "numbers": {
         "endpoints": [
           {
-            "depth_mm": 2.0,
+            "depth_mm": 0.6,
             "entry_from": "S3 stock_state.entry_z.cross_bore",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
             "feature": "cross_bore",
             "op": 30,
-            "point_mm": 0.5948520128372847,
+            "point_mm": 2.7496306570155937,
             "setup": "S3",
-            "tip_z": -2.0
+            "tip_z": -0.6
           },
           {
             "entry_from": "S3 stock_state.entry_z.cross_bore",
@@ -549,15 +665,15 @@
       "numbers": {
         "endpoints": [
           {
-            "depth_mm": 2.0,
+            "depth_mm": 0.6,
             "entry_from": "S2 op 30 to_z",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
             "feature": "hold_down_a",
             "op": 60,
-            "point_mm": 0.5948520128372847,
+            "point_mm": 2.7496306570155937,
             "setup": "S2",
-            "tip_z": -2.0
+            "tip_z": -0.6
           },
           {
             "entry_from": "S2 op 30 to_z",
@@ -589,15 +705,15 @@
       "numbers": {
         "endpoints": [
           {
-            "depth_mm": 2.0,
+            "depth_mm": 0.6,
             "entry_from": "S2 op 30 to_z",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
             "feature": "hold_down_b",
             "op": 80,
-            "point_mm": 0.5948520128372847,
+            "point_mm": 2.7496306570155937,
             "setup": "S2",
-            "tip_z": -2.0
+            "tip_z": -0.6
           },
           {
             "entry_from": "S2 op 30 to_z",
@@ -659,19 +775,19 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
+            "sha256": "cde1c1023e0c88b7f0442d3bd3772d5dfd7230fbc88dce33c743197057877caa"
           },
           "features": {
             "path": "examples/pivot-bracket/features.toml",
-            "sha256": "c28d97d2e11e5d6154fe053e8403a045311da14d8f65ca4067d0a26e8192aec4"
+            "sha256": "efa07a8a7b0789165951458d23587a9d5925edb44599c476e9d52e56a0c6f454"
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+            "sha256": "14da67d43c7601b645aaa18ee2291a872ec67af4b7b7bf2c88946c5340d32fcc"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
-            "sha256": "179b7d2b59dd5eb231afea3c34fa60cd0365e6d81bffa0c32ababe2239b2d57c"
+            "sha256": "14ad9b4a4a4f6c02206fc41a21e5c8f1d14cb7762fe19434c246a85435d01842"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -869,15 +985,15 @@
             "op": 10
           },
           {
-            "ear_relief": 0.0,
+            "ear_relief": 0.1,
             "ear_sides": 27.2,
-            "foot_top": 0.0,
-            "hold_down_a": 0.0,
-            "hold_down_b": 0.0,
+            "foot_top": 0.1,
+            "hold_down_a": 0.1,
+            "hold_down_b": 0.1,
             "op": 20
           },
           {
-            "ear_relief": 0.0,
+            "ear_relief": 0.1,
             "ear_sides": 27.2,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
@@ -885,48 +1001,64 @@
             "op": 30
           },
           {
-            "ear_relief": 0.0,
-            "ear_sides": 27.2,
+            "ear_relief": 0.1,
+            "ear_sides": 0.3,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
             "op": 40
           },
           {
-            "ear_relief": 0.0,
-            "ear_sides": 27.2,
+            "ear_relief": 0.1,
+            "ear_sides": 0.3,
+            "foot_top": 0.0,
+            "hold_down_a": 0.0,
+            "hold_down_b": 0.0,
+            "op": 45
+          },
+          {
+            "ear_relief": 0.1,
+            "ear_sides": 0.0,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
             "op": 50
           },
           {
-            "ear_relief": 0.0,
-            "ear_sides": 27.2,
+            "ear_relief": 0.1,
+            "ear_sides": 0.0,
+            "foot_top": 0.0,
+            "hold_down_a": 0.0,
+            "hold_down_b": 0.0,
+            "op": 55
+          },
+          {
+            "ear_relief": 0.1,
+            "ear_sides": 0.0,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
             "op": 60
           },
           {
-            "ear_relief": 0.0,
-            "ear_sides": 27.2,
+            "ear_relief": 0.1,
+            "ear_sides": 0.0,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
             "op": 70
           },
           {
-            "ear_relief": 0.0,
-            "ear_sides": 27.2,
+            "ear_relief": 0.1,
+            "ear_sides": 0.0,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
             "op": 80
           },
           {
-            "ear_relief": 0.0,
-            "ear_sides": 27.2,
+            "ear_relief": 0.1,
+            "ear_sides": 0.0,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
@@ -943,15 +1075,15 @@
             "op": 10,
             "rough_allowance_mm": 0.3,
             "to_z": 0.3,
-            "tool": "endmills-lms-6784/3-8in-4fl"
+            "tool": "bracket-long-endmill"
           },
           {
             "direction": "conventional",
             "do": "finish_pocket",
             "feature": "ear_relief",
             "op": 20,
-            "to_z": 0.0,
-            "tool": "endmills-lms-6784/3-8in-4fl"
+            "to_z": 0.1,
+            "tool": "bracket-long-endmill"
           },
           {
             "direction": "conventional",
@@ -959,30 +1091,47 @@
             "feature": "foot_top",
             "op": 30,
             "to_z": 0.0,
-            "tool": "endmills-lms-6784/3-8in-4fl"
+            "tool": "bracket-long-endmill"
           },
           {
             "direction": "conventional",
-            "do": "rough_profile",
+            "do": "rough_pocket",
             "feature": "ear_sides",
             "op": 40,
             "rough_allowance_mm": 0.3,
             "to_z": 0.3,
-            "tool": "endmills-lms-6784/3-8in-4fl"
+            "tool": "bracket-long-endmill"
           },
           {
             "direction": "conventional",
-            "do": "finish_profile",
+            "do": "rough_pocket",
+            "feature": "ear_sides",
+            "op": 45,
+            "rough_allowance_mm": 0.3,
+            "to_z": 0.3,
+            "tool": "bracket-long-endmill"
+          },
+          {
+            "direction": "conventional",
+            "do": "finish_pocket",
             "feature": "ear_sides",
             "op": 50,
             "to_z": 0.0,
-            "tool": "endmills-lms-6784/3-8in-4fl"
+            "tool": "bracket-long-endmill"
+          },
+          {
+            "direction": "conventional",
+            "do": "finish_pocket",
+            "feature": "ear_sides",
+            "op": 55,
+            "to_z": 0.0,
+            "tool": "bracket-long-endmill"
           },
           {
             "do": "spot",
             "feature": "hold_down_a",
             "op": 60,
-            "tool": "center-drills-lms-4859/2"
+            "tool": "bracket-spot-drill"
           },
           {
             "do": "drill",
@@ -994,7 +1143,7 @@
             "do": "spot",
             "feature": "hold_down_b",
             "op": 80,
-            "tool": "center-drills-lms-4859/2"
+            "tool": "bracket-spot-drill"
           },
           {
             "do": "drill",
@@ -1235,7 +1384,7 @@
             "rough_allowance_mm": 0.3,
             "stage": "rough",
             "to_z": 0.3,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool": "bracket-long-endmill",
             "tool_dia": 9.525,
             "tool_dia_basis": "selected member nominal, not measured",
             "tool_nominal_dia_mm": 9.525
@@ -1480,8 +1629,8 @@
             "op": 20,
             "rough_allowance_mm": "not_applicable",
             "stage": "finish",
-            "to_z": 0.0,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "to_z": 0.1,
+            "tool": "bracket-long-endmill",
             "tool_dia": 9.525,
             "tool_dia_basis": "selected member nominal, not measured",
             "tool_nominal_dia_mm": 9.525
@@ -1489,28 +1638,54 @@
           {
             "contour": {
               "method": "linear_table",
-              "step_mm": 1.0
+              "open_side": "-x",
+              "step_mm": 1.0,
+              "sweep_bounds": {
+                "x": [
+                  -9.0,
+                  -7.0
+                ],
+                "y": [
+                  6.0,
+                  33.2
+                ],
+                "z": [
+                  -4.0,
+                  3.0
+                ]
+              },
+              "sweep_frame": "model"
             },
             "cutter_centre": [
               [
-                -12.0625,
-                -8.0625
+                [
+                  -13.7625,
+                  -7.7625
+                ],
+                [
+                  -13.7625,
+                  8.7625
+                ]
               ],
               [
-                12.0625,
-                -8.0625
+                [
+                  -12.7625,
+                  -7.7625
+                ],
+                [
+                  -12.7625,
+                  8.7625
+                ]
               ],
               [
-                12.0625,
-                8.0625
-              ],
-              [
-                -12.0625,
-                8.0625
-              ],
-              [
-                -12.0625,
-                -8.0625
+                [
+                  -12.0625,
+                  -7.7625
+                ],
+                [
+                  -12.0625,
+                  8.7625
+                ]
               ]
             ],
             "cutter_radius_mm": 4.7625,
@@ -1521,7 +1696,7 @@
             "rough_allowance_mm": 0.3,
             "stage": "rough",
             "to_z": 0.3,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool": "bracket-long-endmill",
             "tool_dia": 9.525,
             "tool_dia_basis": "selected member nominal, not measured",
             "tool_nominal_dia_mm": 9.525
@@ -1529,39 +1704,197 @@
           {
             "contour": {
               "method": "linear_table",
-              "step_mm": 1.0
+              "open_side": "+x",
+              "step_mm": 1.0,
+              "sweep_bounds": {
+                "x": [
+                  7.0,
+                  9.0
+                ],
+                "y": [
+                  6.0,
+                  33.2
+                ],
+                "z": [
+                  -4.0,
+                  3.0
+                ]
+              },
+              "sweep_frame": "model"
             },
             "cutter_centre": [
               [
-                -11.7625,
-                -7.762499999999999
+                [
+                  13.7625,
+                  -7.7625
+                ],
+                [
+                  13.7625,
+                  8.7625
+                ]
               ],
               [
-                11.7625,
-                -7.7625
+                [
+                  12.7625,
+                  -7.7625
+                ],
+                [
+                  12.7625,
+                  8.7625
+                ]
               ],
               [
-                11.7625,
-                7.762499999999999
-              ],
-              [
-                -11.7625,
-                7.7625
-              ],
-              [
-                -11.7625,
-                -7.762499999999999
+                [
+                  12.0625,
+                  -7.7625
+                ],
+                [
+                  12.0625,
+                  8.7625
+                ]
               ]
             ],
             "cutter_radius_mm": 4.7625,
-            "entry_z": 27.2,
+            "entry_z": 0.3,
+            "feature": "ear_sides",
+            "offset_mm": 5.0625,
+            "op": 45,
+            "rough_allowance_mm": 0.3,
+            "stage": "rough",
+            "to_z": 0.3,
+            "tool": "bracket-long-endmill",
+            "tool_dia": 9.525,
+            "tool_dia_basis": "selected member nominal, not measured",
+            "tool_nominal_dia_mm": 9.525
+          },
+          {
+            "contour": {
+              "method": "linear_table",
+              "open_side": "-x",
+              "step_mm": 1.0,
+              "sweep_bounds": {
+                "x": [
+                  -9.0,
+                  -7.0
+                ],
+                "y": [
+                  6.0,
+                  33.2
+                ],
+                "z": [
+                  -4.0,
+                  3.0
+                ]
+              },
+              "sweep_frame": "model"
+            },
+            "cutter_centre": [
+              [
+                [
+                  -13.7625,
+                  -7.7625
+                ],
+                [
+                  -13.7625,
+                  8.7625
+                ]
+              ],
+              [
+                [
+                  -12.7625,
+                  -7.7625
+                ],
+                [
+                  -12.7625,
+                  8.7625
+                ]
+              ],
+              [
+                [
+                  -11.7625,
+                  -7.7625
+                ],
+                [
+                  -11.7625,
+                  8.7625
+                ]
+              ]
+            ],
+            "cutter_radius_mm": 4.7625,
+            "entry_z": 0.3,
             "feature": "ear_sides",
             "offset_mm": 4.7625,
             "op": 50,
             "rough_allowance_mm": "not_applicable",
             "stage": "finish",
             "to_z": 0.0,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool": "bracket-long-endmill",
+            "tool_dia": 9.525,
+            "tool_dia_basis": "selected member nominal, not measured",
+            "tool_nominal_dia_mm": 9.525
+          },
+          {
+            "contour": {
+              "method": "linear_table",
+              "open_side": "+x",
+              "step_mm": 1.0,
+              "sweep_bounds": {
+                "x": [
+                  7.0,
+                  9.0
+                ],
+                "y": [
+                  6.0,
+                  33.2
+                ],
+                "z": [
+                  -4.0,
+                  3.0
+                ]
+              },
+              "sweep_frame": "model"
+            },
+            "cutter_centre": [
+              [
+                [
+                  13.7625,
+                  -7.7625
+                ],
+                [
+                  13.7625,
+                  8.7625
+                ]
+              ],
+              [
+                [
+                  12.7625,
+                  -7.7625
+                ],
+                [
+                  12.7625,
+                  8.7625
+                ]
+              ],
+              [
+                [
+                  11.7625,
+                  -7.7625
+                ],
+                [
+                  11.7625,
+                  8.7625
+                ]
+              ]
+            ],
+            "cutter_radius_mm": 4.7625,
+            "entry_z": 0.0,
+            "feature": "ear_sides",
+            "offset_mm": 4.7625,
+            "op": 55,
+            "rough_allowance_mm": "not_applicable",
+            "stage": "finish",
+            "to_z": 0.0,
+            "tool": "bracket-long-endmill",
             "tool_dia": 9.525,
             "tool_dia_basis": "selected member nominal, not measured",
             "tool_nominal_dia_mm": 9.525
@@ -2207,6 +2540,11 @@
           {
             "cross_bore": 0.0,
             "ear_arch": 0.0,
+            "op": 11
+          },
+          {
+            "cross_bore": 0.0,
+            "ear_arch": 0.0,
             "op": 15
           },
           {
@@ -2242,6 +2580,11 @@
             "tool": "endmills-lms-6784/3-8in-4fl"
           },
           {
+            "do": "inspect",
+            "feature": "ear_relief",
+            "op": 11
+          },
+          {
             "direction": "conventional",
             "do": "rough_profile",
             "feature": "ear_arch",
@@ -2262,7 +2605,7 @@
             "do": "spot",
             "feature": "cross_bore",
             "op": 30,
-            "tool": "center-drills-lms-4859/2"
+            "tool": "bracket-spot-drill"
           },
           {
             "do": "drill",
@@ -2908,7 +3251,7 @@
         "plan: finishing cuts and zero.transfer",
         "illustrative example value (plausible hobby-shop vise re-seat repeatability), not measured"
       ],
-      "message": "Datum cuts or the re-fixture acceptance budget remain unresolved.",
+      "message": "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget.",
       "numbers": {
         "angularity_datums": [],
         "datum_op": "S1:10",
@@ -2930,9 +3273,9 @@
             "datum_feature": "seat_face",
             "datum_op": "S1:10",
             "feature_op": "S3:50",
-            "indicated_transfer": false,
+            "indicated_transfer": true,
             "same_setup": false,
-            "status": "unknown",
+            "status": "pass",
             "tolerance_mm": "unknown"
           }
         ],
@@ -2943,14 +3286,15 @@
             "from": "S2",
             "indicate": [
               "foot_profile",
-              "foot_top"
+              "foot_top",
+              "seat_face"
             ],
             "tool": "dti"
           }
         ]
       },
       "rule": "datum_consistency",
-      "status": "unknown",
+      "status": "pass",
       "subject": "cross_bore"
     },
     {
@@ -3124,8 +3468,8 @@
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
         "operation": "rough_pocket",
-        "tool": "endmills-lms-6784/3-8in-4fl",
-        "tool_kind": "endmill_set"
+        "tool": "bracket-long-endmill",
+        "tool_kind": "endmill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -3139,8 +3483,8 @@
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
         "operation": "finish_pocket",
-        "tool": "endmills-lms-6784/3-8in-4fl",
-        "tool_kind": "endmill_set"
+        "tool": "bracket-long-endmill",
+        "tool_kind": "endmill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -3154,8 +3498,8 @@
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
         "operation": "face",
-        "tool": "endmills-lms-6784/3-8in-4fl",
-        "tool_kind": "endmill_set"
+        "tool": "bracket-long-endmill",
+        "tool_kind": "endmill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -3168,9 +3512,9 @@
       "message": "S2:40: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
-        "operation": "rough_profile",
-        "tool": "endmills-lms-6784/3-8in-4fl",
-        "tool_kind": "endmill_set"
+        "operation": "rough_pocket",
+        "tool": "bracket-long-endmill",
+        "tool_kind": "endmill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -3180,12 +3524,27 @@
       "cite": [
         "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
+      "message": "S2:45: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "operation": "rough_pocket",
+        "tool": "bracket-long-endmill",
+        "tool_kind": "endmill"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:45"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
       "message": "S2:50: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
-        "operation": "finish_profile",
-        "tool": "endmills-lms-6784/3-8in-4fl",
-        "tool_kind": "endmill_set"
+        "operation": "finish_pocket",
+        "tool": "bracket-long-endmill",
+        "tool_kind": "endmill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -3195,12 +3554,27 @@
       "cite": [
         "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
+      "message": "S2:55: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "operation": "finish_pocket",
+        "tool": "bracket-long-endmill",
+        "tool_kind": "endmill"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
       "message": "S2:60: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
         "holder": "drill-chuck-r8",
         "operation": "spot",
-        "tool": "center-drills-lms-4859/2",
-        "tool_kind": "center_drill_set"
+        "tool": "bracket-spot-drill",
+        "tool_kind": "spot_drill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -3229,8 +3603,8 @@
       "numbers": {
         "holder": "drill-chuck-r8",
         "operation": "spot",
-        "tool": "center-drills-lms-4859/2",
-        "tool_kind": "center_drill_set"
+        "tool": "bracket-spot-drill",
+        "tool_kind": "spot_drill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -3270,6 +3644,21 @@
       "cite": [
         "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
+      "message": "S3:11: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "inspect",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S3:11"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
       "message": "S3:15: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
@@ -3304,8 +3693,8 @@
       "numbers": {
         "holder": "drill-chuck-r8",
         "operation": "spot",
-        "tool": "center-drills-lms-4859/2",
-        "tool_kind": "center_drill_set"
+        "tool": "bracket-spot-drill",
+        "tool_kind": "spot_drill"
       },
       "rule": "engagement",
       "status": "not_applicable",
@@ -3459,18 +3848,17 @@
         "features.frames.model; plan.frames.TB",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.blocks-123-lms-2881.height",
-        "inventory.fixtures.parallels-lms-6745/5-8in.height",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in.height",
         "inventory.fixtures.vise-pm-6.bed_height",
         "inventory.holders.drill-chuck-r8.gauge_len",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
-        "inventory.tools.center-drills-lms-4859/2.projection_mm.drill-chuck-r8",
+        "inventory.tools.bracket-long-endmill.projection_mm.r8-collets-lms-4860/3-8in",
+        "inventory.tools.bracket-spot-drill.projection_mm.drill-chuck-r8",
         "inventory.tools.drill-index-115/#15.dia",
         "inventory.tools.drill-index-115/#15.point_angle",
         "inventory.tools.drill-index-115/#15.projection_mm.drill-chuck-r8",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "pivot-bracket.STEP",
         "plan.frames.TB: author-declared setup frame",
@@ -3482,8 +3870,12 @@
         "plan.setups.S2.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S2.ops.45.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S2.ops.45: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.50.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.50: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S2.ops.55.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S2.ops.55: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.60.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.60: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.70.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -3512,120 +3904,160 @@
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 104.41940000000001,
+            "lower_margin_mm": 102.91940000000001,
             "op": 10,
             "spindle_nose_table_band_mm": [
-              165.3794,
-              197.2794
+              163.8794,
+              195.7794
             ],
-            "stack_mm": 192.2794,
+            "stack_mm": 190.7794,
             "tip_z_bounds_mm": [
               0.3,
               32.2
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 234.52059999999994,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "upper_margin_mm": 236.02059999999994,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 104.11940000000003,
+            "lower_margin_mm": 102.71940000000002,
             "op": 20,
             "spindle_nose_table_band_mm": [
-              165.07940000000002,
-              197.2794
+              163.67940000000002,
+              195.7794
             ],
-            "stack_mm": 192.2794,
+            "stack_mm": 190.7794,
             "tip_z_bounds_mm": [
-              0.0,
+              0.1,
               32.2
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 234.52059999999994,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "upper_margin_mm": 236.02059999999994,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 104.11940000000003,
+            "lower_margin_mm": 102.61940000000003,
             "op": 30,
             "spindle_nose_table_band_mm": [
-              165.07940000000002,
-              197.2794
+              163.57940000000002,
+              195.7794
             ],
-            "stack_mm": 192.2794,
+            "stack_mm": 190.7794,
             "tip_z_bounds_mm": [
               0.0,
               32.2
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 234.52059999999994,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "upper_margin_mm": 236.02059999999994,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 104.11940000000003,
+            "lower_margin_mm": 102.61940000000003,
             "op": 40,
             "spindle_nose_table_band_mm": [
-              165.07940000000002,
-              191.2794
+              163.57940000000002,
+              189.7794
             ],
-            "stack_mm": 192.2794,
+            "stack_mm": 190.7794,
             "tip_z_bounds_mm": [
               0.0,
               26.200000000000003
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 240.52059999999994,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "upper_margin_mm": 242.02059999999994,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 104.11940000000003,
-            "op": 50,
+            "lower_margin_mm": 102.61940000000003,
+            "op": 45,
             "spindle_nose_table_band_mm": [
-              165.07940000000002,
-              191.2794
+              163.57940000000002,
+              189.7794
             ],
-            "stack_mm": 192.2794,
+            "stack_mm": 190.7794,
             "tip_z_bounds_mm": [
               0.0,
               26.200000000000003
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 240.52059999999994,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "upper_margin_mm": 242.02059999999994,
+            "verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "lower_margin_mm": 102.61940000000003,
+            "op": 50,
+            "spindle_nose_table_band_mm": [
+              163.57940000000002,
+              189.7794
+            ],
+            "stack_mm": 190.7794,
+            "tip_z_bounds_mm": [
+              0.0,
+              26.200000000000003
+            ],
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "upper_margin_mm": 242.02059999999994,
+            "verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "lower_margin_mm": 102.61940000000003,
+            "op": 55,
+            "spindle_nose_table_band_mm": [
+              163.57940000000002,
+              189.7794
+            ],
+            "stack_mm": 190.7794,
+            "tip_z_bounds_mm": [
+              0.0,
+              26.200000000000003
+            ],
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "upper_margin_mm": 242.02059999999994,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 179.61940000000004,
+            "lower_margin_mm": 185.01940000000002,
             "op": 60,
             "spindle_nose_table_band_mm": [
-              240.57940000000002,
-              247.57940000000002
+              245.9794,
+              251.57940000000002
             ],
-            "stack_mm": 269.7794,
+            "stack_mm": 273.7794,
             "tip_z_bounds_mm": [
-              -2.0,
+              -0.6,
               5.0
             ],
-            "tool": "center-drills-lms-4859/2",
-            "tool_projection_mm": 27.0,
-            "upper_margin_mm": 184.22059999999993,
+            "tool": "bracket-spot-drill",
+            "tool_projection_mm": 31.0,
+            "upper_margin_mm": 180.22059999999993,
             "verified": true
           },
           {
@@ -3652,20 +4084,20 @@
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 179.61940000000004,
+            "lower_margin_mm": 185.01940000000002,
             "op": 80,
             "spindle_nose_table_band_mm": [
-              240.57940000000002,
-              247.57940000000002
+              245.9794,
+              251.57940000000002
             ],
-            "stack_mm": 269.7794,
+            "stack_mm": 273.7794,
             "tip_z_bounds_mm": [
-              -2.0,
+              -0.6,
               5.0
             ],
-            "tool": "center-drills-lms-4859/2",
-            "tool_projection_mm": 27.0,
-            "upper_margin_mm": 184.22059999999993,
+            "tool": "bracket-spot-drill",
+            "tool_projection_mm": 31.0,
+            "upper_margin_mm": 180.22059999999993,
             "verified": true
           },
           {
@@ -3708,7 +4140,7 @@
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
-        "inventory.tools.center-drills-lms-4859/2.projection_mm.drill-chuck-r8",
+        "inventory.tools.bracket-spot-drill.projection_mm.drill-chuck-r8",
         "inventory.tools.drill-index-115/1-4in.dia",
         "inventory.tools.drill-index-115/1-4in.point_angle",
         "inventory.tools.drill-index-115/1-4in.projection_mm.drill-chuck-r8",
@@ -3810,20 +4242,20 @@
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 172.14,
+            "lower_margin_mm": 177.54000000000002,
             "op": 30,
             "spindle_nose_table_band_mm": [
-              233.1,
-              240.1
+              238.5,
+              244.1
             ],
-            "stack_mm": 236.1,
+            "stack_mm": 240.1,
             "tip_z_bounds_mm": [
-              -2.0,
+              -0.6,
               5.0
             ],
-            "tool": "center-drills-lms-4859/2",
-            "tool_projection_mm": 27.0,
-            "upper_margin_mm": 191.69999999999996,
+            "tool": "bracket-spot-drill",
+            "tool_projection_mm": 31.0,
+            "upper_margin_mm": 187.69999999999996,
             "verified": true
           },
           {
@@ -3876,7 +4308,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.cross_bore: faces and requirements"
+        "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "cross_bore: drawing declares no finish requirement.",
       "numbers": {
@@ -3890,7 +4323,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.ear_arch: faces and requirements"
+        "features.ear_arch: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "ear_arch: drawing declares no finish requirement.",
       "numbers": {
@@ -3904,7 +4338,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.ear_relief: faces and requirements"
+        "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "ear_relief: drawing declares no finish requirement.",
       "numbers": {
@@ -3918,7 +4353,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.ear_sides: faces and requirements"
+        "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "ear_sides: drawing declares no finish requirement.",
       "numbers": {
@@ -3932,7 +4368,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.foot_profile: faces and requirements"
+        "features.foot_profile: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "foot_profile: drawing declares no finish requirement.",
       "numbers": {
@@ -3946,7 +4383,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.foot_top: faces and requirements"
+        "features.foot_top: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "foot_top: drawing declares no finish requirement.",
       "numbers": {
@@ -3960,7 +4398,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.hold_down_a: faces and requirements"
+        "features.hold_down_a: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "hold_down_a: drawing declares no finish requirement.",
       "numbers": {
@@ -3974,7 +4413,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.hold_down_b: faces and requirements"
+        "features.hold_down_b: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "hold_down_b: drawing declares no finish requirement.",
       "numbers": {
@@ -3988,7 +4428,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.outer_face: faces and requirements"
+        "features.outer_face: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "outer_face: drawing declares no finish requirement.",
       "numbers": {
@@ -4002,7 +4443,8 @@
       "cite": [
         "PLAN.md §4.2 finish_coverage",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.seat_face: faces and requirements"
+        "features.seat_face: faces and requirements",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "seat_face: drawing declares no finish requirement.",
       "numbers": {
@@ -4024,10 +4466,13 @@
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: grip_mm, jaw_above_parallels_mm",
-      "numbers": {},
+      "message": "S1: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
       "rule": "fixture_interference",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1"
     },
     {
@@ -4037,12 +4482,12 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S2: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "fixture_interference",
       "status": "unknown",
@@ -4058,7 +4503,7 @@
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S3: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "fixture_interference",
       "status": "unknown",
@@ -4174,10 +4619,12 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {
           "10": 2.6297000000000024,
-          "20": 2.3297000000000025,
+          "20": 2.4297000000000026,
           "30": 2.3297000000000025,
           "40": 2.6297000000000024,
-          "50": 2.3297000000000025
+          "45": 2.6297000000000024,
+          "50": 2.3297000000000025,
+          "55": 2.3297000000000025
         },
         "fixture_height_mm": 44.945299999999996,
         "fixture_verify": false,
@@ -4188,74 +4635,96 @@
           "requires_path_check": false
         },
         "measurements": [],
-        "parallels_mm": 15.875,
+        "parallels_mm": 41.275,
         "retained_rail_bottom_z": -6.0,
         "spindle_to_table_max_mm": 431.79999999999995,
         "stacks": [
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 214.52059999999994,
+            "margin_mm": 216.02059999999994,
             "op": 10,
-            "sum_mm": 217.2794,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "sum_mm": 215.7794,
+            "tool": "bracket-long-endmill",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 37.0,
             "verify": false
           },
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 214.52059999999994,
+            "margin_mm": 216.02059999999994,
             "op": 20,
-            "sum_mm": 217.2794,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "sum_mm": 215.7794,
+            "tool": "bracket-long-endmill",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 37.0,
             "verify": false
           },
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 214.52059999999994,
+            "margin_mm": 216.02059999999994,
             "op": 30,
-            "sum_mm": 217.2794,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "sum_mm": 215.7794,
+            "tool": "bracket-long-endmill",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 37.0,
             "verify": false
           },
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 214.52059999999994,
+            "margin_mm": 216.02059999999994,
             "op": 40,
-            "sum_mm": 217.2794,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "sum_mm": 215.7794,
+            "tool": "bracket-long-endmill",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 37.0,
             "verify": false
           },
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 214.52059999999994,
-            "op": 50,
-            "sum_mm": 217.2794,
-            "tool": "endmills-lms-6784/3-8in-4fl",
+            "margin_mm": 216.02059999999994,
+            "op": 45,
+            "sum_mm": 215.7794,
+            "tool": "bracket-long-endmill",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 37.0,
+            "verify": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "margin_mm": 216.02059999999994,
+            "op": 50,
+            "sum_mm": 215.7794,
+            "tool": "bracket-long-endmill",
+            "tool_oal_mm": 63.5,
+            "tool_projection_mm": 37.0,
+            "verify": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "margin_mm": 216.02059999999994,
+            "op": 55,
+            "sum_mm": 215.7794,
+            "tool": "bracket-long-endmill",
+            "tool_oal_mm": 63.5,
+            "tool_projection_mm": 37.0,
             "verify": false
           },
           {
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "margin_mm": 137.02059999999994,
+            "margin_mm": 133.02059999999994,
             "op": 60,
-            "sum_mm": 294.7794,
-            "tool": "center-drills-lms-4859/2",
-            "tool_oal_mm": 47.6,
-            "tool_projection_mm": 27.0,
+            "sum_mm": 298.7794,
+            "tool": "bracket-spot-drill",
+            "tool_oal_mm": 50.8,
+            "tool_projection_mm": 31.0,
             "verify": false
           },
           {
@@ -4272,12 +4741,12 @@
           {
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "margin_mm": 137.02059999999994,
+            "margin_mm": 133.02059999999994,
             "op": 80,
-            "sum_mm": 294.7794,
-            "tool": "center-drills-lms-4859/2",
-            "tool_oal_mm": 47.6,
-            "tool_projection_mm": 27.0,
+            "sum_mm": 298.7794,
+            "tool": "bracket-spot-drill",
+            "tool_oal_mm": 50.8,
+            "tool_projection_mm": 31.0,
             "verify": false
           },
           {
@@ -4299,7 +4768,7 @@
         "stock_top_above_jaws_mm": 29.529700000000002,
         "stock_top_z": 27.2,
         "sum_mm": 329.7794,
-        "support_blocks_mm": 25.4,
+        "support_blocks_mm": 0,
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
@@ -4330,9 +4799,9 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S3: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
+      "message": "S3: measured spindle stack and part/fixture travels fit.",
       "numbers": {
-        "bed_height_mm": "unknown",
+        "bed_height_mm": 66.7,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
@@ -4351,9 +4820,9 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": "unknown",
+            "margin_mm": 270.4,
             "op": 10,
-            "sum_mm": "unknown",
+            "sum_mm": 161.4,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_oal_mm": 63.5,
             "tool_projection_mm": 38.5,
@@ -4362,9 +4831,9 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": "unknown",
+            "margin_mm": 270.4,
             "op": 15,
-            "sum_mm": "unknown",
+            "sum_mm": 161.4,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_oal_mm": 63.5,
             "tool_projection_mm": 38.5,
@@ -4373,9 +4842,9 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": "unknown",
+            "margin_mm": 270.4,
             "op": 20,
-            "sum_mm": "unknown",
+            "sum_mm": 161.4,
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_oal_mm": 63.5,
             "tool_projection_mm": 38.5,
@@ -4384,20 +4853,20 @@
           {
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "margin_mm": "unknown",
+            "margin_mm": 188.89999999999995,
             "op": 30,
-            "sum_mm": "unknown",
-            "tool": "center-drills-lms-4859/2",
-            "tool_oal_mm": 47.6,
-            "tool_projection_mm": 27.0,
+            "sum_mm": 242.9,
+            "tool": "bracket-spot-drill",
+            "tool_oal_mm": 50.8,
+            "tool_projection_mm": 31.0,
             "verify": false
           },
           {
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "margin_mm": "unknown",
+            "margin_mm": 138.89999999999998,
             "op": 40,
-            "sum_mm": "unknown",
+            "sum_mm": 292.9,
             "tool": "drill-index-115/1-4in",
             "tool_oal_mm": 101.6,
             "tool_projection_mm": 81.0,
@@ -4406,9 +4875,9 @@
           {
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "margin_mm": "unknown",
+            "margin_mm": 147.89999999999998,
             "op": 50,
-            "sum_mm": "unknown",
+            "sum_mm": 283.9,
             "tool": "reamers-metric/6.5mm",
             "tool_oal_mm": 93.0,
             "tool_projection_mm": 72.0,
@@ -4421,7 +4890,7 @@
         "stock_height_mm": 25.2,
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": 1.0,
-        "sum_mm": "unknown",
+        "sum_mm": 292.9,
         "support_blocks_mm": 0,
         "tool_oal_mm": 101.6,
         "travel_checks": {
@@ -4440,7 +4909,7 @@
         }
       },
       "rule": "headroom",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3"
     },
     {
@@ -4462,12 +4931,22 @@
           "fixed_jaw": "left",
           "fixture": "vise-pm-6",
           "grip_mm": 19.5453,
-          "grip_mm_verify": true,
           "jaw_above_parallels_mm": 19.5453,
-          "jaw_above_parallels_mm_verify": true,
+          "jaw_center_along_mm": 9.1,
           "jaws_along": "y",
-          "note": "Seat side up on 1 in parallels; centred X stock -9..9, model Z -4..22.2. Raw seat is A Z = 1, finished seat 0; finish only the foot boundary down to -6. Nominal jaw engagement 19.5453 and finished-seat height 58.6 above the bed give 7.6547 clearance from the cut bottom to jaw top; inventory dimensions remain verify-only. Leave stock below for S2/S3.",
+          "note": "Seat side up on 1 in parallels; centred X stock -9..9, model Z -4..22.2. Raw seat is A Z = 1, finished seat 0. Finish the foot boundary only down to -6, leaving the ear-side stock below for S2/S3. Jaw engagement is 19.5453 mm; the foot-profile cut bottom is 7.6547 mm above the jaws.",
           "parallels": "parallels-lms-6745/1in",
+          "parallels_along": "y",
+          "parallels_centres_mm": [
+            [
+              -6.5,
+              9.1
+            ],
+            [
+              6.5,
+              9.1
+            ]
+          ],
           "stop": "blank outer end at A Y = -4 against end stop"
         },
         "missing": [],
@@ -4490,7 +4969,9 @@
           "20": "conventional",
           "30": "conventional",
           "40": "conventional",
-          "50": "conventional"
+          "45": "conventional",
+          "50": "conventional",
+          "55": "conventional"
         },
         "deburr_mm": 0.25,
         "fixture": "vise-pm-6",
@@ -4499,15 +4980,23 @@
           "fixed_jaw": "left",
           "fixture": "vise-pm-6",
           "grip_mm": 3.6703,
-          "grip_mm_verify": true,
           "jaw_above_parallels_mm": 3.6703,
-          "jaw_above_parallels_mm_verify": true,
+          "jaw_center_along_mm": -9.1,
           "jaws_along": "y",
-          "note": "Seat down; support both foot edges on the 1 in block plus 5/8 in parallels, keeping x = 0 drilling line clear. Nominal stack 41.275, jaw overlap 3.6703 and foot top 2.3297 above jaws remain verify-only arithmetic. Raw ear/free-run top is B Z = 27.2; relief rough/finish advances only the free run to 0.3/0, never the retained ear top.",
-          "parallels": "parallels-lms-6745/5-8in",
-          "riser": "blocks-123-lms-2881",
-          "stop": "finished free end at B Y = -21.2 against end stop",
-          "support_orientation": "1 in height"
+          "note": "Seat down on a single pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the x = 0 drilling line clear. No 1-2-3 blocks: a 2 in block would overlap the jaws closed on this 16 mm foot. Stack 41.275 mm, jaw overlap 3.6703 mm and foot top 2.3297 mm above jaws. Take shallow axial passes through the open free run; relief rough/finish advances that run to 0.3/0.1, then the floor spring pass to 0 clears the raw XY overhang rails. Separate left/right side strips retain a straight rectangular crown for S3, never an arch sculpted from above. The 31.75 mm flute end mill reaches the 26.2 mm inner wall.",
+          "parallels": "bracket-high-parallels/1-5-8in",
+          "parallels_along": "y",
+          "parallels_centres_mm": [
+            [
+              -6.25,
+              -9.1
+            ],
+            [
+              6.25,
+              -9.1
+            ]
+          ],
+          "stop": "finished free end at B Y = -21.2 against end stop"
         },
         "missing": [],
         "stock_bottom_z": -6.0,
@@ -4532,13 +5021,37 @@
         "deburr_mm": 0.25,
         "fixture": "angle-plate",
         "hold": {
-          "clamp": "clamping-kit-lms-1144",
+          "clamp": "shop-made two-stud bridge tightened on the free foot, reacting through rear washers and nuts against the angle plate",
+          "clamps": [
+            {
+              "note": "bridge underside on the finished foot top; force +Y toward the seat/angle plate, two studs at TC X +/-20 through the upright, rear nuts behind it; bar maximum TC Z = -9.65",
+              "pose": {
+                "origin_mm": [
+                  0.0,
+                  -6.0,
+                  -16.0
+                ],
+                "x": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  -1.0,
+                  0.0
+                ]
+              },
+              "ref": "clamping-kit-lms-1144/bracket-bridge"
+            }
+          ],
           "fixed_jaw": "not_applicable",
           "fixture": "angle-plate",
           "grip_mm": "not_applicable",
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
-          "note": "Seat (model Y = 0) against the angle-plate upright, outer face up and 2 mm proud of the plate top; strap the free foot top toward the plate, studs outside the part, never through the 4.572 hold-down holes.",
+          "method": "strap_clamps",
+          "note": "Seat (model Y = 0) against the angle-plate upright, outer face up and 2 mm proud of the plate top. Rest the foot free end on the bolted ledge at TC Z = -24.2 to take the downward facing/drilling load. The bridge underside bears on TC Y = -6, centred at TC Z = -16, and presses the foot toward the plate (+Y); two studs at TC X +/-20 pass through the upright, with rear washers touching the plate back and rear nuts behind it. Indicate the exposed 2 mm seat lip with a small-ball DTI above the plate, then tighten and recheck. Establish a preliminary paper-Z reference with the stationary edge-finder on the raw outer face (TC Z = 1) before the side pickups. Pick up the left foot face at TC Y = -3, Z = -4, above the bridge; pick up the common plate front from -Y at TC X = 45, Z = -5, clear of the bridge hardware. Retract above TC Z = 5 before traversing between pickups, then paper-zero the cutting tool as specified. The bridge bar reaches maximum TC Z = -9.65; studs, washers and nuts stay outside the foot width, clear of the foot-end ledge/base, arch and cross-bore.",
           "parallels": "not_applicable",
           "pose": {
             "origin_mm": [
@@ -4557,7 +5070,7 @@
               1.0
             ]
           },
-          "stop": "finished left foot edge at TC X = -8 against a plate stop",
+          "stop": "foot free end at TC Z = -24.2 on the bolted plate ledge; finished left foot edge at TC X = -8 aligned before clamping",
           "supports": "not_applicable"
         },
         "missing": [],
@@ -4607,7 +5120,7 @@
       "message": "cross_bore dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.03000000000000025,
-        "gauge": "pin-gauges",
+        "gauge": "bracket-cross-bore-pins",
         "gauge_kind": "pin_gauge_set",
         "limits": [
           6.5,
@@ -4615,11 +5128,11 @@
         ],
         "op": "S3:50",
         "range_mm": [
-          0.28,
-          12.7
+          6.49,
+          6.54
         ],
         "requirement": "dia",
-        "resolution_mm": 0.0254
+        "resolution_mm": 0.005
       },
       "rule": "inspection",
       "status": "pass",
@@ -4634,8 +5147,8 @@
       "message": "cross_bore height: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.1999999999999993,
-        "gauge": "calipers",
-        "gauge_kind": "caliper",
+        "gauge": "height-gauge",
+        "gauge_kind": "height_gauge",
         "limits": [
           25.1,
           25.3
@@ -4643,10 +5156,10 @@
         "op": "S3:50",
         "range_mm": [
           0,
-          152.39999999999998
+          304.79999999999995
         ],
         "requirement": "height",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0254
       },
       "rule": "inspection",
       "status": "pass",
@@ -4658,18 +5171,25 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "ear_arch radius: explicit inspection method is unknown.",
+      "message": "ear_arch radius: gauge spans the band at sufficient resolution.",
       "numbers": {
-        "gauge": "unknown",
+        "band_mm": 0.1999999999999993,
+        "gauge": "radius-gauge",
+        "gauge_kind": "radius_gauge",
         "limits": [
           6.9,
           7.1
         ],
         "op": "S3:20",
-        "requirement": "radius"
+        "range_mm": [
+          1.0,
+          7.5
+        ],
+        "requirement": "radius",
+        "resolution_mm": 0.1
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "ear_arch:radius"
     },
     {
@@ -4687,7 +5207,7 @@
           5.9,
           6.1
         ],
-        "op": "S2:20",
+        "op": "S3:11",
         "range_mm": [
           0,
           152.39999999999998
@@ -4714,7 +5234,7 @@
           13.9,
           14.1
         ],
-        "op": "S2:50",
+        "op": "S2:55",
         "range_mm": [
           0,
           152.39999999999998
@@ -4948,6 +5468,7 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.seat_face: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -4973,6 +5494,7 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_profile: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -4998,6 +5520,7 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_profile: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -5023,15 +5546,16 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.10: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
       "message": "S2:10: claimed faces have no concave edges perpendicular to the tool axis.",
@@ -5048,15 +5572,16 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.20: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
       "message": "S2:20: claimed faces have no concave edges perpendicular to the tool axis.",
@@ -5073,15 +5598,16 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_top: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.30: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
       "message": "S2:30: claimed faces have no concave edges perpendicular to the tool axis.",
@@ -5098,15 +5624,16 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.40: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
       "message": "S2:40: claimed faces have no concave edges perpendicular to the tool axis.",
@@ -5123,15 +5650,42 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.45: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:45: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
+      },
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S2:45"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.50: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
       "message": "S2:50: claimed faces have no concave edges perpendicular to the tool axis.",
@@ -5147,19 +5701,46 @@
       "cite": [
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.hold_down_a: faces and requirements",
+        "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.55: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:55: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
+      },
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.hold_down_a: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.60: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:60: concave corner radii admit the selected cutter.",
+      "message": "S2:60: a claimed internal corner is smaller than the selected cutter radius.",
       "numbers": {
         "cad_sharp_corners": 0,
         "corner_radii_mm": [
@@ -5167,10 +5748,10 @@
         ],
         "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 2.286,
-        "tool_radius_mm": 0.99
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "error",
       "subject": "S2:60"
     },
     {
@@ -5178,10 +5759,11 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_a: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
@@ -5208,18 +5790,19 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_b: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.80: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:80: concave corner radii admit the selected cutter.",
+      "message": "S2:80: a claimed internal corner is smaller than the selected cutter radius.",
       "numbers": {
         "cad_sharp_corners": 0,
         "corner_radii_mm": [
@@ -5227,10 +5810,10 @@
         ],
         "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 2.286,
-        "tool_radius_mm": 0.99
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "error",
       "subject": "S2:80"
     },
     {
@@ -5238,10 +5821,11 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_b: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
@@ -5268,6 +5852,7 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.outer_face: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -5290,7 +5875,27 @@
       "cite": [
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.angle-plate: declared dimensions",
+        "plan.frames.TC: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S3.ops.11: selected action/tool/holder"
+      ],
+      "message": "S3:11: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S3:11"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_arch: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -5314,6 +5919,7 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_arch: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -5337,16 +5943,17 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S3.ops.30: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: concave corner radii admit the selected cutter.",
+      "message": "S3:30: a claimed internal corner is smaller than the selected cutter radius.",
       "numbers": {
         "cad_sharp_corners": 0,
         "corner_radii_mm": [
@@ -5354,10 +5961,10 @@
         ],
         "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 3.25,
-        "tool_radius_mm": 0.99
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "error",
       "subject": "S3:30"
     },
     {
@@ -5365,6 +5972,7 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -5393,6 +6001,7 @@
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -5472,12 +6081,14 @@
       "numbers": {
         "chain": [
           "rough_pocket",
-          "finish_pocket"
+          "finish_pocket",
+          "inspect"
         ],
         "kind": "pocket",
         "ops": [
           "S2:10",
-          "S2:20"
+          "S2:20",
+          "S3:11"
         ]
       },
       "rule": "op_chain",
@@ -5493,13 +6104,17 @@
       "message": "ear_sides: not a hole chain.",
       "numbers": {
         "chain": [
-          "rough_profile",
-          "finish_profile"
+          "rough_pocket",
+          "rough_pocket",
+          "finish_pocket",
+          "finish_pocket"
         ],
         "kind": "pocket",
         "ops": [
           "S2:40",
-          "S2:50"
+          "S2:45",
+          "S2:50",
+          "S2:55"
         ]
       },
       "rule": "op_chain",
@@ -5661,8 +6276,10 @@
           "10 rough_pocket ear_relief",
           "20 finish_pocket ear_relief",
           "30 face foot_top",
-          "40 rough_profile ear_sides",
-          "50 finish_profile ear_sides",
+          "40 rough_pocket ear_sides",
+          "45 rough_pocket ear_sides",
+          "50 finish_pocket ear_sides",
+          "55 finish_pocket ear_sides",
           "60 spot hold_down_a",
           "70 drill hold_down_a",
           "80 spot hold_down_b",
@@ -5683,6 +6300,7 @@
       "numbers": {
         "sequence": [
           "10 face outer_face",
+          "11 inspect ear_relief",
           "15 rough_profile ear_arch",
           "20 finish_profile ear_arch",
           "30 spot cross_bore",
@@ -5700,6 +6318,7 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.seat_face: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -5728,6 +6347,7 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_profile: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -5756,6 +6376,7 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_profile: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
@@ -5784,18 +6405,19 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.10: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:10: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5806,18 +6428,19 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.20: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:20: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5828,18 +6451,19 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.foot_top: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.30: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:30: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:30: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5850,18 +6474,19 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.40: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:40: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5872,18 +6497,42 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.45: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:45: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:45"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.50: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:50: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5893,19 +6542,43 @@
       "cite": [
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.hold_down_a: faces and requirements",
+        "features.ear_sides: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.55: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:55: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
+      "rule": "reach",
+      "status": "unknown",
+      "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.hold_down_a: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.60: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:60: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:60: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5916,10 +6589,11 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_a: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
@@ -5927,7 +6601,7 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:70: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:70: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5938,18 +6612,19 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_b: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.80: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:80: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:80: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5960,10 +6635,11 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_b: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
@@ -5971,7 +6647,7 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:90: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2:90: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5982,6 +6658,7 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.outer_face: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -5991,7 +6668,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:10: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6001,7 +6678,27 @@
       "cite": [
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.ear_relief: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.angle-plate: declared dimensions",
+        "plan.frames.TC: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S3.ops.11: selected action/tool/holder"
+      ],
+      "message": "S3:11: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "reach",
+      "status": "not_applicable",
+      "subject": "S3:11"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_arch: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -6011,7 +6708,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:15: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:15: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6022,6 +6719,7 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_arch: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -6031,7 +6729,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:20: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6042,16 +6740,17 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP",
         "plan.setups.S3.ops.30: selected action/tool/holder",
-        "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
+        "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:30: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6062,6 +6761,7 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -6071,7 +6771,7 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:40: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6082,6 +6782,7 @@
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.cross_bore: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
         "plan.setups.S3: frame and hold",
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
@@ -6091,7 +6792,7 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:50: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S3:50: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6100,6 +6801,7 @@
     {
       "cite": [
         "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)",
         "inventory explicit size; 25.4 mm/in"
       ],
       "message": "cross_bore: finishing tool diameter is within limits.",
@@ -6127,7 +6829,8 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 sizing"
+        "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "ear_arch: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
@@ -6144,7 +6847,8 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 sizing"
+        "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "ear_relief: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
@@ -6152,7 +6856,8 @@
         "kind": "pocket",
         "ops": [
           "S2:10",
-          "S2:20"
+          "S2:20",
+          "S3:11"
         ]
       },
       "rule": "sizing",
@@ -6161,7 +6866,8 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 sizing"
+        "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "ear_sides: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
@@ -6169,7 +6875,9 @@
         "kind": "pocket",
         "ops": [
           "S2:40",
-          "S2:50"
+          "S2:45",
+          "S2:50",
+          "S2:55"
         ]
       },
       "rule": "sizing",
@@ -6178,7 +6886,8 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 sizing"
+        "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "foot_profile: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
@@ -6195,7 +6904,8 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 sizing"
+        "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "foot_top: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
@@ -6212,6 +6922,7 @@
     {
       "cite": [
         "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)",
         "inventory explicit size; 25.4 mm/in"
       ],
       "message": "hold_down_a: finishing tool diameter is within limits.",
@@ -6239,6 +6950,7 @@
     {
       "cite": [
         "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)",
         "inventory explicit size; 25.4 mm/in"
       ],
       "message": "hold_down_b: finishing tool diameter is within limits.",
@@ -6265,7 +6977,8 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 sizing"
+        "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "outer_face: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
@@ -6281,7 +6994,8 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 sizing"
+        "PLAN.md §4.1 sizing",
+        "example (plausible, no dimensioned drawing)"
       ],
       "message": "seat_face: dimensions are set by the path or endpoint, not cutter diameter.",
       "numbers": {
@@ -6525,6 +7239,35 @@
       },
       "rule": "speeds_feeds",
       "status": "pass",
+      "subject": "S2:45"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows",
+        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+      ],
+      "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
+      "numbers": {
+        "chip_load_mm_per_tooth": 0.04,
+        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
+        "diameter_in": 0.37500000000000006,
+        "feed_mm_min": 144.0,
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "low_carbon_steel",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": 900,
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": false,
+        "sfm": 90.0,
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
+      "status": "pass",
       "subject": "S2:50"
     },
     {
@@ -6536,16 +7279,45 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
-        "chip_load_mm_per_tooth": 0.02,
+        "chip_load_mm_per_tooth": 0.04,
         "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
-        "diameter_in": 0.07795275590551182,
-        "feed_mm_min": 120.0,
+        "diameter_in": 0.37500000000000006,
+        "feed_mm_min": 144.0,
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "low_carbon_steel",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": 900,
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": false,
+        "sfm": 90.0,
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
+      "status": "pass",
+      "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows",
+        "example (plausible, not measured), 2026-10-05: conservative cobalt spotting start, not transcribed from a handbook"
+      ],
+      "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
+      "numbers": {
+        "chip_load_mm_per_tooth": 0.02,
+        "cutting_data_row": "example (plausible, not measured), 2026-10-05: conservative cobalt spotting start, not transcribed from a handbook",
+        "diameter_in": 0.37500000000000006,
+        "feed_mm_min": 28.0,
         "flutes": 2,
         "material": "Plain Carbon Steel",
         "material_class": "low_carbon_steel",
         "material_verify": false,
         "operation": "spot",
-        "rpm": 3000.0,
+        "rpm": 700,
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
         "rpm_range_verify": false,
@@ -6590,20 +7362,20 @@
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
         "cutting-data aliases and rows",
-        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+        "example (plausible, not measured), 2026-10-05: conservative cobalt spotting start, not transcribed from a handbook"
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.02,
-        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
-        "diameter_in": 0.07795275590551182,
-        "feed_mm_min": 120.0,
+        "cutting_data_row": "example (plausible, not measured), 2026-10-05: conservative cobalt spotting start, not transcribed from a handbook",
+        "diameter_in": 0.37500000000000006,
+        "feed_mm_min": 28.0,
         "flutes": 2,
         "material": "Plain Carbon Steel",
         "material_class": "low_carbon_steel",
         "material_verify": false,
         "operation": "spot",
-        "rpm": 3000.0,
+        "rpm": 700,
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
         "rpm_range_verify": false,
@@ -6674,6 +7446,18 @@
     },
     {
       "cite": [
+        "PLAN.md §4.1 speeds/feeds"
+      ],
+      "message": "This manual operation has no cutting speed or feed.",
+      "numbers": {
+        "operation": "inspect"
+      },
+      "rule": "speeds_feeds",
+      "status": "not_applicable",
+      "subject": "S3:11"
+    },
+    {
+      "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
         "cutting-data aliases and rows",
@@ -6735,20 +7519,20 @@
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
         "cutting-data aliases and rows",
-        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+        "example (plausible, not measured), 2026-10-05: conservative cobalt spotting start, not transcribed from a handbook"
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.02,
-        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
-        "diameter_in": 0.07795275590551182,
-        "feed_mm_min": 120.0,
+        "cutting_data_row": "example (plausible, not measured), 2026-10-05: conservative cobalt spotting start, not transcribed from a handbook",
+        "diameter_in": 0.37500000000000006,
+        "feed_mm_min": 28.0,
         "flutes": 2,
         "material": "Plain Carbon Steel",
         "material_class": "low_carbon_steel",
         "material_verify": false,
         "operation": "spot",
-        "rpm": 3000.0,
+        "rpm": 700,
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
         "rpm_range_verify": false,
@@ -6980,12 +7764,17 @@
         "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
         "plan.frames.TA: author-declared setup frame",
         "AUTHOR'S CHOICE",
-        "pivot-bracket.STEP"
+        "pivot-bracket.STEP",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: grip_mm, jaw_above_parallels_mm",
-      "numbers": {},
+      "message": "S1: minimum wall inside the grip zone meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 18.0,
+        "thin_wall_floor_mm": 1.5
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1"
     },
     {
@@ -6995,12 +7784,12 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S2: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "thin_wall_under_clamp",
       "status": "unknown",
@@ -7016,10 +7805,10 @@
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S3: thin_wall_under_clamp has no vise grip-zone facts for angle_plate holding.",
+      "message": "S3: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "thin_wall_under_clamp",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S3"
     },
     {
@@ -7108,7 +7897,7 @@
         "machine": "PM-30MV",
         "machine_standard": "R8",
         "shank_mm": 9.524999999999999,
-        "tool": "endmills-lms-6784/3-8in-4fl"
+        "tool": "bracket-long-endmill"
       },
       "rule": "tool_resolves",
       "status": "pass",
@@ -7127,7 +7916,7 @@
         "machine": "PM-30MV",
         "machine_standard": "R8",
         "shank_mm": 9.524999999999999,
-        "tool": "endmills-lms-6784/3-8in-4fl"
+        "tool": "bracket-long-endmill"
       },
       "rule": "tool_resolves",
       "status": "pass",
@@ -7146,7 +7935,7 @@
         "machine": "PM-30MV",
         "machine_standard": "R8",
         "shank_mm": 9.524999999999999,
-        "tool": "endmills-lms-6784/3-8in-4fl"
+        "tool": "bracket-long-endmill"
       },
       "rule": "tool_resolves",
       "status": "pass",
@@ -7165,11 +7954,30 @@
         "machine": "PM-30MV",
         "machine_standard": "R8",
         "shank_mm": 9.524999999999999,
-        "tool": "endmills-lms-6784/3-8in-4fl"
+        "tool": "bracket-long-endmill"
       },
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:45: holder interface and shank fit.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_capacity_mm": 9.524999999999999,
+        "holder_standard": "R8",
+        "machine": "PM-30MV",
+        "machine_standard": "R8",
+        "shank_mm": 9.524999999999999,
+        "tool": "bracket-long-endmill"
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "S2:45"
     },
     {
       "cite": [
@@ -7184,11 +7992,30 @@
         "machine": "PM-30MV",
         "machine_standard": "R8",
         "shank_mm": 9.524999999999999,
-        "tool": "endmills-lms-6784/3-8in-4fl"
+        "tool": "bracket-long-endmill"
       },
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:55: holder interface and shank fit.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_capacity_mm": 9.524999999999999,
+        "holder_standard": "R8",
+        "machine": "PM-30MV",
+        "machine_standard": "R8",
+        "shank_mm": 9.524999999999999,
+        "tool": "bracket-long-endmill"
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "S2:55"
     },
     {
       "cite": [
@@ -7202,8 +8029,8 @@
         "holder_standard": "R8",
         "machine": "PM-30MV",
         "machine_standard": "R8",
-        "shank_mm": 4.762499999999999,
-        "tool": "center-drills-lms-4859/2"
+        "shank_mm": 9.524999999999999,
+        "tool": "bracket-spot-drill"
       },
       "rule": "tool_resolves",
       "status": "pass",
@@ -7240,8 +8067,8 @@
         "holder_standard": "R8",
         "machine": "PM-30MV",
         "machine_standard": "R8",
-        "shank_mm": 4.762499999999999,
-        "tool": "center-drills-lms-4859/2"
+        "shank_mm": 9.524999999999999,
+        "tool": "bracket-spot-drill"
       },
       "rule": "tool_resolves",
       "status": "pass",
@@ -7335,8 +8162,8 @@
         "holder_standard": "R8",
         "machine": "PM-30MV",
         "machine_standard": "R8",
-        "shank_mm": 4.762499999999999,
-        "tool": "center-drills-lms-4859/2"
+        "shank_mm": 9.524999999999999,
+        "tool": "bracket-spot-drill"
       },
       "rule": "tool_resolves",
       "status": "pass",
@@ -7401,16 +8228,66 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "blocks-123-lms-2881: listed inventory identity resolves.",
+      "message": "bracket-cross-bore-pins: listed inventory identity resolves.",
       "numbers": {
-        "kind": "blocks_123",
+        "kind": "pin_gauge_set",
         "present": true,
-        "reference": "blocks-123-lms-2881",
+        "reference": "bracket-cross-bore-pins",
         "verified": true
       },
       "rule": "tool_resolves",
       "status": "pass",
-      "subject": "blocks-123-lms-2881"
+      "subject": "bracket-cross-bore-pins"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "bracket-high-parallels/1-5-8in: listed inventory identity resolves.",
+      "numbers": {
+        "kind": "parallels_set",
+        "present": true,
+        "reference": "bracket-high-parallels/1-5-8in",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "bracket-high-parallels/1-5-8in"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "bracket-long-endmill: listed inventory identity resolves.",
+      "numbers": {
+        "dia_mm": 9.525,
+        "kind": "endmill",
+        "present": true,
+        "reference": "bracket-long-endmill",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "bracket-long-endmill"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "bracket-spot-drill: listed inventory identity resolves.",
+      "numbers": {
+        "dia_mm": 9.525,
+        "kind": "spot_drill",
+        "present": true,
+        "reference": "bracket-spot-drill",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "bracket-spot-drill"
     },
     {
       "cite": [
@@ -7433,33 +8310,16 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "center-drills-lms-4859/2: listed inventory identity resolves.",
+      "message": "clamping-kit-lms-1144/bracket-bridge: listed inventory identity resolves.",
       "numbers": {
-        "dia_mm": 1.98,
-        "kind": "center_drill_set",
+        "kind": "strap_clamp",
         "present": true,
-        "reference": "center-drills-lms-4859/2",
+        "reference": "clamping-kit-lms-1144/bracket-bridge",
         "verified": true
       },
       "rule": "tool_resolves",
       "status": "pass",
-      "subject": "center-drills-lms-4859/2"
-    },
-    {
-      "cite": [
-        "inventory selected identity/declared member coverage",
-        "PLAN.md §3.3"
-      ],
-      "message": "clamping-kit-lms-1144: listed inventory identity resolves.",
-      "numbers": {
-        "kind": "clamping_kit",
-        "present": true,
-        "reference": "clamping-kit-lms-1144",
-        "verified": true
-      },
-      "rule": "tool_resolves",
-      "status": "pass",
-      "subject": "clamping-kit-lms-1144"
+      "subject": "clamping-kit-lms-1144/bracket-bridge"
     },
     {
       "cite": [
@@ -7565,6 +8425,22 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
+      "message": "height-gauge: listed inventory identity resolves.",
+      "numbers": {
+        "kind": "height_gauge",
+        "present": true,
+        "reference": "height-gauge",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "height-gauge"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
       "message": "parallels-lms-6745/1in: listed inventory identity resolves.",
       "numbers": {
         "kind": "parallels_set",
@@ -7575,22 +8451,6 @@
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "parallels-lms-6745/1in"
-    },
-    {
-      "cite": [
-        "inventory selected identity/declared member coverage",
-        "PLAN.md §3.3"
-      ],
-      "message": "parallels-lms-6745/5-8in: listed inventory identity resolves.",
-      "numbers": {
-        "kind": "parallels_set",
-        "present": true,
-        "reference": "parallels-lms-6745/5-8in",
-        "verified": true
-      },
-      "rule": "tool_resolves",
-      "status": "pass",
-      "subject": "parallels-lms-6745/5-8in"
     },
     {
       "cite": [
@@ -7623,6 +8483,22 @@
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "r8-collets-lms-4860/3-8in"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "radius-gauge: listed inventory identity resolves.",
+      "numbers": {
+        "kind": "radius_gauge",
+        "present": true,
+        "reference": "radius-gauge",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "radius-gauge"
     },
     {
       "cite": [
@@ -7667,6 +8543,7 @@
         "pivot-bracket.STEP",
         "plan.setups.S1.ops.10",
         "features.features.seat_face.bounds/at",
+        "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
@@ -7869,12 +8746,13 @@
         "pivot-bracket.STEP",
         "plan.setups.S2.ops.10",
         "features.features.ear_relief.bounds/at",
+        "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "inventory.tools.bracket-long-endmill.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
@@ -7887,16 +8765,21 @@
         "plan.setups.S2.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.40",
         "features.features.ear_sides.bounds/at",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
         "plan.setups.S2.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S2.ops.45",
+        "plan.setups.S2.ops.45.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S2.ops.45: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.50",
         "plan.setups.S2.ops.50.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.50: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S2.ops.55",
+        "plan.setups.S2.ops.55.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S2.ops.55: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.60",
         "features.features.hold_down_a.bounds/at",
         "inventory.holders.drill-chuck-r8.gauge_len",
-        "inventory.tools.center-drills-lms-4859/2.projection_mm.drill-chuck-r8",
+        "inventory.tools.bracket-spot-drill.projection_mm.drill-chuck-r8",
         "plan.setups.S2.ops.60.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.60: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.70",
@@ -7939,8 +8822,8 @@
               0.3,
               32.2
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
@@ -7948,8 +8831,8 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              44.8,
-              76.7
+              43.3,
+              75.2
             ],
             "z_verified": true
           },
@@ -7969,11 +8852,11 @@
             "op": 20,
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
-              0.0,
+              0.1,
               32.2
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
@@ -7981,8 +8864,8 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              44.5,
-              76.7
+              43.1,
+              75.2
             ],
             "z_verified": true
           },
@@ -8005,8 +8888,8 @@
               0.0,
               32.2
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
@@ -8014,15 +8897,15 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              44.5,
-              76.7
+              43.0,
+              75.2
             ],
             "z_verified": true
           },
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": "not_applicable",
-            "do": "rough_profile",
+            "do": "rough_pocket",
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
@@ -8047,30 +8930,78 @@
               0.0,
               26.200000000000003
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "tool_radius_mm": 4.7625,
-            "tool_radius_verified": true,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -12.0625,
-                12.0625
+                -7.3,
+                7.3
               ],
               "y": [
-                -8.0625,
-                8.0625
+                -3.3,
+                3.3
               ]
             },
             "z_bounds_mm": [
-              44.5,
-              70.7
+              43.0,
+              69.2
             ],
             "z_verified": true
           },
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": "not_applicable",
-            "do": "finish_profile",
+            "do": "rough_pocket",
+            "endpoint": "not_applicable",
+            "extent_mm": {
+              "x": [
+                -7.0,
+                7.0
+              ],
+              "y": [
+                -3.0,
+                3.0
+              ],
+              "z": [
+                0.0,
+                26.200000000000003
+              ]
+            },
+            "feature": "ear_sides",
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "op": 45,
+            "rough_allowance_mm": 0.3,
+            "tip_z_bounds_mm": [
+              0.0,
+              26.200000000000003
+            ],
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": [
+                -7.3,
+                7.3
+              ],
+              "y": [
+                -3.3,
+                3.3
+              ]
+            },
+            "z_bounds_mm": [
+              43.0,
+              69.2
+            ],
+            "z_verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "finish_pocket",
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
@@ -8095,23 +9026,71 @@
               0.0,
               26.200000000000003
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "tool_radius_mm": 4.7625,
-            "tool_radius_verified": true,
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -11.7625,
-                11.7625
+                -7.0,
+                7.0
               ],
               "y": [
-                -7.7625,
-                7.7625
+                -3.0,
+                3.0
               ]
             },
             "z_bounds_mm": [
-              44.5,
-              70.7
+              43.0,
+              69.2
+            ],
+            "z_verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "finish_pocket",
+            "endpoint": "not_applicable",
+            "extent_mm": {
+              "x": [
+                -7.0,
+                7.0
+              ],
+              "y": [
+                -3.0,
+                3.0
+              ],
+              "z": [
+                0.0,
+                26.200000000000003
+              ]
+            },
+            "feature": "ear_sides",
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "op": 55,
+            "rough_allowance_mm": 0,
+            "tip_z_bounds_mm": [
+              0.0,
+              26.200000000000003
+            ],
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": [
+                -7.0,
+                7.0
+              ],
+              "y": [
+                -3.0,
+                3.0
+              ]
+            },
+            "z_bounds_mm": [
+              43.0,
+              69.2
             ],
             "z_verified": true
           },
@@ -8120,15 +9099,15 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "spot",
             "endpoint": {
-              "depth_mm": 2.0,
+              "depth_mm": 0.6,
               "entry_from": "S2 op 30 to_z",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
               "feature": "hold_down_a",
               "op": 60,
-              "point_mm": 0.5948520128372847,
+              "point_mm": 2.7496306570155937,
               "setup": "S2",
-              "tip_z": -2.0
+              "tip_z": -0.6
             },
             "extent_mm": {
               "x": [
@@ -8150,11 +9129,11 @@
             "op": 60,
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
-              -2.0,
+              -0.6,
               5.0
             ],
-            "tool": "center-drills-lms-4859/2",
-            "tool_projection_mm": 27.0,
+            "tool": "bracket-spot-drill",
+            "tool_projection_mm": 31.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
@@ -8168,8 +9147,8 @@
               ]
             },
             "z_bounds_mm": [
-              120.0,
-              127.0
+              125.4,
+              131.0
             ],
             "z_verified": true
           },
@@ -8237,15 +9216,15 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "spot",
             "endpoint": {
-              "depth_mm": 2.0,
+              "depth_mm": 0.6,
               "entry_from": "S2 op 30 to_z",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
               "feature": "hold_down_b",
               "op": 80,
-              "point_mm": 0.5948520128372847,
+              "point_mm": 2.7496306570155937,
               "setup": "S2",
-              "tip_z": -2.0
+              "tip_z": -0.6
             },
             "extent_mm": {
               "x": [
@@ -8267,11 +9246,11 @@
             "op": 80,
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
-              -2.0,
+              -0.6,
               5.0
             ],
-            "tool": "center-drills-lms-4859/2",
-            "tool_projection_mm": 27.0,
+            "tool": "bracket-spot-drill",
+            "tool_projection_mm": 31.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
@@ -8285,8 +9264,8 @@
               ]
             },
             "z_bounds_mm": [
-              120.0,
-              127.0
+              125.4,
+              131.0
             ],
             "z_verified": true
           },
@@ -8352,17 +9331,17 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 24.125,
-            "lower_bound_margin_mm": 560.0749999999999,
-            "margin_mm": 560.0749999999999,
-            "minimum_required_mm": 24.125,
-            "required_mm": 24.125,
+            "located_span_mm": 14.6,
+            "lower_bound_margin_mm": 567.5999999999999,
+            "margin_mm": 567.5999999999999,
+            "minimum_required_mm": 16.6,
+            "required_mm": 16.6,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 24.0625,
+            "located_span_mm": 19.3,
             "lower_bound_margin_mm": 197.45,
             "margin_mm": 197.45,
             "minimum_required_mm": 24.8,
@@ -8372,11 +9351,11 @@
             "travel_verified": true
           },
           "z": {
-            "located_span_mm": 117.5,
-            "lower_bound_margin_mm": 238.09999999999997,
-            "margin_mm": 238.09999999999997,
-            "minimum_required_mm": 117.5,
-            "required_mm": 117.5,
+            "located_span_mm": 119.0,
+            "lower_bound_margin_mm": 236.59999999999997,
+            "margin_mm": 236.59999999999997,
+            "minimum_required_mm": 119.0,
+            "required_mm": 119.0,
             "required_verified": true,
             "travel_mm": 355.59999999999997,
             "travel_verified": true
@@ -8397,6 +9376,7 @@
         "pivot-bracket.STEP",
         "plan.setups.S3.ops.10",
         "features.features.outer_face.bounds/at",
+        "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
@@ -8417,7 +9397,7 @@
         "plan.setups.S3.ops.30",
         "features.features.cross_bore.bounds/at",
         "inventory.holders.drill-chuck-r8.gauge_len",
-        "inventory.tools.center-drills-lms-4859/2.projection_mm.drill-chuck-r8",
+        "inventory.tools.bracket-spot-drill.projection_mm.drill-chuck-r8",
         "plan.setups.S3.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.40",
@@ -8555,15 +9535,15 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "spot",
             "endpoint": {
-              "depth_mm": 2.0,
+              "depth_mm": 0.6,
               "entry_from": "S3 stock_state.entry_z.cross_bore",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
               "feature": "cross_bore",
               "op": 30,
-              "point_mm": 0.5948520128372847,
+              "point_mm": 2.7496306570155937,
               "setup": "S3",
-              "tip_z": -2.0
+              "tip_z": -0.6
             },
             "extent_mm": {
               "x": [
@@ -8585,11 +9565,11 @@
             "op": 30,
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
-              -2.0,
+              -0.6,
               5.0
             ],
-            "tool": "center-drills-lms-4859/2",
-            "tool_projection_mm": 27.0,
+            "tool": "bracket-spot-drill",
+            "tool_projection_mm": 31.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
@@ -8603,8 +9583,8 @@
               ]
             },
             "z_bounds_mm": [
-              120.0,
-              127.0
+              125.4,
+              131.0
             ],
             "z_verified": true
           },
@@ -8921,7 +9901,7 @@
       "message": "S2:40: the static turning proxy does not apply to this operation.",
       "numbers": {
         "feature": "ear_sides",
-        "operation": "rough_profile"
+        "operation": "rough_pocket"
       },
       "rule": "turning_deflection",
       "status": "not_applicable",
@@ -8931,14 +9911,40 @@
       "cite": [
         "PLAN.md:563-568 (§4.4 physics proxies)"
       ],
+      "message": "S2:45: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "ear_sides",
+        "operation": "rough_pocket"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:45"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
       "message": "S2:50: the static turning proxy does not apply to this operation.",
       "numbers": {
         "feature": "ear_sides",
-        "operation": "finish_profile"
+        "operation": "finish_pocket"
       },
       "rule": "turning_deflection",
       "status": "not_applicable",
       "subject": "S2:50"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:55: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "ear_sides",
+        "operation": "finish_pocket"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:55"
     },
     {
       "cite": [
@@ -9004,6 +10010,19 @@
       "rule": "turning_deflection",
       "status": "not_applicable",
       "subject": "S3:10"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S3:11: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "ear_relief",
+        "operation": "inspect"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S3:11"
     },
     {
       "cite": [
@@ -9082,10 +10101,21 @@
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: grip_mm, jaw_above_parallels_mm",
-      "numbers": {},
+      "message": "S1: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.",
+      "numbers": {
+        "claimed_in_jaws": [],
+        "contact_grip_mm": [
+          19.5453,
+          19.5453
+        ],
+        "opening_mm": 155.82899999999998,
+        "parallel_pair": true,
+        "parallels_height_mm": 25.4,
+        "required_grip_mm": 19.5453,
+        "width_mm": 18.0
+      },
       "rule": "vise",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1"
     },
     {
@@ -9095,12 +10125,12 @@
         "plan.setups.S2: frame and hold",
         "inventory.fixtures.vise-pm-6: declared dimensions",
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S2: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "message": "S2: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
       "numbers": {},
       "rule": "vise",
       "status": "unknown",
@@ -9265,7 +10295,7 @@
             "paper_mm": 0.05,
             "radius_mm": "not_applicable",
             "sign": 1,
-            "tool": "endmills-lms-6784/3-8in-4fl"
+            "tool": "bracket-long-endmill"
           }
         },
         "binding": "nominal",
@@ -9324,17 +10354,17 @@
             "tool": "edge-finder"
           },
           "y": {
-            "axis_set": 2.54,
+            "axis_set": -2.54,
             "axis_set_status": "computed",
             "check_jog_mm": 10.0,
-            "check_reading": 12.54,
+            "check_reading": 7.46,
             "dro_direction": "away",
-            "edge": "seat_against_plate",
+            "edge": "plate_front_beside_part",
             "edge_mm": 0.0,
             "finder_verify": false,
-            "from": "+y",
+            "from": "-y",
             "jog_mm": 10.0,
-            "mirrored_reading": -7.46,
+            "mirrored_reading": -12.54,
             "paper_mm": "not_applicable",
             "radius_mm": 2.54,
             "sign": 1,
@@ -9382,7 +10412,8 @@
           "from": "S2",
           "indicate": [
             "foot_profile",
-            "foot_top"
+            "foot_top",
+            "seat_face"
           ],
           "tool": "dti"
         }
@@ -9392,27 +10423,27 @@
       "subject": "S3"
     }
   ],
-  "hash": "1c2372c72a0244fdb6087dcb083ebfd91d1cfb9a93902ffbdfd59967f973ba07",
+  "hash": "9f687c48d374eac860b2df5aa483543cf7ca04d3b03219bdc71acfd0766c7944",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
+      "sha256": "cde1c1023e0c88b7f0442d3bd3772d5dfd7230fbc88dce33c743197057877caa"
     },
     "features": {
       "path": "examples/pivot-bracket/features.toml",
-      "sha256": "c28d97d2e11e5d6154fe053e8403a045311da14d8f65ca4067d0a26e8192aec4"
+      "sha256": "efa07a8a7b0789165951458d23587a9d5925edb44599c476e9d52e56a0c6f454"
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+      "sha256": "14da67d43c7601b645aaa18ee2291a872ec67af4b7b7bf2c88946c5340d32fcc"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
-      "sha256": "179b7d2b59dd5eb231afea3c34fa60cd0365e6d81bffa0c32ababe2239b2d57c"
+      "sha256": "14ad9b4a4a4f6c02206fc41a21e5c8f1d14cb7762fe19434c246a85435d01842"
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "08c8952abc769500ecab074f75fae141abd94383cfa7b6adebbf789348c7ad9b"
+      "sha256": "a0d93a937c69c898361473a64ca922559c5ac61044509bdc81e9606790d6f3c4"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -9426,18 +10457,37 @@
   "prechips_version": "0.1",
   "renders": {
     "S1": {
-      "fixture": "unresolved",
+      "fixture": "modeled",
       "path": "setup-S1.png",
       "scene": {
-        "components": [],
-        "debts": [
-          "fixture not drawn: Fixture pose/dimensions unmeasured or unavailable: jaw_above_parallels_mm"
+        "components": [
+          {
+            "exact": true,
+            "name": "fixed_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "moving_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "parallel 1",
+            "role": "parallel"
+          },
+          {
+            "exact": true,
+            "name": "parallel 2",
+            "role": "parallel"
+          }
         ],
+        "debts": [],
         "fixture_kind": "vise",
-        "jaws": "absent",
-        "parallels": "absent"
+        "jaws": "exact",
+        "parallels": "exact"
       },
-      "sha256": "08c8952abc769500ecab074f75fae141abd94383cfa7b6adebbf789348c7ad9b"
+      "sha256": "a0d93a937c69c898361473a64ca922559c5ac61044509bdc81e9606790d6f3c4"
     }
   },
   "rules_version": "m5-rev8",

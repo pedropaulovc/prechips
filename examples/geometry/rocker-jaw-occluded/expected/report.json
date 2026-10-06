@@ -252,7 +252,7 @@
           },
           "plan": {
             "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
-            "sha256": "40461ec3ad92f93d777389a73c1627744e2d702fda371fe8a748ec025dce2bcb"
+            "sha256": "28130fb83ad59f784005db4abe8bdda24a1d46803923865f5b4855c765602c87"
           },
           "shop_policy": {
             "path": "examples/geometry/rocker-jaw-occluded/shop-policy.toml",
@@ -308,6 +308,7 @@
             "do": "rough_profile",
             "feature": "profile_outer",
             "op": 10,
+            "rough_allowance_mm": 0.0,
             "tool": "em-preparation"
           }
         ],
@@ -343,6 +344,7 @@
             "do": "rough_profile",
             "feature": "profile_outer",
             "op": 10,
+            "rough_allowance_mm": 0.0,
             "tool": "em-preparation"
           }
         ],
@@ -2639,7 +2641,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
       "numbers": {
         "measurements": [
           {
@@ -2714,7 +2716,7 @@
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
             "op": 10,
-            "rough_allowance_mm": "unknown",
+            "rough_allowance_mm": 0.0,
             "tip_z_bounds_mm": "unknown",
             "tool": "em-preparation",
             "tool_projection_mm": "unknown",
@@ -2789,7 +2791,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S2: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S2.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
+      "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
       "numbers": {
         "measurements": [
           {
@@ -2864,7 +2866,7 @@
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
             "op": 10,
-            "rough_allowance_mm": "unknown",
+            "rough_allowance_mm": 0.0,
             "tip_z_bounds_mm": "unknown",
             "tool": "em-preparation",
             "tool_projection_mm": "unknown",
@@ -3306,7 +3308,7 @@
     },
     "plan": {
       "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
-      "sha256": "40461ec3ad92f93d777389a73c1627744e2d702fda371fe8a748ec025dce2bcb"
+      "sha256": "28130fb83ad59f784005db4abe8bdda24a1d46803923865f5b4855c765602c87"
     },
     "render:S1": {
       "path": "setup-S1.png",

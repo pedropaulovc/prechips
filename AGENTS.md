@@ -64,10 +64,14 @@ precision `0`, material thickness `2.5` from drawing note 2, and plan revision
 `v40`; these are source bindings, not measured shop facts or release approval.
 The cone permits built-up construction and fixes `mount_west` `station_nominal`
 to `12.98` (harmonic-analyzer issue #1214). Keep other source facts and citations.
-`pivot-bracket/features.toml` is hand-authored against the copied consumer v39
-`pivot-bracket.STEP` (no `HAF_` labels): its face refs are geometry-matched
+`pivot-bracket/features.toml` is hand-authored on the copied consumer v39
+`pivot-bracket.STEP` (SHA
+`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`,
+no `HAF_` labels): its face refs are geometry-matched
 `#<id>/ADVANCED_FACE[<n>]/NONE` references. Record delivery provenance and every
 divergence in [examples/README.md](examples/README.md).
+There is no dimensioned bracket drawing, so its acceptance bands are
+illustrative example design intent, not measured or imported drawing limits.
 Python citations use `file:line` (or line ranges); YAML citations
 use `file:dotted.key.path`, not unstable line numbers. Consumer citations point
 to the read-only harmonic-analyzer tree; they do not cause the checker to read
