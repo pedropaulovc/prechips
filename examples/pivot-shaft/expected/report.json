@@ -2571,6 +2571,62 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117"
+      ],
+      "message": "S1: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431"
+      ],
+      "message": "S2: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433"
+      ],
+      "message": "S3: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: lathe swing/between-centres facts and chuck body dimensions",
         "plan: stock_state od_mm/north_end_z/south_end_z and hold stickout_mm",
@@ -7406,7 +7462,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "e920f89ca137b01babae1500b36f87e61b3ecb328055acd0941d0b9a2b67db5a",
+  "hash": "ad5fd7ff836be5c546ce5f4d9a3e9226adc5dda4237cd5ef1bf1c6c127d4cabb",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -22,6 +22,7 @@ GEOMETRY_RULES = {
     "finish_coverage",
     "vise",
     "thin_wall_under_clamp",
+    "fixture_interference",
 }
 # (bundle, plan, target setup, exit, rules that error on the target/part).
 # The prescribed sharp-corner wall poses also collide with the adjacent wall.
@@ -126,6 +127,32 @@ def test_every_holding_kind_is_modeled_and_its_strap_or_centre_occludes_the_top(
         "S5": "pass",
         "S6": "pass",
     }
+    # Every drawn solid only touches the puck and the other solids.
+    assert {finding(report, "fixture_interference", sid)["status"] for sid in kinds} == {"pass"}
+
+
+def test_wide_risers_and_a_stud_through_the_part_are_fixture_interference_errors(
+    tmp_path, monkeypatch, freecad_kernel
+):
+    examples = copy_examples(tmp_path)
+    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
+    result, report, _ = run_fixture(examples, "fixture-holds", "clash.toml", tmp_path / "run")
+    assert result.returncode == report["expected_exit"] == 2, result.stderr
+    rows = {sid: finding(report, "fixture_interference", sid) for sid in ("S1", "S2", "S3")}
+    assert {sid: row["status"] for sid, row in rows.items()} == {
+        "S1": "error",  # riser blocks span y -30..30 across the y -15..15 jaw opening
+        "S2": "error",  # the stud enters the puck and the plate where it has no hole
+        "S3": "pass",  # stud through the tapped-hole void and the beam's slot, heel on plate
+    }
+    assert rows["S1"]["numbers"]["clashes"] == [
+        f"riser {n} test-riser-blocks spans y -30.0..30.0 mm, outside the jaw opening "
+        "y -15.0..15.0 mm closed on the stock"
+        for n in (1, 2)
+    ]
+    stud = "clamp 1 test-clamp-kit/stud-strap:stud"
+    clashes = rows["S2"]["numbers"]["clashes"]
+    assert any(c.startswith(f"{stud} interpenetrates the setup-entry stock") for c in clashes)
+    assert any(c.startswith(f"test-tapped-plate:floor interpenetrates {stud}") for c in clashes)
 
 
 @pytest.mark.parametrize(("name", "plan_filename", "target_sid", "exit_code", "rules"), CASES)

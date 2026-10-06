@@ -212,22 +212,36 @@ def _pose(value):
 
 
 def _solids(item, owner):
-    """(engine primitives, debts) for an inventory item's authored ``solids``."""
+    """(engine primitives, debts) for an inventory item's authored ``solids``.
+
+    A ``void`` primitive is cut from the owner's other primitives (or those it ``cuts``);
+    a solid whose void is untrusted or malformed is not drawn, since uncut it would read
+    as material where the owner has a bore or slot.
+    """
     solids = record(item).get("solids", UNKNOWN)
     if not isinstance(solids, list) or not solids:
         return [], [f"{owner} declares no solids"]
-    result, debts = [], []
+    result, debts, bad_voids = [], [], []
     for index, solid in enumerate(solids, start=1):
         solid = record(solid)
         name = solid.get("name", UNKNOWN)
         name = name if name != UNKNOWN else f"#{index}"
         label = f"{owner} solid {name}"
+        void = solid.get("void") is True
+        cuts = solid.get("cuts", UNKNOWN)
+        cuts = cuts if isinstance(cuts, list) and cuts else None
         trusted, why = record_trusted(solid, require_measured=False)
         if not trusted:
             debts.append(f"{label}: {why}")
+            if void:
+                bad_voids.append((name, cuts))
             continue
         at, shape = solid.get("at_mm"), solid.get("shape")
-        primitive = {"name": f"{owner}:{name}", "shape": shape, "at_mm": at}
+        primitive = {"name": f"{owner}:{name}", "local": name, "shape": shape, "at_mm": at}
+        if void:
+            primitive["void"] = True
+            if cuts is not None:
+                primitive["cuts"] = cuts
         if shape == "box":
             size = solid.get("size_mm")
             ok = _vector(at) and _vector(size) and all(v > 0 for v in size)
@@ -251,6 +265,17 @@ def _solids(item, owner):
                 f"{label}: needs shape box (at_mm, positive size_mm) or cylinder "
                 "(at_mm, unit axis, positive dia_mm and length_mm)"
             )
+            if void:
+                bad_voids.append((name, cuts))
+    for void, cuts in bad_voids:
+        uncut = [p for p in result if not p.get("void") and (cuts is None or p["local"] in cuts)]
+        for primitive in uncut:
+            debts.append(
+                f"{owner} solid {primitive['local']}: not drawn, its void {void} is unresolved"
+            )
+            result.remove(primitive)
+    if not any(not p.get("void") for p in result):
+        result = []
     return result, debts
 
 

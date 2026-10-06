@@ -105,6 +105,15 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   length_mm}` cylinders in its own frame. Each primitive is trusted on its
   own: a primitive whose record carries `verify = true` / `"unknown"` or an
   incomplete `measured` is not drawn and is named as debt.
+- A primitive with `void = true` (a bore, tapped or clearance hole, stud
+  slot) is not drawn: it is cut from the same `solids` list's other
+  primitives, or only from those it names in `cuts = ["<name>", …]`, and
+  never from another item's or member's solids. An untrusted or malformed
+  void withholds the solids it would cut (named debt) rather than draw them
+  uncut. A strap member models its whole clamp assembly in one list: beam,
+  slot void (`cuts = ["beam"]`), stud, heel, nut and washer (washer bore with
+  `cuts = ["washer"]`). Primitives of one list are one part and never checked
+  against each other; each posed clamp's list must touch the stock to bear.
 
 A tool enters an
 op's geometry job when `dia`, `flute_len` and `oal` resolve and a holder when

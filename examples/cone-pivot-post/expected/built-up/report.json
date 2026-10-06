@@ -3732,6 +3732,85 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S0: frame and hold",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"
+      ],
+      "message": "S0: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S0"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.C4: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "S1: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "plan.frames.M2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"
+      ],
+      "message": "S2: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "plan.frames.J3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279"
+      ],
+      "message": "S3: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S4: frame and hold",
+        "plan.frames.C4: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "S4: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
@@ -11807,7 +11886,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "fb57d2d7a3fac94b71432d8bda50b2330b87b2906f1379616e9bea54c68279b1",
+  "hash": "4c64ebea887f1559a3b3d2261b8da23b74996c86bd340ce959f5317399968ab4",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

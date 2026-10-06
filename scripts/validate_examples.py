@@ -46,7 +46,18 @@ GEOMETRY_CASES = (
         ("S1", "S2", "S3", "S4", "S5", "S6"),
         ("S2", "S3", "S4"),
     ),
+    (
+        "fixture-holds",
+        "clash.toml",
+        "expected/clash",
+        2,
+        "fixture_interference",
+        ("S1", "S3"),
+        ("S1", "S2"),
+    ),
 )
+# Discriminating rules whose subject is the setup id rather than its op.
+SETUP_GEOMETRY_RULES = {"vise", "thin_wall_under_clamp", "fixture_interference"}
 STATUSES = {"pass", "error", "warn", "info", "unknown", "unsupported", "not_applicable"}
 FEATURE_RULES = {"sizing", "op_chain", "blind_depth", "datum_consistency"}
 SETUP_RULES = {
@@ -1542,7 +1553,9 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
             if row["rule"] == failing_rule and row["status"] == "error"
         }
         expected = (
-            {plan["part"]} if failing_rule == "coverage" else {f"{sid}:10" for sid in failing}
+            {plan["part"]}
+            if failing_rule == "coverage"
+            else {sid if failing_rule in SETUP_GEOMETRY_RULES else f"{sid}:10" for sid in failing}
         )
         # Preparation setups may show their own errors; a modeled setup errors only if named.
         extra = {subject.split(":")[0] for subject in errors - expected - {plan["part"]}}
