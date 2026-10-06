@@ -145,6 +145,7 @@ def _bundle(tmp_path):
 def _host_only(bundle):
     """Edits that change only host-rule inputs, never a field the engine reads."""
     setup = bundle.plan["setups"][0]
+
     yield "hold method", lambda: setup["hold"].update(method="soft_jaws")
     yield "hold grip_mm", lambda: setup["hold"].update(grip_mm=5.5)
     yield "fixture opening_mm", lambda: bundle.inventory["fixtures"]["vise"].update(opening_mm=90.0)

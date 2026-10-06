@@ -220,6 +220,10 @@ Contour = record(
         "sweep_bounds": Bounds,
     },
 )
+SawPlane = record(
+    "SawPlane",
+    {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
+)
 Operation = record(
     "Operation",
     {
@@ -239,6 +243,8 @@ Operation = record(
         "contour": Contour,
         # Setup-frame volume (plan units) the op clears down to the finished part.
         "stock_removal_bounds": Bounds,
+        # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
+        "cut_plane": SawPlane,
     },
     indexed=("do",),
 )
@@ -607,6 +613,7 @@ InventoryItem = record(
             "shank_mm capacity_mm"
         ),
         "point_angle": MeasuredAngle,
+        "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
         **dict.fromkeys(
             (
                 "dia",
@@ -641,6 +648,8 @@ InventoryItem = record(
                 "length_in",
                 "width_mm",
                 "width_in",
+                "kerf_mm",
+                "kerf_in",
             ),
             MeasuredLength,
         ),
@@ -729,7 +738,7 @@ _INVENTORY_LENGTH_STEMS = frozenset(
     "dia oal grip gauge_len gauge_dia lead height bed_height projection flute_len "
     "jaw_height jaw_width jaw_depth opening width shank capacity max_shank "
     "nose_radius reach tip length resolution edge_len head_len shank_width functional_width "
-    "body_width body_depth".split()
+    "body_width body_depth kerf".split()
 )
 _ENVELOPE_LENGTH_STEMS = frozenset(
     (
@@ -821,7 +830,7 @@ Cut = record(
     {
         **texts("material_class tool_material operation"),
         "diameter_range": Vector,
-        **numbers("sfm chip_load_mm_per_tooth feed_mm_rev"),
+        **numbers("sfm chip_load_mm_per_tooth feed_mm_rev feed_mm_min"),
         "cite": Citations,
     },
 )

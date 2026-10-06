@@ -8,14 +8,14 @@ and, only when the kernel returned a setup render, `renders`.
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
-The current catalogue is `rules_version = "m5-rev8"`: the M5 review cutover
+The current catalogue is `rules_version = "m5-rev9"`: the M5 review cutover
 (bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
 spindle-nose Z travel, unpadded hole centres, one `envelope` machine block,
-fact-local trust, no `holder_stack` rule) combined with the eight M4 kernel
-geometry rules and their hash-bound setup renders; changing the operative rule
-catalogue changes the bound report and invalidates prior approvals. Every
-report produced from the M2 (`m2-rev6`), M4-only (`m4-rev6`) or M5-only
-(`m5-rev7`) catalogue therefore has a stale hash.
+fact-local trust, no `holder_stack` rule), dividing-head/child-centre fixes and
+nine M4 kernel geometry rules including native saw cut-off with hash-bound setup
+renders. Changing the operative catalogue changes the bound report and
+invalidates prior approvals; reports from earlier catalogues, including
+`m5-rev8`, must be regenerated and reapproved.
 A finding's `numbers.measurements` lists the exact fact ids (set member or
 tool/holder pair included) whose measurement would resolve it; `tools --measure`
 is the sorted, deduplicated union of those lists over the current plans.

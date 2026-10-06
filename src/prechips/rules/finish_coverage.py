@@ -13,7 +13,7 @@ from prechips.rules.geometry_common import (
     provenance,
     unavailable,
 )
-from prechips.rules.resolution import operations, record
+from prechips.rules.resolution import SAW_OPS, operations, record
 
 
 def evaluate(bundle):
@@ -25,6 +25,9 @@ def evaluate(bundle):
     unsupported = set()
     mapping = record(facts.get("mapping"))
     for setup, op in operations(bundle):
+        if op.get("do") in SAW_OPS:
+            # A saw cut is never a finishing claim on a target face.
+            continue
         if cutting_action(op) is None:
             debt = True
         if f"{setup['id']}:{op['op']}" not in finishers:

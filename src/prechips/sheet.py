@@ -14,9 +14,11 @@ from html import escape
 from .model import tolerance_requirements
 from .rules.resolution import (
     MANUAL,
+    SAW_OPS,
     WORKHOLDING_CATEGORIES,
     inventory_category,
     resolve,
+    saw_setup,
 )
 from .rules.resolution import record as _mapping
 
@@ -361,6 +363,8 @@ class _Traveler:
         return _p(self.bench(" ".join(parts)))
 
     def headroom(self, setup):
+        if saw_setup(setup):
+            return _p("Saw cut-off: no spindle headroom stack applies.")
         numbers = self.records.get(("headroom", setup["id"]), {})
         if not numbers:
             if any(
@@ -371,7 +375,7 @@ class _Traveler:
             ):
                 return ""  # The unresolved clearance is already in Before You Start.
             return _p("? Headroom / support clearance not computed.")
-        r = self.value
+        r = self.operative if "head_centre_height_mm" in numbers else self.value
         parts = [
             f"Stack (mm): bed {r(numbers.get('bed_height_mm'))}; "
             f"blocks {r(numbers.get('support_blocks_mm'))}; "
@@ -380,6 +384,15 @@ class _Traveler:
             f"insertion {r(numbers.get('insertion_mm'))}; required {r(numbers.get('sum_mm'))} / "
             f"spindle capacity {r(numbers.get('spindle_to_table_max_mm'))}."
         ]
+        if "head_centre_height_mm" in numbers:
+            parts = [
+                f"Dividing head (mm): centre height {r(numbers.get('head_centre_height_mm'))}; "
+                f"setup axis Z {r(numbers.get('head_axis_z'))}; "
+                f"work top above table {r(numbers.get('work_top_above_table_mm'))}; "
+                f"insertion {r(numbers.get('insertion_mm'))}; "
+                f"required {r(numbers.get('sum_mm'))} / "
+                f"spindle capacity {r(numbers.get('spindle_to_table_max_mm'))}."
+            ]
         stacks = {}
         for stack in numbers.get("stacks", []):
             key = tuple(
@@ -388,14 +401,19 @@ class _Traveler:
             )
             stacks.setdefault(key, []).append(_text(stack.get("op")))
         for (projection, oal, holder, margin), ops in stacks.items():
-            all_ops = {str(o["op"]) for o in setup["ops"] if o.get("do") not in MANUAL}
+            all_ops = {
+                str(o["op"]) for o in setup["ops"] if o.get("do") not in MANUAL | SAW_OPS
+            }
             label = "Tools" if set(ops) == all_ops else "Ops " + ", ".join(ops)
             parts.append(
                 f"{label}: projection {projection}, OAL {oal}, holder length {holder}, "
                 f"headroom {margin} mm."
             )
         jaw = numbers.get("jaw_obstruction", {})
-        if setup.get("hold", {}).get("jaws_along") != "not_applicable":
+        if (
+            "head_centre_height_mm" not in numbers
+            and setup.get("hold", {}).get("jaws_along") != "not_applicable"
+        ):
             parts.append(
                 f"Jaw top Z {r(jaw.get('jaw_top_z'))}; "
                 f"stock top {r(numbers.get('stock_top_above_jaws_mm'))} mm above jaws."
@@ -558,6 +576,11 @@ class _Traveler:
         return result
 
     def dro(self, setup):
+        if saw_setup(setup):
+            return _p(
+                "Saw setting uses the declared setup-frame cut plane; "
+                "no spindle DRO zero or tool-touch recipe applies."
+            )
         numbers = self.records.get(("zero_check", setup["id"]), {})
         authored = _mapping(setup.get("zero"))
         settings = _mapping(self.plan.get("dro"))
@@ -846,10 +869,12 @@ class _Traveler:
         rows = []
         citations = []
         notes = []
+        saw_table = any(op.get("do") in SAW_OPS for op in ops)
         for op in ops:
             feature = op.get("feature")
             numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
             manual = op.get("do") in MANUAL
+            saw = op.get("do") in SAW_OPS
             tools = [
                 self.short_reference(op.get("tool"), "tools")
                 + " / "
@@ -857,6 +882,8 @@ class _Traveler:
             ]
             if manual and "tool" not in op:
                 tools = ["—"]
+            if saw:
+                tools = [self.short_reference(op.get("tool"), "tools")]
             action = [_text(op.get("do"))]
             if op.get("note"):
                 notes.append(f"{op['op']}: {self.bench(op['note'])}")
@@ -868,12 +895,18 @@ class _Traveler:
                         "passes": "passes",
                     }[key]
                     action.append(f"{label} {self.value(op[key], feature, key)}")
+            if saw:
+                plane = _mapping(op.get("cut_plane"))
+                action.append(
+                    f"blade centre {_text(plane.get('axis')).upper()} "
+                    f"{self.operative(plane.get('value'))} {self.bundle.features.get('units', '?')}"
+                )
             feed = numbers.get("feed_mm_min", numbers.get("feed_mm_rev"))
             feed_units = " / rev" if "feed_mm_rev" in numbers else " / min"
             feed_text = (
                 "—"
                 if manual
-                else self.value(feed)
+                else (self.operative(feed) if saw else self.value(feed))
                 + (" mm" + feed_units if isinstance(feed, (int, float)) else "")
             )
             direction = _text(
@@ -889,15 +922,30 @@ class _Traveler:
                 "climb": "climb",
                 "radially inward": "radial in",
             }.get(direction, direction).replace("toward ", "→ ")
+            if saw:
+                direction = "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
+            speed = (
+                self.operative(numbers.get("blade_speed_sfm")) + " sfm"
+                if saw
+                else "—"
+                if manual
+                else _number(numbers.get("rpm"), 0) + (" rpm" if saw_table else "")
+            )
+            saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
+            target = (
+                "retained edge " + self.operative(saw_numbers.get("retained_boundary_mm")) + " mm"
+                if saw
+                else self.tip(setup, op)
+            )
             rows.append(
                 (
                     _text(op["op"]),
                     action,
-                    _text(feature),
+                    _text(feature) if feature is not None else "stock" if saw else "?",
                     tools,
-                    "—" if manual else _number(numbers.get("rpm"), 0),
+                    speed,
                     feed_text,
-                    self.tip(setup, op),
+                    target,
                     direction,
                     self.inspection(setup, op),
                 )
@@ -922,14 +970,25 @@ class _Traveler:
                         citation = "cutting-data source row"
                     if citation and citation not in citations:
                         citations.append(citation)
-        result = "<h2>OPERATIONS — RPM / feed are starting points, not limits</h2>"
+        label = "speed / feed" if saw_table else "RPM / feed"
+        result = f"<h2>OPERATIONS — {label} are starting points, not limits</h2>"
         widths = (
             [4, 10, 10, 18, 5, 7, 16, 8, 22]
             if self.records.get(("coordinates", setup["id"]), {}).get("x_display") == "diameter"
             else [4, 10, 10, 18, 5, 7, 16, 5, 25]
         )
         result += _table(
-            ["op", "do", "feature", "tool / holder", "rpm", "feed", "Z tip", "dir", "inspection"],
+            [
+                "op",
+                "do",
+                "feature",
+                "tool / holder",
+                "speed" if saw_table else "rpm",
+                "feed",
+                "cut target" if saw_table else "Z tip",
+                "dir",
+                "inspection",
+            ],
             rows,
             "operations",
             widths,
@@ -937,10 +996,12 @@ class _Traveler:
         if notes:
             result += _p(" ".join(notes))
         if citations:
-            result += _p("RPM / feed source: " + "; ".join(citations))
+            result += _p(label + " source: " + "; ".join(citations))
         return result
 
     def coordinates(self, setup):
+        if saw_setup(setup):
+            return ""
         numbers = self.records.get(("coordinates", setup["id"]), {})
         grouped = {}
         lathe = numbers.get("x_display") == "diameter"
