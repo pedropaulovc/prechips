@@ -230,6 +230,23 @@ def test_below_jaw_target_is_separate_unresolved_path_check():
     assert finding.numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(-2.6)
 
 
+def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_travel():
+    data = bundle()
+    data.plan["setups"][0]["hold"] = {"fixture": "head"}
+    data.inventory["machines"]["head"] = {
+        "kind": "dividing_head",
+        "bed_height_mm": 20,
+        "length_mm": 450,
+        "width_mm": 80,
+    }
+    finding = evaluate(data)[0]
+    assert finding.numbers["fixture_verify"] is False
+    assert finding.numbers["sum_mm"] == pytest.approx(146)
+    assert finding.numbers["travel_checks"]["x"]["fixture_mm"] == 450
+    assert finding.status == "error"
+    assert finding.sentence == "S1: part/fixture envelope exceeds X travel."
+
+
 def test_part_and_fixture_envelope_must_fit_travel():
     data = bundle()
     data.inventory["machines"]["mill"]["envelope"]["travel_mm"]["x"] = measured(140)
