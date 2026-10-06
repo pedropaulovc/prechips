@@ -18,13 +18,16 @@ zero_check = "*"
 refixture_budget_mm = 0.05   # example: worst repeatability accepted after an unindicated re-fixture
 thin_wall_floor_mm = 1.5     # example: thinnest wall the shop grips in vise jaws without soft jaws
 stickout_ld_max = 4.0        # example: unsupported stickout limit, length / diameter
+near_jaw_mm = 10.0           # example: a lathe cut ending this close to the spinning jaws carries its clearance on the op row
 
 [numbers_cite]
 refixture_budget_mm = "illustrative example value (plausible hobby-shop vise re-seat repeatability), not measured"
 thin_wall_floor_mm = "illustrative example value (plausible hobby-shop grip floor for steel), not measured"
 stickout_ld_max = "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
+near_jaw_mm = "AUTHOR'S CHOICE: illustrative example value (plausible hobby-lathe hand-feed margin before spinning jaws), not measured"
 
 [numbers_verify]
 refixture_budget_mm = false
 thin_wall_floor_mm = false
 stickout_ld_max = false
+near_jaw_mm = false
