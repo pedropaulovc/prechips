@@ -386,6 +386,8 @@ class CylindricalJoint(InputModel):
     interference_mm: KnownBand | Unknown | None = None
     method: Literal["silver_braze", "retaining_compound", "press"]
     process: str
+    cure_time_min: float | Unknown | None = None
+    surface_prep: str | None = None
     cite: Citations
 
     @model_validator(mode="after")
@@ -405,6 +407,17 @@ class CylindricalJoint(InputModel):
                 f"A {self.fit} joint must declare {self.fit}_mm and no other fit band."
             )
         _ordered(band, f"{self.fit}_mm", floor=0.0, inclusive=self.fit == "clearance")
+        if self.method == "retaining_compound":
+            if self.cure_time_min is None or self.surface_prep is None:
+                raise ValueError(
+                    "A retaining_compound joint must declare cure_time_min and surface_prep."
+                )
+            if self.cure_time_min != UNKNOWN and self.cure_time_min <= 0:
+                raise ValueError("A retaining_compound cure_time_min must be positive.")
+            if self.surface_prep != UNKNOWN:
+                _known_text(self.surface_prep, "A retaining_compound surface_prep")
+        elif self.cure_time_min is not None or self.surface_prep is not None:
+            raise ValueError("Cure time and surface prep are retaining_compound process facts.")
         return self
 
 
@@ -573,14 +586,13 @@ class Plan(InputModel):
             if len(refs) != 2:
                 raise ValueError(
                     f"{where} joins {len(refs)} stock_in references; a joint joins exactly two "
-                    "branches until a physical joint graph is supported."
+                    "branches."
                 )
-            roots = sorted(set().union(*(ancestry.get(ref, {ref}) for ref in refs)))
-            if len(roots) > 2:
+            branch_roots = [ancestry.get(ref, frozenset((ref,))) for ref in refs]
+            if all(len(roots) > 1 for roots in branch_roots):
                 raise ValueError(
-                    f"{where} joins {len(roots)} stock supplies ({', '.join(roots)}); a joint, "
-                    "including one that joins an earlier assembly, may combine only two "
-                    "components until a physical joint graph is supported."
+                    f"{where} joins two already-joined assemblies; each joint may add only "
+                    "one single component to an assembly."
                 )
             joint = setup.joint
             if not declared or joint == UNKNOWN:

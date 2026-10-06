@@ -5,7 +5,7 @@ import re
 import tomllib
 
 import pytest
-from test_cli import copy_examples, traveler
+from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
 
 
 def finding(report, rule, subject):
@@ -41,10 +41,10 @@ def test_removed_reamer_is_named_inventory_error(tmp_path):
         'dia_mm = 6.5\nshank_mm = 6.5\nlead_mm = 1.0\nunits = "mm"\n'
     )
     inventory.write_text(original + known, encoding="utf-8")
-    _, present, _ = traveler(plan, tmp_path / "present")
+    _, present, _ = traveler(plan, tmp_path / "present", setup=SYNTHETIC_KERNEL)
     assert finding(present, "tool_resolves", "control-reamer-6.5")["status"] == "pass"
     inventory.write_text(original, encoding="utf-8")
-    result, absent, html = traveler(plan, tmp_path / "absent")
+    result, absent, html = traveler(plan, tmp_path / "absent", setup=SYNTHETIC_KERNEL)
     assert result.returncode == 2, result.stderr
     row = finding(absent, "tool_resolves", "control-reamer-6.5")
     assert row["status"] == "error"
@@ -60,7 +60,7 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     assert authored["dro"]["direction"]["x"] == "right", "the control reverses an authored +X DRO"
     s1 = next(setup for setup in authored["setups"] if setup["id"] == "S1")
     jog = s1["zero"]["x"]["check_jog_mm"]
-    _, baseline, _ = traveler(plan, tmp_path / "baseline")
+    _, baseline, _ = traveler(plan, tmp_path / "baseline", setup=SYNTHETIC_KERNEL)
     row = finding(baseline, "zero_check", "S1")
     assert row["status"] == "pass", row
     before = row["numbers"]["axes"]["x"]
@@ -70,7 +70,7 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     authored["dro"]["direction"]["x"] = "left"
     assert count == 1 and tomllib.loads(reversed_text) == authored, "only the DRO X sense flips"
     plan.write_text(reversed_text, encoding="utf-8")
-    result, reversed_report, _ = traveler(plan, tmp_path / "reversed")
+    result, reversed_report, _ = traveler(plan, tmp_path / "reversed", setup=SYNTHETIC_KERNEL)
     row = finding(reversed_report, "zero_check", "S1")
     after = row["numbers"]["axes"]["x"]
     # The touch-off is unchanged; only the reading the authored +X jog produces reverses.
@@ -91,7 +91,7 @@ def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
-    _, baseline, _ = traveler(plan, tmp_path / "baseline")
+    _, baseline, _ = traveler(plan, tmp_path / "baseline", setup=SYNTHETIC_KERNEL)
     # Remove each position check together with its inspection method; nothing else changes.
     expected = tomllib.loads(text)
     features = set()
@@ -107,7 +107,7 @@ def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
     stripped = POSITION_CHECK.sub("", text)
     assert tomllib.loads(stripped) == expected
     plan.write_text(stripped, encoding="utf-8")
-    result, report, _ = traveler(plan, tmp_path / "out")
+    result, report, _ = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     assert result.returncode == 2, result.stderr
     for feature in sorted(features):
         subject = f"{feature}:position_dia"

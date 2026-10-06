@@ -35,6 +35,10 @@ def evaluate_fit(bundle):
             "violations": result["violations"],
             "missing": result["missing"],
         }
+        if joint["method"] == "retaining_compound":
+            numbers.update(
+                cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"]
+            )
         cite = [
             "PLAN.md §4.1 joint_fit",
             f"plan.setups.{sid}.joint: fit, diametral band and process",
@@ -45,12 +49,13 @@ def evaluate_fit(bundle):
                 for citation in _citations(record(features.get(joint[role])).get("cite"))
             ),
         ]
-        if result["missing"]:
-            status = "unknown"
-            message = f"joint geometry unknown ({', '.join(result['missing'])}); no union"
-        elif result["violations"]:
+        if result["violations"]:
             status = "error"
             message = f"{describe(result['violations'])}; no union"
+        elif result["missing"]:
+            status = "unknown"
+            facts = "facts" if joint["method"] == "retaining_compound" else "geometry"
+            message = f"joint {facts} unknown ({', '.join(result['missing'])}); no union"
         else:
             status = "pass"
             message = (

@@ -3,7 +3,7 @@
 import hashlib
 
 import pytest
-from test_cli import copy_examples, traveler
+from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
 
 from prechips.report import canonical_bytes, report_hash
 
@@ -59,7 +59,7 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path, instruction, s
         encoding="utf-8",
     )
 
-    _, _, html = traveler(plan, tmp_path / "out")
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
 
     assert instruction in html
     assert repo_citation not in html
