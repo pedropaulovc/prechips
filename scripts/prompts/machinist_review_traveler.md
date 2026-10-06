@@ -10,7 +10,8 @@ and contradictory numbers, pictures, notes or limits across pages are defects.
 THE SHOP AND THE BUILDER
 - A hobby/prototype shop: a PM-30MV knee mill with a DRO, a PM-1127VF-LB
   11x27 lathe, a 6 in mill vise, a BS-0 dividing head, a bandsaw and a bench.
-  The DROs display two decimals in mm (four in inches).
+  Each DRO's display resolution is the one the job page states for that
+  machine; do not assume another.
 - Inspection is what a well-equipped hobby shop has: rule, calipers,
   micrometers, pin and thread gauges, a granite surface plate with a height
   gauge and dial or test indicators, V-blocks, a sine bar and gauge blocks, a
@@ -36,14 +37,21 @@ What a traveler must NOT do is respecify the part:
   listed there for that feature. A limit that appears nowhere in the drawing
   requirements, or a second, different limit for the same feature, is a
   contradiction. Never ask the traveler to invent, tighten or loosen one.
+  Two things are method, not a second limit: an in-process hold the page
+  labels as a process hold, lying inside the drawing band, with its reason
+  (a fit a later setup relies on, a stop that protects a datum); and a
+  measurement-validity criterion (repeat the reading if two seatings differ
+  by more than a stated amount). A guardband or acceptance band that replaces
+  the drawing limit is still a contradiction.
 - Naming the stock material and finish once, so the builder pulls the right
   bar and knows the last step, is content. Restating the drawing's title
   block (general tolerances, edge break, finish) on setup pages beyond what
   an op or check needs at the machine is clutter.
 - Drawing limits keep the drawing's own decimals (a 1.9875 pin, a 0.0254
   runout); that is not a resolution defect. Setup coordinates, Z targets and
-  DRO values print at the DRO's display resolution. More decimals than the
-  display shows is clutter.
+  DRO values print on the display resolution the job page states for that
+  machine (three decimals on a 0.005 mm DRO are its resolution). More
+  decimals than the stated resolution, or a value off its grid, is clutter.
 
 ONE SURFACE, ONE NUMBER
 - The same surface or feature never prints two different numbers: feature
@@ -119,10 +127,12 @@ LAYOUT ON LETTER PAGES
 THE LAST DFM AND SAFETY BACKSTOP
 Read the steps as the cuts they are, not only as text. A step that would
 crash the tool or holder into jaws, chuck, vise, clamp or centre, gouge a
-finished surface, leave the part unsupported under the cut, cut a piece free
-with nothing holding it or catching it, or ask a cutter to reach somewhere it
-cannot, is a blocker even when the page prints it faithfully. The traveler
-may be the last chance to catch a bad plan. The fix is to correct the plan,
+finished surface, leave the part unsupported under the cut, cut a part or
+finished piece free with nothing holding it or catching it, put a hand near
+rotating work, or ask a cutter to reach somewhere it cannot, is a blocker
+even when the page prints it faithfully. A waste offcut that drops into the
+chip tray and is picked up with the spindle stopped is normal practice. The
+traveler may be the last chance to catch a bad plan. The fix is to correct the plan,
 never to add a note; say what must change and why. Never invent the missing
 value, coordinate or tool: name what is missing and where it belongs. Do not
 demand your preferred process when the given one works.
@@ -149,7 +159,10 @@ drawing. A geometric check is never rejected as uninspectable for want of a
 CMM; ask only that it name the hobby gauge and setup. The per-page status
 banner and the sign-off line are the shop's standard page furniture; judge
 their wording, not their presence. Do not invent a requirement because the
-part "might" need it in an assembly you cannot see.
+part "might" need it in an assembly you cannot see. An outside process
+(plating, black oxide, heat treatment) is a route step: it must say what
+goes out, what is protected, and what is checked on return; do not ask for
+the vendor's own process.
 
 Inspect every page before answering: read each page whole, then reconcile
 across pages, the job page against every setup and each setup against the
