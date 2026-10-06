@@ -305,13 +305,13 @@ faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BOD
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
-z_to = -59.2 # AUTHOR'S CHOICE: stop 0.2 short of the head shoulder
+z_to = -59.4 # AUTHOR'S CHOICE: run the rough pass to the shoulder plane so the claimed body face is turned over its whole length; the R0.4 nose leaves its fillet for op 55
 rough_allowance_mm = 0.3 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
 doc_mm = 0.25
 feed_mm_rev = 0.1
 approach_mm = 3.0
-note = "Rough the body from the foot to Z-59.2 to Ø42.31, one pass."
+note = "Rough the body from the foot to the shoulder at Z-59.4 to Ø42.31, one pass, disengaging the feed early and hand-feeding the last 1 mm to the Z DRO reading; withdraw radially up the shoulder. The R0.4 nose leaves an R0.4 fillet in the corner for op 55."
 [[setups.ops]]
 op = 50
 do = "finish_turn"
@@ -320,12 +320,12 @@ faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BOD
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
-z_to = -58.8 # AUTHOR'S CHOICE: stop 0.6 short of the shoulder; the R0.4 nose cannot form the R0.25 corner
+z_to = -59.4 # AUTHOR'S CHOICE: finish the whole claimed body face to the shoulder; the R0.4 nose cannot form the R0.25 corner, so op 55 clears the fillet it leaves
 direction = "toward_chuck"
 doc_mm = 0.15
 feed_mm_rev = 0.05
 approach_mm = 3.0
-note = "Finish the body Ø42.011 from the foot to Z-58.8. Mic at three stations for taper."
+note = "Finish the body Ø42.011 from the foot to the shoulder at Z-59.4, hand-feeding the last 1 mm to the Z DRO reading, and withdraw radially up the shoulder. Mic at three stations for taper. The R0.4 nose fillet left in the corner is cleared by op 55."
 [setups.ops.checks]
 dia = "micrometers/1-2in"
 [[setups.ops]]
@@ -341,7 +341,7 @@ direction = "toward_chuck"
 doc_mm = 0.05
 feed_mm_rev = 0.02
 approach_mm = 3.0
-note = "With the r0.1 parting-blade corner at the finished Ø42.011, feed toward the chuck from Z-57 into the shoulder at Z-59.4, then withdraw radially along the shoulder face. This leaves a corner of 0.25 mm radius maximum where the body meets the head step."
+note = "With the r0.1 parting-blade corner at the finished Ø42.011, feed toward the chuck from Z-57 into the shoulder at Z-59.4, clearing the R0.4 nose fillet ops 40-50 left, then withdraw radially along the shoulder face. This leaves a corner of 0.25 mm radius maximum where the body meets the head step."
 [setups.ops.checks]
 dia = "micrometers/1-2in"
 [[setups.ops]]
