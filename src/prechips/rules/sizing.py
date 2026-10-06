@@ -1,7 +1,7 @@
 """Compare only the selected size-setting finishing tool to drawing limits."""
 
 from ..findings import Finding
-from .resolution import _citations, length_mm, number, operations, record, resolve, uncertain
+from .resolution import SAW_OPS, _citations, length_mm, number, operations, record, resolve, uncertain
 
 
 def evaluate(bundle):
@@ -31,7 +31,7 @@ def evaluate(bundle):
             continue
         if feature["kind"] == "groove":
             route = operations(bundle, name)
-            selected = [op for _, op in route if op.get("tool")]
+            selected = [op for _, op in route if op.get("tool") and op.get("do") not in SAW_OPS]
             tool_ref = selected[-1]["tool"] if selected else None
             tool = resolve(bundle, "tools", tool_ref)
             nose = length_mm(tool, "nose_radius") if tool else "unknown"

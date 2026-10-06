@@ -16,6 +16,16 @@ An actual nonmultiple-of-50 boundary is retained. Mill feed is
 same citation and verify rules as the chip load. Numbers are starting points,
 not cut-force or stability limits.
 
+Saw actions `saw_cut` / `cut_off` both select `operation = "saw_cut"` by material
+class and blade material, **without** a rotating-tool `diameter_range`. Exactly
+one cited row supplies positive `sfm` (linear blade feet/minute) and
+`feed_mm_min` (blade descent feed). The blade speed is clamped inclusively to the
+machine's positive, ordered `blade_speed_sfm = [min, max]`; it is not converted
+to RPM or rounded to 50. Tool charts and op-level overrides do not supply saw
+numbers. Missing/ambiguous/uncited rows, unknown speeds/feed, identity debt and
+material verification stay `?`. These are starting recommendations, not blade
+capacity, tooth selection, tension or physical feed-control certification.
+
 `[[material]]` carries material class, `kc_n_per_mm2`, `e_gpa`, and citations for
 M2 [turning deflection](rules-physics.md). Exactly one sourced material row is
 needed. `K_c` is N/mm² and `E` is GPa (converted explicitly to N/mm²); authored
@@ -68,6 +78,7 @@ not proof of geometric validity; rules perform the applicable checks.
 | `sfm` | `float` |
 | `chip_load_mm_per_tooth` | `float` |
 | `feed_mm_rev` | `float` |
+| `feed_mm_min` | `float` (saw blade descent feed only) |
 | `cite` | `Citations` |
 
 ## CutMaterial

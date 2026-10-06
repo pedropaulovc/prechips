@@ -8,7 +8,9 @@ from test_input_contracts import PLAN, bundle_files
 
 from prechips.inputs import BadInput, load_bundle
 from prechips.model import Inventory, Operation
+from prechips.rules import datum_consistency, sizing, speeds_feeds
 from prechips.rules.saw_cut import evaluate
+from prechips.sheet import _Traveler
 
 
 def bundle():
@@ -142,3 +144,85 @@ def test_unclaimed_saw_cannot_silently_drop_inspection_requirements(tmp_path):
     plan = PLAN.replace('do = "inspect"', 'do = "saw_cut"').replace('feature = "subject"\n', "")
     with pytest.raises(BadInput, match="inspection checks need a manifest feature"):
         load_bundle(bundle_files(tmp_path, plan))
+
+
+@pytest.mark.parametrize("action", ["saw_cut", "cut_off"])
+def test_saw_cannot_establish_a_finished_datum_for_a_related_hole(action):
+    data = bundle()
+    setup = data.plan["setups"][0]
+    setup["ops"][0].update(do=action, feature="datum")
+    setup["ops"].append({"op": 20, "do": "drill", "feature": "hole"})
+    data.features.update(
+        datums={"A": {"feature": "datum"}},
+        features={
+            "datum": {"kind": "face"},
+            "hole": {"kind": "hole", "position_datums": ["A"], "position_dia": 0.05},
+        },
+    )
+    data.policy = {"numbers": {"refixture_budget_mm": 0.01}}
+    finding = next(row for row in datum_consistency.evaluate(data) if row.subject == "hole")
+    assert finding.status == "unknown"
+    assert finding.numbers["datums"]["A"] == []
+    setup["ops"].insert(0, {"op": 5, "do": "face", "feature": "datum"})
+    finding = next(row for row in datum_consistency.evaluate(data) if row.subject == "hole")
+    assert finding.status == "pass"
+    assert finding.numbers["datums"]["A"] == ["S1:5"]
+
+
+def test_named_saw_cannot_replace_a_grooves_size_setting_tool():
+    data = bundle()
+    data.plan["stock"] = {"dia_mm": 20}
+    data.features.update(
+        units="mm",
+        features={
+            "groove": {
+                "kind": "groove",
+                "width": [2, 2.1],
+                "dia": [10, 11],
+                "corner_radius_max_design": 1,
+            }
+        },
+    )
+    data.inventory["tools"]["groover"] = {
+        "kind": "grooving",
+        "nose_radius_mm": 0.5,
+        "reach_mm": 5,
+    }
+    data.plan["setups"][0]["ops"] = [
+        {"op": 5, "do": "groove", "feature": "groove", "tool": "groover"},
+        {"op": 10, "do": "saw_cut", "feature": "groove", "tool": "blade"},
+    ]
+    finding = sizing.evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["tool"] == "groover"
+
+
+def test_saw_machine_settings_keep_their_digits_when_drawing_precision_is_coarse():
+    data = bundle()
+    data.features.update(units="mm", precision=0)
+    data.plan["stock"] = {"material": "steel"}
+    data.inventory["tools"]["blade"]["material"] = "bimetal"
+    data.cutting_data = {
+        "aliases": {"steel": "steel"},
+        "cut": [
+            {
+                "material_class": "steel",
+                "tool_material": "bimetal",
+                "operation": "saw_cut",
+                "sfm": 100.25,
+                "feed_mm_min": 8.125,
+                "cite": "synthetic test cutting data",
+            }
+        ],
+    }
+    setup = data.plan["setups"][0]
+    setup["ops"][0]["cut_plane"]["value"] = 87.8
+    data.kernel["ops"]["S1:10"]["cut_plane"]["value"] = 87.8
+    data.kernel["ops"]["S1:10"]["retained_boundary_mm"] = 87.05
+    findings = evaluate(data) + speeds_feeds.evaluate(data)
+    assert all(finding.status == "pass" for finding in findings)
+    html = _Traveler(data, findings, {}, None).operations(setup, setup["ops"])
+    assert "87.8 mm" in html
+    assert "87.05 mm" in html
+    assert "100.25 sfm" in html
+    assert "8.125 mm / min" in html

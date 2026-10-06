@@ -375,7 +375,7 @@ class _Traveler:
             ):
                 return ""  # The unresolved clearance is already in Before You Start.
             return _p("? Headroom / support clearance not computed.")
-        r = self.value
+        r = self.operative if "head_centre_height_mm" in numbers else self.value
         parts = [
             f"Stack (mm): bed {r(numbers.get('bed_height_mm'))}; "
             f"blocks {r(numbers.get('support_blocks_mm'))}; "
@@ -899,14 +899,14 @@ class _Traveler:
                 plane = _mapping(op.get("cut_plane"))
                 action.append(
                     f"blade centre {_text(plane.get('axis')).upper()} "
-                    f"{self.value(plane.get('value'))} {self.bundle.features.get('units', '?')}"
+                    f"{self.operative(plane.get('value'))} {self.bundle.features.get('units', '?')}"
                 )
             feed = numbers.get("feed_mm_min", numbers.get("feed_mm_rev"))
             feed_units = " / rev" if "feed_mm_rev" in numbers else " / min"
             feed_text = (
                 "—"
                 if manual
-                else self.value(feed)
+                else (self.operative(feed) if saw else self.value(feed))
                 + (" mm" + feed_units if isinstance(feed, (int, float)) else "")
             )
             direction = _text(
@@ -925,7 +925,7 @@ class _Traveler:
             if saw:
                 direction = "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
             speed = (
-                self.value(numbers.get("blade_speed_sfm")) + " sfm"
+                self.operative(numbers.get("blade_speed_sfm")) + " sfm"
                 if saw
                 else "—"
                 if manual
@@ -933,7 +933,7 @@ class _Traveler:
             )
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
             target = (
-                "retained edge " + self.value(saw_numbers.get("retained_boundary_mm")) + " mm"
+                "retained edge " + self.operative(saw_numbers.get("retained_boundary_mm")) + " mm"
                 if saw
                 else self.tip(setup, op)
             )
