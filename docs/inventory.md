@@ -82,10 +82,29 @@ A vise enters the job solely when `jaw_height`, `jaw_width`, `jaw_depth` and
 `opening` all resolve that way; the parallels fixture needs a positive
 `height`, and its optional `length` (along the jaws) and `width` (along the
 clamp axis), resolved the same way, are what let the kernel draw the parallel
-solids once the plan declares `parallels_centres_mm`. These are the only
+solids once the plan declares `parallels_centres_mm`. A `blocks_123` riser
+item supplies `length`, `width` and `height` the same way. These are the vise
 sources of fixture solids: `jaw_depth_mm` / `jaw_depth_in` is the physical
 jaw-plate thickness along the gripping normal and is never synthesized from
-jaw width, jaw height, bed height or any other dimension. A tool enters an
+jaw width, jaw height, bed height or any other dimension.
+
+Other holding solids come from the same accepted-fact rule, never defaults:
+
+- `chuck_3jaw` / `chuck_4jaw`: `body_dia`, `body_length`, `bore_dia` (bore
+  smaller than body), `jaw_width` (tangential), `jaw_height` (radial, outward
+  from the grip) and `jaw_depth` (axial, ahead of the body face). A
+  `dividing_head` names its chuck from the plan (`hold.chuck`).
+- `dead_centre` fixtures: `dia` (shank), `length` (tip to quill face) and
+  `point_angle` (included cone angle, degrees); the quill is the machine's
+  `tailstock.quill_dia` (a dividing head's own `tailstock` when it has one).
+- Any item (angle plate, `dividing_head`, custom fixture, `clamping_kit`
+  member such as a strap) may author `solids = [{name, shape, at_mm,
+  size_mm}]` boxes or `{name, shape = "cylinder", at_mm, axis, dia_mm,
+  length_mm}` cylinders in its own frame. Each primitive is trusted on its
+  own: a primitive whose record carries `verify = true` / `"unknown"` or an
+  incomplete `measured` is not drawn and is named as debt.
+
+A tool enters an
 op's geometry job when `dia`, `flute_len` and `oal` resolve and a holder when
 `gauge_dia` and `gauge_len` resolve; the holder cylinder uses `gauge_dia`
 (`gauge_dia_mm` / `gauge_dia_in`), not `shank` or collet capacity. The op's

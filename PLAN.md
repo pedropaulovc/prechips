@@ -1117,7 +1117,16 @@ sheet.
    The rocker's 0.99695 mm corner against a 0.997 mm cutter therefore passes.
 
    Fixture pictures use only numeric jaw/parallels dimensions and declared
-   poses; a certain/possible jaw envelope is labelled unresolved. Raster
+   poses; a certain/possible jaw envelope is labelled unresolved. Vise
+   risers, 3-/4-jaw chucks (jaws closed on the entry stock's grip zone), the
+   dividing head with its chuck, dead centres with their tailstock quill,
+   angle plates, clamping-kit straps and custom fixtures are drawn the same
+   way from explicit inventory dimensions or authored `solids` primitives
+   and plan poses; every drawn solid is an accessibility/holder obstacle and
+   an undrawn possible obstacle keeps clear samples `?`. The report scene
+   names `fixture_kind` and every component; `modeled` requires all of them
+   exact and no debt (`examples/geometry/fixture-holds` holds one synthetic
+   puck all six ways, observed 2026-10-05 with FreeCAD 1.1). Raster
    PNGs are bound by hash and preserved by `*.png binary`; STEP files retain
    `-text`. Successful `traveler`/`check` runs transactionally remove
    unreferenced old setup images, including absent-kernel runs. `check` also

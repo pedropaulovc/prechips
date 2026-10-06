@@ -303,6 +303,7 @@ def selected_references(plan):
         "clamps",
         "riser",
         "support_blocks",
+        "chuck",
         "ref",
     }
 
