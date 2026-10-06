@@ -2047,6 +2047,9 @@
         "endpoints": [
           {
             "depth_mm": 2.0,
+            "dro_depth_mm": 2.0,
+            "dro_entry_z": 21.01,
+            "dro_tip_z": 19.01,
             "entry_from": "S5 stock_state.entry_z.cone_socket",
             "entry_z": 21.0055,
             "exit_face": "not_applicable",
@@ -2057,6 +2060,10 @@
             "tip_z": 19.0055
           },
           {
+            "dro_entry_z": 21.01,
+            "dro_exit_face": -21.005,
+            "dro_exit_mm": 0.49596818552811683,
+            "dro_tip_z": -24.84,
             "entry_from": "S5 stock_state.entry_z.cone_socket",
             "entry_z": 21.0055,
             "exit_face": -21.0055,
@@ -2069,6 +2076,10 @@
             "tip_z": -24.844031814471883
           },
           {
+            "dro_entry_z": 21.01,
+            "dro_exit_face": -21.005,
+            "dro_exit_mm": 0.49718473826573373,
+            "dro_tip_z": -26.61,
             "entry_from": "S5 stock_state.entry_z.cone_socket",
             "entry_z": 21.0055,
             "exit_face": -21.0055,
@@ -2081,6 +2092,10 @@
             "tip_z": -26.612815261734262
           },
           {
+            "dro_entry_z": 21.01,
+            "dro_exit_face": -21.005,
+            "dro_exit_mm": 0.4994999999999976,
+            "dro_tip_z": -23.005,
             "entry_from": "S5 stock_state.entry_z.cone_socket",
             "entry_z": 21.0055,
             "exit_face": -21.0055,
@@ -2127,6 +2142,9 @@
         "endpoints": [
           {
             "depth_mm": 2.0,
+            "dro_depth_mm": 2.0,
+            "dro_entry_z": 0.0,
+            "dro_tip_z": -2.0,
             "entry_from": "S8 stock_state.entry_z.crank_bore",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
@@ -2137,6 +2155,10 @@
             "tip_z": -2.0
           },
           {
+            "dro_entry_z": 0.0,
+            "dro_exit_face": -72.03,
+            "dro_exit_mm": 0.4920681855281117,
+            "dro_tip_z": -75.865,
             "entry_from": "S8 stock_state.entry_z.crank_bore",
             "entry_z": 0.0,
             "exit_face": -72.0344,
@@ -2149,6 +2171,10 @@
             "tip_z": -75.87293181447188
           },
           {
+            "dro_entry_z": 0.0,
+            "dro_exit_face": -72.03,
+            "dro_exit_mm": 0.49559999999999604,
+            "dro_tip_z": -73.53,
             "entry_from": "S8 stock_state.entry_z.crank_bore",
             "entry_z": 0.0,
             "exit_face": -72.0344,
@@ -2211,6 +2237,9 @@
         "endpoints": [
           {
             "depth_mm": 2.0,
+            "dro_depth_mm": 2.0,
+            "dro_entry_z": 21.38,
+            "dro_tip_z": 19.38,
             "entry_from": "S4 stock_state.entry_z.crank_socket",
             "entry_z": 21.3753,
             "exit_face": "not_applicable",
@@ -2221,6 +2250,10 @@
             "tip_z": 19.3753
           },
           {
+            "dro_entry_z": 21.38,
+            "dro_exit_face": -21.375,
+            "dro_exit_mm": 0.4961681855281199,
+            "dro_tip_z": -25.21,
             "entry_from": "S4 stock_state.entry_z.crank_socket",
             "entry_z": 21.3753,
             "exit_face": -21.3753,
@@ -2233,6 +2266,10 @@
             "tip_z": -25.21383181447188
           },
           {
+            "dro_entry_z": 21.38,
+            "dro_exit_face": -21.375,
+            "dro_exit_mm": 0.4954483454537275,
+            "dro_tip_z": -28.33,
             "entry_from": "S4 stock_state.entry_z.crank_socket",
             "entry_z": 21.3753,
             "exit_face": -21.3753,
@@ -2245,6 +2282,10 @@
             "tip_z": -28.334551654546274
           },
           {
+            "dro_entry_z": 21.38,
+            "dro_exit_face": -21.375,
+            "dro_exit_mm": 0.4997000000000007,
+            "dro_tip_z": -23.375,
             "entry_from": "S4 stock_state.entry_z.crank_socket",
             "entry_z": 21.3753,
             "exit_face": -21.3753,
@@ -2323,6 +2364,9 @@
         "endpoints": [
           {
             "depth_mm": 2.0,
+            "dro_depth_mm": 2.0,
+            "dro_entry_z": 21.01,
+            "dro_tip_z": 19.01,
             "entry_from": "S9 stock_state.entry_z.journal_bore",
             "entry_z": 21.0055,
             "exit_face": "not_applicable",
@@ -2333,6 +2377,10 @@
             "tip_z": 19.0055
           },
           {
+            "dro_entry_z": 21.01,
+            "dro_exit_face": -21.005,
+            "dro_exit_mm": 0.4975767349289306,
+            "dro_tip_z": -25.08,
             "entry_from": "S9 stock_state.entry_z.journal_bore",
             "entry_z": 21.0055,
             "exit_face": -21.0055,
@@ -2345,6 +2393,10 @@
             "tip_z": -25.082423265071068
           },
           {
+            "dro_entry_z": 21.01,
+            "dro_exit_face": -21.005,
+            "dro_exit_mm": 0.4994999999999976,
+            "dro_tip_z": -22.505,
             "entry_from": "S9 stock_state.entry_z.journal_bore",
             "entry_z": 21.0055,
             "exit_face": -21.0055,
@@ -2375,6 +2427,9 @@
         "endpoints": [
           {
             "depth_mm": 2.0,
+            "dro_depth_mm": 2.0,
+            "dro_entry_z": 86.0,
+            "dro_tip_z": 84.0,
             "entry_from": "S11 stock_state.entry_z.mount_east",
             "entry_z": 86.0,
             "exit_face": "not_applicable",
@@ -2385,6 +2440,10 @@
             "tip_z": 84.0
           },
           {
+            "dro_entry_z": 86.0,
+            "dro_exit_face": 0.0,
+            "dro_exit_mm": 1.9987859548954572,
+            "dro_tip_z": -4.145,
             "entry_from": "S11 stock_state.entry_z.mount_east",
             "entry_z": 86.0,
             "exit_face": 0.0,
@@ -2416,6 +2475,9 @@
           {
             "depth_limit_mm": 6.53,
             "depth_mm": 6.0198,
+            "dro_depth_mm": 6.014999999999997,
+            "dro_entry_z": 86.0,
+            "dro_tip_z": 79.985,
             "entry_from": "S11 op 10 to_z",
             "entry_z": 86.0,
             "exit_face": "not_applicable",
@@ -2445,6 +2507,9 @@
         "endpoints": [
           {
             "depth_mm": 2.0,
+            "dro_depth_mm": 2.0,
+            "dro_entry_z": 86.0,
+            "dro_tip_z": 84.0,
             "entry_from": "S11 stock_state.entry_z.mount_west",
             "entry_z": 86.0,
             "exit_face": "not_applicable",
@@ -2455,6 +2520,10 @@
             "tip_z": 84.0
           },
           {
+            "dro_entry_z": 86.0,
+            "dro_exit_face": 0.0,
+            "dro_exit_mm": 1.9987859548954572,
+            "dro_tip_z": -4.145,
             "entry_from": "S11 stock_state.entry_z.mount_west",
             "entry_z": 86.0,
             "exit_face": 0.0,
@@ -2486,6 +2555,9 @@
           {
             "depth_limit_mm": 6.53,
             "depth_mm": 6.0198,
+            "dro_depth_mm": 6.014999999999997,
+            "dro_entry_z": 86.0,
+            "dro_tip_z": 79.985,
             "entry_from": "S11 op 10 to_z",
             "entry_z": 86.0,
             "exit_face": "not_applicable",
@@ -17832,6 +17904,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 2.0,
+              "dro_depth_mm": 2.0,
+              "dro_entry_z": 86.0,
+              "dro_tip_z": 84.0,
               "entry_from": "S11 stock_state.entry_z.mount_west",
               "entry_z": 86.0,
               "exit_face": "not_applicable",
@@ -17890,6 +17965,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 2.0,
+              "dro_depth_mm": 2.0,
+              "dro_entry_z": 86.0,
+              "dro_tip_z": 84.0,
               "entry_from": "S11 stock_state.entry_z.mount_east",
               "entry_z": 86.0,
               "exit_face": "not_applicable",
@@ -17947,6 +18025,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 86.0,
+              "dro_exit_face": 0.0,
+              "dro_exit_mm": 1.9987859548954572,
+              "dro_tip_z": -4.145,
               "entry_from": "S11 stock_state.entry_z.mount_west",
               "entry_z": 86.0,
               "exit_face": 0.0,
@@ -18006,6 +18088,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 86.0,
+              "dro_exit_face": 0.0,
+              "dro_exit_mm": 1.9987859548954572,
+              "dro_tip_z": -4.145,
               "entry_from": "S11 stock_state.entry_z.mount_east",
               "entry_z": 86.0,
               "exit_face": 0.0,
@@ -18067,6 +18153,9 @@
             "endpoint": {
               "depth_limit_mm": 6.53,
               "depth_mm": 6.0198,
+              "dro_depth_mm": 6.014999999999997,
+              "dro_entry_z": 86.0,
+              "dro_tip_z": 79.985,
               "entry_from": "S11 op 10 to_z",
               "entry_z": 86.0,
               "exit_face": "not_applicable",
@@ -18127,6 +18216,9 @@
             "endpoint": {
               "depth_limit_mm": 6.53,
               "depth_mm": 6.0198,
+              "dro_depth_mm": 6.014999999999997,
+              "dro_entry_z": 86.0,
+              "dro_tip_z": 79.985,
               "entry_from": "S11 op 10 to_z",
               "entry_z": 86.0,
               "exit_face": "not_applicable",
@@ -18293,6 +18385,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 2.0,
+              "dro_depth_mm": 2.0,
+              "dro_entry_z": 21.38,
+              "dro_tip_z": 19.38,
               "entry_from": "S4 stock_state.entry_z.crank_socket",
               "entry_z": 21.3753,
               "exit_face": "not_applicable",
@@ -18350,6 +18445,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 21.38,
+              "dro_exit_face": -21.375,
+              "dro_exit_mm": 0.4961681855281199,
+              "dro_tip_z": -25.21,
               "entry_from": "S4 stock_state.entry_z.crank_socket",
               "entry_z": 21.3753,
               "exit_face": -21.3753,
@@ -18409,6 +18508,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 21.38,
+              "dro_exit_face": -21.375,
+              "dro_exit_mm": 0.4954483454537275,
+              "dro_tip_z": -28.33,
               "entry_from": "S4 stock_state.entry_z.crank_socket",
               "entry_z": 21.3753,
               "exit_face": -21.3753,
@@ -18468,6 +18571,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "ream",
             "endpoint": {
+              "dro_entry_z": 21.38,
+              "dro_exit_face": -21.375,
+              "dro_exit_mm": 0.4997000000000007,
+              "dro_tip_z": -23.375,
               "entry_from": "S4 stock_state.entry_z.crank_socket",
               "entry_z": 21.3753,
               "exit_face": -21.3753,
@@ -18610,6 +18717,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 2.0,
+              "dro_depth_mm": 2.0,
+              "dro_entry_z": 21.01,
+              "dro_tip_z": 19.01,
               "entry_from": "S5 stock_state.entry_z.cone_socket",
               "entry_z": 21.0055,
               "exit_face": "not_applicable",
@@ -18667,6 +18777,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 21.01,
+              "dro_exit_face": -21.005,
+              "dro_exit_mm": 0.49596818552811683,
+              "dro_tip_z": -24.84,
               "entry_from": "S5 stock_state.entry_z.cone_socket",
               "entry_z": 21.0055,
               "exit_face": -21.0055,
@@ -18726,6 +18840,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 21.01,
+              "dro_exit_face": -21.005,
+              "dro_exit_mm": 0.49718473826573373,
+              "dro_tip_z": -26.61,
               "entry_from": "S5 stock_state.entry_z.cone_socket",
               "entry_z": 21.0055,
               "exit_face": -21.0055,
@@ -18785,6 +18903,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "ream",
             "endpoint": {
+              "dro_entry_z": 21.01,
+              "dro_exit_face": -21.005,
+              "dro_exit_mm": 0.4994999999999976,
+              "dro_tip_z": -23.005,
               "entry_from": "S5 stock_state.entry_z.cone_socket",
               "entry_z": 21.0055,
               "exit_face": -21.0055,
@@ -19095,6 +19217,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 2.0,
+              "dro_depth_mm": 2.0,
+              "dro_entry_z": 0.0,
+              "dro_tip_z": -2.0,
               "entry_from": "S8 stock_state.entry_z.crank_bore",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
@@ -19152,6 +19277,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 0.0,
+              "dro_exit_face": -72.03,
+              "dro_exit_mm": 0.4920681855281117,
+              "dro_tip_z": -75.865,
               "entry_from": "S8 stock_state.entry_z.crank_bore",
               "entry_z": 0.0,
               "exit_face": -72.0344,
@@ -19211,6 +19340,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "ream",
             "endpoint": {
+              "dro_entry_z": 0.0,
+              "dro_exit_face": -72.03,
+              "dro_exit_mm": 0.49559999999999604,
+              "dro_tip_z": -73.53,
               "entry_from": "S8 stock_state.entry_z.crank_bore",
               "entry_z": 0.0,
               "exit_face": -72.0344,
@@ -19364,6 +19497,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 2.0,
+              "dro_depth_mm": 2.0,
+              "dro_entry_z": 21.01,
+              "dro_tip_z": 19.01,
               "entry_from": "S9 stock_state.entry_z.journal_bore",
               "entry_z": 21.0055,
               "exit_face": "not_applicable",
@@ -19421,6 +19557,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 21.01,
+              "dro_exit_face": -21.005,
+              "dro_exit_mm": 0.4975767349289306,
+              "dro_tip_z": -25.08,
               "entry_from": "S9 stock_state.entry_z.journal_bore",
               "entry_z": 21.0055,
               "exit_face": -21.0055,
@@ -19480,6 +19620,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "ream",
             "endpoint": {
+              "dro_entry_z": 21.01,
+              "dro_exit_face": -21.005,
+              "dro_exit_mm": 0.4994999999999976,
+              "dro_tip_z": -22.505,
               "entry_from": "S9 stock_state.entry_z.journal_bore",
               "entry_z": 21.0055,
               "exit_face": -21.0055,
@@ -22289,7 +22433,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "f5d2ad42ac2cce93056b779fe1db2a2b28c44295dfaa3ffbb775462aa30034c3",
+  "hash": "fdb6305aa5623a9657c695bbbb67b2e4e68bb23515515ff16781287574e776e2",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

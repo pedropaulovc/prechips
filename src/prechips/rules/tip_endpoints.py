@@ -38,6 +38,30 @@ def _subtract(*values):
     return values[0] - sum(values[1:]) if all(number(v) for v in values) else UNKNOWN
 
 
+def _operative(row, grid):
+    """Add the endpoint as the DRO shows it, every Z on the setup's grid (``dro_z``):
+    ``dro_entry_z`` is the entry surface (the ``dro_to_z`` of the op that faced it),
+    ``dro_exit_face`` the exit face. The tip keeps its analytical distance below the
+    surface it is worked from (the entry; a through hole's exit face), then rounds up,
+    never deeper than worked. ``dro_depth_mm`` is the depth that leaves below the entry;
+    ``dro_exit_mm`` the break-through it leaves below the nominal exit face, the lower."""
+    from .coordinates import dro_z
+
+    through = row["exit_face"] != "not_applicable"
+    row["dro_entry_z"] = dro_z(row["entry_z"], grid)
+    if through:
+        row["dro_exit_face"] = dro_z(row["exit_face"], grid)
+    surface, worked = ("dro_exit_face", "exit_face") if through else ("dro_entry_z", "entry_z")
+    shift = _subtract(row[surface], row[worked])
+    tip = row["tip_z"] + shift if number(row["tip_z"]) and number(shift) else UNKNOWN
+    row["dro_tip_z"] = dro_z(tip, grid)
+    if through:
+        lead = row.get("lead_mm", row.get("point_mm", UNKNOWN))
+        row["dro_exit_mm"] = _subtract(row["exit_face"], lead, row["dro_tip_z"])
+    elif "depth_mm" in row:
+        row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
+
+
 def _feature_depth_mm(feature, field, units):
     """An upper feature-depth limit uses the model's units, unlike depth_mm."""
     value = feature.get(field, UNKNOWN)
@@ -131,12 +155,15 @@ def stock_states(setup, features=None):
 
 
 def evaluate(bundle):
+    from .coordinates import dro_grid
+
     features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
     errors = set()
     negative_exit = set()
     for setup in bundle.plan["setups"]:
+        grid = dro_grid(bundle, setup)
         for op, before, _ in stock_states(setup, features):
             name = op.get("feature")
             if name not in features or op.get("do") not in HOLE_OPS:
@@ -228,6 +255,7 @@ def evaluate(bundle):
                     errors.add(name)
             if row.get("tip_z") == UNKNOWN or not tool or uncertain(tool):
                 unresolved.add(name)
+            _operative(row, grid)
             endpoints[name].append(row)
     result = []
     for name, feature in features.items():
