@@ -82,6 +82,73 @@ sfm = 250
 chip_load_mm_per_tooth = 0.03
 cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
 
+# --- pivot-shaft additions ---
+# Lathe rows: carbide inserts (TCMT 21.51) on 1018, feed in mm per spindle revolution.
+# Turned diameter is the feature diameter (stock OD for a face); one row per action.
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "carbide"
+operation = "face"
+diameter_range = [0.0, 125.0]
+sfm = 300
+feed_mm_rev = 0.08
+cite = "illustrative example value (plausible hobby-lathe carbide starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "carbide"
+operation = "rough_turn"
+diameter_range = [0.0, 125.0]
+sfm = 300
+feed_mm_rev = 0.10
+cite = "illustrative example value (plausible hobby-lathe carbide starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "carbide"
+operation = "finish_turn"
+diameter_range = [0.0, 125.0]
+sfm = 350
+feed_mm_rev = 0.05
+cite = "illustrative example value (plausible hobby-lathe carbide starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "carbide"
+operation = "form_relief"
+diameter_range = [0.0, 125.0]
+sfm = 250
+feed_mm_rev = 0.04
+cite = "illustrative example value (plausible hobby-lathe carbide starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "carbide"
+operation = "form_dome"
+diameter_range = [0.0, 125.0]
+sfm = 250
+feed_mm_rev = 0.04
+cite = "illustrative example value (plausible hobby-lathe carbide starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "carbide"
+operation = "cut_to_fit"
+diameter_range = [0.0, 125.0]
+sfm = 250
+feed_mm_rev = 0.05
+cite = "illustrative example value (plausible hobby-lathe carbide starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M2"
+operation = "part_off"
+diameter_range = [0.0, 125.0]
+sfm = 70
+feed_mm_rev = 0.03
+cite = "illustrative example value (plausible hobby-lathe HSS parting starting point), not transcribed from a handbook"
+# --- end pivot-shaft additions ---
+
 [[material]]
 material_class = "low_carbon_steel"
 kc_n_per_mm2 = 1900

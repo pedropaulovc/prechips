@@ -71,6 +71,9 @@ drive = "vfd"
 [machines.PM-1127VF-LB.tailstock]
 taper = "MT3"
 quill_travel_in = 4
+# --- pivot-shaft additions ---
+quill_dia_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, quill OD" } }
+# --- end pivot-shaft additions ---
 
 [machines.PM-1127VF-LB.leadscrew]
 tpi = 8
@@ -86,6 +89,14 @@ type = "wedge"
 holders = 5
 included = true
 note = "a second AXA QCTP (250-111) came off the JET"
+
+# --- pivot-shaft additions ---
+# Lathe envelope read by the lathe headroom screen (swing values are diameters).
+[machines.PM-1127VF-LB.envelope]
+swing_over_bed_in = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle axis to bed way doubled" } }
+swing_over_cross_slide_in = { value = 6.69, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle axis to cross-slide top doubled" } }
+between_centres_in = { value = 27.55, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "tape measure, spindle nose to tailstock quill face, tailstock at bed end" } }
+# --- end pivot-shaft additions ---
 
 [machines.BS-0]
 kind = "dividing_head"
@@ -381,6 +392,52 @@ vendor = "LittleMachineShop"
 sku = 4132
 by = "photo+lms-package"
 
+# --- pivot-shaft additions ---
+# Turning-model geometry per holder style (docs/rules-geometry.md "Approach models").
+# TCMT 21.51: 60° triangle, 1/4 in IC (11 mm edge), 1/64 in (0.4 mm) nose radius.
+# AR/AL: 93° entering (-3° lead) right/left-hand turning-facing holders.
+# E: 60° entering (30° lead) right-hand profiling holder; it cannot square a shoulder.
+# functional_width: nose centre to the shank back face, against the feed.
+[tools.turning-tools-warner-lms-4132.members.AR]
+hand = "right"
+nose_radius_mm = { value = 0.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge" } }
+insert_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor" } }
+entering_angle_deg = { value = 93.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, cutting edge to holder side" } }
+edge_len_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+head_len_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank start" } }
+shank_width_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+functional_width_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank back face" } }
+
+[tools.turning-tools-warner-lms-4132.members.AR.projection_mm]
+"qctp-axa-lms-2280/1-turning-facing" = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to insert nose" } }
+
+[tools.turning-tools-warner-lms-4132.members.AL]
+hand = "left"
+nose_radius_mm = { value = 0.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge" } }
+insert_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor" } }
+entering_angle_deg = { value = 93.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, cutting edge to holder side" } }
+edge_len_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+head_len_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank start" } }
+shank_width_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+functional_width_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank back face" } }
+
+[tools.turning-tools-warner-lms-4132.members.AL.projection_mm]
+"qctp-axa-lms-2280/1-turning-facing" = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to insert nose" } }
+
+[tools.turning-tools-warner-lms-4132.members.E]
+hand = "right"
+nose_radius_mm = { value = 0.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge" } }
+insert_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor" } }
+entering_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, cutting edge to holder side" } }
+edge_len_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+head_len_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank start" } }
+shank_width_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+functional_width_mm = { value = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank back face" } }
+
+[tools.turning-tools-warner-lms-4132.members.E.projection_mm]
+"qctp-axa-lms-2280/2-boring-turning-facing" = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to insert nose" } }
+# --- end pivot-shaft additions ---
+
 [tools.boring-bar-warner-lms-1721]
 kind = "boring_bar"
 shank_in = 0.5
@@ -405,8 +462,18 @@ by = "lms-package"
 kind = "parting_blade"
 size_in = "1/16 x 1/2 x 4-1/2"
 material = "M2"
-present = "unknown"
-verify = true
+# --- pivot-shaft additions (lathe owner; used by the cone built-up part_off) ---
+present = true               # example: on hand, mounted in the AXA #7 parting holder
+hand = "right"
+nose_radius_mm = { value = 0.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge, ground corner" } }
+insert_angle_deg = { value = 87.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, front edge to side clearance" } }
+entering_angle_deg = { value = 90.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, square-ground front edge" } }
+edge_len_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
+head_len_mm = { value = 12.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, blade height" } }
+shank_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
+functional_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
+projection_mm = { "qctp-axa-lms-2280/7-parting" = { value = 18.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to blade tip" } } }
+# --- end pivot-shaft additions ---
 point_angle = "unknown"
 flute_len = "unknown"
 oal = "unknown"
@@ -511,6 +578,14 @@ scroll = true
 fits = "PM-1127VF-LB"
 source = "pm-1127 standard accessories"
 range_mm = [3.0, 140.0]   # illustrative example gripping range, outside jaws (exterior diameter is not capacity)
+# --- pivot-shaft additions ---
+body_dia_mm = { value = 158.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule across the chuck body" } }
+body_length_mm = { value = 72.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle nose to body face" } }
+bore_dia_mm = { value = 40.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, inside jaws" } }
+jaw_width_mm = { value = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+jaw_height_mm = { value = 45.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, grip step to jaw outer end" } }
+jaw_depth_mm = { value = 25.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw face to body face" } }
+# --- end pivot-shaft additions ---
 
 [fixtures.chuck-4jaw-6-d1-4]
 kind = "chuck_4jaw"
@@ -520,6 +595,14 @@ independent = true
 fits = "PM-1127VF-LB"
 source = "pm-1127 standard accessories"
 range_mm = [6.0, 150.0]   # illustrative example gripping range, jaws reversed for the largest work
+# --- pivot-shaft additions ---
+body_dia_mm = { value = 158.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule across the chuck body" } }
+body_length_mm = { value = 70.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle nose to body face" } }
+bore_dia_mm = { value = 40.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, inside jaws" } }
+jaw_width_mm = { value = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+jaw_height_mm = { value = 45.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, grip step to jaw outer end" } }
+jaw_depth_mm = { value = 25.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw face to body face" } }
+# --- end pivot-shaft additions ---
 
 [fixtures.faceplate-d1-4]
 kind = "faceplate"
@@ -540,6 +623,18 @@ kind = "follow_rest"
 fits = "PM-1127VF-LB"
 source = "pm-1127 standard accessories"
 verify = true
+
+# --- pivot-shaft additions ---
+# The PM-1127VF-LB standard-accessory MT3 dead centre, as a fixture with its solid facts.
+[fixtures.dead_centre_tailstock_mt3]
+kind = "dead_centre"
+fits = "PM-1127VF-LB"
+source = "pm-1127 standard accessories"
+taper = "MT3"
+dia_mm = { value = 23.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, shank at the quill face" } }
+length_mm = { value = 45.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, point to quill face" } }
+point_angle = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "centre gauge" } }
+# --- end pivot-shaft additions ---
 
 [fixtures.parallels-lms-6745]
 kind = "parallels_set"
@@ -761,12 +856,29 @@ vendor = "LittleMachineShop"
 sku = 2280
 by = "lms-package"
 
+# --- pivot-shaft additions ---
+# AXA holder bodies for the turning model: body_width along the spindle (Z) from the
+# shank's leading face, body_depth radially behind the shank.
+[holders.qctp-axa-lms-2280.members."1-turning-facing"]
+body_width_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[holders.qctp-axa-lms-2280.members."2-boring-turning-facing"]
+body_width_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[holders.qctp-axa-lms-2280.members."7-parting"]
+body_width_mm = { value = 50.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+# --- end pivot-shaft additions ---
+
 # Preserved original inventory comments (rev-3 status vocabulary is superseded above):
 # rev-3 inventory line 1: Sample shop inventory (Pedro's shop). prechips ships no default inventory; each user supplies their own file in this schema.
 # rev-3 inventory line 2: `verify: true` marks a value taken from a vendor page, a forum, a photo or
 # rev-3 inventory line 3: memory rather than measured/confirmed on the machine. Rules that depend on a
 # rev-3 inventory line 4: `verify: true` value report at `warn`, never `block`, until it is cleared.
 # rev-3 inventory line 5: Photo citations refer to C:/src/dt-logs/shop-photos/INVENTORY-DRAFT.md.
+
 # rev-3 inventory line 11: read 2026-10-02
 # rev-3 inventory line 13: positions exact, feeds by hand
 # rev-3 inventory line 19: irrelevant under cncjs; kept for hand-crank fallback
