@@ -330,7 +330,8 @@ contract:
 - An omitted *feature* is impossible to detect from the manifest alone,
   which is why the generator, not a hand, writes it (M3). The historical M1
   hand-written manifests were cross-checked against drawing dimension counts;
-  the undrawn pivot-bracket remains authored with unknown drawing requirements.
+  the pivot-bracket remains hand-authored on the v39 STEP without a dimensioned
+  drawing, so its example bands are illustrative rather than sourced limits.
 
 **Historical design sketch, not the current manifest.** The excerpt below
 predates M3: placeholder face names, inch-derived bands and material/profile
@@ -898,8 +899,11 @@ sheet.
    hand-authored substitutes. Export delivery provenance and exact digests are
    recorded only in [examples/README.md](examples/README.md#m3-export-delivery-provenance).
    Python citations remain `file:line`; YAML citations are `file:dotted.key.path`.
-   All plans remain authored and PLANNED. The undrawn pivot-bracket remains
-   hand-authored with no STEP or invented drawing contract.
+   All plans remain authored and PLANNED. The pivot-bracket keeps hand-authored
+   `features.toml` on the consumer v39 STEP
+   (`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
+   No dimensioned bracket drawing is supplied, so its bands are illustrative
+   example design intent rather than measured or exported drawing limits.
 
    The exported contracts include expanded rocker datum/tip features, shaft
    face splits, the cone journal's unknown requirement identity, and rendered

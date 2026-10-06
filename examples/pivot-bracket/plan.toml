@@ -422,7 +422,7 @@ clamp = "shop-made two-stud bridge tightened on the free foot, reacting through 
 grip_mm = "not_applicable"       # bridge contact, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
 stop = "foot free end at TC Z = -24.2 on the bolted plate ledge; finished left foot edge at TC X = -8 aligned before clamping"
-note = "Seat (model Y = 0) against the angle-plate upright, outer face up and 2 mm proud of the plate top. Rest the foot free end on the bolted ledge at TC Z = -24.2 to take the downward facing/drilling load. The bridge underside at TC Z = -16 presses the foot toward the plate (+Y); two studs at TC X +/-20 pass through the upright, with rear washers touching the plate back and rear nuts behind it. Indicate the exposed 2 mm seat lip with a small-ball DTI above the plate, then tighten and recheck. Pick up Y on the common plate front plane beside the part from -Y, not over the plate. The bridge bar reaches maximum TC Z = -9.65; studs, washers and nuts stay outside the foot width, clear of the foot-end ledge/base, arch and cross-bore."
+note = "Seat (model Y = 0) against the angle-plate upright, outer face up and 2 mm proud of the plate top. Rest the foot free end on the bolted ledge at TC Z = -24.2 to take the downward facing/drilling load. The bridge underside bears on TC Y = -6, centred at TC Z = -16, and presses the foot toward the plate (+Y); two studs at TC X +/-20 pass through the upright, with rear washers touching the plate back and rear nuts behind it. Indicate the exposed 2 mm seat lip with a small-ball DTI above the plate, then tighten and recheck. Establish a preliminary paper-Z reference with the stationary edge-finder on the raw outer face (TC Z = 1) before the side pickups. Pick up the left foot face at TC Y = -3, Z = -4, above the bridge; pick up the common plate front from -Y at TC X = 45, Z = -5, clear of the bridge hardware. Retract above TC Z = 5 before traversing between pickups, then paper-zero the cutting tool as specified. The bridge bar reaches maximum TC Z = -9.65; studs, washers and nuts stay outside the foot width, clear of the foot-end ledge/base, arch and cross-bore."
 
 [setups.zero.transfer]
 from = "S2"
@@ -437,7 +437,7 @@ tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
 [setups.zero.y]
-edge = "plate_front_beside_part"  # use the exposed plate face at X = 30, clear of the work
+edge = "plate_front_beside_part"  # exposed plate face at TC X = 45, Z = -5, clear of the bridge hardware
 edge_mm = 0.0                    # plate face and seated datum A share Y0
 from = "-y"
 tool = "edge-finder"
