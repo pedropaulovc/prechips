@@ -173,6 +173,8 @@ Hold = record(
         "clamp_order": list[Annotated[int, Field(gt=0)]],
         "preload_direction": Literal["clockwise", "counterclockwise"] | Unknown,
         "stop_at_mm": Point3,
+        "stop_fixture": str,
+        "stop_pose": Pose,
     },
 )
 AxisZero = record(
