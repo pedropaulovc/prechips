@@ -103,6 +103,7 @@ def _turning_values(bundle, op):
 
 def op_inputs(bundle, setup, op, finishing=None):
     from prechips.rules.geometry_common import TURNING, approach, finishing_subjects
+    from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
     turned = approach(bundle, setup, op) == TURNING
@@ -143,6 +144,36 @@ def op_inputs(bundle, setup, op, finishing=None):
     if "to_z" in op:
         # The op's floor in its setup frame bounds the material it removes from the stock.
         result["to_z"] = op["to_z"] * scale if number(op["to_z"]) and scale else UNKNOWN
+    if not turned and str(op.get("do", "")).startswith("rough_"):
+        allowance = op.get("rough_allowance_mm", op.get("stock_to_leave_mm"))
+        # This field is always machine mm per side, independent of feature units.
+        result["rough_allowance_mm"] = (
+            allowance if number(allowance) and allowance >= 0 else UNKNOWN
+        )
+    feature = record(bundle.features.get("features", {}).get(op.get("feature")))
+    if op.get("do") in HOLE_OPS and feature.get("kind") in {
+        "hole",
+        "counterbore",
+        "thread",
+        "threaded_hole",
+    }:
+        # stock_state entry/top heights are machine-frame mm, never scaled by feature units.
+        entry = UNKNOWN
+        for stock_op, before, _ in stock_states(setup, bundle.features.get("features")):
+            if stock_op is op or stock_op.get("op") == op["op"]:
+                entry = before["entry_z"].get(op.get("feature"), before["top_z"])
+                break
+        depth = hole_depth_mm(op, feature, units)
+        # As tip_endpoints: an absent thru is blind; only an explicit boolean is known.
+        thru = feature.get("thru", False)
+        result["hole"] = {
+            "thru": thru if isinstance(thru, bool) else UNKNOWN,
+            "depth_mm": depth if number(depth) else UNKNOWN,
+            "entry_z_mm": entry if number(entry) else UNKNOWN,
+        }
+        if op.get("do") in {"spot", "drill"}:
+            point = angle_fact(tool, "point_angle", require_measured=False)
+            result["hole"]["point_angle_deg"] = point["value"] if point["verified"] else UNKNOWN
     if "stock_removal_bounds" in op:
         result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
     if turned:
@@ -637,12 +668,15 @@ _ENGINE_OP = (
     "subject",
     "feature",
     "faces",
+    "do",
+    "hole",
     "radius_mm",
     "flute_len_mm",
     "holder_radius_mm",
     "holder_gauge_len_mm",
     "projection_mm",
     "to_z",
+    "rough_allowance_mm",
     "stock_removal_bounds",
     "approach",
     "z_from",
