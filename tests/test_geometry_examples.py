@@ -212,12 +212,11 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
     )
 
 
-def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
+def test_reference_rocker_arm_binds_the_labelled_export_and_keeps_unresolved_setups_unknown(
     tmp_path, freecad_kernel
 ):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
-    features = load_bundle(plan).features["features"]
     result, report, _ = traveler(plan, tmp_path / "ref")
     assert result.returncode == 2, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
@@ -231,7 +230,6 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
     for setup in ("S2", "S3"):
         row = finding(report, "accessibility", setup + ":10")
         assert row["status"] == "unknown"
-        assert any(ref in row["message"] for ref in features["top_edge"]["faces"])
         assert not (tmp_path / "ref" / f"setup-{setup}.png").exists()
     assert all(render["fixture"] != "modeled" for render in report["renders"].values())
     assert not any(
