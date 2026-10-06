@@ -201,7 +201,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
           },
           "features": {
             "path": "examples/geometry/fixture-holds/features.toml",
@@ -4886,11 +4886,11 @@
       "subject": "S6"
     }
   ],
-  "hash": "be63c728df4f735ad476fb1e02eaee23cdc506ff6d0cac09eec4eef9826da82d",
+  "hash": "e71f179c4f035bd99d2ceb1f730994daeeb940bade43cf1c9710130c0b59e0f9",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
     },
     "features": {
       "path": "examples/geometry/fixture-holds/features.toml",

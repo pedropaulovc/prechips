@@ -739,7 +739,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
           },
           "features": {
             "path": "examples/pivot-shaft/features.toml",
@@ -747,7 +747,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
+            "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
@@ -755,7 +755,7 @@
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
-            "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+            "sha256": "ee9edc7968b1d9f2fe4792fc26fc113e71eb4d62c9d69559a3f4c28bd0c5e041"
           },
           "step": {
             "path": "examples/pivot-shaft/pivot-shaft.STEP",
@@ -2585,7 +2585,7 @@
         "chuck_body_dia_mm": "unknown",
         "chuck_body_length_mm": "unknown",
         "clearance_basis": "measured swing over bed/cross slide and distance between centres against the declared stock OD, stick-out (else stock length) and nominal chuck body; no tool path, carriage stroke or tailstock extension is checked",
-        "fixture_verify": true,
+        "fixture_verify": false,
         "measurements": [
           {
             "cite": [
@@ -2639,7 +2639,7 @@
         "chuck_body_dia_mm": "unknown",
         "chuck_body_length_mm": "unknown",
         "clearance_basis": "measured swing over bed/cross slide and distance between centres against the declared stock OD, stick-out (else stock length) and nominal chuck body; no tool path, carriage stroke or tailstock extension is checked",
-        "fixture_verify": true,
+        "fixture_verify": false,
         "measurements": [
           {
             "cite": [
@@ -2693,7 +2693,7 @@
         "chuck_body_dia_mm": "unknown",
         "chuck_body_length_mm": "unknown",
         "clearance_basis": "measured swing over bed/cross slide and distance between centres against the declared stock OD, stick-out (else stock length) and nominal chuck body; no tool path, carriage stroke or tailstock extension is checked",
-        "fixture_verify": true,
+        "fixture_verify": false,
         "measurements": [
           {
             "cite": [
@@ -2885,7 +2885,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "north_dome height: named gauge capability needs verification.",
+      "message": "north_dome height: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999999,
         "gauge": "calipers",
@@ -2903,7 +2903,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "north_dome:height"
     },
     {
@@ -2912,7 +2912,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "north_relief dia: named gauge capability needs verification.",
+      "message": "north_relief dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.2599999999999998,
         "gauge": "calipers",
@@ -2930,7 +2930,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "north_relief:dia"
     },
     {
@@ -2939,7 +2939,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "north_relief width: named gauge capability needs verification.",
+      "message": "north_relief width: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999999,
         "gauge": "calipers",
@@ -2957,7 +2957,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "north_relief:width"
     },
     {
@@ -2966,7 +2966,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "pivot_bearing dia: named gauge capability needs verification.",
+      "message": "pivot_bearing dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.019999999999999574,
         "gauge": "micrometers/0-1in",
@@ -2984,7 +2984,7 @@
         "resolution_mm": 0.00254
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "pivot_bearing:dia"
     },
     {
@@ -3029,7 +3029,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "pivot_journal dia: named gauge capability needs verification.",
+      "message": "pivot_journal dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.019999999999999574,
         "gauge": "micrometers/0-1in",
@@ -3047,7 +3047,7 @@
         "resolution_mm": 0.00254
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "pivot_journal:dia"
     },
     {
@@ -3073,7 +3073,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "pivot_journal length: named gauge capability needs verification.",
+      "message": "pivot_journal length: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999996,
         "gauge": "calipers",
@@ -3091,7 +3091,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "pivot_journal:length"
     },
     {
@@ -3100,7 +3100,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "shoulder_north_face length: named gauge capability needs verification.",
+      "message": "shoulder_north_face length: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999998,
         "gauge": "calipers",
@@ -3118,7 +3118,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "shoulder_north_face:length"
     },
     {
@@ -3127,7 +3127,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "shoulder_od dia: named gauge capability needs verification.",
+      "message": "shoulder_od dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
         "gauge": "micrometers/0-1in",
@@ -3145,7 +3145,7 @@
         "resolution_mm": 0.00254
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "shoulder_od:dia"
     },
     {
@@ -3171,7 +3171,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "shoulder_thrust length: named gauge capability needs verification.",
+      "message": "shoulder_thrust length: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999998,
         "gauge": "calipers",
@@ -3189,7 +3189,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "shoulder_thrust:length"
     },
     {
@@ -3198,7 +3198,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "south_dome height: named gauge capability needs verification.",
+      "message": "south_dome height: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999999,
         "gauge": "calipers",
@@ -3216,7 +3216,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "south_dome:height"
     },
     {
@@ -3225,7 +3225,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "south_relief dia: named gauge capability needs verification.",
+      "message": "south_relief dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.2599999999999998,
         "gauge": "calipers",
@@ -3243,7 +3243,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "south_relief:dia"
     },
     {
@@ -3252,7 +3252,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "south_relief width: named gauge capability needs verification.",
+      "message": "south_relief width: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999999,
         "gauge": "calipers",
@@ -3270,7 +3270,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "south_relief:width"
     },
     {
@@ -5031,7 +5031,7 @@
         "diameter_in": 0.3937007874015748,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5039,9 +5039,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5061,7 +5061,7 @@
         "diameter_in": 0.2578740157480315,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5069,9 +5069,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5091,7 +5091,7 @@
         "diameter_in": 0.25,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5099,9 +5099,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5121,7 +5121,7 @@
         "diameter_in": 0.2578740157480315,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5129,9 +5129,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5151,7 +5151,7 @@
         "diameter_in": 0.25,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5159,9 +5159,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5181,7 +5181,7 @@
         "diameter_in": 0.3937007874015748,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5189,9 +5189,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5211,7 +5211,7 @@
         "diameter_in": 0.3937007874015748,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5219,9 +5219,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5265,7 +5265,7 @@
         "diameter_in": 0.22440944881889766,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5273,9 +5273,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5295,7 +5295,7 @@
         "diameter_in": 0.22440944881889766,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5303,9 +5303,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5325,7 +5325,7 @@
         "diameter_in": 0.25,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5333,9 +5333,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5355,7 +5355,7 @@
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5363,9 +5363,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5397,7 +5397,7 @@
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5405,9 +5405,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5439,7 +5439,7 @@
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
-        "flutes": [],
+        "flutes": "unknown",
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verify": false,
@@ -5447,9 +5447,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -5483,7 +5483,8 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107"
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S1: the finished diameter or geometry in the exposed span is unresolved.",
       "numbers": {
@@ -5497,15 +5498,15 @@
         "held_diameter_mm": 10.0,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
         "segments": [],
-        "stickout_ld_max": "unknown",
+        "stickout_ld_max": 4.0,
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "unresolved": [
@@ -5543,7 +5544,8 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80"
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
+        "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S2: the finished diameter or geometry in the exposed span is unresolved.",
       "numbers": {
@@ -5557,7 +5559,7 @@
         "held_diameter_mm": 6.35,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
         "segments": [],
-        "stickout_ld_max": "unknown",
+        "stickout_ld_max": 4.0,
         "stickout_mm": 27.0,
         "support_status": "not_applicable",
         "supports": [],
@@ -5596,7 +5598,8 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
-        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107"
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S3: stick-out or held diameter is unresolved.",
       "numbers": {
@@ -5607,7 +5610,7 @@
         "held_diameter_mm": 6.35,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
         "segments": [],
-        "stickout_ld_max": "unknown",
+        "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "not_applicable",
         "supports": [],
@@ -5629,18 +5632,23 @@
         "plan.setups.stock_state.od_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
-      "message": "S1: held diameter or selected collet/chuck verification is unresolved.",
+      "message": "S1: held stock diameter belongs to the selected collet/chuck sizes or range.",
       "numbers": {
         "diameter_mm": 10.0,
         "diameter_source": "plan.setups.stock_state.od_mm",
         "fixture": "chuck-3jaw-6-d1-4",
         "fixture_kind": "chuck_3jaw",
-        "ranges_mm": [],
+        "ranges_mm": [
+          [
+            3.0,
+            140.0
+          ]
+        ],
         "selected_size_mm": "unknown",
         "sizes_mm": []
       },
       "rule": "stock_diameter",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1"
     },
     {
@@ -5649,18 +5657,23 @@
         "plan.setups.stock_state.od_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
-      "message": "S2: held diameter or selected collet/chuck verification is unresolved.",
+      "message": "S2: held stock diameter belongs to the selected collet/chuck sizes or range.",
       "numbers": {
         "diameter_mm": 6.35,
         "diameter_source": "plan.setups.stock_state.od_mm",
         "fixture": "chuck-3jaw-6-d1-4",
         "fixture_kind": "chuck_3jaw",
-        "ranges_mm": [],
+        "ranges_mm": [
+          [
+            3.0,
+            140.0
+          ]
+        ],
         "selected_size_mm": "unknown",
         "sizes_mm": []
       },
       "rule": "stock_diameter",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -5669,18 +5682,23 @@
         "plan.setups.stock_state.od_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
-      "message": "S3: held diameter or selected collet/chuck verification is unresolved.",
+      "message": "S3: held stock diameter belongs to the selected collet/chuck sizes or range.",
       "numbers": {
         "diameter_mm": 6.35,
         "diameter_source": "plan.setups.stock_state.od_mm",
         "fixture": "chuck-3jaw-6-d1-4",
         "fixture_kind": "chuck_3jaw",
-        "ranges_mm": [],
+        "ranges_mm": [
+          [
+            3.0,
+            140.0
+          ]
+        ],
         "selected_size_mm": "unknown",
         "sizes_mm": []
       },
       "rule": "stock_diameter",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3"
     },
     {
@@ -5744,15 +5762,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "PM-1127VF-LB: listed; presence or catalogue identity needs verification.",
+      "message": "PM-1127VF-LB: listed inventory identity resolves.",
       "numbers": {
         "kind": "lathe",
         "present": true,
         "reference": "PM-1127VF-LB",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "PM-1127VF-LB"
     },
     {
@@ -5760,18 +5778,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:10: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:10: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:10"
     },
     {
@@ -5779,18 +5797,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:20: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:20: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:20"
     },
     {
@@ -5798,18 +5816,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:30: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:30: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:30"
     },
     {
@@ -5817,18 +5835,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:40: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:40: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:40"
     },
     {
@@ -5836,18 +5854,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:50: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:50: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:50"
     },
     {
@@ -5855,18 +5873,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:60: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:60: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:60"
     },
     {
@@ -5874,18 +5892,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:70: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:70: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:70"
     },
     {
@@ -5893,18 +5911,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:80: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:80: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/E"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:80"
     },
     {
@@ -5912,18 +5930,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:90: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:90: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/E"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:90"
     },
     {
@@ -5931,18 +5949,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S2:10: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S2:10: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:10"
     },
     {
@@ -5950,18 +5968,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S2:20: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S2:20: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/E"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:20"
     },
     {
@@ -5969,18 +5987,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S3:10: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S3:10: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:10"
     },
     {
@@ -5988,18 +6006,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S3:20: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S3:20: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/E"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:20"
     },
     {
@@ -6007,15 +6025,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "calipers: listed; presence or catalogue identity needs verification.",
+      "message": "calipers: listed inventory identity resolves.",
       "numbers": {
         "kind": "caliper",
         "present": true,
         "reference": "calipers",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "calipers"
     },
     {
@@ -6023,15 +6041,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "chuck-3jaw-6-d1-4: listed; presence or catalogue identity needs verification.",
+      "message": "chuck-3jaw-6-d1-4: listed inventory identity resolves.",
       "numbers": {
         "kind": "chuck_3jaw",
         "present": true,
         "reference": "chuck-3jaw-6-d1-4",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "chuck-3jaw-6-d1-4"
     },
     {
@@ -6039,15 +6057,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "dead_centre_tailstock_mt3: listed; presence or catalogue identity needs verification.",
+      "message": "dead_centre_tailstock_mt3: listed inventory identity resolves.",
       "numbers": {
         "kind": "accessory",
         "present": true,
         "reference": "dead_centre_tailstock_mt3",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "dead_centre_tailstock_mt3"
     },
     {
@@ -6055,15 +6073,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "dial-indicator: listed; presence or catalogue identity needs verification.",
+      "message": "dial-indicator: listed inventory identity resolves.",
       "numbers": {
         "kind": "dial_indicator",
         "present": true,
         "reference": "dial-indicator",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "dial-indicator"
     },
     {
@@ -6071,15 +6089,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "micrometers/0-1in: listed; presence or catalogue identity needs verification.",
+      "message": "micrometers/0-1in: listed inventory identity resolves.",
       "numbers": {
         "kind": "micrometer_set",
         "present": true,
         "reference": "micrometers/0-1in",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "micrometers/0-1in"
     },
     {
@@ -6087,15 +6105,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "qctp-axa-lms-2280/1-turning-facing: listed; presence or catalogue identity needs verification.",
+      "message": "qctp-axa-lms-2280/1-turning-facing: listed inventory identity resolves.",
       "numbers": {
         "kind": "qctp_set",
         "present": true,
         "reference": "qctp-axa-lms-2280/1-turning-facing",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "qctp-axa-lms-2280/1-turning-facing"
     },
     {
@@ -6103,15 +6121,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "turning-tools-warner-lms-4132/AR: listed; presence or catalogue identity needs verification.",
+      "message": "turning-tools-warner-lms-4132/AR: listed inventory identity resolves.",
       "numbers": {
         "kind": "insert_holders",
         "present": true,
         "reference": "turning-tools-warner-lms-4132/AR",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "turning-tools-warner-lms-4132/AR"
     },
     {
@@ -6119,15 +6137,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "turning-tools-warner-lms-4132/E: listed; presence or catalogue identity needs verification.",
+      "message": "turning-tools-warner-lms-4132/E: listed inventory identity resolves.",
       "numbers": {
         "kind": "insert_holders",
         "present": true,
         "reference": "turning-tools-warner-lms-4132/E",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "turning-tools-warner-lms-4132/E"
     },
     {
@@ -6325,47 +6343,43 @@
         "plan.setups[S1].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
         "features.features.shoulder_north_face: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "inventory selected machine accessories"
       ],
-      "message": "S1:10: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S1:10: Static deflection is unknown; needs feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": "unknown",
         "diameter_mm": "unknown",
         "diameter_tolerance_mm": "unknown",
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "shoulder_north_face",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "feature nominal diameter",
           "doc_mm",
           "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none",
           "sourced feature diameter tolerance/acceptance threshold"
         ],
         "operation": "face",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6382,6 +6396,7 @@
         "plan.setups[S1].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
         "features.features.pivot_journal: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
@@ -6390,10 +6405,10 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:20: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "message": "S1:20: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": [
           6.33,
           6.35
@@ -6401,35 +6416,30 @@
         "diameter_mm": 6.35,
         "diameter_tolerance_mm": 0.009999999999999787,
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "pivot_journal",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "doc_mm",
-          "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none"
+          "feed_mm_rev"
         ],
         "operation": "rough_turn",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6446,6 +6456,7 @@
         "plan.setups[S1].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
         "features.features.pivot_journal: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
@@ -6454,10 +6465,10 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:30: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "message": "S1:30: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": [
           6.33,
           6.35
@@ -6465,35 +6476,30 @@
         "diameter_mm": 6.35,
         "diameter_tolerance_mm": 0.009999999999999787,
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "pivot_journal",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "doc_mm",
-          "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none"
+          "feed_mm_rev"
         ],
         "operation": "finish_turn",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6510,6 +6516,7 @@
         "plan.setups[S1].hold.stickout_mm; ops[40].doc_mm/feed_mm_rev",
         "features.features.pivot_bearing: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
@@ -6518,10 +6525,10 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:40: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "message": "S1:40: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": [
           6.33,
           6.35
@@ -6529,35 +6536,30 @@
         "diameter_mm": 6.35,
         "diameter_tolerance_mm": 0.009999999999999787,
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "pivot_bearing",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "doc_mm",
-          "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none"
+          "feed_mm_rev"
         ],
         "operation": "rough_turn",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6574,6 +6576,7 @@
         "plan.setups[S1].hold.stickout_mm; ops[50].doc_mm/feed_mm_rev",
         "features.features.pivot_bearing: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
@@ -6582,10 +6585,10 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:50: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "message": "S1:50: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": [
           6.33,
           6.35
@@ -6593,35 +6596,30 @@
         "diameter_mm": 6.35,
         "diameter_tolerance_mm": 0.009999999999999787,
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "pivot_bearing",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "doc_mm",
-          "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none"
+          "feed_mm_rev"
         ],
         "operation": "finish_turn",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6638,47 +6636,43 @@
         "plan.setups[S1].hold.stickout_mm; ops[60].doc_mm/feed_mm_rev",
         "features.features.shoulder_thrust: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "inventory selected machine accessories"
       ],
-      "message": "S1:60: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S1:60: Static deflection is unknown; needs feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": "unknown",
         "diameter_mm": "unknown",
         "diameter_tolerance_mm": "unknown",
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "shoulder_thrust",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "feature nominal diameter",
           "doc_mm",
           "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none",
           "sourced feature diameter tolerance/acceptance threshold"
         ],
         "operation": "face",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6695,6 +6689,7 @@
         "plan.setups[S1].hold.stickout_mm; ops[70].doc_mm/feed_mm_rev",
         "features.features.shoulder_od: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
@@ -6702,10 +6697,10 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:70: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "message": "S1:70: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": [
           9.49,
           10.51
@@ -6713,35 +6708,30 @@
         "diameter_mm": 10.0,
         "diameter_tolerance_mm": 0.5099999999999998,
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "shoulder_od",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "doc_mm",
-          "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none"
+          "feed_mm_rev"
         ],
         "operation": "finish_turn",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6784,6 +6774,7 @@
         "plan.setups[S1].hold.stickout_mm; ops[80].doc_mm/feed_mm_rev",
         "features.features.north_relief: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
@@ -6791,10 +6782,10 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:80: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "message": "S1:80: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": [
           5.57,
           5.83
@@ -6802,35 +6793,30 @@
         "diameter_mm": 5.7,
         "diameter_tolerance_mm": 0.1299999999999999,
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "north_relief",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "doc_mm",
-          "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none"
+          "feed_mm_rev"
         ],
         "operation": "form_relief",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6847,6 +6833,7 @@
         "plan.setups[S1].hold.stickout_mm; ops[90].doc_mm/feed_mm_rev",
         "features.features.south_relief: declared nominal diameter and dia acceptance band",
         "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
@@ -6854,10 +6841,10 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:90: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, declared/resolved tailstock or steady support, or explicit none.",
+      "message": "S1:90: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
         "deflection_mm": "unknown",
-        "denominator_coefficient": "unknown",
+        "denominator_coefficient": 48,
         "dia_band_mm": [
           5.57,
           5.83
@@ -6865,35 +6852,30 @@
         "diameter_mm": 5.7,
         "diameter_tolerance_mm": 0.1299999999999999,
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "south_relief",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "doc_mm",
-          "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
-          "declared/resolved tailstock or steady support, or explicit none"
+          "feed_mm_rev"
         ],
         "operation": "form_relief",
         "stickout_mm": 191.0,
-        "support_status": "unknown",
+        "support_status": "pass",
         "supports": [
           {
             "kind": "accessory",
             "reference": "dead_centre_tailstock_mt3",
             "source": "inventory selected machine accessories",
-            "status": "unknown"
+            "status": "pass"
           }
         ],
         "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
@@ -6909,9 +6891,10 @@
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S2].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
         "features.features.north_dome: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row"
+        "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
       ],
-      "message": "S2:10: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S2:10: Static deflection is unknown; needs feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
       "numbers": {
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
@@ -6919,25 +6902,21 @@
         "diameter_mm": "unknown",
         "diameter_tolerance_mm": "unknown",
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "north_dome",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "feature nominal diameter",
           "doc_mm",
           "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
           "sourced feature diameter tolerance/acceptance threshold"
         ],
         "operation": "face",
@@ -6957,9 +6936,10 @@
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S2].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
         "features.features.north_dome: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row"
+        "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
       ],
-      "message": "S2:20: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S2:20: Static deflection is unknown; needs feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
       "numbers": {
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
@@ -6967,25 +6947,21 @@
         "diameter_mm": "unknown",
         "diameter_tolerance_mm": "unknown",
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "north_dome",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "feature nominal diameter",
           "doc_mm",
           "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
           "sourced feature diameter tolerance/acceptance threshold"
         ],
         "operation": "form_dome",
@@ -7018,9 +6994,10 @@
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S3].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
         "features.features.south_dome: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row"
+        "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
       ],
-      "message": "S3:10: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, stickout_mm, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S3:10: Static deflection is unknown; needs stickout_mm, feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
       "numbers": {
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
@@ -7028,26 +7005,22 @@
         "diameter_mm": "unknown",
         "diameter_tolerance_mm": "unknown",
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "south_dome",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "stickout_mm",
           "feature nominal diameter",
           "doc_mm",
           "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
           "sourced feature diameter tolerance/acceptance threshold"
         ],
         "operation": "cut_to_fit",
@@ -7080,9 +7053,10 @@
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S3].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
         "features.features.south_dome: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row"
+        "cutting-data aliases and unique material row",
+        "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
       ],
-      "message": "S3:20: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, stickout_mm, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S3:20: Static deflection is unknown; needs stickout_mm, feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
       "numbers": {
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
@@ -7090,26 +7064,22 @@
         "diameter_mm": "unknown",
         "diameter_tolerance_mm": "unknown",
         "doc_mm": "unknown",
-        "e_gpa": "unknown",
+        "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
         "feature": "south_dome",
         "feature_units": "mm",
         "feed_mm_rev": "unknown",
         "force_n": "unknown",
         "inertia_mm4": "unknown",
-        "kc_n_per_mm2": "unknown",
+        "kc_n_per_mm2": 1900.0,
         "material": "AISI 1018 cold-finished steel bar, Ø10",
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
-          "one cited cutting-data material row",
           "stickout_mm",
           "feature nominal diameter",
           "doc_mm",
           "feed_mm_rev",
-          "kc_n_per_mm2",
-          "e_gpa",
           "sourced feature diameter tolerance/acceptance threshold"
         ],
         "operation": "form_dome",
@@ -7433,11 +7403,11 @@
       "subject": "S3"
     }
   ],
-  "hash": "7118a773ca8a59d56996c5a79e4c51599af7eae82c2a8bc0204b589edd3f0a4e",
+  "hash": "01aaae475c9ec353505dc0b343ad91223ba1b75e74b9cd57d66cfdbfd671e01a",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
     },
     "features": {
       "path": "examples/pivot-shaft/features.toml",
@@ -7445,7 +7415,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
+      "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
@@ -7453,7 +7423,7 @@
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
-      "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+      "sha256": "ee9edc7968b1d9f2fe4792fc26fc113e71eb4d62c9d69559a3f4c28bd0c5e041"
     },
     "step": {
       "path": "examples/pivot-shaft/pivot-shaft.STEP",
