@@ -181,3 +181,19 @@ def test_hold_text_has_no_pose_vectors(tmp_path):
         words = text(hold)
         assert "origin" not in words and "pose" not in words
         assert not re.search(r"-?\d+(?:\.\d+)? / -?\d+(?:\.\d+)? / -?\d+", words)
+
+
+def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
+    # The job page is read first; it must never look clear over a stopped setup.
+    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    stopped = [
+        re.match(r"\s*SETUP (\S+)", page)[1]
+        for page in html.split("<h2>")[1:]
+        if page.startswith("SETUP ") and '<div class="stop">' in page
+    ]
+    assert stopped
+    job = sections(html, "JOB STATUS")[0]
+    box = job[job.index('<div class="stop">') :]
+    box = box[: box.index("</div>")]
+    for setup in stopped:
+        assert re.search(rf"\b{setup}\b", text(box))
