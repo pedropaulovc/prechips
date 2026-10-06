@@ -529,8 +529,9 @@ jaws_along = "not_applicable"
 parallels = "not_applicable"
 supports = "not_applicable"      # the plate assembly includes the load-bearing foot-end ledge
 clamps = [
-  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, note = "bridge underside on the finished foot top; force +Y toward the seat/angle plate, two studs at Setup X +/-20 through the upright, rear nuts behind it; bar maximum Setup Z -9.65" },
-]
+  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "bridge underside on the finished foot top; force +Y toward the seat/angle plate, two studs at Setup X +/-20 through the upright, rear nuts behind it; bar maximum Setup Z -9.65" },
+]                                # torque_nm: AUTHOR'S CHOICE, firm hand torque on the 3/8-16 front nuts for a 6 mm foot
+clamp_order = [1]
 method = "strap_clamps"
 clamp = "shop-made two-stud bridge tightened on the free foot, reacting through rear washers and nuts against the angle plate"
 grip_mm = "not_applicable"       # bridge contact, not vise jaws
@@ -651,3 +652,10 @@ height = "height-gauge"
 
 [setups.ops.inspection_methods]
 height = "After release, seat datum A on the surface plate with the 6.500 mm go pin in the bore. Measure the pin top and subtract half the pin diameter; accept the 25.1-25.3 mm centre height."
+
+[[setups.ops]]
+op = 60
+do = "coating"
+feature = "foot_profile"         # the whole part goes out; the outer L profile names it on the sheet
+process = "black-oxide-vendor"
+note = "After release, the edge break and the bore and height checks, send the part out for black oxide as the drawing calls for. The finish adds about 1 µm or less, well inside the 0.03 mm bore band."
