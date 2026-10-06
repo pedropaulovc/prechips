@@ -112,7 +112,7 @@ Shared inputs:
   The generic `Plain Carbon Steel` alias is a candidate classification, not a
   sourced grade or measured carbon content; no material-property claim follows.
 
-Current expected consumer CLI exits are **0 / 2 / 2 / 2** for shaft,
+Current expected consumer CLI exits are **0 / 0 / 0 / 0** for shaft,
 rocker, bracket and cone built-up respectively.
 Existing inspection choices follow the exported feature
 owners, using separate inspection steps where needed, without changing gauges or
@@ -124,7 +124,7 @@ PLAN §8 M3.
 | Part | What it demonstrates | Current exit |
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
-| `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (last CLI proof)**: all four native fixtures are modeled without fixture debts. Exit-0 still needs complete explicit-face ownership and legal cutter poses; S4's cut-state render is separately blocked by the engine's blanket stock-split guard despite independently held part and scrap. Checked-in goldens remain stale. |
+| `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **0 (native CLI proof)**: check and traveler have no error, unknown, warning or unsupported findings; all four native fixture scenes are modeled with no fixture or render debts. Printed contour targets are checked against the actual material and holding geometry. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all three native fixture scenes are modeled with no fixture or render debts. |
 | `cone-pivot-post/built-up.toml` | Eleven setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0 (native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all eleven fixture scenes are modeled with exact components and no fixture or render debts. |
 
@@ -134,27 +134,30 @@ The illustrative rocker plan binds the exported `v40` drawing revision and
 uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
 a clean checker exit is released-plan approval or a measured first article.
 
-The checked-in rocker artifacts are the last actual required-kernel CLI
-snapshot, generated with integration `f5c8182` before the positive-restraint
-declarations and corrected tip-turnover corridors below. They are stale against
-those newer inputs and must be regenerated after the engine contracts land.
-That stopped snapshot records exit **2**: 189 passes, 165 not-applicable
-findings, eleven accessibility errors and one unresolved datum-transfer finding,
-with no warnings or unsupported findings. All four fixtures are modeled with
-exact components and no fixture
-debts; S1/S2/S3 have no render debts. S4 still explicitly shows arriving stock
-only because the current stock-split guard rejects separating the retained
-scrap frame from the independently clamped part. This needs
-positive-holding-aware stock derivation, not permission for uncontrolled loose
-pieces. Complete explicit-face ownership and legal cutter-centre/occluder
-correction also remain engine-owned. Senior-machinist review of the actual
-traveler additionally caught direction-blind contour order: S1/S4 right-hand
-joins direct a climb pass, while the rolled S2 basis requires the left-hand join
-and its outer-arc rows reversed instead. Top-edge arcs and S2 hub circles also
-need local-frame-aware conventional traversal. The source fix must honor the
-actual local outward normal and CW spindle, preserving the CCW pin preload on C.
-Fresh exit-0/all-scene output with that direction issue fixed is the acceptance
-proof; these stopped artifacts are not an approved or complete pilot.
+Actual required-kernel CLI output with the material-aware checkpoint contract
+records check and traveler exit **0**: **201 passes and 165 not-applicable
+findings**, with no errors, unknowns, warnings or unsupported findings. The
+rendered traveler has no unresolved question-mark captions or stop symbols.
+The integration coordinator regenerates the checked-in goldens from actual
+composed-source CLI output; the acceptance numbers are not hand-edited targets.
+
+| Setup | Native fixture scene | Exact components | Fixture debts | Render debts |
+|---|---|---:|---|---|
+| S1 | Vise jaws, parallels, risers and magnetic positioning stop | 11 / 11 | none | none |
+| S2 | The retained-rail vise hold plus two passive support jacks | 19 / 19 | none | none |
+| S3 | Profile plate, support pads, hub stand, rail rests, stepped straps and permanent clocking pin | 43 / 43 | none | none |
+| S4 | The same plate and supports, shoulder screw/washer, clocking pin and four independent scrap-rail clamps | 53 / 53 | none | none |
+
+Every printed contour checkpoint uses the same three-decimal DRO target in
+the operation row and contour header, with tip Z rounded upward. Native
+cutter checks protect finished material and the declared leave, fixtures,
+stock outside the operation's clearing authority, and stock needed by later
+holding. Material-aware clips end a fragment at first protected-stock contact;
+separate fragments are never silently reconnected. Join captions print the
+actual 0.200 mm rough leave, and traversal follows the CW spindle and each
+setup's local outward normal. S4's cut-state picture includes the legal
+separation of the independently held part and scrap frame, not arriving stock
+with an unresolved split.
 
 The four holding states are explicit, rather than pretending a clamp can move
 halfway through a fixed setup:
@@ -169,15 +172,15 @@ halfway through a fixed setup:
   the top is +0.20 mm and the 0.05 mm paper pickup is set to +0.25 mm.
   The rocker-only rougher is inserted to a 38.0 mm projection, below the
   four-diameter engagement limit; the shared finish cutter retains 38.5 mm.
-  Before rough-contouring the end lands, open their tip-turnover pockets within
-  op 40's **Y27 / rolled Y-27** clearing corridor. The native wall-normal
-  roughing samples reach Y26.9581 / Y-26.9581 with the full cutter, beyond the old
-  Y24 / Y-24 limit but inside op 50's already authorized top-edge pocket.
+  The emitted clipped joins themselves open the authorized tip-turnover
+  corridor; there is no separate unlisted pocket. Follow the numbered tables
+  in local cutting order: **-X join → bottom arc → +X join** in S1/S4 and
+  **+X join → arc → -X join** in rolled S2. Ramp in from scrap at the first
+  waypoint, make the listed single conventional pass, and retract clear of
+  stock and fixturing before repositioning between disconnected fragments.
   Native bounded-removal proof preserves both raw rails, both ears, the normal
-  0.20 mm allowance and the opposed 0.40 mm web; moving that clearance earlier
-  does not change the setup's final stock. This does not certify the current
-  emitted offset-join checkpoints: their extended upper joins nick the retained
-  rails and require an engine-owned finite-path fix and native point validation.
+  0.20 mm allowance and the opposed 0.40 mm web; opening this corridor does not
+  change the setup's final stock.
   Opposed roughing retains a 0.40 mm connecting web. The 1/2 in parallels sit
   entirely beneath the rails
   on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance
