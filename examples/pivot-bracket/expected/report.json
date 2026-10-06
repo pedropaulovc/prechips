@@ -1,5 +1,5 @@
 {
-  "expected_exit": 2,
+  "expected_exit": 0,
   "findings": [
     {
       "cite": [
@@ -18,10 +18,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S1:10: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 51,
+        "certain_tool_hits": 0,
         "flute_len_mm": 22.2,
         "holder_gauge_len_mm": 6.0,
         "holder_hits": 0,
@@ -29,10 +29,10 @@
         "projection_mm": 38.5,
         "radius_mm": 4.7625,
         "sample_count": 51,
-        "tool_hits": 51
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:10"
     },
     {
@@ -120,13 +120,21 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S2:10: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 24
+        "certain_tool_hits": 0,
+        "flute_len_mm": 31.75,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 37.0,
+        "radius_mm": 4.7625,
+        "sample_count": 44,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:10"
     },
     {
@@ -146,40 +154,22 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S2:20: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 24
+        "certain_tool_hits": 0,
+        "flute_len_mm": 31.75,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 37.0,
+        "radius_mm": 4.7625,
+        "sample_count": 44,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:20"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 accessibility",
-        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.foot_top: faces and requirements",
-        "example (plausible, no dimensioned drawing)",
-        "plan.setups.S2: frame and hold",
-        "inventory.fixtures.vise-pm-6: declared dimensions",
-        "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
-        "plan.frames.TB: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "pivot-bracket.STEP",
-        "plan.setups.S2.ops.30: selected action/tool/holder",
-        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S2:30: selected cutter or holder is certainly occluded by part/fixture material.",
-      "numbers": {
-        "certain_holder_hits": 0,
-        "certain_tool_hits": 24
-      },
-      "rule": "accessibility",
-      "status": "error",
-      "subject": "S2:30"
     },
     {
       "cite": [
@@ -198,10 +188,21 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:40: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 31.75,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 37.0,
+        "radius_mm": 4.7625,
+        "sample_count": 39,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:40"
     },
     {
@@ -221,10 +222,21 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:45: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:45: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 31.75,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 37.0,
+        "radius_mm": 4.7625,
+        "sample_count": 39,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:45"
     },
     {
@@ -244,10 +256,21 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:50: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 31.75,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 37.0,
+        "radius_mm": 4.7625,
+        "sample_count": 39,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:50"
     },
     {
@@ -267,11 +290,56 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:55: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:55: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 31.75,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 37.0,
+        "radius_mm": 4.7625,
+        "sample_count": 39,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.foot_top: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.56: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:56: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 31.75,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 37.0,
+        "radius_mm": 4.7625,
+        "sample_count": 53,
+        "tool_hits": 0
+      },
+      "rule": "accessibility",
+      "status": "pass",
+      "subject": "S2:56"
     },
     {
       "cite": [
@@ -290,13 +358,21 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:60: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S2:60: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
-        "certain_holder_hits": 14,
-        "certain_tool_hits": 64
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 15.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 31.0,
+        "radius_mm": 4.7625,
+        "sample_count": 66,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:60"
     },
     {
@@ -316,10 +392,21 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:70: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:70: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 54.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 62.0,
+        "radius_mm": 2.286,
+        "sample_count": 78,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:70"
     },
     {
@@ -339,13 +426,21 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:80: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S2:80: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
-        "certain_holder_hits": 14,
-        "certain_tool_hits": 62
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 15.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 31.0,
+        "radius_mm": 4.7625,
+        "sample_count": 66,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:80"
     },
     {
@@ -365,10 +460,21 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:90: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:90: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 54.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 62.0,
+        "radius_mm": 2.286,
+        "sample_count": 78,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:90"
     },
     {
@@ -386,10 +492,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:10: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 55,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:10"
     },
     {
@@ -426,10 +543,25 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:15: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:15: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "checkpoint_count": 19,
+        "checkpoint_errors": [],
+        "checkpoint_hits": 0,
+        "checkpoint_overshoot_ok": [],
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 39,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:15"
     },
     {
@@ -447,10 +579,25 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:20: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "checkpoint_count": 19,
+        "checkpoint_errors": [],
+        "checkpoint_hits": 0,
+        "checkpoint_overshoot_ok": [],
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 39,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:20"
     },
     {
@@ -468,13 +615,21 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S3:30: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 64
+        "certain_tool_hits": 0,
+        "flute_len_mm": 15.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 31.0,
+        "radius_mm": 4.7625,
+        "sample_count": 70,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S3:30"
     },
     {
@@ -492,10 +647,21 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:40: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 69.9,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 81.0,
+        "radius_mm": 3.175,
+        "sample_count": 74,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:40"
     },
     {
@@ -513,13 +679,21 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:50: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S3:50: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 66
+        "certain_tool_hits": 0,
+        "flute_len_mm": 26.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 72.0,
+        "radius_mm": 3.256,
+        "sample_count": 74,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S3:50"
     },
     {
@@ -666,7 +840,7 @@
         "endpoints": [
           {
             "depth_mm": 0.6,
-            "entry_from": "S2 op 30 to_z",
+            "entry_from": "S2 op 56 to_z",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
             "feature": "hold_down_a",
@@ -676,7 +850,7 @@
             "tip_z": -0.6
           },
           {
-            "entry_from": "S2 op 30 to_z",
+            "entry_from": "S2 op 56 to_z",
             "entry_z": 0.0,
             "exit_face": -6.0,
             "exit_mm": 2.0,
@@ -706,7 +880,7 @@
         "endpoints": [
           {
             "depth_mm": 0.6,
-            "entry_from": "S2 op 30 to_z",
+            "entry_from": "S2 op 56 to_z",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
             "feature": "hold_down_b",
@@ -716,7 +890,7 @@
             "tip_z": -0.6
           },
           {
-            "entry_from": "S2 op 30 to_z",
+            "entry_from": "S2 op 56 to_z",
             "entry_z": 0.0,
             "exit_face": -6.0,
             "exit_mm": 2.0,
@@ -775,19 +949,19 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "cde1c1023e0c88b7f0442d3bd3772d5dfd7230fbc88dce33c743197057877caa"
+            "sha256": "fccc2e77df569c590521faf0c746d0954a87b429994f2496a93668ff8f59fc34"
           },
           "features": {
             "path": "examples/pivot-bracket/features.toml",
-            "sha256": "efa07a8a7b0789165951458d23587a9d5925edb44599c476e9d52e56a0c6f454"
+            "sha256": "1c9305a5c5047f4a3e6e0756e77051eee9a88c6dea64b56a7fc74b052c413539"
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "14da67d43c7601b645aaa18ee2291a872ec67af4b7b7bf2c88946c5340d32fcc"
+            "sha256": "ef14e1216157cd4942831811f416ccdd9644e9487c6cd681e947b9b83d9d5a39"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
-            "sha256": "14ad9b4a4a4f6c02206fc41a21e5c8f1d14cb7762fe19434c246a85435d01842"
+            "sha256": "4d34f0471e3d75cb01f672e4084fdbf39f09b8102cbea2fae0e18236b6f03f5c"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -832,6 +1006,10 @@
         "arc_table": [],
         "binding": "nominal",
         "contours": [],
+        "dro_grid": {
+          "decimals": 3,
+          "step": 0.005
+        },
         "entry_surfaces": [
           {
             "op": 10
@@ -849,6 +1027,7 @@
           {
             "direction": "conventional",
             "do": "face",
+            "dro_to_z": 0.0,
             "feature": "seat_face",
             "op": 10,
             "to_z": 0.0,
@@ -857,6 +1036,7 @@
           {
             "direction": "conventional",
             "do": "rough_profile",
+            "dro_to_z": -6.0,
             "feature": "foot_profile",
             "op": 20,
             "rough_allowance_mm": 0.3,
@@ -866,6 +1046,7 @@
           {
             "direction": "conventional",
             "do": "finish_profile",
+            "dro_to_z": -6.0,
             "feature": "foot_profile",
             "op": 30,
             "to_z": -6.0,
@@ -878,6 +1059,7 @@
               "method": "linear_table",
               "step_mm": 1.0
             },
+            "cut_order": "conventional",
             "cutter_centre": [
               [
                 -13.0625,
@@ -901,11 +1083,13 @@
               ]
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": -6.0,
             "entry_z": 0.0,
             "feature": "foot_profile",
             "offset_mm": 5.0625,
             "op": 20,
             "rough_allowance_mm": 0.3,
+            "spindle_rotation": "cw",
             "stage": "rough",
             "to_z": -6.0,
             "tool": "endmills-lms-6784/3-8in-4fl",
@@ -918,6 +1102,7 @@
               "method": "linear_table",
               "step_mm": 1.0
             },
+            "cut_order": "conventional",
             "cutter_centre": [
               [
                 -12.7625,
@@ -941,11 +1126,13 @@
               ]
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": -6.0,
             "entry_z": 0.0,
             "feature": "foot_profile",
             "offset_mm": 4.7625,
             "op": 30,
             "rough_allowance_mm": "not_applicable",
+            "spindle_rotation": "cw",
             "stage": "finish",
             "to_z": -6.0,
             "tool": "endmills-lms-6784/3-8in-4fl",
@@ -975,6 +1162,10 @@
         "arc_table": [],
         "binding": "nominal",
         "contours": [],
+        "dro_grid": {
+          "decimals": 3,
+          "step": 0.005
+        },
         "entry_surfaces": [
           {
             "ear_relief": 0.3,
@@ -994,47 +1185,47 @@
           },
           {
             "ear_relief": 0.1,
-            "ear_sides": 27.2,
-            "foot_top": 0.0,
-            "hold_down_a": 0.0,
-            "hold_down_b": 0.0,
-            "op": 30
-          },
-          {
-            "ear_relief": 0.1,
             "ear_sides": 0.3,
-            "foot_top": 0.0,
-            "hold_down_a": 0.0,
-            "hold_down_b": 0.0,
+            "foot_top": 0.1,
+            "hold_down_a": 0.1,
+            "hold_down_b": 0.1,
             "op": 40
           },
           {
             "ear_relief": 0.1,
             "ear_sides": 0.3,
-            "foot_top": 0.0,
-            "hold_down_a": 0.0,
-            "hold_down_b": 0.0,
+            "foot_top": 0.1,
+            "hold_down_a": 0.1,
+            "hold_down_b": 0.1,
             "op": 45
           },
           {
             "ear_relief": 0.1,
-            "ear_sides": 0.0,
-            "foot_top": 0.0,
-            "hold_down_a": 0.0,
-            "hold_down_b": 0.0,
+            "ear_sides": 0.1,
+            "foot_top": 0.1,
+            "hold_down_a": 0.1,
+            "hold_down_b": 0.1,
             "op": 50
           },
           {
             "ear_relief": 0.1,
-            "ear_sides": 0.0,
-            "foot_top": 0.0,
-            "hold_down_a": 0.0,
-            "hold_down_b": 0.0,
+            "ear_sides": 0.1,
+            "foot_top": 0.1,
+            "hold_down_a": 0.1,
+            "hold_down_b": 0.1,
             "op": 55
           },
           {
             "ear_relief": 0.1,
-            "ear_sides": 0.0,
+            "ear_sides": 0.1,
+            "foot_top": 0.0,
+            "hold_down_a": 0.0,
+            "hold_down_b": 0.0,
+            "op": 56
+          },
+          {
+            "ear_relief": 0.1,
+            "ear_sides": 0.1,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
@@ -1042,7 +1233,7 @@
           },
           {
             "ear_relief": 0.1,
-            "ear_sides": 0.0,
+            "ear_sides": 0.1,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
@@ -1050,7 +1241,7 @@
           },
           {
             "ear_relief": 0.1,
-            "ear_sides": 0.0,
+            "ear_sides": 0.1,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
@@ -1058,7 +1249,7 @@
           },
           {
             "ear_relief": 0.1,
-            "ear_sides": 0.0,
+            "ear_sides": 0.1,
             "foot_top": 0.0,
             "hold_down_a": 0.0,
             "hold_down_b": 0.0,
@@ -1071,6 +1262,7 @@
           {
             "direction": "conventional",
             "do": "rough_pocket",
+            "dro_to_z": 0.3,
             "feature": "ear_relief",
             "op": 10,
             "rough_allowance_mm": 0.3,
@@ -1080,6 +1272,7 @@
           {
             "direction": "conventional",
             "do": "finish_pocket",
+            "dro_to_z": 0.1,
             "feature": "ear_relief",
             "op": 20,
             "to_z": 0.1,
@@ -1087,15 +1280,8 @@
           },
           {
             "direction": "conventional",
-            "do": "face",
-            "feature": "foot_top",
-            "op": 30,
-            "to_z": 0.0,
-            "tool": "bracket-long-endmill"
-          },
-          {
-            "direction": "conventional",
             "do": "rough_pocket",
+            "dro_to_z": 0.3,
             "feature": "ear_sides",
             "op": 40,
             "rough_allowance_mm": 0.3,
@@ -1105,6 +1291,7 @@
           {
             "direction": "conventional",
             "do": "rough_pocket",
+            "dro_to_z": 0.3,
             "feature": "ear_sides",
             "op": 45,
             "rough_allowance_mm": 0.3,
@@ -1114,16 +1301,27 @@
           {
             "direction": "conventional",
             "do": "finish_pocket",
+            "dro_to_z": 0.1,
             "feature": "ear_sides",
             "op": 50,
-            "to_z": 0.0,
+            "to_z": 0.1,
             "tool": "bracket-long-endmill"
           },
           {
             "direction": "conventional",
             "do": "finish_pocket",
+            "dro_to_z": 0.1,
             "feature": "ear_sides",
             "op": 55,
+            "to_z": 0.1,
+            "tool": "bracket-long-endmill"
+          },
+          {
+            "direction": "conventional",
+            "do": "face",
+            "dro_to_z": 0.0,
+            "feature": "foot_top",
+            "op": 56,
             "to_z": 0.0,
             "tool": "bracket-long-endmill"
           },
@@ -1377,6 +1575,7 @@
               ]
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": 0.3,
             "entry_z": 27.2,
             "feature": "ear_relief",
             "offset_mm": 5.0625,
@@ -1623,6 +1822,7 @@
               ]
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": 0.1,
             "entry_z": 0.3,
             "feature": "ear_relief",
             "offset_mm": 4.7625,
@@ -1689,6 +1889,7 @@
               ]
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": 0.3,
             "entry_z": 27.2,
             "feature": "ear_sides",
             "offset_mm": 5.0625,
@@ -1755,6 +1956,7 @@
               ]
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": 0.3,
             "entry_z": 0.3,
             "feature": "ear_sides",
             "offset_mm": 5.0625,
@@ -1821,13 +2023,14 @@
               ]
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": 0.1,
             "entry_z": 0.3,
             "feature": "ear_sides",
             "offset_mm": 4.7625,
             "op": 50,
             "rough_allowance_mm": "not_applicable",
             "stage": "finish",
-            "to_z": 0.0,
+            "to_z": 0.1,
             "tool": "bracket-long-endmill",
             "tool_dia": 9.525,
             "tool_dia_basis": "selected member nominal, not measured",
@@ -1887,13 +2090,14 @@
               ]
             ],
             "cutter_radius_mm": 4.7625,
-            "entry_z": 0.0,
+            "dro_to_z": 0.1,
+            "entry_z": 0.1,
             "feature": "ear_sides",
             "offset_mm": 4.7625,
             "op": 55,
             "rough_allowance_mm": "not_applicable",
             "stage": "finish",
-            "to_z": 0.0,
+            "to_z": 0.1,
             "tool": "bracket-long-endmill",
             "tool_dia": 9.525,
             "tool_dia_basis": "selected member nominal, not measured",
@@ -1957,7 +2161,10 @@
               0.0,
               -25.2
             ],
+            "cut_order": "conventional",
             "cutter_centre_radius_mm": 12.0625,
+            "cutter_side": "right",
+            "dro_tip_z": -5.7,
             "feature": "ear_arch",
             "interpolation": "straight chords at authored step, exact offset joins included",
             "max_chord_sagitta_mm": 0.04590145426831936,
@@ -1967,245 +2174,31 @@
             "radius_mm": 12.0625,
             "rows": [
               {
-                "angle_deg": 0.0,
+                "angle_deg": 180.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -12.065,
+                  -25.2
+                ],
                 "model_xy": [
-                  12.0625,
+                  -12.0625,
                   25.2
                 ],
                 "setup_xy": [
-                  12.0625,
+                  -12.0625,
                   -25.2
                 ],
                 "tip_z": -5.7,
-                "x": 12.0625,
+                "x": -12.0625,
                 "y": -25.2
               },
               {
-                "angle_deg": 10.0,
-                "model_xy": [
-                  11.879243520709759,
-                  27.294631143107345
-                ],
-                "setup_xy": [
-                  11.879243520709759,
-                  -27.294631143107345
-                ],
-                "tip_z": -5.7,
-                "x": 11.879243520709759,
-                "y": -27.294631143107345
-              },
-              {
-                "angle_deg": 20.0,
-                "model_xy": [
-                  11.33504223823002,
-                  29.32561797886588
-                ],
-                "setup_xy": [
-                  11.33504223823002,
-                  -29.32561797886588
-                ],
-                "tip_z": -5.7,
-                "x": 11.33504223823002,
-                "y": -29.32561797886588
-              },
-              {
-                "angle_deg": 30.0,
-                "model_xy": [
-                  10.446431433149792,
-                  31.23125
-                ],
-                "setup_xy": [
-                  10.446431433149792,
-                  -31.23125
-                ],
-                "tip_z": -5.7,
-                "x": 10.446431433149792,
-                "y": -31.23125
-              },
-              {
-                "angle_deg": 40.0,
-                "model_xy": [
-                  9.240411095122672,
-                  32.95362554184388
-                ],
-                "setup_xy": [
-                  9.240411095122672,
-                  -32.95362554184388
-                ],
-                "tip_z": -5.7,
-                "x": 9.240411095122672,
-                "y": -32.95362554184388
-              },
-              {
-                "angle_deg": 50.0,
-                "model_xy": [
-                  7.753625541843881,
-                  34.44041109512267
-                ],
-                "setup_xy": [
-                  7.753625541843881,
-                  -34.44041109512267
-                ],
-                "tip_z": -5.7,
-                "x": 7.753625541843881,
-                "y": -34.44041109512267
-              },
-              {
-                "angle_deg": 60.0,
-                "model_xy": [
-                  6.031250000000002,
-                  35.646431433149786
-                ],
-                "setup_xy": [
-                  6.031250000000002,
-                  -35.646431433149786
-                ],
-                "tip_z": -5.7,
-                "x": 6.031250000000002,
-                "y": -35.646431433149786
-              },
-              {
-                "angle_deg": 70.0,
-                "model_xy": [
-                  4.12561797886588,
-                  36.53504223823002
-                ],
-                "setup_xy": [
-                  4.12561797886588,
-                  -36.53504223823002
-                ],
-                "tip_z": -5.7,
-                "x": 4.12561797886588,
-                "y": -36.53504223823002
-              },
-              {
-                "angle_deg": 80.0,
-                "model_xy": [
-                  2.0946311431073483,
-                  37.07924352070976
-                ],
-                "setup_xy": [
-                  2.0946311431073483,
-                  -37.07924352070976
-                ],
-                "tip_z": -5.7,
-                "x": 2.0946311431073483,
-                "y": -37.07924352070976
-              },
-              {
-                "angle_deg": 90.0,
-                "model_xy": [
-                  7.386151007357474e-16,
-                  37.2625
-                ],
-                "setup_xy": [
-                  7.386151007357474e-16,
-                  -37.2625
-                ],
-                "tip_z": -5.7,
-                "x": 7.386151007357474e-16,
-                "y": -37.2625
-              },
-              {
-                "angle_deg": 100.0,
-                "model_xy": [
-                  -2.094631143107347,
-                  37.07924352070976
-                ],
-                "setup_xy": [
-                  -2.094631143107347,
-                  -37.07924352070976
-                ],
-                "tip_z": -5.7,
-                "x": -2.094631143107347,
-                "y": -37.07924352070976
-              },
-              {
-                "angle_deg": 110.0,
-                "model_xy": [
-                  -4.125617978865879,
-                  36.53504223823002
-                ],
-                "setup_xy": [
-                  -4.125617978865879,
-                  -36.53504223823002
-                ],
-                "tip_z": -5.7,
-                "x": -4.125617978865879,
-                "y": -36.53504223823002
-              },
-              {
-                "angle_deg": 120.0,
-                "model_xy": [
-                  -6.031249999999997,
-                  35.64643143314979
-                ],
-                "setup_xy": [
-                  -6.031249999999997,
-                  -35.64643143314979
-                ],
-                "tip_z": -5.7,
-                "x": -6.031249999999997,
-                "y": -35.64643143314979
-              },
-              {
-                "angle_deg": 130.0,
-                "model_xy": [
-                  -7.753625541843881,
-                  34.44041109512267
-                ],
-                "setup_xy": [
-                  -7.753625541843881,
-                  -34.44041109512267
-                ],
-                "tip_z": -5.7,
-                "x": -7.753625541843881,
-                "y": -34.44041109512267
-              },
-              {
-                "angle_deg": 140.0,
-                "model_xy": [
-                  -9.24041109512267,
-                  32.953625541843884
-                ],
-                "setup_xy": [
-                  -9.24041109512267,
-                  -32.953625541843884
-                ],
-                "tip_z": -5.7,
-                "x": -9.24041109512267,
-                "y": -32.953625541843884
-              },
-              {
-                "angle_deg": 150.0,
-                "model_xy": [
-                  -10.446431433149792,
-                  31.23125
-                ],
-                "setup_xy": [
-                  -10.446431433149792,
-                  -31.23125
-                ],
-                "tip_z": -5.7,
-                "x": -10.446431433149792,
-                "y": -31.23125
-              },
-              {
-                "angle_deg": 160.0,
-                "model_xy": [
-                  -11.335042238230018,
-                  29.32561797886588
-                ],
-                "setup_xy": [
-                  -11.335042238230018,
-                  -29.32561797886588
-                ],
-                "tip_z": -5.7,
-                "x": -11.335042238230018,
-                "y": -29.32561797886588
-              },
-              {
                 "angle_deg": 170.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -11.88,
+                  -27.295
+                ],
                 "model_xy": [
                   -11.879243520709759,
                   27.294631143107345
@@ -2219,20 +2212,331 @@
                 "y": -27.294631143107345
               },
               {
-                "angle_deg": 180.0,
+                "angle_deg": 160.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -11.335,
+                  -29.33
+                ],
                 "model_xy": [
-                  -12.0625,
+                  -11.335042238230018,
+                  29.32561797886588
+                ],
+                "setup_xy": [
+                  -11.335042238230018,
+                  -29.32561797886588
+                ],
+                "tip_z": -5.7,
+                "x": -11.335042238230018,
+                "y": -29.32561797886588
+              },
+              {
+                "angle_deg": 150.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -10.45,
+                  -31.23
+                ],
+                "model_xy": [
+                  -10.446431433149792,
+                  31.23125
+                ],
+                "setup_xy": [
+                  -10.446431433149792,
+                  -31.23125
+                ],
+                "tip_z": -5.7,
+                "x": -10.446431433149792,
+                "y": -31.23125
+              },
+              {
+                "angle_deg": 140.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -9.24,
+                  -32.955
+                ],
+                "model_xy": [
+                  -9.24041109512267,
+                  32.953625541843884
+                ],
+                "setup_xy": [
+                  -9.24041109512267,
+                  -32.953625541843884
+                ],
+                "tip_z": -5.7,
+                "x": -9.24041109512267,
+                "y": -32.953625541843884
+              },
+              {
+                "angle_deg": 130.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -7.755,
+                  -34.44
+                ],
+                "model_xy": [
+                  -7.753625541843881,
+                  34.44041109512267
+                ],
+                "setup_xy": [
+                  -7.753625541843881,
+                  -34.44041109512267
+                ],
+                "tip_z": -5.7,
+                "x": -7.753625541843881,
+                "y": -34.44041109512267
+              },
+              {
+                "angle_deg": 120.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -6.03,
+                  -35.65
+                ],
+                "model_xy": [
+                  -6.031249999999997,
+                  35.64643143314979
+                ],
+                "setup_xy": [
+                  -6.031249999999997,
+                  -35.64643143314979
+                ],
+                "tip_z": -5.7,
+                "x": -6.031249999999997,
+                "y": -35.64643143314979
+              },
+              {
+                "angle_deg": 110.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -4.13,
+                  -36.535
+                ],
+                "model_xy": [
+                  -4.125617978865879,
+                  36.53504223823002
+                ],
+                "setup_xy": [
+                  -4.125617978865879,
+                  -36.53504223823002
+                ],
+                "tip_z": -5.7,
+                "x": -4.125617978865879,
+                "y": -36.53504223823002
+              },
+              {
+                "angle_deg": 100.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -2.095,
+                  -37.08
+                ],
+                "model_xy": [
+                  -2.094631143107347,
+                  37.07924352070976
+                ],
+                "setup_xy": [
+                  -2.094631143107347,
+                  -37.07924352070976
+                ],
+                "tip_z": -5.7,
+                "x": -2.094631143107347,
+                "y": -37.07924352070976
+              },
+              {
+                "angle_deg": 90.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  0.0,
+                  -37.265
+                ],
+                "model_xy": [
+                  7.386151007357474e-16,
+                  37.2625
+                ],
+                "setup_xy": [
+                  7.386151007357474e-16,
+                  -37.2625
+                ],
+                "tip_z": -5.7,
+                "x": 7.386151007357474e-16,
+                "y": -37.2625
+              },
+              {
+                "angle_deg": 80.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  2.095,
+                  -37.08
+                ],
+                "model_xy": [
+                  2.0946311431073483,
+                  37.07924352070976
+                ],
+                "setup_xy": [
+                  2.0946311431073483,
+                  -37.07924352070976
+                ],
+                "tip_z": -5.7,
+                "x": 2.0946311431073483,
+                "y": -37.07924352070976
+              },
+              {
+                "angle_deg": 70.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  4.13,
+                  -36.535
+                ],
+                "model_xy": [
+                  4.12561797886588,
+                  36.53504223823002
+                ],
+                "setup_xy": [
+                  4.12561797886588,
+                  -36.53504223823002
+                ],
+                "tip_z": -5.7,
+                "x": 4.12561797886588,
+                "y": -36.53504223823002
+              },
+              {
+                "angle_deg": 60.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  6.03,
+                  -35.65
+                ],
+                "model_xy": [
+                  6.031250000000002,
+                  35.646431433149786
+                ],
+                "setup_xy": [
+                  6.031250000000002,
+                  -35.646431433149786
+                ],
+                "tip_z": -5.7,
+                "x": 6.031250000000002,
+                "y": -35.646431433149786
+              },
+              {
+                "angle_deg": 50.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  7.755,
+                  -34.44
+                ],
+                "model_xy": [
+                  7.753625541843881,
+                  34.44041109512267
+                ],
+                "setup_xy": [
+                  7.753625541843881,
+                  -34.44041109512267
+                ],
+                "tip_z": -5.7,
+                "x": 7.753625541843881,
+                "y": -34.44041109512267
+              },
+              {
+                "angle_deg": 40.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  9.24,
+                  -32.955
+                ],
+                "model_xy": [
+                  9.240411095122672,
+                  32.95362554184388
+                ],
+                "setup_xy": [
+                  9.240411095122672,
+                  -32.95362554184388
+                ],
+                "tip_z": -5.7,
+                "x": 9.240411095122672,
+                "y": -32.95362554184388
+              },
+              {
+                "angle_deg": 30.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  10.45,
+                  -31.23
+                ],
+                "model_xy": [
+                  10.446431433149792,
+                  31.23125
+                ],
+                "setup_xy": [
+                  10.446431433149792,
+                  -31.23125
+                ],
+                "tip_z": -5.7,
+                "x": 10.446431433149792,
+                "y": -31.23125
+              },
+              {
+                "angle_deg": 20.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  11.335,
+                  -29.33
+                ],
+                "model_xy": [
+                  11.33504223823002,
+                  29.32561797886588
+                ],
+                "setup_xy": [
+                  11.33504223823002,
+                  -29.32561797886588
+                ],
+                "tip_z": -5.7,
+                "x": 11.33504223823002,
+                "y": -29.32561797886588
+              },
+              {
+                "angle_deg": 10.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  11.88,
+                  -27.295
+                ],
+                "model_xy": [
+                  11.879243520709759,
+                  27.294631143107345
+                ],
+                "setup_xy": [
+                  11.879243520709759,
+                  -27.294631143107345
+                ],
+                "tip_z": -5.7,
+                "x": 11.879243520709759,
+                "y": -27.294631143107345
+              },
+              {
+                "angle_deg": 0.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  12.065,
+                  -25.2
+                ],
+                "model_xy": [
+                  12.0625,
                   25.2
                 ],
                 "setup_xy": [
-                  -12.0625,
+                  12.0625,
                   -25.2
                 ],
                 "tip_z": -5.7,
-                "x": -12.0625,
+                "x": 12.0625,
                 "y": -25.2
               }
             ],
+            "sequence": 0,
+            "spindle_rotation": "cw",
             "stage": "rough",
             "step_deg": 10.0,
             "tip_z": -5.7
@@ -2248,7 +2552,10 @@
               0.0,
               -25.2
             ],
+            "cut_order": "conventional",
             "cutter_centre_radius_mm": 11.7625,
+            "cutter_side": "right",
+            "dro_tip_z": -6.0,
             "feature": "ear_arch",
             "interpolation": "straight chords at authored step, exact offset joins included",
             "max_chord_sagitta_mm": 0.04475986369584302,
@@ -2258,245 +2565,31 @@
             "radius_mm": 11.7625,
             "rows": [
               {
-                "angle_deg": 0.0,
+                "angle_deg": 180.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -11.765,
+                  -25.2
+                ],
                 "model_xy": [
-                  11.7625,
+                  -11.7625,
                   25.2
                 ],
                 "setup_xy": [
-                  11.7625,
+                  -11.7625,
                   -25.2
                 ],
                 "tip_z": -6.0,
-                "x": 11.7625,
+                "x": -11.7625,
                 "y": -25.2
               },
               {
-                "angle_deg": 10.0,
-                "model_xy": [
-                  11.583801194806096,
-                  27.242536689807267
-                ],
-                "setup_xy": [
-                  11.583801194806096,
-                  -27.242536689807267
-                ],
-                "tip_z": -6.0,
-                "x": 11.583801194806096,
-                "y": -27.242536689807267
-              },
-              {
-                "angle_deg": 20.0,
-                "model_xy": [
-                  11.053134451994246,
-                  29.22301193586818
-                ],
-                "setup_xy": [
-                  11.053134451994246,
-                  -29.22301193586818
-                ],
-                "tip_z": -6.0,
-                "x": 11.053134451994246,
-                "y": -29.22301193586818
-              },
-              {
-                "angle_deg": 30.0,
-                "model_xy": [
-                  10.18662381201446,
-                  31.081249999999997
-                ],
-                "setup_xy": [
-                  10.18662381201446,
-                  -31.081249999999997
-                ],
-                "tip_z": -6.0,
-                "x": 10.18662381201446,
-                "y": -31.081249999999997
-              },
-              {
-                "angle_deg": 40.0,
-                "model_xy": [
-                  9.010597762186979,
-                  32.76078925893792
-                ],
-                "setup_xy": [
-                  9.010597762186979,
-                  -32.76078925893792
-                ],
-                "tip_z": -6.0,
-                "x": 9.010597762186979,
-                "y": -32.76078925893792
-              },
-              {
-                "angle_deg": 50.0,
-                "model_xy": [
-                  7.560789258937919,
-                  34.21059776218698
-                ],
-                "setup_xy": [
-                  7.560789258937919,
-                  -34.21059776218698
-                ],
-                "tip_z": -6.0,
-                "x": 7.560789258937919,
-                "y": -34.21059776218698
-              },
-              {
-                "angle_deg": 60.0,
-                "model_xy": [
-                  5.8812500000000005,
-                  35.386623812014456
-                ],
-                "setup_xy": [
-                  5.8812500000000005,
-                  -35.386623812014456
-                ],
-                "tip_z": -6.0,
-                "x": 5.8812500000000005,
-                "y": -35.386623812014456
-              },
-              {
-                "angle_deg": 70.0,
-                "model_xy": [
-                  4.02301193586818,
-                  36.25313445199424
-                ],
-                "setup_xy": [
-                  4.02301193586818,
-                  -36.25313445199424
-                ],
-                "tip_z": -6.0,
-                "x": 4.02301193586818,
-                "y": -36.25313445199424
-              },
-              {
-                "angle_deg": 80.0,
-                "model_xy": [
-                  2.0425366898072688,
-                  36.783801194806095
-                ],
-                "setup_xy": [
-                  2.0425366898072688,
-                  -36.783801194806095
-                ],
-                "tip_z": -6.0,
-                "x": 2.0425366898072688,
-                "y": -36.783801194806095
-              },
-              {
-                "angle_deg": 90.0,
-                "model_xy": [
-                  7.20245398748537e-16,
-                  36.9625
-                ],
-                "setup_xy": [
-                  7.20245398748537e-16,
-                  -36.9625
-                ],
-                "tip_z": -6.0,
-                "x": 7.20245398748537e-16,
-                "y": -36.9625
-              },
-              {
-                "angle_deg": 100.0,
-                "model_xy": [
-                  -2.0425366898072674,
-                  36.783801194806095
-                ],
-                "setup_xy": [
-                  -2.0425366898072674,
-                  -36.783801194806095
-                ],
-                "tip_z": -6.0,
-                "x": -2.0425366898072674,
-                "y": -36.783801194806095
-              },
-              {
-                "angle_deg": 110.0,
-                "model_xy": [
-                  -4.023011935868178,
-                  36.25313445199424
-                ],
-                "setup_xy": [
-                  -4.023011935868178,
-                  -36.25313445199424
-                ],
-                "tip_z": -6.0,
-                "x": -4.023011935868178,
-                "y": -36.25313445199424
-              },
-              {
-                "angle_deg": 120.0,
-                "model_xy": [
-                  -5.881249999999997,
-                  35.38662381201446
-                ],
-                "setup_xy": [
-                  -5.881249999999997,
-                  -35.38662381201446
-                ],
-                "tip_z": -6.0,
-                "x": -5.881249999999997,
-                "y": -35.38662381201446
-              },
-              {
-                "angle_deg": 130.0,
-                "model_xy": [
-                  -7.560789258937919,
-                  34.21059776218698
-                ],
-                "setup_xy": [
-                  -7.560789258937919,
-                  -34.21059776218698
-                ],
-                "tip_z": -6.0,
-                "x": -7.560789258937919,
-                "y": -34.21059776218698
-              },
-              {
-                "angle_deg": 140.0,
-                "model_xy": [
-                  -9.010597762186977,
-                  32.76078925893792
-                ],
-                "setup_xy": [
-                  -9.010597762186977,
-                  -32.76078925893792
-                ],
-                "tip_z": -6.0,
-                "x": -9.010597762186977,
-                "y": -32.76078925893792
-              },
-              {
-                "angle_deg": 150.0,
-                "model_xy": [
-                  -10.18662381201446,
-                  31.081249999999997
-                ],
-                "setup_xy": [
-                  -10.18662381201446,
-                  -31.081249999999997
-                ],
-                "tip_z": -6.0,
-                "x": -10.18662381201446,
-                "y": -31.081249999999997
-              },
-              {
-                "angle_deg": 160.0,
-                "model_xy": [
-                  -11.053134451994246,
-                  29.22301193586818
-                ],
-                "setup_xy": [
-                  -11.053134451994246,
-                  -29.22301193586818
-                ],
-                "tip_z": -6.0,
-                "x": -11.053134451994246,
-                "y": -29.22301193586818
-              },
-              {
                 "angle_deg": 170.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -11.585,
+                  -27.245
+                ],
                 "model_xy": [
                   -11.583801194806096,
                   27.242536689807267
@@ -2510,20 +2603,331 @@
                 "y": -27.242536689807267
               },
               {
-                "angle_deg": 180.0,
+                "angle_deg": 160.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -11.055,
+                  -29.225
+                ],
                 "model_xy": [
-                  -11.7625,
+                  -11.053134451994246,
+                  29.22301193586818
+                ],
+                "setup_xy": [
+                  -11.053134451994246,
+                  -29.22301193586818
+                ],
+                "tip_z": -6.0,
+                "x": -11.053134451994246,
+                "y": -29.22301193586818
+              },
+              {
+                "angle_deg": 150.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -10.19,
+                  -31.08
+                ],
+                "model_xy": [
+                  -10.18662381201446,
+                  31.081249999999997
+                ],
+                "setup_xy": [
+                  -10.18662381201446,
+                  -31.081249999999997
+                ],
+                "tip_z": -6.0,
+                "x": -10.18662381201446,
+                "y": -31.081249999999997
+              },
+              {
+                "angle_deg": 140.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -9.01,
+                  -32.765
+                ],
+                "model_xy": [
+                  -9.010597762186977,
+                  32.76078925893792
+                ],
+                "setup_xy": [
+                  -9.010597762186977,
+                  -32.76078925893792
+                ],
+                "tip_z": -6.0,
+                "x": -9.010597762186977,
+                "y": -32.76078925893792
+              },
+              {
+                "angle_deg": 130.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -7.565,
+                  -34.21
+                ],
+                "model_xy": [
+                  -7.560789258937919,
+                  34.21059776218698
+                ],
+                "setup_xy": [
+                  -7.560789258937919,
+                  -34.21059776218698
+                ],
+                "tip_z": -6.0,
+                "x": -7.560789258937919,
+                "y": -34.21059776218698
+              },
+              {
+                "angle_deg": 120.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -5.88,
+                  -35.39
+                ],
+                "model_xy": [
+                  -5.881249999999997,
+                  35.38662381201446
+                ],
+                "setup_xy": [
+                  -5.881249999999997,
+                  -35.38662381201446
+                ],
+                "tip_z": -6.0,
+                "x": -5.881249999999997,
+                "y": -35.38662381201446
+              },
+              {
+                "angle_deg": 110.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -4.025,
+                  -36.255
+                ],
+                "model_xy": [
+                  -4.023011935868178,
+                  36.25313445199424
+                ],
+                "setup_xy": [
+                  -4.023011935868178,
+                  -36.25313445199424
+                ],
+                "tip_z": -6.0,
+                "x": -4.023011935868178,
+                "y": -36.25313445199424
+              },
+              {
+                "angle_deg": 100.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -2.045,
+                  -36.785
+                ],
+                "model_xy": [
+                  -2.0425366898072674,
+                  36.783801194806095
+                ],
+                "setup_xy": [
+                  -2.0425366898072674,
+                  -36.783801194806095
+                ],
+                "tip_z": -6.0,
+                "x": -2.0425366898072674,
+                "y": -36.783801194806095
+              },
+              {
+                "angle_deg": 90.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  0.0,
+                  -36.965
+                ],
+                "model_xy": [
+                  7.20245398748537e-16,
+                  36.9625
+                ],
+                "setup_xy": [
+                  7.20245398748537e-16,
+                  -36.9625
+                ],
+                "tip_z": -6.0,
+                "x": 7.20245398748537e-16,
+                "y": -36.9625
+              },
+              {
+                "angle_deg": 80.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  2.045,
+                  -36.785
+                ],
+                "model_xy": [
+                  2.0425366898072688,
+                  36.783801194806095
+                ],
+                "setup_xy": [
+                  2.0425366898072688,
+                  -36.783801194806095
+                ],
+                "tip_z": -6.0,
+                "x": 2.0425366898072688,
+                "y": -36.783801194806095
+              },
+              {
+                "angle_deg": 70.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  4.025,
+                  -36.255
+                ],
+                "model_xy": [
+                  4.02301193586818,
+                  36.25313445199424
+                ],
+                "setup_xy": [
+                  4.02301193586818,
+                  -36.25313445199424
+                ],
+                "tip_z": -6.0,
+                "x": 4.02301193586818,
+                "y": -36.25313445199424
+              },
+              {
+                "angle_deg": 60.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  5.88,
+                  -35.39
+                ],
+                "model_xy": [
+                  5.8812500000000005,
+                  35.386623812014456
+                ],
+                "setup_xy": [
+                  5.8812500000000005,
+                  -35.386623812014456
+                ],
+                "tip_z": -6.0,
+                "x": 5.8812500000000005,
+                "y": -35.386623812014456
+              },
+              {
+                "angle_deg": 50.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  7.565,
+                  -34.21
+                ],
+                "model_xy": [
+                  7.560789258937919,
+                  34.21059776218698
+                ],
+                "setup_xy": [
+                  7.560789258937919,
+                  -34.21059776218698
+                ],
+                "tip_z": -6.0,
+                "x": 7.560789258937919,
+                "y": -34.21059776218698
+              },
+              {
+                "angle_deg": 40.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  9.01,
+                  -32.765
+                ],
+                "model_xy": [
+                  9.010597762186979,
+                  32.76078925893792
+                ],
+                "setup_xy": [
+                  9.010597762186979,
+                  -32.76078925893792
+                ],
+                "tip_z": -6.0,
+                "x": 9.010597762186979,
+                "y": -32.76078925893792
+              },
+              {
+                "angle_deg": 30.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  10.19,
+                  -31.08
+                ],
+                "model_xy": [
+                  10.18662381201446,
+                  31.081249999999997
+                ],
+                "setup_xy": [
+                  10.18662381201446,
+                  -31.081249999999997
+                ],
+                "tip_z": -6.0,
+                "x": 10.18662381201446,
+                "y": -31.081249999999997
+              },
+              {
+                "angle_deg": 20.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  11.055,
+                  -29.225
+                ],
+                "model_xy": [
+                  11.053134451994246,
+                  29.22301193586818
+                ],
+                "setup_xy": [
+                  11.053134451994246,
+                  -29.22301193586818
+                ],
+                "tip_z": -6.0,
+                "x": 11.053134451994246,
+                "y": -29.22301193586818
+              },
+              {
+                "angle_deg": 10.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  11.585,
+                  -27.245
+                ],
+                "model_xy": [
+                  11.583801194806096,
+                  27.242536689807267
+                ],
+                "setup_xy": [
+                  11.583801194806096,
+                  -27.242536689807267
+                ],
+                "tip_z": -6.0,
+                "x": 11.583801194806096,
+                "y": -27.242536689807267
+              },
+              {
+                "angle_deg": 0.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  11.765,
+                  -25.2
+                ],
+                "model_xy": [
+                  11.7625,
                   25.2
                 ],
                 "setup_xy": [
-                  -11.7625,
+                  11.7625,
                   -25.2
                 ],
                 "tip_z": -6.0,
-                "x": -11.7625,
+                "x": 11.7625,
                 "y": -25.2
               }
             ],
+            "sequence": 0,
+            "spindle_rotation": "cw",
             "stage": "finish",
             "step_deg": 10.0,
             "tip_z": -6.0
@@ -2531,6 +2935,10 @@
         ],
         "binding": "nominal",
         "contours": [],
+        "dro_grid": {
+          "decimals": 3,
+          "step": 0.005
+        },
         "entry_surfaces": [
           {
             "cross_bore": 0.0,
@@ -2574,6 +2982,7 @@
           {
             "direction": "conventional",
             "do": "face",
+            "dro_to_z": 0.0,
             "feature": "outer_face",
             "op": 10,
             "to_z": 0.0,
@@ -2587,6 +2996,7 @@
           {
             "direction": "conventional",
             "do": "rough_profile",
+            "dro_to_z": -5.7,
             "feature": "ear_arch",
             "op": 15,
             "rough_allowance_mm": 0.3,
@@ -2596,6 +3006,7 @@
           {
             "direction": "conventional",
             "do": "finish_profile",
+            "dro_to_z": -6.0,
             "feature": "ear_arch",
             "op": 20,
             "to_z": -6.0,
@@ -2628,245 +3039,31 @@
             },
             "cutter_centre": [
               {
-                "angle_deg": 0.0,
+                "angle_deg": 180.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -12.065,
+                  -25.2
+                ],
                 "model_xy": [
-                  12.0625,
+                  -12.0625,
                   25.2
                 ],
                 "setup_xy": [
-                  12.0625,
+                  -12.0625,
                   -25.2
                 ],
                 "tip_z": -5.7,
-                "x": 12.0625,
+                "x": -12.0625,
                 "y": -25.2
               },
               {
-                "angle_deg": 10.0,
-                "model_xy": [
-                  11.879243520709759,
-                  27.294631143107345
-                ],
-                "setup_xy": [
-                  11.879243520709759,
-                  -27.294631143107345
-                ],
-                "tip_z": -5.7,
-                "x": 11.879243520709759,
-                "y": -27.294631143107345
-              },
-              {
-                "angle_deg": 20.0,
-                "model_xy": [
-                  11.33504223823002,
-                  29.32561797886588
-                ],
-                "setup_xy": [
-                  11.33504223823002,
-                  -29.32561797886588
-                ],
-                "tip_z": -5.7,
-                "x": 11.33504223823002,
-                "y": -29.32561797886588
-              },
-              {
-                "angle_deg": 30.0,
-                "model_xy": [
-                  10.446431433149792,
-                  31.23125
-                ],
-                "setup_xy": [
-                  10.446431433149792,
-                  -31.23125
-                ],
-                "tip_z": -5.7,
-                "x": 10.446431433149792,
-                "y": -31.23125
-              },
-              {
-                "angle_deg": 40.0,
-                "model_xy": [
-                  9.240411095122672,
-                  32.95362554184388
-                ],
-                "setup_xy": [
-                  9.240411095122672,
-                  -32.95362554184388
-                ],
-                "tip_z": -5.7,
-                "x": 9.240411095122672,
-                "y": -32.95362554184388
-              },
-              {
-                "angle_deg": 50.0,
-                "model_xy": [
-                  7.753625541843881,
-                  34.44041109512267
-                ],
-                "setup_xy": [
-                  7.753625541843881,
-                  -34.44041109512267
-                ],
-                "tip_z": -5.7,
-                "x": 7.753625541843881,
-                "y": -34.44041109512267
-              },
-              {
-                "angle_deg": 60.0,
-                "model_xy": [
-                  6.031250000000002,
-                  35.646431433149786
-                ],
-                "setup_xy": [
-                  6.031250000000002,
-                  -35.646431433149786
-                ],
-                "tip_z": -5.7,
-                "x": 6.031250000000002,
-                "y": -35.646431433149786
-              },
-              {
-                "angle_deg": 70.0,
-                "model_xy": [
-                  4.12561797886588,
-                  36.53504223823002
-                ],
-                "setup_xy": [
-                  4.12561797886588,
-                  -36.53504223823002
-                ],
-                "tip_z": -5.7,
-                "x": 4.12561797886588,
-                "y": -36.53504223823002
-              },
-              {
-                "angle_deg": 80.0,
-                "model_xy": [
-                  2.0946311431073483,
-                  37.07924352070976
-                ],
-                "setup_xy": [
-                  2.0946311431073483,
-                  -37.07924352070976
-                ],
-                "tip_z": -5.7,
-                "x": 2.0946311431073483,
-                "y": -37.07924352070976
-              },
-              {
-                "angle_deg": 90.0,
-                "model_xy": [
-                  7.386151007357474e-16,
-                  37.2625
-                ],
-                "setup_xy": [
-                  7.386151007357474e-16,
-                  -37.2625
-                ],
-                "tip_z": -5.7,
-                "x": 7.386151007357474e-16,
-                "y": -37.2625
-              },
-              {
-                "angle_deg": 100.0,
-                "model_xy": [
-                  -2.094631143107347,
-                  37.07924352070976
-                ],
-                "setup_xy": [
-                  -2.094631143107347,
-                  -37.07924352070976
-                ],
-                "tip_z": -5.7,
-                "x": -2.094631143107347,
-                "y": -37.07924352070976
-              },
-              {
-                "angle_deg": 110.0,
-                "model_xy": [
-                  -4.125617978865879,
-                  36.53504223823002
-                ],
-                "setup_xy": [
-                  -4.125617978865879,
-                  -36.53504223823002
-                ],
-                "tip_z": -5.7,
-                "x": -4.125617978865879,
-                "y": -36.53504223823002
-              },
-              {
-                "angle_deg": 120.0,
-                "model_xy": [
-                  -6.031249999999997,
-                  35.64643143314979
-                ],
-                "setup_xy": [
-                  -6.031249999999997,
-                  -35.64643143314979
-                ],
-                "tip_z": -5.7,
-                "x": -6.031249999999997,
-                "y": -35.64643143314979
-              },
-              {
-                "angle_deg": 130.0,
-                "model_xy": [
-                  -7.753625541843881,
-                  34.44041109512267
-                ],
-                "setup_xy": [
-                  -7.753625541843881,
-                  -34.44041109512267
-                ],
-                "tip_z": -5.7,
-                "x": -7.753625541843881,
-                "y": -34.44041109512267
-              },
-              {
-                "angle_deg": 140.0,
-                "model_xy": [
-                  -9.24041109512267,
-                  32.953625541843884
-                ],
-                "setup_xy": [
-                  -9.24041109512267,
-                  -32.953625541843884
-                ],
-                "tip_z": -5.7,
-                "x": -9.24041109512267,
-                "y": -32.953625541843884
-              },
-              {
-                "angle_deg": 150.0,
-                "model_xy": [
-                  -10.446431433149792,
-                  31.23125
-                ],
-                "setup_xy": [
-                  -10.446431433149792,
-                  -31.23125
-                ],
-                "tip_z": -5.7,
-                "x": -10.446431433149792,
-                "y": -31.23125
-              },
-              {
-                "angle_deg": 160.0,
-                "model_xy": [
-                  -11.335042238230018,
-                  29.32561797886588
-                ],
-                "setup_xy": [
-                  -11.335042238230018,
-                  -29.32561797886588
-                ],
-                "tip_z": -5.7,
-                "x": -11.335042238230018,
-                "y": -29.32561797886588
-              },
-              {
                 "angle_deg": 170.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -11.88,
+                  -27.295
+                ],
                 "model_xy": [
                   -11.879243520709759,
                   27.294631143107345
@@ -2880,21 +3077,331 @@
                 "y": -27.294631143107345
               },
               {
-                "angle_deg": 180.0,
+                "angle_deg": 160.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -11.335,
+                  -29.33
+                ],
                 "model_xy": [
-                  -12.0625,
+                  -11.335042238230018,
+                  29.32561797886588
+                ],
+                "setup_xy": [
+                  -11.335042238230018,
+                  -29.32561797886588
+                ],
+                "tip_z": -5.7,
+                "x": -11.335042238230018,
+                "y": -29.32561797886588
+              },
+              {
+                "angle_deg": 150.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -10.45,
+                  -31.23
+                ],
+                "model_xy": [
+                  -10.446431433149792,
+                  31.23125
+                ],
+                "setup_xy": [
+                  -10.446431433149792,
+                  -31.23125
+                ],
+                "tip_z": -5.7,
+                "x": -10.446431433149792,
+                "y": -31.23125
+              },
+              {
+                "angle_deg": 140.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -9.24,
+                  -32.955
+                ],
+                "model_xy": [
+                  -9.24041109512267,
+                  32.953625541843884
+                ],
+                "setup_xy": [
+                  -9.24041109512267,
+                  -32.953625541843884
+                ],
+                "tip_z": -5.7,
+                "x": -9.24041109512267,
+                "y": -32.953625541843884
+              },
+              {
+                "angle_deg": 130.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -7.755,
+                  -34.44
+                ],
+                "model_xy": [
+                  -7.753625541843881,
+                  34.44041109512267
+                ],
+                "setup_xy": [
+                  -7.753625541843881,
+                  -34.44041109512267
+                ],
+                "tip_z": -5.7,
+                "x": -7.753625541843881,
+                "y": -34.44041109512267
+              },
+              {
+                "angle_deg": 120.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -6.03,
+                  -35.65
+                ],
+                "model_xy": [
+                  -6.031249999999997,
+                  35.64643143314979
+                ],
+                "setup_xy": [
+                  -6.031249999999997,
+                  -35.64643143314979
+                ],
+                "tip_z": -5.7,
+                "x": -6.031249999999997,
+                "y": -35.64643143314979
+              },
+              {
+                "angle_deg": 110.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -4.13,
+                  -36.535
+                ],
+                "model_xy": [
+                  -4.125617978865879,
+                  36.53504223823002
+                ],
+                "setup_xy": [
+                  -4.125617978865879,
+                  -36.53504223823002
+                ],
+                "tip_z": -5.7,
+                "x": -4.125617978865879,
+                "y": -36.53504223823002
+              },
+              {
+                "angle_deg": 100.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  -2.095,
+                  -37.08
+                ],
+                "model_xy": [
+                  -2.094631143107347,
+                  37.07924352070976
+                ],
+                "setup_xy": [
+                  -2.094631143107347,
+                  -37.07924352070976
+                ],
+                "tip_z": -5.7,
+                "x": -2.094631143107347,
+                "y": -37.07924352070976
+              },
+              {
+                "angle_deg": 90.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  0.0,
+                  -37.265
+                ],
+                "model_xy": [
+                  7.386151007357474e-16,
+                  37.2625
+                ],
+                "setup_xy": [
+                  7.386151007357474e-16,
+                  -37.2625
+                ],
+                "tip_z": -5.7,
+                "x": 7.386151007357474e-16,
+                "y": -37.2625
+              },
+              {
+                "angle_deg": 80.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  2.095,
+                  -37.08
+                ],
+                "model_xy": [
+                  2.0946311431073483,
+                  37.07924352070976
+                ],
+                "setup_xy": [
+                  2.0946311431073483,
+                  -37.07924352070976
+                ],
+                "tip_z": -5.7,
+                "x": 2.0946311431073483,
+                "y": -37.07924352070976
+              },
+              {
+                "angle_deg": 70.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  4.13,
+                  -36.535
+                ],
+                "model_xy": [
+                  4.12561797886588,
+                  36.53504223823002
+                ],
+                "setup_xy": [
+                  4.12561797886588,
+                  -36.53504223823002
+                ],
+                "tip_z": -5.7,
+                "x": 4.12561797886588,
+                "y": -36.53504223823002
+              },
+              {
+                "angle_deg": 60.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  6.03,
+                  -35.65
+                ],
+                "model_xy": [
+                  6.031250000000002,
+                  35.646431433149786
+                ],
+                "setup_xy": [
+                  6.031250000000002,
+                  -35.646431433149786
+                ],
+                "tip_z": -5.7,
+                "x": 6.031250000000002,
+                "y": -35.646431433149786
+              },
+              {
+                "angle_deg": 50.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  7.755,
+                  -34.44
+                ],
+                "model_xy": [
+                  7.753625541843881,
+                  34.44041109512267
+                ],
+                "setup_xy": [
+                  7.753625541843881,
+                  -34.44041109512267
+                ],
+                "tip_z": -5.7,
+                "x": 7.753625541843881,
+                "y": -34.44041109512267
+              },
+              {
+                "angle_deg": 40.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  9.24,
+                  -32.955
+                ],
+                "model_xy": [
+                  9.240411095122672,
+                  32.95362554184388
+                ],
+                "setup_xy": [
+                  9.240411095122672,
+                  -32.95362554184388
+                ],
+                "tip_z": -5.7,
+                "x": 9.240411095122672,
+                "y": -32.95362554184388
+              },
+              {
+                "angle_deg": 30.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  10.45,
+                  -31.23
+                ],
+                "model_xy": [
+                  10.446431433149792,
+                  31.23125
+                ],
+                "setup_xy": [
+                  10.446431433149792,
+                  -31.23125
+                ],
+                "tip_z": -5.7,
+                "x": 10.446431433149792,
+                "y": -31.23125
+              },
+              {
+                "angle_deg": 20.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  11.335,
+                  -29.33
+                ],
+                "model_xy": [
+                  11.33504223823002,
+                  29.32561797886588
+                ],
+                "setup_xy": [
+                  11.33504223823002,
+                  -29.32561797886588
+                ],
+                "tip_z": -5.7,
+                "x": 11.33504223823002,
+                "y": -29.32561797886588
+              },
+              {
+                "angle_deg": 10.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  11.88,
+                  -27.295
+                ],
+                "model_xy": [
+                  11.879243520709759,
+                  27.294631143107345
+                ],
+                "setup_xy": [
+                  11.879243520709759,
+                  -27.294631143107345
+                ],
+                "tip_z": -5.7,
+                "x": 11.879243520709759,
+                "y": -27.294631143107345
+              },
+              {
+                "angle_deg": 0.0,
+                "dro_tip_z": -5.7,
+                "dro_xy": [
+                  12.065,
+                  -25.2
+                ],
+                "model_xy": [
+                  12.0625,
                   25.2
                 ],
                 "setup_xy": [
-                  -12.0625,
+                  12.0625,
                   -25.2
                 ],
                 "tip_z": -5.7,
-                "x": -12.0625,
+                "x": 12.0625,
                 "y": -25.2
               }
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": -5.7,
             "entry_z": 0.0,
             "feature": "ear_arch",
             "offset_mm": 5.0625,
@@ -2914,245 +3421,31 @@
             },
             "cutter_centre": [
               {
-                "angle_deg": 0.0,
+                "angle_deg": 180.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -11.765,
+                  -25.2
+                ],
                 "model_xy": [
-                  11.7625,
+                  -11.7625,
                   25.2
                 ],
                 "setup_xy": [
-                  11.7625,
+                  -11.7625,
                   -25.2
                 ],
                 "tip_z": -6.0,
-                "x": 11.7625,
+                "x": -11.7625,
                 "y": -25.2
               },
               {
-                "angle_deg": 10.0,
-                "model_xy": [
-                  11.583801194806096,
-                  27.242536689807267
-                ],
-                "setup_xy": [
-                  11.583801194806096,
-                  -27.242536689807267
-                ],
-                "tip_z": -6.0,
-                "x": 11.583801194806096,
-                "y": -27.242536689807267
-              },
-              {
-                "angle_deg": 20.0,
-                "model_xy": [
-                  11.053134451994246,
-                  29.22301193586818
-                ],
-                "setup_xy": [
-                  11.053134451994246,
-                  -29.22301193586818
-                ],
-                "tip_z": -6.0,
-                "x": 11.053134451994246,
-                "y": -29.22301193586818
-              },
-              {
-                "angle_deg": 30.0,
-                "model_xy": [
-                  10.18662381201446,
-                  31.081249999999997
-                ],
-                "setup_xy": [
-                  10.18662381201446,
-                  -31.081249999999997
-                ],
-                "tip_z": -6.0,
-                "x": 10.18662381201446,
-                "y": -31.081249999999997
-              },
-              {
-                "angle_deg": 40.0,
-                "model_xy": [
-                  9.010597762186979,
-                  32.76078925893792
-                ],
-                "setup_xy": [
-                  9.010597762186979,
-                  -32.76078925893792
-                ],
-                "tip_z": -6.0,
-                "x": 9.010597762186979,
-                "y": -32.76078925893792
-              },
-              {
-                "angle_deg": 50.0,
-                "model_xy": [
-                  7.560789258937919,
-                  34.21059776218698
-                ],
-                "setup_xy": [
-                  7.560789258937919,
-                  -34.21059776218698
-                ],
-                "tip_z": -6.0,
-                "x": 7.560789258937919,
-                "y": -34.21059776218698
-              },
-              {
-                "angle_deg": 60.0,
-                "model_xy": [
-                  5.8812500000000005,
-                  35.386623812014456
-                ],
-                "setup_xy": [
-                  5.8812500000000005,
-                  -35.386623812014456
-                ],
-                "tip_z": -6.0,
-                "x": 5.8812500000000005,
-                "y": -35.386623812014456
-              },
-              {
-                "angle_deg": 70.0,
-                "model_xy": [
-                  4.02301193586818,
-                  36.25313445199424
-                ],
-                "setup_xy": [
-                  4.02301193586818,
-                  -36.25313445199424
-                ],
-                "tip_z": -6.0,
-                "x": 4.02301193586818,
-                "y": -36.25313445199424
-              },
-              {
-                "angle_deg": 80.0,
-                "model_xy": [
-                  2.0425366898072688,
-                  36.783801194806095
-                ],
-                "setup_xy": [
-                  2.0425366898072688,
-                  -36.783801194806095
-                ],
-                "tip_z": -6.0,
-                "x": 2.0425366898072688,
-                "y": -36.783801194806095
-              },
-              {
-                "angle_deg": 90.0,
-                "model_xy": [
-                  7.20245398748537e-16,
-                  36.9625
-                ],
-                "setup_xy": [
-                  7.20245398748537e-16,
-                  -36.9625
-                ],
-                "tip_z": -6.0,
-                "x": 7.20245398748537e-16,
-                "y": -36.9625
-              },
-              {
-                "angle_deg": 100.0,
-                "model_xy": [
-                  -2.0425366898072674,
-                  36.783801194806095
-                ],
-                "setup_xy": [
-                  -2.0425366898072674,
-                  -36.783801194806095
-                ],
-                "tip_z": -6.0,
-                "x": -2.0425366898072674,
-                "y": -36.783801194806095
-              },
-              {
-                "angle_deg": 110.0,
-                "model_xy": [
-                  -4.023011935868178,
-                  36.25313445199424
-                ],
-                "setup_xy": [
-                  -4.023011935868178,
-                  -36.25313445199424
-                ],
-                "tip_z": -6.0,
-                "x": -4.023011935868178,
-                "y": -36.25313445199424
-              },
-              {
-                "angle_deg": 120.0,
-                "model_xy": [
-                  -5.881249999999997,
-                  35.38662381201446
-                ],
-                "setup_xy": [
-                  -5.881249999999997,
-                  -35.38662381201446
-                ],
-                "tip_z": -6.0,
-                "x": -5.881249999999997,
-                "y": -35.38662381201446
-              },
-              {
-                "angle_deg": 130.0,
-                "model_xy": [
-                  -7.560789258937919,
-                  34.21059776218698
-                ],
-                "setup_xy": [
-                  -7.560789258937919,
-                  -34.21059776218698
-                ],
-                "tip_z": -6.0,
-                "x": -7.560789258937919,
-                "y": -34.21059776218698
-              },
-              {
-                "angle_deg": 140.0,
-                "model_xy": [
-                  -9.010597762186977,
-                  32.76078925893792
-                ],
-                "setup_xy": [
-                  -9.010597762186977,
-                  -32.76078925893792
-                ],
-                "tip_z": -6.0,
-                "x": -9.010597762186977,
-                "y": -32.76078925893792
-              },
-              {
-                "angle_deg": 150.0,
-                "model_xy": [
-                  -10.18662381201446,
-                  31.081249999999997
-                ],
-                "setup_xy": [
-                  -10.18662381201446,
-                  -31.081249999999997
-                ],
-                "tip_z": -6.0,
-                "x": -10.18662381201446,
-                "y": -31.081249999999997
-              },
-              {
-                "angle_deg": 160.0,
-                "model_xy": [
-                  -11.053134451994246,
-                  29.22301193586818
-                ],
-                "setup_xy": [
-                  -11.053134451994246,
-                  -29.22301193586818
-                ],
-                "tip_z": -6.0,
-                "x": -11.053134451994246,
-                "y": -29.22301193586818
-              },
-              {
                 "angle_deg": 170.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -11.585,
+                  -27.245
+                ],
                 "model_xy": [
                   -11.583801194806096,
                   27.242536689807267
@@ -3166,21 +3459,331 @@
                 "y": -27.242536689807267
               },
               {
-                "angle_deg": 180.0,
+                "angle_deg": 160.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -11.055,
+                  -29.225
+                ],
                 "model_xy": [
-                  -11.7625,
+                  -11.053134451994246,
+                  29.22301193586818
+                ],
+                "setup_xy": [
+                  -11.053134451994246,
+                  -29.22301193586818
+                ],
+                "tip_z": -6.0,
+                "x": -11.053134451994246,
+                "y": -29.22301193586818
+              },
+              {
+                "angle_deg": 150.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -10.19,
+                  -31.08
+                ],
+                "model_xy": [
+                  -10.18662381201446,
+                  31.081249999999997
+                ],
+                "setup_xy": [
+                  -10.18662381201446,
+                  -31.081249999999997
+                ],
+                "tip_z": -6.0,
+                "x": -10.18662381201446,
+                "y": -31.081249999999997
+              },
+              {
+                "angle_deg": 140.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -9.01,
+                  -32.765
+                ],
+                "model_xy": [
+                  -9.010597762186977,
+                  32.76078925893792
+                ],
+                "setup_xy": [
+                  -9.010597762186977,
+                  -32.76078925893792
+                ],
+                "tip_z": -6.0,
+                "x": -9.010597762186977,
+                "y": -32.76078925893792
+              },
+              {
+                "angle_deg": 130.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -7.565,
+                  -34.21
+                ],
+                "model_xy": [
+                  -7.560789258937919,
+                  34.21059776218698
+                ],
+                "setup_xy": [
+                  -7.560789258937919,
+                  -34.21059776218698
+                ],
+                "tip_z": -6.0,
+                "x": -7.560789258937919,
+                "y": -34.21059776218698
+              },
+              {
+                "angle_deg": 120.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -5.88,
+                  -35.39
+                ],
+                "model_xy": [
+                  -5.881249999999997,
+                  35.38662381201446
+                ],
+                "setup_xy": [
+                  -5.881249999999997,
+                  -35.38662381201446
+                ],
+                "tip_z": -6.0,
+                "x": -5.881249999999997,
+                "y": -35.38662381201446
+              },
+              {
+                "angle_deg": 110.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -4.025,
+                  -36.255
+                ],
+                "model_xy": [
+                  -4.023011935868178,
+                  36.25313445199424
+                ],
+                "setup_xy": [
+                  -4.023011935868178,
+                  -36.25313445199424
+                ],
+                "tip_z": -6.0,
+                "x": -4.023011935868178,
+                "y": -36.25313445199424
+              },
+              {
+                "angle_deg": 100.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  -2.045,
+                  -36.785
+                ],
+                "model_xy": [
+                  -2.0425366898072674,
+                  36.783801194806095
+                ],
+                "setup_xy": [
+                  -2.0425366898072674,
+                  -36.783801194806095
+                ],
+                "tip_z": -6.0,
+                "x": -2.0425366898072674,
+                "y": -36.783801194806095
+              },
+              {
+                "angle_deg": 90.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  0.0,
+                  -36.965
+                ],
+                "model_xy": [
+                  7.20245398748537e-16,
+                  36.9625
+                ],
+                "setup_xy": [
+                  7.20245398748537e-16,
+                  -36.9625
+                ],
+                "tip_z": -6.0,
+                "x": 7.20245398748537e-16,
+                "y": -36.9625
+              },
+              {
+                "angle_deg": 80.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  2.045,
+                  -36.785
+                ],
+                "model_xy": [
+                  2.0425366898072688,
+                  36.783801194806095
+                ],
+                "setup_xy": [
+                  2.0425366898072688,
+                  -36.783801194806095
+                ],
+                "tip_z": -6.0,
+                "x": 2.0425366898072688,
+                "y": -36.783801194806095
+              },
+              {
+                "angle_deg": 70.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  4.025,
+                  -36.255
+                ],
+                "model_xy": [
+                  4.02301193586818,
+                  36.25313445199424
+                ],
+                "setup_xy": [
+                  4.02301193586818,
+                  -36.25313445199424
+                ],
+                "tip_z": -6.0,
+                "x": 4.02301193586818,
+                "y": -36.25313445199424
+              },
+              {
+                "angle_deg": 60.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  5.88,
+                  -35.39
+                ],
+                "model_xy": [
+                  5.8812500000000005,
+                  35.386623812014456
+                ],
+                "setup_xy": [
+                  5.8812500000000005,
+                  -35.386623812014456
+                ],
+                "tip_z": -6.0,
+                "x": 5.8812500000000005,
+                "y": -35.386623812014456
+              },
+              {
+                "angle_deg": 50.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  7.565,
+                  -34.21
+                ],
+                "model_xy": [
+                  7.560789258937919,
+                  34.21059776218698
+                ],
+                "setup_xy": [
+                  7.560789258937919,
+                  -34.21059776218698
+                ],
+                "tip_z": -6.0,
+                "x": 7.560789258937919,
+                "y": -34.21059776218698
+              },
+              {
+                "angle_deg": 40.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  9.01,
+                  -32.765
+                ],
+                "model_xy": [
+                  9.010597762186979,
+                  32.76078925893792
+                ],
+                "setup_xy": [
+                  9.010597762186979,
+                  -32.76078925893792
+                ],
+                "tip_z": -6.0,
+                "x": 9.010597762186979,
+                "y": -32.76078925893792
+              },
+              {
+                "angle_deg": 30.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  10.19,
+                  -31.08
+                ],
+                "model_xy": [
+                  10.18662381201446,
+                  31.081249999999997
+                ],
+                "setup_xy": [
+                  10.18662381201446,
+                  -31.081249999999997
+                ],
+                "tip_z": -6.0,
+                "x": 10.18662381201446,
+                "y": -31.081249999999997
+              },
+              {
+                "angle_deg": 20.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  11.055,
+                  -29.225
+                ],
+                "model_xy": [
+                  11.053134451994246,
+                  29.22301193586818
+                ],
+                "setup_xy": [
+                  11.053134451994246,
+                  -29.22301193586818
+                ],
+                "tip_z": -6.0,
+                "x": 11.053134451994246,
+                "y": -29.22301193586818
+              },
+              {
+                "angle_deg": 10.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  11.585,
+                  -27.245
+                ],
+                "model_xy": [
+                  11.583801194806096,
+                  27.242536689807267
+                ],
+                "setup_xy": [
+                  11.583801194806096,
+                  -27.242536689807267
+                ],
+                "tip_z": -6.0,
+                "x": 11.583801194806096,
+                "y": -27.242536689807267
+              },
+              {
+                "angle_deg": 0.0,
+                "dro_tip_z": -6.0,
+                "dro_xy": [
+                  11.765,
+                  -25.2
+                ],
+                "model_xy": [
+                  11.7625,
                   25.2
                 ],
                 "setup_xy": [
-                  -11.7625,
+                  11.7625,
                   -25.2
                 ],
                 "tip_z": -6.0,
-                "x": -11.7625,
+                "x": 11.7625,
                 "y": -25.2
               }
             ],
             "cutter_radius_mm": 4.7625,
+            "dro_to_z": -6.0,
             "entry_z": 0.0,
             "feature": "ear_arch",
             "offset_mm": 4.7625,
@@ -3276,11 +3879,11 @@
             "indicated_transfer": true,
             "same_setup": false,
             "status": "pass",
-            "tolerance_mm": "unknown"
+            "tolerance_mm": 0.1999999999999993
           }
         ],
         "same_setup": false,
-        "tolerance_mm": "unknown",
+        "tolerance_mm": 0.1999999999999993,
         "transfer": [
           {
             "from": "S2",
@@ -3289,6 +3892,7 @@
               "foot_top",
               "seat_face"
             ],
+            "runout_limit_mm": 0.0254,
             "tool": "dti"
           }
         ]
@@ -3494,21 +4098,6 @@
       "cite": [
         "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
-      "message": "S2:30: engagement applies only to an endmill cutting operation with an authored DOC.",
-      "numbers": {
-        "holder": "r8-collets-lms-4860/3-8in",
-        "operation": "face",
-        "tool": "bracket-long-endmill",
-        "tool_kind": "endmill"
-      },
-      "rule": "engagement",
-      "status": "not_applicable",
-      "subject": "S2:30"
-    },
-    {
-      "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
-      ],
       "message": "S2:40: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
@@ -3564,6 +4153,21 @@
       "rule": "engagement",
       "status": "not_applicable",
       "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S2:56: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "operation": "face",
+        "tool": "bracket-long-endmill",
+        "tool_kind": "endmill"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S2:56"
     },
     {
       "cite": [
@@ -3866,8 +4470,6 @@
         "plan.setups.S2.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.S2.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.S2.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.45.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -3876,6 +4478,8 @@
         "plan.setups.S2.ops.50: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.55.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.55: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S2.ops.56.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S2.ops.56: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.60.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.60: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.70.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -3945,7 +4549,7 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "lower_margin_mm": 102.61940000000003,
-            "op": 30,
+            "op": 40,
             "spindle_nose_table_band_mm": [
               163.57940000000002,
               195.7794
@@ -3965,39 +4569,19 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "lower_margin_mm": 102.61940000000003,
-            "op": 40,
-            "spindle_nose_table_band_mm": [
-              163.57940000000002,
-              189.7794
-            ],
-            "stack_mm": 190.7794,
-            "tip_z_bounds_mm": [
-              0.0,
-              26.200000000000003
-            ],
-            "tool": "bracket-long-endmill",
-            "tool_projection_mm": 37.0,
-            "upper_margin_mm": 242.02059999999994,
-            "verified": true
-          },
-          {
-            "approach_mm": 5.0,
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 102.61940000000003,
             "op": 45,
             "spindle_nose_table_band_mm": [
               163.57940000000002,
-              189.7794
+              195.7794
             ],
             "stack_mm": 190.7794,
             "tip_z_bounds_mm": [
               0.0,
-              26.200000000000003
+              32.2
             ],
             "tool": "bracket-long-endmill",
             "tool_projection_mm": 37.0,
-            "upper_margin_mm": 242.02059999999994,
+            "upper_margin_mm": 236.02059999999994,
             "verified": true
           },
           {
@@ -4008,16 +4592,16 @@
             "op": 50,
             "spindle_nose_table_band_mm": [
               163.57940000000002,
-              189.7794
+              195.7794
             ],
             "stack_mm": 190.7794,
             "tip_z_bounds_mm": [
               0.0,
-              26.200000000000003
+              32.2
             ],
             "tool": "bracket-long-endmill",
             "tool_projection_mm": 37.0,
-            "upper_margin_mm": 242.02059999999994,
+            "upper_margin_mm": 236.02059999999994,
             "verified": true
           },
           {
@@ -4028,16 +4612,36 @@
             "op": 55,
             "spindle_nose_table_band_mm": [
               163.57940000000002,
-              189.7794
+              195.7794
             ],
             "stack_mm": 190.7794,
             "tip_z_bounds_mm": [
               0.0,
-              26.200000000000003
+              32.2
             ],
             "tool": "bracket-long-endmill",
             "tool_projection_mm": 37.0,
-            "upper_margin_mm": 242.02059999999994,
+            "upper_margin_mm": 236.02059999999994,
+            "verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "lower_margin_mm": 102.61940000000003,
+            "op": 56,
+            "spindle_nose_table_band_mm": [
+              163.57940000000002,
+              195.7794
+            ],
+            "stack_mm": 190.7794,
+            "tip_z_bounds_mm": [
+              0.0,
+              32.2
+            ],
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "upper_margin_mm": 236.02059999999994,
             "verified": true
           },
           {
@@ -4487,10 +5091,13 @@
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S2: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
       "rule": "fixture_interference",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -4503,10 +5110,13 @@
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S3: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
       "rule": "fixture_interference",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3"
     },
     {
@@ -4610,6 +5220,7 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
@@ -4620,11 +5231,11 @@
         "cut_tip_above_jaws_mm": {
           "10": 2.6297000000000024,
           "20": 2.4297000000000026,
-          "30": 2.3297000000000025,
           "40": 2.6297000000000024,
           "45": 2.6297000000000024,
-          "50": 2.3297000000000025,
-          "55": 2.3297000000000025
+          "50": 2.4297000000000026,
+          "55": 2.4297000000000026,
+          "56": 2.3297000000000025
         },
         "fixture_height_mm": 44.945299999999996,
         "fixture_verify": false,
@@ -4655,17 +5266,6 @@
             "holder_gauge_len_mm": 6.0,
             "margin_mm": 216.02059999999994,
             "op": 20,
-            "sum_mm": 215.7794,
-            "tool": "bracket-long-endmill",
-            "tool_oal_mm": 63.5,
-            "tool_projection_mm": 37.0,
-            "verify": false
-          },
-          {
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
-            "margin_mm": 216.02059999999994,
-            "op": 30,
             "sum_mm": 215.7794,
             "tool": "bracket-long-endmill",
             "tool_oal_mm": 63.5,
@@ -4710,6 +5310,17 @@
             "holder_gauge_len_mm": 6.0,
             "margin_mm": 216.02059999999994,
             "op": 55,
+            "sum_mm": 215.7794,
+            "tool": "bracket-long-endmill",
+            "tool_oal_mm": 63.5,
+            "tool_projection_mm": 37.0,
+            "verify": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "margin_mm": 216.02059999999994,
+            "op": 56,
             "sum_mm": 215.7794,
             "tool": "bracket-long-endmill",
             "tool_oal_mm": 63.5,
@@ -4762,7 +5373,16 @@
           }
         ],
         "stock_bottom_z": -6.0,
-        "stock_extent_x_mm": 34.2,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          -9.0,
+          -22.2,
+          -6.0,
+          9.0,
+          4.0,
+          27.2
+        ],
+        "stock_extent_x_mm": 18.0,
         "stock_extent_y_mm": 26.2,
         "stock_height_mm": 33.2,
         "stock_top_above_jaws_mm": 29.529700000000002,
@@ -4773,7 +5393,7 @@
         "travel_checks": {
           "x": {
             "fixture_mm": 419.09999999999997,
-            "part_mm": 34.2,
+            "part_mm": 18.0,
             "required_mm": 419.09999999999997,
             "travel_mm": 584.1999999999999
           },
@@ -4796,6 +5416,7 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
@@ -4885,8 +5506,17 @@
           }
         ],
         "stock_bottom_z": -24.2,
-        "stock_extent_x_mm": 34.2,
-        "stock_extent_y_mm": 18.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          -8.0,
+          -33.2,
+          -24.2,
+          8.0,
+          0.0,
+          1.0
+        ],
+        "stock_extent_x_mm": 16.0,
+        "stock_extent_y_mm": 33.2,
         "stock_height_mm": 25.2,
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": 1.0,
@@ -4896,13 +5526,13 @@
         "travel_checks": {
           "x": {
             "fixture_mm": 127.0,
-            "part_mm": 34.2,
+            "part_mm": 16.0,
             "required_mm": 127.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
             "fixture_mm": 101.6,
-            "part_mm": 18.0,
+            "part_mm": 33.2,
             "required_mm": 101.6,
             "travel_mm": 222.25
           }
@@ -4934,7 +5564,7 @@
           "jaw_above_parallels_mm": 19.5453,
           "jaw_center_along_mm": 9.1,
           "jaws_along": "y",
-          "note": "Seat side up on 1 in parallels; centred X stock -9..9, model Z -4..22.2. Raw seat is A Z = 1, finished seat 0. Finish the foot boundary only down to -6, leaving the ear-side stock below for S2/S3. Jaw engagement is 19.5453 mm; the foot-profile cut bottom is 7.6547 mm above the jaws.",
+          "note": "Seat side up on 1 in parallels; blank X -9..9 and Y -4..22.2 in this Setup. Raw seat is Z +1, finished seat Z0. Finish the foot boundary only down to Z -6, leaving the ear-side stock below for S2/S3. Jaw engagement is 19.5453 mm; the foot-profile cut bottom is 7.6547 mm above the jaws.",
           "parallels": "parallels-lms-6745/1in",
           "parallels_along": "y",
           "parallels_centres_mm": [
@@ -4947,7 +5577,7 @@
               9.1
             ]
           ],
-          "stop": "blank outer end at A Y = -4 against end stop"
+          "stop": "No end stop: clamp the blank centrally over the parallels, then edge-find its left face and outer end for this Setup's X/Y zeros."
         },
         "missing": [],
         "stock_bottom_z": -33.2,
@@ -4967,11 +5597,11 @@
         "cut_directions": {
           "10": "conventional",
           "20": "conventional",
-          "30": "conventional",
           "40": "conventional",
           "45": "conventional",
           "50": "conventional",
-          "55": "conventional"
+          "55": "conventional",
+          "56": "conventional"
         },
         "deburr_mm": 0.25,
         "fixture": "vise-pm-6",
@@ -4983,7 +5613,7 @@
           "jaw_above_parallels_mm": 3.6703,
           "jaw_center_along_mm": -9.1,
           "jaws_along": "y",
-          "note": "Seat down on a single pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the x = 0 drilling line clear. No 1-2-3 blocks: a 2 in block would overlap the jaws closed on this 16 mm foot. Stack 41.275 mm, jaw overlap 3.6703 mm and foot top 2.3297 mm above jaws. Take shallow axial passes through the open free run; relief rough/finish advances that run to 0.3/0.1, then the floor spring pass to 0 clears the raw XY overhang rails. Separate left/right side strips retain a straight rectangular crown for S3, never an arch sculpted from above. The 31.75 mm flute end mill reaches the 26.2 mm inner wall.",
+          "note": "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the X0 drilling line clear. Do not use 1-2-3 blocks between the jaws closed on this 16 mm foot. Stack 41.275 mm, jaw engagement 3.6703 mm and foot top 2.3297 mm above jaws. Take shallow axial passes through the open free run. Rough the retained inner wall and separate left/right side strips, then finish all walls while leaving the same Z +0.1 floor skin. Only after both side strips are open, skim the whole foot-top floor and its narrow side ledges to Z0 in op 56; then spot and drill. Retain a straight rectangular crown for S3, not an arch sculpted from above. The 31.75 mm flute end mill reaches the 26.2 mm inner wall.",
           "parallels": "bracket-high-parallels/1-5-8in",
           "parallels_along": "y",
           "parallels_centres_mm": [
@@ -4996,7 +5626,7 @@
               -9.1
             ]
           ],
-          "stop": "finished free end at B Y = -21.2 against end stop"
+          "stop": "No end stop: seat the finished foot on the parallels and against the fixed jaw, clamp, then edge-find the raw upper overhang for this Setup's X/Y zeros."
         },
         "missing": [],
         "stock_bottom_z": -6.0,
@@ -5024,7 +5654,7 @@
           "clamp": "shop-made two-stud bridge tightened on the free foot, reacting through rear washers and nuts against the angle plate",
           "clamps": [
             {
-              "note": "bridge underside on the finished foot top; force +Y toward the seat/angle plate, two studs at TC X +/-20 through the upright, rear nuts behind it; bar maximum TC Z = -9.65",
+              "note": "bridge underside on the finished foot top; force +Y toward the seat/angle plate, two studs at Setup X +/-20 through the upright, rear nuts behind it; bar maximum Setup Z -9.65",
               "pose": {
                 "origin_mm": [
                   0.0,
@@ -5051,7 +5681,7 @@
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
           "method": "strap_clamps",
-          "note": "Seat (model Y = 0) against the angle-plate upright, outer face up and 2 mm proud of the plate top. Rest the foot free end on the bolted ledge at TC Z = -24.2 to take the downward facing/drilling load. The bridge underside bears on TC Y = -6, centred at TC Z = -16, and presses the foot toward the plate (+Y); two studs at TC X +/-20 pass through the upright, with rear washers touching the plate back and rear nuts behind it. Indicate the exposed 2 mm seat lip with a small-ball DTI above the plate, then tighten and recheck. Establish a preliminary paper-Z reference with the stationary edge-finder on the raw outer face (TC Z = 1) before the side pickups. Pick up the left foot face at TC Y = -3, Z = -4, above the bridge; pick up the common plate front from -Y at TC X = 45, Z = -5, clear of the bridge hardware. Retract above TC Z = 5 before traversing between pickups, then paper-zero the cutting tool as specified. The bridge bar reaches maximum TC Z = -9.65; studs, washers and nuts stay outside the foot width, clear of the foot-end ledge/base, arch and cross-bore.",
+          "note": "Seat the finished seat face against the angle-plate upright, outer face up and 2 mm proud of the plate top. Coordinates below are relative to this Setup's zero. Rest the foot free end on the bolted ledge at Z -24.2 to take the downward facing/drilling load. The bridge underside bears on the finished foot top at Y -6, centred at Z -16, and presses the foot toward the plate (+Y); two studs at X +/-20 pass through the upright, with rear washers touching the plate back and rear nuts behind it. Indicate the exposed 2 mm seat lip with a small-ball DTI above the plate, then tighten and recheck. Establish a preliminary paper-Z reference with the stationary edge-finder on the raw outer face (Z +1) before the side pickups. Pick up the left foot face at Y -3, Z -4, above the bridge; pick up the common plate front from -Y at X +45, Z -5, clear of the bridge hardware. Retract above Z +5 before traversing between pickups, then paper-zero the cutting tool as specified. The bridge bar reaches maximum Z -9.65; studs, washers and nuts stay outside the foot width, clear of the foot-end ledge/base, arch and cross-bore.",
           "parallels": "not_applicable",
           "pose": {
             "origin_mm": [
@@ -5070,7 +5700,7 @@
               1.0
             ]
           },
-          "stop": "foot free end at TC Z = -24.2 on the bolted plate ledge; finished left foot edge at TC X = -8 aligned before clamping",
+          "stop": "Rest the foot free end on the bolted plate ledge at Setup Z -24.2; align the finished left foot edge at Setup X -8 before clamping.",
           "supports": "not_applicable"
         },
         "missing": [],
@@ -5315,7 +5945,7 @@
           5.9,
           6.1
         ],
-        "op": "S2:30",
+        "op": "S2:56",
         "range_mm": [
           0,
           152.39999999999998
@@ -5597,32 +6227,6 @@
       "cite": [
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.foot_top: faces and requirements",
-        "example (plausible, no dimensioned drawing)",
-        "plan.setups.S2: frame and hold",
-        "inventory.fixtures.vise-pm-6: declared dimensions",
-        "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
-        "plan.frames.TB: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "pivot-bracket.STEP",
-        "plan.setups.S2.ops.30: selected action/tool/holder",
-        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S2:30: claimed faces have no concave edges perpendicular to the tool axis.",
-      "numbers": {
-        "corner_radii_mm": [],
-        "tool_radius_mm": 4.7625
-      },
-      "rule": "internal_corner_radius",
-      "status": "not_applicable",
-      "subject": "S2:30"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 internal_corner_radius",
-        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.ear_sides: faces and requirements",
         "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
@@ -5727,6 +6331,32 @@
       "cite": [
         "PLAN.md §4.2 internal_corner_radius",
         "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.foot_top: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.56: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:56: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
+      },
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S2:56"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
         "features.hold_down_a: faces and requirements",
         "example (plausible, no dimensioned drawing)",
         "plan.setups.S2: frame and hold",
@@ -5740,18 +6370,13 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:60: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S2:60: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          2.286
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 2.286,
+        "corner_radii_mm": [],
         "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:60"
     },
     {
@@ -5771,18 +6396,13 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:70: concave corner radii admit the selected cutter.",
+      "message": "S2:70: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          2.286
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 2.286,
+        "corner_radii_mm": [],
         "tool_radius_mm": 2.286
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S2:70"
     },
     {
@@ -5802,18 +6422,13 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:80: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S2:80: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          2.286
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 2.286,
+        "corner_radii_mm": [],
         "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:80"
     },
     {
@@ -5833,18 +6448,13 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:90: concave corner radii admit the selected cutter.",
+      "message": "S2:90: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          2.286
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 2.286,
+        "corner_radii_mm": [],
         "tool_radius_mm": 2.286
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S2:90"
     },
     {
@@ -5953,18 +6563,13 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S3:30: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          3.25
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:30"
     },
     {
@@ -5982,18 +6587,13 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: concave corner radii admit the selected cutter.",
+      "message": "S3:40: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          3.25
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 3.175
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S3:40"
     },
     {
@@ -6011,18 +6611,13 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:50: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S3:50: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          3.25
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 3.256
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:50"
     },
     {
@@ -6156,7 +6751,7 @@
         ],
         "kind": "face",
         "ops": [
-          "S2:30"
+          "S2:56"
         ]
       },
       "rule": "op_chain",
@@ -6275,11 +6870,11 @@
         "sequence": [
           "10 rough_pocket ear_relief",
           "20 finish_pocket ear_relief",
-          "30 face foot_top",
           "40 rough_pocket ear_sides",
           "45 rough_pocket ear_sides",
           "50 finish_pocket ear_sides",
           "55 finish_pocket ear_sides",
+          "56 face foot_top",
           "60 spot hold_down_a",
           "70 drill hold_down_a",
           "80 spot hold_down_b",
@@ -6417,10 +7012,16 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:10: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 31.75,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 37.0,
+        "reach_depth_mm": 26.9
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:10"
     },
     {
@@ -6440,34 +7041,17 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:20: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 31.75,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 37.0,
+        "reach_depth_mm": 27.1
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:20"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 reach",
-        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
-        "features.foot_top: faces and requirements",
-        "example (plausible, no dimensioned drawing)",
-        "plan.setups.S2: frame and hold",
-        "inventory.fixtures.vise-pm-6: declared dimensions",
-        "https://www.precisionmatthews.com/products/vise-6in-highprec",
-        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
-        "plan.frames.TB: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "pivot-bracket.STEP",
-        "plan.setups.S2.ops.30: selected action/tool/holder",
-        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S2:30: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
-      "rule": "reach",
-      "status": "unknown",
-      "subject": "S2:30"
     },
     {
       "cite": [
@@ -6486,10 +7070,16 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:40: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 31.75,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 37.0,
+        "reach_depth_mm": 26.9
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:40"
     },
     {
@@ -6509,10 +7099,16 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:45: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:45: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 31.75,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 37.0,
+        "reach_depth_mm": 26.9
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:45"
     },
     {
@@ -6532,10 +7128,16 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:50: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 31.75,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 37.0,
+        "reach_depth_mm": 27.1
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:50"
     },
     {
@@ -6555,11 +7157,46 @@
         "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:55: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:55: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 31.75,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 37.0,
+        "reach_depth_mm": 27.1
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "features.foot_top: faces and requirements",
+        "example (plausible, no dimensioned drawing)",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP",
+        "plan.setups.S2.ops.56: selected action/tool/holder",
+        "inventory.tools.bracket-long-endmill: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:56: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 31.75,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 37.0,
+        "reach_depth_mm": 27.2
+      },
+      "rule": "reach",
+      "status": "pass",
+      "subject": "S2:56"
     },
     {
       "cite": [
@@ -6578,10 +7215,16 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:60: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:60: depth exceeds flute length but fits OAL with the holder cylinder clear of walls.",
+      "numbers": {
+        "flute_len_mm": 15.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 50.8,
+        "projection_mm": 31.0,
+        "reach_depth_mm": 27.8
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:60"
     },
     {
@@ -6601,10 +7244,16 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:70: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:70: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 54.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 82.6,
+        "projection_mm": 62.0,
+        "reach_depth_mm": 34.573567
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:70"
     },
     {
@@ -6624,10 +7273,16 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:80: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:80: depth exceeds flute length but fits OAL with the holder cylinder clear of walls.",
+      "numbers": {
+        "flute_len_mm": 15.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 50.8,
+        "projection_mm": 31.0,
+        "reach_depth_mm": 27.8
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:80"
     },
     {
@@ -6647,10 +7302,16 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:90: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:90: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 54.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 82.6,
+        "projection_mm": 62.0,
+        "reach_depth_mm": 34.573567
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:90"
     },
     {
@@ -6668,10 +7329,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:10: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 1.0
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:10"
     },
     {
@@ -6708,10 +7375,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:15: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:15: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 6.7
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:15"
     },
     {
@@ -6729,10 +7402,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:20: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 7.0
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:20"
     },
     {
@@ -6750,10 +7429,16 @@
         "inventory.tools.bracket-spot-drill: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:30: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 15.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 50.8,
+        "projection_mm": 31.0,
+        "reach_depth_mm": 1.6
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:30"
     },
     {
@@ -6771,10 +7456,16 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:40: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 69.9,
+        "holder_wall_hits": 0,
+        "oal_mm": 101.6,
+        "projection_mm": 81.0,
+        "reach_depth_mm": 8.907733
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:40"
     },
     {
@@ -6792,10 +7483,16 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:50: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:50: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 26.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 93.0,
+        "projection_mm": 72.0,
+        "reach_depth_mm": 7.0
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:50"
     },
     {
@@ -6912,7 +7609,7 @@
         "feature_kind": "face",
         "kind": "face",
         "ops": [
-          "S2:30"
+          "S2:56"
         ]
       },
       "rule": "sizing",
@@ -7163,35 +7860,6 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
-        "chip_load_mm_per_tooth": 0.05,
-        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
-        "diameter_in": 0.37500000000000006,
-        "feed_mm_min": 180.0,
-        "flutes": 4,
-        "material": "Plain Carbon Steel",
-        "material_class": "low_carbon_steel",
-        "material_verify": false,
-        "operation": "face",
-        "rpm": 900,
-        "rpm_max": 3000.0,
-        "rpm_min": 50.0,
-        "rpm_range_verify": false,
-        "sfm": 90.0,
-        "tool_material": "HSS"
-      },
-      "rule": "speeds_feeds",
-      "status": "pass",
-      "subject": "S2:30"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
-        "inventory machine spindle range",
-        "cutting-data aliases and rows",
-        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
-      ],
-      "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
-      "numbers": {
         "chip_load_mm_per_tooth": 0.04,
         "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
         "diameter_in": 0.37500000000000006,
@@ -7298,6 +7966,35 @@
       "rule": "speeds_feeds",
       "status": "pass",
       "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows",
+        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+      ],
+      "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
+      "numbers": {
+        "chip_load_mm_per_tooth": 0.05,
+        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
+        "diameter_in": 0.37500000000000006,
+        "feed_mm_min": 180.0,
+        "flutes": 4,
+        "material": "Plain Carbon Steel",
+        "material_class": "low_carbon_steel",
+        "material_verify": false,
+        "operation": "face",
+        "rpm": 900,
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": false,
+        "sfm": 90.0,
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
+      "status": "pass",
+      "subject": "S2:56"
     },
     {
       "cite": [
@@ -7613,7 +8310,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
@@ -7621,6 +8318,7 @@
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "unknown",
         "supports": [],
         "uncovered_z_mm": [],
@@ -7644,7 +8342,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
@@ -7652,6 +8350,7 @@
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "unknown",
         "supports": [],
         "uncovered_z_mm": [],
@@ -7675,7 +8374,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
@@ -7683,6 +8382,7 @@
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "not_applicable",
         "supports": [],
         "uncovered_z_mm": [],
@@ -7787,12 +8487,17 @@
         "inventory.fixtures.bracket-high-parallels/1-5-8in: declared dimensions",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
-        "pivot-bracket.STEP"
+        "pivot-bracket.STEP",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S2: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2: minimum wall inside the grip zone meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 16.0,
+        "thin_wall_floor_mm": 1.5
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -7803,12 +8508,17 @@
         "inventory.fixtures.angle-plate: declared dimensions",
         "plan.frames.TC: author-declared setup frame",
         "AUTHOR'S CHOICE",
-        "pivot-bracket.STEP"
+        "pivot-bracket.STEP",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S3: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3: minimum wall under the strap footprints meets the shop floor.",
+      "numbers": {
+        "method": "strap_clamps",
+        "min_wall_mm": 6.0,
+        "thin_wall_floor_mm": 1.5
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3"
     },
     {
@@ -7927,25 +8637,6 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S2:30: holder interface and shank fit.",
-      "numbers": {
-        "holder": "r8-collets-lms-4860/3-8in",
-        "holder_capacity_mm": 9.524999999999999,
-        "holder_standard": "R8",
-        "machine": "PM-30MV",
-        "machine_standard": "R8",
-        "shank_mm": 9.524999999999999,
-        "tool": "bracket-long-endmill"
-      },
-      "rule": "tool_resolves",
-      "status": "pass",
-      "subject": "S2:30"
-    },
-    {
-      "cite": [
-        "inventory spindle/holder/shank fields",
-        "PLAN.md §4.1"
-      ],
       "message": "S2:40: holder interface and shank fit.",
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
@@ -8016,6 +8707,25 @@
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S2:56: holder interface and shank fit.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_capacity_mm": 9.524999999999999,
+        "holder_standard": "R8",
+        "machine": "PM-30MV",
+        "machine_standard": "R8",
+        "shank_mm": 9.524999999999999,
+        "tool": "bracket-long-endmill"
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "S2:56"
     },
     {
       "cite": [
@@ -8759,10 +9469,6 @@
         "plan.setups.S2.ops.20",
         "plan.setups.S2.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.S2.ops.30",
-        "features.features.foot_top.bounds/at",
-        "plan.setups.S2.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.S2.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.40",
         "features.features.ear_sides.bounds/at",
         "plan.setups.S2.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -8776,6 +9482,10 @@
         "plan.setups.S2.ops.55",
         "plan.setups.S2.ops.55.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.55: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S2.ops.56",
+        "features.features.foot_top.bounds/at",
+        "plan.setups.S2.ops.56.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S2.ops.56: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.60",
         "features.features.hold_down_a.bounds/at",
         "inventory.holders.drill-chuck-r8.gauge_len",
@@ -8871,19 +9581,28 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 16.0,
-              "y": 24.2,
-              "z": 33.2
-            },
-            "do": "face",
+            "conservative_stock_spans_mm": "not_applicable",
+            "do": "rough_pocket",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
-            "feature": "foot_top",
+            "extent_mm": {
+              "x": [
+                -7.0,
+                7.0
+              ],
+              "y": [
+                -3.0,
+                3.0
+              ],
+              "z": [
+                0.0,
+                26.200000000000003
+              ]
+            },
+            "feature": "ear_sides",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "op": 30,
-            "rough_allowance_mm": 0,
+            "op": 40,
+            "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               0.0,
               32.2
@@ -8893,8 +9612,14 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
+              "x": [
+                -7.3,
+                7.3
+              ],
+              "y": [
+                -3.3,
+                3.3
+              ]
             },
             "z_bounds_mm": [
               43.0,
@@ -8924,59 +9649,11 @@
             "feature": "ear_sides",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "op": 40,
-            "rough_allowance_mm": 0.3,
-            "tip_z_bounds_mm": [
-              0.0,
-              26.200000000000003
-            ],
-            "tool": "bracket-long-endmill",
-            "tool_projection_mm": 37.0,
-            "tool_radius_mm": "unknown",
-            "tool_radius_verified": false,
-            "xy_cutter_bounds_mm": {
-              "x": [
-                -7.3,
-                7.3
-              ],
-              "y": [
-                -3.3,
-                3.3
-              ]
-            },
-            "z_bounds_mm": [
-              43.0,
-              69.2
-            ],
-            "z_verified": true
-          },
-          {
-            "approach_mm": 5.0,
-            "conservative_stock_spans_mm": "not_applicable",
-            "do": "rough_pocket",
-            "endpoint": "not_applicable",
-            "extent_mm": {
-              "x": [
-                -7.0,
-                7.0
-              ],
-              "y": [
-                -3.0,
-                3.0
-              ],
-              "z": [
-                0.0,
-                26.200000000000003
-              ]
-            },
-            "feature": "ear_sides",
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
             "op": 45,
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               0.0,
-              26.200000000000003
+              32.2
             ],
             "tool": "bracket-long-endmill",
             "tool_projection_mm": 37.0,
@@ -8994,7 +9671,7 @@
             },
             "z_bounds_mm": [
               43.0,
-              69.2
+              75.2
             ],
             "z_verified": true
           },
@@ -9024,7 +9701,7 @@
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
-              26.200000000000003
+              32.2
             ],
             "tool": "bracket-long-endmill",
             "tool_projection_mm": 37.0,
@@ -9042,7 +9719,7 @@
             },
             "z_bounds_mm": [
               43.0,
-              69.2
+              75.2
             ],
             "z_verified": true
           },
@@ -9072,7 +9749,7 @@
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
-              26.200000000000003
+              32.2
             ],
             "tool": "bracket-long-endmill",
             "tool_projection_mm": 37.0,
@@ -9090,7 +9767,40 @@
             },
             "z_bounds_mm": [
               43.0,
-              69.2
+              75.2
+            ],
+            "z_verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "conservative_stock_spans_mm": {
+              "x": 16.0,
+              "y": 24.2,
+              "z": 33.2
+            },
+            "do": "face",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "foot_top",
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "op": 56,
+            "rough_allowance_mm": 0,
+            "tip_z_bounds_mm": [
+              0.0,
+              32.2
+            ],
+            "tool": "bracket-long-endmill",
+            "tool_projection_mm": 37.0,
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              43.0,
+              75.2
             ],
             "z_verified": true
           },
@@ -9100,7 +9810,7 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 0.6,
-              "entry_from": "S2 op 30 to_z",
+              "entry_from": "S2 op 56 to_z",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
               "feature": "hold_down_a",
@@ -9157,7 +9867,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
-              "entry_from": "S2 op 30 to_z",
+              "entry_from": "S2 op 56 to_z",
               "entry_z": 0.0,
               "exit_face": -6.0,
               "exit_mm": 2.0,
@@ -9217,7 +9927,7 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 0.6,
-              "entry_from": "S2 op 30 to_z",
+              "entry_from": "S2 op 56 to_z",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
               "feature": "hold_down_b",
@@ -9274,7 +9984,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
-              "entry_from": "S2 op 30 to_z",
+              "entry_from": "S2 op 56 to_z",
               "entry_z": 0.0,
               "exit_face": -6.0,
               "exit_mm": 2.0,
@@ -9885,19 +10595,6 @@
       "cite": [
         "PLAN.md:563-568 (§4.4 physics proxies)"
       ],
-      "message": "S2:30: the static turning proxy does not apply to this operation.",
-      "numbers": {
-        "feature": "foot_top",
-        "operation": "face"
-      },
-      "rule": "turning_deflection",
-      "status": "not_applicable",
-      "subject": "S2:30"
-    },
-    {
-      "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
-      ],
       "message": "S2:40: the static turning proxy does not apply to this operation.",
       "numbers": {
         "feature": "ear_sides",
@@ -9945,6 +10642,19 @@
       "rule": "turning_deflection",
       "status": "not_applicable",
       "subject": "S2:55"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S2:56: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "foot_top",
+        "operation": "face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:56"
     },
     {
       "cite": [
@@ -10101,7 +10811,7 @@
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S1: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.",
+      "message": "S1: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit the declared vise hold.",
       "numbers": {
         "claimed_in_jaws": [],
         "contact_grip_mm": [
@@ -10130,10 +10840,21 @@
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
       ],
-      "message": "S2: in-process stock unknown: S1:20 stock_removal_bounds removes 229.842511 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit the declared vise hold.",
+      "numbers": {
+        "claimed_in_jaws": [],
+        "contact_grip_mm": [
+          3.6703,
+          3.6703
+        ],
+        "opening_mm": 155.82899999999998,
+        "parallel_pair": true,
+        "parallels_height_mm": 41.275,
+        "required_grip_mm": 3.6703,
+        "width_mm": 16.0
+      },
       "rule": "vise",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -10307,7 +11028,7 @@
         "retouch": [
           {
             "axis_set": 0.05,
-            "op": 30,
+            "op": 56,
             "paper_mm": 0.05,
             "top_z": 0.0
           }
@@ -10317,7 +11038,9 @@
           "from": "S1",
           "indicate": [
             "foot_profile"
-          ]
+          ],
+          "runout_limit_mm": 0.0254,
+          "tool": "dti"
         }
       },
       "rule": "zero_check",
@@ -10415,6 +11138,7 @@
             "foot_top",
             "seat_face"
           ],
+          "runout_limit_mm": 0.0254,
           "tool": "dti"
         }
       },
@@ -10423,27 +11147,35 @@
       "subject": "S3"
     }
   ],
-  "hash": "9f687c48d374eac860b2df5aa483543cf7ca04d3b03219bdc71acfd0766c7944",
+  "hash": "739b466baa55001a2238aff4e7e3309c3bffbaac06e8365436aa2dbf8160d638",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "cde1c1023e0c88b7f0442d3bd3772d5dfd7230fbc88dce33c743197057877caa"
+      "sha256": "fccc2e77df569c590521faf0c746d0954a87b429994f2496a93668ff8f59fc34"
     },
     "features": {
       "path": "examples/pivot-bracket/features.toml",
-      "sha256": "efa07a8a7b0789165951458d23587a9d5925edb44599c476e9d52e56a0c6f454"
+      "sha256": "1c9305a5c5047f4a3e6e0756e77051eee9a88c6dea64b56a7fc74b052c413539"
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "14da67d43c7601b645aaa18ee2291a872ec67af4b7b7bf2c88946c5340d32fcc"
+      "sha256": "ef14e1216157cd4942831811f416ccdd9644e9487c6cd681e947b9b83d9d5a39"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
-      "sha256": "14ad9b4a4a4f6c02206fc41a21e5c8f1d14cb7762fe19434c246a85435d01842"
+      "sha256": "4d34f0471e3d75cb01f672e4084fdbf39f09b8102cbea2fae0e18236b6f03f5c"
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "a0d93a937c69c898361473a64ca922559c5ac61044509bdc81e9606790d6f3c4"
+      "sha256": "6dde7df67b18d7612d27b0eb4c3a689b8583d811d685463d99efb566a7fc613b"
+    },
+    "render:S2": {
+      "path": "setup-S2.png",
+      "sha256": "d6fd2c06bb9d872210a3cf5954a4e321757e61ef017be51915cd00f39816c629"
+    },
+    "render:S3": {
+      "path": "setup-S3.png",
+      "sha256": "9f59bcce7d2427588e8a4391120dbf63d9b88a5c9a38f647c339ded22b901afb"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -10484,13 +11216,514 @@
         ],
         "debts": [],
         "fixture_kind": "vise",
+        "height_px": 1000,
         "jaws": "exact",
-        "parallels": "exact"
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids.",
+          "Dashed blue: nominal part outline, not proof that it has been cut."
+        ],
+        "parallels": "exact",
+        "primary_op": "10",
+        "render_debts": [],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)",
+          "profile sketch keyed to the coordinate rows"
+        ],
+        "view": "isometric",
+        "waypoints": [
+          {
+            "label": "P1",
+            "op": "20",
+            "xy": [
+              -13.0625,
+              -8.0625
+            ]
+          },
+          {
+            "label": "P2",
+            "op": "20",
+            "xy": [
+              13.0625,
+              -8.0625
+            ]
+          },
+          {
+            "label": "P3",
+            "op": "20",
+            "xy": [
+              13.0625,
+              26.2625
+            ]
+          },
+          {
+            "label": "P4",
+            "op": "20",
+            "xy": [
+              -13.0625,
+              26.2625
+            ]
+          },
+          {
+            "label": "P5",
+            "op": "30",
+            "xy": [
+              -12.7625,
+              -7.762499999999999
+            ]
+          },
+          {
+            "label": "P6",
+            "op": "30",
+            "xy": [
+              12.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P7",
+            "op": "30",
+            "xy": [
+              12.7625,
+              25.9625
+            ]
+          },
+          {
+            "label": "P8",
+            "op": "30",
+            "xy": [
+              -12.7625,
+              25.9625
+            ]
+          }
+        ],
+        "width_px": 1600
       },
-      "sha256": "a0d93a937c69c898361473a64ca922559c5ac61044509bdc81e9606790d6f3c4"
+      "sha256": "6dde7df67b18d7612d27b0eb4c3a689b8583d811d685463d99efb566a7fc613b"
+    },
+    "S2": {
+      "fixture": "modeled",
+      "path": "setup-S2.png",
+      "scene": {
+        "components": [
+          {
+            "exact": true,
+            "name": "fixed_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "moving_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "parallel 1",
+            "role": "parallel"
+          },
+          {
+            "exact": true,
+            "name": "parallel 2",
+            "role": "parallel"
+          }
+        ],
+        "debts": [],
+        "fixture_kind": "vise",
+        "height_px": 1000,
+        "jaws": "exact",
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids.",
+          "Dashed blue: nominal part outline, not proof that it has been cut."
+        ],
+        "parallels": "exact",
+        "primary_op": "10",
+        "render_debts": [],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)",
+          "profile sketch keyed to the coordinate rows"
+        ],
+        "view": "isometric",
+        "waypoints": [
+          {
+            "label": "P1",
+            "op": "10",
+            "xy": [
+              -13.7625,
+              -26.9625
+            ]
+          },
+          {
+            "label": "P2",
+            "op": "10",
+            "xy": [
+              13.7625,
+              -26.9625
+            ]
+          },
+          {
+            "label": "P3",
+            "op": "10",
+            "xy": [
+              -13.7625,
+              -8.0625
+            ]
+          },
+          {
+            "label": "P4",
+            "op": "10",
+            "xy": [
+              13.7625,
+              -8.0625
+            ]
+          },
+          {
+            "label": "P5",
+            "op": "20",
+            "xy": [
+              -13.7625,
+              -26.9625
+            ]
+          },
+          {
+            "label": "P6",
+            "op": "20",
+            "xy": [
+              13.7625,
+              -26.9625
+            ]
+          },
+          {
+            "label": "P7",
+            "op": "20",
+            "xy": [
+              -13.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P8",
+            "op": "20",
+            "xy": [
+              13.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P9",
+            "op": "40",
+            "xy": [
+              -13.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P10",
+            "op": "40",
+            "xy": [
+              -13.7625,
+              8.7625
+            ]
+          },
+          {
+            "label": "P11",
+            "op": "40",
+            "xy": [
+              -12.0625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P12",
+            "op": "40",
+            "xy": [
+              -12.0625,
+              8.7625
+            ]
+          },
+          {
+            "label": "P13",
+            "op": "45",
+            "xy": [
+              13.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P14",
+            "op": "45",
+            "xy": [
+              13.7625,
+              8.7625
+            ]
+          },
+          {
+            "label": "P15",
+            "op": "45",
+            "xy": [
+              12.0625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P16",
+            "op": "45",
+            "xy": [
+              12.0625,
+              8.7625
+            ]
+          },
+          {
+            "label": "P17",
+            "op": "50",
+            "xy": [
+              -13.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P18",
+            "op": "50",
+            "xy": [
+              -13.7625,
+              8.7625
+            ]
+          },
+          {
+            "label": "P19",
+            "op": "50",
+            "xy": [
+              -11.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P20",
+            "op": "50",
+            "xy": [
+              -11.7625,
+              8.7625
+            ]
+          },
+          {
+            "label": "P21",
+            "op": "55",
+            "xy": [
+              13.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P22",
+            "op": "55",
+            "xy": [
+              13.7625,
+              8.7625
+            ]
+          },
+          {
+            "label": "P23",
+            "op": "55",
+            "xy": [
+              11.7625,
+              -7.7625
+            ]
+          },
+          {
+            "label": "P24",
+            "op": "55",
+            "xy": [
+              11.7625,
+              8.7625
+            ]
+          }
+        ],
+        "width_px": 1600
+      },
+      "sha256": "d6fd2c06bb9d872210a3cf5954a4e321757e61ef017be51915cd00f39816c629"
+    },
+    "S3": {
+      "fixture": "modeled",
+      "path": "setup-S3.png",
+      "scene": {
+        "components": [
+          {
+            "exact": true,
+            "name": "angle-plate:base",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "angle-plate:upright",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "angle-plate:bolted foot-end ledge",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:beam",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:left-stud",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:left-front-washer",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:left-front-nut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:left-rear-washer",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:left-rear-nut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:right-stud",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:right-front-washer",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:right-front-nut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:right-rear-washer",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 clamping-kit-lms-1144/bracket-bridge:right-rear-nut",
+            "role": "clamp"
+          }
+        ],
+        "debts": [],
+        "fixture_kind": "angle_plate",
+        "height_px": 1000,
+        "jaws": "not_applicable",
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids.",
+          "Dashed blue: nominal part outline, not proof that it has been cut."
+        ],
+        "parallels": "absent",
+        "primary_op": "10",
+        "render_debts": [],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)",
+          "profile sketch keyed to the coordinate rows"
+        ],
+        "view": "isometric",
+        "waypoints": [
+          {
+            "label": "P1",
+            "op": "15",
+            "rows": [
+              "S3:15 rough arc row 0"
+            ],
+            "xy": [
+              -12.065,
+              -25.2
+            ]
+          },
+          {
+            "label": "P2",
+            "op": "15",
+            "rows": [
+              "S3:15 rough arc row 9"
+            ],
+            "xy": [
+              0.0,
+              -37.265
+            ]
+          },
+          {
+            "label": "P3",
+            "op": "15",
+            "rows": [
+              "S3:15 rough arc row 18"
+            ],
+            "xy": [
+              12.065,
+              -25.2
+            ]
+          },
+          {
+            "label": "P4",
+            "op": "20",
+            "rows": [
+              "S3:20 finish arc row 0"
+            ],
+            "xy": [
+              -11.765,
+              -25.2
+            ]
+          },
+          {
+            "label": "P5",
+            "op": "20",
+            "rows": [
+              "S3:20 finish arc row 9"
+            ],
+            "xy": [
+              0.0,
+              -36.965
+            ]
+          },
+          {
+            "label": "P6",
+            "op": "20",
+            "rows": [
+              "S3:20 finish arc row 18"
+            ],
+            "xy": [
+              11.765,
+              -25.2
+            ]
+          }
+        ],
+        "width_px": 1600
+      },
+      "sha256": "9f59bcce7d2427588e8a4391120dbf63d9b88a5c9a38f647c339ded22b901afb"
     }
   },
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc",
-  "verification": "planned"
+  "verification": "checked"
 }
