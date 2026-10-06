@@ -120,7 +120,7 @@ PLAN §8 M3.
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
 | `rocker-arm` | Three-setup route, integral hub, retained rails/ears and supported final profiling, consuming the exported datum and tip-land features. | **2**: original missing tools and supported profile fixture remain stops. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: inventory and authored setup data are complete; floor/pointed-tool poses, own-bore corner classification and downstream planned-bore stock await the accessibility engine integration. |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: physical inventory and authored setup data are complete; all three native fixture scenes are modeled without debts. Legal planar cutter poses, the finish-floor cut plane and preceding-operation stock clearance remain engine-owned accessibility stops. |
 | `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
 
@@ -861,6 +861,10 @@ example design intent rather than imported drawing acceptance limits.
 S1 faces the seat and profiles only the foot-depth region, with explicit bounded
 clearance retaining the upper-ear stock for S2/S3. S2 stands the foot on one
 41.275 mm tall narrow parallel pair (not wide blocks under closed jaws).
+Both vise holds use no longitudinal end stop: each blank is clamped, then
+edge-found against the raw faces for its own DRO zero. No unmodeled stop is
+claimed. The S2 foot's 3.6703 mm jaw engagement leaves its top 2.3297 mm above
+the jaws; tool exits remain between the narrow parallels.
 The open relief clears the raw free-run overhang, not merely the finished-face
 footprint. Separate outside-in left/right side-slot rasters retain the rectangular
 crown stock; the 31.75 mm long-flute cutter reaches the 26.2 mm inner wall with
