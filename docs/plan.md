@@ -500,10 +500,13 @@ several roughing passes; it is not capped to the claimed faces' XY bounding box
 dilated by the cutter radius. The cutter radius must still be known: if it is
 unknown, the bounds are `?` with a reason naming the missing cutter radius, and
 later stock stays unresolved. Removal is the box's intersection with the
-selected stock and never takes finished material or a protected rough leave.
-Every claim must touch the box and every removed piece must border a claim;
-known future planned-hole columns, with their finite caps, stay stock; and the
-removal must not split an original input solid. A violation is named stock
+setup-entry stock and never takes finished material or a protected rough leave.
+Every claim must touch the box and every removed piece must border a claim on
+that setup-entry stock, so an earlier op of the setup clearing the bridge
+between a claim and the rest of its box never strands it; the pieces are then
+cut from the current stock, which only removes material and never restores what
+an earlier op cleared. Known future planned-hole columns, with their finite caps,
+stay stock; and the removal must not split an original input solid. A violation is named stock
 debt, not an error: later stock that depends on it stays unresolved, while
 genuine collisions with finished material remain independent errors.
 It shapes stock passed to later setups and excludes only this operation's own
