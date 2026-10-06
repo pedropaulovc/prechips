@@ -954,10 +954,13 @@ edge-found against the raw faces for its own DRO zero. No unmodeled stop is
 claimed. The S2 foot's 3.6703 mm jaw engagement leaves its top 2.3297 mm above
 the jaws; tool exits remain between the narrow parallels.
 The open relief clears the raw free-run overhang, not merely the finished-face
-footprint. Separate outside-in left/right side-slot rasters retain the rectangular
-crown stock; the 31.75 mm long-flute cutter reaches the 26.2 mm inner wall with
-37 mm projection. The last wall pass leaves 0.1 mm on the floor for the final
-facing pass. Both hold-down holes then drill over an open central exit gap.
+footprint. The early relief operations claim only the retained inner wall, not
+the whole floor. Separate outside-in left/right side-slot rasters retain the
+rectangular crown; the 31.75 mm long-flute cutter reaches the 26.2 mm inner wall
+with 37 mm projection. All wall finish passes stop at Z +0.1, keeping a common
+floor skin. Only after the side strips are open does S2:56 claim and skim the
+whole foot-top floor, including its narrow side ledges, to Z0. Both hold-down
+holes then drill over an open central exit gap.
 A stiff 3/8 in 120-degree spotter projects 31 mm from the chuck, keeping its nose
 above the uncut ear; a 0.6 mm tip depth makes a 2.08 mm spot.
 
