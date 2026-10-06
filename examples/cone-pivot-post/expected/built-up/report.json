@@ -2473,6 +2473,7 @@
       "numbers": {
         "endpoints": [
           {
+            "depth_floor_mm": 5.51,
             "depth_limit_mm": 6.53,
             "depth_mm": 6.0198,
             "dro_depth_mm": 6.014999999999997,
@@ -2553,6 +2554,7 @@
       "numbers": {
         "endpoints": [
           {
+            "depth_floor_mm": 5.51,
             "depth_limit_mm": 6.53,
             "depth_mm": 6.0198,
             "dro_depth_mm": 6.014999999999997,
@@ -18151,6 +18153,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "counterbore",
             "endpoint": {
+              "depth_floor_mm": 5.51,
               "depth_limit_mm": 6.53,
               "depth_mm": 6.0198,
               "dro_depth_mm": 6.014999999999997,
@@ -18214,6 +18217,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "counterbore",
             "endpoint": {
+              "depth_floor_mm": 5.51,
               "depth_limit_mm": 6.53,
               "depth_mm": 6.0198,
               "dro_depth_mm": 6.014999999999997,
@@ -22433,7 +22437,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "fdb6305aa5623a9657c695bbbb67b2e4e68bb23515515ff16781287574e776e2",
+  "hash": "36e31ee08c6e929a7d1d3d33315f3eba07cc964c2ed034dd9c18d186315258fd",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

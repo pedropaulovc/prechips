@@ -62,11 +62,14 @@ def _operative(row, grid):
         row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
 
 
-def _feature_depth_mm(feature, field, units):
-    """An upper feature-depth limit uses the model's units, unlike depth_mm."""
+def _feature_depth_mm(feature, field, units, end=1):
+    """A feature-depth band end (upper by default) uses the model's units, unlike
+    depth_mm; a bare number is an upper limit only, so its lower end is unknown."""
     value = feature.get(field, UNKNOWN)
     if isinstance(value, list):
-        value = value[1] if len(value) == 2 else UNKNOWN
+        value = value[end] if len(value) == 2 else UNKNOWN
+    elif end == 0:
+        value = UNKNOWN
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     return value * scale if number(value) and scale is not None else UNKNOWN
 
@@ -239,11 +242,13 @@ def evaluate(bundle):
                     if action == "drill"
                     else 0
                 )
-                limit = _feature_depth_mm(feature, "depth", bundle.features.get("units"))
+                units = bundle.features.get("units")
+                limit = _feature_depth_mm(feature, "depth", units)
                 total = depth + lead if number(depth) and number(lead) else UNKNOWN
                 row.update(
                     depth_mm=depth,
                     depth_limit_mm=limit,
+                    depth_floor_mm=_feature_depth_mm(feature, "depth", units, 0),
                     total_depth_mm=total,
                     exit_face="not_applicable",
                     tip_z=_subtract(entry, total),

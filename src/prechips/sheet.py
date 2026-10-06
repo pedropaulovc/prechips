@@ -1561,6 +1561,13 @@ class _Traveler:
             elif _known(endpoint.get("depth_mm")):
                 depth = endpoint.get("dro_depth_mm")
                 parts.append(f"depth {o(depth if _known(depth) else endpoint['depth_mm'])}")
+                floor = endpoint.get("depth_floor_mm")
+                banded = "depth_floor_mm" in endpoint and _known(depth)
+                if banded and _known(floor) and depth < floor - _SAME_Z:
+                    # Rounded up, the DRO tip leaves the hole shallower than its depth band.
+                    parts.append(_Box("STOP: DRO depth is below the feature's depth band"))
+                elif banded and not _known(floor) and abs(depth - endpoint["depth_mm"]) > _SAME_Z:
+                    parts.append(_Box("STOP: DRO depth rounded; feature depth band unknown"))
             if not _known(endpoint.get("tip_z")):
                 parts[0] = f"Z {o(entry)} → depth not set"
                 parts.append(_Box("STOP: drill point length unknown"))

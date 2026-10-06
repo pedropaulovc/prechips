@@ -209,7 +209,9 @@ or entry; any other surface Z prints on the grid by `dro_z`. Hole endpoints
 carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
 printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
-STOP. A final forming cut whose `to_z` ends on its finished face (no `exit_mm`)
+STOP, and so does a blind `dro_depth_mm` below the feature's `depth` band (a bare
+`depth` is an upper limit only: a depth the rounding changed is then unknown, a
+STOP). A final forming cut whose `to_z` ends on its finished face (no `exit_mm`)
 and whose rounded-up depth leaves more skin than its feature's narrowest
 numeric tolerance band is an error (`dro_z_residual_errors`). Every join record
 carries its `stage`, `allowance_mm` (the rough leave, 0 for finish) and

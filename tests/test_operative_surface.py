@@ -15,6 +15,7 @@ from test_headroom import coordinate_bundle
 
 NOMINAL = -2.27825
 STEP = 0.005
+BLIND = 3.0
 FEATURES = (
     "kind = 'plane'\nbounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [-2.27825, 0.0] }\n"
     "[features.hole]\nframe = 'model'\nkind = 'hole'\nrequirements = []\n"
@@ -23,9 +24,13 @@ FEATURES = (
 ZERO = "[setups.zero.z]\nface = '{}'\n{}method = 'paper'\npaper_mm = 0.05\ncheck_jog_mm = 10.0\n"
 
 
-def plan(tmp_path, exit_mm=1.0):
+def plan(tmp_path, exit_mm=1.0, depth=None):
     """S1 finishes ``target`` to Z -2.27825; S2, same frame, starts on it, zeroes Z on it
-    and drills ``hole`` through the 7.72175 mm below it, ``exit_mm`` past the exit face."""
+    and drills ``hole`` through the 7.72175 mm below it, ``exit_mm`` past the exit face.
+    A ``depth`` band (or bare upper limit) makes ``hole`` blind, drilled 3.0 deep."""
+    features = FEATURES
+    if depth is not None:
+        features = FEATURES.replace("thru = true\n", f"thru = false\ndepth = {depth}\n")
     operations = (
         ZERO.format("top", "")
         + "[[setups.ops]]\nop = 10\ndo = 'finish_face'\nfeature = 'target'\ntool = 'cutter'\n"
@@ -38,9 +43,9 @@ def plan(tmp_path, exit_mm=1.0):
         f"entry_z = {{ hole = {NOMINAL} }}\nlocal_thickness = {{ hole = 7.72175 }}\n"
         + ZERO.format("target", f"edge_mm = {NOMINAL}\n")
         + "[[setups.ops]]\nop = 10\ndo = 'drill'\nfeature = 'hole'\ntool = 'drill'\n"
-        f"exit_mm = {exit_mm}\n"
+        + (f"exit_mm = {exit_mm}\n" if depth is None else f"depth_mm = {BLIND}\n")
     )
-    path = coordinate_bundle(tmp_path, FEATURES, operations)
+    path = coordinate_bundle(tmp_path, features, operations)
     path.write_text(
         path.read_text(encoding="utf-8").replace(
             "[[setups]]",
@@ -100,4 +105,28 @@ def test_rounded_up_through_tip_that_stops_short_is_a_stop(tmp_path, exit_mm, st
     exit face, so the drill row stops; one grid step of authored break-through clears it."""
     _, _, html = traveler(plan(tmp_path, exit_mm), tmp_path / "out", setup=SYNTHETIC_KERNEL)
     (cell,) = re.findall(r"<td>(Z -2\.275 → .*?)</td>", html)
+    assert ("STOP" in cell) is stopped
+
+
+@pytest.mark.parametrize(
+    "depth,stopped",
+    [([BLIND, 20.0], True), ([BLIND - STEP, 20.0], False), (20.0, True)],
+)
+def test_rounded_up_blind_tip_outside_its_depth_band_is_a_stop(tmp_path, depth, stopped):
+    """Rounded up, the DRO tip leaves a blind hole shallower than drilled. Below the band's
+    lower end is a STOP; one grid step of band clears it; a bare upper limit leaves the
+    lower end unknown, and unknown is not a pass."""
+    _, report, html = traveler(
+        plan(tmp_path, depth=depth), tmp_path / "out", setup=SYNTHETIC_KERNEL
+    )
+    (endpoint,) = [
+        row
+        for finding in report["findings"]
+        if (finding["rule"], finding["subject"]) == ("blind_depth", "hole")
+        for row in finding["numbers"]["endpoints"]
+    ]
+    printed = endpoint["dro_depth_mm"]
+    assert BLIND - STEP < printed < BLIND
+    (cell,) = re.findall(r"<td>(Z -2\.275 → .*?)</td>", html)
+    assert f"depth {printed:.3f}" in cell
     assert ("STOP" in cell) is stopped
