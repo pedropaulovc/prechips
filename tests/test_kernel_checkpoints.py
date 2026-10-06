@@ -219,6 +219,28 @@ def test_a_bounded_path_into_stock_past_its_box_ends_at_the_first_contact(engine
     assert facts["checkpoint_count"] == 2
 
 
+def test_a_shallow_clip_on_a_coarse_dro_prints_the_nearest_legal_grid_point_along_it(
+    engine, island
+):
+    # A shallow chord east over the island's north leave into the stock north of a box
+    # ending at y 52.2, on a 0.5 mm DRO grid: every grid point within a few steps of the
+    # contact either reaches that stock or sits south of the chord, nearer its walls. The
+    # nearest legal one lies 6 mm back along the chord.
+    op = _bounded([], box=(0.0, 70.0, -5.0, 52.2))
+    path = [("line -X", [(10.0, 48.5), (40.0, 49.5)])]
+    op["checkpoints"] = _printed("S1:10", "rough", path, tip=10.0, bounded=True)
+    op["checkpoints"]["dro"] = {"step": 0.5, "decimals": 1, "scale": 1.0}
+    facts = engine.run(_job(engine, island, [op], west=WEST))["ops"]["S1:10"]
+    clips = facts["checkpoint_clips"]
+    assert "reason" not in clips, clips
+    ((_, end),) = clips["paths"][0]["pieces"]
+    contact_x = 10.0 + (52.2 - RHO - 48.5) * 30.0
+    assert abs(end["exact_xy"][0] - contact_x) <= 30.0 * clips["precision_mm"], end
+    assert end["dro_xy"] == [25.0, 49.0]
+    # Its printed rows meet neither the leave nor the stock past the box.
+    assert facts["checkpoint_errors"] == [], facts["checkpoint_errors"]
+
+
 def test_a_bounded_path_that_leaves_and_reenters_its_box_is_two_pieces(engine, island):
     # North into stock past y 20, west out of the blank, then south and back east into the
     # box: the legal parts are two pieces, the stock between them never reconnected.
