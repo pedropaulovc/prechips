@@ -263,20 +263,29 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
 def table_checkpoints(subject, tables, op, units):
     """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
     ``xy_mm`` and ``tip_z_mm`` (the values the DRO shows, ``overshoot`` on a corner miter),
-    each printed table's ``paths`` (``xy_mm`` in cutting order and its ``tip_z_mm``), and
-    why any is unknown; None when it prints none."""
-    from prechips.rules.coordinates import checkpoints
+    each printed table's ``paths`` (``xy_mm`` in cutting order, its ``tip_z_mm``, row
+    ``ids`` and ``overshoot`` flags), and why any is unknown; None when it prints none.
 
-    printed = [path for path in checkpoints(subject, tables, op) if path]
+    A bounded op's tables (``bounded``) are whole: the kernel clips them where the cutter
+    first meets stock outside the op's stock_removal_bounds. Each path then carries its
+    ``table`` (first row id), ``name``, ``kind`` and ``cutter_side``, and ``dro`` the DRO
+    grid (plan-unit ``step``, ``decimals``, mm ``scale``) its clip points print on; the
+    row-id formats (``row_format``, ``fragment_format``) name the pieces' rows.
+    """
+    from prechips.rules.coordinates import FRAGMENT_FORMAT, ROW_FORMAT, checkpoints
+
+    printed = [path for path in checkpoints(subject, tables, op) if path["rows"]]
     if not printed:
         return None
+    bounded = any(path["bounded"] for path in printed)
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     if scale is None:
-        return {"rows": [], "paths": [], "reason": f"feature units {units!r} are not mm or in"}
+        reason = f"feature units {units!r} are not mm or in"
+        return {"rows": [], "paths": [], "bounded": bounded, "reason": reason}
     rows, paths, unknown = [], [], []
     for path in printed:
         points = []
-        for name, xy, tip, overshoot in path:
+        for name, xy, tip, overshoot in path["rows"]:
             if isinstance(xy, list) and len(xy) == 2 and all(number(v) for v in (*xy, tip)):
                 xy_mm = [v * scale for v in xy]
                 point = {"id": name, "xy_mm": xy_mm, "tip_z_mm": tip * scale}
@@ -284,13 +293,28 @@ def table_checkpoints(subject, tables, op, units):
             else:
                 unknown.append(name)
         rows.extend(points)
-        if len(points) == len(path) and len({point["tip_z_mm"] for point in points}) == 1:
+        if len(points) == len(path["rows"]) and len({p["tip_z_mm"] for p in points}) == 1:
             paths.append(
-                {"xy_mm": [point["xy_mm"] for point in points], "tip_z_mm": points[0]["tip_z_mm"]}
+                {
+                    "table": points[0]["id"],
+                    "name": path["name"],
+                    "kind": path["kind"],
+                    "cutter_side": path["cutter_side"],
+                    "directed": path["directed"],
+                    "xy_mm": [point["xy_mm"] for point in points],
+                    "tip_z_mm": points[0]["tip_z_mm"],
+                    "ids": [point["id"] for point in points],
+                    "overshoot": [point.get("overshoot") is True for point in points],
+                }
             )
-        elif len(points) == len(path):
-            unknown.append(f"{path[0][0]} (its rows stand at different tips)")
-    result = {"rows": rows, "paths": paths}
+        elif len(points) == len(path["rows"]):
+            unknown.append(f"{path['rows'][0][0]} (its rows stand at different tips)")
+    result = {"rows": rows, "paths": paths, "bounded": bounded}
+    if bounded:
+        grid = tables.get("dro_grid", {})
+        result["dro"] = {"step": grid.get("step"), "decimals": grid.get("decimals"), "scale": scale}
+        result["row_format"] = ROW_FORMAT
+        result["fragment_format"] = FRAGMENT_FORMAT
     if unknown:
         more = f" (+{len(unknown) - 3} more)" if len(unknown) > 3 else ""
         result["reason"] = (
@@ -816,7 +840,10 @@ def build_job(bundle):
 
     units = bundle.features.get("units", UNKNOWN)
     setups = []
-    coordinates = {finding.subject: finding.numbers for finding in coordinate_findings(bundle)}
+    # The kernel request: a bounded op's printed tables go whole, for the kernel to clip.
+    coordinates = {
+        finding.subject: finding.numbers for finding in coordinate_findings(bundle, pre_kernel=True)
+    }
     finishing = finishing_subjects(bundle)
     complete = complete_form_subjects(bundle)
     for setup in bundle.plan["setups"]:

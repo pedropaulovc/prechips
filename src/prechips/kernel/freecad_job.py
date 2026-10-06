@@ -165,6 +165,10 @@ HIT_MM3 = 1e-6  # common volume that counts as an intersection
 HIT_BALL_MM = 0.01  # mm: proof-ball radius; its 4.19e-6 mm^3 volume exceeds HIT_MM3
 STOCK_TOL = 1e-3  # mm: as-is face distance to the envelope, claimed-face contact
 COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is not cleared
+# mm along a printed cutter-centre chord within which the kernel locates where the cutter
+# first meets stock outside its op's stock_removal_bounds (_Setup._clip_checkpoints).
+CLIP_PRECISION_MM = 1e-4
+CLIP_CONTACT = "first contact with stock outside stock_removal_bounds"
 STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached stock piece
 TUBE_REL = 1e-3  # pipe volume vs pi r^2 L: a lineage-skin edge tube must be whole
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
@@ -225,6 +229,15 @@ def _timed(records, key):
 
 class _Unknown(Exception):
     """The whole job's facts are unknown for the stated reason."""
+
+
+class _ClipUnknown(Exception):
+    """A bounded op's clip of its printed paths is unknown for the stated reason."""
+
+
+def _dro_value(value, step, decimals):
+    """``value`` rounded down onto the DRO grid of ``step``, printed at ``decimals``."""
+    return round(math.floor(value / step + 1e-6) * step, decimals)
 
 
 def _turned(op):
@@ -5736,6 +5749,8 @@ class _Setup:
         tool, tool_debt = self._render_tool(annotation, lathe)
         if tool_debt:
             render_debts.append(tool_debt)
+        sketch, waypoints, sketch_debts = self._clipped_sketch(annotation)
+        render_debts.extend(sketch_debts)
         jaw_z = (
             self.hold["pose"]["origin_mm"][2]
             if lathe and self.hold and isinstance(self.hold.get("pose"), dict)
@@ -5783,7 +5798,7 @@ class _Setup:
             shows.append("selected tool approach")
         if removal is not None:
             shows.append("material removed this setup (amber hatch)")
-        if annotation.get("paths") or annotation.get("axial_paths"):
+        if sketch or annotation.get("axial_paths"):
             shows.append("profile sketch keyed to the coordinate rows")
         legend = [
             "Blue-grey: material retained after this setup.",
@@ -5827,9 +5842,9 @@ class _Setup:
             "stickout_mm": annotation.get("stickout_mm"),
             "datums": datums,
             "primary_tool": tool,
-            "paths": annotation.get("paths", []),
+            "paths": sketch,
             "axial_paths": annotation.get("axial_paths", []),
-            "waypoints": annotation.get("waypoints", []),
+            "waypoints": waypoints,
             "fixed_jaw_label": annotation.get("fixed_jaw_label"),
             "custom_clamp_order": [
                 clamp_labels[key]
@@ -5867,6 +5882,49 @@ class _Setup:
         if details:
             scene["fixture_detail_labels"] = details
         return render_diagram(meshes, spec), scene
+
+    def _clipped_sketch(self, annotation):
+        """(sketch paths, waypoints, render debts): the annotation's sketch plus each bounded
+        op's clipped printed paths (:meth:`_clip_checkpoints`), keyed like the tables by
+        their row ``rows`` ids: an arc piece at its ends and apex, a join at every point. A
+        bounded op whose clip is unknown draws no path, only a debt; no unclipped path."""
+        paths = list(annotation.get("paths", []))
+        waypoints = [dict(waypoint) for waypoint in annotation.get("waypoints", [])]
+        debts = []
+        for op in self.ops:
+            table = op.get("checkpoints")
+            if not isinstance(table, dict) or not table.get("bounded"):
+                continue
+            name = str(op.get("op"))
+            if table.get("reason"):
+                debts.append(f"NOT SHOWN: op {name} cutter path; {table['reason']}.")
+                continue
+            for path in table.get("paths", []):
+                points, ids = path["xy_mm"], path["ids"]
+                if len(points) < 2:
+                    continue
+                paths.append({"op": name, "xy": points, "directed": path.get("directed") is True})
+                count = len(points)
+                arc = path["kind"] == "arc_table"
+                keys = sorted({0, count // 2, count - 1}) if arc else range(count)
+                for index in keys:
+                    point = points[index]
+                    match = next(
+                        (
+                            w
+                            for w in waypoints
+                            if w.get("op") == name
+                            and isinstance(w.get("xy"), list)
+                            and math.dist(w["xy"], point) ** 2 < 1e-8
+                        ),
+                        None,
+                    )
+                    if match is None:
+                        label = f"P{len(waypoints) + 1}"
+                        waypoints.append({"label": label, "op": name, "xy": point, "rows": []})
+                        match = waypoints[-1]
+                    match.setdefault("rows", []).append(ids[index])
+        return paths, waypoints, debts
 
     def _render_components(self, annotation):
         """Callout assemblies, keeping every exact solid in the actual drawing."""
@@ -6218,6 +6276,227 @@ class _Setup:
         pieces = [(window, self._guard(leave, window)[0]) for window in windows if window]
         return [(window, solids) for window, solids in pieces if solids is not None], leave, None
 
+    def _clip_checkpoints(self, op, table, facts, frame_reason):
+        """Clip a bounded op's printed paths (``checkpoints`` ``bounded``) where its cutter
+        first meets its before-op stock outside its stock_removal_bounds, and report each
+        path's pieces as ``checkpoint_clips`` (docs/rules-coordinates.md, bounds clip).
+
+        The cutter is the op's ``radius_mm`` cylinder less LIFT, from the printed tip plus
+        LIFT up above the setup-entry stock; it meets that stock (:meth:`_checkpoint_stock`,
+        the finished part outside the box included) when their common volume exceeds
+        HIT_MM3. Only the clipped rows and paths remain in ``checkpoints``: the row check
+        (:meth:`_checkpoint_facts`), the run-out and the sketch use nothing else. When the
+        clip is unknown no row remains and the table says why.
+        """
+        clips = {"clipped_at": CLIP_CONTACT, "precision_mm": CLIP_PRECISION_MM, "paths": []}
+        facts["checkpoint_clips"] = clips
+        radius, dro = _positive(op, "radius_mm"), table.get("dro") or {}
+        why = None
+        if frame_reason is not None:
+            why = f"setup frame is unusable ({frame_reason})"
+        elif table.get("reason"):
+            why = table["reason"]
+        elif radius is None or radius <= LIFT:
+            why = "op lacks a measured cutter radius_mm"
+        elif not (
+            _positive(dro, "step") and _positive(dro, "scale") and type(dro.get("decimals")) is int
+        ):
+            why = "its DRO grid is unknown"
+        obstacle = None
+        if why is None:
+            obstacle, _, why = self._checkpoint_stock(op)
+        clipped = []
+        if why is None:
+            try:
+                clipped = [self._clip_path(path, obstacle, radius, dro) for path in table["paths"]]
+            except _ClipUnknown as exc:
+                why = str(exc)
+            except Exception as exc:  # OCC booleans and offsets
+                why = f"its first contact could not be derived ({exc})"
+        if why is not None:
+            clips["reason"] = why
+            table.update(rows=[], paths=[], reason=f"its bounds clip is unknown ({why})")
+            return
+        rows, paths = [], []
+        for path, (entry, pieces) in zip(table["paths"], clipped, strict=True):
+            clips["paths"].append(entry)
+            row_format = table["row_format"][path["kind"]]
+            for k, piece in enumerate(pieces, start=1):
+                name = path["name"]
+                if len(pieces) > 1:
+                    name += table["fragment_format"].format(k)
+                ids = [name + row_format.format(index) for index in range(len(piece))]
+                xy = [
+                    path["xy_mm"][point["row"]]
+                    if "row" in point
+                    else [v * dro["scale"] for v in point["dro_xy"]]
+                    for point in piece
+                ]
+                flags = ["row" in point and path["overshoot"][point["row"]] for point in piece]
+                for row, point, flag in zip(ids, xy, flags, strict=True):
+                    rows.append({"id": row, "xy_mm": point, "tip_z_mm": path["tip_z_mm"]})
+                    if flag:
+                        rows[-1]["overshoot"] = True
+                paths.append({**path, "xy_mm": xy, "ids": ids, "overshoot": flags})
+        table["rows"], table["paths"] = rows, paths
+        self.run_outs.pop(id(op), None)  # a run-out is only ever of the clipped paths
+
+    def _clip_path(self, path, obstacle, radius, dro):
+        """(its ``checkpoint_clips`` entry, its legal pieces) for one printed path.
+
+        The path is walked from each end and along each printed chord: runs whose whole
+        sweep is clear are legal, and each chord whose sweep meets ``obstacle`` is bisected
+        to CLIP_PRECISION_MM for the last legal fraction from each legal end. That clip
+        point prints on the DRO grid (``dro``) at the nearest grid point on the cutter
+        side of its chord (``cutter_side``: no nearer the walls) from which the cutter still
+        sweeps clear to that legal end. A piece is a list of printed rows (``row``) and clip
+        points (``after`` a row at fraction ``t``, ``exact_xy`` and ``dro_xy`` in plan
+        units). A path that leaves and re-enters legality is several pieces, never
+        reconnected (a closed path's pieces across its seam are one); one with no legal part
+        has none. Pieces no longer than CLIP_PRECISION_MM are dropped.
+        """
+        xy, ids = path["xy_mm"], path["ids"]
+        count, z0, top = len(xy), path["tip_z_mm"] + LIFT, self.box[5] + COVER_MM
+        points = [V(x, y, z0) for x, y in xy]
+        rho, height = radius - LIFT, top - z0
+        step, decimals, scale = dro["step"], dro["decimals"], dro["scale"]
+        side = {"left": 1, "right": -1}.get(path.get("cutter_side"))
+
+        def meets(a, b):
+            """Whether the cutter swept from setup point ``a`` to ``b`` meets the stock."""
+            if (b - a).Length <= PLANE_TOL:
+                solids = [Part.makeCylinder(rho, height, a)]
+            else:
+                solids = [face.extrude(V(0, 0, height)) for face in _stadium(a, b, rho).Faces]
+            return any(_common(solid, obstacle) is not None for solid in solids)
+
+        def clear(i, j):
+            """Whether the whole sweep along rows i..j is proven clear in one boolean."""
+            if j - i == 1:
+                return not meets(points[i], points[j])
+            run = [points[i]]
+            for point in points[i + 1 : j + 1]:
+                if (point - run[-1]).Length > PLANE_TOL:
+                    run.append(point)
+            if len(run) < 2:
+                return not meets(points[i], points[i])
+            try:
+                area = _path_area(Part.makePolygon(run), rho)
+                return all(
+                    _common(face.extrude(V(0, 0, height)), obstacle) is None for face in area.Faces
+                )
+            except Exception:  # an OCC offset failure proves nothing: its halves are judged
+                return False
+
+        dirty = set()  # chords (by first row) whose sweep meets the stock
+
+        def scan(i, j):
+            if clear(i, j):
+                return
+            if j - i == 1:
+                dirty.add(i)
+                return
+            middle = (i + j) // 2
+            scan(i, middle)
+            scan(middle, j)
+
+        def legal(i):
+            if i not in dirty and i - 1 not in dirty:
+                return True
+            return not meets(points[i], points[i])
+
+        def at(i, t):
+            return points[i] + (points[i + 1] - points[i]) * t
+
+        def bisect(i, leaving):
+            """The last legal fraction of chord i: leaving legality from its start, or
+            regaining it toward its end."""
+            length, low, high = (points[i + 1] - points[i]).Length, 0.0, 1.0
+            while (high - low) * length > CLIP_PRECISION_MM:
+                middle = (low + high) / 2
+                if leaving:
+                    hit = meets(points[i], at(i, middle))
+                    low, high = (low, middle) if hit else (middle, high)
+                else:
+                    hit = meets(at(i, middle), points[i + 1])
+                    low, high = (middle, high) if hit else (low, middle)
+            return low if leaving else high
+
+        def printed(i, t, leaving):
+            if side is None:
+                raise _ClipUnknown(
+                    f"{path['table']}: the side of its travel its cutter clears from is unknown"
+                )
+            exact = at(i, t)
+            target = [exact.x / scale, exact.y / scale]
+            run, end = points[i + 1] - points[i], points[i] if leaving else points[i + 1]
+            base = [_dro_value(v, step, decimals) for v in target]
+            for reach in (1, 3):
+                span = range(1 - reach, reach + 1)
+                options = [
+                    [round(base[0] + a * step, decimals), round(base[1] + b * step, decimals)]
+                    for a in span
+                    for b in span
+                ]
+                for option in sorted(options, key=lambda q: math.dist(q, target)):
+                    point = V(option[0] * scale, option[1] * scale, z0)
+                    offset = point - points[i]
+                    turn = run.x * offset.y - run.y * offset.x
+                    if side * turn >= -PLANE_TOL * run.Length and not meets(end, point):
+                        return {"after": i, "t": t, "exact_xy": target, "dro_xy": option}
+            raise _ClipUnknown(
+                f"no DRO grid point near its clip after {ids[i]} is clear and no nearer its walls"
+            )
+
+        if z0 >= top:
+            pieces = [[{"row": i} for i in range(count)]]
+        elif count == 1:
+            pieces = [[{"row": 0}]] if not meets(points[0], points[0]) else []
+        else:
+            scan(0, count - 1)
+            pieces, current = [], [{"row": 0}] if legal(0) else None
+            for i in range(count - 1):
+                if i in dirty:
+                    if current is not None:
+                        current.append(printed(i, bisect(i, True), True))
+                        pieces.append(current)
+                        current = None
+                    if legal(i + 1):
+                        current = [printed(i, bisect(i, False), False)]
+                if current is not None:
+                    current.append({"row": i + 1})
+            if current is not None:
+                pieces.append(current)
+
+        def place(point):
+            return points[point["row"]] if "row" in point else at(point["after"], point["t"])
+
+        pieces = [
+            piece
+            for piece in pieces
+            if count == 1
+            or sum((place(b) - place(a)).Length for a, b in zip(piece, piece[1:], strict=False))
+            > CLIP_PRECISION_MM
+        ]
+        closed = count > 2 and (points[-1] - points[0]).Length <= PLANE_TOL
+        if closed and len(pieces) > 1 and pieces[0][0] == {"row": 0}:
+            if pieces[-1][-1] == {"row": count - 1}:
+                pieces = [pieces[-1] + pieces[0][1:], *pieces[1:-1]]
+        kept = {point["row"] for piece in pieces for point in piece if "row" in point}
+        entry = {
+            "table": path["table"],
+            "rows": count,
+            "pieces": pieces,
+            "dropped_rows": [ids[i] for i in range(count) if i not in kept],
+            "clip_points": [
+                {**point, "after": ids[point["after"]]}
+                for piece in pieces
+                for point in piece
+                if "after" in point
+            ],
+        }
+        return entry, pieces
+
     def _checkpoint_facts(self, op, facts, frame_reason=None):
         """Printed DRO checkpoints (``checkpoints``) against this setup's stock model; the
         job finishes them against every later setup (:meth:`_finish_checkpoints`).
@@ -6233,6 +6512,8 @@ class _Setup:
         table = op.get("checkpoints")
         if not isinstance(table, dict) or _turned(op) or _sawn(op):
             return
+        if table.get("bounded"):
+            self._clip_checkpoints(op, table, facts, frame_reason)
         rows = [row for row in table.get("rows", []) if isinstance(row, dict)]
         facts["checkpoint_count"] = len(rows)
         why = [table["reason"]] if table.get("reason") else []
