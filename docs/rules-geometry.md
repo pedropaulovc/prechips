@@ -1260,6 +1260,24 @@ drawn strap's certainly thin run still decides `error`/protective `pass`, but
 a run that meets the floor is `unknown` (`drawn straps meet the shop floor but
 other clamps are unresolved: …`) while any debt remains.
 
+Separated parallel footprint lines from one clamp may meet the entry stock in
+one exact native compound intersection. Their segments and Boolean operand order
+are unchanged, with no fuzzy tolerance. Supporting lines must be more than
+`4 × PLANE_TOL` apart. The returned shape must be valid and its maximum native
+tolerance, including vertices, strictly below `PLANE_TOL` (1e-6 mm); every
+straight returned edge must belong to exactly one original finite segment within
+that precision. Every sample, raw interval, loaded/air row and minimum remains
+individual. This partitions native edges, not an approximate material model.
+
+A near/coincident line, unsupported or ambiguous edge, invalid result or failed
+optional batch makes that whole clamp run its original queries serially in their
+original order. Serial query errors are never caught. If gathering a footprint
+fails after prior points, those prior queries run first, preserving the earlier
+native error's precedence. The per-piece press-clamp load-path queries remain
+individual. P6 accepts a successful exact batch where an individual solve might
+have raised; numeric equivalence is checked against native scalar intervals,
+not inferred from the partition gates alone.
+
 The rule compares the wall with
 `shop-policy.numbers.thin_wall_floor_mm`; a `numbers_verify` flag that is
 true or unknown makes the floor unknown. Numbers: `min_wall_mm`,
