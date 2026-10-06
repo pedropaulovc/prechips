@@ -1183,9 +1183,12 @@ class _Traveler:
             if gauge not in (None, "unknown"):
                 line += " with the " + self.reference(gauge)
             limit = transfer.get("runout_limit_mm")
+            # A lathe part is tapped true in the chuck; on a mill the indicator is swept
+            # in the spindle and the table is moved to centre on the feature.
+            correct = "tap true to" if self.lathe(setup) else "move the table until the sweep reads"
             line += (
                 # A limit is never rounded: 0.0254 printed as 0.03 would loosen it.
-                f"; tap true to {_number(limit)} mm total indicator reading or less, then re-check"
+                f"; {correct} {_number(limit)} mm total indicator reading or less, then re-check"
                 if _known(limit)
                 else "; runout limit not set — ? confirm the allowed runout"
             )
