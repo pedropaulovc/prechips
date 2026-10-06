@@ -1067,6 +1067,16 @@ The long-tool rescue therefore requires accepted holder gauge-diameter,
 gauge-length and projection facts; an unknown holder never passes a
 beyond-flute depth.
 
+On the turning model, `reach_depth_mm` is the radial height of material beside the
+nose or blade, within its axial extent, above each sample. A single-point tool that
+faces to `to_z` (`face`, `part_off`, `cut_to_fit`) feeds radially through stock it
+has just faced. That depth is therefore measured on the profile left after the op,
+so only a shoulder beyond the faced plane counts, and the stock radius never does.
+If that profile cannot be derived, the depth is unknown. A two-cornered blade
+plunges between the part and the slug, so its depth is measured in setup-entry
+stock and reaches the bar radius. Turning and profile ops also use setup-entry
+stock.
+
 A sample without an evaluable surface normal makes the sampled face's
 accessibility and reach unresolved, with the face and missing-normal count
 named. It is never silently dropped to produce a clearance or reach pass.

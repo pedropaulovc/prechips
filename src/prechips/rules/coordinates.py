@@ -12,6 +12,7 @@ import itertools
 import math
 
 from ..findings import Finding
+from ..measurements import angle_fact
 from ._bench import manual_bench, not_applicable
 from .resolution import (
     UNKNOWN,
@@ -544,7 +545,29 @@ def _spindle_rows(bundle, setup, name, feature, frame, dro):
     return rows, cite
 
 
-def _dome(name, feature, op, radius_mode):
+def _nose_arc(edges):
+    """(lowest, highest) contact-normal angle in degrees, measured from +X (radially out)
+    toward +Z, that a right-hand insert's nose arc spans: its major edge (entering angle
+    ``kappa`` from the -Z feed) bounds it at ``kappa``, its trailing edge at
+    ``kappa + insert - 180``. (None, reason) when the edge facts do not establish it."""
+    edges = mapping(edges)
+    kappa, insert = edges.get("entering_angle_deg"), edges.get("insert_angle_deg")
+    if edges.get("hand") != "right":
+        return None, "the nose arc is modelled for a right-hand tool feeding toward the chuck"
+    if not (number(kappa) and number(insert)) or kappa <= 0 or insert <= 0:
+        return None, "the selected tool's entering or insert angle is unknown"
+    if kappa + insert >= 180:
+        return None, "the selected tool's entering and insert angles do not form an insert"
+    return (kappa + insert - 180, kappa), None
+
+
+def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
+    """Axial table of the dome's finished surface and, when the selected insert's nose arc
+    spans every row's contact normal, the imaginary-tip readings of a tool touched off on
+    an outside diameter (X) and a +Z end face (Z), the lathe tool-touch convention: the
+    nose centre sits ``nose`` along the surface normal, so the tip reads ``nose * (n - 1)``
+    from the surface point per axis. A normal outside the arc is cut by an edge or flank,
+    not the nose, so no nose offset holds there."""
     sphere = feature.get("sphere_radius", UNKNOWN)
     apex, base = op.get("z_from", UNKNOWN), op.get("z_to", UNKNOWN)
     step = mapping(op.get("contour")).get("step_mm", UNKNOWN)
@@ -552,6 +575,16 @@ def _dome(name, feature, op, radius_mode):
         return None
     sign = 1 if apex > base else -1
     centre = apex - sign * sphere
+    arc, arc_reason = _nose_arc(edges)
+    if not number(nose) or nose < 0:
+        compensation, why = UNKNOWN, "the selected tool's nose radius is unknown"
+    elif sign < 0:
+        compensation, why = UNKNOWN, "the dome apex faces the chuck, not the +Z touch-off face"
+    elif arc is None:
+        compensation, why = UNKNOWN, arc_reason
+    else:
+        compensation, why = nose, None
+    display = 1 if radius_mode else 2
     rows = []
     count = math.ceil(abs(apex - base) / step)
     for i in range(count + 1):
@@ -560,16 +593,31 @@ def _dome(name, feature, op, radius_mode):
         if squared < -1e-10:
             return None
         radius = math.sqrt(max(0, squared))
+        normal_r, normal_z = radius / sphere, (z - centre) / sphere
         rows.append(
             {
                 "z_mm": z,
                 "radius_mm": radius,
                 "diameter_mm": 2 * radius,
-                "x_target_mm": radius if radius_mode else 2 * radius,
-                "setup_xz": [radius if radius_mode else 2 * radius, z],
+                "x_target_mm": display * radius,
+                "setup_xz": [display * radius, z],
+                "normal_deg": math.degrees(math.atan2(normal_z, normal_r)),
             }
         )
-    return {
+    if why is None:
+        outside = [r["z_mm"] for r in rows if not arc[0] - 1e-9 <= r["normal_deg"] <= arc[1] + 1e-9]
+        if outside:
+            compensation = UNKNOWN
+            why = (
+                f"contact normals at Z {', '.join(f'{z:g}' for z in outside)} lie outside the "
+                f"nose arc {arc[0]:g}°..{arc[1]:g}°, so an edge, not the nose, meets them"
+            )
+    if why is None:
+        for row in rows:
+            normal = math.radians(row["normal_deg"])
+            row["x_tool_mm"] = display * (row["radius_mm"] + nose * (math.cos(normal) - 1))
+            row["z_tool_mm"] = row["z_mm"] + nose * (math.sin(normal) - 1)
+    contour = {
         "feature": name,
         "op": op["op"],
         "method": "axial_table",
@@ -579,8 +627,24 @@ def _dome(name, feature, op, radius_mode):
         "apex_z_mm": apex,
         "base_z_mm": base,
         "step_mm": step,
-        "tool_nose_compensation_mm": UNKNOWN,
+        "tool_nose_compensation_mm": compensation,
+        "tool_reference": "imaginary tip: X touched on an outside diameter, Z on a +Z end face",
     }
+    if why is not None:
+        contour["tool_nose_compensation_reason"] = why
+    return contour
+
+
+def _edge_facts(bundle, op):
+    """The selected turning insert's hand and accepted entering/insert angles (degrees)."""
+    from ._envelope import measurement_item
+
+    item = measurement_item(bundle, "tools", op.get("tool"))
+    angles = {}
+    for field in ("entering_angle_deg", "insert_angle_deg"):
+        fact = angle_fact(item, field, require_measured=False)
+        angles[field] = fact["value"] if fact["verified"] else UNKNOWN
+    return {"hand": mapping(item).get("hand", UNKNOWN), **angles}
 
 
 def evaluate(bundle):
@@ -742,10 +806,19 @@ def evaluate(bundle):
                                 unordered.add(profile["cut_order_reason"])
                         generated = True
                 elif contour.get("method") == "axial_table" and (not paired or stage == "finish"):
-                    dome = _dome(name, feature, op, dro.get("radius_mode") is True)
+                    nose = length_mm(tool, "nose_radius") if tool and not uncertain(tool) else None
+                    dome = _dome(
+                        name,
+                        feature,
+                        op,
+                        dro.get("radius_mode") is True,
+                        nose if number(nose) else UNKNOWN,
+                        _edge_facts(bundle, op) if tool and not uncertain(tool) else None,
+                    )
                     if dome:
                         numbers["contours"].append(dome)
                         generated = True
+                        unknown |= not number(dome["tool_nose_compensation_mm"])
                 if not generated:
                     profile["cutter_centre"] = UNKNOWN
                 numbers["profiles"].append(profile)

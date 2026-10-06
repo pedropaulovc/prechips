@@ -1714,6 +1714,8 @@ class _Traveler:
             if not isinstance(contour, dict) or contour.get("method") != "axial_table":
                 continue
             entry = block(contour.get("op"))
+            compensation = contour.get("tool_nose_compensation_mm")
+            compensated = _known(compensation)
             rows = [
                 [
                     self.waypoint(
@@ -1721,6 +1723,7 @@ class _Traveler:
                     ),
                     o(r.get("x_target_mm")),
                     o(r.get("z_mm")),
+                    *((o(r.get("x_tool_mm")), o(r.get("z_tool_mm"))) if compensated else ()),
                 ]
                 for r in contour.get("rows", [])
             ]
@@ -1729,13 +1732,17 @@ class _Traveler:
                 f"apex Z {o(contour.get('apex_z_mm'))} → base Z {o(contour.get('base_z_mm'))}, "
                 f"every {o(contour.get('step_mm'))} in Z"
             )
-            compensation = contour.get("tool_nose_compensation_mm")
             operation = operations.get(str(contour.get("op")), {})
             nose = _amount(
                 _mapping(resolve(self.bundle, "tools", operation.get("tool"))).get("nose_radius_mm")
             )
-            if _known(compensation):
-                description += f"; tool-nose compensation {o(compensation)} applied"
+            if compensated:
+                description += (
+                    f". Surface X (Ø) / Z are the finished dome; tool X / Z are the DRO readings "
+                    f"of the R{o(compensation)} nose's imaginary tip, touched off on an outside "
+                    "diameter and a +Z end face; feed to the tool columns"
+                )
+                headings = ["P", "surface X (Ø)", "surface Z", "tool X", "tool Z"]
             else:
                 description += (
                     ". Finished surface, X as diameter; the table is not offset for the "
@@ -1743,7 +1750,8 @@ class _Traveler:
                     + ": STOP — compensation not computed; feed to these points only with "
                     "nose-radius compensation set at the machine"
                 )
-            entry["parts"].append((description, ["P", "X (Ø)", "Z"], rows))
+                headings = ["P", "X (Ø)", "Z"]
+            entry["parts"].append((description, headings, rows))
         if not blocks:
             return ""
         html = []
