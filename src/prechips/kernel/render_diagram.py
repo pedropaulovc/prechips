@@ -158,8 +158,7 @@ def _clip_segment(a, b, box):
     left, top, right, bottom = box
     dx, dy = b[0] - a[0], b[1] - a[1]
     low, high = 0.0, 1.0
-    for p, q in ((-dx, a[0] - left), (dx, right - a[0]),
-                 (-dy, a[1] - top), (dy, bottom - a[1])):
+    for p, q in ((-dx, a[0] - left), (dx, right - a[0]), (-dy, a[1] - top), (dy, bottom - a[1])):
         if p == 0:
             if q < 0:
                 return None
@@ -171,8 +170,7 @@ def _clip_segment(a, b, box):
                 high = min(high, crossing)
             if low > high:
                 return None
-    return ((a[0] + low * dx, a[1] + low * dy),
-            (a[0] + high * dx, a[1] + high * dy))
+    return ((a[0] + low * dx, a[1] + low * dy), (a[0] + high * dx, a[1] + high * dy))
 
 
 def _badge(canvas, point, label, colour=_BLUE, scale=3):
@@ -229,8 +227,10 @@ class _Diagram:
         self.off_window_keys = []
         if self.view == "lathe":
             profile_points = [
-                p for profile in spec.get("lathe_profiles", [])
-                for line in profile["lines"] for p in line
+                p
+                for profile in spec.get("lathe_profiles", [])
+                for line in profile["lines"]
+                for p in line
             ]
             if profile_points:
                 self.lathe_window = (
@@ -238,8 +238,7 @@ class _Diagram:
                     max(p[1] for p in profile_points),
                 )
                 display = {
-                    str(p["op"]): p.get("x_display", "radius")
-                    for p in spec.get("axial_paths", [])
+                    str(p["op"]): p.get("x_display", "radius") for p in spec.get("axial_paths", [])
                 }
                 for waypoint in spec.get("waypoints", []):
                     if "xz" not in waypoint:
@@ -248,7 +247,8 @@ class _Diagram:
                     if self.lathe_window[0] <= z <= self.lathe_window[1]:
                         continue
                     convention = waypoint.get(
-                        "x_display", display.get(str(waypoint.get("op")), "radius"),
+                        "x_display",
+                        display.get(str(waypoint.get("op")), "radius"),
                     )
                     radius = x / 2 if convention == "diameter" else x
                     self.off_window_keys.append((waypoint["label"], (radius, 0, z)))
@@ -300,8 +300,7 @@ class _Diagram:
         if self.tool:
             notes.append("Tool approach is illustrative, not a machining pose or simulated path.")
             notes.append(
-                f"Selected tool: {self.tool['label']} / "
-                f"op {self.tool.get('op', 'not declared')}"
+                f"Selected tool: {self.tool['label']} / op {self.tool.get('op', 'not declared')}"
             )
         if self.spec.get("zero_mm") is None:
             notes.append("Z0: not declared")
@@ -440,7 +439,8 @@ class _Diagram:
                             )
                             for point in outline
                         ]
-                        if self.tool else []
+                        if self.tool
+                        else []
                     )
                     right = max([right] + [point[0] for point in tool_pixels]) + 44
                 x, y = right + 8, (top + bottom) / 2 - 44
@@ -501,10 +501,14 @@ class _Diagram:
                     on = phase < 8
                     run = min(length - distance, (8 if on else 14) - phase)
                     if on and run > 0:
-                        start = (a[0] + (b[0] - a[0]) * distance / length,
-                                 a[1] + (b[1] - a[1]) * distance / length)
-                        end = (a[0] + (b[0] - a[0]) * (distance + run) / length,
-                               a[1] + (b[1] - a[1]) * (distance + run) / length)
+                        start = (
+                            a[0] + (b[0] - a[0]) * distance / length,
+                            a[1] + (b[1] - a[1]) * distance / length,
+                        )
+                        end = (
+                            a[0] + (b[0] - a[0]) * (distance + run) / length,
+                            a[1] + (b[1] - a[1]) * (distance + run) / length,
+                        )
                         segment = _clip_segment(start, end, clip) if clip else (start, end)
                         if segment:
                             c.line(*segment, colour, width=2)
@@ -639,8 +643,7 @@ class _Diagram:
             c,
             32,
             self.footer_top - 36,
-            f"ACTUAL STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}"
-            f"  /  Z {_mm(sizes[2])} mm",
+            f"ACTUAL STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm",
         )
         axis = 2 if self.view == "lathe" else 0
         first, second = list(_centre(box)), list(_centre(box))
@@ -700,7 +703,8 @@ class _Diagram:
         for x, width, _ in lane_specs:
             intervals = sorted(
                 (max(202, b[1]), min(self.footer_top - 64, b[3]))
-                for b in self.obstacles if x < b[2] and x + width > b[0]
+                for b in self.obstacles
+                if x < b[2] and x + width > b[0]
             )
             blocked, end = 0, 202
             for top, bottom in intervals:
@@ -711,8 +715,7 @@ class _Diagram:
 
         def cost(items, side):
             return sum(
-                len(_wrap(c, item.label, lane_specs[side][1], scale=3)) * 27 + 11
-                for item in items
+                len(_wrap(c, item.label, lane_specs[side][1], scale=3)) * 27 + 11 for item in items
             )
 
         # Balance wrapped height rather than raw label count before reducing type.
@@ -722,7 +725,8 @@ class _Diagram:
                 break
             target = 1 - source
             candidates = [
-                item for item in lanes[source]
+                item
+                for item in lanes[source]
                 if cost(lanes[target] + [item], target) <= capacities[target]
             ]
             if not candidates:
@@ -788,7 +792,8 @@ class _Diagram:
         c.line((1157, 134), (1157, self.footer_top - 17), _RULE, width=2)
         profiles = self.spec.get("lathe_profiles", []) if self.view == "lathe" else []
         if profiles or (
-            self.view == "lathe" and (
+            self.view == "lathe"
+            and (
                 self.spec.get("axial_paths")
                 or any("xz" in p for p in self.spec.get("waypoints", []))
             )
@@ -941,9 +946,7 @@ class _Diagram:
             return
         xmin, ymin, xmax, ymax = _bounds(points)
         ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
-        key_lines = [
-            (op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)
-        ]
+        key_lines = [(op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)]
         plot_top, plot_bottom = top + 82, bottom - 40 - 30 * len(key_lines)
         scale = min(
             (right - left - 74) / max(xmax - xmin, 1e-9),
@@ -1096,7 +1099,7 @@ class _Diagram:
             count = max(1, min(3, int(length / 36)))
             half_span = min(9, length / (2 * count))
             for index in range(count):
-                distance = (index + .5) * length / count
+                distance = (index + 0.5) * length / count
                 tail = point_at(run, distance - half_span)
                 tip = point_at(run, distance + half_span)
                 c.arrow(tail, tip, colour, width=width)
@@ -1140,13 +1143,9 @@ class _Diagram:
                 break
         if exclusion is not None:
             # Work outward from the exact projected boundary, never over the part.
-            ys = [
-                upper_bottom - cell_height / 2 - i * (cell_height + 8)
-                for i in range(upper_rows)
-            ]
+            ys = [upper_bottom - cell_height / 2 - i * (cell_height + 8) for i in range(upper_rows)]
             ys.extend(
-                lower_top + cell_height / 2 + i * (cell_height + 8)
-                for i in range(lower_rows)
+                lower_top + cell_height / 2 + i * (cell_height + 8) for i in range(lower_rows)
             )
         else:
             rows = (
@@ -1155,7 +1154,10 @@ class _Diagram:
                 else max(required_rows, int((span_y + 8) / (cell_height + 8)))
             )
             ys = (
-                [top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1) for i in range(rows)]
+                [
+                    top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1)
+                    for i in range(rows)
+                ]
                 if rows > 1
                 else [(top + bottom) / 2]
             )
@@ -1176,14 +1178,10 @@ class _Diagram:
             available.remove(badge)
             placed.append((badge, label, point, item.get("colour", colour)))
         top_points = (
-            exclusion[1]
-            if exclusion is not None
-            else min(point[1] for _, _, point, _ in placed)
+            exclusion[1] if exclusion is not None else min(point[1] for _, _, point, _ in placed)
         )
         bottom_points = (
-            exclusion[3]
-            if exclusion is not None
-            else max(point[1] for _, _, point, _ in placed)
+            exclusion[3] if exclusion is not None else max(point[1] for _, _, point, _ in placed)
         )
         upper_index = lower_index = 0
         for badge, _, point, point_colour in placed:

@@ -10,7 +10,7 @@ import pytest
 
 from prechips import kernel
 from prechips.inputs import BadInput, load_bundle
-from prechips.rules import coordinates, envelope, zero_recipe
+from prechips.rules import coordinates, zero_recipe
 
 ROOT = Path(__file__).resolve().parents[1]
 SHAFT = ROOT / "examples" / "pivot-shaft" / "plan.toml"

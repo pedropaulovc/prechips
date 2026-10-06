@@ -159,9 +159,7 @@ def test_shared_setup_and_operation_ids_keep_each_plans_authoring_debt(tmp_path)
         entry = by_id[f"{plan.as_posix()}:{local_id}"]
         assert entry["instruction"] == f"{plan.as_posix()}: {report_entry['instruction']}"
     assert sum(entry["id"] == SPINDLE_MIN for entry in entries) == 1
-    reversed_result = run_cli(
-        *common, "--plan", bracket, "--plan", rocker, setup=SYNTHETIC_KERNEL
-    )
+    reversed_result = run_cli(*common, "--plan", bracket, "--plan", rocker, setup=SYNTHETIC_KERNEL)
     assert reversed_result.returncode == 0, reversed_result.stderr
     reversed_entries = json.loads(reversed_result.stdout)
     assert measurement_ids(reversed_entries) == ids
@@ -204,9 +202,7 @@ def test_different_declared_inventories_scope_debt_unless_overridden(tmp_path, o
         for source in (inventory, other_inventory):
             entry = by_id[f"{source.as_posix()}:{SPINDLE_MIN}"]
             assert entry["instruction"].startswith(f"{source.as_posix()}: ")
-    reversed_result = run_cli(
-        *common, "--plan", bracket, "--plan", rocker, setup=SYNTHETIC_KERNEL
-    )
+    reversed_result = run_cli(*common, "--plan", bracket, "--plan", rocker, setup=SYNTHETIC_KERNEL)
     assert reversed_result.returncode == 0, reversed_result.stderr
     assert measurement_ids(json.loads(reversed_result.stdout)) == expected
 

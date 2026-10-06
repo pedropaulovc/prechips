@@ -11,7 +11,6 @@ import subprocess
 import pytest
 from test_kernel_geometry import ENGINE
 
-
 _NATIVE = r"""
 import importlib.util
 import json
@@ -340,6 +339,4 @@ def test_original_native_scalar_error_escapes_batch_fallback(native_straps, name
 def test_later_footprint_failure_cannot_replace_earlier_native_query_error(native_straps):
     row = native_straps["footprint-error"]
     assert row["native-first"] == row["scalar"]
-    assert row["generator-only"] == {
-        "type": "RuntimeError", "message": "later footprint failure"
-    }
+    assert row["generator-only"] == {"type": "RuntimeError", "message": "later footprint failure"}
