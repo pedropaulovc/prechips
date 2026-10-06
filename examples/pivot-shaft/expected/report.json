@@ -899,7 +899,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "48cb1073f55e705c52e3a6e3e3e641ed27e60796e71fc5441a8acaba62fa2af8"
+            "sha256": "6d86da0b679d4fb1fb892cdad86c2137ba9fcdc8c34e962983839ad06328b62f"
           },
           "features": {
             "path": "examples/pivot-shaft/features.toml",
@@ -907,11 +907,11 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "325fecccfe81c1c63d8bc302fd39a7cf65cb1a270fe8e92026efc1db2343a995"
+            "sha256": "abae56ec03fe4bb7bf583d9a38ab3394e1fc008004d73370d7129d9abbb08482"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
-            "sha256": "c3214e80cd3f4c291569db8b3b09b5f07732f146f60b4b088ba610263d431dcc"
+            "sha256": "3fe91755495a6a2e39365924a4228f73d2b7f8abb37565b10642fe6adf4c0cc4"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -2828,7 +2828,7 @@
           },
           "quill_extension_mm": 30.0,
           "stickout_mm": 167.5,
-          "stop": "bar end flush with the jaw backs; jaw fronts at T1 Z-1.5, on the shoulder north face",
+          "stop": "push the Ø10 north stub into the jaws until the jaw fronts sit on the shoulder north face (T1 Z-1.5); about 12 mm of stub is gripped",
           "support": "dead_centre_tailstock_mt3",
           "support_tip_mm": [
             0.0,
@@ -7827,7 +7827,7 @@
             "face": "plain end (prepared, centre-drilled)",
             "from": "+z",
             "jog_mm": 10.0,
-            "method": "touch",
+            "method": "touch with the spindle running until the first chip shows; no paper: the plain end is waste, parted off in S3",
             "mirrored_reading": 156.0,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
@@ -7850,12 +7850,12 @@
             ],
             "edge_mm": 0.0,
             "gauge": "micrometers/0-1in",
-            "method": "touch; withdraw along X without moving Z; Axis Set Z",
-            "paper_mm": 0.0,
+            "method": "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z; Axis Set Z +0.05",
+            "paper_mm": 0.05,
             "tool": "parting-blade-lms-1728",
             "x_axis_set": "measured D",
             "x_method": "touch the bearing diameter just measured by micrometer; Axis Set its measured diameter",
-            "z_axis_set": 0.0,
+            "z_axis_set": 0.05,
             "z_face": "shoulder_thrust"
           }
         ]
@@ -7908,7 +7908,7 @@
             "face": "north stub end",
             "from": "+z",
             "jog_mm": 10.0,
-            "method": "touch",
+            "method": "touch with the spindle running until the first chip shows; no paper: the stub end is waste, faced off to the apex in op 50",
             "mirrored_reading": -5.0,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
@@ -7931,12 +7931,12 @@
             ],
             "edge_mm": -7.5,
             "gauge": "micrometers/0-1in",
-            "method": "touch; withdraw along X without moving Z; Axis Set Z",
-            "paper_mm": 0.0,
+            "method": "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z; Axis Set Z -7.45",
+            "paper_mm": 0.05,
             "tool": "parting-blade-lms-1728",
             "x_axis_set": "measured D",
             "x_method": "touch the journal diameter just measured by micrometer; Axis Set its measured diameter",
-            "z_axis_set": -7.5,
+            "z_axis_set": -7.45,
             "z_face": "shoulder_north_face"
           }
         ],
@@ -8039,11 +8039,11 @@
       "subject": "S3"
     }
   ],
-  "hash": "dbf245183dad9cd830405e83202ffcde506437867c2f75331f4820b2ced15007",
+  "hash": "d205a612c1ee1118cbb358e4e6cb22fafcd02a55e8f9b5f4617f26e258abee51",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "48cb1073f55e705c52e3a6e3e3e641ed27e60796e71fc5441a8acaba62fa2af8"
+      "sha256": "6d86da0b679d4fb1fb892cdad86c2137ba9fcdc8c34e962983839ad06328b62f"
     },
     "features": {
       "path": "examples/pivot-shaft/features.toml",
@@ -8051,11 +8051,11 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "325fecccfe81c1c63d8bc302fd39a7cf65cb1a270fe8e92026efc1db2343a995"
+      "sha256": "abae56ec03fe4bb7bf583d9a38ab3394e1fc008004d73370d7129d9abbb08482"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
-      "sha256": "c3214e80cd3f4c291569db8b3b09b5f07732f146f60b4b088ba610263d431dcc"
+      "sha256": "3fe91755495a6a2e39365924a4228f73d2b7f8abb37565b10642fe6adf4c0cc4"
     },
     "render:S1": {
       "path": "setup-S1.png",
