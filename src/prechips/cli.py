@@ -256,7 +256,6 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 examples / "pivot-shaft" / "plan.toml",
                 examples / "rocker-arm" / "plan.toml",
                 examples / "pivot-bracket" / "plan.toml",
-                examples / "cone-pivot-post" / "plan.toml",
                 examples / "cone-pivot-post" / "built-up.toml",
             ]
         scoped_findings = []
