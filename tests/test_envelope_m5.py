@@ -430,6 +430,21 @@ def test_unresolved_fixture_requests_identity_not_height_measurement(field, iden
     assert debts[f"fixtures.{identity}.resolve"]["instruction"].startswith("resolve:")
 
 
+def test_machine_hosted_dividing_head_supplies_the_fixture_height():
+    data = bundle()
+    data.plan["setups"][0]["hold"] = {"fixture": "head", "parallels": "none"}
+    head = {"kind": "dividing_head", "height_mm": measured(50)}
+    data.inventory["machines"]["head"] = head
+    row = envelope.evaluate(data)[0]
+    assert row.status == "pass"
+    assert row.numbers["stacks"][0]["stack_mm"] == 151
+    assert "inventory.machines.head.height" in row.cite
+    head["height_mm"] = 50
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    assert "machines.head.height" in {entry["id"] for entry in row.numbers["measurements"]}
+
+
 @pytest.mark.parametrize("action,field", [("drill", "point_angle"), ("ream", "lead")])
 @pytest.mark.parametrize("identity", ["unowned", "unknown"])
 def test_unresolved_hole_tool_does_not_request_unowned_measurement(action, field, identity):

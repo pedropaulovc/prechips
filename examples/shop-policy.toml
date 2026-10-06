@@ -1,6 +1,9 @@
 # Shop-owned policy; a process plan cannot waive required findings.
 # PLAN.md rev 6 §3.4 ships these first seven rules on every subject.
-revision = 6
+# ILLUSTRATIVE EXAMPLE NUMBERS: the shop limits below are plausible hobby-shop
+# values chosen for the pilot examples (AGENTS.md "Examples policy"), not
+# logbook measurements or transcribed handbook limits.
+revision = 7
 
 [required]
 tool_resolves = "*"
@@ -12,18 +15,16 @@ coordinates = "*"
 zero_check = "*"
 
 [numbers]
-refixture_budget_mm = "unknown"
-thin_wall_floor_mm = "unknown"
-stickout_ld_max = "unknown"
+refixture_budget_mm = 0.05   # example: worst repeatability accepted after an unindicated re-fixture
+thin_wall_floor_mm = 1.5     # example: thinnest wall the shop grips in vise jaws without soft jaws
+stickout_ld_max = 4.0        # example: unsupported stickout limit, length / diameter
 
-# No logbook measurements or authoritative threshold citations were supplied.
-# Separate metadata tables avoid pretending the layout-sketch values are measured.
 [numbers_cite]
-refixture_budget_mm = "unknown"
-thin_wall_floor_mm = "unknown"
-stickout_ld_max = "unknown"
+refixture_budget_mm = "illustrative example value (plausible hobby-shop vise re-seat repeatability), not measured"
+thin_wall_floor_mm = "illustrative example value (plausible hobby-shop grip floor for steel), not measured"
+stickout_ld_max = "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
 
 [numbers_verify]
-refixture_budget_mm = true
-thin_wall_floor_mm = true
-stickout_ld_max = true
+refixture_budget_mm = false
+thin_wall_floor_mm = false
+stickout_ld_max = false

@@ -86,15 +86,27 @@ Dro = record(
         "direction": Direction,
     },
 )
-StockComponent = record(
-    "StockComponent",
-    {
-        **texts("form note"),
-        **numbers("dia_mm length_mm"),
-        "section_mm": Vector,
-        "cite": Citations,
-    },
-)
+
+
+class StockComponent(InputModel):
+    id: Annotated[str, Field(min_length=1)]
+    form: str | Unknown = UNKNOWN
+    note: str | Unknown = UNKNOWN
+    dia_mm: Number = UNKNOWN
+    length_mm: Number = UNKNOWN
+    section_mm: Vector = UNKNOWN
+    origin_mm: Vector = UNKNOWN
+    axis: Vector = UNKNOWN
+    section_axis: Vector = UNKNOWN
+    cite: Citations = UNKNOWN
+
+    @model_validator(mode="after")
+    def known_id(self) -> StockComponent:
+        if not self.id.strip() or self.id == UNKNOWN:
+            raise ValueError("Stock component id must be a known identifier.")
+        return self
+
+
 Stock = record(
     "Stock",
     {
@@ -124,27 +136,50 @@ StockState = record(
         "entry_z": dict[str, Number],
     },
 )
-Reference = record("Reference", {**texts("ref orientation note"), **numbers("height_mm")})
+# A `hold.supports` table: follow rest {ref, ops, jaw_lead_mm[, jaw_side]} or steady rest
+# {ref, ops, at_z_mm}. A follow rest's jaw_side is "turned" (behind the cutting point along
+# the feed, on the diameter just cut; the default) or "uncut" (ahead of it).
+Reference = record(
+    "Reference",
+    {
+        **texts("ref orientation note jaw_side"),
+        **numbers("height_mm jaw_lead_mm at_z_mm"),
+        "ops": list[int],
+    },
+)
 Index = record("Index", {"fixture": str, "feature": str, "angle_deg": Number, "positions": int})
+type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
+# A fixture-local frame placed in the setup frame (mm): origin plus unit x and z axes.
+Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
+ClampPlacement = record("ClampPlacement", {**texts("ref note"), "pose": Pose})
+type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
 Hold = record(
     "Hold",
     {
         **texts(
             "fixture jaws_along fixed_jaw parallels support support_orientation "
             "grip_on stop clamp note centre_lubrication riser method orientation locator "
-            "release jaw_protection locate"
+            "release jaw_protection locate chuck riser_up riser_along parallels_along"
         ),
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
         "jaw_center_along_mm": Number,
-        "parallels_centres_mm": Annotated[
-            list[Annotated[list[Number], Field(min_length=2, max_length=2)]],
-            Field(min_length=2, max_length=2),
-        ],
+        "parallels_centres_mm": Annotated[PlanCentres, Field(min_length=2, max_length=2)],
+        "riser_centres_mm": Annotated[PlanCentres, Field(min_length=1)],
         "supports": str | list[str | Reference],
         **flags("grip_mm_verify jaw_above_parallels_mm_verify"),
         "index": Index,
+        "pose": Pose,
+        "jaw_clock_deg": Number,
+        "support_tip_mm": Point3,
+        "quill_extension_mm": Number,
+        "clamps": list[ClampPlacement],
+        # Diagram annotations: action order references the 1-based clamps array.
+        "clamp_order": list[Annotated[int, Field(gt=0)]],
+        "preload_direction": Literal["clockwise", "counterclockwise"] | Unknown,
+        "stop_fixture": str,
+        "stop_pose": Pose,
     },
 )
 AxisZero = record(
@@ -196,6 +231,10 @@ Contour = record(
         "sweep_bounds": Bounds,
     },
 )
+SawPlane = record(
+    "SawPlane",
+    {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
+)
 Operation = record(
     "Operation",
     {
@@ -215,13 +254,16 @@ Operation = record(
         "contour": Contour,
         # Setup-frame volume (plan units) the op clears down to the finished part.
         "stock_removal_bounds": Bounds,
+        # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
+        "cut_plane": SawPlane,
     },
     indexed=("do",),
 )
 Setup = record(
     "Setup",
     {
-        **texts("id machine frame coolant stock_in note"),
+        **texts("id machine frame coolant note"),
+        "stock_in": str | Annotated[list[str], Field(min_length=1)],
         "deburr_mm": Number,
         "deburr_cite": Citations,
         "stock_state": StockState,
@@ -254,6 +296,60 @@ class Plan(InputModel):
             not name.strip() or name == UNKNOWN for name in self.frames
         ):
             raise ValueError("Plan frame names must be known, non-empty names.")
+        return self
+
+    @model_validator(mode="after")
+    def stock_routes(self) -> Plan:
+        components = self.stock.components if isinstance(self.stock, Stock) else UNKNOWN
+        component_ids = []
+        if isinstance(components, list):
+            component_ids = [component.id for component in components]
+            if len(set(component_ids)) != len(component_ids):
+                raise ValueError("Stock component ids must be unique.")
+        setup_ids = [setup.id for setup in self.setups]
+        known_ids = [sid for sid in setup_ids if sid != UNKNOWN]
+        if len(set(known_ids)) != len(known_ids):
+            raise ValueError("Setup ids must be unique.")
+        if any(not sid.strip() or sid == "stock" or sid.startswith("stock.") for sid in known_ids):
+            raise ValueError(
+                "Setup ids must be non-empty and cannot use the reserved stock namespace."
+            )
+        earlier = set()
+        ancestry = {"stock": {"stock"}}
+        ancestry.update({f"stock.{cid}": {f"stock.{cid}"} for cid in component_ids})
+        for setup in self.setups:
+            consumed = {}
+            # Omitted routing remains input debt, never an inferred linear route.
+            if "stock_in" in setup.model_fields_set:
+                refs = setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in]
+                for ref in refs:
+                    where = f"Setup {setup.id} stock_in reference {ref!r}"
+                    if ref == "stock":
+                        if isinstance(components, list) and components:
+                            raise ValueError(
+                                f"{where} requires a single stock supply; use stock.<component id>."
+                            )
+                    elif ref.startswith("stock."):
+                        if ref.removeprefix("stock.") not in component_ids:
+                            raise ValueError(f"{where} names an unknown stock component.")
+                    elif ref not in earlier:
+                        reason = (
+                            "is not an earlier setup"
+                            if ref in known_ids
+                            else "is an unknown stock reference"
+                        )
+                        raise ValueError(f"{where} {reason}.")
+                    for ancestor in ancestry[ref]:
+                        if ancestor in consumed:
+                            raise ValueError(
+                                f"{where} shares ancestor {ancestor!r} with "
+                                f"{consumed[ancestor]!r}; an assembly cannot join the same "
+                                "material twice."
+                            )
+                        consumed[ancestor] = ref
+            if setup.id != UNKNOWN:
+                earlier.add(setup.id)
+                ancestry[setup.id] = set(consumed) if consumed else {setup.id}
         return self
 
 
@@ -447,6 +543,18 @@ MachineEnvelope = record(
             ),
             MeasuredLength,
         ),
+        # Lathe envelope: swing diameters and the headstock-to-tailstock centre distance.
+        **dict.fromkeys(
+            (
+                "swing_over_bed_mm",
+                "swing_over_bed_in",
+                "swing_over_cross_slide_mm",
+                "swing_over_cross_slide_in",
+                "between_centres_mm",
+                "between_centres_in",
+            ),
+            MeasuredLength,
+        ),
     },
 )
 Spindle = record(
@@ -462,7 +570,14 @@ Spindle = record(
 type ProjectionMap = dict[str, MeasuredLength]
 LeadScrew = record("LeadScrew", {**numbers("tpi dial_in"), "cross_feed_ipr": Vector})
 Capacity = record("Capacity", numbers("drill end_mill face_mill"))
-Tailstock = record("Tailstock", {"taper": str, "quill_travel_in": Number})
+Tailstock = record(
+    "Tailstock",
+    {
+        "taper": str,
+        "quill_travel_in": Number,
+        **dict.fromkeys(("quill_dia_mm", "quill_dia_in"), MeasuredLength),
+    },
+)
 Threads = record("Threads", {"inch_tpi": Vector, "metric_pitch_mm": Vector})
 Toolpost = record("Toolpost", {**texts("series type note"), "holders": int, "included": bool})
 DirectIndex = record("DirectIndex", numbers("positions step_deg"))
@@ -471,12 +586,30 @@ Bars = record(
     "Bars",
     {"count": int, "type": str, "shank_in": Number, "min_bore_in": Vector, "depth_in": Vector},
 )
+# One primitive of a fixture body, in its owner's local frame (plain mm). Its own
+# measured/verify qualify it, like a LengthMeasurement; nothing above it does. A ``void``
+# primitive (bore, tapped hole, slot) is not drawn: it is cut from the owner's other
+# primitives, or only from those named in ``cuts``.
+FixtureSolid = record(
+    "FixtureSolid",
+    {
+        **texts("name shape note"),
+        "at_mm": Point3,
+        "size_mm": Point3,
+        "axis": Point3,
+        **numbers("dia_mm length_mm"),
+        "void": bool,
+        "cuts": list[str],
+        "measured": Measurement,
+        "verify": bool,
+    },
+)
 InventoryItem = record(
     "InventoryItem",
     {
         **texts(
             "kind make control operation_mode note coating material coverage by standards "
-            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in "
+            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in hand "
             "standard series chart units taper"
         ),
         "sku": str | int,
@@ -487,10 +620,11 @@ InventoryItem = record(
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
             "diameter_in thickness_in resolution_in runout_max_in "
-            "max_shank_in sfm chip_load_mm_per_tooth "
-            "shank_mm capacity_mm nose_radius_mm reach_mm"
+            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev "
+            "shank_mm capacity_mm"
         ),
         "point_angle": MeasuredAngle,
+        "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
         **dict.fromkeys(
             (
                 "dia",
@@ -525,9 +659,35 @@ InventoryItem = record(
                 "length_in",
                 "width_mm",
                 "width_in",
+                "kerf_mm",
+                "kerf_in",
             ),
             MeasuredLength,
         ),
+        # Turning tools (insert holder) and toolpost holder bodies: docs/rules-lathe.md.
+        **dict.fromkeys(
+            (
+                "nose_radius_mm",
+                "nose_radius_in",
+                "reach_mm",
+                "reach_in",
+                "edge_len_mm",
+                "edge_len_in",
+                "head_len_mm",
+                "head_len_in",
+                "shank_width_mm",
+                "shank_width_in",
+                "functional_width_mm",
+                "functional_width_in",
+                "body_width_mm",
+                "body_width_in",
+                "body_depth_mm",
+                "body_depth_in",
+            ),
+            MeasuredLength,
+        ),
+        "insert_angle_deg": MeasuredAngle,
+        "entering_angle_deg": MeasuredAngle,
         "projection_mm": ProjectionMap,
         "projection_in": ProjectionMap,
         "envelope": MachineEnvelope,
@@ -544,6 +704,8 @@ InventoryItem = record(
         "ranges_in": list[str],
         "range_in": float | list[Number],
         "range_mm": float | list[Number],
+        # Roughness capability of a roughness gauge/comparator/profilometer, Ra µm [lo, hi].
+        "ra_range": Annotated[list[Number], Field(min_length=2, max_length=2)],
         "resolution_mm": Number,
         "size_in": str | list[Number],
         "nominal_dia_mm": dict[str, Number],
@@ -563,6 +725,22 @@ InventoryItem = record(
         "plate_holes": dict[str, Vector],
         "bars": Bars,
         "members": dict[str, "InventoryItem | Unknown"],
+        "solids": list[FixtureSolid],
+        # Chuck body dimensions (fixture solids).
+        **dict.fromkeys(
+            ("body_dia_mm", "body_dia_in", "body_length_mm", "body_length_in")
+            + ("bore_dia_mm", "bore_dia_in"),
+            MeasuredLength,
+        ),
+        # Follow/steady rest jaw capacity: the work diameters the rest can ride on.
+        **dict.fromkeys(
+            ("capacity_min_mm", "capacity_min_in", "capacity_max_mm", "capacity_max_in"),
+            MeasuredLength,
+        ),
+        # Grooving/parting blade front-edge width (two-cornered blade): docs/rules-geometry.md.
+        **dict.fromkeys(("blade_width_mm", "blade_width_in"), MeasuredLength),
+        # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
+        "jaw_angles_deg": list[Number],
     },
 )
 InventoryItem.model_rebuild()
@@ -572,10 +750,27 @@ InventoryItem.model_rebuild()
 _INVENTORY_LENGTH_STEMS = frozenset(
     "dia oal grip gauge_len gauge_dia lead height bed_height projection flute_len "
     "jaw_height jaw_width jaw_depth opening width shank capacity max_shank "
-    "nose_radius reach tip length resolution".split()
+    "nose_radius reach tip length resolution edge_len head_len shank_width functional_width "
+    "body_width body_depth kerf".split()
 )
-_ENVELOPE_LENGTH_STEMS = frozenset(("spindle_to_table_max", "spindle_to_table_min", "travel"))
+_ENVELOPE_LENGTH_STEMS = frozenset(
+    (
+        "spindle_to_table_max",
+        "spindle_to_table_min",
+        "travel",
+        "swing_over_bed",
+        "swing_over_cross_slide",
+        "between_centres",
+    )
+)
 _TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))
+
+# Chuck body dimensions (fixture solids).
+_INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
+# Follow/steady rest jaw capacity.
+_INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
+# Grooving/parting blade front-edge width.
+_INVENTORY_LENGTH_STEMS |= {"blade_width"}
 
 
 def _inventory_lengths(
@@ -648,7 +843,7 @@ Cut = record(
     {
         **texts("material_class tool_material operation"),
         "diameter_range": Vector,
-        **numbers("sfm chip_load_mm_per_tooth"),
+        **numbers("sfm chip_load_mm_per_tooth feed_mm_rev feed_mm_min"),
         "cite": Citations,
     },
 )

@@ -1,0 +1,39 @@
+# fixture-puck: a designed test solid for the fixture-solid scenes. R15 x 20 mm puck on
+# the Z axis, bottom face at z = 0. Authored by ../author_solids.py (FreeCAD 1.1, STEP
+# AP214) and frozen as fixture-puck.STEP; every dimension is a fixture choice, not a
+# drawing or inventory measurement. Face references are
+# #<entity>/ADVANCED_FACE[<1-based file-order ordinal>]/<label> read from the STEP text
+# (FreeCAD exports an empty label); the kernel matches them by surface kind/area/bbox.
+part = "fixture-puck"
+units = "mm"
+precision = "unknown"
+step = "fixture-puck.STEP"
+step_sha256 = "cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac"
+construction = "one_piece"
+
+[cite]
+part = "examples/geometry/author_solids.py: FIXTURE_PUCK (synthetic test specification)"
+step_sha256 = "examples/geometry/fixture-holds/fixture-puck.STEP"
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+note = "Puck axis on Z through the origin; bottom face z = 0, top face z = 20, R15 side."
+
+[frames.A]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "unknown"
+note = "Every setup: top face up, model axes."
+
+[features.top]
+kind = "face"
+frame = "model"
+requirements = []
+faces = ["#50/ADVANCED_FACE[2]/"]
+note = "Top face z = 20."
+cite = "examples/geometry/author_solids.py: fixture_puck (synthetic test specification)"

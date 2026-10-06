@@ -1,7 +1,7 @@
 """Declared holding completeness, not certification of fixture geometry (PLAN §4.1)."""
 
 from prechips.findings import Finding
-from prechips.rules.resolution import MANUAL, UNKNOWN, resolve
+from prechips.rules.resolution import MANUAL, SAW_OPS, UNKNOWN, resolve, workholding_category
 from prechips.rules.tip_endpoints import HOLE_OPS
 
 # Point/hole actions plunge on the spindle axis; every other machine cut needs a direction.
@@ -29,7 +29,8 @@ def evaluate(bundle):
             "coolant": setup.get("coolant"),
             "deburr_mm": setup.get("deburr_mm"),
         }
-        fixture = resolve(bundle, "fixtures", hold.get("fixture")) or {}
+        fixture_ref = hold.get("fixture")
+        fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
         if fixture.get("kind") == "vise" or (
             not lathe and hold.get("fixed_jaw") != "not_applicable"
         ):
@@ -60,7 +61,9 @@ def evaluate(bundle):
                 required[f"hold.{key}"] = hold[key]
         directions = {}
         for op in setup["ops"]:
-            if op["do"] in MANUAL:
+            # A saw blade needs no holder and is located by its cut_plane, not a direction;
+            # the setup's holding and stock facts above still apply.
+            if op["do"] in MANUAL or op["do"] in SAW_OPS:
                 continue
             required[f"ops.{op['op']}.holder"] = op.get("holder")
             if op["do"] not in _POINT or "direction" in op:

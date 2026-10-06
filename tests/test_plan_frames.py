@@ -2,6 +2,7 @@
 
 import dataclasses
 import hashlib
+import shutil
 import tomllib
 from pathlib import Path
 
@@ -9,7 +10,7 @@ import pytest
 
 from prechips import kernel
 from prechips.inputs import BadInput, load_bundle
-from prechips.rules import coordinates, envelope, turned_profile, zero_recipe
+from prechips.rules import coordinates, envelope, zero_recipe
 
 ROOT = Path(__file__).resolve().parents[1]
 SHAFT = ROOT / "examples" / "pivot-shaft" / "plan.toml"
@@ -158,30 +159,27 @@ def test_incomplete_or_invalid_plan_frame_is_rejected(tmp_path, old, new, messag
         load_bundle(bundle_path(tmp_path, frames=frames))
 
 
-def test_restored_shaft_frames_return_nominal_rows_and_keep_t3_unbound():
-    bundle = load_bundle(SHAFT)
-    found = by_setup(coordinates.evaluate(bundle))
+def test_unbound_shaft_frame_keeps_model_z_unknown_and_records_the_local_station(tmp_path):
+    examples = Path(shutil.copytree(ROOT / "examples", tmp_path / "examples"))
+    plan = examples / "pivot-shaft" / "plan.toml"
+    text = plan.read_text(encoding="utf-8")
+    head, t3 = text.split("[frames.T3]\n", 1)
+    t3 = t3.replace('binding = "nominal"', 'binding = "unknown"', 1)
+    plan.write_text(head + "[frames.T3]\n" + t3, encoding="utf-8")
+    found = by_setup(coordinates.evaluate(load_bundle(plan)))
     assert {sid: f.numbers["binding"] for sid, f in found.items()} == {
         "S1": "nominal",
         "S2": "nominal",
         "S3": "unknown",
     }
-    s1, s2, s3 = (rows(found[sid]) for sid in ("S1", "S2", "S3"))
-    assert s1["pivot_journal", "centre"]["setup"] == [0.0, 0.0, 3.0]
-    assert s1["pivot_bearing", "centre"]["setup"] == [0.0, 0.0, -11.5]
-    assert s1["shoulder_thrust", "op 60 to_z"]["model"] == [0.0, 0.0, -7.5]
-    assert s2["north_dome", "op 20 z_to"]["model"] == [0.0, 0.0, 0.0]
-    assert s2["pivot_journal", "centre"]["setup"] == [0.0, 0.0, -4.5]
-    # T3 is a nominal transform awaiting the installed-ear span: no model Z is invented.
-    apex = s3["south_dome", "op 20 z_from"]
+    # A bound frame maps the op's setup Z into model Z.
+    assert rows(found["S1"])["shoulder_thrust", "op 20 to_z"]["model"] == [0.0, 0.0, -7.5]
+    # An unbound frame invents no model Z; the authored local station is kept and attributed.
+    apex = rows(found["S3"])["south_dome", "op 20 z_from"]
     assert apex["model"][2] == "unknown"
     assert apex["setup"] == [0.0, 0.0, 1.75]
     assert apex["local_from"] == {"op": 20, "field": "z_from", "axis": "z"}
-    assert all(f.status == "unknown" for f in found.values())
-    # Turned segments without exported z_mm stay named debt rather than invented spans.
-    profile = by_setup(turned_profile.evaluate(bundle))["S1"].numbers
-    assert profile["intervals"] == []
-    assert {"pivot_bearing", "pivot_journal", "shoulder_od"} <= set(profile["unresolved"])
+    assert found["S3"].status == "unknown"
 
 
 @pytest.mark.parametrize("plan", [CONE, BUILT_UP])

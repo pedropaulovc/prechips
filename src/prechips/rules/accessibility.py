@@ -1,7 +1,14 @@
-"""Offset cutter/holder cylinder intersections, never zero-radius ray claims."""
+"""Offset cutter/holder cylinders, or revolved turning tools, never zero-radius ray claims."""
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import fact_reason, op_contexts
+from prechips.rules.geometry_common import (
+    TURNING,
+    TURNING_HOLDER_KEYS,
+    TURNING_TOOL_KEYS,
+    blade_keys,
+    fact_reason,
+    op_contexts,
+)
 from prechips.rules.resolution import number
 
 
@@ -14,9 +21,11 @@ def evaluate(bundle):
         "holder_radius_mm",
         "holder_gauge_len_mm",
     )
+    turning = TURNING_TOOL_KEYS + TURNING_HOLDER_KEYS
     for setup, op, _, detail, inputs, cite, blocked in op_contexts(
-        bundle, "accessibility", required, fixture=True
+        bundle, "accessibility", required, fixture=True, turning=turning
     ):
+        turned = inputs.get("approach") == TURNING
         minimum = detail.get("min_hits", {})
         certain = {
             "certain_" + key + "_hits": minimum[key]
@@ -45,7 +54,9 @@ def evaluate(bundle):
         values = {
             key: detail.get(key, "unknown") for key in ("sample_count", "tool_hits", "holder_hits")
         }
-        values.update({key: inputs[key] for key in required})
+        values.update(
+            {key: inputs[key] for key in ((*turning, *blade_keys(inputs)) if turned else required)}
+        )
         known = (
             all(
                 number(values[key]) and values[key] >= 0
@@ -57,13 +68,17 @@ def evaluate(bundle):
         message = fact_reason(
             detail,
             ("sample_count", "tool_hits", "holder_hits"),
-            "offset-cylinder sampling is unresolved",
+            "revolved turning-tool sampling is unresolved"
+            if turned
+            else "offset-cylinder sampling is unresolved",
         )
         if known:
             status = "error" if values["tool_hits"] > 0 or values["holder_hits"] > 0 else "pass"
             message = (
                 "selected cutter or holder is occluded by part/fixture material"
                 if status == "error"
+                else "sampled claimed faces clear the selected insert, shank and toolpost body"
+                if turned
                 else "sampled claimed faces clear the selected cutter and holder cylinders"
             )
         values.update(certain)
