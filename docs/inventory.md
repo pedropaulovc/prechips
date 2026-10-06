@@ -399,6 +399,7 @@ on hand.
 | `projection_mm` | `ProjectionMap` (tools only) |
 | `sfm` | `float` |
 | `chip_load_mm_per_tooth` | `float` |
+| `feed_mm_rev` | `float` |
 | `dia_mm` | `MeasuredLength` |
 | `dia_in` | `MeasuredLength` |
 | `shank_mm` | `float` |

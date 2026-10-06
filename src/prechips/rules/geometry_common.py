@@ -18,22 +18,53 @@ from prechips.rules.turned_profile import PROFILE_OPS
 
 UNKNOWN = "unknown"
 _NONCUTTING = MANUAL | {"fit_up", "transfer"}
-LATHE_APPROACH_REASON = "lathe approach model not implemented (engine approaches along -Z only)"
+LATHE_APPROACH_REASON = (
+    "turning action has no approach model off a lathe "
+    "(the turning model needs a lathe spindle on setup Z)"
+)
+TURNING = "turning"
+CHUCK_KINDS = {"chuck_3jaw", "chuck_4jaw"}
 # Shared profile/form/groove actions also occur on mills; resolve their machine kind.
 _TURNING_ACTIONS = (
     PROFILE_OPS - {"profile", "form", "groove", "rough_groove", "finish_groove"}
 ) | {"part_off", "cut_to_fit"}
+# On a lathe these tools sit on the spindle axis (tailstock): the -Z cylinder model applies.
+_AXIAL_LATHE_ACTIONS = {"spot", "drill", "ream", "tap", "center", "center_drill"}
+# Turning-model inputs; every one must be known before the engine places a tool.
+TURNING_TOOL_KEYS = (
+    "radius_mm",
+    "insert_angle_deg",
+    "entering_angle_deg",
+    "feed_z",
+    "edge_len_mm",
+    "head_len_mm",
+    "shank_width_mm",
+    "functional_width_mm",
+    "projection_mm",
+)
+TURNING_HOLDER_KEYS = ("holder_body_width_mm", "holder_body_depth_mm")
+
+
+def approach(bundle, setup, op):
+    """'turning', 'axial' (-Z cutter cylinders) or None when no approach model applies."""
+    machine = record(resolve(bundle, "machines", setup.get("machine")))
+    kind, action = machine.get("kind"), op.get("do")
+    if kind == "lathe":
+        return "axial" if action in _AXIAL_LATHE_ACTIONS else TURNING
+    if action in _TURNING_ACTIONS or (kind != "mill" and action in PROFILE_OPS):
+        return None
+    return "axial"
 
 
 def approach_model_reason(bundle, setup, op):
-    """Name the unsupported domain before consuming the engine's milling-only facts."""
-    machine = record(resolve(bundle, "machines", setup.get("machine")))
-    kind, action = machine.get("kind"), op.get("do")
-    if kind == "lathe" or action in _TURNING_ACTIONS:
-        return LATHE_APPROACH_REASON
-    if kind != "mill" and action in PROFILE_OPS:
-        return LATHE_APPROACH_REASON
-    return None
+    """Name the unsupported domain before consuming any engine approach facts."""
+    return LATHE_APPROACH_REASON if approach(bundle, setup, op) is None else None
+
+
+def turning_facts(bundle, facts, setup, op):
+    """Whether a lathe op's kernel facts come from the turning model, never raw -Z facts."""
+    detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
+    return detail.get("approach") == TURNING
 
 
 def cutting_action(op):
@@ -149,9 +180,10 @@ def known_refs(refs):
 def op_claims(bundle, facts, setup, op):
     """(valid claimed indices or None, far-side refs, invalid refs) from the op's kernel facts.
 
-    For supported milling operations, only faces that face the setup approach are
-    credited; faces pointing away are claim errors; unresolved directions leave
-    the claim unknown. Lathe claims never credit raw milling approach verdicts.
+    For supported operations, only faces that the setup approach can cut are
+    credited: milling faces that face -Z, lathe faces of revolution about setup Z;
+    others are claim errors; unresolved directions leave the claim unknown. Lathe
+    claims credit only turning-model facts, never raw -Z milling verdicts.
     """
     refs = claim_refs(bundle, op)
     errors = record(facts.get("mapping_errors"))
@@ -166,6 +198,8 @@ def op_claims(bundle, facts, setup, op):
         return None, [], invalid
     if approach_model_reason(bundle, setup, op):
         return None, [], []
+    if approach(bundle, setup, op) == TURNING and not turning_facts(bundle, facts, setup, op):
+        return None, [], []
     away = detail.get("claim_errors")
     away = sorted(ref for ref in away if isinstance(ref, str)) if isinstance(away, list) else []
     indices = detail.get("claimed_indices", UNKNOWN)
@@ -176,7 +210,8 @@ def op_claims(bundle, facts, setup, op):
     return set(indices), away, []
 
 
-def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
+def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=None):
+    """Per-op context; ``turning`` names the required inputs of turning-model ops."""
     from prechips.kernel import build_job, run_geometry
 
     facts = run_geometry(bundle)
@@ -190,8 +225,11 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
         blocked = unavailable(bundle, rule, subject, facts, cite)
         inputs = jobs.get(subject, {})
         approach_reason = approach_model_reason(bundle, setup, op)
-        # Even observed -Z collision/stock/corner facts cannot establish lathe errors.
-        detail = {} if approach_reason else record(record(facts.get("ops")).get(subject))
+        turned = approach(bundle, setup, op) == TURNING
+        keys = turning if turned and turning is not None else required
+        # Raw -Z collision/stock/corner facts never establish lathe results.
+        stale = turned and not turning_facts(bundle, facts, setup, op)
+        detail = {} if approach_reason or stale else record(record(facts.get("ops")).get(subject))
         if blocked is None:
             if cutting_action(op) is False:
                 blocked = Finding(
@@ -249,6 +287,25 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
                         cite,
                         f"{subject}: numeric setup frame is unknown.",
                     )
+                elif stale:
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unknown",
+                        {},
+                        cite,
+                        f"{subject}: kernel facts for this lathe op are not turning-model facts.",
+                    )
+                elif away and turned:
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "error",
+                        {"claim_errors": away},
+                        cite,
+                        f"{subject}: claimed face(s) are not surfaces of revolution about the "
+                        f"spindle axis (setup Z) and cannot be turned: {', '.join(away)}.",
+                    )
                 elif away:
                     blocked = Finding(
                         rule,
@@ -258,6 +315,15 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
                         cite,
                         f"{subject}: claimed face(s) point away from the setup approach and "
                         f"cannot be cut from it: {', '.join(away)}.",
+                    )
+                elif detail.get("unsupported_reason"):
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unsupported",
+                        {},
+                        cite,
+                        f"{subject}: {detail['unsupported_reason']}.",
                     )
                 elif detail.get("stock_removal_error"):
                     blocked = Finding(
@@ -281,7 +347,7 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
                     blocked = Finding(
                         rule, subject, "unknown", {}, cite, holds[setup["id"]]["reason"]
                     )
-                elif any(not number(inputs.get(key)) for key in required):
+                elif any(not number(inputs.get(key)) for key in keys):
                     blocked = Finding(
                         rule,
                         subject,
@@ -312,7 +378,10 @@ def setup_contexts(bundle, rule):
                 blocked = Finding(
                     rule, subject, "unknown", {}, cite, f"{subject}: holding identity is unknown."
                 )
-            elif inputs["kind"] != "vise":
+            elif inputs["kind"] != "vise" and not (
+                # Chuck jaws load radial walls: the engine maps them like vise clamp lines.
+                rule == "thin_wall_under_clamp" and inputs["kind"] in CHUCK_KINDS
+            ):
                 status = "not_applicable" if rule == "vise" else "unsupported"
                 blocked = Finding(
                     rule,

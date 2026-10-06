@@ -29,7 +29,7 @@ limit appears as a fallback.
 
 ## `headroom`
 
-One subject per setup. Lathe is explicitly unsupported. Mill stack in mm is
+One subject per setup. Mill stack in mm is
 `fixture bed + parallels + support blocks + physical stock height + tool
 projection + holder gauge length + 25 mm insertion`. Physical stock height
 (`stock_height_mm`) is `top_z - retained_rail_bottom_z` if authored, otherwise
@@ -57,9 +57,22 @@ envelope is computed. Inch inventory lengths
 convert explicitly by 25.4; no STEP bbox is extracted. Unverified dimensions
 cannot establish a verified stack/travel pass or measured clearance violation.
 
+For a lathe, `headroom` instead compares stock OD and chuck `body_dia` with
+`envelope.swing_over_bed`, stock OD with `envelope.swing_over_cross_slide`,
+and `hold.stickout_mm + body_length` with `envelope.between_centres`.
+When stick-out is not numeric, the declared stock length from
+`stock_state.north_end_z - south_end_z` (converted from manifest units) is used.
+All three machine limits require their own accepted measurement records;
+missing or unverified inputs remain unknown, while established overruns error.
+Evidence includes stock OD/length, stick-out, chuck body diameter/length,
+the three limits, required length and measurement debt. This is only a
+necessary-condition screen: it checks no tool path, carriage stroke or
+tailstock quill extension and adds no mill table/toolpost-gauge requirement.
+
 Templates:
 
-- `Lathe headroom is outside the mill-only M1 envelope rule.`
+- `{setup}: lathe swing, chuck body or between-centres length remains unmeasured or unresolved.`
+- `{setup}: stock and chuck fit the measured swing and between-centres length.`
 - `{setup}: headroom, travel or jaw-path geometry remains unmeasured or unresolved.`
 - `{setup}: measured spindle stack and part/fixture travels fit.`
 - `{setup}: {violations}.`, joining `supported stock height is not positive`,

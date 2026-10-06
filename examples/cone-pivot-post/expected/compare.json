@@ -15,9 +15,9 @@
     "findings": {
       "error": 7,
       "not_applicable": 106,
-      "pass": 18,
-      "unknown": 171,
-      "unsupported": 13
+      "pass": 19,
+      "unknown": 182,
+      "unsupported": 1
     },
     "fixtures": [
       "BS-0",
@@ -77,10 +77,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:10: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "accessibility",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:10"
       },
       {
@@ -106,10 +106,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:20: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "accessibility",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:20"
       },
       {
@@ -135,10 +135,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:30: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "accessibility",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:30"
       },
       {
@@ -1758,13 +1758,12 @@
         ],
         "message": "cone-pivot-post: cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown.",
         "numbers": {
-          "claimed_face_count": 24,
+          "claimed_face_count": 25,
           "face_count": 36,
           "unclaimed_faces": [
             "#1271/ADVANCED_FACE[32]/HAF_CONE_BOSS__P01",
             "#598/ADVANCED_FACE[17]/HAF_CONE_BOSS__P03",
             "#356/ADVANCED_FACE[10]/HAF_CRANK_BOSS__P01",
-            "#218/ADVANCED_FACE[5]/HAF_FOOT_SEAT__P01",
             "#395/ADVANCED_FACE[11]/NONE",
             "#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02",
             "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02",
@@ -1778,7 +1777,6 @@
             5,
             6,
             8,
-            14,
             15,
             17,
             18,
@@ -3332,18 +3330,16 @@
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
           "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"
         ],
-        "message": "foot_seat: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "foot_seat: every finish-required face is claimed by a finishing cut.",
         "numbers": {
           "finish_ra": 3.2,
           "required_faces": [
             14
           ],
-          "uncovered_faces": [
-            14
-          ]
+          "uncovered_faces": []
         },
         "rule": "finish_coverage",
-        "status": "unsupported",
+        "status": "pass",
         "subject": "foot_seat"
       },
       {
@@ -3511,12 +3507,56 @@
       },
       {
         "cite": [
-          "PLAN.md §4.1 headroom"
+          "PLAN.md §4.1 headroom",
+          "inventory: lathe swing/between-centres facts and chuck body dimensions",
+          "plan: stock_state od_mm/north_end_z/south_end_z and hold stickout_mm",
+          "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/",
+          "inventory.machines.PM-1127VF-LB.envelope.swing_over_bed",
+          "inventory.machines.PM-1127VF-LB.envelope.swing_over_cross_slide",
+          "inventory.machines.PM-1127VF-LB.envelope.between_centres"
         ],
-        "message": "Lathe headroom is outside the mill-only M1 envelope rule.",
-        "numbers": {},
+        "message": "S1: lathe swing, chuck body or between-centres length remains unmeasured or unresolved.",
+        "numbers": {
+          "between_centres_mm": "unknown",
+          "chuck_body_dia_mm": "unknown",
+          "chuck_body_length_mm": "unknown",
+          "clearance_basis": "measured swing over bed/cross slide and distance between centres against the declared stock OD, stick-out (else stock length) and nominal chuck body; no tool path, carriage stroke or tailstock extension is checked",
+          "fixture_verify": true,
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-1127VF-LB.envelope.between_centres"
+              ],
+              "id": "machines.PM-1127VF-LB.envelope.between_centres",
+              "instruction": "measure: PM-1127VF-LB record envelope.between_centres, steel rule or calipers, mm",
+              "units": "mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-1127VF-LB.envelope.swing_over_bed"
+              ],
+              "id": "machines.PM-1127VF-LB.envelope.swing_over_bed",
+              "instruction": "measure: PM-1127VF-LB record envelope.swing_over_bed, steel rule or calipers, mm",
+              "units": "mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-1127VF-LB.envelope.swing_over_cross_slide"
+              ],
+              "id": "machines.PM-1127VF-LB.envelope.swing_over_cross_slide",
+              "instruction": "measure: PM-1127VF-LB record envelope.swing_over_cross_slide, steel rule or calipers, mm",
+              "units": "mm"
+            }
+          ],
+          "required_length_mm": "unknown",
+          "stickout_mm": 92.0,
+          "stock_length_mm": 120.0,
+          "stock_od_mm": 110.0,
+          "swing_over_bed_mm": "unknown",
+          "swing_over_cross_slide_mm": "unknown"
+        },
         "rule": "headroom",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1"
       },
       {
@@ -4867,10 +4907,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
         "numbers": {},
         "rule": "internal_corner_radius",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:10"
       },
       {
@@ -4896,10 +4936,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:20: selected tool/holder dimensions are unmeasured or unavailable.",
         "numbers": {},
         "rule": "internal_corner_radius",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:20"
       },
       {
@@ -4925,10 +4965,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:30: selected tool/holder dimensions are unmeasured or unavailable.",
         "numbers": {},
         "rule": "internal_corner_radius",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:30"
       },
       {
@@ -5930,10 +5970,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:10: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "reach",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:10"
       },
       {
@@ -5959,10 +5999,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:20: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "reach",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:20"
       },
       {
@@ -5988,10 +6028,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:30: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "reach",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:30"
       },
       {
@@ -7095,7 +7135,8 @@
         "cite": [
           "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
           "inventory machine spindle range",
-          "cutting-data aliases and rows"
+          "cutting-data aliases and rows",
+          "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
         ],
         "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
         "numbers": {
@@ -7103,6 +7144,7 @@
           "cutting_data_row": "unknown",
           "diameter_in": 4.330708661417323,
           "feed_mm_min": "unknown",
+          "feed_mm_rev": "unknown",
           "flutes": [],
           "material": "unknown",
           "material_class": "unknown",
@@ -7123,7 +7165,8 @@
         "cite": [
           "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
           "inventory machine spindle range",
-          "cutting-data aliases and rows"
+          "cutting-data aliases and rows",
+          "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
         ],
         "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
         "numbers": {
@@ -7131,6 +7174,7 @@
           "cutting_data_row": "unknown",
           "diameter_in": 1.669724409448819,
           "feed_mm_min": "unknown",
+          "feed_mm_rev": "unknown",
           "flutes": [],
           "material": "unknown",
           "material_class": "unknown",
@@ -7151,7 +7195,8 @@
         "cite": [
           "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
           "inventory machine spindle range",
-          "cutting-data aliases and rows"
+          "cutting-data aliases and rows",
+          "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
         ],
         "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
         "numbers": {
@@ -7159,6 +7204,7 @@
           "cutting_data_row": "unknown",
           "diameter_in": 1.653976377952756,
           "feed_mm_min": "unknown",
+          "feed_mm_rev": "unknown",
           "flutes": [],
           "material": "unknown",
           "material_class": "unknown",
@@ -7961,10 +8007,10 @@
           "AUTHOR'S CHOICE",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"
         ],
-        "message": "S1: thin_wall_under_clamp has no vise grip-zone facts for chuck_4jaw holding.",
+        "message": "S1: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "thin_wall_under_clamp",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1"
       },
       {
@@ -10866,8 +10912,8 @@
       "error": 5,
       "not_applicable": 127,
       "pass": 18,
-      "unknown": 189,
-      "unsupported": 15
+      "unknown": 203,
+      "unsupported": 1
     },
     "fixtures": [
       "BS-0",
@@ -10953,10 +10999,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:10: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "accessibility",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:10"
       },
       {
@@ -10981,10 +11027,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:20: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "accessibility",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:20"
       },
       {
@@ -11009,10 +11055,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:30: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "accessibility",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:30"
       },
       {
@@ -11065,10 +11111,10 @@
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
           "plan.setups.S1.ops.40: selected action/tool/holder"
         ],
-        "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:40: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "accessibility",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:40"
       },
       {
@@ -12794,19 +12840,12 @@
         ],
         "message": "cone-pivot-post: cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown.",
         "numbers": {
-          "claimed_face_count": 23,
+          "claimed_face_count": 30,
           "face_count": 36,
           "unclaimed_faces": [
             "#1271/ADVANCED_FACE[32]/HAF_CONE_BOSS__P01",
             "#598/ADVANCED_FACE[17]/HAF_CONE_BOSS__P03",
-            "#356/ADVANCED_FACE[10]/HAF_CRANK_BOSS__P01",
-            "#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02",
             "#395/ADVANCED_FACE[11]/NONE",
-            "#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02",
-            "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02",
-            "#503/ADVANCED_FACE[15]/HAF_CRANK_BOSS__P03",
-            "#950/ADVANCED_FACE[28]/HAF_CRANK_BOSS__P01",
-            "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01",
             "#1234/ADVANCED_FACE[30]/HAF_CONE_BOSS_SOUTH_FACE__P01",
             "#4/ADVANCED_FACE[1]/HAF_CONE_BOSS__P04",
             "#1357/ADVANCED_FACE[34]/HAF_CONE_BOSS__P02"
@@ -12814,14 +12853,7 @@
           "unclaimed_indices": [
             5,
             6,
-            8,
-            9,
             15,
-            17,
-            18,
-            19,
-            20,
-            21,
             23,
             25,
             27
@@ -14802,12 +14834,56 @@
       },
       {
         "cite": [
-          "PLAN.md §4.1 headroom"
+          "PLAN.md §4.1 headroom",
+          "inventory: lathe swing/between-centres facts and chuck body dimensions",
+          "plan: stock_state od_mm/north_end_z/south_end_z and hold stickout_mm",
+          "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/",
+          "inventory.machines.PM-1127VF-LB.envelope.swing_over_bed",
+          "inventory.machines.PM-1127VF-LB.envelope.swing_over_cross_slide",
+          "inventory.machines.PM-1127VF-LB.envelope.between_centres"
         ],
-        "message": "Lathe headroom is outside the mill-only M1 envelope rule.",
-        "numbers": {},
+        "message": "S1: lathe swing, chuck body or between-centres length remains unmeasured or unresolved.",
+        "numbers": {
+          "between_centres_mm": "unknown",
+          "chuck_body_dia_mm": "unknown",
+          "chuck_body_length_mm": "unknown",
+          "clearance_basis": "measured swing over bed/cross slide and distance between centres against the declared stock OD, stick-out (else stock length) and nominal chuck body; no tool path, carriage stroke or tailstock extension is checked",
+          "fixture_verify": true,
+          "measurements": [
+            {
+              "cite": [
+                "inventory.machines.PM-1127VF-LB.envelope.between_centres"
+              ],
+              "id": "machines.PM-1127VF-LB.envelope.between_centres",
+              "instruction": "measure: PM-1127VF-LB record envelope.between_centres, steel rule or calipers, mm",
+              "units": "mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-1127VF-LB.envelope.swing_over_bed"
+              ],
+              "id": "machines.PM-1127VF-LB.envelope.swing_over_bed",
+              "instruction": "measure: PM-1127VF-LB record envelope.swing_over_bed, steel rule or calipers, mm",
+              "units": "mm"
+            },
+            {
+              "cite": [
+                "inventory.machines.PM-1127VF-LB.envelope.swing_over_cross_slide"
+              ],
+              "id": "machines.PM-1127VF-LB.envelope.swing_over_cross_slide",
+              "instruction": "measure: PM-1127VF-LB record envelope.swing_over_cross_slide, steel rule or calipers, mm",
+              "units": "mm"
+            }
+          ],
+          "required_length_mm": "unknown",
+          "stickout_mm": 80.0,
+          "stock_length_mm": 100.0,
+          "stock_od_mm": 25.0,
+          "swing_over_bed_mm": "unknown",
+          "swing_over_cross_slide_mm": "unknown"
+        },
         "rule": "headroom",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1"
       },
       {
@@ -16225,10 +16301,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
         "numbers": {},
         "rule": "internal_corner_radius",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:10"
       },
       {
@@ -16253,10 +16329,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:20: selected tool/holder dimensions are unmeasured or unavailable.",
         "numbers": {},
         "rule": "internal_corner_radius",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:20"
       },
       {
@@ -16281,10 +16357,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:30: selected tool/holder dimensions are unmeasured or unavailable.",
         "numbers": {},
         "rule": "internal_corner_radius",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:30"
       },
       {
@@ -16337,10 +16413,10 @@
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
           "plan.setups.S1.ops.40: selected action/tool/holder"
         ],
-        "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:40: selected tool/holder dimensions are unmeasured or unavailable.",
         "numbers": {},
         "rule": "internal_corner_radius",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:40"
       },
       {
@@ -17415,10 +17491,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:10: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "reach",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:10"
       },
       {
@@ -17443,10 +17519,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:20: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "reach",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:20"
       },
       {
@@ -17471,10 +17547,10 @@
           "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
           "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
         ],
-        "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:30: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "reach",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:30"
       },
       {
@@ -17527,10 +17603,10 @@
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
           "plan.setups.S1.ops.40: selected action/tool/holder"
         ],
-        "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
+        "message": "S1:40: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "reach",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1:40"
       },
       {
@@ -18686,7 +18762,8 @@
         "cite": [
           "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
           "inventory machine spindle range",
-          "cutting-data aliases and rows"
+          "cutting-data aliases and rows",
+          "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
         ],
         "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
         "numbers": {
@@ -18694,6 +18771,7 @@
           "cutting_data_row": "unknown",
           "diameter_in": 0.984251968503937,
           "feed_mm_min": "unknown",
+          "feed_mm_rev": "unknown",
           "flutes": [],
           "material": "unknown",
           "material_class": "unknown",
@@ -18714,7 +18792,8 @@
         "cite": [
           "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
           "inventory machine spindle range",
-          "cutting-data aliases and rows"
+          "cutting-data aliases and rows",
+          "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
         ],
         "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
         "numbers": {
@@ -18722,6 +18801,7 @@
           "cutting_data_row": "unknown",
           "diameter_in": 0.8791338582677165,
           "feed_mm_min": "unknown",
+          "feed_mm_rev": "unknown",
           "flutes": [],
           "material": "unknown",
           "material_class": "unknown",
@@ -18742,7 +18822,8 @@
         "cite": [
           "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
           "inventory machine spindle range",
-          "cutting-data aliases and rows"
+          "cutting-data aliases and rows",
+          "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
         ],
         "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
         "numbers": {
@@ -18750,6 +18831,7 @@
           "cutting_data_row": "unknown",
           "diameter_in": 0.8633858267716535,
           "feed_mm_min": "unknown",
+          "feed_mm_rev": "unknown",
           "flutes": [],
           "material": "unknown",
           "material_class": "unknown",
@@ -18782,7 +18864,8 @@
         "cite": [
           "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
           "inventory machine spindle range",
-          "cutting-data aliases and rows"
+          "cutting-data aliases and rows",
+          "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
         ],
         "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
         "numbers": {
@@ -18790,6 +18873,7 @@
           "cutting_data_row": "unknown",
           "diameter_in": "unknown",
           "feed_mm_min": "unknown",
+          "feed_mm_rev": "unknown",
           "flutes": "unknown",
           "material": "unknown",
           "material_class": "unknown",
@@ -19683,10 +19767,10 @@
           "AUTHOR'S CHOICE",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
         ],
-        "message": "S1: thin_wall_under_clamp has no vise grip-zone facts for chuck_3jaw holding.",
+        "message": "S1: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
         "numbers": {},
         "rule": "thin_wall_under_clamp",
-        "status": "unsupported",
+        "status": "unknown",
         "subject": "S1"
       },
       {

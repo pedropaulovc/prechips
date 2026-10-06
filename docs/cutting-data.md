@@ -11,8 +11,10 @@ priority and requires that tool's own `sfm` and chip load; no chart is fetched.
 range and selected diameter are also required. RPM is `12*sfm/(pi*D_in)`, rounded
 to nearest 50 (ties to even), then clamped to the actual machine limits.
 An actual nonmultiple-of-50 boundary is retained. Mill feed is
-`RPM*flutes*chip_load_mm_per_tooth`; the current rule does not certify a lathe
-feed. Numbers are starting points, not cut-force or stability limits.
+`RPM*flutes*chip_load_mm_per_tooth`; lathe feed is `RPM*feed_mm_rev` with
+`feed_mm_rev` (mm/revolution) from the same cited row or tool chart, under the
+same citation and verify rules as the chip load. Numbers are starting points,
+not cut-force or stability limits.
 
 `[[material]]` carries material class, `kc_n_per_mm2`, `e_gpa`, and citations for
 M2 [turning deflection](rules-physics.md). Exactly one sourced material row is
@@ -65,6 +67,7 @@ not proof of geometric validity; rules perform the applicable checks.
 | `diameter_range` | `Vector` |
 | `sfm` | `float` |
 | `chip_load_mm_per_tooth` | `float` |
+| `feed_mm_rev` | `float` |
 | `cite` | `Citations` |
 
 ## CutMaterial

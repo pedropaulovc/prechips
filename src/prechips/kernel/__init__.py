@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -13,11 +14,13 @@ from pathlib import Path
 
 from prechips.measurements import angle_fact, length_fact, record_trusted
 from prechips.rules._envelope import measurement_item, tool_projection
+from prechips.rules.geometry_common import TURNING_HOLDER_KEYS, TURNING_TOOL_KEYS
 from prechips.rules.resolution import (
     WORKHOLDING_CATEGORIES,
     inventory_category,
     number,
     record,
+    resolve,
     setup_frame,
 )
 
@@ -49,24 +52,82 @@ def _accepted_length(item, field):
     return fact["value"] if fact["verified"] else UNKNOWN
 
 
-def op_inputs(bundle, setup, op, finishing=None):
-    from prechips.rules.geometry_common import finishing_subjects
+def _accepted_angle(item, field):
+    fact = angle_fact(item, field, require_measured=False)
+    return fact["value"] if fact["verified"] else UNKNOWN
 
-    subject = f"{setup['id']}:{op['op']}"
+
+def _turning_values(bundle, op):
+    """Insert, head, shank and toolpost-body facts in mm/degrees, or what is missing."""
     tool = measurement_item(bundle, "tools", op.get("tool"))
     holder = measurement_item(bundle, "holders", op.get("holder"))
     projection = tool_projection(bundle, op, {}, [], require_measured=False)
+    hand = record(tool).get("hand", UNKNOWN)
     values = {
-        "radius_mm": _accepted_length(tool, "dia"),
-        "flute_len_mm": _accepted_length(tool, "flute_len"),
-        "oal_mm": _accepted_length(tool, "oal"),
-        "holder_radius_mm": _accepted_length(holder, "gauge_dia"),
-        "holder_gauge_len_mm": _accepted_length(holder, "gauge_len"),
+        "radius_mm": _accepted_length(tool, "nose_radius"),
+        "insert_angle_deg": _accepted_angle(tool, "insert_angle_deg"),
+        "entering_angle_deg": _accepted_angle(tool, "entering_angle_deg"),
+        # A right-hand tool feeds toward the chuck: -Z in a lathe setup frame.
+        "feed_z": {"right": -1, "left": 1}.get(hand, UNKNOWN),
+        "edge_len_mm": _accepted_length(tool, "edge_len"),
+        "head_len_mm": _accepted_length(tool, "head_len"),
+        "shank_width_mm": _accepted_length(tool, "shank_width"),
+        "functional_width_mm": _accepted_length(tool, "functional_width"),
         "projection_mm": projection["value"] if projection["verified"] else UNKNOWN,
+        "holder_body_width_mm": _accepted_length(holder, "body_width"),
+        "holder_body_depth_mm": _accepted_length(holder, "body_depth"),
     }
-    for key in ("radius_mm", "holder_radius_mm"):
-        if number(values[key]):
-            values[key] /= 2
+    missing = [
+        key
+        for key, value in values.items()
+        if not number(value) or (key != "feed_z" and value <= 0)
+    ]
+    insert, entering = values["insert_angle_deg"], values["entering_angle_deg"]
+    if number(insert) and number(entering) and insert + entering >= 180:
+        # The minor (trailing) edge would lead the nose: no real insert has this shape.
+        missing += ["insert_angle_deg", "entering_angle_deg"]
+    if number(values["head_len_mm"]) and number(values["projection_mm"]):
+        if values["head_len_mm"] > values["projection_mm"]:
+            missing.append("head_len_mm")
+    # Reach rule: the radial depth the cutting edge itself spans, else the declared reach.
+    reach = _accepted_length(tool, "reach")
+    if number(reach) and reach > 0:
+        values["flute_len_mm"] = reach
+    elif "edge_len_mm" not in missing and "entering_angle_deg" not in missing:
+        values["flute_len_mm"] = values["edge_len_mm"] * math.sin(math.radians(entering))
+    if "projection_mm" not in missing:
+        # Nose to toolpost body: the deepest the holder can stay clear of a wall.
+        values["oal_mm"] = values["projection_mm"]
+    return values, sorted(set(missing))
+
+
+def op_inputs(bundle, setup, op, finishing=None):
+    from prechips.rules.geometry_common import TURNING, approach, finishing_subjects
+
+    subject = f"{setup['id']}:{op['op']}"
+    turned = approach(bundle, setup, op) == TURNING
+    if turned:
+        values, missing = _turning_values(bundle, op)
+    else:
+        tool = measurement_item(bundle, "tools", op.get("tool"))
+        holder = measurement_item(bundle, "holders", op.get("holder"))
+        projection = tool_projection(bundle, op, {}, [], require_measured=False)
+        values = {
+            "radius_mm": _accepted_length(tool, "dia"),
+            "flute_len_mm": _accepted_length(tool, "flute_len"),
+            "oal_mm": _accepted_length(tool, "oal"),
+            "holder_radius_mm": _accepted_length(holder, "gauge_dia"),
+            "holder_gauge_len_mm": _accepted_length(holder, "gauge_len"),
+            "projection_mm": projection["value"] if projection["verified"] else UNKNOWN,
+        }
+        for key in ("radius_mm", "holder_radius_mm"):
+            if number(values[key]):
+                values[key] /= 2
+        missing = [
+            key
+            for key, value in values.items()
+            if not (number(value) and value > 0) and key != "oal_mm"
+        ]
     result = {
         "subject": subject,
         "feature": op.get("feature", UNKNOWN),
@@ -75,6 +136,8 @@ def op_inputs(bundle, setup, op, finishing=None):
     }
     if "faces" in op:
         result["faces"] = op["faces"]
+    if turned:
+        result["approach"] = TURNING
     units = bundle.features.get("units", UNKNOWN)
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     if "to_z" in op:
@@ -82,12 +145,14 @@ def op_inputs(bundle, setup, op, finishing=None):
         result["to_z"] = op["to_z"] * scale if number(op["to_z"]) and scale else UNKNOWN
     if "stock_removal_bounds" in op:
         result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
-    missing = []
+    if turned:
+        # The declared turned span (setup-frame Z) bounds and extends the revolved removal.
+        for key in ("z_from", "z_to"):
+            if key in op:
+                result[key] = op[key] * scale if number(op[key]) and scale else UNKNOWN
     for key, value in values.items():
-        if number(value) and value > 0:
+        if key not in missing and number(value) and (value > 0 or key == "feed_z"):
             result[key] = value
-        elif key != "oal_mm":
-            missing.append(key)
     if missing:
         result["reason"] = (
             "Selected tool/holder dimensions unmeasured or unavailable: " + ", ".join(missing)
@@ -457,6 +522,10 @@ def build_job(bundle):
                     if cutting_action(op) is not False
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
+                # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
+                "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
+                    "kind", UNKNOWN
+                ),
             }
         )
     return {
@@ -546,6 +615,11 @@ _ENGINE_OP = (
     "projection_mm",
     "to_z",
     "stock_removal_bounds",
+    "approach",
+    "z_from",
+    "z_to",
+    *TURNING_TOOL_KEYS,
+    *TURNING_HOLDER_KEYS,
 )
 _ENGINE_HOLD = (
     "fixed_jaw",
@@ -638,6 +712,7 @@ def engine_job(job):
                 "hold": _engine_hold(setup["hold"]),
                 "ops": [{key: op[key] for key in _ENGINE_OP if key in op} for op in setup["ops"]],
                 "stock_in": setup["stock_in"],
+                "machine_kind": setup["machine_kind"],
             }
             for setup in job["setups"]
         ],

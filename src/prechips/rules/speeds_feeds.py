@@ -5,6 +5,8 @@ to the actual machine range. A boundary not divisible by 50 is retained rather
 than commanding an out-of-range speed.
 Cutting-table diameter_range is in millimetres, inclusive at both ends; an
 ambiguous overlapping pair of rows is unresolved rather than first-row wins.
+Mill feed is RPM x flutes x chip load; lathe feed is RPM x the same row's (or
+chart's) feed per revolution. Neither has an op-level override.
 """
 
 from __future__ import annotations
@@ -104,13 +106,14 @@ def evaluate(bundle):
             diameter = _diameter(bundle, setup, op, tool, lathe)
             action = _operation(op["do"])
             tool_material = tool.get("material", UNKNOWN)
-            sfm = chip = UNKNOWN
+            sfm = chip = per_rev = UNKNOWN
             source = UNKNOWN
             range_unknown = False
             chart = tool.get("chart", UNKNOWN)
             if _cited(chart):
                 source = chart
                 sfm, chip = tool.get("sfm", UNKNOWN), tool.get("chip_load_mm_per_tooth", UNKNOWN)
+                per_rev = tool.get("feed_mm_rev", UNKNOWN)
             else:
                 matching = []
                 for row in records(cutting.get("cut")):
@@ -133,9 +136,10 @@ def evaluate(bundle):
                 if len(matching) == 1 and _cited(matching[0].get("cite")):
                     selected = matching[0]
                     source = selected["cite"]
-                    sfm, chip = (
+                    sfm, chip, per_rev = (
                         selected.get("sfm", UNKNOWN),
                         selected.get("chip_load_mm_per_tooth", UNKNOWN),
+                        selected.get("feed_mm_rev", UNKNOWN),
                     )
                     range_unknown |= uncertain(selected)
             diameter_in = diameter / 25.4 if number(diameter) and diameter > 0 else UNKNOWN
@@ -146,11 +150,17 @@ def evaluate(bundle):
             )
             rpm = nearest50(raw, low, high)
             flutes = tool.get("flutes", UNKNOWN)
-            feed = (
-                rpm * flutes * chip
-                if not lathe and all(number(v) and v > 0 for v in (rpm, flutes, chip))
-                else UNKNOWN
-            )
+            if lathe:
+                # A turning tool advances feed_mm_rev per spindle revolution.
+                feed = (
+                    rpm * per_rev if all(number(v) and v > 0 for v in (rpm, per_rev)) else UNKNOWN
+                )
+            else:
+                feed = (
+                    rpm * flutes * chip
+                    if all(number(v) and v > 0 for v in (rpm, flutes, chip))
+                    else UNKNOWN
+                )
             numbers = {
                 "material": material,
                 "material_class": material_class,
@@ -161,6 +171,7 @@ def evaluate(bundle):
                 "flutes": flutes,
                 "sfm": sfm,
                 "chip_load_mm_per_tooth": chip,
+                **({"feed_mm_rev": per_rev} if lathe else {}),
                 "rpm_min": low,
                 "rpm_max": high,
                 "rpm": rpm,
@@ -182,6 +193,8 @@ def evaluate(bundle):
                 "inventory machine spindle range",
                 "cutting-data aliases and rows",
             ]
+            if lathe:
+                cite.append("lathe feed = RPM·feed_mm_rev from the same cited row or chart")
             if _cited(source):
                 cite.extend(source if isinstance(source, list) else [source])
             sentence = (
