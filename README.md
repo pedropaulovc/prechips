@@ -5,9 +5,10 @@ an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declare
 plan, workholding, indexing and physics rule families, write a canonical findings
 report, and render a Letter-portrait shop traveler: per setup, one front sheet
 (STOP box, holding steps beside the picture, tools, DRO zero and operations with
-speeds/feeds and inspection, ops continuing on its back when long; print it
-double-sided) plus attached sheets for the full-size picture, clearance, notes and
-contour tables (see docs/report-and-telemetry.md, "Generated traveler").
+speeds/feeds and inspection, ops continuing on its back when long) plus attached
+sheets for the full-size picture, clearance, notes and contour tables; print it
+double-sided, and blank backs keep every sheet starting on a front side (see
+docs/report-and-telemetry.md, "Generated traveler").
 M4 adds eight geometry and workholding rules measured on the bundle's STEP by a
 local FreeCAD kernel, plus a deterministic setup render on the sheet. M5 adds
 measured machine/holder inventory, envelope/travel screens and a machine

@@ -250,10 +250,19 @@ least 8 pt.
 The front sheet is one physical sheet. When the op table does not fit on the
 front page it continues on the back under the repeated heading `SETUP S2 —
 sheet 1, back: operations continued` and the op column headings; a setup with
-few ops has a single-page front sheet. Print the front sheet double-sided so
-the back lands behind its front; the browser cannot force each front sheet to
-start on a right-hand page, so print setups separately (or single-sided and
-keep the two pages together) when duplexing the whole file.
+few ops has a single-page front sheet.
+
+Print the whole file double-sided. A small inline script in `traveler.html`
+(the same bytes every run; it changes only the page in the browser) lays out
+every sheet on load and again just before printing. It measures the sheet at the
+printed width, places each page break itself (headings stay with what follows,
+the sign-off stays with the last op row, table headings repeat), and adds a
+`This side intentionally blank — SETUP S2 sheet 1 back` page after any sheet
+with an odd page count, the job page included. Every sheet therefore starts on a
+front side, and a single-page front sheet has a blank back. Contour blocks print
+in rows of three under the script and in three newspaper columns without it.
+With scripts disabled the same content prints without padding (sheets may then
+start on a back side, so print single-sided).
 
 Front sheet (sheet 1), in this order:
 
@@ -317,10 +326,11 @@ block per contour op titled with its setup, op, tool and direction (`S2 op 50
 — top edge · T2 …`), the table at DRO precision and, when the render supplies
 `scene.waypoints`, a `P` column keyed to the labels drawn in the picture. A
 missing tool prints `STOP … tool not selected; do not run` instead of a table;
-a lathe dome prints imaginary-tip tool X/Z columns when the nose compensation
-is known, otherwise it says the nose radius compensation is not computed.
-Long contour tables may run onto more pages ("paper is cheap"); every block
-still names its setup.
+a lathe dome table prints the imaginary-tip `tool X (Ø)` / `tool Z` columns,
+read on the same X display as `surface X (Ø)` (`radius` in radius mode), when
+the nose compensation is known; otherwise it says the nose radius compensation
+is not computed. Long contour tables may run onto more pages ("paper is cheap"); every
+block still names its setup.
 
 The job page and each front sheet end with the sign-off line. Setup
 coordinates, Z targets and DRO values print at the DRO's display

@@ -68,8 +68,133 @@ h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; \
 margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
 .signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
 .report-id { color: #444; }
-@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } }
+.contour-row { display: flex; gap: 8pt; align-items: flex-start; }
+.contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
+.contour-row.tall { display: block; }
+.blank-side { padding-top: 4in; text-align: center; font-weight: bold; }
+@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } \
+.blank-side { display: none; } }
 """
+# Duplex padding, run in the browser on load and before printing. Every sheet must end
+# on an even page so the next sheet starts on a front side when the whole file prints
+# double-sided. The script places the page breaks itself: it measures the sheet at the
+# printed width, forces a break wherever the next block would cross the page (keeping
+# headings with what follows, the sign-off with the last op row, and repeating table
+# headings), then adds an "intentionally blank" page after any sheet with an odd count.
+# Without scripts the browser paginates the same content on its own, unpadded.
+_DUPLEX_JS = """(() => {
+  // Letter 11 in less .4 in margins = 979 px at 96 px/in. The sheet is measured by the
+  // same engine at the printed width, so a small band covers rounding only.
+  const CAP = 975;
+  const MARK = "data-duplex";
+  const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
+  function box(el) {
+    const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
+  }
+  function paginate(section) {
+    let pageTop = box(section).top, pages = 1;
+    const fits = (bottom) => bottom - pageTop <= CAP;
+    const breakAt = (el, top) => {
+      el.style.breakBefore = "page";
+      el.setAttribute(MARK, "");
+      pageTop = top;
+      pages += 1;
+    };
+    const headOf = (table) => (table.tHead ? table.tHead.getBoundingClientRect().height : 0);
+    // Move `el` to a new page, taking a heading right above it along.
+    function move(el) {
+      const prev = el.previousElementSibling;
+      const start = heading(prev) && box(prev).top > pageTop ? prev : el;
+      if (box(start).top > pageTop) breakAt(start, box(start).top);
+    }
+    function table(t) {
+      const bodies = [...t.tBodies];
+      bodies.forEach((tb, j) => {
+        const b = box(tb);
+        if (fits(b.bottom)) return;
+        if (j === 0) {
+          move(t);
+          if (fits(b.bottom)) return;
+        }
+        breakAt(tb, b.top - headOf(t));
+      });
+    }
+    function walk(parent) {
+      for (const el of [...parent.children]) {
+        const b = box(el);
+        if (fits(b.bottom)) continue;
+        if (el.tagName === "TABLE") {
+          table(el);
+        } else if (el.classList.contains("signoff")) {
+          // The sign-off never stands alone: take the last op row with it.
+          const prev = el.previousElementSibling;
+          const last = prev && prev.tagName === "TABLE" ? prev.tBodies[prev.tBodies.length - 1]
+            : null;
+          if (last) breakAt(last, box(last).top - headOf(prev));
+          else move(el);
+        } else if (b.bottom - b.top <= CAP) {
+          move(el);
+        } else if (el.children.length) {
+          walk(el);
+        } else {
+          // One unbreakable block taller than a page: the browser splits it.
+          const over = b.bottom - pageTop;
+          pages += Math.floor(over / CAP);
+          pageTop = b.bottom - (over % CAP);
+        }
+      }
+    }
+    walk(section);
+    return pages;
+  }
+  function run() {
+    const body = document.body, saved = body.getAttribute("style");
+    try {
+      document.querySelectorAll(".blank-side").forEach((el) => el.remove());
+      document.querySelectorAll("[" + MARK + "]").forEach((el) => {
+        el.style.breakBefore = "";
+        el.removeAttribute(MARK);
+      });
+      // Contour blocks go in rows of three so each row is one measurable block.
+      document.querySelectorAll(".contours:not([data-rows])").forEach((c) => {
+        c.setAttribute("data-rows", "");
+        c.style.columns = "auto";
+        const blocks = [...c.children];
+        for (let i = 0; i < blocks.length; i += 3) {
+          const row = document.createElement("div");
+          row.className = "contour-row";
+          row.append(...blocks.slice(i, i + 3));
+          c.append(row);
+        }
+      });
+      // Measure at the printed width whatever the window size.
+      body.style.cssText = "max-width:none;width:7.7in;margin:0";
+      document.querySelectorAll(".contour-row").forEach((row) => {
+        row.classList.toggle("tall", row.getBoundingClientRect().height > CAP);
+      });
+      for (const section of [...document.querySelectorAll("section.page[data-sheet]")]) {
+        if (paginate(section) % 2 === 0) continue;
+        const blank = document.createElement("section");
+        blank.className = "page blank-side";
+        blank.textContent =
+          "This side intentionally blank \\u2014 " + section.getAttribute("data-sheet") + " back";
+        section.after(blank);
+      }
+    } catch (error) {
+      document.querySelectorAll(".blank-side").forEach((el) => el.remove());
+      document.querySelectorAll("[" + MARK + "]").forEach((el) => (el.style.breakBefore = ""));
+    } finally {
+      if (saved === null) body.removeAttribute("style");
+      else body.setAttribute("style", saved);
+    }
+  }
+  addEventListener("load", run);
+  addEventListener("beforeprint", run);
+})();
+"""
+# Console-style status marks kept on the dividing-head index line.
+_GLYPHS = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}
 # Operative targets print at DRO display resolution; report.json keeps every digit.
 _DRO_DECIMALS = {"mm": 2, "in": 4}
 # A planned tool path ending this close to jaws, a dead centre or the jaw tops is
@@ -866,9 +991,7 @@ class _Traveler:
         r = _number  # Dividing-head arithmetic keeps its own digits; it is not a DRO reading.
         requested = self.value(numbers.get("requested_angle_deg"), feature, "angle_deg")
         actual = self.value(numbers.get("actual_angle_deg"), feature, "angle_deg")
-        glyph = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}.get(
-            _status(finding), ""
-        )
+        glyph = _GLYPHS.get(_status(finding), "")
         tentative = "Tentative — " if _status(finding) == "unknown" else ""
         positions = numbers.get("positions")
         count = "one angular setting" if positions == 1 else f"{r(positions)} positions"
@@ -1830,21 +1953,31 @@ class _Traveler:
             nose = _amount(
                 _mapping(resolve(self.bundle, "tools", operation.get("tool"))).get("nose_radius_mm")
             )
+            # Surface and tool X both read on the lathe DRO's X display.
+            x_unit = "radius" if _mapping(self.plan.get("dro")).get("radius_mode") is True else "Ø"
             if compensated:
                 description += (
-                    f". Surface X (Ø) / Z are the finished dome; tool X / Z are the DRO readings "
-                    f"of the R{o(compensation)} nose's imaginary tip, touched off on an outside "
-                    "diameter and a +Z end face; feed to the tool columns"
+                    f". Surface X ({x_unit}) / Z are the finished dome; tool X ({x_unit}) / Z "
+                    f"are the DRO readings of the R{o(compensation)} nose's imaginary tip, "
+                    "touched off on an outside diameter and a +Z end face; feed to the tool "
+                    "columns"
                 )
-                headings = ["P", "surface X (Ø)", "surface Z", "tool X", "tool Z"]
+                headings = [
+                    "P",
+                    f"surface X ({x_unit})",
+                    "surface Z",
+                    f"tool X ({x_unit})",
+                    "tool Z",
+                ]
             else:
                 description += (
-                    ". Finished surface, X as diameter; the table is not offset for the "
+                    f". Finished surface, X as {'radius' if x_unit == 'radius' else 'diameter'}; "
+                    "the table is not offset for the "
                     + (f"R{o(nose)} tool nose" if nose is not None else "tool nose")
                     + ": STOP — compensation not computed; feed to these points only with "
                     "nose-radius compensation set at the machine"
                 )
-                headings = ["P", "X (Ø)", "Z"]
+                headings = ["P", f"X ({x_unit})", "Z"]
             entry["parts"].append((description, headings, rows))
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
@@ -2297,10 +2430,13 @@ class _Traveler:
         setups = self.plan.get("setups", [])
         # Setup pages are built first so the job status can name every stopped setup.
         sheets = [self.setup_section(s) for s in setups]
-        # (blocks, takes sign-off): the job page and each setup's front sheet are signed.
-        pages = [([self.header(setups)], True)]
-        for setup_sheets in sheets:
-            pages.extend((blocks, index == 0) for index, blocks in enumerate(setup_sheets))
+        # (label, blocks, takes sign-off): the job page and each front sheet are signed.
+        pages = [("job page", [self.header(setups)], True)]
+        for setup, setup_sheets in zip(setups, sheets, strict=True):
+            pages.extend(
+                (f"SETUP {setup['id']} sheet {index + 1}", blocks, index == 0)
+                for index, blocks in enumerate(setup_sheets)
+            )
         drawing = self.plan.get("drawing", {})
         part = _text(self.plan.get("part"))
         revision = self.drawing_revision()
@@ -2312,7 +2448,7 @@ class _Traveler:
         result = [
             f'<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
             f"<title>{escape(part)} traveler"
-            f"</title><style>{_CSS}</style></head><body>"
+            f"</title><style>{_CSS}</style><script>{_DUPLEX_JS}</script></head><body>"
         ]
         # The report id rides in the header line: a footer pushed alone onto a page by a
         # few points would print a blank sheet.
@@ -2324,8 +2460,8 @@ class _Traveler:
             "Sign off: __________  First article / measured results: ____________________",
             "signoff",
         )
-        for blocks, signed in pages:
-            result.append('<section class="page">')
+        for label, blocks, signed in pages:
+            result.append(f'<section class="page" data-sheet="{escape(label)}">')
             result.append(
                 f'<div class="meta"><h1>{escape(part.upper())} · '
                 f"{escape(_text(drawing.get('number')))} · "
@@ -2412,8 +2548,8 @@ def reference_label(bundle, reference, category=None) -> str:
         name = f"{name} {member}" if record.get("kind") == "qctp_set" else f"{member} {name}"
     elif item:
         for field, unit in (("tip_in", "in"), ("dia_in", "in"), ("dia_mm", "mm")):
-            size = record.get(field)
-            if isinstance(size, (int, float)):
+            size = _amount(record.get(field))
+            if size is not None:
                 name = f"{size:g} {unit} {name}"
                 break
     if record.get("standard"):
