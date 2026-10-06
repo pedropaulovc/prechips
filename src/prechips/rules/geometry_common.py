@@ -3,11 +3,14 @@
 from prechips.findings import Finding
 from prechips.rules.datum_consistency import _cuts
 from prechips.rules.resolution import (
+    COMPLETE_FORM,
     MANUAL,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
     _citations,
+    claim_refs,
     inventory_category,
+    known_refs,
     number,
     operations,
     plan_frame_cite,
@@ -19,8 +22,6 @@ from prechips.rules.turned_profile import PROFILE_OPS
 
 UNKNOWN = "unknown"
 _NONCUTTING = MANUAL | {"fit_up", "transfer"}
-# The hole actions whose cut can form a hole's claimed point cap.
-_COMPLETE_FORM = {"drill", "ream", "bore", "counterbore"}
 LATHE_APPROACH_REASON = (
     "turning action has no approach model off a lathe "
     "(the turning model needs a lathe spindle on setup Z)"
@@ -96,7 +97,7 @@ def finishing_subjects(bundle):
     return {
         f"{setup['id']}:{op['op']}"
         for name in bundle.features["features"]
-        for _, setup, op in _cuts(bundle.plan["setups"], name)
+        for _, setup, op in _cuts(bundle, name)
         if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
     }
 
@@ -110,7 +111,7 @@ def complete_form_subjects(bundle):
     owners = {}
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
-            if op.get("do") in _COMPLETE_FORM:
+            if op.get("do") in COMPLETE_FORM:
                 owners[op.get("feature")] = f"{setup['id']}:{op['op']}"
     return set(owners.values())
 
@@ -196,17 +197,6 @@ def mapped_feature(bundle, facts, name):
     ):
         return None, []
     return set(indices), []
-
-
-def claim_refs(bundle, op):
-    """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``."""
-    if "faces" in op:
-        return op["faces"]
-    return record(bundle.features["features"].get(op.get("feature"))).get("faces", UNKNOWN)
-
-
-def known_refs(refs):
-    return isinstance(refs, list) and bool(refs) and UNKNOWN not in refs
 
 
 def op_claims(bundle, facts, setup, op):

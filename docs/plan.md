@@ -567,6 +567,19 @@ A claimed hole cap also needs its feature's last drill/ream/bore/counterbore
 setup to leave it clear of stock; a tap or pilot claim never stands in for that
 (see [geometry](rules-geometry.md#finish_coverage)). No plan field selects that op.
 
+**Complete explicit-face ownership.** An op owns a feature it does not name when
+its explicit `faces` list is known and nonempty and contains every face of that
+feature's known, nonempty declared `faces`. Ownership is per op: a partial
+claim, an empty or `"unknown"` list (or one with an `"unknown"` member), a
+feature whose own faces are unknown, and an op without explicit `faces` never
+own; a label alone never owns another feature. A hole-family feature (`hole`,
+`counterbore`, `thread`, `threaded_hole`) is owned only by a complete-form
+action (`drill`, `ream`, `bore`, `counterbore`). Ownership adds the op to the
+feature's finishing cuts for datum consistency and finishing coverage, under the
+same final-cut filters as a named op (no rough, manual or nonfinishing action);
+label-scoped facts (hole chains, sizing, inspection checks) still follow the
+op's own `feature`.
+
 `stock_removal_bounds` is an explicit setup-frame clearing box:
 `{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric
 and strictly increasing. It declares the material outside the finished part

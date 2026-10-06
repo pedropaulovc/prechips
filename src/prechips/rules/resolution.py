@@ -28,6 +28,9 @@ SET_KINDS = {
 }
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"}
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
+HOLE_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
+# The hole actions whose cut can form a hole's claimed point cap.
+COMPLETE_FORM = frozenset({"drill", "ream", "bore", "counterbore"})
 _INVENTORY_CATEGORIES = ("machines", "tools", "holders", "fixtures", "gauges")
 WORKHOLDING_CATEGORIES = ("fixtures", "holders", "machines")
 
@@ -62,6 +65,35 @@ def uncertain(item):
 
 def record(value):
     return value if isinstance(value, dict) else {}
+
+
+def claim_refs(bundle, op):
+    """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``."""
+    if "faces" in op:
+        return op["faces"]
+    return record(bundle.features["features"].get(op.get("feature"))).get("faces", UNKNOWN)
+
+
+def known_refs(refs):
+    return isinstance(refs, list) and bool(refs) and UNKNOWN not in refs
+
+
+def owns_feature(bundle, op, name):
+    """Whether an op's explicit ``faces`` claim every declared face of feature ``name``.
+
+    Ownership needs a known, nonempty feature face list and a known, nonempty explicit
+    claim that contains all of it; empty, unknown, malformed or partial claims never
+    establish it, and a label alone never does. A hole-family feature is owned only by a
+    complete-form action (drill/ream/bore/counterbore): a spot, tap, pilot or profile op
+    never becomes a hole's owner through its claim.
+    """
+    if "faces" not in op:
+        return False
+    feature = record(bundle.features["features"].get(name))
+    if feature.get("kind") in HOLE_KINDS and op.get("do") not in COMPLETE_FORM:
+        return False
+    claimed, declared = op["faces"], feature.get("faces", UNKNOWN)
+    return known_refs(claimed) and known_refs(declared) and set(declared) <= set(claimed)
 
 
 EXPORTED_FRAMES = "features.frames"
@@ -348,12 +380,20 @@ def selected_references(plan):
     return result
 
 
-def operations(bundle, feature=None):
+def operations(bundle, feature=None, owned=False):
+    """Every (setup, op), or those naming ``feature``; ``owned`` adds complete claimers.
+
+    With ``owned`` an op also selects a feature it does not name when its explicit faces
+    claim the whole feature (``owns_feature``). Labels keep describing the op's own
+    feature, so label-scoped callers (chains, sizing, inspection) keep the default.
+    """
     return [
         (setup, op)
         for setup in bundle.plan["setups"]
         for op in setup["ops"]
-        if feature is None or op.get("feature") == feature
+        if feature is None
+        or op.get("feature") == feature
+        or (owned and owns_feature(bundle, op, feature))
     ]
 
 
