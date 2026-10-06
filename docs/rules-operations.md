@@ -62,7 +62,11 @@ same-frame entry surfaces. Profiles never move the touched top; `top_feature`
 restricts which facing operation moves that top. Each record preserves entry
 origin, setup/op, point/lead, thickness, allowance and tip endpoint.
 
-Arithmetic in mm:
+Arithmetic in mm: stock-state top/entry coordinates and operation `depth_mm`
+are machine millimetres even when the feature manifest uses inches. Feature
+depth limits are converted from the manifest's units. A tap without an
+operation depth uses the upper `thread_depth`, or `depth` if no thread-depth
+field is present; an explicitly unknown operation depth does not fall back.
 
 - Drill point `P = D / (2*tan(included_point_angle/2))`, requiring D > 0 and
   0 < angle < 180 degrees. Centre-seat angle is not drill point geometry.
@@ -79,6 +83,13 @@ Arithmetic in mm:
   `tip_z = entry_z - total_depth`; total must not exceed the feature's upper
   depth limit. Unknown thru/depth/tool geometry stays unknown.
 - Tap: `tip_z = entry_z - depth`; verified flute length must cover thread depth.
+
+The geometry kernel's spot and drill cutters use the same depth semantics:
+spot depth is the apex tip depth, and drill depth is the full-diameter depth
+with the tip one point length (`r / tan(angle/2)`) deeper. A spot's endpoint
+here does not add its point, but its included `point_angle` is still mandatory
+for the kernel's point cone; an unknown angle is accessibility and later-stock
+debt there (see [geometry](rules-geometry.md#accessibility)).
 
 Exact sentence alternatives:
 

@@ -14,19 +14,24 @@ Measurement conventions (setup frame, tool axis +Z):
   ADVANCED_FACE's (surface kind, area, optimal bbox) — never by import order.
 * Samples: a cell-centred 5x5 UV grid inside each claimed face plus points along
   every boundary edge (spacing max(r, 1 mm), 2..12 per edge).  The tool axis is
-  offset by r along the horizontal part of the outward normal (tangent to walls,
-  through the sample on floors); the tool tip sits at the sample height.  This is
-  the r-along-the-normal offset for a flat-ended cylinder: it touches the face at
-  the sample for every upward normal, whereas offsetting the tip by r*n itself
-  would float it r*n_z above floors and clear walls shorter than that.  Tool
-  cylinder r x flute_len from the tip, holder cylinder holder_radius x
-  holder_gauge_len from tip + projection; both shrink/lift by ``LIFT``.
+  offset by r along the horizontal outward normal on walls. By user decision
+  2026-10-05, concave floor-edge samples instead shift r into the floor; two-wall
+  floor corners use the axis tangent to both. Convex edges and interior samples
+  are unchanged. Rough tips stand at their authored to_z when above the finished
+  face, and hole tools follow their geometry-matched axis to their declared depth
+  or through extent. Spot/drill flutes use their point cone plus full-radius body;
+  flat tools use an r x flute_len cylinder. The holder starts at tip + projection.
+  Both shrink/lift by ``LIFT``.
   Far-side faces cannot be claimed from that setup; undefined normals remain debt.
 * Obstacles: setup-entry stock minus the sampled face's ``LIFT``-thick inward
-  shell, plus placed jaws. The flute alone also excludes its op's own derivable
-  outside-finished allowance; other claimed finished faces remain obstacles.
+  shell, plus placed fixture solids. A hole's known matched cap keeps unmodified stock instead
+  of an unrepresentable apex shell. The flute alone excludes its own actual cut.
+  Unrelated component-owned finished features remain obstacles, and holders retain entry-stock
+  obstacles. A hole's own bore radius is sizing, not a corner.
   Supply and earlier setups' removals determine the held stock and holder/reach
-  obstacles. Authored clearing boxes cannot exceed claimed XY bounds plus cutter radius.
+  obstacles. A rough mill op's ``rough_allowance_mm`` leave moves its poses along the unit
+  normal (floor-edge limits r + a) and stays in derived stock; authored clearing boxes
+  are multipass volumes, clipped to the stock, not limited to the claims' footprint.
 * Modelled placement only: each sample gets one prescribed tool pose, so a hit
   means that pose collides, not that no other pose reaches the face.
 * Vise: stock seated at its lowest z; jaw zone z in [seat, seat +
@@ -58,7 +63,7 @@ Measurement conventions (setup frame, tool axis +Z):
   (its final-pass state; roughing passes are not simulated) plus placed fixture
   solids.  Turned removal sweeps each claimed meridian radially outward (facing
   actions: along +Z, bounded by to_z), extended at the profile's end radius over
-  the declared z_from..z_to span and limited to it, minus the finished part.
+  the declared z_from..z_to span and limited to it, minus component-owned finished material.
   Reach depth is the material radius beside the nose (z within the nose circle,
   r beyond its centre) above the sample.  Concave profile corners are sharp
   concave edges between claimed faces (0) and concave tori/spheres (their
@@ -95,6 +100,7 @@ COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is n
 STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached stock piece
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
 REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
+FACING_ACTIONS = {"face", "rough_face", "finish_face"}  # sweeps that span planar inner loops
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
@@ -482,17 +488,48 @@ class _Culled:
         self.shape = shape
         self.boxes = [_tolerant_box(face) for face in shape.Faces]
 
-    def common(self, cx, cy, radius, z0, z1):
-        """The solid's material inside the cylinder, or None when there is none."""
+    def common(self, cx, cy, radius, z0, z1, solid=None):
+        """The solid's material inside the cylinder, or None when there is none.
+
+        A cutter ``solid`` lying inside that cylinder (a spot's point cone and body)
+        replaces it in the boolean; the cylinder still bounds the face culling.
+        """
         if self.shape.isNull():
             return None
         if not any(_cylinder_hits_box(cx, cy, radius, z0, z1, box, True) for box in self.boxes):
             # No face reaches the cylinder, so it lies wholly inside or wholly outside.
             if not self.shape.isInside(V(cx, cy, (z0 + z1) / 2), 1e-9, False):
                 return None
-            return Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
-        common = self.shape.common(Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0)))
+            return solid if solid is not None else Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
+        if solid is None:
+            solid = Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
+        common = self.shape.common(solid)
         return common if common.Volume > HIT_MM3 else None
+
+
+def _pointed_cutter(x, y, tip, radius, slope, length):
+    """Solid a pointed tool on vertical axis (x, y) fills from ``tip`` up ``length`` mm.
+
+    Its point is a cone with its apex at the tip, widening by ``slope`` (tangent of
+    half the included point angle) per mm of rise until ``radius``, then a
+    full-radius body; a length shorter than that rise truncates the cone.
+    """
+    rise = radius / slope
+    profile = [V(x, y, tip)]
+    if length <= rise:
+        profile.append(V(x + length * slope, y, tip + length))
+    else:
+        profile += [V(x + radius, y, tip + rise), V(x + radius, y, tip + length)]
+    profile.append(V(x, y, tip + length))
+    return Part.Face(Part.makePolygon(profile + profile[:1])).revolve(V(x, y, tip), Z, 360)
+
+
+def _tool_hits_box(cylinder, box, solid=None):
+    """Whether a tool meets an axis-aligned box: its gross ``cylinder`` culls, and a
+    cutter ``solid`` inside that cylinder (a pointed tool) must share volume with it."""
+    if not _cylinder_hits_box(*cylinder, box):
+        return False
+    return solid is None or _box_shape(box).common(solid).Volume > HIT_MM3
 
 
 def _tolerant_box(face):
@@ -563,8 +600,13 @@ def _envelope(stock):
     return solid
 
 
-def _clearing_box(bounds):
-    """(setup-frame solid of an op's ``stock_removal_bounds`` in mm, or None, and why not)."""
+def _clearing_box(bounds, within=None):
+    """(setup-frame solid of an op's ``stock_removal_bounds`` in mm, or None, and why not).
+
+    Given the stock bbox ``within``, the box is clipped to it grown by 1 mm before it is
+    built, so huge finite bounds never become huge boolean operands; its intersection with
+    that stock and face contact within ``STOCK_TOL`` are unchanged.
+    """
     if isinstance(bounds, dict) and bounds.get("reason"):
         return None, str(bounds["reason"])
     if not isinstance(bounds, dict):
@@ -585,7 +627,34 @@ def _clearing_box(bounds):
         return None, (
             "stock_removal_bounds " + ", ".join(bad) + " not a numeric [lo, hi] span with lo < hi"
         )
-    return _box_shape(tuple(lo for lo, _ in spans) + tuple(hi for _, hi in spans)), None
+    lo, hi = [lo for lo, _ in spans], [hi for _, hi in spans]
+    if within is not None:
+        lo = [max(v, within[axis] - 1.0) for axis, v in enumerate(lo)]
+        hi = [min(v, within[axis + 3] + 1.0) for axis, v in enumerate(hi)]
+        if any(a >= b for a, b in zip(lo, hi)):
+            return None, "stock_removal_bounds lie wholly outside the stock"
+    return _box_shape((*lo, *hi)), None
+
+
+_UNRADIUSED = "stock_removal_bounds is unresolved: missing measured cutter radius_mm"
+
+
+def _leave(op):
+    """(mm a milling op leaves normal to the finished surface, or None, and why not).
+
+    Only a ``rough_`` action leaves stock: a finishing op's paired allowance is the leave it
+    removes. A primitive job without the key leaves none; the host always sends it.
+    """
+    if (
+        _turned(op)
+        or not str(op.get("do", "")).startswith("rough_")
+        or "rough_allowance_mm" not in op
+    ):
+        return 0.0, None
+    value = op["rough_allowance_mm"]
+    if _number(value) and value >= 0:
+        return float(value), None
+    return None, f"rough_allowance_mm {value!r} is not a known nonnegative leave"
 
 
 def _inner_point(face):
@@ -697,23 +766,6 @@ def _joint_cut_spec(cut, frame):
         spec["at_mm"] = list(origin + axis * ends[0])
         spec["depth_mm"] = ends[1] - ends[0]
     return spec
-
-
-def _pointed_cutter(x, y, tip, radius, slope, length):
-    """Solid a pointed tool on vertical axis (x, y) fills from ``tip`` up ``length`` mm.
-
-    Its point is a cone with its apex at the tip, widening by ``slope`` (tangent of
-    half the included point angle) per mm of rise until ``radius``, then a
-    full-radius body; a length shorter than that rise truncates the cone.
-    """
-    rise = radius / slope
-    profile = [V(x, y, tip)]
-    if length <= rise:
-        profile.append(V(x + length * slope, y, tip + length))
-    else:
-        profile += [V(x + radius, y, tip + rise), V(x + radius, y, tip + length)]
-    profile.append(V(x, y, tip + length))
-    return Part.Face(Part.makePolygon(profile + profile[:1])).revolve(V(x, y, tip), Z, 360)
 
 
 def _joint_profile(spec, frame, top=None):
@@ -1101,12 +1153,16 @@ class _Job:
             else {"reason": reason}
         )
         outputs = dict(supplies)
+        leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
         for setup in setups:
             held, held_reason, state, assembly_error = self._held(setup, outputs)
             if held_reason is None:
                 box = _bbox(held)
                 self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
-            runner = _Setup(self, setup, held, held_reason, state)
+            stock_in = setup.get("stock_in") if isinstance(setup, dict) else None
+            refs = stock_in if isinstance(stock_in, list) else [stock_in]
+            leave = max([0.0] + [leaves.get(ref, 0.0) for ref in refs if isinstance(ref, str)])
+            runner = _Setup(self, setup, held, held_reason, state, leave)
             facts, ops = runner.run()
             if assembly_error is not None:
                 facts["assembly_error"] = assembly_error
@@ -1119,6 +1175,7 @@ class _Job:
                 "completed": runner.completed if runner.stock_out_reason is None else {},
                 "joined": state["joined"],
             }
+            leaves[sid] = runner.leave_out
         return result
 
     def _supplies(self):
@@ -1525,13 +1582,16 @@ class _Job:
 
 
 class _Setup:
-    def __init__(self, owner, setup, held=None, stock_reason="in-process stock was not derived", state=None):
+    def __init__(
+        self, owner, setup, held=None, stock_reason="in-process stock was not derived",
+        state=None, leave=0.0
+    ):
         self.owner = owner
         self.setup = setup if isinstance(setup, dict) else {}
-        self.ops = [
-            op for op in self.setup.get("ops", [])
-            if isinstance(op, dict)
-        ]
+        self.ops = [op for op in self.setup.get("ops", []) if isinstance(op, dict)]
+        # Largest known rough leave the entry stock's lineage may carry, and the output's.
+        self.leave_in = leave
+        self.leave_out = max([leave] + [a for a, _ in map(_leave, self.ops) if a is not None])
         self.reasons = {}
         self.state = state or {"components": set(), "completed": {}, "joined": set()}
         self.completed = dict(self.state["completed"])
@@ -1565,6 +1625,12 @@ class _Setup:
         self.directions = {}  # finished face index -> direction verdict cache
         self.revolutions = {}  # finished face index -> turning verdict cache
         self.turn_obstacles = {}  # op subject -> (held stock minus its own turned removal, why)
+        self.floor_adjacency = None
+        self.hole_cuts = {}  # (id(op), indices, radius) -> _hole_cut record
+        self.hole_columns = None  # finished hole-face index -> entry-stock-long bore column
+        self.guards = {}  # rough leave -> (protected solid offset outward by it, or None, why)
+        self.slabs = {}  # (face index, thickness) -> (face thickened outward, or None, why)
+        self.neighbours = None  # finished face index -> indices sharing an edge with it
 
     # ------------------------------------------------------------------ setup facts
 
@@ -1824,12 +1890,16 @@ class _Setup:
     def _output(self):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
 
-        An authored clearing box removes outside-finished material only within the
-        claimed faces' XY bounds dilated by the cutter radius, above ``to_z``. Other
-        ops sweep direction-valid claims along +Z, keeping unclaimed rails, ears,
-        webs and overstock. Every claimed face with a horizontal normal component
-        must be clear of overstock at its interior after the setup's removals;
-        merely sweeping a sliver from a drafted wall does not prove it cleared.
+        A hole op (``hole`` metadata) removes its geometry-located bore cylinder (see
+        :meth:`_hole_cut`). Other ops remove only stock outside their guard: the finished
+        solid offset by their own rough leave (:meth:`_guard`). An authored clearing box
+        removes that within the box above ``to_z``, leaving unclaimed hole columns to
+        their own ops. Other ops sweep direction-valid claims along +Z, keeping unclaimed
+        rails, ears, webs and overstock. A lower-leave op also cuts the lineage leave off
+        its claimed lateral faces (:meth:`_band`). Every profile-claimed face with a
+        horizontal normal component must be clear of overstock beyond its op's guard at
+        its interior after the setup's removals; merely sweeping a sliver from a drafted
+        wall does not prove it cleared.
         """
         where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
         stock, walls = self.part, []
@@ -1850,20 +1920,37 @@ class _Setup:
                     removal, why = self._turn_removal(op, valid)
                     if why is not None:
                         return None, f"{subject} {why}; {where}"
-                elif "stock_removal_bounds" in op:
-                    removal, why = self._bounded(
-                        op["stock_removal_bounds"],
-                        stock,
-                        valid,
-                        away,
-                        to_z,
-                        _positive(op, "radius_mm"),
-                    )
+                elif isinstance(op.get("hole"), dict):
+                    # A hole cut derives later stock but never joins the profile-wall check.
+                    cut = self._hole_cut(op, valid, _positive(op, "radius_mm"))
+                    if cut["reason"] is not None:
+                        return None, f"{subject} {cut['reason']}; {where}"
+                    removal = cut["removal"]
+                else:
+                    leave, why = self._guarded(op)
                     if why is not None:
                         return None, f"{subject} {why}; {where}"
-                else:
-                    removal = self._removal(valid, to_z)
-                    walls.append((subject, self._indices(op), to_z))
+                    carried = self._carried(op)
+                    if "stock_removal_bounds" in op:
+                        removal, why = self._bounded(
+                            op["stock_removal_bounds"],
+                            stock,
+                            valid,
+                            away,
+                            to_z,
+                            _positive(op, "radius_mm"),
+                            leave,
+                        )
+                        if why is not None:
+                            return None, f"{subject} {why}; {where}"
+                    else:
+                        removal = self._removal(valid, to_z, op.get("do"), leave)
+                        walls.append((subject, self._indices(op), to_z, leave, carried))
+                    band, why = self._band(stock, valid, to_z, leave, carried)
+                    if why is not None:
+                        return None, f"{subject} {why}; {where}"
+                    if band is not None:
+                        removal = band if removal is None else removal.fuse(band)
                 if removal is None:
                     if isinstance(op.get("joint_cut"), dict):
                         try:
@@ -1890,9 +1977,10 @@ class _Setup:
                     except ValueError as exc:
                         self.joint_errors[subject] = str(exc)
                         return None, f"{subject}: {exc}; {where}"
-            overstock = stock.cut(self.finished)
-            for subject, claimed, to_z in walls:
-                covered = self._covered(overstock, claimed, to_z)
+            for subject, claimed, to_z, leave, carried in walls:
+                # Raw stock beyond the larger of its own and the lineage leave is uncleared.
+                overstock = stock.cut(self._guard(leave)[0])
+                covered = self._covered(overstock, claimed, to_z, max(leave, carried) + COVER_MM)
                 if covered:
                     return None, (
                         f"{subject}: overstock still touches claimed wall(s) "
@@ -1912,14 +2000,16 @@ class _Setup:
             return None, f"in-process stock boolean failed ({exc}); {where}"
         return model, None
 
-    def _bounded(self, bounds, stock, valid, away, to_z, radius):
-        """(stock outside the finished part inside the declared box or None, or why not).
+    def _bounded(self, bounds, stock, valid, away, to_z, radius, leave):
+        """(stock outside the op's guard inside the declared box or None, or why not).
 
-        Its XY extent is limited to the claimed faces' union bbox plus a known
-        cutter radius; an unknown radius leaves the extent unresolved. Every claim
-        must face the approach and touch the box; every removed piece must border a claim.
+        The box is the author's multipass clearing volume, clipped to ``stock``: neither
+        limited to the claims' footprint nor proof of a toolpath, but unresolved without a
+        measured cutter radius. Every claim must face the approach and touch the box; every
+        removed piece must border a claim across the op's ``leave``. Bores of hole-op
+        claims this op does not claim keep their stock (:meth:`_hole_columns`).
         """
-        box, why = _clearing_box(bounds)
+        box, why = _clearing_box(bounds, _bbox(stock))
         if box is None:
             return None, why
         labels = self.owner.labels
@@ -1938,10 +2028,13 @@ class _Setup:
                 "claimed face(s) lie outside its stock_removal_bounds: "
                 + ", ".join(sorted(outside))
             )
-        why = self._bounds_error(box, valid, radius)
-        if why is not None:
-            return None, why
-        removed = stock.common(box).cut(self.protected)
+        if radius is None:
+            return None, _UNRADIUSED
+        removed = stock.common(box).cut(self._guard(leave)[0])
+        columns = self._hole_columns(valid)
+        if columns is not None:
+            # Not-yet-drilled hole interiors stay stock for their own hole op.
+            removed = removed.cut(columns)
         if to_z is not None:
             removed = removed.common(self._above(to_z))
         pieces = [piece for piece in removed.Solids if piece.Volume > HIT_MM3]
@@ -1949,7 +2042,7 @@ class _Setup:
         stray = [
             piece
             for piece in pieces
-            if not any(piece.distToShape(face)[0] < STOCK_TOL for face in claimed)
+            if not any(piece.distToShape(face)[0] < leave + STOCK_TOL for face in claimed)
         ]
         if stray:
             return None, (
@@ -1960,31 +2053,12 @@ class _Setup:
             return None, None
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
-    def _bounds_error(self, box, valid, radius):
-        """Explain excess clearance or the missing radius that prevents checking it."""
-        if not valid:
-            return None
-        if radius is None:
-            return "stock_removal_bounds XY extent is unresolved: missing measured cutter radius_mm"
-        bounds = _bbox(box)
-        excess = max(
-            max(
-                min(self.face_boxes[index][axis] for index in valid) - radius - bounds[axis],
-                bounds[axis + 3]
-                - max(self.face_boxes[index][axis + 3] for index in valid)
-                - radius,
-            )
-            for axis in (0, 1)
-        )
-        if excess > STOCK_TOL:
-            return (
-                f"stock_removal_bounds extends {_r(excess)} mm beyond its claimed faces' "
-                f"XY footprint dilated by {_r(radius)} mm cutter radius"
-            )
-        return None
+    def _removal(self, valid, to_z, action, leave):
+        """Stock outside the op's guard swept by direction-valid claims along +Z.
 
-    def _removal(self, valid, to_z):
-        """Stock outside component-owned finished material swept toward the axial entry."""
+        A facing ``action`` sweeps each planar claim's outer loop, so raw pins over hole
+        mouths go too; subtracting the guard still keeps islands, bosses and the leave.
+        """
         up = V(0, 0, 1)
         faces, prisms = [], []
         for index in valid:
@@ -1999,6 +2073,12 @@ class _Setup:
                 continue
             if _vertical(face, up):
                 continue
+            if (
+                action in FACING_ACTIONS
+                and isinstance(face.Surface, Part.Plane)
+                and len(face.Wires) > 1
+            ):
+                face = Part.Face(face.OuterWire)
             prism = face.extrude(up * self.owner.sweep_mm)
             if prism.Volume > HIT_MM3:
                 faces.append(face)
@@ -2008,8 +2088,9 @@ class _Setup:
         sweep = prisms[0].fuse(prisms[1:]) if len(prisms) > 1 else prisms[0]
         kept = [
             piece
-            for piece in sweep.cut(self.protected).Solids
-            if piece.Volume > HIT_MM3 and any(piece.distToShape(f)[0] < STOCK_TOL for f in faces)
+            for piece in sweep.cut(self._guard(leave)[0]).Solids
+            if piece.Volume > HIT_MM3
+            and any(piece.distToShape(f)[0] < leave + STOCK_TOL for f in faces)
         ]
         if not kept:
             return None
@@ -2026,7 +2107,7 @@ class _Setup:
         x, y = ((self.box[i] + self.box[i + 3]) / 2 - size / 2 for i in range(2))
         return Part.makeBox(size, size, size, V(x, y, z))
 
-    def _covered(self, overstock, claimed, to_z):
+    def _covered(self, overstock, claimed, to_z, reach=COVER_MM):
         """Labels whose lateral face interior still borders overstock, not just neighbours."""
         if not claimed:
             return []
@@ -2037,18 +2118,22 @@ class _Setup:
         return sorted(
             self.owner.labels[index]
             for index in claimed
-            if any(
-                math.hypot(normal.x, normal.y) > 1e-9
-                for _, normal in _face_samples(self.faces[index], 1.0, interior_only=True)[0]
-            )
-            and self._interior_contact(self.faces[index], overstock)
+            if self._lateral(index) and self._interior_contact(self.faces[index], overstock, reach)
         )
 
+    def _lateral(self, index):
+        """Whether a finished face has a horizontal normal component inside it."""
+        samples, _ = _face_samples(self.faces[index], 1.0, interior_only=True)
+        return any(math.hypot(normal.x, normal.y) > 1e-9 for _, normal in samples)
+
     @staticmethod
-    def _interior_contact(face, overstock):
-        """Exact contact catches small ears; inset near-edge probes ignore boundary-only contact."""
+    def _interior_contact(face, overstock, reach):
+        """Exact contact catches small ears; inset near-edge probes ignore boundary-only contact.
+
+        ``reach`` is ``COVER_MM`` past any leave the face may legitimately keep.
+        """
         distance, pairs, _ = face.distToShape(overstock)
-        if distance >= COVER_MM:
+        if distance >= reach:
             return False
         if face.common(overstock).Area > CONTACT_MM2:
             return True
@@ -2059,18 +2144,18 @@ class _Setup:
         boundary = Part.makeCompound(face.Wires)
         inner_u, inner_v = face.Surface.parameter(inner)
         for point, _ in pairs:
-            if boundary.distToShape(Part.Vertex(point))[0] > COVER_MM:
+            if boundary.distToShape(Part.Vertex(point))[0] > reach:
                 return True
             length = (inner - point).Length
-            fraction = min(1.0, 2 * COVER_MM / length) if length else 1.0
+            fraction = min(1.0, 2 * reach / length) if length else 1.0
             contact_u, contact_v = face.Surface.parameter(point)
             while True:
                 u = contact_u + fraction * (inner_u - contact_u)
                 v = contact_v + fraction * (inner_v - contact_v)
                 if face.isPartOfDomain(u, v):
                     inset = Part.Vertex(face.valueAt(u, v))
-                    if boundary.distToShape(inset)[0] > 2 * COVER_MM:
-                        if inset.distToShape(overstock)[0] < COVER_MM:
+                    if boundary.distToShape(inset)[0] > 2 * reach:
+                        if inset.distToShape(overstock)[0] < reach:
                             return True
                         break
                 if fraction == 1.0:
@@ -2078,6 +2163,127 @@ class _Setup:
                 # A corner on a wide/short face needs more travel than an edge midpoint.
                 fraction = min(1.0, 2 * fraction)
         return False
+
+    def _carried(self, op):
+        """Largest known rough leave the stock may carry where ``op`` cuts: its lineage's
+        and every earlier op's of this setup."""
+        leaves = [self.leave_in]
+        for other in self.ops:
+            if other is op:
+                break
+            leave, _ = _leave(other)
+            if leave is not None:
+                leaves.append(leave)
+        return max(leaves)
+
+    def _guarded(self, op):
+        """(op's known rough leave whose guard is derivable, or None, and why not)."""
+        leave, why = _leave(op)
+        if why is None:
+            why = self._guard(leave)[1]
+        return (leave, None) if why is None else (None, why)
+
+    def _guard(self, leave):
+        """(component-owned finished solid offset outward by ``leave``, or None, and why not).
+
+        Arc joins give the exact offset; where OCC cannot build them (a drill-point apex)
+        sharp intersection joins give a superset that keeps more stock. The leave stays
+        stock: a valid finite solid containing the branch's protected material, or named
+        debt, never the nominal solid in its place.
+        """
+        if leave == 0 or self.protected.isNull():
+            return self.protected, None
+        if leave not in self.guards:
+            errors = []
+            for join in (0, 2):
+                try:
+                    guard = self.protected.makeOffsetShape(leave, 1e-6, False, False, 0, join, False)
+                    if (
+                        not guard.isValid()
+                        or len(guard.Solids) != len(self.protected.Solids)
+                        or not all(math.isfinite(v) for v in _bbox(guard))
+                        or guard.Volume <= self.protected.Volume
+                    ):
+                        raise ValueError("not a valid finite enclosing solid")
+                    if self.protected.cut(guard).Volume > STOCK_MM3:
+                        raise ValueError("it does not contain the branch's protected material")
+                    self.guards[leave] = (guard, None)
+                    break
+                except Exception as exc:
+                    errors.append(f"{('arc', '', 'intersection')[join]} joins: {exc}")
+            else:
+                self.guards[leave] = (
+                    None,
+                    f"protected finished material offset by its {_r(leave)} mm rough_allowance_mm leave "
+                    f"failed ({'; '.join(errors)})",
+                )
+        return self.guards[leave]
+
+    def _slabs(self, valid, leave, carried):
+        """(unclaimed neighbours of claimed lateral faces thickened past ``carried``, the
+        lateral faces, and why not) when ``carried`` exceeds this op's ``leave``."""
+        lateral = [index for index in valid if self._lateral(index)]
+        if carried <= leave or not lateral:
+            return [], [], None
+        if self.neighbours is None:
+            self.neighbours = {}
+            for _, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
+                self.neighbours.setdefault(a, set()).add(b)
+                self.neighbours.setdefault(b, set()).add(a)
+        slabs = []
+        thickness = carried + 10 * COVER_MM
+        for index in sorted(
+            {other for face in lateral for other in self.neighbours.get(face, ())} - set(valid)
+        ):
+            key = (index, thickness)
+            if key not in self.slabs:
+                try:
+                    face = self.faces[index]
+                    slab = face.makeOffsetShape(thickness, 1e-6, False, False, 0, 0, True)
+                    if slab.Volume <= HIT_MM3 or not slab.isValid():
+                        raise ValueError("empty or invalid thickened face")
+                    self.slabs[key] = (slab, None)
+                except Exception as exc:
+                    self.slabs[key] = (
+                        None,
+                        f"unclaimed {self.owner.labels[index]} thickened by the "
+                        f"{_r(carried)} mm lineage rough leave failed ({exc})",
+                    )
+            slab, why = self.slabs[key]
+            if why is not None:
+                return [], lateral, why
+            slabs.append(slab)
+        return slabs, lateral, None
+
+    def _band(self, stock, valid, to_z, leave, carried):
+        """(lineage leave a lower-leave op cuts off its claimed lateral faces, or None, and
+        why not).
+
+        Stock within the ``carried`` leave of the finished part but outside this op's own
+        guard, less its unclaimed neighbours thickened past that leave, in pieces bordering
+        a claimed lateral face: convex wedges between claimed faces go, unclaimed faces keep
+        their skin, and raw stock beyond the leave stays for :meth:`_covered`.
+        """
+        slabs, lateral, why = self._slabs(valid, leave, carried)
+        if why is not None or not lateral or carried <= leave:
+            return None, why
+        outer, why = self._guard(carried)
+        if why is not None:
+            return None, why
+        band = stock.common(outer).cut(self._guard(leave)[0])
+        if slabs:
+            band = band.cut(slabs[0].fuse(slabs[1:]) if len(slabs) > 1 else slabs[0])
+        if to_z is not None:
+            band = band.common(self._above(to_z))
+        pieces = [
+            piece
+            for piece in band.Solids
+            if piece.Volume > HIT_MM3
+            and any(piece.distToShape(self.faces[i])[0] < leave + STOCK_TOL for i in lateral)
+        ]
+        if not pieces:
+            return None, None
+        return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
     @staticmethod
     def _unproven(facts, reason):
@@ -2537,14 +2743,19 @@ class _Setup:
                 names.add(component["name"])
         return sorted(names)
 
-    def _fixture_cylinder_hits(self, cylinder):
-        """Names of placed fixture components a vertical (x, y, r, z0, z1) cylinder meets."""
+    def _fixture_cylinder_hits(self, cylinder, solid=None):
+        """Names of placed fixture components a vertical (x, y, r, z0, z1) tool meets.
+
+        ``solid`` is the cutter inside ``cylinder`` (a pointed tool's cone and body) when it
+        is not the cylinder itself: the cylinder only culls, and every component, a box
+        jaw too, must share volume with that cutter.
+        """
         ax, ay, radius, z0, z1 = cylinder
-        names, tool = set(), None
+        names, tool = set(), solid
         for component in self.fixture:
             if not _cylinder_hits_box(*cylinder, component["envelope_bbox"]):
                 continue
-            if component["box"] is None:
+            if component["box"] is None or solid is not None:
                 if tool is None:
                     tool = Part.makeCylinder(radius, z1 - z0, V(ax, ay, z0))
                 if tool.common(component["envelope"]).Volume <= HIT_MM3:
@@ -3098,16 +3309,15 @@ class _Setup:
         facts = {"reasons": {}}
         reasons = facts["reasons"]
         facts["claim_errors"] = sorted(owner.labels[index] for index in away)
-        if "stock_removal_bounds" in op and valid and not away and not undefined:
-            box, _ = _clearing_box(op["stock_removal_bounds"])
-            if box is not None:
-                radius = _positive(op, "radius_mm")
-                error = self._bounds_error(box, valid, radius)
-                if error:
-                    if radius is None:
-                        reasons["stock_removal_bounds"] = error
-                    else:
-                        facts["stock_removal_error"] = error
+        if (
+            "stock_removal_bounds" in op
+            and valid
+            and not away
+            and not undefined
+            and _positive(op, "radius_mm") is None
+            and _clearing_box(op["stock_removal_bounds"])[0] is not None
+        ):
+            reasons["stock_removal_bounds"] = _UNRADIUSED
         if undefined:
             facts["claimed_indices"] = UNKNOWN
             reasons["claimed_indices"] = self._undefined(undefined)
@@ -3125,9 +3335,10 @@ class _Setup:
                 facts[key] = UNKNOWN
                 reasons[key] = reason
         else:
+            hole = isinstance(op.get("hole"), dict)
             corner = (
                 self._joint_corners(op) if isinstance(op.get("joint_cut"), dict)
-                else self._corners(sampled)
+                else self._corners(sampled, hole)
             ) if not undefined else reasons["claimed_indices"]
             facts["corner_radii_mm"] = corner if isinstance(corner, list) else UNKNOWN
             if not isinstance(corner, list):
@@ -3158,13 +3369,20 @@ class _Setup:
             facts["reason"] = unknown[0]
         return facts
 
-    def _corners(self, indices):
-        """Sorted concave corner radii around the tool axis, or the reason they are unknown."""
+    def _corners(self, indices, hole=False):
+        """Sorted concave corner radii around the tool axis, or the reason they are unknown.
+
+        A hole op's own tool-axis bores are not internal corners: sizing owns their diameter.
+        Nor are those bores' own matched caps (:meth:`_own_caps`), which its tool cuts.
+        """
         if any(index >= len(self.finished.Faces) for index in indices):
             return "transient joint targets do not establish finished-part corner topology"
         part, faces, labels = self.finished, self.faces, self.owner.labels
         radii, problems = set(), []
+        caps = self._own_caps(indices) if hole else set()
         for index in indices:
+            if index in caps:
+                continue
             face = faces[index]
             surface = face.Surface
             if isinstance(surface, Part.Plane):
@@ -3173,7 +3391,8 @@ class _Setup:
                 if not _cylinder_concave(face):
                     continue
                 if abs(surface.Axis.dot(Z)) >= PARALLEL:
-                    radii.add(_r(surface.Radius))
+                    if not hole:
+                        radii.add(_r(surface.Radius))
                 else:
                     problems.append(
                         f"{labels[index]} is a concave cylinder whose axis is not the tool axis"
@@ -3199,6 +3418,31 @@ class _Setup:
             return "; ".join(problems[:3]) + extra
         return sorted(radii)
 
+    def _own_caps(self, indices):
+        """Claimed cone or sphere faces capping a claimed tool-axis bore of a hole op.
+
+        A cap shares a real edge with a claimed concave bore parallel to the tool axis,
+        lies on that bore's axis line within its radius (:meth:`_cap_span`) and wholly
+        below it, closing the end away from the tool. Wider countersinks, tilted or
+        off-axis cones and caps of unclaimed bores stay ordinary claimed faces.
+        """
+        caps = set()
+        for _, a, b in _shared_edges(self.faces, indices):
+            for bore, cap in ((a, b), (b, a)):
+                face = self.faces[bore]
+                surface = face.Surface
+                if (
+                    cap in caps
+                    or not isinstance(surface, Part.Cylinder)
+                    or abs(surface.Axis.dot(Z)) < PARALLEL
+                    or not _cylinder_concave(face)
+                ):
+                    continue
+                span = self._cap_span(self.faces[cap], Z, surface.Center, surface.Radius)
+                if span is not None and span[1] <= self._bore_span(face, Z)[0] + BBOX_TOL:
+                    caps.add(cap)
+        return caps
+
     def _region(self, index):
         """Stock minus a tolerance-thick shell of only the sampled finished face."""
         if index in self.regions:
@@ -3220,26 +3464,353 @@ class _Setup:
             self.regions[index] = (_Culled(obstacle), None)
         return self.regions[index]
 
-    def _flute_regions(self, op, regions, radius):
-        """Only this op's derivable allowance is cutting material, not a flute obstacle."""
+    def _hole_cut(self, op, valid, radius):
+        """Geometry-located cut of a hole op: ``centres``, ``bottom``, ``removal``, ``reason``,
+        ``cone_slope``.
+
+        ``centres`` are setup-frame vectors on each claimed tool-axis bore axis whose z is
+        that axis's own actual tip once known (a through hole exits where its claimed
+        bores end); ``bottom`` is the lowest of them, or None beside a debt ``reason``;
+        ``cone_slope`` is a pointed tool's tan(point angle / 2), else None. A spot is
+        always pointed; a drill is pointed when its hole carries ``point_angle_deg``.
+        ``removal`` is the op-radius cutter from each axis's tip (``LIFT`` lower through
+        an exit) past the entry-stock top minus unrelated finished material, or None when
+        nothing is removed. A pointed cutter is its :func:`_pointed_cutter` cone and body;
+        others sweep a cylinder. Every action but a spot adds its own bore wall allowance
+        up to the operation radius.
+        """
+        key = (id(op), tuple(valid), radius)
+        if key not in self.hole_cuts:
+            try:
+                self.hole_cuts[key] = self._hole_record(op, valid, radius)
+            except Exception as exc:
+                self.hole_cuts[key] = {
+                    "centres": [],
+                    "bottom": None,
+                    "removal": None,
+                    "reason": f"hole cut boolean failed ({exc})",
+                    "cone_slope": None,
+                }
+        return self.hole_cuts[key]
+
+    def _hole_record(self, op, indices, radius):
+        labels = self.owner.labels
+
+        def debt(reason, axes=()):
+            centres = [V(x, y, 0.0) for x, y, _ in axes]
+            return {
+                "centres": centres,
+                "bottom": None,
+                "removal": None,
+                "reason": reason,
+                "cone_slope": None,
+            }
+
+        hole = op.get("hole")
+        if not isinstance(hole, dict):
+            return debt("op carries no hole metadata")
+        if radius is None:
+            return debt("hole op lacks a measured cutter radius_mm")
+        walls, tilted = [], []
+        for index in indices:
+            face = self.faces[index]
+            surface = face.Surface
+            if not isinstance(surface, Part.Cylinder) or not _cylinder_concave(face):
+                continue
+            if abs(surface.Axis.dot(Z)) < PARALLEL:
+                tilted.append(labels[index])
+            else:
+                walls.append((index, surface.Center.x, surface.Center.y, surface.Radius))
+        if tilted:
+            return debt(
+                "hole bore(s) not parallel to the setup tool axis cannot locate the cut: "
+                + ", ".join(sorted(tilted))
+            )
+        if not walls:
+            return debt(
+                "no claimed concave cylindrical bore parallel to the setup tool axis locates "
+                "the hole cut"
+            )
+        axes = []  # [x, y, [(index, bore radius)]] per distinct claimed bore axis
+        for index, x, y, bore in walls:
+            for axis in axes:
+                if math.hypot(x - axis[0], y - axis[1]) <= BBOX_TOL:
+                    axis[2].append((index, bore))
+                    break
+            else:
+                axes.append([x, y, [(index, bore)]])
+        axes.sort(key=lambda axis: (axis[0], axis[1]))
+        to_z, action, thru = op.get("to_z"), op.get("do"), hole.get("thru")
+        entry, depth = hole.get("entry_z_mm"), hole.get("depth_mm")
+        through, slope = False, None
+        if action == "spot" or (action == "drill" and "point_angle_deg" in hole):
+            # A pointed tool cuts with its cone, never a flat-bottomed cylinder: without a
+            # known included angle neither its cut nor its flute obstacle is derivable.
+            angle = hole.get("point_angle_deg", UNKNOWN)
+            if angle == UNKNOWN:
+                return debt(f"{action} point_angle_deg is unknown; its point cone is unknown", axes)
+            if not (_number(angle) and 0 < angle < 180):
+                return debt(
+                    f"{action} point_angle_deg {angle!r} is not a number strictly between 0 "
+                    "and 180 degrees; its point cone is unknown",
+                    axes,
+                )
+            slope = math.tan(math.radians(angle) / 2)
+        # As tip_endpoints: a drill's depth and through exit locate its full-diameter
+        # body, so its tip is a point length P below them; a spot's depth is its tip.
+        point = radius / slope if action == "drill" and slope is not None else 0.0
+        if to_z is not None:
+            if not _number(to_z):
+                return debt("hole op to_z is unknown", axes)
+            bottoms = [float(to_z)] * len(axes)  # an absolute to_z is the actual tip
+        elif action in ("spot", "tap") or thru is False:
+            # As tip_endpoints: spots and taps stop at their authored depth even in a
+            # through hole; other actions use it only in a blind hole.
+            if not _number(entry) or not (_number(depth) and depth > 0):
+                return debt(
+                    f"blind {action} bottom needs a numeric hole entry_z_mm and positive "
+                    "depth_mm, or a to_z",
+                    axes,
+                )
+            bottoms = [float(entry) - float(depth) - point] * len(axes)
+        elif thru is True:
+            # Each axis exits where its own claimed bores end, not at the entry-stock
+            # floor: finished material below the exit (a clevis's lower leg, a cross
+            # bore's far wall) is never on this tool's path.
+            bottoms = [
+                min(self._bore_span(self.faces[index], Z)[0] for index, _ in members) - point
+                for _, _, members in axes
+            ]
+            through = True
+        else:
+            return debt("hole thru is unknown and the op has no to_z; its bottom is unknown", axes)
+        centres = [V(x, y, level) for (x, y, _), level in zip(axes, bottoms)]
+        bottom = min(bottoms)
+        top = self.box[5] + 1.0
+        tools = []
+        for (x, y, _), level in zip(axes, bottoms):
+            # A through cut starts LIFT past its exit so no face is coincident with it.
+            low = level - LIFT if through else level
+            if top - low <= LIFT:
+                continue
+            if slope is None:
+                tools.append(Part.makeCylinder(radius, top - low, V(x, y, low)))
+            else:
+                tools.append(_pointed_cutter(x, y, low, radius, slope, top - low))
+        record = {
+            "centres": centres,
+            "bottom": bottom,
+            "removal": None,
+            "reason": None,
+            "cone_slope": slope,
+        }
+        if not tools:
+            return record
+        cylinder = tools[0].fuse(tools[1:]) if len(tools) > 1 else tools[0]
+        removal = cylinder.cut(self.protected)
+        # A spot never widens its own bore: its mouth must fit the future bore, so an
+        # over-deep spot's cone stays an obstacle against that finished wall.
+        for _, _, members in axes if action != "spot" else ():
+            for index, bore in members:
+                excess = radius - bore
+                if excess <= PLANE_TOL:
+                    continue
+                # This op's own bore wall is cutting material; sizing checks its diameter.
+                try:
+                    shell = Part.Shell([self.faces[index]]).makeOffsetShape(
+                        -(excess + LIFT), 1e-6, False, False, 0, 0, True
+                    )
+                    if shell.Volume <= HIT_MM3 or not shell.isValid():
+                        raise ValueError("empty or invalid offset solid")
+                except Exception as exc:
+                    record["reason"] = (
+                        f"own bore wall offset of {labels[index]} to the {_r(radius)} mm op "
+                        f"radius failed ({exc})"
+                    )
+                    return record
+                removal = removal.fuse(shell.common(cylinder))
+        if removal.Volume > HIT_MM3:
+            record["removal"] = removal
+        return record
+
+    def _hole_faces(self):
+        """Finished-face indices claimed by every planned op carrying hole metadata."""
+        indices = set()
+        setups = self.owner.job.get("setups")
+        for setup in setups if isinstance(setups, list) else ():
+            ops = setup.get("ops") if isinstance(setup, dict) else None
+            for op in ops if isinstance(ops, list) else ():
+                if (
+                    isinstance(op, dict)
+                    and not isinstance(op.get("joint_cut"), dict)
+                    and isinstance(op.get("hole"), dict)
+                ):
+                    refs, _ = self._claim_refs(op)
+                    found = self.owner._feature(refs)
+                    if found != UNKNOWN:
+                        indices.update(found)
+        return indices
+
+    @staticmethod
+    def _bore_span(face, axis, inner=()):
+        """Exact (min, max) of the dot product with ``axis`` over a bore or cap face.
+
+        A cylinder's or cone's axial coordinate has no interior extremum, so the face's
+        boundary edges, turned so ``axis`` is +Z, bound it exactly (crossing saddles
+        included). ``inner`` names the surface's other critical points (a cone apex at a
+        degenerated edge, a sphere's poles); each one the face contains joins the span.
+        """
+        edges = Part.Compound([edge.copy() for edge in face.Edges if not edge.Degenerated])
+        edges.transformShape(FreeCAD.Placement(V(), FreeCAD.Rotation(axis, Z)).toMatrix())
+        box = edges.optimalBoundingBox(False, False)
+        lo, hi = box.ZMin, box.ZMax
+        for point in inner:
+            if face.distToShape(Part.Vertex(point))[0] < LIFT:
+                lo, hi = min(lo, point.dot(axis)), max(hi, point.dot(axis))
+        return lo, hi
+
+    @classmethod
+    def _cap_span(cls, face, axis, centre, radius):
+        """Axial (min, max) of ``face`` if it caps the bore on this axis line, else None.
+
+        A cap is a concave cone (drill point) or sphere (ball end) on the bore's axis
+        line lying within its ``radius``, so the bore's nominal column holds its void.
+        """
+        surface = face.Surface
+        if isinstance(surface, Part.Cone):
+            if abs(surface.Axis.dot(axis)) < PARALLEL:
+                return None
+            anchor = surface.Apex
+            inner = (anchor,)
+        elif isinstance(surface, Part.Sphere):
+            anchor = surface.Center
+            inner = (anchor + axis * surface.Radius, anchor - axis * surface.Radius)
+        else:
+            return None
+        offset = anchor - centre
+        if (offset - axis * offset.dot(axis)).Length > BBOX_TOL:
+            return None
+        u0, u1, v0, v1 = face.ParameterRange
+        point = face.valueAt((u0 + u1) / 2, (v0 + v1) / 2)
+        normal = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
+        if isinstance(surface, Part.Cone):
+            # The void lies toward the axis.
+            inward = anchor + axis * (point - anchor).dot(axis) - point
+        else:
+            inward = anchor - point
+        if normal.dot(inward) <= 0:
+            return None
+        lo, hi = cls._bore_span(face, axis, inner)
+        # The distance from the axis line is monotone in the axial coordinate away from
+        # the apex (cone) or the centre (sphere), so the span's ends bound it.
+        level = anchor.dot(axis)
+        if isinstance(surface, Part.Cone):
+            reach = max(abs(lo - level), abs(hi - level)) * math.tan(surface.SemiAngle)
+        elif lo <= level <= hi:
+            reach = surface.Radius
+        else:
+            near = min(abs(lo - level), abs(hi - level))
+            reach = math.sqrt(max(surface.Radius**2 - near**2, 0.0))
+        return (lo, hi) if reach <= radius + BBOX_TOL else None
+
+    def _hole_columns(self, claimed):
+        """Fused bore-long columns of known hole bores outside ``claimed``, or None.
+
+        Each column spans only its bore face's own axial extent and any blind cap
+        (:meth:`_cap_span`) sharing an edge with it (± ``LIFT``), so stock above a hole
+        mouth or beyond a horizontal blind hole's end is never reserved. Its radius stays
+        the bore's nominal radius.
+        """
+        if self.hole_columns is None:
+            self.hole_columns = {}
+            bores = []
+            for index in sorted(self._hole_faces()):
+                face = self.faces[index]
+                if isinstance(face.Surface, Part.Cylinder) and _cylinder_concave(face):
+                    bores.append(index)
+            neighbours = {}
+            if bores:
+                for _, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
+                    neighbours.setdefault(a, set()).add(b)
+                    neighbours.setdefault(b, set()).add(a)
+            for index in bores:
+                face = self.faces[index]
+                surface = face.Surface
+                axis, centre = surface.Axis, surface.Center
+                lo, hi = self._bore_span(face, axis)
+                for other in sorted(neighbours.get(index, ())):
+                    cap = self._cap_span(self.faces[other], axis, centre, surface.Radius)
+                    if cap is not None:
+                        lo, hi = min(lo, cap[0]), max(hi, cap[1])
+                lo, hi = lo - LIFT, hi + LIFT
+                start = centre + axis * (lo - centre.dot(axis))
+                self.hole_columns[index] = Part.makeCylinder(surface.Radius, hi - lo, start, axis)
+        claimed = set(claimed)
+        columns = [
+            column for index, column in sorted(self.hole_columns.items()) if index not in claimed
+        ]
+        if not columns:
+            return None
+        return columns[0].fuse(columns[1:]) if len(columns) > 1 else columns[0]
+
+    def _flute_regions(self, op, regions, radius, hole_cut=None):
+        """Only this op's derivable allowance is cutting material, not a flute obstacle.
+
+        A hole op uses its (prepared or computed) :meth:`_hole_cut` removal; a milling op
+        cuts what :meth:`_output` removes for it, its guard's leave excepted. Holder
+        obstacles never see this.
+        """
         if self.stock_reason is not None:
             return regions
-        valid, away, why = self._claims(op)
-        to_z = op.get("to_z")
-        if not isinstance(valid, list) or away or why or (to_z is not None and not _number(to_z)):
-            return regions
         if isinstance(op.get("joint_cut"), dict):
+            valid, away, why = self._claims(op)
+            to_z = op.get("to_z")
+            if (
+                not isinstance(valid, list)
+                or away
+                or why
+                or (to_z is not None and not _number(to_z))
+            ):
+                return regions
             removal, why = self._joint_removal(op, self.part)
             if why:
                 return regions
-        elif "stock_removal_bounds" in op:
-            removal, why = self._bounded(
-                op["stock_removal_bounds"], self.part, valid, away, to_z, radius
-            )
+        elif isinstance(op.get("hole"), dict):
+            if hole_cut is None:
+                valid, _, _ = self._claims(op)
+                if not isinstance(valid, list):
+                    return regions
+                hole_cut = self._hole_cut(op, valid, radius)
+            if hole_cut["reason"] is not None:
+                return regions
+            removal = hole_cut["removal"]
+        else:
+            valid, away, why = self._claims(op)
+            to_z = op.get("to_z")
+            if (
+                not isinstance(valid, list)
+                or away
+                or why
+                or (to_z is not None and not _number(to_z))
+            ):
+                return regions
+            leave, why = self._guarded(op)
             if why:
                 return regions
-        else:
-            removal = self._removal(valid, to_z)
+            carried = self._carried(op)
+            if "stock_removal_bounds" in op:
+                removal, why = self._bounded(
+                    op["stock_removal_bounds"], self.part, valid, away, to_z, radius, leave
+                )
+                if why:
+                    return regions
+            else:
+                removal = self._removal(valid, to_z, op.get("do"), leave)
+            band, why = self._band(self.part, valid, to_z, leave, carried)
+            if why:
+                return regions
+            if band is not None:
+                removal = band if removal is None else removal.fuse(band)
         if removal is None:
             return regions
         removal = self.part.common(removal)
@@ -3250,11 +3821,183 @@ class _Setup:
             for index, (region, why) in regions.items()
         }
 
+    def _floor_edges(self, index):
+        """``(edge, wall index, edge box)`` per sharp concave rising wall of a +Z planar floor.
+
+        One scan of every shared edge caches each floor's walls, the edges each face pair
+        shares (for :meth:`_wall_corner`) and the floors whose wall edges could not be
+        classified; asking for such a floor raises with the reason.
+        """
+        if self.floor_adjacency is None:
+            walls, failed, pairs = {}, {}, {}
+            for edge, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
+                pairs.setdefault((min(a, b), max(a, b)), []).append(edge)
+                middle = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
+                for floor, wall in ((a, b), (b, a)):
+                    face = self.faces[floor]
+                    if (
+                        not isinstance(face.Surface, Part.Plane)
+                        or self.face_boxes[wall][5] <= middle.z + LIFT
+                    ):
+                        continue
+                    try:
+                        if _normal_at(face, middle).z < PARALLEL or not _concave_edge(
+                            self.finished, edge, face, self.faces[wall]
+                        ):
+                            continue
+                    except Exception as exc:
+                        failed.setdefault(
+                            floor,
+                            f"floor edge with {self.owner.labels[wall]} is unclassified ({exc})",
+                        )
+                        continue
+                    walls.setdefault(floor, []).append((edge, wall, _bbox(edge)))
+            self.floor_adjacency = {"walls": walls, "failed": failed, "pairs": pairs, "corners": {}}
+        if index in self.floor_adjacency["failed"]:
+            raise ValueError(self.floor_adjacency["failed"][index])
+        return self.floor_adjacency["walls"].get(index, ())
+
+    def _wall_corner(self, a, b):
+        """Whether faces ``a`` and ``b`` meet at a sharp concave shared edge (cached)."""
+        key = (min(a, b), max(a, b))
+        corners = self.floor_adjacency["corners"]
+        if key not in corners:
+            corners[key] = any(
+                _concave_edge(self.finished, edge, self.faces[a], self.faces[b]) is True
+                for edge in self.floor_adjacency["pairs"].get(key, ())
+            )
+        return corners[key]
+
+    def _floor_contacts(self, index, point, reach):
+        """Rising walls of floor ``index`` whose floor edge is within ``reach`` of ``point``.
+
+        Returns ``(incident, near)``: ``(wall, nx, ny)`` for edges through the point and
+        ``(wall, nx, ny, offset)`` for the others, where ``(nx, ny)`` is the wall's unit
+        in-plane normal into the floor at the edge's nearest point and ``offset`` the
+        point's signed in-plane distance from it, positive into the floor.
+        """
+        incident, near, vertex = [], [], None
+        margin = max(reach, STOCK_TOL)
+        for edge, wall, box in self._floor_edges(index):
+            if any(
+                point[axis] < box[axis] - margin or point[axis] > box[axis + 3] + margin
+                for axis in range(3)
+            ):
+                continue
+            if vertex is None:
+                vertex = Part.Vertex(point)
+            distance, nearest, _ = edge.distToShape(vertex)
+            if distance > STOCK_TOL and distance >= reach:
+                continue
+            foot = nearest[0][0]
+            normal = _normal_at(self.faces[wall], foot)
+            length = math.hypot(normal.x, normal.y)
+            if length < 1e-9:
+                continue
+            nx, ny = normal.x / length, normal.y / length
+            if distance <= STOCK_TOL:
+                incident.append((wall, nx, ny))
+            else:
+                near.append((wall, nx, ny, nx * (point.x - foot.x) + ny * (point.y - foot.y)))
+        return incident, near
+
+    def _floor_corners(self, index):
+        """(vertex, floor normal) where two rising walls meet the floor at a concave corner.
+
+        Convex island corners get no pose of their own: their edge samples already
+        stand tangent to one wall each.
+        """
+        face = self.faces[index]
+        found = []
+        for vertex in face.Vertexes:
+            walls = [wall for wall, _, _ in self._floor_contacts(index, vertex.Point, 0.0)[0]]
+            if any(
+                a != b and self._wall_corner(a, b)
+                for i, a in enumerate(walls)
+                for b in walls[i + 1 :]
+            ):
+                found.append((vertex.Point, _normal_at(face, vertex.Point)))
+        return found
+
+    def _floor_axis(self, index, point, radius):
+        """User decision 2026-10-05: the nearest axis tangent to the walls bounding a sample.
+
+        Each wall through the sample constrains the axis offset ``d`` by ``n·d >= radius``.
+        A wall whose floor edge is nearer than ``radius`` adds ``n·d >= radius - offset``
+        only when it meets an incident wall at a concave wall/wall corner, so a sample
+        near a pocket corner stands tangent to both walls; convex island corners and
+        unrelated walls add nothing.  A sample on no wall keeps its own axis.
+        """
+        incident, near = self._floor_contacts(index, point, radius)
+        if not incident:
+            return point.x, point.y
+        walls = {wall for wall, _, _ in incident}
+        limits = [(nx, ny, radius) for _, nx, ny in incident] + [
+            (nx, ny, radius - offset)
+            for wall, nx, ny, offset in near
+            if wall not in walls and any(self._wall_corner(wall, other) for other in walls)
+        ]
+        candidates = [(0.0, 0.0)] + [(rhs * nx, rhs * ny) for nx, ny, rhs in limits]
+        for i, (ax, ay, ra) in enumerate(limits):
+            for bx, by, rb in limits[i + 1 :]:
+                determinant = ax * by - ay * bx
+                if abs(determinant) > 1e-9:
+                    candidates.append(
+                        ((ra * by - ay * rb) / determinant, (ax * rb - ra * bx) / determinant)
+                    )
+        feasible = [
+            (dx, dy)
+            for dx, dy in candidates
+            if all(nx * dx + ny * dy >= rhs - 1e-7 for nx, ny, rhs in limits)
+        ]
+        if not feasible:
+            raise ValueError("no floor-axis pose is tangent to all bounding rising walls")
+        dx, dy = min(feasible, key=lambda delta: delta[0] ** 2 + delta[1] ** 2)
+        return point.x + dx, point.y + dy
+
+    def _floor_debt(self, index, exc, facts):
+        """A floor whose tool pose cannot be derived leaves this op's measured facts unknown."""
+        reason = f"{self.owner.labels[index]}: floor tool pose is undefined ({exc})"
+        for key in self._MEASURED:
+            facts[key] = UNKNOWN
+            facts["reasons"][key] = reason
+
     def _sample_facts(self, op, indices, radius, facts):
         reasons = facts["reasons"]
+        joint = isinstance(op.get("joint_cut"), dict)
+        hole_cut = (
+            self._hole_cut(op, indices, radius)
+            if not joint and isinstance(op.get("hole"), dict)
+            else None
+        )
+        if hole_cut is not None and hole_cut["reason"] is not None:
+            for key in self._MEASURED:
+                facts[key] = UNKNOWN
+                reasons[key] = hole_cut["reason"]
+            return
+        slope = hole_cut["cone_slope"] if hole_cut is not None else None
+        # Transient faces already include their joint cut's allowance; ordinary rough
+        # poses stand their known leave off the finished surface along the normal.
+        leave, why = (0.0, None) if joint or hole_cut is not None else self._guarded(op)
+        if why is not None:
+            for key in self._MEASURED:
+                facts[key] = UNKNOWN
+                reasons[key] = why
+            return
         samples, sample_problems = [], []
         for index in indices:
             found, missed = _face_samples(self.faces[index], max(radius, 1.0))
+            if (
+                not joint
+                and isinstance(self.faces[index].Surface, Part.Plane)
+                and found
+                and found[0][1].z >= PARALLEL
+            ):
+                try:
+                    found.extend(self._floor_corners(index))
+                except Exception as exc:
+                    self._floor_debt(index, exc, facts)
+                    return
             samples.extend((index, point, normal) for point, normal in found)
             if missed:
                 sample_problems.append(
@@ -3272,25 +4015,48 @@ class _Setup:
         placed = []  # (index, point, axis x, axis y, tip z, downward)
         for index, point, normal in samples:
             horizontal = math.hypot(normal.x, normal.y)
-            ax, ay = point.x, point.y
-            if horizontal > 1e-9:
+            ax, ay, level = point.x, point.y, point.z
+            if hole_cut is not None:
+                centre = min(
+                    hole_cut["centres"],
+                    key=lambda centre: (centre.x - point.x) ** 2 + (centre.y - point.y) ** 2,
+                )
+                ax, ay = centre.x, centre.y
+                level = max(level, centre.z)
+            elif horizontal > 1e-9:
+                if normal.z >= -1e-3:
+                    ax, ay = ax + leave * normal.x, ay + leave * normal.y
+                    level += leave * normal.z
                 ax += radius * normal.x / horizontal
                 ay += radius * normal.y / horizontal
-            placed.append((index, point, ax, ay, point.z + LIFT, normal.z < -1e-3))
+            elif normal.z >= PARALLEL:
+                level += leave
+                if not joint:
+                    try:
+                        ax, ay = self._floor_axis(index, point, radius + leave)
+                    except Exception as exc:
+                        self._floor_debt(index, exc, facts)
+                        return
+            if str(op.get("do", "")).startswith("rough_") and _number(op.get("to_z")):
+                level = max(level, op["to_z"])
+            placed.append((index, point, ax, ay, level + LIFT, normal.z < -1e-3))
+        if hole_cut is not None:
+            for centre in hole_cut["centres"]:
+                placed.append((indices[0], centre, centre.x, centre.y, centre.z + LIFT, False))
         top = self.box[5]
         part = self._culled_part()
         # Reach: highest material within r + band of the tool axis above each sample.
         reach = 0.0
-        for _, point, ax, ay, tip, downward in sorted(
-            placed, key=lambda item: (item[1].z, item[0], item[2], item[3])
+        for _, _, ax, ay, tip, downward in sorted(
+            placed, key=lambda item: (item[4], item[0], item[2], item[3])
         ):
             if downward:
                 continue
-            if top - point.z <= reach:
+            if top - (tip - LIFT) <= reach:
                 break
             common = part.common(ax, ay, radius + REACH_BAND, tip, top + 1.0)
             if common is not None:
-                reach = max(reach, _bbox(common)[5] - point.z)
+                reach = max(reach, _bbox(common)[5] - (tip - LIFT))
         facts["reach_depth_mm"] = UNKNOWN if sample_reason else _r(reach)
         if sample_reason:
             reasons["reach_depth_mm"] = sample_reason
@@ -3306,8 +4072,16 @@ class _Setup:
         if sample_reason:
             facts["holder_wall_hits"] = UNKNOWN
             reasons["holder_wall_hits"] = sample_reason
-        regions = {index: self._region(index) for index in indices}
-        flute_regions = self._flute_regions(op, regions, radius)
+        # A hole op's tool stands on its bore axis LIFT narrower and LIFT higher than any
+        # sample, so its own matched caps need no own-face shell (a cone apex has no
+        # offset): unmodified stock keeps every wrong profile's or depth's real hit. The
+        # cached shell regions stay untouched, so no other op borrows this exemption.
+        caps = self._own_caps(indices) if hole_cut is not None else ()
+        regions = {
+            index: (self._culled_part(), None) if index in caps else self._region(index)
+            for index in indices
+        }
+        flute_regions = self._flute_regions(op, regions, radius, hole_cut=hole_cut)
         region_reason = (
             "; ".join(reason for _, reason in regions.values() if reason is not None) or None
         )
@@ -3330,19 +4104,26 @@ class _Setup:
                     continue
                 labels = set()
                 obstacle = (flute_regions if kind == "tool" else regions)[index][0]
-                common = obstacle.common(*cylinder) if obstacle is not None else None
+                # A pointed tool's flute is its cone and body, for part and jaws alike; its
+                # gross cylinder only culls. Holders keep their own cylinder.
+                solid = (
+                    _pointed_cutter(ax, ay, tip, radius - LIFT, slope, flute)
+                    if kind == "tool" and slope is not None
+                    else None
+                )
+                common = obstacle.common(*cylinder, solid) if obstacle is not None else None
                 if common is not None:
                     labels.add("part")
-                    counter[3].update(self._hit_refs(common, cylinder, index))
+                    counter[3].update(self._hit_refs(common, cylinder, index, solid))
                 if self.fixture_ready:
-                    labels.update(self._fixture_cylinder_hits(cylinder))
+                    labels.update(self._fixture_cylinder_hits(cylinder, solid))
                 if labels:
                     counter[0] += 1
                     counter[2].update(labels)
                 elif (
                     not self.fixture_ready
                     or self.fixture_gaps
-                    or any(_cylinder_hits_box(*cylinder, box) for _, box in self.fixture_possible)
+                    or any(_tool_hits_box(cylinder, box, solid) for _, box in self.fixture_possible)
                 ):
                     counter[1] += 1
         facts["obstacles"] = {kind: sorted(counters[kind][2]) for kind in counters}
@@ -3401,10 +4182,12 @@ class _Setup:
             self.culled_part = _Culled(self.part)
         return self.culled_part
 
-    def _hit_refs(self, common, cylinder, own):
-        """Finished face refs bounding a hit, excluding only the sampled face itself."""
+    def _hit_refs(self, common, cylinder, own, solid=None):
+        """Finished face refs bounding a hit, excluding only the sampled face itself.
+
+        ``solid`` is the cutter inside ``cylinder`` when it is not the cylinder itself.
+        """
         refs = set()
-        solid = None
         for index, face in enumerate(self.faces):
             if index == own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
                 continue

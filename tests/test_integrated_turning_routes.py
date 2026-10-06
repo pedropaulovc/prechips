@@ -162,9 +162,21 @@ def test_turned_output_routes_past_an_unrelated_setup_into_a_model_frame_mill(en
     features["flat"] = engine.refs(step, (55, -5, 3), (65, 5, 3), kind="Plane")
     assert len(features["flat"]) == 1
     setups = [
-        _lathe("T1", [_turn("T1:10", "exposed", z_from=40.0, z_to=20.0)], _chuck(face_z=10.0)),
+        _lathe(
+            "T1",
+            [
+                {
+                    **_turn("T1:10", "exposed", z_from=40.0, z_to=20.0),
+                    "do": "rough_turn",
+                    "finishing": False,
+                    "rough_allowance_mm": 0.2,
+                }
+            ],
+            _chuck(face_z=10.0),
+        ),
         _mill_flat("X1", "stock"),
         _mill_flat("M1", "T1"),
+        {"id": "M2", "stock_in": "M1", "frame": IDENTITY, "hold": UNHELD, "ops": []},
     ]
     result = engine.run(engine.job(step, features, setups, stock=BAR))
     rows = result["setups"]
@@ -180,6 +192,10 @@ def test_turned_output_routes_past_an_unrelated_setup_into_a_model_frame_mill(en
     # The flat at z 3 lies under the 8 mm journal's top (z 4), not the raw bar's (z 6).
     assert result["ops"]["X1:10"]["reach_depth_mm"] == pytest.approx(3.0, abs=1e-3)
     assert result["ops"]["M1:10"]["reach_depth_mm"] == pytest.approx(1.0, abs=1e-3)
+    # Turning's allowance is not a milling normal-leave guard. The mill removes
+    # the complete circular segment above the flat, not a fictitious 0.2 mm skin.
+    segment = 16.0 * math.acos(3.0 / 4.0) - 3.0 * math.sqrt(7.0)
+    assert rows["M2"]["stock_volume_mm3"] == pytest.approx(TURNED_MM3 - 10.0 * segment, abs=0.01)
 
 
 def _lug(x0, length):

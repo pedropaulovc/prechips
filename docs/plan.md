@@ -157,7 +157,12 @@ only on their own pre-assembly component ancestry. The original manifest and
 STEP hashes remain unchanged. Findings cite `plan.joint_features.<id>` and the
 author's citations, not invented exported faces. Completing a transient cut
 never earns finished STEP coverage or final finish coverage.
-
+Inspection, fitting and other noncutting actions do not prepare or invalidate
+a joint feature. Socket drill/ream/bore and spigot turning actions derive their
+actual removal; spotting does not complete a socket. Transient `tap` and
+`counterbore` operations leave named geometry debt until thread/step profiles
+are supported. A rough cut's allowance must be removed by a valid finishing
+cut before the selected branch can supply completed preparation to a join.
 
 ## Drawing
 
@@ -339,9 +344,10 @@ All tolerance extremes must satisfy the declared fit:
 - Clearance interval: `[socket.low - spigot.high, socket.high - spigot.low]`.
 - Interference interval: `[spigot.low - socket.high, spigot.high - socket.low]`.
 
-The resulting interval must be nonnegative and entirely inside the declared
-millimetre band; exact endpoints are accepted. A compatible nominal alone is
-insufficient. Axes must be collinear with finite overlapping engagement.
+The resulting interval must be nonnegative for clearance, strictly positive
+for interference, and entirely inside the declared millimetre band; exact band
+endpoints are accepted. A compatible nominal alone is insufficient. Axes must
+be collinear with finite overlapping engagement.
 Both preparation cuts must be completed on the actual selected ancestors,
 remain intact, and have their target geometry verified at assembly. Declaring
 a joint cannot turn untouched blanks into prepared components.
@@ -625,16 +631,21 @@ credits each face only to the direction-valid finishing cuts that claim it.
 and strictly increasing. It declares the material outside the finished part
 that this cutting operation clears inside that volume, leaving everything
 outside it unchanged. Its faces still need valid cutting claims from this
-setup. If the cutter radius is known, the box's XY extent cannot exceed the union
-XY bounding box of its direction-valid claimed faces dilated by that radius;
-an excess is a named geometry error and leaves later stock unresolved. If the
-radius is unknown, the extent check is `?` with a reason naming the missing cutter
-radius, and later stock stays unresolved. Every claim must touch the box and
-every removed piece must border a claim.
+setup. The box is the explicit cleared footprint, for example the envelope of
+several roughing passes; it is not capped to the claimed faces' XY bounding box
+dilated by the cutter radius. The cutter radius must still be known: if it is
+unknown, the bounds are `?` with a reason naming the missing cutter radius, and
+later stock stays unresolved. Removal is the box's intersection with the
+selected stock and never takes finished material or a protected rough leave.
+Every claim must touch the box and every removed piece must border a claim;
+known future planned-hole columns, with their finite caps, stay stock; and the
+removal must not split an original input solid. A violation is named stock
+debt, not an error: later stock that depends on it stays unresolved, while
+genuine collisions with finished material remain independent errors.
 It shapes stock passed to later setups and excludes only this operation's own
 derivable allowance from its flute obstacles; holder, reach and holding facts
 still use setup-entry stock. This is an authored process/fixture volume, not a
-measured toolpath or proof that roughing is safe. Without it, any claimed wall
+measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
 needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
 

@@ -134,6 +134,15 @@ no `width` and no shipped plan declares `parallels_centres_mm`, so no shipped
 setup draws parallel solids. See
 [geometry rules](rules-geometry.md).
 
+For a spot or drill operation the kernel also consumes the selected tool's
+existing `point_angle` (`MeasuredAngle`, degrees; no new schema field) as its
+point profile. The fact is accepted the same fact-local way, nominal included;
+a missing, `"unknown"` or debt-carrying angle reaches the job as unknown and is
+never defaulted. It is required for a spot too, even though a spot's tip
+endpoint formula uses only its depth: the kernel cuts with the real point cone
+and body, so an unknown angle leaves that op's accessibility `?` and later
+stock unresolved. See [geometry rules](rules-geometry.md#accessibility).
+
 ## Measured envelopes and installed tool stacks (M5)
 
 `machines.<id>.envelope` is the one home for the mill limits that rules read:

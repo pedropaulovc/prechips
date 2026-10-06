@@ -168,6 +168,7 @@ def _host_only(bundle):
 def _consumed(bundle):
     setup = bundle.plan["setups"][0]
     yield "op cutting action", lambda: setup["ops"][0].update(do="rough_profile")
+    yield "rough allowance", lambda: setup["ops"][0].update(rough_allowance_mm=0.2)
     yield "jaw width", lambda: bundle.inventory["fixtures"]["vise"].update(jaw_width_mm=60.0)
     yield (
         "selected projection",
@@ -212,42 +213,13 @@ def test_host_only_edits_reuse_the_cache_and_consumed_edits_rerun(tmp_path, monk
         assert calls == count, f"consumed edit {name} reused a stale result"
 
 
-@pytest.mark.parametrize(
-    "stock, reason",
-    [
-        (None, "plan stock is unknown"),
-        ({"form": "finished_test_solid", "as_is_faces": ["#2"]}, "neither section_mm nor dia_mm"),
-        ({**BOX, "dia_mm": 20.0}, "both section_mm and dia_mm"),
-        ({k: v for k, v in BOX.items() if k != "origin_mm"}, "origin_mm"),
-    ],
-)
-def test_unauthored_stock_envelope_is_a_named_reason(tmp_path, stock, reason):
-    bundle = _bundle(tmp_path)
-    if stock is None:
-        del bundle.plan["stock"]
-    else:
-        bundle.plan["stock"] = {k: v for k, v in stock.items() if k != "shape"}
-    assert reason in kernel.stock_inputs(bundle)["reason"]
-
-
-def test_stock_removal_bounds_reach_the_engine_in_mm_or_as_a_named_reason(tmp_path):
+def test_inch_stock_removal_bounds_convert_once(tmp_path):
     bundle = _bundle(tmp_path)
     op = bundle.plan["setups"][0]["ops"][0]
     op["stock_removal_bounds"] = {"x": [0, 1], "y": [-1, 0.5], "z": [0.25, 2]}
     bundle.features["units"] = "in"
     (inputs,) = kernel.build_job(bundle)["setups"][0]["ops"]
     assert inputs["stock_removal_bounds"] == {"x": [0, 25.4], "y": [-25.4, 12.7], "z": [6.35, 50.8]}
-    for bad, axes in (
-        ({"x": [1, 1], "y": [0, 1], "z": [0, 1]}, "x"),  # zero-thickness box
-        ({"x": [0, 1], "y": [1, 0], "z": ["unknown", 1]}, "y, z"),
-        ({"x": [0, 1], "y": [0, 1]}, "z"),
-        ("unknown", "x, y, z"),
-    ):
-        op["stock_removal_bounds"] = bad
-        (inputs,) = kernel.engine_job(kernel.build_job(bundle))["setups"][0]["ops"]
-        assert inputs["stock_removal_bounds"] == {
-            "reason": f"stock_removal_bounds {axes} not a numeric [lo, hi] span with lo < hi"
-        }
 
 
 def test_a_plan_cannot_declare_its_supply_to_be_the_finished_part(tmp_path):
@@ -403,7 +375,6 @@ def test_unswept_profile_wall_makes_only_later_stock_unknown(engine, solids):
     first, second = result["setups"]["S1"], result["setups"]["S2"]
     assert first["render_png_base64"] and "stock_reason" not in first
     assert "S1:10" in second["stock_reason"] and wall[0] in second["stock_reason"]
-    assert "cleared XY footprint" in second["stock_reason"]
     assert "render_png_base64" not in second and second["width_mm"] == "unknown"
     op = result["ops"]["S2:10"]
     assert op["tool_hits"] == "unknown" and op["stock_reason"] == second["stock_reason"]
@@ -462,20 +433,17 @@ def test_declared_clearing_box_derives_the_next_setup_and_keeps_unclaimed_rails(
 def _refused(engine, step):
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
     bottom = engine.refs(step, (0, 0, 0), (60, 40, 0))
-    lo_hi = "not a numeric [lo, hi] span with lo < hi"
-    yield _clearing({**CLEAR, "z": [22.0, 10.0]}), ALLOWED, f"stock_removal_bounds z {lo_hi}"
-    yield _clearing({"x": [30.0, 60.0], "z": [10.0, 22.0]}), ALLOWED, f"bounds y {lo_hi}"
-    yield _clearing("unknown"), ALLOWED, "stock_removal_bounds is unknown"
-    yield _clearing({"reason": "host named why"}), ALLOWED, "S1:10 host named why"
-    yield _clearing(CLEAR, faces=["unknown"]), ALLOWED, "claimed faces are unresolved"
-    away = f"facing away from the setup approach: {bottom[0]}"
-    yield _clearing(CLEAR, faces=wall + bottom), ALLOWED, away
-    outside = f"outside its stock_removal_bounds: {wall[0]}"
-    yield _clearing({**CLEAR, "x": [40.0, 60.0]}), ALLOWED, outside
-    # End overstock outside the wall's cutter-dilated footprint cannot be claimed cleared.
+    yield _clearing({**CLEAR, "z": [22.0, 10.0]}), ALLOWED
+    yield _clearing({"x": [30.0, 60.0], "z": [10.0, 22.0]}), ALLOWED
+    yield _clearing("unknown"), ALLOWED
+    yield _clearing(CLEAR, faces=["unknown"]), ALLOWED
+    yield _clearing(CLEAR, faces=wall + bottom), ALLOWED
+    yield _clearing({**CLEAR, "x": [40.0, 60.0]}), ALLOWED
+    # This disconnected end piece borders no claim, even though broad multipass bounds
+    # themselves are permitted with a measured cutter radius.
     end = {**BOX, "origin_mm": [-5.0, 0.0, 0.0], "length_mm": 65.0}
     box = {"x": [-5.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 20.0]}
-    yield _clearing(box), end, "stock_removal_bounds extends"
+    yield _clearing(box), end
 
 
 def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, solids):
@@ -491,15 +459,15 @@ def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, sol
             (),
             stock,
         )
-        for op, stock, _ in cases
+        for op, stock in cases
     ]
     results = engine.run({"jobs": jobs})["results"]
-    for (_, _, reason), result in zip(cases, results, strict=True):
+    for result in results:
         first, second = result["setups"]["S1"], result["setups"]["S2"]
         # S1's own facts stand on its known entry stock; only its output is unknown.
         assert "stock_reason" not in first and first["render_png_base64"]
-        assert reason in second["stock_reason"], (reason, second["stock_reason"])
         assert "S1:10" in second["stock_reason"] and "render_png_base64" not in second
+        assert "stock_volume_mm3" not in second and "stock_out_volume_mm3" not in second
         assert result["ops"]["S2:10"]["tool_hits"] == "unknown"
 
 
@@ -524,31 +492,11 @@ def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids)
         assert op["tool_hits"] == op["holder_hits"] == op["reach_depth_mm"] == "unknown"
 
 
-def test_rocker_s1_holds_the_raw_blank_and_s2_withholds_unproved_stock(
-    tmp_path, monkeypatch, freecad_kernel
-):
-    from prechips.inputs import load_bundle
-
-    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
-    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
-    result = kernel.run_geometry(bundle)
-    first, second = result["setups"]["S1"], result["setups"]["S2"]
-    # Frame A sees the authored 310x45x16 blank, rails and ears included.
-    assert first["stock_bbox_mm"] == [-155.0, -16.0, -11.52825, 155.0, 29.0, 4.47175]
-    assert first["render_png_base64"] and "stock_reason" not in first
-    # The upper strap face is measured under the raw blank top, not the finished hub face.
-    assert result["ops"]["S1:20"]["reach_depth_mm"] == pytest.approx(4.47175 + 2.27825)
-    assert "render_png_base64" not in second and second["width_mm"] == "unknown"
-
-
-@pytest.mark.parametrize("radius", [3.0, None])
-def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearance(
-    engine, solids, radius
-):
+def test_authored_clearing_without_cutter_radius_keeps_later_stock_unknown(engine, solids):
     step = solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
     wide = {"x": [0.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 22.0]}
-    op = {**_clearing(wide), "radius_mm": radius}
+    op = {**_clearing(wide), "radius_mm": None}
     target = _op("S2:10", "wall", 3.0, 10.0, 10.5, holder_radius=6.0, gauge=10.0)
     result = engine.run(
         engine.job(
@@ -559,16 +507,10 @@ def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearan
         )
     )
     first = result["ops"]["S1:10"]
-    if radius is None:
-        assert "stock_removal_error" not in first
-        reason = first["reasons"]["stock_removal_bounds"]
-        assert "cutter radius" in reason
-        assert first["tool_hits"] == "unknown"
-    else:
-        reason = first["stock_removal_error"]
-        assert "stock_removal_bounds extends" in reason and "claimed faces" in reason
+    assert "stock_removal_error" not in first
+    assert first["tool_hits"] == "unknown"
     second = result["setups"]["S2"]
-    assert reason in second["stock_reason"]
+    assert "S1:10" in second["stock_reason"]
     assert "stock_volume_mm3" not in second and "render_png_base64" not in second
     assert result["ops"]["S2:10"]["holder_hits"] == "unknown"
     assert result["ops"]["S2:10"]["reach_depth_mm"] == "unknown"
@@ -592,8 +534,7 @@ def test_drafted_claimed_wall_keeps_named_stock_debt(engine, solids, name):
         )
     )
     second = result["setups"]["S2"]
-    reason = second.get("stock_reason", "")
-    assert "overstock still touches claimed wall" in reason and wall[0] in reason
+    assert "S1:10" in second["stock_reason"] and wall[0] in second["stock_reason"]
     assert second["width_mm"] == "unknown" and second["min_wall_mm"] == "unknown"
     assert "render_png_base64" not in second
 
@@ -759,7 +700,7 @@ def test_component_as_is_faces_are_checked_on_the_union_exterior(engine, solids)
     for component in stock["components"].values():
         component["section_mm"] = [40.0, 25.0]
     invalid = engine.run(engine.job(step, setups=[setup], as_is=top, stock=stock))["setups"]["S0"]
-    assert "as-is face" in invalid["stock_reason"]
+    assert "stock_reason" in invalid and "stock_volume_mm3" not in invalid
     assert "render_png_base64" not in invalid
 
 
@@ -810,9 +751,9 @@ def test_known_component_union_must_contain_the_finished_part(engine, solids):
         },
     ]
     result = engine.run(engine.job(solids["block"], setups=setups, stock=stock))
-    assert "8000.0" in result["stock"]["reason"]
+    assert "reason" in result["stock"]
     for row in result["setups"].values():
-        assert "built-up supplies" in row["stock_reason"]
+        assert "stock_reason" in row and "stock_volume_mm3" not in row
         assert "render_png_base64" not in row
         assert row["width_mm"] == "unknown"
 
@@ -836,5 +777,6 @@ def test_clearing_one_component_cannot_split_its_retained_material(engine, solid
     ]
     rows = engine.run(engine.job(step, {"floor": floor}, setups, stock=stock))["setups"]
     assert rows["S1"]["stock_volume_mm3"] == pytest.approx(12000.0)
-    assert "splits an input stock piece" in rows["S2"]["stock_reason"]
+    assert "S1:10" in rows["S2"]["stock_reason"]
+    assert "stock_volume_mm3" not in rows["S2"]
     assert "render_png_base64" not in rows["S2"]

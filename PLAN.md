@@ -560,16 +560,83 @@ not exist.
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
 | stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
+| joint_fit (always required): worst-case diametral clearance/interference interval lies inside the matching declared band, with collinear finite cylinder engagement | plan.joint_features (component, at, axis, dia, nominal_dia, depth), plan.setups.joint (fit, band, method/process/cite), features.units | M2 | "Worst-case interference lies outside the declared fit; no union." |
 
 ### 4.2 Setup geometry (on the B-rep — needs the kernel)
 
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
-| accessibility: for each face an op claims, sample points; stand cutter and holder cylinders with tip at sample Z, axis offset by cutter radius along the horizontal outward normal (floors stay centred). Obstacles are setup-entry stock minus a 0.001 mm inward shell of this sampled face, plus fixture solids; the flute also excludes only this op's derivable outside-finished allowance. Other finished faces remain obstacles. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing normals/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims and over-wide clearing bounds error by name | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), fixture dimensions and pose | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
+| accessibility: sample each claimed face with the prescribed cutter/holder pose below. Obstacles are setup-entry stock minus a 0.001 mm inward shell of this sampled face (an own matched point cap uses unmodified entry stock instead), plus fixture solids; only the flute excludes this op's derivable outside-finished allowance or own hole cutter volume (spot/drill: point cone and body). Other finished faces and holder obstacles remain. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing pose/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims error by name, and invalid clearing removals are named stock debt | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), spot/drill `point_angle`, rough `rough_allowance_mm`, fixture dimensions and pose, authored op depth/entry/through extent | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
 | reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default | features.faces, plan.ops.faces, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence) | features.finish_ra/faces, plan.ops.faces | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
+| joint_assembly (always required): received prepared branches satisfy actual target geometry, overlap/insertion or full internal surface contact, and final-material coverage plus permitted finite fill | STEP final solid, selected stock lineage/output completion, plan.joint_features, plan.setups.joint | M4 | "Join refused: the received branch has lost required finished material." |
+
+**Accessibility pose decision — user, 2026-10-05.** Ordinary wall samples
+keep the cutter-radius offset along the horizontal outward normal. At a
+concave floor edge shared with a rising wall, shift the floor-sample axis one
+cutter radius into the floor away from that wall; at a two-wall concave floor
+corner, select a pose tangent to both walls. Nearby concave-corner edge
+samples also use both-wall tangency when the second wall is within a cutter
+radius. Convex edges and ordinary interior samples are unchanged; convex
+wall/wall island vertices retain legacy samples with no added corner pose.
+Tangency is not corner-radius certification. Floor-only claims do not certify
+a wall/wall corner: `internal_corner_radius` retains its existing scope and
+checks a sharp wall/wall corner when the op claims both walls. No adjacent
+finished wall is removed to manufacture clearance; undercut and leaning walls
+remain obstacles.
+
+The cutter tip is at sampled face Z except that a rough milling op's scalar
+`rough_allowance_mm` (a) is an engine-consumed leave in millimetres normal to
+the finished surface: each rough sample point moves `a` along the face's unit
+normal, then takes the ordinary cutter-radius XY shift `r`; concave floor-edge
+and corner constraints use radius `r + a`. Derived stock protects the finished
+solid offset outward by `a`, keeping radial and axial leave on drafted faces
+too, and later finishing ops remove it as their own allowance. An explicit
+`to_z` caps that endpoint (the tip is the higher of `to_z` and floor plus
+leave), so a `to_z` already at the rough floor plus a 0.2 mm leave is not
+raised by a second leave. An unknown leave is accessibility and later-stock
+debt. If the arc-join outward offset fails, a valid intersection-join offset
+that contains the finished solid with the same solid count may be used
+instead (conservative, extra leave at convex corners), never the nominal
+solid; if both fail, the result is named offset debt.
+Drill, spot, ream, bore, tap and counterbore flute stock obstacles exclude only
+that op's own actual cutter volume to declared depth or explicit through
+extent. Hole centres and axes derive from geometry-matched concave cylindrical
+faces aligned to setup Z. Missing depth or entry facts and explicitly unknown
+through facts remain debt; absent `thru` retains the existing blind-hole
+default.
+Spot and drill cut with their actual point: a cone with its apex at the tip,
+widening at tan(point_angle/2), then a full-radius body. The tool's numeric
+included `point_angle` is mandatory; an unknown one is named debt that makes
+accessibility `unknown` and leaves later stock unresolved, never a flat
+cylinder or a default angle. The flute check uses that cone and body against
+part and all modeled fixture solids; holders retain full setup-entry stock. Spot
+`depth_mm` is the apex tip depth; drill `depth_mm` is the full-diameter depth
+and its tip is a point length `r / tan(point_angle/2)` deeper; an op `to_z`
+is the absolute actual tip. A through drill exits each matched bore's actual
+axial bottom plus its point; other through actions end at that bore bottom,
+not the raw-stock bounding-box bottom. Ream, bore, tap and counterbore remain
+flat-bottomed operation-diameter cylinders. A hole op wider than its matched
+bore removes its own bore wall to the op radius with no fixed radial cap; the
+sizing rule owns the drill or reamer diameter. A spot never widens its bore.
+Spot and tap honor explicit operation depth even on a `thru = true` feature.
+An own hole bore radius is diameter-sizing, not `internal_corner_radius`.
+Claimed point caps are not blanket-exempt. Only a hole op's own known matched
+cap, a concave cone or sphere lying wholly below and sharing a real edge with
+its claimed concave Z-parallel bore, coaxial and no wider than it, is sampled
+against unmodified setup-entry stock instead of an own-face offset shell that
+cannot be built at a cone apex, and is not an internal corner. Its actual
+collision is still checked (wrong angle, deeper point or flat tool hits);
+wider countersinks and tilted or unrelated caps keep their unknowns and hits,
+and no other op borrows the exemption.
+`stock_state.top_z` and `entry_z` are machine-frame millimetres; `depth_mm`
+is millimetres even for inch-unit features, and tap fallback feature-depth
+bands are converted to millimetres.
+Unrelated finished material and holder obstacles are not cleared. Holding,
+rendering and holder obstacles still use actual setup-entry stock; an op
+cannot borrow another op's removal.
 
 The −setup-Z approach model applies to milling and spindle-axis lathe actions
 (`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`). Other cutting
@@ -583,6 +650,7 @@ a resolved lathe remain unsupported; shared profile/form/groove actions follow
 resolved machine kind. This necessary-condition screen proves no toolpath,
 internal boring, grooving/part-off blade geometry, chip flow or chatter. See
 [geometry rules](docs/rules-geometry.md#approach-models) for the exact boundary.
+
 
 ### 4.3 Workholding (geometry + inventory — needs the kernel for the solids)
 
@@ -789,9 +857,11 @@ true by construction.
 | face order across independent exports | v37 vs v38 `rocker-arm.STEP` (different bytes): 18 faces, same order, same (type, area, bbox) list — one data point, not a guarantee |
 | determinism | two runs byte-identical (`7df25936…`) |
 
-Consequences, now in the rules: accessibility uses the radius-offset tool
-cylinder plus the holder against the actual setup material, excluding only
-a thin shell of the sampled face, and the fixture. The round-2 script
+Consequences, now in the rules: accessibility uses prescribed cutter poses
+and the holder against actual setup material and fixtures. A thin shell of
+the sampled face removes self-contact; only flute stock obstacles additionally
+exclude the op's own derivable allowance or actual hole cutter volume (§4.2).
+Other finished faces and holder obstacles remain. The round-2 script
 intersected the cylinder with the jaws only, at a fixed 40 mm height, with no holder, so it
 proved jaw proximity and nothing more (§4.2); features carry face *sets*
 (§3.2). At the time of the spike, consumer face export was still pending;
@@ -1074,9 +1144,10 @@ sheet.
 
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
-   built-up component, any earlier setup id (not just the previous setup), or a
-   nonempty array joined by Boolean union. Supplies and setup outputs stay in
-   model coordinates; joining applies no implicit assembly transform. Components
+   built-up component, any earlier setup id (not just the previous setup), or an
+   exactly two-reference array with a required physical `joint` declaration.
+   Supplies and setup outputs stay in model coordinates; joining applies no
+   implicit assembly transform. Components
    require known, nonempty, unique ids matched exactly, with no ASCII whitelist,
    and accept `origin_mm`, `axis` and `section_axis` with root-stock pose semantics. Each contains only
    its own piece, not the full finished STEP. Missing component geometry remains
@@ -1093,28 +1164,94 @@ sheet.
    empty or omitted declarations add no cross-component dependency. Removal
    fragmentation is checked per input solid, so deleting one assembly piece
    cannot mask splitting another.
+   **Joint-feature engine implemented:** plan-owned finite sockets and spigots
+   resolve for operation/dimension rules without modifying the exported
+   manifest or earning final STEP coverage. Cylindrical joints check all
+   diametral fit extremes, branch-specific preparation and actual geometry,
+   finite engagement, actual overlap and straight-axis insertion. Surface joints
+   require essentially full finite rectangle contact on both sides inside the
+   final solid, without bulk overlap. Component-owned protection applies to all
+   preparation cuts; assembly rechecks received final-material coverage plus
+   authorized derived fill. Numeric unknowns withhold union/render as named debt;
+   identities and invalid ancestry are bad input. Exactly two physical component
+   lineages are supported; nested joins to a third component remain refused.
+   Transient taps/counterbores are named debt, not cylindrical substitutes.
+   The built-up cone's engine-branch migration deliberately keeps unresolved
+   numeric preparation/fit facts; the complete authored example route is separate.
+   Manual-only bench setups have no zero/DRO/headroom screen, and routed mill
+   headroom uses the actual setup-entry stock bbox rather than the raw blank.
    Each output subtracts its setup's derivable removals from its selected input.
+   Facing's planar outer-wire sweep clears raw caps over hole mouths while
+   preserving finished islands. Generic bounded clearing preserves known
+   unclaimed planned-hole columns for their own future hole operations, not
+   every concave cylindrical face.
+   Reserved columns use the matched bore's exact axial span plus any adjacent
+   coaxial concave cone/sphere cap no wider than the bore, with numerical
+   lift at either end, not entry-stock height; wider back countersinks are
+   not reserved, blind columns stop at their caps, and pins/rods outside the
+   hole remain material.
    Current-setup cuts shape output stock, while the flute
    alone excludes its own op's derivable allowance; holder, reach, holding and
-   image facts still use setup-entry stock. `stock_removal_bounds` is restricted
-   to the claimed faces' union XY bbox plus a known cutter radius,
-   outside the finished solid and above `to_z`. Over-wide boxes error by name.
-   An unknown radius leaves the extent check `?` with a missing-cutter-radius
-   reason; neither case can certify the next setup. Interior contact with retained
+   image facts still use setup-entry stock. `stock_removal_bounds` is the
+   authored cleared footprint (possibly several passes), not capped to the
+   claimed faces' XY bbox plus cutter radius and not a whole-toolpath proof.
+   A known cutter radius, finite bounds, intersection with the selected stock,
+   protection of finished material and rough leave, exact claim/piece contact,
+   future planned-hole columns and no split of an original solid still apply;
+   a violation is named stock debt, not an error, while genuine finished
+   collisions remain errors. An unknown radius leaves the bounds `?` with a
+   missing-cutter-radius reason; neither case can certify the next setup.
+   Interior contact with retained
    overstock is checked for every claimed lateral face, including drafted walls.
    Invalid supply, unbound as-stock faces or a non-derivable retained
    rail/profile mask yields a named unknown and no stock picture.
 
-   The cutter keeps its radius-normal offset and only a 0.001 mm inward shell
-   of the sampled finished face is excluded. Its own outside-finished allowance
-   is excluded from flute obstacles only: no full-feature union, cutter-radius
-   slab or sharp-edge air wedge removes neighbouring finished walls.
+   The 2026-10-05 user decision replaces boundary-centred floor poses at
+   concave floor/rising-wall edges with a one-radius shift into the floor;
+   two-wall concave floor corners and nearby concave-corner edge samples
+   within a cutter radius of the second wall use tangency to both walls.
+   Convex edges/interior samples are unchanged; convex wall/wall island
+   vertices keep legacy samples with no added corner pose. Tangency does not
+   certify corner radii, and floor-only claims do not certify wall/wall corners.
+   `internal_corner_radius` retains its existing claimed-face scope:
+   a sharp wall/wall corner is checked when the op claims both walls.
+   Only a 0.001 mm inward shell of the sampled finished face is excluded.
+   Own outside-finished allowance and own actual hole cutter volumes
+   (drill/spot/ream/bore/tap/counterbore, to declared depth or explicit through
+   extent) are excluded from flute stock obstacles only. Spot and drill cut
+   with a point cone and full-radius body; their numeric `point_angle` is
+   mandatory, and unknown is accessibility and later-stock debt. Spot depth is
+   the apex tip depth; drill depth is full-diameter depth with the tip
+   `r / tan(point_angle/2)` deeper; `to_z` is the absolute actual tip.
+   Ream/bore/tap/counterbore remain flat cylinders. Hole axes/centres
+   come from matched concave cylinders aligned to setup Z; through endpoints
+   use each bore's actual axial exit (plus a drill's point), not the raw-stock
+   bounding-box bottom. A hole op wider than its bore removes its own wall
+   with no fixed radial cap; sizing owns the diameter.
+   Missing depth/entry and explicitly unknown through facts remain debt;
+   absent `thru` retains the existing blind-hole default.
+   Spot and tap honor explicit depth even when the feature is through.
+   An own hole bore radius is diameter-sizing, not `internal_corner_radius`;
+   an own known matched point cap is its tool shape, checked against
+   unmodified entry stock without an offset shell. Other claimed caps are not
+   blanket-exempt.
+   Stock-state `top_z`/`entry_z` and op `depth_mm` are millimetres even for
+   inch-unit features; tap fallback feature-depth bands convert to millimetres.
+   No full-feature union, cutter-radius slab or sharp-edge air wedge removes
+   neighbouring finished walls;
+   undercut/leaning walls and unrelated material remain obstacles.
+   Rough milling leaves its `rough_allowance_mm` normal to the finished
+   surface (`r + a` floor-edge constraints); an explicit `to_z` caps the
+   endpoint without a second leave.
+   Holder obstacles, holding and rendering keep actual setup-entry stock;
+   no op borrows another op's removal.
    Explicit nonempty `op.faces` overrides the feature face set. A far-side
    face errors by reference and never credits coverage/finish; missing
    normals leave the face unknown. Certain observed collisions error even with
    unknown stock/fixture/dimensions, and finished corner radii survive stock
    debt; exit 2 beats 4. Accessibility needs projection, not unused OAL.
-   Fixed boundary-centred poses screen collisions, not alternate machinable poses.
+   Prescribed tangent/normal-offset poses screen collisions, not alternate
+   machinable poses or a toolpath; unresolved pose facts do not become passes.
    Corner comparisons allow 0.005 mm numeric STEP/kernel round-off, not a
    shop machining allowance: a 0.004 mm radius deficit passes, 0.006 mm errors.
    The rocker's 0.99695 mm corner against a 0.997 mm cutter therefore passes.
