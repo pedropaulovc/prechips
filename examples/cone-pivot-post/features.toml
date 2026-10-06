@@ -1,4 +1,9 @@
 # Generated from CAD drawing contracts and adjacent raw STEP bytes; do not hand edit.
+# Example divergence (examples/README.md provenance): body carries corner_radius_max_design = 0.25,
+# the title-block R0.25 edge break HA applies to step corners elsewhere (pivot_shaft_spec.py:73,
+# crankshaft_spec.py:110); the cone spec states no step-corner value (HA #1215).
+# Example divergences (HA #1215): cone_boss_south_face carries the 42.011 cap-to-cap length band and
+# foot_seat the 86.0 height band; the export attaches each band to only one of its two terminating faces.
 "part" = "cone-pivot-post"
 "units" = "mm"
 "precision" = "unknown"
@@ -72,7 +77,8 @@
 "dia_nominal" = 42.011
 "height" = [85.2, 86.8]
 "height_nominal" = 86.0
-"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-29", "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-29"], "height" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30", "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "height_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"corner_radius_max_design" = 0.25 # example divergence: title-block R0.25 applied to the CAD-sharp body/head step corner
+"cite" = { "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-29", "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-29"], "height" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30", "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "height_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"], "corner_radius_max_design" = ["harmonic-analyzer/cad/config/title_block.yaml:45", "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:73", "harmonic-analyzer/cad/scripts/crankshaft_spec.py:110"] }
 "precision" = { "dia" = 1, "height" = 1 }
 "faces" = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BODY__P01"]
 
@@ -136,8 +142,11 @@
 "kind" = "face"
 "frame" = "model"
 "requirements" = []
+"length" = [41.5, 42.52] # example divergence: cap-to-cap band of the 42.011 length this face terminates (HA #1215)
+"length_nominal" = 42.011
 "normal" = [0.21674972336567902, -0.0, 0.9762272058393484]
-"cite" = { "normal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
+"cite" = { "normal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"], "length" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67-67", "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "length_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:67-67"] }
+"precision" = { "length" = 2 }
 "faces" = ["#1234/ADVANCED_FACE[30]/HAF_CONE_BOSS_SOUTH_FACE__P01"]
 
 ["features"."foot_seat"]
@@ -148,8 +157,10 @@
 "finish_ra" = 3.2
 "datum" = "B"
 "plane" = { "frame" = "model", "axis" = "y", "value" = 0.0 }
-"cite" = { "normal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "finish_ra" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/_surface_finish.py:54-54"], "datum" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:376-379"], "plane" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
-"precision" = { "finish_ra" = 1 }
+"height" = [85.2, 86.8] # example divergence: foot-to-top band of the 86.0 height this datum face terminates (HA #1215)
+"height_nominal" = 86.0
+"cite" = { "normal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "finish_ra" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279", "harmonic-analyzer/cad/scripts/_surface_finish.py:54-54"], "datum" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:376-379"], "plane" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "precision.finish_ra" = ["harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"], "height" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30", "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "height_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30"] }
+"precision" = { "finish_ra" = 1, "height" = 1 }
 "faces" = ["#218/ADVANCED_FACE[5]/HAF_FOOT_SEAT__P01"]
 
 ["features"."journal_bore"]
