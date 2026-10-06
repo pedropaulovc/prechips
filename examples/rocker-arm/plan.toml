@@ -325,7 +325,18 @@ clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # au
 note = "Seat the retained rails, not the thin strap or a hub rim. Use light conventional cuts at the outboard tips; stop and resolve chatter before deepening the cut."
 
 [setups.zero]
-tool_touches = [] # one Z touch per tool change, listed in retouch_after
+# Op 10 is the 4fl finisher's first cut: its Z is set from the measured hub
+# length so the finished hub lands at the AUTHOR'S CHOICE aim of 7.080 mm.
+[[setups.zero.tool_touches]]
+tool = "endmills-lms-6784/3-8in-4fl"
+z_face = "hub_faces"
+method = "measure_then_set"
+edge_mm = 0.20 # nominal op-5 face; the Axis Set uses the measured length
+paper_mm = 0.05 # author's choice
+z_gauge = "micrometers/0-1in"
+z_measure = "hub length, S1 hub face to the op-5 face"
+z_offset_mm = -7.080 # AUTHOR'S CHOICE: finished hub length aim inside the drawing band
+before_ops = [10]
 
 [setups.zero.transfer]
 from = "S1"
@@ -355,7 +366,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-2fl" # op 5 rougher touches the raw top first
 check_jog_mm = 10.0 # author's choice
-retouch_after = [5, 10, 15, 20, 28, 30, 32, 33, 34] # retouch before each changed cutting tool, including every rod-hole tool and the return to the rougher
+retouch_after = [10, 15, 20, 28, 30, 32, 33, 34] # retouch before each changed cutting tool, including every rod-hole tool and the return to the rougher; op 10's tool is set by the measured touch above
 
 # Frame B reverses Y: op 5 and op 10 face only the internal field between the
 # lower rail Y 20..28 and the upper rail Y -37..-31.7, inside the ears outside
@@ -382,7 +393,7 @@ feature = "hub_faces"
 faces = ["#510/ADVANCED_FACE[15]/HAF_HUB_FACES__P01"] # exported -Z hub end, upward in frame B
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = 0.0 # lower hub face; Z0 is set from the measured hub length before op 10 (aim 7.080 inside 7.0565..7.1065)
+to_z = 0.0 # lower hub face; Z0 is set from the measured hub length before op 10
 doc_mm = 0.3 # author's choice: one level removes the measured stock left by op 5 (0.20 nominal, up to 0.30 on a thick blank)
 direction = "conventional" # author's choice
 approach_mm = 5.0 # author's choice: rapid plane above the retained rails
