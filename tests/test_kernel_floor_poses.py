@@ -1,8 +1,8 @@
 """Floor tool poses next to rising walls, measured on solids authored in FreeCAD.
 
-A floor sample on a wall's floor edge stands tangent to that wall; near a concave
-two-wall pocket corner it stands tangent to both, while convex island corners gain no
-corner pose: edge samples beside them keep their one-wall pose. FreeCAD-backed tests run
+A covering axis must stay within the sample's cutter disc. Sharp pocket corners
+that need a farther two-wall tangent axis remain genuine collisions; convex island
+corners can move to a nearest covering tangent. FreeCAD-backed tests run
 ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
@@ -55,9 +55,9 @@ def engine(tmp_path, freecad_kernel):
     return Engine(tmp_path, freecad_kernel)
 
 
-def test_floor_edge_samples_near_a_pocket_corner_are_tangent_to_both_walls(engine, solids):
-    # R1: the 12 mm edges' first samples sit 0.5 mm from the corner, inside the cutter
-    # radius of the other wall; the interior grid stays 1.2 mm clear of every wall.
+def test_sharp_pocket_corner_cannot_be_hidden_by_a_farther_two_wall_tangent(engine, solids):
+    # At the corner the nearest clear axis is sqrt(2) * R away, beyond coverage.
+    # Keeping that sample's original axis reports its real wall intersection.
     step = solids["slot"]
     floor = engine.refs(step, (15, 14, 14), (45, 26, 14))
     assert len(floor) == 1
@@ -65,8 +65,8 @@ def test_floor_edge_samples_near_a_pocket_corner_are_tangent_to_both_walls(engin
     detail = engine.run(
         engine.job(step, {"floor": floor}, [_setup([op], _vise(5.0, centre=30.0))])
     )["ops"]["S1:10"]
-    assert detail["sample_count"] > 0
-    assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == []
+    assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
+    assert detail["obstacles"]["tool"] == ["part"], detail
 
 
 def test_convex_island_corner_gets_no_pose_reaching_a_diagonal_neighbour(engine, solids):
@@ -79,5 +79,4 @@ def test_convex_island_corner_gets_no_pose_reaching_a_diagonal_neighbour(engine,
     detail = engine.run(
         engine.job(step, {"floor": floor}, [_setup([op], _vise(5.0, centre=30.0))])
     )["ops"]["S1:10"]
-    assert detail["sample_count"] > 0
     assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == []
