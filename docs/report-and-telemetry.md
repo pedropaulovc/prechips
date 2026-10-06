@@ -247,11 +247,21 @@ at the machine. A job page opens with the part, drawing number, revision (or
 `REV NOT CONFIRMED`, which is also a STOP line) and the `PLANNED` banner, then
 **JOB STATUS** (STOP / CAUTION / not-verified boxes; a setup with its own STOP
 items is named here too, so the job page never says "no stops" over a stopped
-setup), the drawing material and finish, a one-line speeds/feeds source, the
-DRO manual named once, **STOCK AND ROUTE** (stock size, supply notes and a
-setup → machine → holding table) and **DRAWING REQUIREMENTS** (feature →
-limits). Authored values keep their digits (a 1.9875 mm pin, a 0.0254 mm
-runout limit); only computed numbers are cut to DRO resolution.
+setup; then, always, the plan-check result, the approval state matching the
+banner — `NOT APPROVED: no first article is recorded for this input bundle…`
+until a hash-matched first article is recorded — and each `Before S1:` stock
+prerequisite, such as `obtain the stock — not on hand`), the drawing material
+and finish, a one-line speeds/feeds source, the DRO manual named once, the
+`DRO resolution:` of each routed machine (its inventory `resolution`, or the
+default grid said as such; a lathe adds whether X reads diameter or radius),
+**STOCK AND ROUTE** (stock size, supply notes and a setup → machine → holding
+table, machines by display name: an inventory `name`, a maker's model number,
+or else the machine kind, never an inventory slug) and **DRAWING
+REQUIREMENTS** (feature → limits, ending with the drawing's edge break printed
+once for the job as `all edges`; a stock thickness prints only when no feature
+carries a thickness limit). Authored values keep their digits (a 1.9875 mm
+pin, a 0.0254 mm runout limit); only computed numbers are cut to DRO
+resolution.
 
 Each setup then prints as one **front sheet** to run the setup from, followed
 by attached sheets the front sheet points to. Every sheet starts on a new
@@ -259,21 +269,26 @@ page and its heading repeats the setup id and `sheet N of M`. All text is at
 least 8 pt.
 
 The front sheet is one physical sheet. When the op table does not fit on the
-front page it continues on the back under the repeated heading `SETUP S2 —
-sheet 1, back: operations continued` and the op column headings; a setup with
-few ops has a single-page front sheet.
+front page it ends with `Operations continue on reverse, op 50` and continues
+on the back under the op column headings; a setup with few ops has a
+single-page front sheet.
 
 Print the whole file double-sided. A small inline script in `traveler.html`
 (the same bytes every run; it changes only the page in the browser) lays out
 every sheet on load and again just before printing. It measures the sheet at the
-printed width, places each page break itself (headings stay with what follows,
-the sign-off stays with the last op row, table headings repeat), and adds a
-`This side intentionally blank — SETUP S2 sheet 1 back` page after any sheet
-with an odd page count, the job page included. Every sheet therefore starts on a
-front side, and a single-page front sheet has a blank back. Contour blocks print
-in rows of three under the script and in three newspaper columns without it.
-With scripts disabled the same content prints without padding (sheets may then
-start on a back side, so print single-sided).
+printed width, places each page break itself (headings and a table's caption
+stay with what follows, also when the heading opens a sheet and its first block
+is a row of contours; the sign-off stays with the last op row; a table that
+runs over is split into a copy with the same column headings), opens every page
+after a sheet's first with `SETUP S2 — sheet 3 (continued) · page 2 of 3`, and
+adds a `This side intentionally blank — SETUP S2 sheet 1 back` page after any
+sheet with an odd page count, the job page included. Every sheet therefore
+starts on a front side, and a single-page front sheet has a blank back. Contour
+blocks print in rows of three under the script and in three newspaper columns
+without it. With scripts disabled the same content prints without padding
+(sheets may then start on a back side, so print single-sided) and a running
+op table repeats `SETUP S2 — sheet 1 (continued): operations` with its column
+headings.
 
 Front sheet (sheet 1), in this order:
 
@@ -282,20 +297,20 @@ Front sheet (sheet 1), in this order:
    hits the part or the holding`); repeats are collapsed. *Not verified by the
    planner — confirm at the machine* names the unproved topics with their ops.
    Errors never print as `?`; unknowns never read as passes.
-2. **HOLD** beside the picture. The wider left column is a numbered clamping
-   sequence (mount, supports, grip, stop, tighten, then the authored notes).
-   The right column is a small overview of the holding picture, captioned with
-   where the full-size copy is (`Setup S2 overview — labels and key are
-   readable on the full-size picture, S2 sheet 2.`) plus bold `NOT SHOWN:`
-   lines for each scene debt. Without a render it prints `NO PICTURE — the
-   holding is not modelled; set up from the HOLD steps.` Below them, full
-   width, a small table of grip length, stickout, jaw-front Z and, on a lathe,
+2. **HOLD**: a numbered clamping sequence (mount, supports, grip, stop,
+   tighten, then the authored notes) at full width; the holding picture is on
+   sheet 2 at a readable size. Without a render the front sheet prints `NO
+   PICTURE — the holding is not modelled; set up from the HOLD steps.` Below
+   it, a small table of grip length, stickout, jaw-front Z and, on a lathe,
    centre tip Z and quill extension. Pose vectors and planner field names are
    not printed.
-3. Coolant and edge-break limit.
+3. Coolant (not on bench setups). The edge break is the drawing's, printed
+   once on the job page.
 4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
    QCTP station and the ops that use it. Op rows carry only the `T#`.
-5. **DRO ZERO**: positive directions, then one row per axis — what to touch
+5. **DRO ZERO** (not on bench setups: a machine of kind `bench` or `manual`
+   running only fit and inspect ops has no spindle, DRO or axes): positive
+   directions, then one row per axis — what to touch
    or pick up (tool, side, paper or edge-finder radius), the Axis Set value, a
    no-touch jog, the value the display must read and the value it would read if
    the axis were reversed — plus re-indicate and tool-change touch-offs.
@@ -304,23 +319,25 @@ Front sheet (sheet 1), in this order:
    `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
    `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool stop, dead
    centre at the work end, tool tip within 3 mm of the jaw top) and per-op STOP
-   or CAUTION findings print as boxed lines under the op row, followed by a
-   plain pointer to the attached sheets: `See note on S2 sheet 2 · contour
-   table on S2 sheet 3`. An inspection procedure is cited as `[S2 sheet 2 note
-   1]`. An op row and its boxed lines never split across the front and back.
+   or CAUTION findings print as boxed lines under the op row, followed by the
+   op's own note (and the tip-depth derivation) on its own line and, for a
+   contour op, `See contour table on S2 sheet 3`. An inspection procedure is
+   cited as `[S2 sheet 2 note 1]`. An op row with its boxed lines and note
+   never splits across the front and back.
 7. The sign-off line, after the last op row (on the back when the ops run
    over).
 
-Sheet 2, *full-size picture, clearance, feature map and notes*:
+Sheet 2, titled by what it carries (*holding picture, clearance, feature map
+and inspection notes*):
 
-1. The same picture at full page width with the full caption (`Setup S2 — part
-   as it arrives from Setup S1, held in the 6 in 3-jaw chuck. Picture shows the
-   holding only, not the cuts.`, or the render's own `scene.shows`; the key is
+1. The holding picture at full page width with its caption (`Setup S2 — part
+   as it arrives from Setup S1, held in the 6 in 3-jaw chuck.`; the key is
    drawn in the picture) and its `NOT SHOWN:` lines. The image is referenced by
-   relative filename; the front overview uses the same file.
-2. **CLEARANCE**, machine specific. A lathe shows chuck Ø against swing,
-   work Ø against swing over the cross-slide, length against between-centres,
-   quill extension and the jaw-front distance to the closest tool stop. A mill
+   relative filename.
+2. **CLEARANCE** (not on bench setups), machine specific. A lathe shows chuck
+   Ø against swing, work Ø against swing over the cross-slide, length against
+   between-centres, quill extension and the jaw-front distance to the closest
+   tool stop. A mill
    shows the spindle-to-table stack for the tallest op (holding, work, tool
    stickout, holder and the 25 mm tool-change room, adding up to the total),
    per-op tool stickout and spare travel, jaw top Z and table travel.
@@ -328,9 +345,8 @@ Sheet 2, *full-size picture, clearance, feature map and notes*:
    line.
 3. **FEATURE MAP** (feature, Ø or X/Y, Z from/to in the setup zero). Feature
    locations, not tool tips.
-4. **OP AND INSPECTION NOTES**: tip-depth derivations, authored op notes and
-   numbered inspection procedures, each starting with its setup and op (`S2 op
-   30: …`) so a page that runs over still names its setup.
+4. **INSPECTION NOTES**: numbered inspection procedures, each starting with its
+   setup and op (`S2 op 30: …`).
 
 Sheet 3, *contours* (only when the setup has contour ops): **CONTOURS**, one
 block per contour op titled with its setup, op, tool and direction (`S2 op 50
@@ -340,8 +356,10 @@ missing tool prints `STOP … tool not selected; do not run` instead of a table;
 a lathe dome table prints the imaginary-tip `tool X (Ø)` / `tool Z` columns,
 read on the same X display as `surface X (Ø)` (`radius` in radius mode), when
 the nose compensation is known; otherwise it says the nose radius compensation
-is not computed. Long contour tables may run onto more pages ("paper is cheap"); every
-block still names its setup.
+is not computed. A table the kernel clipped at the op's stock-removal bounds
+names the printed point it starts or stops at (`stops at P7: the stock past it
+is outside this op's area`). Long contour tables may run onto more pages
+("paper is cheap"); every block still names its setup.
 
 The job page and each front sheet end with the sign-off line. Setup
 coordinates, Z targets and DRO values print at the DRO's display

@@ -14,12 +14,14 @@ from html import escape
 
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .model import tolerance_requirements
+from .rules._bench import manual_bench
 from .rules.coordinates import OVERSHOOT_NOTE, dro_grid, dro_z, row_id
 from .rules.resolution import (
     MANUAL,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
     inventory_category,
+    length_mm,
     resolve,
     saw_setup,
     selected_references,
@@ -60,14 +62,20 @@ margin-top: 1pt; }
 .hold-row { display: flex; gap: 8pt; align-items: flex-start; }
 .hold-steps { flex: 1 1 70%; min-width: 0; }
 .fixture-render { margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
-.hold-row > .fixture-render, .hold-row > .stop { flex: 0 0 30%; margin: 4pt 0 0; }
+.hold-row > .stop { flex: 0 0 30%; margin: 4pt 0 0; }
 .fixture-render img { display: block; width: 100%; object-fit: contain; border: 1px solid #999; }
 .see { font-style: italic; }
+.op-note { margin: 1pt 0; }
+.cont-head { font-size: 9pt; font-weight: bold; margin: 0 0 2pt; border-bottom: 1px solid #000; }
+.more { margin: 2pt 0 0; text-align: right; font-weight: bold; }
 table.operations { margin-top: 0; }
 tr.continued th { height: 14pt; padding: 0 0 1pt; font-size: 9pt; background: #fff; \
 border: 0; border-bottom: 1px solid #000; vertical-align: bottom; }
 h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; \
 margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
+.paged tr.continued { display: none; }
+.paged h2:has(+ table.operations) { position: static; height: auto; margin: 5pt 0 2pt; \
+display: block; }
 .signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
 .contour-row { display: flex; gap: 8pt; align-items: flex-start; }
 .contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
@@ -79,47 +87,105 @@ margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
 # Duplex padding, run in the browser on load and before printing. Every sheet must end
 # on an even page so the next sheet starts on a front side when the whole file prints
 # double-sided. The script places the page breaks itself: it measures the sheet at the
-# printed width, forces a break wherever the next block would cross the page (keeping
-# headings with what follows, the sign-off with the last op row, and repeating table
-# headings), then adds an "intentionally blank" page after any sheet with an odd count.
-# Without scripts the browser paginates the same content on its own, unpadded.
+# printed width and starts a new page wherever the next block would cross it, keeping
+# headings (and a table's caption) with what follows, the sign-off with the last op row.
+# A table that runs over is split into a copy with the same column headings; an op table
+# says on its page which op it continues with. Every page after a sheet's first opens
+# with the sheet's name and its page number. An odd count gets an "intentionally blank"
+# page. Without scripts the browser paginates the same content on its own, unpadded.
 _DUPLEX_JS = """(() => {
   // Letter 11 in less .4 in margins = 979 px at 96 px/in. The sheet is measured by the
   // same engine at the printed width, so a small band covers rounding only.
   const CAP = 975;
-  const MARK = "data-duplex";
+  const ADDED = "data-duplex";
+  const SPLIT = "data-duplex-split";
   const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
   function box(el) {
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
   }
   function paginate(section) {
+    const title = section.getAttribute("data-title") || section.getAttribute("data-sheet");
     let pageTop = box(section).top, pages = 1;
+    let pageStart = [...section.children].find(
+      (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
+    );
     const fits = (bottom) => bottom - pageTop <= CAP;
-    const breakAt = (el, top) => {
-      el.style.breakBefore = "page";
-      el.setAttribute(MARK, "");
-      pageTop = top;
+    function breakAt(el) {
       pages += 1;
-    };
-    const headOf = (table) => (table.tHead ? table.tHead.getBoundingClientRect().height : 0);
-    // Move `el` to a new page, taking a heading right above it along.
+      const head = document.createElement("p");
+      head.className = "cont-head";
+      head.setAttribute(ADDED, "");
+      head.textContent = title + " (continued) \\u00b7 page " + pages;
+      el.before(head);
+      head.style.breakBefore = "page";
+      pageTop = box(head).top;
+      pageStart = el;
+    }
+    // What must start a page with `el`: the headings (and a table's caption) right above
+    // it and, when `el` opens its parent, what must start a page with the parent.
+    function lead(el) {
+      let start = el;
+      for (;;) {
+        const prev = start.previousElementSibling;
+        if (heading(prev) || (prev && prev.tagName === "P" && start.tagName === "TABLE")) {
+          start = prev;
+        } else if (!prev && start.parentElement !== section) {
+          start = start.parentElement;
+        } else {
+          return start;
+        }
+      }
+    }
+    // Start a new page at `el` with its lead; false when that gains nothing because the
+    // lead already opens this page.
     function move(el) {
-      const prev = el.previousElementSibling;
-      const start = heading(prev) && box(prev).top > pageTop ? prev : el;
-      if (box(start).top > pageTop) breakAt(start, box(start).top);
+      const start = lead(el);
+      if (start === pageStart || start.contains(pageStart) || box(start).top <= pageTop) {
+        return false;
+      }
+      breakAt(start);
+      return true;
+    }
+    // Rows from body `j` on go to a copy of `t` that starts the next page.
+    function cut(t, j) {
+      const rest = t.cloneNode(false);
+      rest.setAttribute(SPLIT, "");
+      for (const part of [...t.children]) {
+        if (part.tagName !== "COLGROUP" && part.tagName !== "THEAD") continue;
+        const copy = part.cloneNode(true);
+        copy.querySelectorAll("tr.continued").forEach((row) => row.remove());
+        rest.append(copy);
+      }
+      rest.append(...[...t.tBodies].slice(j));
+      t.after(rest);
+      let more = null;
+      const pointer = (side) => {
+        const op = rest.tBodies[0].rows[0].cells[0].textContent;
+        more.textContent = "Operations continue " + side + ", op " + op;
+      };
+      if (t.classList.contains("operations")) {
+        more = document.createElement("p");
+        more.className = "more";
+        more.setAttribute(ADDED, "");
+        t.after(more);
+        pointer("on reverse");
+        while (t.tBodies.length > 1 && !fits(box(more).bottom)) {
+          rest.insertBefore(t.tBodies[t.tBodies.length - 1], rest.tBodies[0]);
+          pointer("on reverse");
+        }
+      }
+      breakAt(rest);
+      if (more) pointer(pages % 2 === 0 ? "on reverse" : "on the next sheet");
+      table(rest);
     }
     function table(t) {
-      const bodies = [...t.tBodies];
-      bodies.forEach((tb, j) => {
-        const b = box(tb);
-        if (fits(b.bottom)) return;
-        if (j === 0) {
-          move(t);
-          if (fits(b.bottom)) return;
-        }
-        breakAt(tb, b.top - headOf(t));
-      });
+      const over = () => [...t.tBodies].findIndex((tb) => !fits(box(tb).bottom));
+      let j = over();
+      if (j === 0 && move(t)) j = over();
+      // A first row taller than the page stays with the table head: the browser splits it.
+      if (j === 0) j = 1;
+      if (j > 0 && j < t.tBodies.length) cut(t, j);
     }
     function walk(parent) {
       for (const el of [...parent.children]) {
@@ -130,33 +196,45 @@ _DUPLEX_JS = """(() => {
         } else if (el.classList.contains("signoff")) {
           // The sign-off never stands alone: take the last op row with it.
           const prev = el.previousElementSibling;
-          const last = prev && prev.tagName === "TABLE" ? prev.tBodies[prev.tBodies.length - 1]
-            : null;
-          if (last) breakAt(last, box(last).top - headOf(prev));
-          else move(el);
-        } else if (b.bottom - b.top <= CAP) {
-          move(el);
+          if (prev && prev.tagName === "TABLE" && prev.tBodies.length > 1) {
+            cut(prev, prev.tBodies.length - 1);
+          } else {
+            move(el);
+          }
+        } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
+          continue;
         } else if (el.children.length) {
+          // Too tall to move whole: break inside it, contour blocks stacked.
+          if (el.classList.contains("contour-row")) el.classList.add("tall");
           walk(el);
         } else {
           // One unbreakable block taller than a page: the browser splits it.
-          const over = b.bottom - pageTop;
+          const c = box(el), over = c.bottom - pageTop;
           pages += Math.floor(over / CAP);
-          pageTop = b.bottom - (over % CAP);
+          pageTop = c.bottom - (over % CAP);
         }
       }
     }
     walk(section);
+    section.querySelectorAll(".cont-head").forEach((head) => {
+      head.textContent += " of " + pages;
+    });
     return pages;
+  }
+  function reset() {
+    document.querySelectorAll(".blank-side, [" + ADDED + "]").forEach((el) => el.remove());
+    // Re-join split tables, last piece first.
+    [...document.querySelectorAll("table[" + SPLIT + "]")].reverse().forEach((rest) => {
+      rest.previousElementSibling.append(...[...rest.tBodies]);
+      rest.remove();
+    });
   }
   function run() {
     const body = document.body, saved = body.getAttribute("style");
     try {
-      document.querySelectorAll(".blank-side").forEach((el) => el.remove());
-      document.querySelectorAll("[" + MARK + "]").forEach((el) => {
-        el.style.breakBefore = "";
-        el.removeAttribute(MARK);
-      });
+      reset();
+      // The script heads every page itself: the no-script repeated op heading goes.
+      document.documentElement.classList.add("paged");
       // Contour blocks go in rows of three so each row is one measurable block.
       document.querySelectorAll(".contours:not([data-rows])").forEach((c) => {
         c.setAttribute("data-rows", "");
@@ -183,8 +261,8 @@ _DUPLEX_JS = """(() => {
         section.after(blank);
       }
     } catch (error) {
-      document.querySelectorAll(".blank-side").forEach((el) => el.remove());
-      document.querySelectorAll("[" + MARK + "]").forEach((el) => (el.style.breakBefore = ""));
+      reset();
+      document.documentElement.classList.remove("paged");
     } finally {
       if (saved === null) body.removeAttribute("style");
       else body.setAttribute("style", saved);
@@ -363,6 +441,10 @@ class _Plain(str):
     """A full-width line under a table row printed as plain text, not a warning box."""
 
 
+class _Note(str):
+    """An op's own note, printed on its own line directly under the op's row."""
+
+
 class _Row(tuple):
     """Table cells plus full-width warnings printed beneath the row."""
 
@@ -417,7 +499,9 @@ def _table(headings, rows, css="", widths=None, continued=None):
             result.append(
                 f'<tr class="warn"><td colspan="{len(headings)}">'
                 + "".join(
-                    f'<span class="see">{escape(w)}</span>'
+                    f'<div class="op-note">{escape(w)}</div>'
+                    if isinstance(w, _Note)
+                    else f'<span class="see">{escape(w)}</span>'
                     if isinstance(w, _Plain)
                     else _cell_line(_Box(w))
                     for w in warnings
@@ -1768,13 +1852,14 @@ class _Traveler:
         return speed, feed, not (_known(rpm) and (_known(per_rev) or _known(per_min)))
 
     def operations(self, setup, tool_numbers, sheets):
-        """The op table for the front sheet and the op/inspection notes for sheet 2.
+        """The op table for the front sheet and the inspection notes for sheet 2.
 
         ``sheets`` maps "notes" and "contours" to the attached sheet numbers that carry
-        them; an op row names the sheet so the front sheet never hides a note.
+        them; an op's own note prints under its row, and the row names the sheet that
+        carries its inspection procedure or contour table.
         """
         ops = setup.get("ops", [])
-        rows, notes, inspection_notes, stops = [], [], [], {}
+        rows, inspection_notes, stops = [], [], {}
         where = {kind: f"{setup['id']} sheet {number}" for kind, number in sheets.items() if number}
         saw_table = any(op.get("do") in SAW_OPS for op in ops)
         lathe = self.lathe(setup)
@@ -1864,23 +1949,19 @@ class _Traveler:
                         message = message.removeprefix(prefix).strip()
                     boxes.append(_Box("CAUTION: " + self.bench(message)))
             # Crash and status warnings print full width under the op so the narrow
-            # action column keeps its line height.
+            # action column keeps its line height; the op's own note follows them there.
             note = op.get("note")
             derivation = self.tip_note(setup, op)
             if note or derivation:
-                notes.append(
-                    f"{setup['id']} op {op['op']}: "
-                    + " ".join(
-                        filter(None, [self.bench(note, setup) if note else None, derivation])
+                boxes.append(
+                    _Note(
+                        " ".join(
+                            filter(None, [self.bench(note, setup) if note else None, derivation])
+                        )
                     )
                 )
-            pointers = []
-            if note or derivation:
-                pointers.append(f"note on {where['notes']}")
             if str(op["op"]) in self.contour_ops:
-                pointers.append(f"contour table on {where['contours']}")
-            if pointers:
-                boxes.append(_Plain("See " + " · ".join(pointers)))
+                boxes.append(_Plain(f"See contour table on {where['contours']}"))
             rows.append(
                 _Row(
                     (
@@ -1912,11 +1993,6 @@ class _Traveler:
             "direction",
             "inspection: limit, gauge",
         ]
-        tail = ""
-        if notes:
-            tail += "<h3>Op notes</h3>" + _list(notes, ordered=False)
-        if inspection_notes:
-            tail += "<h3>Inspection notes</h3>" + _list(inspection_notes)
         # A long table runs onto the back of the front sheet; the repeated heading row
         # names it there, and on the front the OPERATIONS heading is drawn over it.
         table = "<h2>OPERATIONS</h2>" + _table(
@@ -1924,10 +2000,12 @@ class _Traveler:
             rows,
             "operations",
             [4, 16, 12, 7, 6, 9, 11, 9, 26],
-            continued=f"SETUP {setup['id']} — sheet 1, back: operations continued",
+            continued=f"SETUP {setup['id']} — sheet 1 (continued): operations",
         )
         notes_html = (
-            f'<div class="keep"><h2>OP AND INSPECTION NOTES</h2>{tail}</div>' if tail else ""
+            f'<div class="keep"><h2>INSPECTION NOTES</h2>{_list(inspection_notes)}</div>'
+            if inspection_notes
+            else ""
         )
         return table, notes_html, stops
 
@@ -1979,19 +2057,27 @@ class _Traveler:
         return text + f"; rows NOT in an established cutting order: {reason}"
 
     @staticmethod
-    def clip(table, markers):
-        """Where the kernel clipped this table at its op's stock_removal_bounds (the cutter's
-        first contact with stock outside them), and the debt of a piece no cut links."""
-        clipped = list(dict.fromkeys(_text(marker) for marker in markers if marker))
+    def clip(table, markers, rows):
+        """Where the kernel clipped this table at its op's stock_removal_bounds, named by
+        the printed row the cutter starts or stops at, and the piece no cut links."""
+        ends = []
+        for index, marker in enumerate(markers):
+            if not marker or index >= len(rows):
+                continue
+            point = rows[index][0] or f"row {index + 1}"
+            ends.append(("starts at " if index == 0 else "stops at ") + point)
         text = ""
-        if clipped:
-            text = "; path clipped at the cutter's " + ", ".join(clipped)
-            text += " (points past it are not cut by this op)"
+        if ends:
+            text = (
+                f"; {' and '.join(ends)}: the stock past "
+                + ("it" if len(ends) == 1 else "them")
+                + " is outside this op's area"
+            )
         fragment = table.get("fragment")
         if isinstance(fragment, list) and len(fragment) == 2:
             text += (
-                f"; separate piece {fragment[0]} of {fragment[1]}, not linked by a cut: "
-                "debt, the stock between the pieces is not cleared by this op"
+                f"; piece {fragment[0]} of {fragment[1]}: no cut links the pieces, so the "
+                "stock between them is not cleared by this op"
             )
         return text
 
@@ -2047,7 +2133,7 @@ class _Traveler:
             if arc.get("interpolation"):
                 description += "; " + self.bench(arc["interpolation"])
             description += self.cut_order(arc) + self.clip(
-                arc, [row.get("clipped_at") for row in arc.get("rows", [])]
+                arc, [row.get("clipped_at") for row in arc.get("rows", [])], rows
             )
             headings = ["P", "angle °", "X", "Y", "Z"]
             entry["parts"].append((order(entry, arc), description, headings, rows))
@@ -2075,7 +2161,7 @@ class _Traveler:
                 )
             side = _text(line.get("side"))
             description = f"Straight joins on the {side} side" + self.cut_order(line)
-            description += self.clip(line, line.get("clipped_at") or [])
+            description += self.clip(line, line.get("clipped_at") or [], rows)
             entry["parts"].append((order(entry, line), description, ["P", "", "X", "Y", "Z"], rows))
         arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
         for profile in numbers.get("profiles", []):
@@ -2211,8 +2297,6 @@ class _Traveler:
             + ("X is diameter" if self.lathe(setup) else "cutter-centre X / Y")
             + "</h2>"
         )
-        if waypoints:
-            heading += _p("P numbers match the labelled points in the setup picture.")
         return heading + '<div class="contours">' + "".join(html) + "</div>"
 
     # ---------------------------------------------------------------- picture
@@ -2247,35 +2331,14 @@ class _Traveler:
         name = names[0] if names else "? unknown stock"
         return name if not name.startswith("Setup") else f"part as it arrives from {name}"
 
-    def fixture_render(self, setup, full_size_on=None):
-        """The holding picture with its caption and NOT SHOWN lines.
-
-        ``full_size_on`` names the attached sheet with the full-width copy: the front
-        sheet's half-width overview is too small to read the picture's labels and key.
-        """
+    def fixture_render(self, setup):
+        """The holding picture with its caption and NOT SHOWN lines."""
         render = self.report.get("renders", {}).get(setup["id"])
         if not render:
-            if full_size_on:
-                return _p(
-                    "NO PICTURE — the holding is not modelled; set up from the HOLD steps.",
-                    "stop",
-                )
             return ""
         scene = _mapping(render.get("scene"))
         fixture = self.reference(_mapping(setup.get("hold")).get("fixture"), "fixtures")
         caption = [f"Setup {setup['id']} — {self.arrival(setup)}, held in the {fixture}."]
-        if full_size_on:
-            caption = [
-                f"Setup {setup['id']} overview — labels and key are readable on the "
-                f"full-size picture, {full_size_on}."
-            ]
-        shows = scene.get("shows")
-        if not full_size_on:
-            caption.append(
-                "Picture shows: " + ", ".join(map(str, shows)) + "."
-                if isinstance(shows, list) and shows
-                else "Picture shows the holding only, not the cuts."
-            )
         lines = []
         for debt in scene.get("debts") or []:
             text = re.sub(r"^(?:fixture )?not drawn:\s*", "", str(debt))
@@ -2291,7 +2354,7 @@ class _Traveler:
         if render.get("fixture") != "modeled" and not lines:
             lines.append("NOT SHOWN: part of the holding is not modelled.")
         return (
-            f'<figure class="fixture-render{" overview" if full_size_on else ""}">'
+            '<figure class="fixture-render">'
             f'<img src="{escape(render["path"], quote=True)}" '
             f'alt="Setup {escape(setup["id"], quote=True)} holding picture">'
             f"<figcaption>{escape(' '.join(caption))}"
@@ -2353,16 +2416,10 @@ class _Traveler:
                 or value in ("unknown", "not_applicable")
             ):
                 continue
-            if key == "on_hand":
-                if value is False:
-                    extras.append("Not on hand: obtain before starting.")
-                continue
-            if key in {"note", "prerequisite"}:
-                extras.append(
-                    ("Before S1: " if key == "prerequisite" else "")
-                    + self.bench(value).rstrip(".")
-                    + "."
-                )
+            if key in {"on_hand", "prerequisite"}:
+                continue  # Outstanding before the first setup: printed in JOB STATUS.
+            if key == "note":
+                extras.append(self.bench(value).rstrip(".") + ".")
                 continue
             name = _text(key)
             unit = " mm" if name.endswith(" mm") else ""
@@ -2468,8 +2525,14 @@ class _Traveler:
                 (self.feature_name(feature), "; ".join(values) or "no toleranced requirement")
             )
         thickness = _mapping(self.bundle.features.get("material")).get("thickness")
-        if _known(thickness):
+        # A nominal stock thickness is no limit: print it only when no feature carries one.
+        limited = any(
+            "thickness" in tolerance_requirements(definition)
+            for definition in self.features.values()
+        )
+        if _known(thickness) and not limited:
             rows.append(("part", f"finished thickness {self.value(thickness)}"))
+        rows.append(("all edges", self.edge_break()))
         html = "<h2>DRAWING REQUIREMENTS</h2>" + _table(
             ["feature", "limits"], rows, widths=[30, 70]
         )
@@ -2479,9 +2542,87 @@ class _Traveler:
             )
         return html
 
+    def edge_break(self):
+        """The drawing's edge break, printed once for the whole job."""
+        note = _mapping(self.bundle.features.get("notes")).get("edge_break")
+        if isinstance(note, str) and note.strip() and note != "unknown":
+            return note
+        general = _mapping(self.bundle.features.get("general_tolerances"))
+        radius, chamfer = general.get("edge_break_r"), general.get("chamfer_max")
+        limits = ([f"break sharp edges R{self.value(radius)} max"] if _known(radius) else []) + (
+            [f"chamfer {self.value(chamfer)} max"] if _known(chamfer) else []
+        )
+        if limits:
+            return "Remove burrs; " + " or ".join(limits) + "."
+        planned = sorted(
+            {
+                self.operative(setup["deburr_mm"])
+                for setup in self.plan.get("setups", [])
+                if _known(setup.get("deburr_mm"))
+            }
+        )
+        return "? edge break not on the drawing" + (
+            f"; plan breaks edges {' / '.join(planned)} mm max" if planned else ""
+        )
+
     def drawing_revision(self):
         revision = self.plan.get("drawing", {}).get("revision", "unknown")
         return revision if isinstance(revision, str) and revision != "unknown" else None
+
+    def job_state(self, topics):
+        """The checker result, the release state the banner shows, and what must be in
+        hand before the first setup: the job page never reads clear beside NOT APPROVED."""
+        if self.report.get("verification") == "checked":
+            check = "Plan check: no rule fails"
+            check += f"; {len(topics)} check(s) not verified, listed above." if topics else "."
+        else:
+            check = "Plan check: not passed — clear the items above before running."
+        state = [
+            check,
+            "Approved: hash-matched first article recorded for this input bundle."
+            if self.checked
+            else "NOT APPROVED: no first article is recorded for this input bundle; the "
+            "first part made is the first article — sign it off below.",
+        ]
+        stock = _mapping(self.plan.get("stock"))
+        components = stock.get("components")
+        pieces = [("stock", stock)] + [
+            (f"stock {_text(_mapping(c).get('id'))}", _mapping(c))
+            for c in (components if isinstance(components, list) else [])
+        ]
+        for name, piece in pieces:
+            if piece.get("on_hand") is False:
+                state.append(f"Before S1: obtain the {name} — not on hand.")
+            prerequisite = piece.get("prerequisite")
+            if isinstance(prerequisite, str) and prerequisite not in ("unknown", ""):
+                state.append(f"Before S1: {self.bench(prerequisite).rstrip('.')}.")
+        return state
+
+    def dro_resolution(self, setups):
+        """Each routed machine's DRO step: the grid every printed DRO target is on."""
+        grids = {}
+        for setup in setups:
+            reference = setup.get("machine")
+            if reference in grids or saw_setup(setup) or manual_bench(self.bundle, setup):
+                continue
+            machine = self.machine(setup)
+            step, decimals = dro_grid(self.bundle, setup)
+            grid = f"{self.reference(reference, 'machines')} {step:.{decimals}f} {self.units}"
+            if not _known(length_mm(machine, "resolution")):
+                grid += " (resolution not in the shop list: default grid)"
+            if machine.get("kind") == "lathe":
+                radius = _mapping(self.plan.get("dro")).get("radius_mode")
+                grid += (
+                    " (X reads radius)"
+                    if radius is True
+                    else " (X reads diameter)"
+                    if radius is False
+                    else " (X: ? radius or diameter)"
+                )
+            grids[reference] = grid
+        if not grids:
+            return None
+        return "DRO resolution: " + "; ".join(grids.values()) + ". DRO targets print on this grid."
 
     def header(self, setups):
         routed = {id(f) for setup in setups for f in self.setup_findings(setup)}
@@ -2500,9 +2641,8 @@ class _Traveler:
                 "the setup page — do not run a setup until its STOPs are cleared."
             )
         html = "<h2>JOB STATUS</h2>"
-        html += self.status_boxes(stops, cautions, topics) or _p(
-            "No stops, cautions or unverified checks for the job as a whole."
-        )
+        html += self.status_boxes(stops, cautions, topics)
+        html += _list(self.job_state(topics), ordered=False)
         dro = _mapping(self.plan.get("dro"))
         lines = [self.material(), self.speeds_source()]
         if dro.get("manual") or dro.get("controller") not in (None, "unknown"):
@@ -2511,7 +2651,8 @@ class _Traveler:
                 f"DRO: {self.bench(name)}, {_text(dro.get('mode')).upper()} mode; zero with "
                 "Axis Set, never Preset."
             )
-        html += "".join(_p(line) for line in lines)
+        lines.append(self.dro_resolution(setups))
+        html += "".join(_p(line) for line in lines if line)
         html += "<h2>STOCK AND ROUTE</h2>"
         stock = _mapping(self.plan.get("stock"))
         components = stock.get("components")
@@ -2551,8 +2692,8 @@ class _Traveler:
     def setup_section(self, setup):
         """One front sheet to run the setup from, then attached sheets it points to.
 
-        Front: status, HOLD beside the picture, tools, DRO zero and the op table.
-        Sheet 2: clearance, feature map, op and inspection notes. Sheet 3: contours.
+        Front: status, HOLD, tools, DRO zero and the op table. Sheet 2: picture,
+        clearance, feature map and inspection notes, when any. Then contours.
         """
         self.setup = setup
         sid = setup["id"]
@@ -2560,8 +2701,21 @@ class _Traveler:
         kind = self.machine(setup).get("kind")
         tool_numbers, tools, tool_html = self.tool_table(setup)
         contours = self.contours(setup, tools)
+        # Bench work has no spindle, DRO or cutting axes: no zero and no machine clearance.
+        bench = manual_bench(self.bundle, setup)
+        details = {
+            "holding picture": self.fixture_render(setup),
+            "clearance": None if bench else self.clearance(setup),
+            "feature map": self.feature_map(setup),
+        }
         sheets = {"notes": 2, "contours": 3 if contours else None}
         ops_html, notes_html, op_stops = self.operations(setup, tool_numbers, sheets)
+        details["inspection notes"] = notes_html
+        details = {subject: block for subject, block in details.items() if block}
+        if not details and contours:
+            # Nothing for sheet 2: the contours are sheet 2.
+            sheets["contours"] = 2
+            ops_html, notes_html, op_stops = self.operations(setup, tool_numbers, sheets)
         stops, cautions, topics = self.status_lines(
             self.setup_findings(setup), setup, skip_ops=True
         )
@@ -2569,10 +2723,10 @@ class _Traveler:
         for text, ops in op_stops.items():
             label = _ops_label(ops, every)
             stops.append(f"{label[:1].upper() + label[1:]} — {text}")
-        count = 3 if contours else 2
+        count = 1 + bool(details) + bool(contours)
         title = (
             f"SETUP {sid} — {machine}"
-            + (f" ({_text(kind)})" if kind else "")
+            + (f" ({_text(kind)})" if kind and _text(kind) not in machine else "")
             + f" · sheet 1 of {count}"
         )
         self.setup_stops[sid] = len(stops)
@@ -2581,17 +2735,19 @@ class _Traveler:
             status += _p(self.bench(setup["note"], setup))
         status += self.stock_state(setup)
         steps, hold_below = self.hold(setup)
-        deburr = setup.get("deburr_mm")
-        coolant = _p(
-            f"Coolant: {self.bench(setup.get('coolant'))}. Break edges "
-            + (f"{self.operative(deburr)} mm max." if _known(deburr) else "? limit not set.")
+        coolant = "" if bench else _p(f"Coolant: {self.bench(setup.get('coolant'))}.")
+        # The full-size picture is on sheet 2; the front sheet keeps the HOLD steps wide.
+        unpictured = (
+            ""
+            if self.report.get("renders", {}).get(sid)
+            else _p("NO PICTURE — the holding is not modelled; set up from the HOLD steps.", "stop")
         )
         front = [
             status,
             f'<div class="hold-row"><div class="hold-steps">{steps}</div>'
-            f"{self.fixture_render(setup, f'{sid} sheet 2')}</div>{hold_below}{coolant}",
+            f"{unpictured}</div>{hold_below}{coolant}",
             tool_html,
-            self.dro(setup, tools),
+            None if bench else self.dro(setup, tools),
             ops_html,
         ]
 
@@ -2599,20 +2755,13 @@ class _Traveler:
             heading = f"<h2>SETUP {escape(sid)} — sheet {number} of {count}: {subject}</h2>"
             return [heading + blocks[0], *blocks[1:]]
 
-        details = [
-            self.fixture_render(setup),
-            self.clearance(setup),
-            self.feature_map(setup),
-            notes_html,
-        ]
-        result = [
-            [block for block in front if block],
-            attached(
-                2, "full-size picture, clearance, feature map and notes", [b for b in details if b]
-            ),
-        ]
+        result = [[block for block in front if block]]
+        if details:
+            subjects = list(details)
+            subject = ", ".join(subjects[:-1]) + (" and " if len(subjects) > 1 else "")
+            result.append(attached(2, subject + subjects[-1], list(details.values())))
         if contours:
-            result.append(attached(3, "contours", [contours]))
+            result.append(attached(len(result) + 1, "contours", [contours]))
         self.setup = None
         return result
 
@@ -2649,7 +2798,11 @@ class _Traveler:
             "signoff",
         )
         for label, blocks, signed in pages:
-            result.append(f'<section class="page" data-sheet="{escape(label)}">')
+            # Continuation pages open with the sheet's name: "SETUP S2 — sheet 3".
+            title = label.upper() if label == "job page" else label.replace(" sheet ", " — sheet ")
+            result.append(
+                f'<section class="page" data-sheet="{escape(label)}" data-title="{escape(title)}">'
+            )
             result.append(
                 f'<div class="meta"><h1>{escape(part.upper())} · '
                 f"{escape(_text(drawing.get('number')))} · "
@@ -2700,9 +2853,13 @@ def reference_label(bundle, reference, category=None) -> str:
         )
     record = item or raw
     name = record.get("name", record.get("label"))
+    named_member = bool(member and item and (item.get("name") or item.get("label")))
     if not name:
         if category == "machines" or root in _mapping(bundle.inventory.get("machines")):
-            name = root
+            # A maker's model number (PM-30MV) is the machine's name; any other identity
+            # is an inventory slug, so the operator reads the machine's kind instead.
+            model = re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)*", root) and re.search(r"\d", root)
+            name = root if model else _text(record.get("kind", "machine"))
         else:
             kind = record.get("kind", "unknown")
             if kind in _KIND_NAMES:
@@ -2717,7 +2874,7 @@ def reference_label(bundle, reference, category=None) -> str:
             else:
                 name = _text(kind)
             name = name.removesuffix(" set")
-    if member:
+    if member and not named_member:
         if record.get("kind") == "micrometer_set":
             member = member.removesuffix("in") + " in"
         elif record.get("kind") == "qctp_set":
@@ -2730,6 +2887,8 @@ def reference_label(bundle, reference, category=None) -> str:
             member = re.sub(r"\b([1-9]\d*)-(\d+)in\b", r"\1/\2 in", member)
             member = re.sub(r"^(\d+)in$", r"\1 in", member)
             member = re.sub(r"-(\d+)fl", r" \1-flute", member)
+            # Remaining word-to-word hyphens are slug separators, not part of a size.
+            member = re.sub(r"(?<=[a-z])-(?=[a-z])", " ", member)
         if record.get("kind") == "center_drill_set" and member.isdigit():
             member = "#" + member
         name = f"{name} {member}" if record.get("kind") == "qctp_set" else f"{member} {name}"
