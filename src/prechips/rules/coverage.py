@@ -3,12 +3,17 @@
 from prechips.findings import Finding
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
+    ROTARY,
+    approach,
     approach_model_reason,
     claim_refs,
     cutting_action,
     known_refs,
     op_claims,
     provenance,
+    rotary_debt_text,
+    rotary_gap_text,
+    rotary_union,
     unavailable,
 )
 from prechips.rules.resolution import SAW_OPS, operations, record
@@ -38,7 +43,7 @@ def evaluate(bundle):
             )
         ]
     all_faces = {face["index"] for face in faces}
-    claimed, errors, debt = set(), [], False
+    claimed, rotary, errors, debt = set(), set(), [], False
     unsupported = set()
     mapping = record(facts.get("mapping"))
     for setup, op in operations(bundle):
@@ -65,7 +70,8 @@ def evaluate(bundle):
             else:
                 debt = True
         else:
-            claimed.update(indices)
+            # A rotary claim names faces its window merely intersects: the union decides.
+            (rotary if approach(bundle, setup, op) == ROTARY else claimed).update(indices)
     refs = record(bundle.plan.get("stock")).get("as_is_faces", "unknown")
     mapping, invalid = record(facts.get("mapping")), record(facts.get("mapping_errors"))
     if isinstance(refs, list):
@@ -80,13 +86,23 @@ def evaluate(bundle):
                 debt = True
     else:
         debt = True
-    unclaimed = sorted(all_faces - claimed)
+    # Whole-face claims and as-stock supersede any rotary portion of the same face.
+    complete, gaps, unresolved = rotary_union(facts, "cut", rotary - claimed)
+    claimed |= complete
+    if rotary:
+        cite.append("kernel rotary_coverage.cut: exact union of rotary window portions per face")
+    unclaimed = sorted(all_faces - claimed - set(gaps) - set(unresolved))
     values = {
         "face_count": len(all_faces),
         "claimed_face_count": len(all_faces & claimed),
         "unclaimed_faces": [face.get("ref") for face in faces if face["index"] in unclaimed],
         "unclaimed_indices": unclaimed,
     }
+    if gaps:
+        values["rotary_gaps"] = list(gaps.values())
+    if unresolved:
+        values["rotary_unresolved"] = list(unresolved.values())
+    uncovered = set(unclaimed) | set(gaps)
     if errors:
         values["mapping_errors"] = sorted(set(errors))
         status, message = (
@@ -98,13 +114,20 @@ def evaluate(bundle):
             "unknown",
             "cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown",
         )
-    elif unclaimed and set(unclaimed) <= unsupported:
+    elif unresolved:
+        status, message = (
+            "unknown",
+            "rotary window coverage is unresolved for "
+            + "; ".join(map(rotary_debt_text, unresolved.values())),
+        )
+    elif uncovered and uncovered <= unsupported:
         status, message = "unsupported", LATHE_APPROACH_REASON
-    elif unclaimed:
-        # A mixed error names only truly missing claims, not unsupported candidates.
-        candidates = set(unclaimed) & unsupported
+    elif uncovered:
+        # A mixed error names only truly missing claims and gaps, not unsupported candidates.
+        candidates = uncovered & unsupported
         if candidates:
             unclaimed = sorted(set(unclaimed) - unsupported)
+            gaps = {index: gap for index, gap in gaps.items() if index not in unsupported}
             values.update(
                 unclaimed_faces=[face.get("ref") for face in faces if face["index"] in unclaimed],
                 unclaimed_indices=unclaimed,
@@ -113,12 +136,23 @@ def evaluate(bundle):
                 ],
                 unsupported_indices=sorted(candidates),
             )
-        names = [
-            face.get("ref") or f"imported face index {face['index']}"
-            for face in faces
-            if face["index"] in unclaimed
-        ]
-        status, message = "error", "faces have no cutting op or as-stock claim: " + ", ".join(names)
+            values.pop("rotary_gaps", None)
+            if gaps:
+                values["rotary_gaps"] = list(gaps.values())
+        problems = []
+        if unclaimed:
+            names = [
+                face.get("ref") or f"imported face index {face['index']}"
+                for face in faces
+                if face["index"] in unclaimed
+            ]
+            problems.append("faces have no cutting op or as-stock claim: " + ", ".join(names))
+        if gaps:
+            problems.append(
+                "rotary windows leave part of a claimed face uncut: "
+                + "; ".join(map(rotary_gap_text, gaps.values()))
+            )
+        status, message = "error", "; ".join(problems)
     else:
         status, message = (
             "pass",

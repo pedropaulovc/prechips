@@ -15,9 +15,11 @@ corrections completed; M2 declared-input implementation and all six PR #6
 review corrections are locally verified. M4 also delivers the sampled rotary
 approach: horizontal dividing-head top-dead-centre poses and window-clipped
 radial plus wall-tangent vertical cutter-column own-removal outside the
-finished part. This is not continuous toolpath proof; its combined integration
-gate remains unobserved. Physical paper rehearsal and live parented farm/App
-Insights acceptance remain pending/unobserved. Rev 6, 2026-10-03.
+finished part, with partial-face windows whose exact per-face union decides
+coverage and finish coverage. This is not continuous toolpath proof; its
+combined integration gate remains unobserved. Physical paper rehearsal and
+live parented farm/App Insights acceptance remain pending/unobserved. Rev 6,
+2026-10-03.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial
@@ -572,8 +574,8 @@ not exist.
 | accessibility: sample each claimed face with the prescribed cutter/holder pose below. Obstacles are setup-entry stock minus a 0.001 mm inward shell of this sampled face (an own matched point cap uses unmodified entry stock instead), plus fixture solids; only the flute excludes this op's derivable outside-finished allowance or own hole cutter volume (spot/drill: point cone and body). Other finished faces and holder obstacles remain. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing pose/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims error by name, and invalid clearing removals are named stock debt | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), spot/drill `point_angle`, rough `rough_allowance_mm`, fixture dimensions and pose, authored op depth/entry/through extent | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
 | reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
-| coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default | features.faces, plan.ops.faces, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no valid op." |
-| finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence) | features.finish_ra/faces, plan.ops.faces | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
+| coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default; a rotary-claimed face counts only when the exact union of its rotary window portions covers it (a named-span gap errors, an undecided union is `?`) | features.faces, plan.ops.faces, plan.stock.as_is_faces, kernel rotary_coverage.cut | M4 | "Face 23 (the ear's back) is machined by no valid op." |
+| finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
 
 **Accessibility pose decision — user, 2026-10-05.** Ordinary wall samples
 keep the cutter-radius offset along the horizontal outward normal. At a
@@ -660,12 +662,33 @@ dividing head at top dead centre under the vertical mill spindle.
 `z_from`/`z_to` bound distance along the head axis from the chuck pose origin;
 `angle_window_deg` bounds rotation about that axis. The setup declares
 `hold.index.rotation = "continuous"` with no index positions or angle step.
+The window is a partial-face claim: each claimed face is sampled and removed
+only where it lies inside the window; points outside are excluded, not claim
+errors, and a window holding no positive-area part of a claimed face is a
+claim error. At any concave floor/wall edge, curved pad perimeters included,
+a sample on or within one cutter radius of it shifts along the wall's
+in-plane normal at the nearest edge point until tangent; a floor surface
+split into several STEP faces shares that wall boundary across export seams,
+which are not walls or ends (deterministic, no pose search; true convex
+corners unchanged; axial milling keeps its incident-wall convention).
 Own-removal combines radial sweep with the vertical cutter columns at
 concave wall-tangent poses, clipped to the window and cut against the finished
 solid. Finished bosses/pads and stock outside that allowance remain obstacles;
 only the flute excludes its own allowance, not holder or reach screens.
 This is one static pose per sample, not continuous rotation, simultaneous
 rotary-plus-linear motion or a toolpath proof.
+
+Coverage of a rotary-claimed face comes from the kernel's model-frame union:
+each claiming op's window portion, transformed from its setup into model
+coordinates, is subtracted in turn from the original face by exact B-rep face
+subtraction, so different cutters, ops and setups add up and the actual
+face's holes and trims count; neither a sample set nor scalar spans certify a
+face. `coverage` uses all rotary cutting ops and `finish_coverage` only
+finishing ops. A remainder is an error naming its area and per-setup spans
+(axial bounds exact, angular bounds possibly conservative and never used to
+decide); an undecided or missing union is `?`. A whole-face non-rotary claim
+supersedes a gap, as does as-stock for `coverage` only. A per-op
+`claimed_indices` entry never credits a face by itself.
 
 ### 4.3 Workholding (geometry + inventory — needs the kernel for the solids)
 
@@ -1269,12 +1292,17 @@ sheet.
    `hold.index.rotation = "continuous"` on a horizontal dividing head with an
    explicit chuck pose and modeled fixture solids. Coaxial cylinder and planar
    annulus claims are presented at top dead centre under a vertical cutter.
-   Derivable own-removal combines radial sweep with actual vertical cutter
-   columns at concave wall-offset poses; the union is clipped to
-   `z_from`/`z_to` along the head axis and `angle_window_deg`, then the finished
-   solid is cut out. Finished bosses/pads, other retained stock and
-   holder/fixture obstacles remain protected. This sampled screen establishes
-   neither a continuous toolpath nor clearance between samples. This delivery
+   `z_from`/`z_to` and `angle_window_deg` are partial-face claim windows: only
+   the part of a claimed face inside the window is sampled and removed, and a
+   window holding none of it is a claim error. Derivable own-removal combines
+   radial sweep with actual vertical cutter columns at concave wall-offset
+   poses; the union is clipped to the window, then the finished solid is cut
+   out. Finished bosses/pads, other retained stock and holder/fixture
+   obstacles remain protected. Coverage and finish coverage credit a
+   rotary-claimed face only through the kernel's exact model-frame union of
+   window portions (finishing ops only for finish), naming any gap's spans.
+   This sampled screen establishes neither a continuous toolpath nor
+   clearance between samples. This delivery
    description adds no combined-gate, physical-rehearsal or live-farm evidence;
    those acceptance gates remain separately pending/unobserved.
 

@@ -235,6 +235,99 @@ def op_claims(bundle, facts, setup, op):
     return set(indices), away, []
 
 
+def _face_index(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _face_rows(rows):
+    return [
+        row
+        for row in (rows if isinstance(rows, list) else [])
+        if isinstance(row, dict) and _face_index(row.get("index"))
+    ]
+
+
+def _span(span):
+    span = record(span)
+    bounds = (span.get("z_mm"), span.get("angle_deg"))
+    if not isinstance(span.get("setup"), str) or not all(
+        isinstance(pair, list) and len(pair) == 2 and all(number(v) for v in pair)
+        for pair in bounds
+    ):
+        return None
+    return {"setup": span["setup"], "z_mm": list(bounds[0]), "angle_deg": list(bounds[1])}
+
+
+def rotary_union(facts, category, indices):
+    """Decide rotary-claimed faces from the kernel's model-frame union of window portions.
+
+    A rotary op's ``claimed_indices`` names every face its window merely intersects, so it
+    never credits a whole face by itself. ``rotary_coverage[category]`` (``"cut"``, or
+    ``"finish"`` over finishing ops only) decides each of ``indices``. Returns
+    ``(complete, gaps, unresolved)``: indices the exact union covers; ``{index: gap}``
+    with the uncovered area and its per-setup spans; ``{index: debt}`` where the union is
+    unknown or the kernel reported none for that face. Unknown outranks a gap, which
+    outranks completion, so a contradictory report never credits a face.
+    """
+    entry = record(record(facts.get("rotary_coverage")).get(category))
+    listed = entry.get("complete_indices")
+    covered = {i for i in (listed if isinstance(listed, list) else []) if _face_index(i)}
+    gaps = {row["index"]: row for row in _face_rows(entry.get("gaps"))}
+    unknown = {row["index"]: row for row in _face_rows(entry.get("unknown"))}
+    faces = facts.get("faces")
+    names = {
+        face.get("index"): face.get("ref")
+        for face in (faces if isinstance(faces, list) else [])
+        if isinstance(face, dict)
+    }
+    complete, uncovered, unresolved = set(), {}, {}
+    for index in sorted(indices):
+        name = names.get(index) or f"imported face index {index}"
+        if index in unknown:
+            reason = unknown[index].get("reason")
+            if not isinstance(reason, str) or not reason:
+                reason = "rotary window union is unresolved"
+            unresolved[index] = {"index": index, "ref": name, "reason": reason}
+        elif index in gaps:
+            gap = gaps[index]
+            spans = gap.get("spans")
+            area = gap.get("area_mm2")
+            uncovered[index] = {
+                "index": index,
+                "ref": name,
+                "area_mm2": area if number(area) else UNKNOWN,
+                "spans": [
+                    span for span in map(_span, spans if isinstance(spans, list) else []) if span
+                ],
+            }
+        elif index in covered:
+            complete.add(index)
+        else:
+            unresolved[index] = {
+                "index": index,
+                "ref": name,
+                "reason": "the kernel reported no rotary window union for it",
+            }
+    return complete, uncovered, unresolved
+
+
+def rotary_gap_text(gap):
+    """``#5 (12.5 mm² at S1 z 10..20 mm, angle 0..90°)``: the portion of a face outside
+    every claiming window; angles may be conservative enclosing bounds of that portion."""
+    spans = " and ".join(
+        f"{span['setup']} z {span['z_mm'][0]:g}..{span['z_mm'][1]:g} mm, "
+        f"angle {span['angle_deg'][0]:g}..{span['angle_deg'][1]:g}°"
+        for span in gap["spans"]
+    )
+    area = f"{gap['area_mm2']:g} mm²" if number(gap["area_mm2"]) else ""
+    detail = " at ".join(part for part in (area, spans) if part)
+    return f"{gap['ref']} ({detail})" if detail else gap["ref"]
+
+
+def rotary_debt_text(row):
+    return f"{row['ref']} ({row['reason']})"
+
+
 def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=None):
     """Per-op context; ``turning`` names the required inputs of turning-model ops."""
     from prechips.kernel import build_job, run_geometry

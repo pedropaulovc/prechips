@@ -720,7 +720,7 @@ _ENGINE_OP = (
     "kerf_mm",
     "feature",
     "faces",
-    "do",
+    "finishing",
     "hole",
     "radius_mm",
     "flute_len_mm",

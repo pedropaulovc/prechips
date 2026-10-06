@@ -569,18 +569,32 @@ measured toolpath or proof that the whole toolpath is safe. Without it, any clai
 whose interior still touches overstock above `to_z` (including a drafted wall)
 needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
 
-`approach = "rotary"` mills on a horizontal dividing head: every claimed sample
-is turned about the head axis to top dead centre under the vertical spindle
+`approach = "rotary"` mills on a horizontal dividing head: each sample of the
+claimed faces' windowed portions is turned about the head axis to top dead
+centre under the vertical spindle
 (see [Approach models](rules-geometry.md#approach-models)). For such an op
 `z_from`/`z_to` are positions along the head axis (the chuck `pose` z) from the
 pose origin, and `angle_window_deg = [from, to]` is the head rotation in
 degrees, right-handed about that axis (from < to; a span of 360 or more is
-unbounded). Both bound the op's removal; a claimed sample outside them is a
-claim error. Claims must be supported external surfaces of revolution about
-the head axis (coaxial cylinders or planar annuli normal to it). The setup's
-`hold.index` declares `rotation = "continuous"` without `positions` or
-`angle_deg`, and its `hold.pose`, `hold.chuck` and inventory solids establish
-the head/chuck geometry, not an inferred fixture.
+unbounded). Together they are a partial-face claim window: the op samples and
+removes only the part of each claimed face inside it, and points outside are
+excluded, not claim errors. A window holding no positive-area part of a
+claimed face makes that face a claim error. Claims must be supported external
+surfaces of revolution about the head axis (coaxial cylinders or planar
+annuli normal to it). The setup's `hold.index` declares
+`rotation = "continuous"` without `positions` or `angle_deg`, and its
+`hold.pose`, `hold.chuck` and inventory solids establish the head/chuck
+geometry, not an inferred fixture.
+
+A face claimed through rotary windows is covered only when the exact union of
+every rotary op's window portion of it covers the whole face: several ops,
+cutters and setups may contribute (for example a larger cutter on the body
+and a smaller one into a shoulder), and `finish_coverage` unions only the
+finishing ops' portions. An uncovered remainder is a `coverage` /
+`finish_coverage` error naming its area and spans; an undecided union stays
+unknown. A whole-face non-rotary claim, or `stock.as_is_faces` for
+`coverage` only, covers the face regardless. See
+[`coverage`](rules-geometry.md#coverage).
 
 Own-removal combines each claimed cylinder's radial sweep with the actual
 vertical cutter columns at concave wall-tangent sample poses. Their union is

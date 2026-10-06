@@ -158,6 +158,9 @@ Rotary cutting uses the same vertical mill cutter and holder facts below:
 tool `dia`, `flute_len`, `oal`, holder `gauge_dia`, `gauge_len`, and the
 selected tool/holder projection (or the permitted OAL-minus-grip fallback).
 No lathe insert, toolpost or new rotary-specific inventory fields are implied.
+Each rotary op's own cutter and holder apply to its window, so a face may be
+covered by several ops with different cutters (for example a smaller endmill
+windowed into a shoulder); the geometry rules union their window portions.
 Missing or unresolved dimensions keep their dependent screens `?`; a modeled
 sample pose does not establish head torque, locking or collision-free motion
 between samples.
