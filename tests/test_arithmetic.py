@@ -376,11 +376,18 @@ def test_paper_compensation_and_check_jog():
     assert row["mirrored_reading"] == pytest.approx(-0.42)
 
 
-def test_diametric_display_doubles_only_the_physical_jog():
-    row = axis_recipe(6.35, 0.0, "indicated", "x", 10.0, scale=2)
-    assert row["axis_set"] == 6.35
-    assert row["check_reading"] == pytest.approx(26.35)
-    assert row["mirrored_reading"] == pytest.approx(-13.65)
+@pytest.mark.parametrize("scale,shown", [(2, 6.35), (1, 3.175)])
+def test_display_scale_applies_to_the_contact_and_the_jog(scale, shown):
+    # A +x touch on a 6.35 mm gauge at the axis: physical contact is its radius.
+    row = axis_recipe(0.0, 3.175, "+x", "x", 10.0, scale=scale)
+    assert row["axis_set"] == pytest.approx(shown)
+    assert row["check_reading"] == pytest.approx(shown + 10.0 * scale)
+    assert row["mirrored_reading"] == pytest.approx(shown - 10.0 * scale)
+
+
+def test_unknown_display_scale_leaves_a_nonzero_contact_unknown():
+    row = axis_recipe(0.0, 3.175, "+x", "x", 10.0, scale="unknown")
+    assert row["axis_set"] == row["check_reading"] == "unknown"
 
 
 @pytest.mark.parametrize(

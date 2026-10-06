@@ -566,7 +566,9 @@ Bars = record(
     {"count": int, "type": str, "shank_in": Number, "min_bore_in": Vector, "depth_in": Vector},
 )
 # One primitive of a fixture body, in its owner's local frame (plain mm). Its own
-# measured/verify qualify it, like a LengthMeasurement; nothing above it does.
+# measured/verify qualify it, like a LengthMeasurement; nothing above it does. A ``void``
+# primitive (bore, tapped hole, slot) is not drawn: it is cut from the owner's other
+# primitives, or only from those named in ``cuts``.
 FixtureSolid = record(
     "FixtureSolid",
     {
@@ -575,6 +577,8 @@ FixtureSolid = record(
         "size_mm": Point3,
         "axis": Point3,
         **numbers("dia_mm length_mm"),
+        "void": bool,
+        "cuts": list[str],
         "measured": Measurement,
         "verify": bool,
     },

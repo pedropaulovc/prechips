@@ -174,6 +174,15 @@ solids = [
   { name = "right", shape = "box", at_mm = [15.0, -20.0, 0.0], size_mm = [30.0, 40.0, 10.0] },
 ]
 
+# A plain floor plate with one tapped hole (a void) for fixture-holds/clash.toml.
+[fixtures.test-tapped-plate]
+kind = "custom"
+verify = false
+solids = [
+  { name = "floor", shape = "box", at_mm = [-45.0, -45.0, -10.0], size_mm = [90.0, 90.0, 10.0] },
+  { name = "tapped hole", void = true, shape = "cylinder", at_mm = [0.0, -22.0, -11.0], axis = [0.0, 0.0, 1.0], dia_mm = 8.0, length_mm = 12.0 },
+]
+
 # Strap frame: origin at the centre of the strap underside on the work, x along it.
 [fixtures.test-clamp-kit]
 kind = "clamping_kit"
@@ -183,6 +192,17 @@ verify = false
 kind = "strap_clamp"
 solids = [
   { name = "strap", shape = "box", at_mm = [-30.0, -6.0, 0.0], size_mm = [60.0, 12.0, 8.0] },
+]
+
+# A strap with its stud and heel, one assembly: the slot is a void cut from the beam only,
+# so the stud passes through it uncut. Stud axis at strap x = -22; heel under x -32..-27.
+[fixtures.test-clamp-kit.members.stud-strap]
+kind = "strap_clamp"
+solids = [
+  { name = "beam", shape = "box", at_mm = [-32.0, -6.0, 0.0], size_mm = [50.0, 12.0, 8.0] },
+  { name = "slot", void = true, cuts = ["beam"], shape = "box", at_mm = [-26.0, -4.0, -1.0], size_mm = [8.0, 8.0, 10.0] },
+  { name = "stud", shape = "cylinder", at_mm = [-22.0, 0.0, -30.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 40.0 },
+  { name = "heel", shape = "box", at_mm = [-32.0, -6.0, -20.0], size_mm = [5.0, 12.0, 20.0] },
 ]
 
 # Dividing head: solids hang from the spindle nose (origin at its centre, z toward the
