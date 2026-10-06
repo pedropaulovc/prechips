@@ -159,6 +159,12 @@ def inventory_category(bundle_or_inventory, reference, categories=_INVENTORY_CAT
     return None
 
 
+def workholding_category(bundle_or_inventory, reference):
+    """Category holding a ``hold.fixture`` identity: a fixture, holder or machine (a
+    machine-hosted dividing head); ``fixtures`` when no category declares it."""
+    return inventory_category(bundle_or_inventory, reference, WORKHOLDING_CATEGORIES) or "fixtures"
+
+
 def resolve(bundle_or_inventory, category, reference):
     inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
     if not isinstance(reference, str) or reference in {UNKNOWN, "none", "not_applicable"}:

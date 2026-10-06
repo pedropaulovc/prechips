@@ -558,9 +558,11 @@ parallels were installed, the part was seated, or the vise torqued.
 
 ## `thin_wall_under_clamp`
 
-One row per setup. Holding other than a vise or a posed-solids fixture with
-`clamps` is `unsupported` (`{setup}: thin_wall_under_clamp has no vise
-grip-zone facts for {kind} holding.`). Inside the jaw zone the kernel runs clamp-direction lines through
+One row per setup. Holding other than a vise, a chuck (a lathe `chuck_3jaw` /
+`chuck_4jaw`, or a `dividing_head` that names its `hold.chuck`) or a
+posed-solids fixture with `clamps` is `unsupported` (`{setup}:
+thin_wall_under_clamp has no vise grip-zone facts for {kind} holding.`), as
+is a dividing head that names no chuck. Inside the jaw zone the kernel runs clamp-direction lines through
 the part on six Z levels and 8–64 columns along the jaws (about 1 mm pitch),
 keeps only lines that meet material at both jaw planes (a loaded wall), and
 reports the thinnest material interval among them as `min_wall_mm`; no loaded
@@ -637,10 +639,12 @@ report and captioned is in
 
 ## Limits
 
-- Lathe setups: `vise` is `not_applicable`; `thin_wall_under_clamp` samples
-  the shortest inward material run under each placed chuck jaw through the
-  grip zone (`min_wall_mm`): a solid bar's run crosses the full diameter,
-  whereas a tube's run measures its wall. Collets supply no jaw solids.
+- Lathe setups: `vise` is `not_applicable`. For every placed chuck, on a
+  lathe or carried by a dividing head on any axis, `thin_wall_under_clamp`
+  samples, in the chuck's own pose frame, the shortest inward material run
+  under each jaw through the grip zone (`min_wall_mm`): a solid bar's run
+  crosses the full diameter, whereas a tube's run measures its wall. Collets
+  supply no jaw solids.
   Turning rows follow the sampled necessary-condition model above; it proves
   no tool path. Lathe `headroom` checks stock OD and chuck body diameter against
   measured swing over the bed, stock OD against swing over the cross slide,
