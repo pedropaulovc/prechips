@@ -96,7 +96,7 @@ its example comparison are retired by the 2026-10-06 user decision. It is a
 **bonded-sleeve** route, not route generation or a recommendation: a turned body
 and head, a cone sleeve bonded in a cross-bore and a crank sleeve bonded in a
 head socket with retaining compound, both running bores reamed after cure.
-Drawing permission alone does not prepare or assemble material: temporary
+Drawing permission alone does not prepare or assemble material: plan-only
 socket/spigot features, each joint's clearance band and cure, and assembly
 remain checked. Its 12.5182° settings print BS-0 plate/circle, turns and
 spaces. No shaft cross-hole is invented, and unknown physical or cutting facts
@@ -355,8 +355,9 @@ Joined references must have disjoint supply ancestry: duplicate entries and
 joining a supply with its descendant are bad input (exit 3), naming the shared
 ancestor. Independent route alternatives may restart from the same supply but
 cannot join that material lineage twice.
-Plan-owned `joint_features` describe temporary cylindrical sockets and spigots
-on component stock, separately from the exported finished-part manifest.
+Plan-owned `joint_features` describe cylindrical sockets and spigots prepared on
+component stock for a joint, separately from the exported finished-part manifest;
+the traveler prints them as plan-only joint preparation, not drawing dimensions.
 Their operations participate in sizing, inspection and geometric clearance,
 but earn no finished STEP-face coverage. Declared fit bands must cover the
 worst-case mating diameters, prepared geometry must reach the join along the

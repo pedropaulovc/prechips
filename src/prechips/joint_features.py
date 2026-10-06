@@ -17,7 +17,8 @@ from prechips.model import UNIT_TOLERANCE, UNKNOWN, stock_ancestry
 
 LABEL_PREFIX = "plan.joint_features."
 # The one public name for plan-authored preparation, kept apart from drawing acceptance.
-TEMPORARY_LABEL = "TEMPORARY JOINT FEATURE (removed by later ops)"
+# It says nothing about the feature's fate: a bonded socket stays buried in the joint.
+JOINT_PREP_LABEL = "JOINT PREPARATION — plan only, not a drawing dimension"
 # Absolute physical-length equality (resolution.LENGTH_TOLERANCE_MM): exact fit limits pass.
 LENGTH_TOLERANCE_MM = 1e-6
 _STANDARD_KIND = {"cylinder_bore": "hole", "cylinder_spigot": "boss"}
@@ -49,7 +50,7 @@ def label(name: str) -> str:
 def source_cite(definition: Any) -> list[str]:
     """Plan-owned source identity for a transient joint feature; empty for exported ones."""
     joint = joint_of(definition)
-    return [f"{joint['label']}: {TEMPORARY_LABEL}"] if joint else []
+    return [f"{joint['label']}: {JOINT_PREP_LABEL}"] if joint else []
 
 
 def _number(value: Any) -> bool:
@@ -327,9 +328,7 @@ def setup_joint(bundle, setup: dict) -> dict | None:
         "process": joint["process"],
     }
     if joint["method"] == "retaining_compound":
-        common.update(
-            cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"]
-        )
+        common.update(cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"])
     if joint["kind"] == "surface":
         scale = _scale(bundle)
         interfaces, missing = [], []

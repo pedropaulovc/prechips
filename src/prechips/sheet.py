@@ -12,7 +12,7 @@ import math
 import re
 from html import escape
 
-from .joint_features import TEMPORARY_LABEL, setup_ancestry
+from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .model import tolerance_requirements
 from .rules.resolution import (
     MANUAL,
@@ -497,9 +497,10 @@ class _Traveler:
             return overrides.get(dimension, self.general_precision)
         return overrides
 
-    def feature_label(self, feature):
-        """An exported feature prints its shop name; a transient joint feature is marked
-        temporary. A through bore is a through-socket; a spigot is its component's exterior."""
+    def feature_label(self, feature, marked=True):
+        """An exported feature prints its shop name; a plan joint feature is marked as joint
+        preparation (unless a heading already says so). A through bore is a through-socket;
+        a spigot is its component's exterior."""
         definition = self.features.get(feature, {})
         joint = _mapping(definition.get("joint"))
         if not joint:
@@ -508,10 +509,8 @@ class _Traveler:
             kind = "spigot exterior"
         else:
             kind = "through-socket bore" if definition.get("thru") is True else "socket bore"
-        return (
-            f"{self.feature_name(feature)} ({kind} on {_text(joint['component'])}): "
-            f"{TEMPORARY_LABEL}"
-        )
+        name = f"{self.feature_name(feature)} ({kind} on {_text(joint['component'])})"
+        return f"{name}: {JOINT_PREP_LABEL}" if marked else name
 
     def joint_text(self, setup):
         """How a joint setup joins its two received branches: method, process, the declared
@@ -2254,7 +2253,7 @@ class _Traveler:
         return line
 
     def requirements(self):
-        rows, temporary = [], []
+        rows, joint_prep = [], []
         for feature, definition in self.features.items():
             values = [
                 "? requirement not identified"
@@ -2266,9 +2265,9 @@ class _Traveler:
             ]
             if _mapping(definition.get("joint")):
                 # Plan-authored preparation, never drawing acceptance.
-                temporary.append(
+                joint_prep.append(
                     (
-                        self.feature_label(feature),
+                        self.feature_label(feature, marked=False),
                         "; ".join(values) or "No preparation requirements declared.",
                     )
                 )
@@ -2282,9 +2281,9 @@ class _Traveler:
         html = "<h2>DRAWING REQUIREMENTS</h2>" + _table(
             ["feature", "limits"], rows, widths=[30, 70]
         )
-        if temporary:
-            html += f"<h2>{escape(TEMPORARY_LABEL)}</h2>" + _table(
-                ["plan feature", "limits"], temporary, widths=[30, 70]
+        if joint_prep:
+            html += f"<h2>{escape(JOINT_PREP_LABEL)}</h2>" + _table(
+                ["plan feature", "limits"], joint_prep, widths=[30, 70]
             )
         return html
 
