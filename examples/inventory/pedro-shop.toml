@@ -167,16 +167,6 @@ oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", 
 [tools.endmills-lms-6784.members."3-8in-4fl".projection_mm]
 "r8-collets-lms-4860/3-8in" = { value = 38.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
 
-[tools.endmills-lms-6784.members."3-8in-2fl"]
-dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
-shank_in = "3/8"
-flutes = 2
-flute_len_mm = { value = 22.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
-oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
-
-[tools.endmills-lms-6784.members."3-8in-2fl".projection_mm]
-"r8-collets-lms-4860/3-8in" = { value = 38.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
-
 [tools.endmills-tin-10pc]
 kind = "endmill_set"
 coating = "TiN"
@@ -918,6 +908,16 @@ body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measu
 # rev-3 inventory line 165: none on hand (2026-10-02)
 
 # --- rocker-arm additions ---
+[tools.endmills-lms-6784.members."3-8in-2fl"]
+dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
+shank_in = "3/8"
+flutes = 2
+flute_len_mm = { value = 22.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.endmills-lms-6784.members."3-8in-2fl".projection_mm]
+"r8-collets-lms-4860/3-8in" = { value = 38.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, collet nose to tool tip after inserting the rocker rougher 0.5 mm deeper" } }
+
 # Shop-made ground riser bars, 64 mm across: they sit inside the rocker's 65 mm jaw
 # opening (0.5 mm each side) under both parallels' full footprints; a 1-2-3 block's
 # 50.8 mm edge cannot carry both parallels and its 76.2 mm edge cannot fit the opening.

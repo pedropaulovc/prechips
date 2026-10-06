@@ -156,6 +156,8 @@ halfway through a fixed setup:
   four-flute finishing pass. The rails and ears are never faced; later rests and
   clamps use their retained raw 16 mm thickness. After the first rough face,
   the top is +0.20 mm and the 0.05 mm paper pickup is set to +0.25 mm.
+  The rocker-only rougher is inserted to a 38.0 mm projection, below the
+  four-diameter engagement limit; the shared finish cutter retains 38.5 mm.
   Opposed roughing retains a 0.40 mm connecting web. The 1/2 in parallels sit
   entirely beneath the rails
   on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance
