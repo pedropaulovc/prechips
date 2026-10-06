@@ -15,7 +15,7 @@ from test_kernel_geometry import IDENTITY, Engine
 from test_lathe_m2 import bundle, setup
 from test_turning_geometry import _CHUCK, _turn
 
-from prechips.rules import speeds_feeds, stickout, turned_profile
+from prechips.rules import coordinates, speeds_feeds, stickout, turned_profile
 
 # Dome of base radius 4 and height 2 on a sphere of radius 5: sqrt(2 * (10 - 2)) = 4.
 SHAFT_AND_DOME = {
@@ -221,6 +221,98 @@ def test_dome_cutting_diameter_is_its_base_declared_or_measured():
     assert speeds_feeds._diameter(data, setup(data), op, {}, True) == 9.0
     data = dataclasses.replace(data, kernel=None)
     assert speeds_feeds._diameter(data, setup(data), op, {}, True) == "unknown"
+
+
+def _collar(**facts):
+    """The test bundle chucked 5 mm deeper: exposed z -5..20, where z -5..0 is raw stock
+    between the jaw mouth and the first finished feature (the cone built-up raw collar).
+    ``facts`` is the kernel's per-setup record (``stock_profile`` / its reason)."""
+    data = bundle()
+    setup(data)["hold"]["stickout_mm"] = 25.0
+    return dataclasses.replace(data, kernel={"status": "ok", "setups": {"S1": facts}})
+
+
+def test_raw_collar_takes_the_kernel_stock_diameter_and_can_make_stickout_an_error():
+    # The collar is the Ø12 bar: D stays the Ø8 far journal, and 25 mm > 3 x 8 = 24.
+    data = _collar(stock_profile=[[-5.0, 0.0, 6.0, 6.0], [0.0, 20.0, 4.0, 6.0]])
+    ld = stickout.evaluate(data)[0]
+    assert ld.status == "error" and "exceeds the unsupported shop limit" in ld.sentence
+    assert ld.numbers["diameter_mm"] == 8.0 and ld.numbers["diameter_features"] == ["far"]
+    assert ld.numbers["uncovered_z_mm"] == [] and ld.numbers["stock_reason"] is None
+    collar = [s for s in ld.numbers["segments"] if s.get("source") == "kernel_stock"]
+    assert collar == [
+        {"z_mm": [-5.0, 0.0], "diameter_mm": 12.0, "features": [], "source": "kernel_stock"}
+    ]
+    assert any(text.startswith("kernel: setups.S1.stock_profile") for text in ld.cite)
+    # The collar is the least radius any in-process state shows there: necked to Ø7 it,
+    # not a finished feature, sets D (limit 21).
+    necked = _collar(stock_profile=[[-5.0, 0.0, 3.5, 6.0], [0.0, 20.0, 4.0, 6.0]])
+    ld = stickout.evaluate(necked)[0]
+    assert ld.status == "error" and ld.numbers["diameter_mm"] == 7.0
+    assert ld.numbers["diameter_features"] == ["kernel stock"]
+    assert ld.numbers["unsupported_limit_mm"] == pytest.approx(21.0)
+
+
+@pytest.mark.parametrize(
+    ("facts", "reason"),
+    [
+        ({}, "the kernel reports no stock profile for this setup"),
+        (
+            {"stock_profile_reason": "the stock after removal 1 is not a solid of revolution"},
+            "the stock after removal 1 is not a solid of revolution",
+        ),
+        # Starts 1 mm short of the jaw mouth, or leaves a hole inside the collar.
+        ({"stock_profile": [[-4.0, 20.0, 4.0, 6.0]]}, "does not cover the whole span"),
+        (
+            {"stock_profile": [[-5.0, -3.0, 6.0, 6.0], [-2.0, 20.0, 4.0, 6.0]]},
+            "does not cover the whole span",
+        ),
+    ],
+)
+def test_absent_or_partial_stock_profile_leaves_the_raw_collar_unknown(facts, reason):
+    ld = stickout.evaluate(_collar(**facts))[0]
+    assert ld.status == "unknown" and ld.numbers["diameter_mm"] == "unknown"
+    assert ld.numbers["uncovered_z_mm"] == [[-5.0, 0.0]]
+    assert reason in ld.numbers["stock_reason"] and reason in ld.sentence
+    no_kernel = dataclasses.replace(_collar(), kernel=None)
+    assert stickout.evaluate(no_kernel)[0].numbers["stock_reason"] == (
+        "no kernel geometry is available"
+    )
+
+
+def _boss_on_a_lathe(revolved=None, reasons=None, at=None):
+    """A Ø6 boss turned on the test lathe; located only by ``at`` or the spindle axis."""
+    data = bundle()
+    data.plan["dro"] = {"controller": "test manual DRO", "radius_mode": False}
+    data.inventory["tools"] = {"turner": {"kind": "turning_tool", "nose_radius_mm": 0.4}}
+    boss = {"kind": "boss", "frame": "model", "dia_nominal": 6.0, "cite": "test boss"}
+    data.features["features"]["boss"] = boss if at is None else {**boss, "at": at}
+    setup(data)["ops"] = [{"op": 10, "do": "finish_turn", "feature": "boss", "tool": "turner"}]
+    return _with_kernel(data, _revolved(**(revolved or {})), reasons)
+
+
+def test_coaxial_boss_is_located_by_the_spindle_axis_but_off_axis_still_needs_at():
+    coaxial = coordinates.evaluate(_boss_on_a_lathe({"boss": (20.0, 25.0, 3, 3, 3, 3)}))[0]
+    assert coaxial.status == "pass"
+    rows = {row["point"]: row["setup"] for row in coaxial.numbers["rows"]}
+    assert rows == {
+        "spindle axis, kernel span start": [0.0, 0.0, 20.0],
+        "spindle axis, kernel span end": [0.0, 0.0, 25.0],
+    }
+    assert any(text.startswith("kernel: setups.S1.revolved.boss") for text in coaxial.cite)
+    # Revolved about another axis (a cross boss) or not measured: no spindle location.
+    why = {"boss": "#4/ADVANCED_FACE[2]/BOSS is not revolved about setup Z through x = y = 0"}
+    unmeasured = dataclasses.replace(_boss_on_a_lathe(), kernel=None)
+    for data in (_boss_on_a_lathe(reasons=why), unmeasured):
+        finding = coordinates.evaluate(data)[0]
+        assert finding.status == "unknown"
+        assert all(row.get("point") is None for row in finding.numbers["rows"])
+    # An authored ``at`` still locates an off-axis boss.
+    placed = coordinates.evaluate(_boss_on_a_lathe(reasons=why, at=[3.0, 0.0, 22.0]))[0]
+    assert placed.status == "pass"
+    assert {"feature": "boss", "model": [3.0, 0.0, 22.0], "setup": [3.0, 0.0, 22.0]} in (
+        placed.numbers["rows"]
+    )
 
 
 # --------------------------------------------------------------------- FreeCAD

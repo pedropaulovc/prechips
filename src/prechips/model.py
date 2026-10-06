@@ -136,10 +136,16 @@ StockState = record(
         "entry_z": dict[str, Number],
     },
 )
-# A `hold.supports` table: follow rest {ref, ops, jaw_lead_mm} or steady rest {ref, ops, at_z_mm}.
+# A `hold.supports` table: follow rest {ref, ops, jaw_lead_mm[, jaw_side]} or steady rest
+# {ref, ops, at_z_mm}. A follow rest's jaw_side is "turned" (behind the cutting point along
+# the feed, on the diameter just cut; the default) or "uncut" (ahead of it).
 Reference = record(
     "Reference",
-    {**texts("ref orientation note"), **numbers("height_mm jaw_lead_mm at_z_mm"), "ops": list[int]},
+    {
+        **texts("ref orientation note jaw_side"),
+        **numbers("height_mm jaw_lead_mm at_z_mm"),
+        "ops": list[int],
+    },
 )
 Index = record("Index", {"fixture": str, "feature": str, "angle_deg": Number, "positions": int})
 type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
@@ -733,6 +739,8 @@ InventoryItem = record(
         ),
         # Grooving/parting blade front-edge width (two-cornered blade): docs/rules-geometry.md.
         **dict.fromkeys(("blade_width_mm", "blade_width_in"), MeasuredLength),
+        # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
+        "jaw_angles_deg": list[Number],
     },
 )
 InventoryItem.model_rebuild()

@@ -47,7 +47,8 @@ capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or
 `_in`): the work diameters the rest can ride on, inclusive. `turning_deflection`
 uses the rest span only for an op whose ridden diameter is inside that capacity;
 an unmeasured or unverified capacity leaves deflection unknown and is listed in
-the measurement checklist. Rests have no kernel solid.
+the measurement checklist. The kernel draws the rest from its own measured
+solid fields (below and [rules-geometry](rules-geometry.md#follow-and-steady-rests)).
 Hold identities resolve through `fixtures`, `holders`, then `machines`, so a
 machine-mounted dividing head is not an unresolved fixture. Its declared
 `centre_height_in` locates the spindle axis above its mounting base for the
@@ -122,6 +123,15 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   smaller than body), `jaw_width` (tangential), `jaw_height` (radial, outward
   from the grip) and `jaw_depth` (axial, ahead of the body face). A
   `dividing_head` names its chuck from the plan (`hold.chuck`).
+- `follow_rest`: `jaw_width` (tangential), `jaw_height` (radial, outward from
+  the ridden diameter) and `jaw_depth` (axial), each fact-local measured, plus
+  `jaw_angles_deg`: the jaw directions about the spindle axis in degrees from
+  the cutting tool (e.g. `[90, 180]` for a top and a back jaw). Any one missing
+  leaves the rest undrawn and the ops it serves `unknown`, naming the field.
+- `steady_rest`: `body_dia` (the ring's outside diameter) and `body_length`
+  (its axial length), each fact-local measured; otherwise the rest is an
+  undrawn possible obstacle (a gap naming the field), so clear turning samples
+  and `fixture_interference` stay `unknown`.
 - `dead_centre` fixtures: `dia` (shank), `length` (tip to quill face) and
   `point_angle` (included cone angle, degrees); the quill is the machine's
   `tailstock.quill_dia` (a dividing head's own `tailstock` when it has one).
@@ -470,6 +480,9 @@ on hand.
 | `capacity_mm` | `float` |
 | `capacity_min_mm` / `capacity_min_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
 | `capacity_max_mm` / `capacity_max_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `jaw_angles_deg` | `list[Number]` (follow rest jaw directions about the spindle, degrees from the tool) |
+| `body_dia_mm` / `body_dia_in` | `MeasuredLength` (chuck body; steady rest ring outside diameter) |
+| `body_length_mm` / `body_length_in` | `MeasuredLength` (chuck body; steady rest ring axial length) |
 | `blade_width_mm` / `blade_width_in` | `MeasuredLength` (grooving/parting blade front-edge width) |
 | `bed_height_in` | `MeasuredLength` |
 | `nose_radius_mm` | `float` |

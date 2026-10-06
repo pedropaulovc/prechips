@@ -108,7 +108,8 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     )
     page = next(page for page in sections(html, "CONTOURS") if "south dome" in page)
     table = page[page.index("<table", page.index("south dome")) :]
-    stations = [float(z) for z in re.findall(r"<tr><td>[^<]*</td><td>([^<]*)</td></tr>", table)]
+    rows = re.findall(r"<tr>((?:<td>[^<]*</td>)+)</tr>", table)
+    stations = [float(re.findall(r"<td>([^<]*)</td>", row)[-1]) for row in rows]
     expected = [round(r["z_mm"], 2) for r in dome["rows"]]
     assert stations[: len(expected)] == expected
     assert len(set(expected)) == len(expected)
@@ -140,9 +141,7 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
     plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
     _, report, html = traveler(plan, tmp_path / "out")
     row = next(
-        cells
-        for number, cells in op_rows(sections(html, "OPERATIONS")[-1])
-        if number == "30"
+        cells for number, cells in op_rows(sections(html, "OPERATIONS")[-1]) if number == "30"
     )
     assert "calipers" in text(row)
     assert "156.67" not in text(row)
@@ -174,7 +173,8 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
 
 
 def test_hold_text_has_no_pose_vectors(tmp_path):
-    _, _, html = traveler(ROOT / "examples" / "rocker-arm" / "plan.toml", tmp_path / "out")
+    # Every shaft hold carries a chuck pose; the sheet turns it into a jaw-front Z only.
+    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
     holds = sections(html, "HOLD")
     assert holds
     for hold in holds:
