@@ -348,6 +348,12 @@ cone/sphere cap, below and sharing an edge with its claimed Z-parallel bore,
 is checked against unmodified setup-entry stock instead of an impossible
 offset shell, and is not an internal corner. Its actual collision still
 counts; wider countersinks and unrelated caps keep their unknowns and hits.
+Each feature's last drill, ream, bore or counterbore (setup then op order; a
+thread's last drill, never a pilot, spot or tap) must also form its own
+claimed caps: they must be clear of that setup's final stock, judged without
+a `to_z` clip, leave or tolerance. A touched cap is not a collision; it is
+output-stock debt and a `finish_coverage` error, even when no later setup
+consumes that stock. An unmeasurable completion makes that credit unknown.
 Stock-state `top_z`/`entry_z` and op `depth_mm` are millimetres even for
 inch-unit features; tap fallback feature-depth bands convert to millimetres.
 Unrelated finished material and holder obstacles remain. A rough milling op's

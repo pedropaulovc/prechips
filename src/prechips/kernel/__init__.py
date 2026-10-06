@@ -49,8 +49,8 @@ def _accepted_length(item, field):
     return fact["value"] if fact["verified"] else UNKNOWN
 
 
-def op_inputs(bundle, setup, op, finishing=None):
-    from prechips.rules.geometry_common import finishing_subjects
+def op_inputs(bundle, setup, op, finishing=None, complete=None):
+    from prechips.rules.geometry_common import complete_form_subjects, finishing_subjects
     from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
@@ -107,6 +107,10 @@ def op_inputs(bundle, setup, op, finishing=None):
             "thru": thru if isinstance(thru, bool) else UNKNOWN,
             "depth_mm": depth if number(depth) else UNKNOWN,
             "entry_z_mm": entry if number(entry) else UNKNOWN,
+            # Only the feature's last drill/ream/bore/counterbore must leave its claimed
+            # caps formed; a pilot's partial cone or a spot/tap is never checked.
+            "complete_form": subject
+            in (complete_form_subjects(bundle) if complete is None else complete),
         }
         if op.get("do") in {"spot", "drill"}:
             point = angle_fact(tool, "point_angle", require_measured=False)
@@ -215,11 +219,16 @@ def hold_inputs(bundle, setup):
 
 
 def build_job(bundle):
-    from prechips.rules.geometry_common import cutting_action, finishing_subjects
+    from prechips.rules.geometry_common import (
+        complete_form_subjects,
+        cutting_action,
+        finishing_subjects,
+    )
 
     units = bundle.features.get("units", UNKNOWN)
     setups = []
     finishing = finishing_subjects(bundle)
+    complete = complete_form_subjects(bundle)
     for setup in bundle.plan["setups"]:
         frame = setup_frame(bundle, setup)
         transformed = {key: frame.get(key, UNKNOWN) for key in ("origin", "x", "y", "z")}
@@ -236,7 +245,7 @@ def build_job(bundle):
                 "frame": transformed,
                 "hold": hold_inputs(bundle, setup),
                 "ops": [
-                    op_inputs(bundle, setup, op, finishing)
+                    op_inputs(bundle, setup, op, finishing, complete)
                     for op in setup["ops"]
                     if cutting_action(op) is not False
                 ],

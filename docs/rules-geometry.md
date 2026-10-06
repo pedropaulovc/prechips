@@ -203,12 +203,18 @@ fields are listed in the job's reason text and the dependent rules are `?`.
   the same `tool_projection` convention the engagement rule and the M5
   screens share. There is no scalar tool-wide projection. OAL stays host-side
   for `reach`, and finishing-cut decisions stay host-side for `finish_coverage`;
-  neither is an engine input. Accessibility does not require OAL when the
+  neither is an engine input (the per-feature `complete_form` hole owner below
+  is). Accessibility does not require OAL when the
   selected projection is known.
 - Per spot or drill op on a hole feature: `point_angle_deg`, the selected
   tool's included `point_angle`, always sent. A plain nominal or accepted
   fact passes its number; a missing, `"unknown"` or debt-carrying angle is
   sent as `unknown`, never omitted or defaulted.
+- Per hole op on a hole feature: `complete_form` inside `hole`, true only for
+  the feature's last drill, ream, bore or counterbore in setup then op order
+  (a thread's last drill), false for every other hole op (pilots, a
+  counterbore's drill, spots, taps). It is an engine input and keys the cache;
+  the public plan schema is unchanged.
 - Per setup: the numeric frame from the manifest (`origin` converted from
   inches when `units = "in"`; an unknown frame keeps every op row `unknown`
   with `numeric setup frame is unknown`), and for a `kind = "vise"` fixture
@@ -294,6 +300,9 @@ remaining overstock above `to_z`,
 including drafted walls whose +Z sweep is nonzero. Exact face contact catches
 small retained ears; nearest-contact probes inset from the face boundary
 distinguish a drafted sliver from legitimately retained neighbours.
+A `complete_form` hole op's own claimed caps are then checked against the
+setup's final stock with the same contact test, without the `to_z` clip (see
+[accessibility](#accessibility)); a touched cap is named output-stock debt.
 An operation can declare numeric `stock_removal_bounds` (one setup-frame box)
 to clear only outside-finished material inside that volume. The box is the
 explicit cleared footprint the author declares, for example the envelope of
@@ -433,6 +442,20 @@ a wrong point angle, a point deeper than the finished cap, or a flat-bottomed
 tool against a matched cone or sphere hits. A wider countersink and tilted or
 unrelated caps keep their offset shell, unknowns and real hits, and no other
 op borrows this exemption.
+
+A `complete_form` op must also form its own matched claimed caps. After the
+setup's cuts and the profile-wall check, the cumulative stock minus the
+finished solid must not touch any of those caps, under the same exact and
+inset interior-contact test as walls. The test has no `to_z` clip, leave or
+tolerance. Stock below a flat finishing floor therefore still leaves a cone
+unformed, as does a flatter or smaller point. A cut that removes nothing is
+judged too. The op's `cap_completion` fact names `caps` and `unformed`
+(finished-face indices). A touched cap makes the setup's output stock debt,
+which it names; it is not a collision, and accessibility facts are unchanged.
+When the completion cannot be measured (unknown stock, a hole-cut debt or a
+failed boolean), `unformed` is `unknown` with a `reason`. Only matched caps
+are judged: no other cone or sphere is waived or added. A counterbore op whose
+explicit `faces` omit the small bore does not judge that bore's cone.
 
 For drill, spot, ream, bore, tap and counterbore operations, the flute stock
 obstacles exclude only the op's own actual cutter volume, to its declared
@@ -596,11 +619,21 @@ One row per feature. A feature with a known `requirements` list that neither
 lists nor declares `finish_ra` is `not_applicable` (`drawing declares no finish
 requirement`); an unknown/omitted requirement list or an unknown `finish_ra`
 value is `unknown`. Otherwise every face of the feature must be claimed by a
-finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`.
+finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`, and
+`unformed_caps` when present.
+
+A claimed hole cap is credited only when its `complete_form` op's
+`cap_completion` measured it clear (see [accessibility](#accessibility)). This
+holds for the last setup and for any output no setup consumes. A cap that
+still touches stock stays uncovered and is listed in `unformed_caps`. An
+unmeasured cap makes the row `unknown` unless another face already errors.
+A tap's claim never credits a cap its thread's drill left unformed.
 
 - `finish-required faces lack a finishing cut.` (error)
+- `finish-required hole cap(s) still touch stock after their complete-form cut's setup.` (error)
 - `every finish-required face is claimed by a finishing cut.` (pass)
 - `finish face references or finishing operation claims are unresolved.` (unknown)
+- `hole cap completion is unknown: {reason}.` (unknown)
 - `lathe approach model not implemented (engine approaches along -Z only)` (unsupported)
 
 Unsupported turning finish cuts name possible coverage only: their raw engine
@@ -712,6 +745,12 @@ report and captioned is in
   grid, not full swept toolpath simulation; a feature narrower than the
   sampling can be missed between samples. Chatter, clamp deformation and the
   PLAN §4.6 residue remain outside every rule.
+- Cap completion compares the modelled final hole cutter with the CAD cap
+  exactly. A final tool radius smaller than the CAD bore, an inch/metric
+  nominal mismatch, or CAD modelled at a thread's major diameter leaves a rim
+  or apex residue, and that residue is named stock debt and uncredited finish.
+  This is symmetric with the existing oversize-point collision; there is no
+  tolerance band.
 - A length fact carrying its own `verify = true` / `"unknown"` or an
   incomplete `measured` record, a missing dimension, an unknown frame, or an
   unknown `thin_wall_floor_mm` keeps the corresponding rows `?`; an
