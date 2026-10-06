@@ -697,6 +697,10 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
     for axis, row in numbers.get("axes", {}).items():
         recipe = setup["zero"][axis]
         edge = recipe.get("edge_mm", "unknown")
+        jog = recipe["check_jog_mm"]
+        sign = row.get("sign", "unknown")
+        require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
+        scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
         if axis == "z":
             if recipe.get("face") == "top":
                 edge = setup["stock_state"].get("top_z", "unknown")
@@ -704,7 +708,26 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
             paper = recipe.get("paper_mm", "unknown")
             expected = edge + paper if numeric(edge) and numeric(paper) else "unknown"
         elif recipe.get("method") == "trial_cut_measure":
-            expected = "unknown"  # A measured trial diameter has not been supplied.
+            # The measured diameter is a bench reading: a ready gauge and jog complete it.
+            gauge = recipe.get("gauge", "unknown")
+            ready = (
+                isinstance(gauge, str)
+                and resolves(gauge, entries)
+                and not uncertain(gauge, entries)
+                and numeric(jog)
+            )
+            display = "D" if scale == 2 else "D/2"
+            step = sign * scale * jog if ready else 0
+            for field, text in (
+                ("axis_set", f"measured {display}"),
+                ("check_reading", f"{display} {step:+g}"),
+                ("mirrored_reading", f"{display} {-step:+g}"),
+            ):
+                require(
+                    row.get(field) == (text if ready else "unknown"),
+                    f"{setup['id']}.{axis}: trial-cut {field}",
+                )
+            continue
         elif recipe.get("from") == "indicated":
             near(row["radius_mm"], 0, "indicated axis has no finder correction")
             expected = edge
@@ -714,11 +737,9 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
             near(row.get("radius_mm", "unknown"), radius, f"{setup['id']}.{axis}: finder radius")
             side = -1 if recipe.get("from") == f"-{axis}" else 1
             expected = edge + side * radius if numeric(edge) and numeric(radius) else "unknown"
+        # The display shows scale × the physical contact (diameter mode doubles it).
+        expected = expected * scale if numeric(expected) else "unknown"
         near(row.get("axis_set", "unknown"), expected, f"{setup['id']}.{axis}: Axis Set")
-        jog = recipe["check_jog_mm"]
-        sign = row.get("sign", "unknown")
-        require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
-        scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
         for field, factor in (("check_reading", 1), ("mirrored_reading", -1)):
             result = (
                 expected + factor * sign * scale * jog

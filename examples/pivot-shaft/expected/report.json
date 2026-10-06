@@ -7163,20 +7163,21 @@
       "numbers": {
         "axes": {
           "x": {
-            "axis_set": "unknown",
-            "axis_set_status": "unknown",
+            "axis_set": "measured D",
+            "axis_set_status": "measured",
             "check_expression": "D +20",
             "check_jog_mm": 10.0,
-            "check_reading": "unknown",
+            "check_reading": "D +20",
             "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
             "feature": "spindle_axis",
             "from": "+x",
             "gauge": "micrometers/0-1in",
+            "gauge_verify": false,
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
             "mirrored_expression": "D -20",
-            "mirrored_reading": "unknown",
+            "mirrored_reading": "D -20",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
             "sign": 1,
@@ -7219,7 +7220,7 @@
             "method": "touch; withdraw along X without moving Z; Axis Set Z",
             "paper_mm": 0.0,
             "tool": "turning-tools-warner-lms-4132/E",
-            "x_axis_set": "unknown",
+            "x_axis_set": "measured D",
             "x_method": "touch the cylinder just measured by micrometer; Axis Set its measured diameter",
             "z_axis_set": 0.0,
             "z_face": "shoulder_north_face"
@@ -7244,20 +7245,21 @@
       "numbers": {
         "axes": {
           "x": {
-            "axis_set": "unknown",
-            "axis_set_status": "unknown",
+            "axis_set": "measured D",
+            "axis_set_status": "measured",
             "check_expression": "D +20",
             "check_jog_mm": 10.0,
-            "check_reading": "unknown",
+            "check_reading": "D +20",
             "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
             "feature": "spindle_axis",
             "from": "+x",
             "gauge": "micrometers/0-1in",
+            "gauge_verify": false,
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
             "mirrored_expression": "D -20",
-            "mirrored_reading": "unknown",
+            "mirrored_reading": "D -20",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
             "sign": 1,
@@ -7298,7 +7300,7 @@
             "method": "touch; withdraw along X without moving Z; Axis Set Z",
             "paper_mm": 0.0,
             "tool": "turning-tools-warner-lms-4132/E",
-            "x_axis_set": "unknown",
+            "x_axis_set": "measured D",
             "x_method": "touch the cylinder just measured by micrometer; Axis Set its measured diameter",
             "z_axis_set": -7.5,
             "z_face": "shoulder_north_face"
@@ -7330,20 +7332,21 @@
       "numbers": {
         "axes": {
           "x": {
-            "axis_set": "unknown",
-            "axis_set_status": "unknown",
+            "axis_set": "measured D",
+            "axis_set_status": "measured",
             "check_expression": "D +20",
             "check_jog_mm": 10.0,
-            "check_reading": "unknown",
+            "check_reading": "D +20",
             "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
             "feature": "spindle_axis",
             "from": "+x",
             "gauge": "micrometers/0-1in",
+            "gauge_verify": false,
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
             "mirrored_expression": "D -20",
-            "mirrored_reading": "unknown",
+            "mirrored_reading": "D -20",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
             "sign": 1,
@@ -7385,7 +7388,7 @@
             "method": "touch; withdraw along X without moving Z; Axis Set Z",
             "paper_mm": 0.0,
             "tool": "turning-tools-warner-lms-4132/E",
-            "x_axis_set": "unknown",
+            "x_axis_set": "measured D",
             "x_method": "touch the cylinder just measured by micrometer; Axis Set its measured diameter",
             "z_axis_set": 1.75,
             "z_face": "cut_face_after_op10"
@@ -7403,7 +7406,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "01aaae475c9ec353505dc0b343ad91223ba1b75e74b9cd57d66cfdbfd671e01a",
+  "hash": "e920f89ca137b01babae1500b36f87e61b3ecb328055acd0941d0b9a2b67db5a",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

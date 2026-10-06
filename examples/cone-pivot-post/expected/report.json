@@ -10312,7 +10312,7 @@
           "x": {
             "axis_set": "unknown",
             "axis_set_status": "unknown",
-            "check_expression": "D +20",
+            "check_expression": "unknown",
             "check_jog_mm": 10.0,
             "check_reading": "unknown",
             "dro_direction": "away_from_spindle_axis",
@@ -10320,9 +10320,10 @@
             "feature": "spindle_axis",
             "from": "+x",
             "gauge": "unknown",
+            "gauge_verify": true,
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
-            "mirrored_expression": "D -20",
+            "mirrored_expression": "unknown",
             "mirrored_reading": "unknown",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
@@ -10626,7 +10627,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "4bae61fa14a8d1fe6777e52a2a8d733139664f1460d782a4917de8b4b8d79758",
+  "hash": "232ffc5dee52e06cc052685554d4b616bf961fd4c357fa12d13b366fea251ce6",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
