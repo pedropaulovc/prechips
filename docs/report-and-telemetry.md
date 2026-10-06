@@ -311,9 +311,10 @@ block per contour op titled with its setup, op, tool and direction (`S2 op 50
 — top edge · T2 …`), the table at DRO precision and, when the render supplies
 `scene.waypoints`, a `P` column keyed to the labels drawn in the picture. A
 missing tool prints `STOP … tool not selected; do not run` instead of a table;
-a lathe dome table prints the imaginary-tip tool X/Z columns when the nose
-compensation is known, otherwise it says the nose radius compensation is not
-computed. Long contour tables may run onto more pages ("paper is cheap"); every
+a lathe dome table prints the imaginary-tip `tool X (Ø)` / `tool Z` columns,
+read on the same X display as `surface X (Ø)` (`radius` in radius mode), when
+the nose compensation is known; otherwise it says the nose radius compensation
+is not computed. Long contour tables may run onto more pages ("paper is cheap"); every
 block still names its setup.
 
 The job page and each front sheet end with the sign-off line. Setup

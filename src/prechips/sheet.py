@@ -1901,21 +1901,31 @@ class _Traveler:
             nose = _amount(
                 _mapping(resolve(self.bundle, "tools", operation.get("tool"))).get("nose_radius_mm")
             )
+            # Surface and tool X both read on the lathe DRO's X display.
+            x_unit = "radius" if _mapping(self.plan.get("dro")).get("radius_mode") is True else "Ø"
             if compensated:
                 description += (
-                    f". Surface X (Ø) / Z are the finished dome; tool X / Z are the DRO readings "
-                    f"of the R{o(compensation)} nose's imaginary tip, touched off on an outside "
-                    "diameter and a +Z end face; feed to the tool columns"
+                    f". Surface X ({x_unit}) / Z are the finished dome; tool X ({x_unit}) / Z "
+                    f"are the DRO readings of the R{o(compensation)} nose's imaginary tip, "
+                    "touched off on an outside diameter and a +Z end face; feed to the tool "
+                    "columns"
                 )
-                headings = ["P", "surface X (Ø)", "surface Z", "tool X", "tool Z"]
+                headings = [
+                    "P",
+                    f"surface X ({x_unit})",
+                    "surface Z",
+                    f"tool X ({x_unit})",
+                    "tool Z",
+                ]
             else:
                 description += (
-                    ". Finished surface, X as diameter; the table is not offset for the "
+                    f". Finished surface, X as {'radius' if x_unit == 'radius' else 'diameter'}; "
+                    "the table is not offset for the "
                     + (f"R{o(nose)} tool nose" if nose is not None else "tool nose")
                     + ": STOP — compensation not computed; feed to these points only with "
                     "nose-radius compensation set at the machine"
                 )
-                headings = ["P", "X (Ø)", "Z"]
+                headings = ["P", f"X ({x_unit})", "Z"]
             entry["parts"].append((description, headings, rows))
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
