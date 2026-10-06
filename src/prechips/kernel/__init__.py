@@ -28,6 +28,7 @@ from prechips.rules.resolution import (
     resolve,
     setup_frame,
 )
+from .render_inputs import setup_annotations
 
 UNKNOWN = "unknown"
 
@@ -590,6 +591,19 @@ def hold_inputs(bundle, setup):
         gaps.extend(missing)
     else:
         result["reason"] = "Fixture solids are not declared for this holding kind."
+    stop_ref = hold.get("stop_fixture")
+    if stop_ref not in _ABSENT:
+        stop_item = measurement_item(bundle, "fixtures", stop_ref)
+        stop_pose = _pose(hold.get("stop_pose"))
+        if stop_pose is None:
+            gaps.append("stop not drawn: declare its position and orientation")
+        elif not stop_item:
+            gaps.append("stop not drawn: selected stop fixture is not in the inventory")
+        else:
+            stop_solids, missing = _solids(stop_item, f"stop {stop_ref}")
+            gaps.extend(missing)
+            if stop_solids:
+                result["stop"] = {"pose": stop_pose, "solids": stop_solids}
     _parallels_inputs(bundle, hold, result)
     _clamp_inputs(bundle, hold, result, gaps)
     # Vise supports sit below the seat (render-only); elsewhere an undrawn support may collide.
@@ -600,9 +614,11 @@ def hold_inputs(bundle, setup):
 
 def build_job(bundle):
     from prechips.rules.geometry_common import cutting_action, finishing_subjects
+    from prechips.rules.coordinates import evaluate as coordinate_findings
 
     units = bundle.features.get("units", UNKNOWN)
     setups = []
+    coordinates = {finding.subject: finding.numbers for finding in coordinate_findings(bundle)}
     finishing = finishing_subjects(bundle)
     for setup in bundle.plan["setups"]:
         frame = setup_frame(bundle, setup)
@@ -625,6 +641,7 @@ def build_job(bundle):
                     if cutting_action(op) is not False
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
+                "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
                 # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
                 "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
                     "kind", UNKNOWN
@@ -775,6 +792,7 @@ _ENGINE_COMMON = (
     "parallels_along",
     "clamps",
     "clamp_debts",
+    "stop",
     "debts",
     "gaps",
 )
@@ -825,6 +843,7 @@ def engine_job(job):
                 "ops": [{key: op[key] for key in _ENGINE_OP if key in op} for op in setup["ops"]],
                 "stock_in": setup["stock_in"],
                 "machine_kind": setup["machine_kind"],
+                "render": setup.get("render", {}),
             }
             for setup in job["setups"]
         ],
