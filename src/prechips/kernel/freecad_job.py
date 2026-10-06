@@ -5106,8 +5106,15 @@ class _Setup:
         rows, thinnest = [], None
         for name, force, parts in self.clamp_parts:
             loaded = 0
-            for point in self._footprint(parts, force, self.part):
-                run = self._strap_run(point, force, span)
+            points = []
+            try:
+                for point in self._footprint(parts, force, self.part):
+                    points.append(point)
+            except Exception:
+                for point in points:
+                    self._strap_run(point, force, span)
+                raise
+            for point, run in zip(points, self._strap_runs(points, force, span)):
                 rows.append(
                     {
                         "clamp": name,
@@ -5152,6 +5159,96 @@ class _Setup:
                         if face.isInside(point, PLANE_TOL, True):
                             yield point
 
+    def _strap_runs(self, points, force, span):
+        """First material run for every footprint point, retaining scalar error order."""
+        intervals = self._strap_batch(points, force, span) if len(points) >= 2 else None
+        if intervals is None:
+            return [self._strap_run(point, force, span) for point in points]
+        return [self._strap_length(row) for row in intervals]
+
+    def _strap_batch(self, points, force, span):
+        """Sorted raw intervals for separated finite segments, or None for scalar replay."""
+        try:
+            rounding = PLANE_TOL / 128
+
+            def trustworthy(values):
+                return all(
+                    math.isfinite(value) and math.ulp(value) <= rounding for value in values
+                )
+
+            if not trustworthy(force) or not trustworthy((span,)) or span <= 0:
+                return None
+            force_squared = force.Length ** 2
+            separation_squared = (4 * PLANE_TOL) ** 2 * force_squared
+            if (
+                not math.isfinite(force_squared)
+                or force_squared <= 0
+                or not math.isfinite(separation_squared)
+                or separation_squared <= 0
+            ):
+                return None
+            for index, point in enumerate(points):
+                if not trustworthy(point):
+                    return None
+                for other_index in range(index):
+                    distance_squared = (point - points[other_index]).cross(force).Length ** 2
+                    if not math.isfinite(distance_squared) or distance_squared <= separation_squared:
+                        return None
+
+            lines = []
+            for point in points:
+                start, end = point - force * 0.01, point + force * span
+                if not trustworthy(start) or not trustworthy(end):
+                    return None
+                line = Part.LineSegment(start, end).toShape()
+                tolerance = line.getTolerance(1)
+                if not math.isfinite(tolerance) or not 0 <= tolerance < PLANE_TOL:
+                    return None
+                lines.append(line)
+            result = Part.makeCompound(lines).common(self.part)
+            if result.isNull() or not result.isValid():
+                return None
+            tolerance = result.getTolerance(1)
+            if not math.isfinite(tolerance) or not 0 <= tolerance < PLANE_TOL:
+                return None
+
+            intervals = [[] for _ in points]
+            for edge in result.Edges:
+                vertices = edge.Vertexes
+                if not isinstance(edge.Curve, Part.Line) or len(vertices) != 2:
+                    return None
+                owner, values = None, []
+                for vertex in vertices:
+                    endpoint = vertex.Point
+                    if not trustworthy(endpoint):
+                        return None
+                    match = None
+                    for index, point in enumerate(points):
+                        value = (endpoint - point).dot(force)
+                        if not math.isfinite(value):
+                            return None
+                        parameter = value / force_squared
+                        if not math.isfinite(parameter):
+                            return None
+                        closest = point + force * max(-0.01, min(span, parameter))
+                        if not all(math.isfinite(coordinate) for coordinate in closest):
+                            return None
+                        distance = (endpoint - closest).Length
+                        if not math.isfinite(distance):
+                            return None
+                        if distance <= PLANE_TOL:
+                            if match is not None:
+                                return None
+                            match = (index, value)
+                    if match is None or (owner is not None and match[0] != owner):
+                        return None
+                    owner = match[0]
+                    values.append(match[1])
+                intervals[owner].append(sorted(values))
+            return [sorted(row) for row in intervals]
+        except Exception:
+            return None
+
     def _strap_run(self, point, force, span, shape=None):
         """Material length of ``shape`` (default: the stock) from ``point`` along ``force``
         until the first air, or None when the point is not on material."""
@@ -5161,6 +5258,11 @@ class _Setup:
             sorted((vertex.Point - point).dot(force) for vertex in edge.Vertexes)
             for edge in line.common(self.part if shape is None else shape).Edges
         )
+        return self._strap_length(intervals)
+
+    @staticmethod
+    def _strap_length(intervals):
+        """First loaded material run from sorted raw intervals."""
         merged = []
         for lo, hi in intervals:
             if merged and lo - merged[-1][1] <= PLANE_TOL:
