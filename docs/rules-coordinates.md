@@ -281,7 +281,8 @@ is positive. Reversed direction or a non-ABS known mode is an error.
 an ear's inner face) uses its own authored edge; stock top is not its fallback.
 
 For each authored Z `retouch_after`, the new set value is advanced top + paper.
-A profile does not move the touched top.
+A profile does not move the touched top. A listed retouch sets Z for the next
+cutting tool only.
 
 X `method = "trial_cut_measure"` cuts a diameter, measures it at the machine
 with the declared `gauge` and Axis Sets that reading. Like paper thickness the
@@ -291,22 +292,58 @@ resolve without a verify flag, `check_jog_mm` is numeric and the lathe
 `measured D`, check `D +2j`, mirror `D -2j`; radius mode `measured D/2`,
 `D/2 ±j`. A target diameter is never used as the measurement.
 
+Z `method = "measure_then_set"` touches a face whose position is measured at
+the machine (M, read with `gauge` as the stated `measure`) and Axis Sets
+`M + offset_mm + paper_mm`; check/mirror are `M ±j` on the same base. Like a
+trial cut it is complete when `gauge` resolves unflagged, `measure` is stated and
+`offset_mm`, `paper_mm` and the jog are numeric; the rows show `M -9`, `M +1`.
+
 Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
 `gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
 `x_axis_set` is the same measured-diameter expression and `z_axis_set` is
-`edge_mm + paper_mm`. Missing tools, unverified finder/gauge facts, missing
+`edge_mm + paper_mm`. A mill touch sets Z only (`x_axis_set = "not_applicable"`):
+the mill X/Y read the spindle axis whatever the tool. A touch with
+`method = "measure_then_set"` sets `M + z_offset_mm + paper_mm`, M read with
+`z_gauge` as `z_measure`. Missing tools, unverified finder/gauge facts, missing
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
+
+One DRO per setup: the DRO reads the tool that last set it, by the zero, a tool
+touch (made before the first of its `before_ops`, else after its `after_op`) or
+a listed retouch. Ops before the Z zero's `after_op` run before any tool set Z.
+Every cutting op whose tool did not make the latest Axis Set
+is touched off first (`derived_touches`, printed "re-touch" at that op), the way
+its source found the surface (a scribe is aligned to; a faced zero is touched):
+
+- Z on the latest touched or faced surface still standing at a plan Z: the zero
+  face, a tool-touch face, a listed retouch's top or a face/pocket op's `to_z`
+  (faced surfaces take the zero's paper). A surface stands until a face or
+  pocket op cuts that feature (the top: moves the top) to another Z. A measured
+  Z (`trial_cut_measure`, `measure_then_set`) is no plan number to repeat.
+- On a lathe, X on the latest diameter turned in the setup (`turn`,
+  `rough_turn`, `finish_turn`) measured with the latest X gauge, else the latest
+  touch's own `x_method` surface (not a trial cut), Axis Set the measured
+  diameter. Tailstock tools (axial actions) do not read the carriage DRO.
+
+An axis with nothing to derive from is a `missing_touches` row
+(`before_op`, `tool`, `axes`, `dro_set_by`) and an error: a tool cutting on
+another tool's Axis Set scraps the part. An authored tool touch for that tool
+before the op replaces the derivation.
 
 Templates:
 
 - `DRO direction or mode disagrees with the setup convention; stop and correct it before the check jog.`
 - `Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings.`
-- The latter appends, when unknown:
+- The latter appends, when touches were derived:
+  ` Each tool change is touched off on the last touched or faced surface still standing.`
+- when a touch is missing:
+  ` A tool cuts on a DRO another tool set and no standing plan surface is known to touch it off on: plan a tool touch before op {op}, ….`
+- and when unknown:
   ` Measured setup/tool or trial-cut verification remains unknown.`
 
 Evidence: per-axis contact/set/check/mirror/sign, source edge, finder radius,
-paper, jog and DRO direction, retouch list, per-tool touches and transfer.
+paper, jog and DRO direction, retouch list, per-tool touches, derived and
+missing tool-change touches and transfer.
 Citations: PLAN §4.1 and Electronica EL400 Operation Manual §6.2 p20, §7.4 p31,
 §8.1 p37, §9.2.1 p62; plan zero/stock-state and inventory finder nominal size.
 The recipe says **jog without retouching**. Physical emulator direction and

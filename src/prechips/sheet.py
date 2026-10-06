@@ -279,6 +279,7 @@ _METHODS = {
     "face_then_set": "face it, then set",
     "touch_then_set": "touch it, then set",
     "touch_then_set_after_face": "touch the faced end, then set",
+    "measure_then_set": "touch it, then set from the measured M",
 }
 _STOCK_FORMS = {
     "round_bar": "round bar",
@@ -1329,7 +1330,7 @@ class _Traveler:
                     for key, value in readings.items()
                 }
                 edge = surface
-            measured = method in {"trial_cut_measure", "face_then_set"}
+            measured = method in {"trial_cut_measure", "face_then_set", "measure_then_set"}
             if _known(edge) and touch.get("from") != "indicated" and not measured:
                 contact.append(f"surface at {o(edge)}")
             radius = touch.get("radius_mm")
@@ -1342,6 +1343,8 @@ class _Traveler:
                 contact.append(f"after op {_text(touch['after_op'])}")
             if touch.get("gauge"):
                 contact.append("measure with " + self.short_reference(touch["gauge"], "gauges"))
+            if touch.get("measure"):
+                contact.append("M = " + self.bench(touch["measure"]))
             expected = self.reading(readings["check_reading"], computed.get("check_expression"))
             mirrored = self.reading(
                 readings["mirrored_reading"], computed.get("mirrored_expression")
@@ -1412,13 +1415,24 @@ class _Traveler:
         for (top, paper, axis_set), ops in retouches.items():
             pieces.append(
                 _p(
-                    f"After {_ops_label(ops)}, before each new tool: touch "
+                    f"After {_ops_label(ops)}, before the next tool: touch "
                     f"{self.feature_name(top_feature) if top_feature else 'the top'} "
                     f"(Z {top}) with {paper} paper → Axis Set Z {axis_set}."
                 )
             )
         for touch in numbers.get("tool_touches", []):
             pieces.append(_p(self.tool_touch(setup, touch, tools)))
+        for touch in numbers.get("derived_touches", []):
+            pieces.append(_p(self.tool_touch(setup, touch, tools)))
+        for gap in numbers.get("missing_touches", []):
+            name = tools.get(gap.get("tool")) or self.short_reference(gap.get("tool"))
+            axes = " and ".join(_text(axis).upper() for axis in gap.get("axes", []))
+            pieces.append(
+                _p(
+                    f"STOP: before op {_text(gap.get('before_op'))}, {name} has no {axes} "
+                    "touch — the DRO reads another tool. Plan a tool touch."
+                )
+            )
         for record in axes.values():
             if record.get("note"):
                 pieces.append(_p(self.bench(record["note"])))
@@ -1431,10 +1445,11 @@ class _Traveler:
         text = value if isinstance(value, str) and value != "unknown" else expression
         if not isinstance(text, str) or text == "unknown":
             return "?"
-        match = re.fullmatch(r"D\s*([+-])\s*(\d+(?:\.\d+)?)", text.strip())
+        match = re.fullmatch(r"([DM])\s*([+-])\s*(\d+(?:\.\d+)?)", text.strip())
         if match:
-            sign = "+" if match[1] == "+" else "−"
-            return f"measured Ø {sign} {self.operative(float(match[2]))}"
+            sign = "+" if match[2] == "+" else "−"
+            subject = "measured Ø" if match[1] == "D" else "M"
+            return f"{subject} {sign} {self.operative(float(match[3]))}"
         return "measured Ø" if text.strip() == "measured D" else self.bench(text)
 
     def tool_touch(self, setup, touch, tools):
@@ -1444,29 +1459,45 @@ class _Traveler:
         when = f"Before {_ops_label(before if isinstance(before, list) else [before])}"
         if touch.get("after_op") not in (None, "unknown"):
             when += f" (after op {_text(touch['after_op'])})"
-        parts = [f"{when}, touch off {name}:"]
-        if touch.get("x_method"):
+        # A derived touch repeats one the setup already made, for the tool coming in.
+        parts = [f"{when}, {'re-touch' if 'repeats' in touch else 'touch off'} {name}:"]
+        if touch.get("x_method") or touch.get("x_face"):
             gauge = touch.get("gauge")
+            x_face = touch.get("x_face")
             parts.append(
                 "X — "
-                + self.bench(touch["x_method"])
+                + (
+                    f"on the {self.feature_name(x_face)} Ø, measured"
+                    if x_face
+                    else self.bench(touch["x_method"])
+                )
                 + (f" ({self.short_reference(gauge, 'gauges')})" if gauge else "")
+                + (f"; Axis Set X {self.reading(touch.get('x_axis_set'))}" if x_face else "")
                 + "."
             )
         z_face = touch.get("z_face")
         if z_face:
             paper = touch.get("paper_mm")
-            method = re.sub(r";?\s*Axis Set Z\.?$", "", str(touch.get("method", "touch")))
-            text = f"Z — on the {self.bench(z_face)}: {_METHODS.get(method, self.bench(method))}"
-            if _known(paper):
-                text += f", paper {self.operative(paper)}" if paper else ", no paper"
             edge = touch.get("edge_mm")
             axis_set = touch.get("z_axis_set", edge)
+            surface = "unknown"
             if _known(edge) and _known(axis_set):
                 # The touched face as the DRO shows it when this tool comes in.
                 done = self.ops_done(setup, before=touch.get("before_ops"))
                 surface = self.datum_z(setup, z_face, edge, done)
                 axis_set = axis_set + surface - edge if _known(surface) else "unknown"
+            method = re.sub(r";?\s*Axis Set Z\.?$", "", str(touch.get("method", "touch")))
+            text = f"Z — on the {self.bench(z_face)}"
+            if "repeats" in touch and _known(surface):
+                text += f" (Z {self.operative(surface)})"
+            text += f": {_METHODS.get(method, self.bench(method))}"
+            if touch.get("z_measure"):
+                gauge = touch.get("z_gauge")
+                text += f", M = {self.bench(touch['z_measure'])}" + (
+                    f" ({self.short_reference(gauge, 'gauges')})" if gauge else ""
+                )
+            if _known(paper):
+                text += f", paper {self.operative(paper)}" if paper else ", no paper"
             text += f"; Axis Set Z {self.reading(axis_set)}."
             parts.append(text)
         return " ".join(parts)

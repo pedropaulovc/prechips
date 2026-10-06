@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from ..findings import Finding
 from ._bench import manual_bench, not_applicable
+from .geometry_common import approach
 from .resolution import (
+    LENGTH_TOLERANCE_MM,
+    MANUAL,
+    SAW_OPS,
     UNKNOWN,
     length_mm,
     number,
@@ -14,7 +18,12 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
-from .tip_endpoints import mapping, records, stock_states
+from .tip_endpoints import FACING, POCKETING, mapping, records, stock_states
+
+# Set from a bench reading, not a plan number: a trial-cut diameter or a measured edge.
+MEASURED = {"trial_cut_measure", "measure_then_set"}
+# Lathe ops that leave a measurable diameter a later tool can be touched off on.
+TURNED = {"turn", "rough_turn", "finish_turn"}
 
 DIRECTIONS = {
     "x": ({"right", "away_from_spindle_axis"}, {"left", "toward_spindle_axis"}),
@@ -59,6 +68,184 @@ def gauge_ready(bundle, reference):
     """A trial-cut diameter is a bench reading: it needs a resolved, unflagged gauge."""
     gauge = resolve(bundle, None, reference)
     return bool(gauge) and not uncertain(gauge)
+
+
+def measured_edge(base):
+    """The bench expression a measured edge is set as: the reading M plus ``base``."""
+    if not number(base):
+        return UNKNOWN
+    return "M " + f"{round(base, 6) + 0.0:+.6f}".rstrip("0").rstrip(".")
+
+
+def measured_z(bundle, gauge, measure, offset_mm, paper_mm):
+    """A ``measure_then_set`` Z: Axis Set M + offset + paper, where M is read at the
+    machine with a ready gauge; the returned offset + paper is unknown until the gauge
+    resolves unflagged and the measurement is named."""
+    named = isinstance(measure, str) and bool(measure.strip())
+    if not (named and gauge_ready(bundle, gauge) and number(offset_mm) and number(paper_mm)):
+        return UNKNOWN
+    return offset_mm + paper_mm
+
+
+def _position(ops, record):
+    """The index of the op a touch is made before: the first of its ``before_ops``, else
+    the op after its ``after_op``; None when neither names one of ``ops``."""
+    names = [str(op.get("op")) for op in ops]
+    before = record.get("before_ops")
+    named = [
+        names.index(str(n))
+        for n in (before if isinstance(before, list) else [before])
+        if str(n) in names
+    ]
+    if named:
+        return min(named)
+    after = str(record.get("after_op"))
+    return names.index(after) + 1 if after in names else None
+
+
+def _standing(event, states, index):
+    """A touched or faced Z surface stands at op ``index`` unless an op since cut that
+    surface (the stock top: moved the top) to another Z."""
+    for op, before, after in states[event["index"] : index]:
+        if op.get("do") not in FACING | POCKETING or not number(op.get("to_z")):
+            continue
+        moved = event["top"] and after["top_from"] != before["top_from"]
+        if (op.get("feature") == event["face"] or moved) and abs(
+            op["to_z"] - event["z"]
+        ) > LENGTH_TOLERANCE_MM:
+            return False
+    return True
+
+
+def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
+    """One DRO per setup: each cutting op runs on Axis Sets its own tool made.
+
+    The DRO reads the tool that last set it: the zero, a tool touch or a listed retouch
+    (which serves the next tool only). A cutting op with another tool is touched off
+    first, derived here: Z on the latest touched or faced surface still standing at a
+    plan Z (its paper; a faced surface takes the zero's), never a measured one; on a
+    lathe, X on the latest diameter turned in the setup, else a touch's own X surface,
+    set as the measured diameter. Tailstock tools on a lathe never read the carriage
+    DRO; a touch naming none of the setup's ops serves none. Returns (derived touches,
+    missing touches, unknown)."""
+    ops = records(setup.get("ops"))
+    states = list(stock_states(setup, bundle.feature_definitions))
+    recipe, x_recipe = mapping(zero.get("z")), mapping(zero.get("x"))
+    paper = recipe.get("paper_mm", UNKNOWN)
+    face = recipe.get("face", recipe.get("feature"))
+    start = _position(ops, {"after_op": recipe.get("after_op")}) or 0
+    # A top pickup touches the top as the ops through its after_op left it.
+    zero_z = (
+        (states[start][1] if start < len(states) else {}).get("top_z", UNKNOWN)
+        if face == "top"
+        else recipe.get("edge_mm", UNKNOWN)
+    )
+    placed, unknown = {}, False
+    for touch in touches:
+        placed.setdefault(_position(ops, touch), []).append(touch)
+    listed = {str(n) for n in records(recipe.get("retouch_after"))}
+    z_events, x_events, derived, missing = [], [], [], []
+    # Ops before the zero's after_op run before any tool set the Z DRO.
+    set_z = None
+    set_x, x_gauge = (
+        (x_recipe.get("tool", UNKNOWN), x_recipe.get("gauge")) if lathe else (None, None)
+    )
+    pending = False
+
+    def z_event(index, surface, z, touch_paper, source, method="touch_then_set"):
+        if number(z):
+            z_events.append(
+                {
+                    "index": index,
+                    "face": surface,
+                    "z": z,
+                    "paper": touch_paper,
+                    "top": surface == "top",
+                    "source": source,
+                    "method": method,
+                }
+            )
+
+    # A re-touch finds the surface as its source did (a scribe is aligned to, not
+    # touched); a zero that faced its surface first is only touched again.
+    zero_method = recipe.get("method")
+    zero_method = "touch_then_set" if zero_method in (None, "face_then_set") else zero_method
+    for index, (op, _, after) in enumerate(states):
+        if index == start:
+            set_z = recipe.get("tool", UNKNOWN)
+            if recipe.get("method") not in MEASURED:
+                z_event(index, face, zero_z, paper, "zero", zero_method)
+        for touch in placed.get(index, []):
+            if touch.get("z_face"):
+                set_z = touch.get("tool", UNKNOWN)
+                if touch.get("method") != "measure_then_set":
+                    z_event(
+                        index,
+                        touch["z_face"],
+                        touch.get("edge_mm"),
+                        touch.get("paper_mm", UNKNOWN),
+                        f"tool touch before op {op['op']}",
+                        touch.get("method", "touch_then_set"),
+                    )
+            if lathe:
+                set_x, x_gauge = touch.get("tool", UNKNOWN), touch.get("gauge", x_gauge)
+                method = touch.get("x_method")
+                if isinstance(method, str) and method not in MEASURED:
+                    x_events.append({"x_method": method, "gauge": x_gauge})
+        tool = op.get("tool", UNKNOWN)
+        cutting = (
+            tool not in (None, UNKNOWN)
+            and op.get("do") not in MANUAL | SAW_OPS
+            and not (lathe and approach(bundle, setup, op) == "axial")
+        )
+        if cutting and pending:
+            set_z, pending = tool, False
+        changed = [
+            axis for axis, current in (("x", set_x), ("z", set_z)) if current not in (None, tool)
+        ]
+        if cutting and changed:
+            unknown |= UNKNOWN in (set_x, set_z)
+            record, lost = {"before_ops": [op["op"]], "tool": tool}, []
+            if "z" in changed:
+                source = next((e for e in reversed(z_events) if _standing(e, states, index)), None)
+                if source is None:
+                    lost.append("z")
+                else:
+                    edge, touch_paper = source["z"], source["paper"]
+                    record.update(
+                        z_face=source["face"],
+                        edge_mm=edge,
+                        paper_mm=touch_paper,
+                        z_axis_set=edge + touch_paper if number(touch_paper) else UNKNOWN,
+                        method=source["method"],
+                        repeats=source["source"],
+                    )
+            if "x" in changed:
+                turned = [e for e in x_events if "x_face" in e]
+                source = (turned or x_events or [None])[-1]
+                if source is None:
+                    lost.append("x")
+                else:
+                    shown = measured(x_scale)
+                    ready = shown != UNKNOWN and gauge_ready(bundle, source["gauge"])
+                    record.update(source, x_axis_set=f"measured {shown}" if ready else UNKNOWN)
+            if lost:
+                by = set_z if "z" in lost else set_x
+                missing.append(
+                    {"before_op": op["op"], "tool": tool, "axes": lost, "dro_set_by": by}
+                )
+            if len(lost) < len(changed):
+                derived.append(record)
+                unknown |= UNKNOWN in (record.get("z_axis_set"), record.get("x_axis_set"))
+            set_z, set_x = tool, tool if lathe else None
+        if str(op.get("op")) in listed:
+            pending = True
+            z_event(index + 1, "top", after["top_z"], paper, f"retouch after op {op['op']}")
+        if op.get("do") in FACING | POCKETING and op.get("feature"):
+            z_event(index + 1, op["feature"], op.get("to_z"), paper, f"op {op['op']} {op['do']}")
+        if lathe and op.get("do") in TURNED and op.get("feature"):
+            x_events.append({"x_face": op["feature"], "gauge": x_gauge})
+    return derived, missing, unknown
 
 
 def evaluate(bundle):
@@ -166,6 +353,29 @@ def evaluate(bundle):
                     "mirrored_reading": f"{display} {-increment:+g}" if known else UNKNOWN,
                     "sign": sign,
                 }
+            elif method == "measure_then_set":
+                # The edge is read at the machine (M), like a trial-cut diameter: Axis
+                # Set M + offset + paper, then jog from it.
+                base = (
+                    measured_z(
+                        bundle,
+                        recipe.get("gauge"),
+                        recipe.get("measure"),
+                        recipe.get("offset_mm", UNKNOWN),
+                        paper,
+                    )
+                    if axis == "z"
+                    else UNKNOWN
+                )
+                jog = recipe.get("check_jog_mm", UNKNOWN)
+                step = sign * jog if sign in {-1, 1} and number(jog) else UNKNOWN
+                known = number(base) and number(step)
+                values = {
+                    "axis_set": measured_edge(base) if known else UNKNOWN,
+                    "check_reading": measured_edge(base + step) if known else UNKNOWN,
+                    "mirrored_reading": measured_edge(base - step) if known else UNKNOWN,
+                    "sign": sign,
+                }
             row = dict(recipe)
             row.pop("retouch_after", None)
             row.update(
@@ -177,13 +387,13 @@ def evaluate(bundle):
                 dro_direction=direction,
                 axis_set_status=(
                     "measured"
-                    if method == "trial_cut_measure" and values["axis_set"] != UNKNOWN
+                    if method in MEASURED and values["axis_set"] != UNKNOWN
                     else "computed"
                     if number(values["axis_set"])
                     else UNKNOWN
                 ),
             )
-            if method == "trial_cut_measure":
+            if method in MEASURED:
                 row["check_expression"] = values["check_reading"]
                 row["mirrored_expression"] = values["mirrored_reading"]
                 row["gauge_verify"] = not gauge
@@ -214,14 +424,32 @@ def evaluate(bundle):
         for record in records(zero.get("tool_touches")):
             edge, paper = record.get("edge_mm", UNKNOWN), record.get("paper_mm", UNKNOWN)
             tool = resolve(bundle, None, record.get("tool")) or {}
+            # A mill's X/Y read the spindle axis whatever the tool: its touches set Z only.
             x_set = (
-                f"measured {measured(x_scale)}"
+                "not_applicable"
+                if not lathe
+                else f"measured {measured(x_scale)}"
                 if measured(x_scale) != UNKNOWN and gauge_ready(bundle, record.get("gauge"))
                 else UNKNOWN
             )
-            z_set = edge + paper if number(edge) and number(paper) else UNKNOWN
+            if record.get("method") == "measure_then_set":
+                z_set = measured_edge(
+                    measured_z(
+                        bundle,
+                        record.get("z_gauge"),
+                        record.get("z_measure"),
+                        record.get("z_offset_mm", UNKNOWN),
+                        paper,
+                    )
+                )
+            else:
+                z_set = edge + paper if number(edge) and number(paper) else UNKNOWN
             touches.append({**record, "x_axis_set": x_set, "z_axis_set": z_set})
             unknown |= x_set == UNKNOWN or z_set == UNKNOWN or not tool or uncertain(tool)
+        derived, missing, changes_unknown = tool_changes(
+            bundle, setup, zero, lathe, x_scale, touches
+        )
+        unknown |= changes_unknown
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -232,10 +460,12 @@ def evaluate(bundle):
             "axes": axes,
             "retouch": retouch,
             "tool_touches": touches,
+            "derived_touches": derived,
+            "missing_touches": missing,
         }
         if "transfer" in zero:
             numbers["transfer"] = zero["transfer"]
-        status = "error" if bad else "unknown" if unknown else "pass"
+        status = "error" if bad or missing else "unknown" if unknown else "pass"
         sentence = (
             "DRO direction or mode disagrees with the setup convention; stop and correct it "
             "before the check jog."
@@ -243,6 +473,20 @@ def evaluate(bundle):
             else (
                 "Touch, Axis Set the compensated value, then jog without retouching "
                 "and compare expected versus mirrored readings."
+                + (
+                    " Each tool change is touched off on the last touched or faced surface "
+                    "still standing."
+                    if derived
+                    else ""
+                )
+                + (
+                    " A tool cuts on a DRO another tool set and no standing plan surface "
+                    "is known to touch it off on: plan a tool touch before "
+                    + ", ".join(f"op {row['before_op']}" for row in missing)
+                    + "."
+                    if missing
+                    else ""
+                )
                 + (
                     " Measured setup/tool or trial-cut verification remains unknown."
                     if unknown
