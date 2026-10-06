@@ -31,7 +31,7 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
-from .tip_endpoints import HOLE_OPS, stock_states
+from .tip_endpoints import FACING, HOLE_OPS, POCKETING, stock_states
 
 AXES = ("x", "y", "z")
 CENTRE_OPS = HOLE_OPS | {"center"}
@@ -664,40 +664,35 @@ def _boundary(feature, frame, frames):
     return half(points)[:-1] + half(reversed(points))[:-1]
 
 
-def _linear(feature, op, offset, radius, frame, frames):
+def _sweep_area(feature, op, frame, frames):
+    """Setup-XY corners of the area a ``linear_table`` sweeps, or None: ``contour.
+    sweep_bounds`` in ``sweep_frame``, else a face op's setup-frame
+    ``stock_removal_bounds``, else the feature's own bounds."""
     contour = mapping(op.get("contour"))
-    envelope = (
-        {
+    if isinstance(contour.get("sweep_bounds"), dict):
+        envelope = {
             **feature,
             "bounds": contour["sweep_bounds"],
             "frame": contour.get("sweep_frame", feature.get("frame", "model")),
         }
-        if isinstance(contour.get("sweep_bounds"), dict)
-        else feature
-    )
-    boundary = _boundary(envelope, frame, frames)
+        return _boundary(envelope, frame, frames)
+    box = op.get("stock_removal_bounds")
+    if op.get("do") in FACING and isinstance(box, dict):
+        spans = [box.get(axis) for axis in ("x", "y")]
+        if not all(
+            isinstance(span, list) and len(span) == 2 and all(number(v) for v in span)
+            for span in spans
+        ):
+            return None
+        (x0, x1), (y0, y1) = spans
+        return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+    return _boundary(feature, frame, frames)
+
+
+def _linear(feature, op, offset, radius, frame, frames):
+    boundary = _sweep_area(feature, op, frame, frames)
     if not boundary or not all(number(v) for v in (offset, radius)):
         return None
-    left, right = min(p[0] for p in boundary), max(p[0] for p in boundary)
-    front, back = min(p[1] for p in boundary), max(p[1] for p in boundary)
-    if op["do"] in {"pocket", "rough_pocket", "finish_pocket"}:
-        side = contour.get("open_side")
-        step = contour.get("step_mm", UNKNOWN)
-        if side not in {"-x", "+x", "-y", "+y"} or not number(step) or step <= 0:
-            return None
-        along_x = side.endswith("x")
-        low, high = (left, right) if along_x else (front, back)
-        start, end = (
-            (low - radius, high - offset) if side.startswith("-") else (high + radius, low + offset)
-        )
-        direction = 1 if end >= start else -1
-        count = math.ceil(abs(end - start) / step)
-        samples = [start + direction * i * step for i in range(count)] + [end]
-        return (
-            [[[v, front - radius], [v, back + radius]] for v in samples]
-            if along_x
-            else [[[left - radius, v], [right + radius, v]] for v in samples]
-        )
     lines = [
         _offset_line(boundary[i], boundary[(i + 1) % len(boundary)], -offset)
         for i in range(len(boundary))
@@ -706,6 +701,134 @@ def _linear(feature, op, offset, radius, frame, frames):
         return None
     vertices = [_line_join(*lines[i - 1], *lines[i]) for i in range(len(lines))]
     return vertices + [vertices[0]] if all(v is not None for v in vertices) else None
+
+
+# Raster ops: each pass is one straight single-axis cut fed one way at the op's Z, then the
+# cutter lifts to its retract height and rapids back to the next pass's start.
+RASTER_OPS = POCKETING | FACING
+# An open side's unit vector: every pass's cutter-side wall normal, from the uncut stock
+# ahead of the stepping cutter back toward the cleared side it steps away from.
+_OPEN_SIDES = {"-x": (-1.0, 0.0), "+x": (1.0, 0.0), "-y": (0.0, -1.0), "+y": (0.0, 1.0)}
+# Milling ops whose authored ``doc_mm`` steps them down in axial levels.
+_LEVEL_OPS = RASTER_OPS | {"profile", "rough_profile", "finish_profile"}
+# Wall-finishing ops: the cutter's flank engages the whole wall above its tip.
+_WALL_OPS = {"pocket", "finish_pocket", "profile", "finish_profile"}
+
+
+def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
+    """(One stage's raster record in cutting order, None) or (None, why it is unknown).
+
+    Passes stand at positions across the area, stepping from its open side
+    (``contour.open_side``) toward the far side, and each runs one cutter radius past both
+    ends of the area. A pocket's first pass enters wholly outside the open side, the next
+    are ``step_mm`` apart and the last stops ``offset`` short of the retained far wall. A
+    face's passes are evenly spaced no more than ``step_mm`` apart from centre-on-edge to
+    centre-on-edge, clearing the whole area; without an open side it steps from the low
+    side of the area's shorter span, so its passes run along the longer one.
+
+    The uncut stock lies ahead of the stepping cutter, so every pass's cutter-side wall
+    normal is the open side's unit vector: each pass runs the way that cuts the op's
+    ``direction`` with the spindle (:func:`_reversal`), else the order is unknown. The
+    cycle is one way: feed a pass, lift to ``lift_z``, rapid back to the next pass's start.
+    """
+    face = op.get("do") in FACING
+    contour = mapping(op.get("contour"))
+    step = contour.get("step_mm", UNKNOWN)
+    if not number(step) or step <= 0:
+        return None, "a raster needs a positive contour.step_mm"
+    if not number(radius) or radius <= 0:
+        return None, "its cutter radius is unknown"
+    if not face and not number(offset):
+        return None, "its cutter-centre offset from the far wall is unknown"
+    if step > 2 * radius:
+        return None, f"its step_mm {step:g} exceeds the cutter diameter {2 * radius:g}"
+    boundary = _sweep_area(feature, op, frame, frames)
+    if not boundary:
+        return None, "its swept area has no numeric bounds"
+    left, right = min(p[0] for p in boundary), max(p[0] for p in boundary)
+    front, back = min(p[1] for p in boundary), max(p[1] for p in boundary)
+    side = contour.get("open_side")
+    if face and side is None:
+        side = "-y" if right - left >= back - front else "-x"
+    if side not in _OPEN_SIDES:
+        return None, f"its contour.open_side {side!r} is not one of -x, +x, -y, +y"
+    along_x = side.endswith("x")  # passes stand at X positions and run along Y
+    low, high = (left, right) if along_x else (front, back)
+    if face:
+        count = math.ceil((high - low) / step - 1e-9)
+        positions = (
+            [low + (high - low) * i / count for i in range(count + 1)]
+            if count > 1
+            else [(low + high) / 2]
+        )
+        if side.startswith("+"):
+            positions.reverse()
+    else:
+        start, end = (
+            (low - radius, high - offset) if side.startswith("-") else (high + radius, low + offset)
+        )
+        direction = 1 if end >= start else -1
+        count = math.ceil(abs(end - start) / step)
+        positions = [start + direction * i * step for i in range(count)] + [end]
+    first, last = (front, back) if along_x else (left, right)
+    passes = [
+        [[v, first - radius], [v, last + radius]]
+        if along_x
+        else [[first - radius, v], [last + radius, v]]
+        for v in positions
+    ]
+    reverse = _reversal(*passes[0], _OPEN_SIDES[side], sense)
+    if reverse:
+        passes = [list(reversed(segment)) for segment in passes]
+    record = {
+        "cutter_centre": passes,
+        "raster": {
+            "open_side": side,
+            "open_side_basis": "contour.open_side" if "open_side" in contour else "derived",
+            "step_mm": step,
+            "passes": len(passes),
+            "cycle": "one_way",
+            "lift_z": lift_z,
+        },
+    }
+    return _ordered(record, None if reverse is None else False, order, ()), None
+
+
+def _z_levels(op, before, declared, grid, units):
+    """The axial Z levels of a milling op that authors ``doc_mm``, else None.
+
+    Levels step from the op's start surface down to its DRO depth, each on the DRO grid and
+    no more than ``doc_mm`` below the one before; the last is the DRO depth itself. A
+    wall-finishing op starts at its feature's declared setup ``entry_z`` (never one an
+    earlier op's floor advanced), else the current top, as its flank engages the whole
+    wall; any other op starts at its feature's current entry, else the current top.
+    """
+    if op.get("do") not in _LEVEL_OPS or "doc_mm" not in op or "to_z" not in op:
+        return None
+    name, top = op.get("feature"), before["top_z"]
+    if op["do"] in _WALL_OPS:
+        start = declared.get(name, top)
+        basis = "declared entry_z" if name in declared else "setup top_z"
+    else:
+        start = before["entry_z"].get(name, top)
+        basis = "entry_z" if name in before["entry_z"] else "setup top_z"
+    end, doc = dro_z(op["to_z"], grid), op["doc_mm"]
+    record = {"start_z": start, "start_basis": basis, "dro_start_z": dro_z(start, grid)}
+    record.update(dro_to_z=end, doc_mm=doc)
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    step, decimals = grid
+    depth = doc / scale if scale and number(doc) and doc > 0 else UNKNOWN
+    lattice = math.floor(depth / step + 1e-6) * step if number(depth) else 0
+    if not (number(start) and number(end)) or lattice <= 0:
+        record.update(levels=UNKNOWN, count=UNKNOWN)
+        record["reason"] = "its start Z, DRO depth, plan units or doc_mm is unknown"
+        return record
+    levels, z = [], _grid(start - depth, step, decimals, True)
+    while z > end + _WALL_TOL:
+        levels.append(z)
+        z = round(z - lattice, decimals)
+    record.update(levels=[*levels, end], count=len(levels) + 1)
+    return record
 
 
 def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
@@ -1170,6 +1293,7 @@ def evaluate(bundle, *, pre_kernel=False):
     # Feature source frames are manifest-only; setups resolve exported or plan-owned frames.
     frames = mapping(bundle.features.get("frames"))
     dro = mapping(bundle.plan.get("dro"))
+    units = bundle.features.get("units")
     for setup in bundle.plan["setups"]:
         bench = manual_bench(bundle, setup)
         if bench is not None:
@@ -1216,10 +1340,15 @@ def evaluate(bundle, *, pre_kernel=False):
         ]
         grid = dro_grid(bundle, setup)
         numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
-        for entry in numbers["operations"]:
+        declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
+        states = stock_states(setup, features)
+        for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)
+            levels = None if lathe else _z_levels(op, before, declared, grid, units)
+            if levels is not None:
+                entry["z_levels"] = levels
         residuals = _z_residuals(bundle, setup, grid, features)
         unknown = not frame or frame.get("binding") == UNKNOWN
         if lathe:
@@ -1353,6 +1482,24 @@ def evaluate(bundle, *, pre_kernel=False):
                             for item in (*arcs, *lines)
                             if item["cut_order"] == UNKNOWN
                         )
+                        generated = True
+                elif contour.get("method") == "linear_table" and op.get("do") in RASTER_OPS:
+                    approach = op.get("approach_mm", UNKNOWN)
+                    scale = {"mm": 1.0, "in": 25.4}.get(units)
+                    lift = (
+                        dro_z(before["top_z"] + approach / scale, grid)
+                        if scale and number(approach) and number(before["top_z"])
+                        else UNKNOWN
+                    )
+                    raster, why = _raster(
+                        feature, op, offset, radius, frame, frames, sense, order, lift
+                    )
+                    if raster is None:
+                        profile["raster_reason"] = why
+                    else:
+                        profile.update(raster)
+                        if profile["cut_order"] == UNKNOWN:
+                            unordered.add(profile["cut_order_reason"])
                         generated = True
                 elif contour.get("method") == "linear_table":
                     path = _linear(feature, op, offset, radius, frame, frames)

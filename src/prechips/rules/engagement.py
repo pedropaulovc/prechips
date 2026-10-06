@@ -46,10 +46,9 @@ def evaluate(bundle):
         kind = (tool or {}).get("kind", UNKNOWN)
         numbers = {"operation": action, "tool": tool_ref, "holder": holder_ref, "tool_kind": kind}
         cite = [_PROXY_CITE]
-        if (
-            (action != UNKNOWN and action not in _CUTTING_OPS)
-            or "doc_mm" not in op
-            or (kind != UNKNOWN and kind not in _ENDMILL_KINDS)
+        # An endmill cutting op without its axial depth per pass is unresolved, never exempt.
+        if (action != UNKNOWN and action not in _CUTTING_OPS) or (
+            kind != UNKNOWN and kind not in _ENDMILL_KINDS
         ):
             result.append(
                 Finding(
@@ -58,8 +57,7 @@ def evaluate(bundle):
                     "not_applicable",
                     numbers,
                     cite,
-                    f"{subject}: engagement applies only to an endmill cutting operation "
-                    "with an authored DOC.",
+                    f"{subject}: engagement applies only to an endmill cutting operation.",
                 )
             )
             continue
@@ -101,7 +99,7 @@ def evaluate(bundle):
             if _positive(doc):
                 recommended = doc * scale
         if not _positive(doc):
-            missing.append("positive authored DOC")
+            missing.append("positive authored axial depth per pass (doc_mm)")
         numbers.update(
             diameter_mm=diameter,
             tool_oal_mm=oal,
@@ -132,7 +130,7 @@ def evaluate(bundle):
             if over_limit:
                 message = (
                     f"Tool projection is {ratio:g}×D, above {_LIMIT_LD}×D; "
-                    "DOC reduction is unknown without positive authored DOC."
+                    "DOC reduction is unknown without a positive authored axial depth per pass."
                 )
         elif over_limit:
             status = "warn"
