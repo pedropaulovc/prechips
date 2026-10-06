@@ -531,3 +531,28 @@ def test_steady_rest_without_measured_body_is_a_gap_naming_both_dimensions():
         "steady rest 'sr' not drawn: fixtures.sr.body_dia_mm (measured), "
         "fixtures.sr.body_length_mm (measured) unresolved"
     ]
+
+
+def test_a_dead_centre_seated_in_its_declared_centre_hole_is_not_a_stock_clash(engine, parts):
+    # The tip sits 3 mm inside the bar's end face (z 30): the entry stock has no centre
+    # hole, so the point overlaps it unless the hold declares the hole the centre rides in.
+    centre = {
+        "name": "dead-centre",
+        "dia_mm": 20.0,
+        "length_mm": 40.0,
+        "point_angle_deg": 60.0,
+        "quill_dia_mm": 30.0,
+        "quill_extension_mm": 10.0,
+        "tip_mm": [0.0, 0.0, 27.0],
+    }
+    bare, seated = (
+        _scene(engine.run(engine.job(parts["bar"], setups=[_setup([], _chuck(centre=c))])))
+        for c in (centre, {**centre, "hole_dia_mm": 5.0})
+    )
+    stock = "dead centre dead-centre intersects the setup-entry stock"
+    assert any(debt.startswith(stock) for debt in bare["render_scene"]["debts"])
+    assert bare["fixture_rendered"] is False
+    assert any("interpenetrates the setup-entry stock" in c for c in bare["fixture_clashes"])
+    assert seated["render_scene"]["debts"] == []
+    assert seated["fixture_rendered"] is True
+    assert seated["fixture_clashes"] == []

@@ -138,12 +138,13 @@ StockState = record(
 )
 # A `hold.supports` table: follow rest {ref, ops, jaw_lead_mm[, jaw_side]} or steady rest
 # {ref, ops, at_z_mm}. A follow rest's jaw_side is "turned" (behind the cutting point along
-# the feed, on the diameter just cut; the default) or "uncut" (ahead of it).
+# the feed, on the diameter just cut; the default) or "uncut" (ahead of it); its
+# engage_at_z_mm is the cut Z the tool passes before the jaws are set on the work.
 Reference = record(
     "Reference",
     {
         **texts("ref orientation note jaw_side"),
-        **numbers("height_mm jaw_lead_mm at_z_mm"),
+        **numbers("height_mm jaw_lead_mm at_z_mm engage_at_z_mm"),
         "ops": list[int],
     },
 )
@@ -194,6 +195,9 @@ Hold = record(
         "jaw_clock_deg": Number,
         "support_tip_mm": Point3,
         "quill_extension_mm": Number,
+        # The countersink mouth of the work's centre hole at its end face: the dead centre
+        # seats in a cone of its own point angle that opens to this diameter.
+        "centre_hole_dia_mm": Number,
         "clamps": list[ClampPlacement],
         # Diagram annotations: action order references the 1-based clamps array.
         "clamp_order": list[Annotated[int, Field(gt=0)]],

@@ -494,6 +494,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_clock_deg` | `Number` |
 | `support_tip_mm` | `[Number, Number, Number]` |
 | `quill_extension_mm` | `Number` |
+| `centre_hole_dia_mm` | `Number` (> 0): the work's centre-hole countersink mouth at its end face; the kernel cuts a seat of the dead centre's own point angle from the tip out to it before checking the centre against the setup-entry stock |
 | `clamps` | `list[ClampPlacement]` |
 | `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |
 | `preload_direction` | `"clockwise"` / `"counterclockwise"` |
@@ -648,6 +649,7 @@ not proof that its rotation is collision-free or its torque/locking adequate.
 | `note` | `str` |
 | `height_mm` | `float` |
 | `jaw_lead_mm` | `float` |
+| `engage_at_z_mm` | `float`: follow rest only; the cut Z the tool passes before its jaws are set on the work, checked by `accessibility` against the kernel's clear Z ([geometry](rules-geometry.md#window-ends)) |
 | `at_z_mm` | `float` |
 | `jaw_side` | `str` (`turned` or `uncut`; follow rests only) |
 | `ops` | `list[int]` |

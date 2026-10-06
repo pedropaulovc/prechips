@@ -383,6 +383,10 @@ _METHODS = {
     "touch_then_set": "touch it, then set",
     "touch_then_set_after_face": "touch the faced end, then set",
     "measure_then_set": "touch it, then set from the measured M",
+    "edge_then_set": (
+        "spindle stopped; bring this tool's Z-cutting edge to it, "
+        "withdraw along X without moving Z, then set"
+    ),
 }
 _STOCK_FORMS = {
     "round_bar": "round bar",
@@ -1959,7 +1963,9 @@ class _Traveler:
         return "<h2>CLEARANCE — mill</h2>" + "".join(_p(line) for line in lines)
 
     def lathe_approaches(self, setup):
-        """Distance from each op's last planned Z to the jaw fronts (exposed side +Z)."""
+        """Distance from each op's last planned Z to the jaw fronts (exposed side +Z); a
+        blade's own chuck-side face (accessibility ``blade_z_mm``) counts, not just the
+        Z its op names."""
         jaw = self.jaw_front_z(setup)
         result = {}
         if jaw is None:
@@ -1968,9 +1974,42 @@ class _Traveler:
             if op.get("do") in MANUAL:
                 continue
             zs = self.path_zs(setup, op)
+            numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
+            blade = numbers.get("blade_z_mm")
+            if zs and isinstance(blade, list) and blade and all(_known(z) for z in blade):
+                zs = [*zs, min(blade)]
             if zs:
                 result[str(op["op"])] = min(zs) - jaw
         return result
+
+    def posed_start(self, setup, op):
+        """The kernel's pose of a turning op at its start (accessibility ``window_poses``)
+        when a fixture component is within the crash zone of it: the clearance, and how
+        far out the start may go when that was found; None otherwise."""
+        numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
+        o = self.operative
+        for pose in numbers.get("window_poses") or []:
+            pose = _mapping(pose)
+            clear = pose.get("clearance_mm")
+            if pose.get("end") != "z_from" or not _known(clear) or clear > _CRASH_ZONE_MM:
+                continue
+            text = (
+                f"START Z {o(pose.get('z_mm'))}: {o(clear)} CLEAR OF {pose.get('nearest_fixture')}"
+            )
+            if _known(pose.get("max_start_z_mm")):
+                text += f" — start no further out than Z {o(pose['max_start_z_mm'])}"
+            return _Box(text)
+        return None
+
+    def rest_engagement(self, setup, op):
+        """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``)."""
+        numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
+        o = self.operative
+        return [
+            f"set the follow rest at Z {o(entry['declared_z_mm'])} once the tool passes it"
+            for entry in map(_mapping, numbers.get("rest_engagement") or [])
+            if _known(entry.get("declared_z_mm"))
+        ]
 
     def path_zs(self, setup, op):
         """The Z ends of an op's path as its op row prints them."""
@@ -2010,7 +2049,10 @@ class _Traveler:
                 )
             tip = _mapping(setup.get("hold")).get("support_tip_mm")
             zs = self.path_zs(setup, op)
-            if isinstance(tip, list) and len(tip) == 3 and _known(tip[2]) and zs:
+            start = self.posed_start(setup, op)
+            if start is not None:
+                boxes.append(start)
+            elif isinstance(tip, list) and len(tip) == 3 and _known(tip[2]) and zs:
                 gap = tip[2] - max(zs)
                 if gap <= _CRASH_ZONE_MM:
                     boxes.append(_Box(f"DEAD CENTRE Z {o(tip[2])}: start clear of it"))
@@ -2480,6 +2522,35 @@ class _Traveler:
                 )
         return f"Z → {o(self.dro_to_z(setup, op))}"
 
+    def relief_plunges(self, setup, op):
+        """A blade groove's plunges (coordinates ``plunges``): the reading corner's Z for
+        each, the diameter every plunge stops at and the groove they leave."""
+        numbers = self.records.get(("coordinates", setup["id"]), {})
+        plunges = next(
+            (
+                entry
+                for entry in _mapping(numbers).get("plunges", [])
+                if str(_mapping(entry).get("op")) == str(op.get("op"))
+            ),
+            None,
+        )
+        if plunges is None:
+            return []
+        o = self.operative
+        corners = plunges.get("corner_z_mm")
+        if not isinstance(corners, list):
+            return [_Box("STOP: plunge positions not set — blade width or hand unknown")]
+        corner = "chuck-side" if plunges.get("reading_corner") == "chuck_side" else "+Z"
+        parts = [f"plunge {index} {corner} corner Z {o(z)}" for index, z in enumerate(corners, 1)]
+        feature = op.get("feature")
+        size = f"Ø {o(plunges.get('diameter_mm'))}"
+        if isinstance(plunges.get("dia_band_mm"), list):
+            size += f" ({self.band(plunges['dia_band_mm'], feature, 'dia')})"
+        parts.append(("each to " if len(corners) > 1 else "to ") + size)
+        low, high = plunges.get("groove_z_mm", [None, None])
+        parts.append(f"groove Z {o(low)} to {o(high)}")
+        return parts
+
     def surface_z(self, setup, value, source=None, face=None, done=0):
         """One surface, one printed Z (:func:`operative_z`): the checked depth of the op
         that produced it, on its own setup's grid, as this setup's DRO shows it; else
@@ -2812,7 +2883,11 @@ class _Traveler:
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"
                 ]
             else:
-                target = self.tip(setup, op)
+                target = (
+                    self.tip(setup, op)
+                    + self.relief_plunges(setup, op)
+                    + self.rest_engagement(setup, op)
+                )
             if any(isinstance(line, _Box) and "Z target" in line for line in target):
                 stops.setdefault("no Z target", []).append(str(op["op"]))
             target = self.unset_z(setup, op, target)
@@ -3197,7 +3272,46 @@ class _Traveler:
                     "nose-radius compensation set at the machine"
                 )
                 headings = ["P", f"X ({x_unit})", "Z"]
+            if _known(contour.get("apex_z_mm")) and _known(contour.get("base_z_mm")):
+                if contour["apex_z_mm"] > contour["base_z_mm"] and rows:
+                    first = rows[0][0] or f"the Z {rows[0][2]} row"
+                    last = rows[-1][0] or f"the Z {rows[-1][2]} row"
+                    description += (
+                        ". Row to row: move X out to the next row first, then Z toward the "
+                        "chuck (Z first gouges the dome). Enter at "
+                        f"{first} from +Z; leave radially, X out, at {last}"
+                    )
+            for row, record in zip(rows, contour.get("rows", []), strict=True):
+                tip_x = record.get("x_tool_mm")
+                if not (compensated and _known(tip_x) and tip_x < 0):
+                    continue
+                normal = math.radians(record.get("normal_deg", 0.0))
+                centre = record.get("radius_mm", 0.0) + compensation * math.cos(normal)
+                where = "on the axis" if abs(centre) < 1e-6 else f"at radius {o(centre)}"
+                description += (
+                    f". {row[0] or 'Z ' + row[2]} tool X {o(tip_x)} {x_unit} is intentional: "
+                    f"the R{o(compensation)} nose centre is {where} there (imaginary tip "
+                    "past centre)"
+                )
             entry["parts"].append((order(entry), description, headings, rows))
+        for stair in numbers.get("stair_tables", []):
+            entry = block(stair.get("op"))
+            x_unit = "radius" if _mapping(self.plan.get("dro")).get("radius_mode") is True else "Ø"
+            rows = [
+                [str(index), o(r.get("z_mm")), o(r.get("x_target_mm"))]
+                for index, r in enumerate(stair.get("rows", []), 1)
+            ]
+            description = (
+                f"Rough stair, leaves {o(stair.get('allowance_mm'))} mm on diameter for the "
+                "finish table: for each row, from outside the work at the row's Z, face in to "
+                f"X, then back out radially. X ({x_unit}) / Z are the DRO readings of the "
+                "imaginary tip, touched off on an outside diameter and a +Z end face"
+            )
+            if not rows:
+                description += "; no row cuts: the allowance already covers the work"
+            entry["parts"].append(
+                (order(entry, stair), description, ["row", "Z", f"in to X ({x_unit})"], rows)
+            )
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
         if not blocks:

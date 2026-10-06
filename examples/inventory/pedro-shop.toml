@@ -69,6 +69,11 @@ weight_lb = 575
 standard_accessories = ["chuck-3jaw-6-d1-4", "chuck-4jaw-6-d1-4", "faceplate-d1-4", "steady_rest", "follow_rest", "thread_dial", "dead_centre_headstock", "dead_centre_tailstock_mt3"]
 # --- pivot-shaft additions ---
 control = "manual; illustrative example item (plausible, not on hand): Electronica EL400 two-axis lathe DRO, X scale on the cross slide, Z scale on the bed"
+# The DRO grid the sheet prints and the kernel checks (docs/rules-coordinates.md), one step
+# for both axes. With 5 um scales the EL400 shows Z in 0.005 steps but X in diameter mode
+# in 0.01 steps (each cross-slide count is doubled), so the grid is the coarser 0.01: every
+# printed X diameter and Z is a number the display can show.
+resolution_mm = { value = 0.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "EL400 lathe readout with 5 um glass scales: diameter-mode X display step 0.01 (Z 0.005)" } }
 # --- end pivot-shaft additions ---
 
 [machines.PM-1127VF-LB.spindle]
@@ -712,13 +717,11 @@ shank = "unknown"
 cutting-oil = ["CRC cutting oil", "Tap Magic ProTap"]
 ral-6005-alkyd = ["illustrative example item: RAL 6005 moss-green alkyd enamel, brush grade"]
 oil-iso-vg32 = ["illustrative example item: ISO VG 32 light machine oil"]
-
-# Outside processes the shop sends work to, not shop-owned kit.
-[services.black-oxide-vendor]
-kind = "outside_process"
-coating = "hot black oxide, matte"
-note = "illustrative example outside finisher: hot black oxide, matte, MIL-DTL-13924 class 1, with oil dip; adds about 1 µm or less. Example (plausible, not measured): confirm the vendor before quoting."
-verify = false
+# --- pivot-shaft additions ---
+# example (plausible, not measured): a can of light machine oil on the bench, for the
+# drawing's "turned, oiled" finish; the shop list does not name one.
+light-machine-oil = ["light machine oil, example (3-IN-ONE)"]
+# --- end pivot-shaft additions ---
 
 # Outside processes the shop sends work to, not shop-owned kit.
 [services.black-oxide-vendor]
