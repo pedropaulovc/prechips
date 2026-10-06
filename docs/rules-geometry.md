@@ -583,6 +583,27 @@ cap limits that excess; the sizing rule owns the drill or reamer diameter. A
 failed own-wall offset is named debt. A spot never widens its own bore, so a
 spot cone reaching past the finished bore mouth still meets finished material.
 
+Generic-cylinder part-hit counts may avoid a redundant stock Boolean using an
+exact positive material certificate (P6). The native classifier must place a
+candidate centre inside valid closed positive-volume stock; rigorous lower
+bounds must clear a 0.01 mm ball from every stock boundary, and the ball must
+lie strictly inside the unchanged query cylinder. Its volume exceeds the
+1e-6 mm³ hit threshold. Plane/cylinder bounds use their supporting surfaces and
+tolerance-grown face boxes; positive-weight spline surfaces use their pole
+hulls. Unsupported or failed proofs fall back to the original native Boolean.
+The bounds trust the native face enclosure and inside classifier, and native
+Boolean completeness remains a checked assumption.
+
+P6 explicitly accepts skipping a stock Boolean once the hit is mathematically
+proven, even if the avoided solve might otherwise have raised. A Boolean that
+still runs is never caught or suppressed by this optimization. Certificates
+only count hits: they never prove a miss or replace a native shape, and actual
+pointed cutters bypass them. A count-only hit skips the intersection only when
+no finished face outside the already-proven reference union can add a hit
+reference; partial reference sets never enter shared full-set caches. Every
+authored sample still contributes to the full hit count, and input or stock
+debt retains its existing unknown/error precedence.
+
 For milling, a far-side face (outward normal opposing setup +Z by more than
 90°) is an invalid cutting claim, reported as an error naming the face before
 tool-dimension debt can hide it.

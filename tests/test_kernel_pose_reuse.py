@@ -1,9 +1,9 @@
 """Reused pose outcomes keep every count and ref; region culls keep containment answers.
 
 Engine cases run ``freecad_job.py`` on solids authored here and read only its JSON. Cull
-cases load the engine under ``freecadcmd`` and query the culls of a real stock and of
-that stock after a removal, on real B-reps. FreeCAD-backed tests skip without
-``freecadcmd``.
+cases load the engine under ``freecadcmd`` and query the culls of real stocks: their
+material answers and the part-hit counts that may skip the boolean, on real B-reps.
+FreeCAD-backed tests skip without ``freecadcmd``.
 """
 
 import json
@@ -101,6 +101,146 @@ with open(target, "w", encoding="utf-8") as stream:
     json.dump(rows, stream)
 """
 
+_HITS = r"""
+import importlib.util
+import json
+import os
+import sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+target = sys.argv[sys.argv.index("--") + 1] + "/hits.json"
+spec = importlib.util.spec_from_file_location("hits_engine", os.environ["CULLED_ENGINE"])
+engine = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(engine)
+
+def outcome(call):
+    try:
+        return call()
+    except Exception as exc:
+        return "raises " + type(exc).__name__
+
+def measure(shape, queries):
+    rows = {}
+    for name, query in queries.items():
+        cold, warm = engine._Culled(shape), engine._Culled(shape)
+        first = outcome(lambda: cold.hits(*query))
+        again = outcome(lambda: cold.hits(*query))
+        outcome(lambda: warm.common(*query))
+        rows[name] = {
+            "hits": first,
+            "again": again,
+            "after_common": outcome(lambda: warm.hits(*query)),
+            "legacy": outcome(lambda: engine._Culled(shape).common(*query) is not None),
+        }
+    return rows
+
+# 60x40x20 plate: pockets x 10..29.99975 and 30.00025..45 (y 5..35, floor z=5) leave
+# a 0.0005 mm web at x=30; an R3 through hole at (52, 20); solid strip x 0..10.
+plate = Part.makeBox(60, 40, 20)
+plate = plate.cut(Part.makeBox(19.99975, 30, 16, V(10, 5, 5)))
+plate = plate.cut(Part.makeBox(14.99975, 30, 16, V(30.00025, 5, 5)))
+plate = plate.cut(Part.makeCylinder(3, 22, V(52, 20, -1)))
+assert plate.isValid() and len(plate.Solids) == 1
+PLATE = {
+    "deep": (5.0, 20.0, 2.0, 2.0, 18.0),
+    "crossing-top": (5.0, 20.0, 2.0, 15.0, 25.0),
+    "tiny-inside": (5.0, 20.0, 0.005, 9.0, 9.1),
+    "tiny-at-top": (5.0, 20.0, 0.0005, 19.999, 20.0),
+    "web-tiny": (30.0, 20.0, 0.02, 12.0, 12.025),
+    "web-top": (30.0, 20.0, 0.02, 19.94, 19.97),
+    "web-wide": (30.0, 20.0, 2.0, 8.0, 18.0),
+    "pocket-air": (20.0, 20.0, 2.0, 8.0, 15.0),
+    "pocket-floor-air": (20.0, 20.0, 2.0, 5.0, 15.0),
+    "graze-1e-8": (12.0 - 1e-8, 20.0, 2.0, 8.0, 15.0),
+    "graze-1e-3": (11.999, 20.0, 2.0, 8.0, 15.0),
+    "hole-air": (52.0, 20.0, 2.5, -1.0, 21.0),
+    "hole-wall": (52.0, 20.0, 3.5, -1.0, 21.0),
+    "outside": (70.0, 20.0, 2.0, 5.0, 15.0),
+}
+frame = FreeCAD.Placement(V(100, -50, 7), FreeCAD.Rotation(V(0, 0, 1), 30))
+
+def placed(shape):
+    copy = shape.copy()
+    copy.Placement = frame  # a location, not transformed geometry
+    return copy
+
+def moved(query):
+    cx, cy, radius, z0, z1 = query
+    point = frame.multVec(V(cx, cy, 0))
+    return (point.x, point.y, radius, z0 + 7, z1 + 7)
+
+nurbs = plate.toNurbs()
+rows = {
+    "plate-model": measure(plate, PLATE),
+    "plate-placed": measure(placed(plate), {k: moved(q) for k, q in PLATE.items()}),
+    "plate-nurbs": measure(placed(nurbs), {k: moved(q) for k, q in PLATE.items()}),
+    "nurbs_surfaces": sorted({type(face.Surface).__name__ for face in nurbs.Faces}),
+}
+# 40 mm cube with a closed 20 mm cavity: a second, inner shell.
+hollow = Part.makeBox(40, 40, 40).cut(Part.makeBox(20, 20, 20, V(10, 10, 10)))
+rows["hollow"] = measure(hollow, {
+    "cavity": (20.0, 20.0, 3.0, 12.0, 28.0),
+    "cavity-floor": (20.0, 20.0, 3.0, 10.0, 28.0),
+    "cavity-wall": (20.0, 20.0, 3.0, 5.0, 28.0),
+    "shell": (5.0, 20.0, 2.0, 5.0, 35.0),
+})
+# An R5 spherical bowl centred on the top face: a surface with only a box lower bound.
+dimple = Part.makeBox(60, 40, 20).cut(Part.makeSphere(5, V(30, 20, 20)))
+rows["dimple"] = measure(dimple, {
+    "bowl-air": (30.0, 20.0, 1.0, 17.0, 19.5),
+    "bowl-bottom": (30.0, 20.0, 1.0, 12.0, 16.0),
+    "beside-bowl": (25.2, 20.0, 0.15, 15.5, 16.0),
+})
+inverted = Part.makeBox(60, 40, 20).reversed()
+rows["inverted_volume"] = inverted.Volume
+rows["inverted"] = measure(inverted, {
+    "inside": (30.0, 20.0, 2.0, 5.0, 15.0),
+    "crossing": (30.0, 20.0, 2.0, 15.0, 25.0),
+    "above": (30.0, 20.0, 2.0, 20.02, 25.0),
+    "outside": (70.0, 20.0, 2.0, 5.0, 15.0),
+})
+overlap = Part.makeCompound([Part.makeBox(40, 40, 20), Part.makeBox(40, 40, 20, V(20, 0, 0))])
+rows["overlap"] = measure(overlap, {
+    "both": (30.0, 20.0, 2.0, 5.0, 15.0),
+    "single": (10.0, 20.0, 2.0, 15.0, 25.0),
+    "air": (70.0, 20.0, 2.0, 5.0, 15.0),
+})
+# A plain 60x40x20 block: its top face's UV centre (30, 20, 20) seeds a candidate ball
+# just below the top, inside a query crossing that face.
+block = Part.makeBox(60, 40, 20)
+crossing = (30.0, 20.0, 2.0, 15.0, 25.0)
+floor = (30.0, 20.0, 2.0, 5.0, 12.0)
+# An old generation hits; the next stock cuts an R4 pocket from z=10 through that query.
+old = engine._Culled(block)
+before = old.hits(*crossing)
+drilled = block.cut(Part.makeCylinder(4, 11, V(30, 20, 10)))
+new = engine._Culled(drilled)
+rows["generation"] = {
+    "old": before,
+    "new": new.hits(*crossing),
+    "new_common_none": new.common(*crossing) is None,
+    "old_again": old.hits(*crossing),
+    "new_floor": new.hits(*floor),
+    "new_floor_volume": engine._Culled(drilled).common(*floor).Volume,
+}
+culled = engine._Culled(block)
+hit = culled.hits(*crossing)
+shape = culled.common(*crossing)
+reference = engine._Culled(block).common(*crossing)
+cutter = engine._pointed_cutter(30.0, 20.0, 15.0, 2.0, 1.0, 10.0)
+rows["shape"] = {
+    "hit": hit,
+    "type": shape.ShapeType,
+    "volume": shape.Volume,
+    "legacy_type": reference.ShapeType,
+    "legacy_volume": reference.Volume,
+    "pointed": culled.common(*crossing, cutter).Volume,
+    "exact": block.common(cutter).Volume,
+}
+with open(target, "w", encoding="utf-8") as stream:
+    json.dump(rows, stream)
+"""
+
 
 @pytest.fixture(scope="module")
 def solids(tmp_path_factory, freecad_kernel):
@@ -142,6 +282,27 @@ def culled(tmp_path_factory, freecad_kernel):
         },
     )
     target = directory / "culled.json"
+    assert target.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def certified(tmp_path_factory, freecad_kernel):
+    directory = tmp_path_factory.mktemp("hits")
+    script = directory / "hits.py"
+    script.write_text(_HITS, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=300,
+        env={
+            **os.environ,
+            "CULLED_ENGINE": os.environ.get("PRECHIPS_TEST_REGION_ENGINE", str(ENGINE)),
+        },
+    )
+    target = directory / "hits.json"
     assert target.exists(), process.stdout[-2000:] + process.stderr[-2000:]
     return json.loads(target.read_text(encoding="utf-8"))
 
@@ -266,3 +427,86 @@ def test_point_cutter_never_takes_or_leaves_its_gross_cylinders_cached_answer(cu
         assert row[name]["volume"] == pytest.approx(row["exact"], rel=1e-9)
     assert row["cylinder_after"]["volume"] == pytest.approx(cylinder, rel=1e-9)
     assert row["cylinder_after"]["type"] == row["cylinder_first"]["type"]
+
+
+# Material in each plate query: at or below HIT_MM3 (1e-6 mm^3) is no hit, except that
+# a cylinder no face box reaches stays the legacy primitive answer whatever its volume.
+PLATE_HITS = {
+    "deep": True,
+    "crossing-top": True,
+    "tiny-inside": True,  # 7.85e-6 mm^3 deep in material: above HIT, below the proof ball
+    "tiny-at-top": False,  # 7.9e-10 mm^3 touching the top face takes the boolean
+    "web-tiny": False,  # 0.0005 x 0.04 x 0.025 mm of web: 5e-7 mm^3
+    "web-top": False,  # top-face UV centre lies on the 0.0005 mm web: ~6e-7 mm^3 of it
+    "web-wide": True,
+    "pocket-air": False,
+    "pocket-floor-air": False,
+    "graze-1e-8": False,
+    "graze-1e-3": True,  # a 0.001 mm deep segment 7 mm tall: 5.9e-4 mm^3
+    "hole-air": False,
+    "hole-wall": True,
+    "outside": False,
+}
+
+
+def _answers(row):
+    return {row["hits"], row["again"], row["after_common"], row["legacy"]}
+
+
+@pytest.mark.parametrize("frame", ["model", "placed", "nurbs"])
+@pytest.mark.parametrize("name, expected", sorted(PLATE_HITS.items()))
+def test_material_hit_matches_the_boolean_on_placed_and_bspline_stock(
+    certified, frame, name, expected
+):
+    assert certified["nurbs_surfaces"] == ["BSplineSurface"]
+    assert _answers(certified["plate-" + frame][name]) == {expected}
+
+
+@pytest.mark.parametrize(
+    "stock, name, expected",
+    [
+        ("hollow", "cavity", False),
+        ("hollow", "cavity-floor", False),
+        ("hollow", "cavity-wall", True),
+        ("hollow", "shell", True),
+        ("dimple", "bowl-air", False),
+        ("dimple", "bowl-bottom", True),
+        ("dimple", "beside-bowl", True),
+    ],
+)
+def test_material_hit_respects_inner_shells_and_unanalysed_surfaces(
+    certified, stock, name, expected
+):
+    assert _answers(certified[stock][name]) == {expected}
+
+
+@pytest.mark.parametrize("stock", ["inverted", "overlap"])
+def test_inverted_or_overlapping_stock_keeps_the_native_boolean_answer(certified, stock):
+    for row in certified[stock].values():
+        assert len(_answers(row)) == 1, row
+    if stock == "inverted":
+        assert certified["inverted_volume"] < 0
+        # Reversed normals put a top-face candidate ball above the box, in air.
+        assert _answers(certified["inverted"]["above"]) == {False}
+    else:
+        assert certified["overlap"]["air"]["legacy"] is False
+        assert certified["overlap"]["single"]["legacy"] is True
+
+
+def test_a_fresh_cut_generation_never_counts_material_its_cut_removed(certified):
+    row = certified["generation"]
+    assert row["old"] is True and row["old_again"] is True
+    assert row["new"] is False and row["new_common_none"] is True
+    # Below the pocket floor the new stock keeps z 5..10 of the query.
+    assert row["new_floor"] is True
+    assert row["new_floor_volume"] == pytest.approx(math.pi * 2.0**2 * 5.0, rel=1e-9)
+
+
+def test_a_counted_hit_keeps_the_native_common_shape_and_pointed_cutter_answer(certified):
+    row = certified["shape"]
+    assert row["hit"] is True
+    assert row["type"] == row["legacy_type"] == "Compound"
+    assert row["volume"] == pytest.approx(row["legacy_volume"], abs=1e-9)
+    assert row["volume"] == pytest.approx(math.pi * 2.0**2 * 5.0, rel=1e-9)
+    assert row["exact"] < row["volume"] - 1.0
+    assert row["pointed"] == pytest.approx(row["exact"], rel=1e-9)
