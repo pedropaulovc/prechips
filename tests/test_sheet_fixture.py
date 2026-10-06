@@ -259,6 +259,39 @@ def test_existing_shop_parts_drawn_for_clearance_are_not_made():
     assert "vise" not in bridge_page()
 
 
+def test_bought_part_drawn_as_head_and_shank_counts_once():
+    screw = {"supply": "bought", "fastener": "M8 SHCS"}
+    parts = [
+        piece
+        for x in (-40, 40)
+        for piece in (
+            cylinder(f"screw-head-{x}", x, 30, 13, 8, **screw),
+            cylinder(f"screw-shank-{x}", x, 0, 8, 30, **screw),
+        )
+    ]
+    table = bridge_page(*parts)
+    assert "; 2 × M8 SHCS." in table
+    assert table.count("M8 SHCS") == 1
+
+
+def test_custom_item_with_nothing_to_make_gets_no_table_or_pointer():
+    data = bundle([{"fixture": "rest", "pose": IDENTITY}])
+    data.inventory["fixtures"]["rest"] = {
+        "kind": "custom",
+        "solids": [
+            {
+                "name": "plate",
+                "shape": "box",
+                "at_mm": [0, 0, -10],
+                "size_mm": [50, 50, 10],
+                "supply": "existing",
+            }
+        ],
+    }
+    page = sheets(data)[0]
+    assert "SHOP-MADE" not in page and "shop-made" not in page
+
+
 def test_existing_part_drilled_here_lists_only_its_holes():
     plate = {
         "name": "plate",
