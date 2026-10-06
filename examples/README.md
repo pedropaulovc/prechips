@@ -157,6 +157,42 @@ there is no generated plan-text file. Plans do not request external coordinate
 files: machine-readable numbers are in the report and bench coordinates are on
 the sheet. No operative asset lies outside the bundle.
 
+### Built-up cone route provenance
+
+`cone-pivot-post/built-up.toml` is an authored manufacturing alternative, not a
+second consumer export. It uses the same v40 cone STEP and the example-only
+construction permission above. Its twelve stages keep an integral body and
+inclined pads in one 50.8 mm square by 123 mm blank, and turn the separate crank
+sleeve from 25 mm diameter by 110 mm bar. These are illustrative purchase and
+process choices, not stock-on-hand or first-article evidence.
+
+The pre-join socket and spigot are plan-owned joint features, not invented STEP
+faces: the 22.000–22.020 mm socket and 21.924–21.936 mm spigot give
+0.064–0.096 mm diametral clearance for the explicitly authored BAg-7 capillary
+silver-braze process. Join only the finished body and separately turned sleeve
+branches, support the sleeve with the modeled ceramic height button, then cool,
+clean and re-indicate datum A/foot B before cutting the final crank bore. This
+example process is not a structural-joint certification.
+
+Body rotary milling uses the 3/8 in cutter in the foot and shoulder bands
+(model Y0–19 and Y48–59.4), and a 3/16 in square-end carbide cutter in the
+pad-wall window Y19–48. Its 19.05 mm flute and projection are labelled plausible
+inventory facts; native geometry calculations rejected the shorter 1/8 in
+candidate because its holder entered retained material. The separate `S6cut`
+bandsaw stage cuts at blade centre Y87.75: the 1.5 mm kerf retains Y≤87,
+leaving 1 mm for `S6` to finish-face to Y86 instead of milling away the entire
+34 mm sacrificial tail. Every declared holding item remains part of the setup
+scene, including the saw vise and refractory braze cradle.
+
+The socket bore gauge retains its fact-local illustrative measurement label;
+its 0.001 mm resolution is not flattened into an unlabeled number to bypass
+the inventory schema. Final crank angularity and separation use the declared
+outsourced CMM method, not a caliper or a dividing-head angle as certification.
+Generated built-up artifacts live in `cone-pivot-post/expected/built-up/`;
+`cone-pivot-post/expected/compare.json` compares the two routes for this one
+part. Generated findings and scene debts, not the authorship of this section,
+determine readiness.
+
 ### Historical M5 inventory and output reconciliation
 
 The original shared shop inventory numbers and `verify = true` flags are
