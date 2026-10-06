@@ -48,3 +48,13 @@ def test_index_direction_names_the_viewing_end_from_the_chuck_axis():
 
 def test_index_direction_unknown_without_a_clock_angle():
     assert _Traveler.index_sense({"pose": {"z": [1.0, 0.0, 0.0]}}).startswith("?")
+
+
+def test_blank_line_paragraphs_print_as_numbered_steps():
+    sheet = bare(2)
+    sheet.bench = lambda text, setup=None: text
+    method = "Seat datum B.\nClamp lightly.\n\nPin bore A.\n\n  Read the rod pin.  "
+    assert sheet.steps(method) == (
+        "(1) Seat datum B. Clamp lightly. (2) Pin bore A. (3) Read the rod pin."
+    )
+    assert sheet.steps("One paragraph.") == "One paragraph."

@@ -1633,15 +1633,23 @@ class _Traveler:
                 for feature, entry in grouped.items()
             ]
             table = _table(
-                ["feature", "Ø (drawing)", "Z from", "Z to"], rows, widths=[40, 20, 20, 20]
+                ["feature", "Ø (drawing)", "cut from Z", "cut to Z"], rows, widths=[40, 20, 20, 20]
             )
-            note = "X reads diameter. Z values are where each finished surface starts and ends."
+            note = (
+                "X reads diameter. Z values are where this setup's cuts on each surface start "
+                "and end, not the finished extent: a later cut (relief, part-off, next setup) "
+                "may shorten the surface."
+            )
         else:
             rows = [
                 (self.feature_name(feature), o(c[0]), o(c[1]), o(c[2])) for (feature, c) in grouped
             ]
-            table = _table(["feature", "X", "Y", "Z (feature centre)"], rows)
-            note = "Feature locations, not tool tips; the op table gives the tool targets."
+            table = _table(["feature", "X", "Y", "Z (drawing reference point)"], rows)
+            note = (
+                "Each feature's drawing reference point, not a tool tip and not necessarily its "
+                "middle (a hole's point may sit on its entry or exit face); the op table gives "
+                "the tool targets."
+            )
         return f"<h2>FEATURE MAP — {escape(self.zero_name(setup))}</h2>" + table + _p(note)
 
     # ------------------------------------------------------------------ tools
@@ -1837,6 +1845,19 @@ class _Traveler:
             note += f"; DRO tip {o(tip)}, rounded up on the {step} grid, never deeper"
         return note + "."
 
+    def steps(self, text):
+        """A procedure written as blank-line paragraphs prints as numbered steps; single
+        line breaks inside a paragraph are just wrapping."""
+        paragraphs = [
+            " ".join(part.split()) for part in re.split(r"\n\s*\n", str(text)) if part.strip()
+        ]
+        if len(paragraphs) < 2:
+            return self.bench(text)
+        return " ".join(
+            f"({number}) {self.bench(paragraph)}"
+            for number, paragraph in enumerate(paragraphs, start=1)
+        )
+
     def inspection(self, op, notes, sheet):
         rows = ["? inspection checks not set"] if op.get("checks") == "unknown" else []
         feature = op.get("feature")
@@ -1878,7 +1899,7 @@ class _Traveler:
                 line += " to " + "|".join(map(_text, datums))
             method = methods.get(requirement)
             if method and method != "unknown":
-                notes.append(f"{self.setup['id']} op {op['op']} {name}: {self.bench(method)}")
+                notes.append(f"{self.setup['id']} op {op['op']} {name}: {self.steps(method)}")
                 line += f" [{sheet} note {len(notes)}]"
             rows.append(line)
         if op.get("inspection_note"):
@@ -2577,6 +2598,35 @@ class _Traveler:
             extras.append(f"{name[:1].upper() + name[1:]}: {shown}.")
         return " ".join([line, *extras])
 
+    def flip(self, setup):
+        """The part turns over between setups when this setup's Z points against the arriving
+        setup's Z in the model; say so first, with which face goes up and which X end stays."""
+        source = setup.get("stock_in")
+        previous = next(
+            (
+                s
+                for s in self.plan.get("setups", [])
+                if isinstance(source, str) and s["id"] == source
+            ),
+            None,
+        )
+        if previous is None:
+            return ""
+        here, there = setup_frame(self.bundle, setup), setup_frame(self.bundle, previous)
+        vectors = [_mapping(frame).get(k) for frame in (here, there) for k in ("z", "x")]
+        if not all(isinstance(v, list) and len(v) == 3 and all(map(_known, v)) for v in vectors):
+            return ""
+        z, x, z_before, x_before = vectors
+        if sum(a * b for a, b in zip(z, z_before, strict=True)) > -0.5:
+            return ""
+        if self.lathe(setup):
+            return "Turn the part end for end. "
+        top = _mapping(setup.get("stock_state")).get("top_feature")
+        up = f"{self.feature_name(top)} up" if top else "the other face up"
+        kept = sum(a * b for a, b in zip(x, x_before, strict=True)) > 0.5
+        ends = "the +X end stays at +X" if kept else "the +X end moves to −X"
+        return f"Turn the part over: {up}, {ends}. "
+
     def stock_state(self, setup):
         state = _mapping(setup.get("stock_state"))
         o = self.operative
@@ -2600,7 +2650,7 @@ class _Traveler:
             # Each arriving surface as the DRO shows it, as every other line prints it.
             value = self.surface_z(setup, value)
             parts.append(f"{name} at Z {o(value)}" if _known(value) else f"{name} Z ? not set")
-        line = f"Starts from: {self.arrival(setup)}"
+        line = self.flip(setup) + f"Starts from: {self.arrival(setup)}"
         if parts:
             line += " — " + ", ".join(parts)
         line += "." + self.joint_text(setup)
@@ -2934,7 +2984,7 @@ def reference_label(bundle, reference, category=None) -> str:
             # "1-4in" is a 1/4 in size; "0-1in" is a 0–1 in range.
             member = re.sub(r"\b0-(\d+)in\b", r"0-\1 in", member)
             member = re.sub(r"\b([1-9]\d*)-(\d+)in\b", r"\1/\2 in", member)
-            member = re.sub(r"^(\d+)in$", r"\1 in", member)
+            member = re.sub(r"^(\d+(?:\.\d+)?)(in|mm)$", r"\1 \2", member)
             member = re.sub(r"-(\d+)fl", r" \1-flute", member)
         if record.get("kind") == "center_drill_set" and member.isdigit():
             member = "#" + member
