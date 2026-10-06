@@ -56,7 +56,7 @@ def test_examples_match_reference_bytes_and_repeat(
 
 
 @pytest.mark.parametrize("without_kernel", [False, True], ids=["default-kernel", "forced-absent"])
-def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
+def test_cone_comparison_keeps_candidate_identity_volume_and_approved_construction(
     tmp_path, monkeypatch, request, without_kernel
 ):
     if without_kernel:
@@ -74,8 +74,10 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
             "--out",
             out,
         )
-        assert result.returncode == 2, result.stderr
         outputs.append((out / "compare.json").read_bytes())
+        exits = {row["exit"] for row in json.loads(outputs[-1])}
+        # The command exit is the worst candidate exit: error, then unknown, then ready.
+        assert result.returncode == next(c for c in (2, 4, 0) if c in exits), result.stderr
     assert outputs[0] == outputs[1]
     rows = json.loads(outputs[0])
     if without_kernel:
@@ -86,7 +88,8 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
                 f["status"] == "unknown" and f["numbers"].get("kernel_unavailable")
                 for f in geometry
             )
-        assert [row["exit"] for row in rows] == [2, 2]
+            # Unchecked geometry can never leave a candidate ready.
+            assert row["exit"] in {2, 4}
     else:
         assert outputs[0] == (bundle / "expected" / "compare.json").read_bytes()
     assert [(row["plan"], row["part"]) for row in rows] == [
@@ -94,12 +97,10 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
         ("built-up.toml", "cone-pivot-post"),
     ]
     stock_volumes = [math.pi * 55**2 * 120, 46 * 50 * 92 + math.pi * 12.5**2 * 100]
-    for row, stock, construction, gate in zip(
-        rows,
-        stock_volumes,
-        ("one_piece", "built_up"),
-        ("pass", "error"),
-        strict=True,
+    # The example drawing permission is the user-approved built_up_permitted divergence,
+    # so neither candidate is refused on construction.
+    for row, stock, construction in zip(
+        rows, stock_volumes, ("one_piece", "built_up"), strict=True
     ):
         assert row["construction"] == construction
         assert row["stock_volume_mm3"] == pytest.approx(stock)
@@ -107,4 +108,28 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_construction_stop(
         assert row["net_volume_mm3"] == "unknown"
         assert row["waste_ratio"] == "unknown"
         finding = next(f for f in row["rule_findings"] if f["rule"] == "construction")
-        assert finding["status"] == gate
+        assert finding["status"] == "pass"
+        assert finding["numbers"]["drawing_construction"] == "built_up_permitted"
+
+
+def test_cone_built_up_candidate_is_refused_without_drawing_permission(tmp_path, monkeypatch):
+    # Scratch defect: restore the export's one-piece-only drawing in a copied bundle.
+    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "no-such-freecadcmd"))
+    bundle = copy_examples(tmp_path) / "cone-pivot-post"
+    features = bundle / "features.toml"
+    text = features.read_text(encoding="utf-8")
+    approved = '"construction" = "built_up_permitted"'
+    assert text.count(approved) == 1
+    features.write_text(text.replace(approved, '"construction" = "one_piece"'), encoding="utf-8")
+    out = tmp_path / "compare"
+    result = run_cli("compare", bundle / "plan.toml", bundle / "built-up.toml", "--out", out)
+    assert result.returncode == 2, result.stderr
+    rows = json.loads((out / "compare.json").read_bytes())
+    gates = {
+        row["construction"]: next(f for f in row["rule_findings"] if f["rule"] == "construction")
+        for row in rows
+    }
+    assert gates["one_piece"]["status"] == "pass"
+    assert gates["built_up"]["status"] == "error"
+    assert gates["built_up"]["message"] == "drawing permits one-piece only"
+    assert rows[1]["exit"] == 2

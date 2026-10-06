@@ -88,7 +88,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
           },
           "features": {
             "path": "examples/geometry/unclaimed-face/features.toml",
@@ -1785,11 +1785,11 @@
       "subject": "S2"
     }
   ],
-  "hash": "17dfdd81d3f68f6330b97c87a785a86dc11426114b94d64a8d608d97134fc012",
+  "hash": "33758854494d7a386d9750166376ac24f5abce09d11aba56bf63bb1dea06df8c",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
     },
     "features": {
       "path": "examples/geometry/unclaimed-face/features.toml",
