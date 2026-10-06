@@ -32,8 +32,11 @@ its capability as unknown.
 
 Loading rejects any `checks.<requirement>` absent from that operation's feature
 exported `requirements` list, including when the list is wholly unknown. A name
-exported on another feature does not establish ownership. To retain an authored
-inspection for a requirement absent from the export, declare a separate inspect
+exported on another feature does not establish ownership. An `inspect` op naming
+a feature list may check a requirement any named feature exports; it is the
+check op for each named feature that exports it, so one reading of a limit the
+drawing gives two features covers both `feature:requirement` subjects. To retain
+an authored inspection for a requirement absent from the export, declare a separate inspect
 operation with `missing_requirements = { length = "calipers" }` and its
 `inspection_methods.length` procedure. A name already exported on the selected
 feature is rejected in `missing_requirements`; actual requirements must use checks.
@@ -114,6 +117,27 @@ Evidence: requirement, limits, finishing/check op, named gauge, kind, range,
 resolution and band width where available. Citations: PLAN §4.1 inspection,
 feature requirement manifest and inventory range/resolution/verification. A pin
 size check is not a position check; a declared gauge is not first-article data.
+
+## Process holds
+
+An op's `process_holds` adds one `{setup}:{op}` inspection subject. Each hold's
+`band` must lie inside its drawing requirement band, limits included (a scalar
+geometric zone `v` reads as [0, v]): any hold reaching outside is `error`
+(`{setup}:{op}: process hold band outside the drawing band ({feature}
+{requirement}).`), an unresolved drawing band is `unknown`, otherwise `pass`.
+Evidence: each hold's band, drawing band, gauge, reason and
+`inside_drawing_band`. Its gauge is a selected reference checked by
+`tool_resolves`. The sheet prints it as `PROCESS HOLD — not a drawing limit:
+<reason> — <feature> <requirement> <band>: <gauge>`, at the hold's own digits.
+
+## `finish_route`
+
+One row per part. A drawing `material.finish` with no `coating` op in the route
+is `warn` (a job-page caution: the route never applies the finish). A coating op
+passes it. An explicitly unknown finish is `unknown`; no declared finish is
+`not_applicable`. Whether each coating op's `process` resolves to an outside
+`services` item or in-house `consumables` is `tool_resolves` per op: absent is
+`unknown`, unlisted is `error`.
 
 ## Angularity
 
