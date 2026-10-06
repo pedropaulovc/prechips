@@ -33,10 +33,10 @@ cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.p
 id = "boss"
 form = "round_bar"
 dia_mm = 25.0 # AUTHOR'S CHOICE: above printed crank boss21.9
-length_mm = 100.0 # AUTHOR'S CHOICE: boss72.0344 plus foot-facing/grip allowances
+length_mm = 110.0 # AUTHOR'S CHOICE: finished sleeve, 6 mm facing allowance, 20 mm grip and safe parting clearance
 origin_mm = [0.0, 72.7, -27.3753]
 axis = [0.0, 0.0, 1.0]
-note = "AUTHOR'S CHOICE: 25 mm round boss stock, 6 mm north facing allowance and sacrificial south grip; coordinates describe the final assembly placement, not a physical union before fit-up."
+note = "AUTHOR'S CHOICE: 25 mm diameter by 110 mm round boss stock, 6 mm north facing allowance and 20 mm sacrificial south grip. The extra length leaves 11.9656 mm from the finished parting plane to the jaw fronts; coordinates describe final assembly placement, not a physical union before fit-up."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
 [dro]
 controller = "Electronica EL400"
@@ -212,21 +212,21 @@ deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
 [setups.stock_state]
 od_mm = 25.0 # AUTHOR'S CHOICE: second leaf blank, not body stock diameter
 north_end_z = 6.0
-south_end_z = -94.0 # AUTHOR'S CHOICE:100mm blank
-note = "AUTHOR'S CHOICE: separate sleeve blank positioned in its assembly frame for stock routing; the lathe X zero is set from a measured trial cut."
+south_end_z = -104.0 # AUTHOR'S CHOICE: 110 mm blank from C4 Z+6 to Z-104
+note = "AUTHOR'S CHOICE: separate sleeve blank positioned in its assembly frame for stock routing, with 20 mm grip at Z-104..-84 and 90 mm initial stickout. The lathe X zero is set from a measured trial cut."
 [setups.hold]
 fixture = "chuck-3jaw-6-d1-4"
 support = "none"
-grip_on = "AUTHOR'S CHOICE:20mm sacrificial loose-boss grip"
+grip_on = "AUTHOR'S CHOICE: 20 mm sacrificial loose-boss grip, C4 Z-104..-84"
 grip_mm = 20.0
-stickout_mm = 80.0 # AUTHOR'S CHOICE:100-20; L/D=80/25
+stickout_mm = 90.0 # AUTHOR'S CHOICE: 110-20; initial L/D=90/25
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "AUTHOR'S CHOICE: jaw fronts C4 Z-74; stop1.9656mm beyond nominal finished boss end"
+stop = "AUTHOR'S CHOICE: jaw fronts C4 Z-84; finished parting plane Z-72.0344 is 11.9656 mm ahead, leaving 10.3656 mm behind the full 1.6 mm blade width."
 clamp = "Tighten all three chuck pinions on the sacrificial grip; remove key. Catch the sleeve by hand only after spindle stops."
-pose = { origin_mm = [0.0, 0.0, -74.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+pose = { origin_mm = [0.0, 0.0, -84.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
 [setups.zero.x]
 feature = "spindle_axis"
@@ -275,7 +275,7 @@ feature = "crank_spigot"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
-z_to = -73.0 # AUTHOR'S CHOICE: 0.9656 mm runout beyond the parted face, 1 mm before jaw fronts
+z_to = -73.0 # AUTHOR'S CHOICE: 0.9656 mm runout beyond the parted face, 11 mm before jaw fronts
 rough_allowance_mm = 0.4 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
 doc_mm = 0.25
@@ -309,7 +309,7 @@ direction = "toward_chuck"
 doc_mm = 0.01
 feed_mm_rev = 0.03
 approach_mm = 3.0
-note = "AUTHOR'S CHOICE: light final spring pass at the same 21.930 mm diameter setting, not a second diameter reduction. Finish the actual STEP external sleeve cylinders; the transient spigot operation alone cannot claim these faces. Stop at Z-73, one millimetre ahead of the jaws."
+note = "AUTHOR'S CHOICE: light final spring pass at the same 21.930 mm diameter setting, not a second diameter reduction. Finish the actual STEP external sleeve cylinders; the transient spigot operation alone cannot claim these faces. Stop at Z-73, eleven millimetres ahead of the jaws."
 [setups.ops.checks]
 dia = "micrometers/0-1in"
 
@@ -334,7 +334,7 @@ direction = "radially_inward"
 approach_mm = 3.0
 doc_mm = 0.25
 feed_mm_rev = 0.03
-note = "Set the exposed blade tip square and on centre; part at the final sleeve length, 1.9656 mm ahead of the jaw fronts. Use cutting oil and stop before catching or deburring the free sleeve."
+note = "AUTHOR'S CHOICE: set the exposed blade tip square and on centre; part at Z-72.0344, 11.9656 mm ahead of the jaw fronts. Put the complete 1.6 mm blade width on the sacrificial side of that plane, leaving 10.3656 mm axial clearance to the jaws. Use cutting oil and stop before catching or deburring the free sleeve."
 [setups.ops.checks]
 length = "calipers"
 
@@ -423,20 +423,20 @@ approach = "rotary"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 z_from = 6.0
-z_to = 46.0
+z_to = 51.0
 angle_window_deg = [0.0, 360.0]
 stock_to_leave_mm = 0.0
 doc_mm = 0.5
 approach_mm = 5.0
 direction = "conventional"
-note = "AUTHOR'S CHOICE: rotary-mill at head OD42.7506 from Y54 through Y94, before finishing the smaller body diameter. The 5.4 mm shallow overlap below the Y59.4 shoulder exceeds the 4.7625 mm cutter radius without entering the final body radius. Preserve the head above Y59.4; finish the overlapped body band in op20. Retain six millimetres before the raw jaw land begins at Y100; the eight millimetres beyond the final Y86 head cap is real runout removed in S6."
+note = "AUTHOR'S CHOICE: rotary-mill at head OD42.7506 from Y49 through Y94, before finishing the smaller body diameter. The 10.4 mm shallow overlap below the Y59.4 shoulder clears the complete offset cutter envelope, not just its radius, while remaining outside the final body radius and above the inclined pads. Preserve the head above Y59.4; finish the overlapped body band in op20. Retain six millimetres before the raw jaw land begins at Y100; the eight millimetres beyond the final Y86 head cap is real runout removed in S6."
 [setups.ops.checks]
 dia = "calipers"
 [[setups.ops]]
 op = 20
 do = "profile"
 feature = "body"
-faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BODY__P01"]
+faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BODY__P01", "#395/ADVANCED_FACE[11]/NONE"]
 approach = "rotary"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
@@ -447,25 +447,9 @@ stock_to_leave_mm = 0.0
 doc_mm = 0.5
 approach_mm = 5.0
 direction = "conventional"
-note = "AUTHOR'S CHOICE: rotary-mill the body cylinder from Y59.4 to foot Y0 in shallow traverses; preserve both inclined pad islands, then finish the cylindrical lands to 42.011 mm. Axial limits are measured along the head axis from the jaw mouth, not spindle Z."
+note = "AUTHOR'S CHOICE: rotary-mill the body cylinder from Y59.4 to foot Y0 in shallow traverses; preserve both inclined pad islands, then finish the cylindrical lands to 42.011 mm and skim the narrow Y59.4 shoulder annulus with the cutter flank in the same pass. Actual STEP #395 is this shoulder; #431 is the still-unfinished head cap at Y86. Axial limits are measured along the head axis from the jaw mouth, not spindle Z."
 [setups.ops.checks]
 dia = "calipers"
-[[setups.ops]]
-op = 30
-do = "profile"
-feature = "head"
-faces = ["#395/ADVANCED_FACE[11]/NONE"]
-approach = "rotary"
-tool = "endmills-lms-6784/3-8in-4fl"
-holder = "r8-collets-lms-4860/3-8in"
-z_from = 40.6
-z_to = 100.0
-angle_window_deg = [0.0, 360.0]
-stock_to_leave_mm = 0.0
-doc_mm = 0.1
-approach_mm = 5.0
-direction = "conventional"
-note = "AUTHOR'S CHOICE: skim the narrow shoulder annulus at model Y59.4 with the cutter flank from the cleared body side. Actual STEP #395 is this shoulder; #431 is the still-unfinished head cap at Y86."
 
 [[setups]]
 id = "S2N"
