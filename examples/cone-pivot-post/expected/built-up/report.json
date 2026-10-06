@@ -11491,20 +11491,21 @@
       "numbers": {
         "axes": {
           "x": {
-            "axis_set": "unknown",
-            "axis_set_status": "unknown",
+            "axis_set": "measured D",
+            "axis_set_status": "measured",
             "check_expression": "D +20",
             "check_jog_mm": 10.0,
-            "check_reading": "unknown",
+            "check_reading": "D +20",
             "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
             "feature": "spindle_axis",
             "from": "+x",
             "gauge": "micrometers/0-1in",
+            "gauge_verify": false,
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
             "mirrored_expression": "D -20",
-            "mirrored_reading": "unknown",
+            "mirrored_reading": "D -20",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
             "sign": 1,
@@ -11806,7 +11807,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "197a68dddc5a0bfcc177da4033930ddf48d6a4cdeb463f7dce40d1a7052b4a54",
+  "hash": "fb57d2d7a3fac94b71432d8bda50b2330b87b2906f1379616e9bea54c68279b1",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
