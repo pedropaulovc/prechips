@@ -136,7 +136,7 @@ tool_material = "M2"
 operation = "form_relief"
 diameter_range = [0.0, 125.0]
 sfm = 70
-feed_mm_rev = 0.03
+feed_mm_rev = 0.02
 cite = "illustrative example value (plausible hobby-lathe HSS plunge-grooving starting point), not transcribed from a handbook"
 
 [[cut]]

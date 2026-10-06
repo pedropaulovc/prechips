@@ -186,10 +186,10 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 166.0
 z_to = 0.2                    # stop 0.2 short of the thrust face for the facing pass
 rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
-doc_mm = 0.86               # two equal passes Ø10 → Ø6.55
-feed_mm_rev = 0.10
+doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body
+feed_mm_rev = 0.08
 direction = "toward_chuck"  # author's choice: plain end to shoulder; cutting load pushes into the headstock
-note = "Rough the body from the plain end to the shoulder, two passes; the Ø10 shoulder stays as bar."
+note = "Rough the body from the plain end to the shoulder in four light passes; the Ø10 shoulder stays as bar."
 
 [[setups.ops]]
 op = 20
@@ -247,7 +247,7 @@ holder = "qctp-axa-lms-2280/7-parting"
 z_from = 0.0
 z_to = 2.0
 doc_mm = 0.33               # radial plunge depth Ø6.35 → Ø5.7
-feed_mm_rev = 0.03
+feed_mm_rev = 0.02          # light plunge on the slender body
 direction = "plunge_radial"  # author's choice: plunge flush at Z0..1.6, step to Z0.4..2.0, plunge again
 note = "DIN 509 relief: two square plunges with the 1/16 in blade, chuck-side corner flush to the thrust face."
 
@@ -346,7 +346,7 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 5.0
 z_to = -7.3                   # stop 0.2 short of the shoulder north face
 rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
-doc_mm = 0.86
+doc_mm = 0.5                # four passes; the short free stub stays stiff at this load
 feed_mm_rev = 0.10
 direction = "toward_chuck"  # author's choice: stub end to the shoulder
 note = "Rough the stub and journal together; the dome is formed from this O.D."
@@ -387,7 +387,7 @@ holder = "qctp-axa-lms-2280/7-parting"
 z_from = -7.5
 z_to = -5.5
 doc_mm = 0.33
-feed_mm_rev = 0.03
+feed_mm_rev = 0.02
 direction = "plunge_radial"  # author's choice: plunge flush at Z-7.5..-5.9, step to -7.1..-5.5, plunge again
 note = "DIN 509 relief: two square plunges, chuck-side corner flush to the shoulder north face."
 
