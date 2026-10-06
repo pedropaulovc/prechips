@@ -65,7 +65,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal" # S2: X/Y indicated on the S1 pilot, Z0 the faced lower hub face
-note = "AUTHOR'S CHOICE: Setup S2 zero is the lower hub face at the pivot axis. Roll the blank over about its length, keeping the rod-hole end at +X; indicate the S1 pilot and touch the S2 op 10 faced hub."
+note = "AUTHOR'S CHOICE: Setup S2 zero is the lower hub face at the pivot axis, rod-hole end at +X: X/Y indicated on the S1 pilot, Z set from the measured hub length before op 10."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"]
 
 # ---------------------------------------------------------------- S1
@@ -280,7 +280,7 @@ coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S1"
-note = "Lower side: roll the blank over about its length, keeping the rod-hole end at +X. Indicate the S1 pilot, then rough-face and finish-face the internal field to qualify the lower hub face, and rough before finishing the lower strap face and hub OD. Face only inside X -160..160, Y -31.7..20: the rails and ears stay full thickness. Adjust the two support jacks to just bear on the S1-finished strap without lifting the rail frame from its parallels. Spot, drill and ream the rod hole and pass its process gauge hold before opening the outer pockets; then rough the opposed pockets leaving the 0.40 mm web. Final A|B|C position inspection follows S4 land finishing."
+note = "Lower side, rod-hole end still at +X. Indicate the S1 pilot, then rough-face and finish-face the internal field to qualify the lower hub face, and rough before finishing the lower strap face and hub OD. Face only inside X -160..160, Y -31.7..20: the rails and ears stay full thickness. Adjust the two support jacks to just bear on the S1-finished strap without lifting the rail frame from its parallels. Spot, drill and ream the rod hole and pass its process gauge hold before opening the outer pockets; then rough the opposed pockets leaving the 0.40 mm web. Final A|B|C position inspection follows S4 land finishing."
 
 [setups.stock_state]
 top_feature = "hub_faces" # the Z-touch face is the lower hub face; strap face ops do not move it
