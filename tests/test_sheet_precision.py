@@ -1,10 +1,10 @@
-"""Bench traveler numbers: known values print in their own digits; unknowns stay explicit."""
+"""Host-only traveler precision and wording with synthetic kernel facts."""
 
 import re
 from html import unescape
 
 import pytest
-from test_cli import ROOT, copy_examples, traveler
+from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
 
 
 def text(html):
@@ -31,7 +31,7 @@ def bracket(tmp_path_factory):
     authored, deburrs = re.subn(r"(?m)^deburr_mm = .*$", 'deburr_mm = "unknown"', authored, count=1)
     assert deburrs == 1
     plan.write_text(authored, encoding="utf-8")
-    _, report, html = traveler(plan, root / "out")
+    _, report, html = traveler(plan, root / "out", setup=SYNTHETIC_KERNEL)
     return report, html
 
 
@@ -39,7 +39,7 @@ def test_omitted_lathe_radius_mode_leaves_x_checks_unknown(tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     authored = plan.read_text(encoding="utf-8")
     plan.write_text(re.sub(r"(?m)^radius_mode = .*\n", "", authored, count=1), encoding="utf-8")
-    _, report, _ = traveler(plan, tmp_path / "out")
+    _, report, _ = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     for row in findings(report, "zero_check"):
         x = row["numbers"]["axes"]["x"]
         assert row["status"] == "unknown"
@@ -56,7 +56,9 @@ def test_unknown_inventory_category_still_renders_its_references(tmp_path):
         inventory.read_text(encoding="utf-8"),
     )
     inventory.write_text('gauges = "unknown"\n' + stripped, encoding="utf-8")
-    _, report, html = traveler(examples / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    _, report, html = traveler(
+        examples / "pivot-shaft" / "plan.toml", tmp_path / "out", setup=SYNTHETIC_KERNEL
+    )
     gauges = [row for row in findings(report, "tool_resolves") if "micrometers" in row["subject"]]
     assert gauges and all(row["status"] == "unknown" for row in gauges)
     # The unresolved gauge stays on the sheet and its check is marked unknown, not passed.
@@ -88,7 +90,11 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
 
 
 def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
-    _, report, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    _, report, html = traveler(
+        ROOT / "examples" / "pivot-shaft" / "plan.toml",
+        tmp_path / "out",
+        setup=SYNTHETIC_KERNEL,
+    )
     coordinates = next(row for row in findings(report, "coordinates") if row["subject"] == "S3")
     endpoint = next(
         row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 10 to_z"
@@ -118,7 +124,7 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
 @pytest.mark.parametrize("plan", ["plan.toml", "built-up.toml"])
 def test_machine_backed_workholding_prints_without_missing_label(tmp_path, plan):
     bundle = copy_examples(tmp_path) / "cone-pivot-post"
-    _, _, html = traveler(bundle / plan, tmp_path / "out")
+    _, _, html = traveler(bundle / plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     route = text(sections(html, "STOCK AND ROUTE")[0])
     assert "BS-0" in route
     assert "BS-0 (not in shop list)" not in route
@@ -139,7 +145,7 @@ length = "Measure 1.75 past the actual scribe to the cut face with calipers."
 def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
-    _, report, html = traveler(plan, tmp_path / "out")
+    _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     row = next(
         cells for number, cells in op_rows(sections(html, "OPERATIONS")[-1]) if number == "30"
     )
@@ -152,7 +158,11 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
 
 
 def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
-    _, report, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    _, report, html = traveler(
+        ROOT / "examples" / "pivot-shaft" / "plan.toml",
+        tmp_path / "out",
+        setup=SYNTHETIC_KERNEL,
+    )
     per_rev = {}
     for finding in findings(report, "speeds_feeds"):
         setup, _, op = finding["subject"].partition(":")
@@ -173,7 +183,11 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
 
 def test_hold_text_has_no_pose_vectors(tmp_path):
     # Every shaft hold carries a chuck pose; the sheet turns it into a jaw-front Z only.
-    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    _, _, html = traveler(
+        ROOT / "examples" / "pivot-shaft" / "plan.toml",
+        tmp_path / "out",
+        setup=SYNTHETIC_KERNEL,
+    )
     holds = sections(html, "HOLD")
     assert holds
     for hold in holds:
@@ -184,7 +198,11 @@ def test_hold_text_has_no_pose_vectors(tmp_path):
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
     # The job page is read first; it must never look clear over a stopped setup.
-    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    _, _, html = traveler(
+        ROOT / "examples" / "pivot-shaft" / "plan.toml",
+        tmp_path / "out",
+        setup=SYNTHETIC_KERNEL,
+    )
     stopped = [
         re.match(r"\s*SETUP (\S+)", page)[1]
         for page in html.split("<h2>")[1:]

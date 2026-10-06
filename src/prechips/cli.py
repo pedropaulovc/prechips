@@ -247,7 +247,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
 
     path = args.inventory or os.environ.get("PRECHIPS_INVENTORY")
     if args.measure:
-        from prechips.rules import RULES
+        from prechips.rules import MEASUREMENT_RULES
 
         plans = args.plan
         if not plans:
@@ -265,7 +265,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
             bundle = load_bundle(plan, inventory=path)
             inventory_path = bundle.paths["inventory"]
             inventories.add(inventory_path)
-            for rule in RULES:
+            for rule in MEASUREMENT_RULES:
                 scoped_findings.extend(
                     (plan.as_posix(), inventory_path, finding) for finding in rule.evaluate(bundle)
                 )

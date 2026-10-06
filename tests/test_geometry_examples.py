@@ -279,11 +279,12 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
     )
 
 
-def test_reference_rocker_arm_binds_the_labelled_export_and_keeps_unresolved_setups_unknown(
-    tmp_path, freecad_kernel
+def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
+    tmp_path, pilot_kernel_cache
 ):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
+    pilot_kernel_cache(plan)
     result, report, _ = traveler(plan, tmp_path / "ref")
     assert result.returncode == 2, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
@@ -293,11 +294,16 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_keeps_unresolved_set
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    assert set(report["renders"]) == {"S1"}
+    assert set(report["renders"]) == {"S1", "S2", "S3", "S4"}
+    for setup, render in report["renders"].items():
+        assert render["fixture"] == "modeled"
+        assert render["scene"]["debts"] == []
+        assert all(component["exact"] for component in render["scene"]["components"])
+        image = (tmp_path / "ref" / render["path"]).read_bytes()
+        assert image.startswith(b"\x89PNG\r\n\x1a\n")
+        assert hashlib.sha256(image).hexdigest() == render["sha256"]
     for setup in ("S2", "S3"):
-        row = finding(report, "accessibility", setup + ":10")
-        assert row["status"] == "unknown"
-        assert not (tmp_path / "ref" / f"setup-{setup}.png").exists()
+        assert finding(report, "accessibility", setup + ":10")["status"] != "unknown"
     coverage = finding(report, "coverage", "rocker-arm")
     assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"]
     assert coverage["numbers"]["unclaimed_faces"] == []

@@ -97,9 +97,17 @@ geometry-matched STEP `ADVANCED_FACE` reference, never from import order or
 the nearest face. M2 rules evaluate declared profile, holding, indexing and
 physics inputs; unknown K_c/E, shop limits, `thin_wall_floor_mm` and verified
 capacity remain debt. Unit tests that need kernel facts must inject a synthetic
-`bundle.kernel` result. Real geometry integration tests must request the shared
-`freecad_kernel` session fixture, use an isolated `PRECHIPS_KERNEL_CACHE`, and
-skip with `FreeCAD kernel not found` if discovery finds no executable.
+`bundle.kernel` result (CLI subprocess tests can use `SYNTHETIC_KERNEL` from
+`tests/test_cli.py`). Real geometry integration tests must request the shared
+`freecad_kernel` session fixture, which shares one temporary
+`PRECHIPS_KERNEL_CACHE` with CLI subprocesses. Pilot CLI tests also request
+`pilot_kernel_cache` and prepare their selected plan before launching the CLI:
+each distinct cold job runs under the kernel's own deadline, and later copies
+reuse it. The CLI helper's unchanged 60-second limit then covers warm-cache host
+work, not cold geometry preparation. Tests asserting cache behavior must
+request the function-scoped `kernel_cache` fixture or explicitly supply their
+own temporary cache; `run_cli` preserves those overrides. Geometry tests skip
+with `FreeCAD kernel not found` if discovery finds no executable.
 Absent-kernel tests must explicitly set `FREECAD_CMD` to a nonexistent path,
 never rely on the host lacking FreeCAD. Preserve discovery order and the
 product's unknown/exit-4 behavior.
@@ -129,7 +137,7 @@ FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
 The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
 outputs correctly stop with 2 or 4. Current expected M3 CLI exits are
-4 / 2 / 2 / 2 / 2 (shaft / rocker / bracket / cone one-piece / cone built-up).
+4 / 2 / 2 / 2 (shaft / rocker / bracket / cone built-up).
 Approved source-backed example corrections must retain their documented
 provenance, not erase requirements to recover an exit. Migrate existing
 inspection choices to the exact exported feature owners rather than dropping
@@ -139,9 +147,8 @@ unknown. Only the consumer side of M3 is done. Consult PLAN §8 M3 for the open
 HA items and the combined gate.
 Use the CLI examples in [README.md](README.md) and isolated output directories
 to exercise behavior.
-The cone's one-piece and built-up candidates also remain PLANNED; comparison
-must refuse built-up construction unless the drawing manifest explicitly permits
-it. Indexing uses one angular setting for the inclined journal, never a fictional
+The cone's built-up candidate also remains PLANNED. Indexing uses one angular
+setting for the inclined journal, never a fictional
 shaft cross-hole. Closure is checked only for a full pattern: `positions >= 2`
 with `angle_deg` omitted (step exactly `360 / positions`). Authored angles are
 open patterns: every landing is checked, with no closure. One setting also has
