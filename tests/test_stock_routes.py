@@ -1,6 +1,7 @@
 """Authored material routes reject bad references before running any machining rules."""
 
 import json
+import tomllib
 from types import SimpleNamespace
 
 import pytest
@@ -11,12 +12,25 @@ from prechips.inputs import BadInput, load_bundle
 from prechips.model import Plan
 from prechips.rules import op_order
 
+JOINT = (
+    'joint = {kind = "surface", method = "weld", process = "Weld butt faces", '
+    'cite = "AUTHOR\'S CHOICE", interfaces = [{at = [30, 20, 10], normal = [1, 0, 0], '
+    'x = [0, 1, 0], size_mm = [40, 20], cite = "Internal butt interface"}]}\n'
+)
+
 
 def plan_with_routes(routes, components=None):
     plan = {
         "part": "route-test",
         "features": "features.toml",
-        "setups": [{"id": sid, "stock_in": source} for sid, source in routes],
+        "setups": [
+            {
+                "id": sid,
+                "stock_in": source,
+                **(tomllib.loads(JOINT) if isinstance(source, list) else {}),
+            }
+            for sid, source in routes
+        ],
     }
     if components is not None:
         plan["stock"] = {"components": components}
@@ -30,6 +44,8 @@ def plan_with_routes(routes, components=None):
 def test_invalid_route_exits_three_without_outputs(tmp_path, source):
     authored = json.dumps(source)
     text = PLAN.replace('id = "S1"', f'id = "S1"\nstock_in = {authored}')
+    if isinstance(source, list):
+        text = text.replace(f"stock_in = {authored}\n", f"stock_in = {authored}\n{JOINT}")
     text += '\n[[setups]]\nid = "S2"\nstock_in = "S1"\n'
     path = bundle_files(tmp_path, text)
     with pytest.raises(BadInput):
@@ -93,7 +109,9 @@ def test_ream_requires_drilled_material_in_its_direct_or_transitive_route(
             },
         ]
     }
-    bundle = SimpleNamespace(plan=plan, features={"features": {"bore": {}}})
+    if isinstance(third_source, list):
+        plan["setups"][2].update(tomllib.loads(JOINT))
+    bundle = SimpleNamespace(plan=plan, feature_definitions={"bore": {}})
     rows = {row.subject: row for row in op_order.evaluate(bundle)}
     assert rows["S3"].status == status
 
@@ -103,7 +121,7 @@ def test_joining_shared_material_ancestry_exits_three(tmp_path, refs):
     text = PLAN.replace('id = "S1"', 'id = "S0"\nstock_in = "stock"')
     text += (
         '\n[[setups]]\nid = "S1"\nstock_in = "S0"\n'
-        f'\n[[setups]]\nid = "S2"\nstock_in = {json.dumps(refs)}\n'
+        f'\n[[setups]]\nid = "S2"\nstock_in = {json.dumps(refs)}\n' + JOINT
     )
     path = bundle_files(tmp_path, text)
     out = tmp_path / "out"

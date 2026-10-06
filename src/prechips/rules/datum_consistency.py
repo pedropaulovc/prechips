@@ -7,7 +7,7 @@ indicating an earlier pilot does not establish a later reamed datum.
 from prechips.findings import Finding
 from prechips.rules.resolution import MANUAL, SAW_OPS, operations
 
-_NONFINISH = {"spot", "inspect", "release", "fit_up", "scribe", "transfer", "deburr"} | SAW_OPS
+_NONFINISH = {"spot", "inspect", "release", "fit", "scribe", "transfer", "deburr"} | SAW_OPS
 
 
 def _mapping(value):

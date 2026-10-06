@@ -13,7 +13,7 @@ PROFILE = {"op": 40, "do": "finish_profile", "feature": "profile", "faces": ["P1
 
 def bundle(*claimers, land_faces=("L",), land_kind="face"):
     """Hole S2:50 is positioned from datum A = ``land``; the land has no labeled op."""
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "setups": [
                 {"id": "S1", "ops": list(claimers)},
@@ -38,6 +38,8 @@ def bundle(*claimers, land_faces=("L",), land_kind="face"):
         },
         policy={"numbers": {"refixture_budget_mm": 0.05}},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def hole_row(data):

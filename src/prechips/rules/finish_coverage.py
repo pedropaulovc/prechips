@@ -29,6 +29,8 @@ def evaluate(bundle):
     unformed, pending = set(), {}  # cap index -> why its formation is unknown
     mapping, op_facts = record(facts.get("mapping")), record(facts.get("ops"))
     for setup, op in operations(bundle):
+        if record(record(bundle.feature_definitions.get(op.get("feature"))).get("joint")):
+            continue
         if op.get("do") in SAW_OPS:
             # A saw cut is never a finishing claim on a target face.
             continue

@@ -21,7 +21,7 @@ from prechips.rules.resolution import (
 from prechips.rules.turned_profile import PROFILE_OPS
 
 UNKNOWN = "unknown"
-_NONCUTTING = MANUAL | {"fit_up", "transfer"}
+_NONCUTTING = MANUAL | {"transfer"}
 LATHE_APPROACH_REASON = (
     "turning action has no approach model off a lathe "
     "(the turning model needs a lathe spindle on setup Z)"
@@ -96,7 +96,7 @@ def finishing_subjects(bundle):
     # A saw cut removes stock but never finishes a target face.
     return {
         f"{setup['id']}:{op['op']}"
-        for name in bundle.features["features"]
+        for name in bundle.feature_definitions
         for _, setup, op in _cuts(bundle, name)
         if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
     }
@@ -123,8 +123,13 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
     if digest != UNKNOWN:
         cite.append(f"kernel: STEP SHA-256 {digest}; FreeCAD B-rep measurements")
     if feature is not None:
-        entry = record(bundle.features["features"].get(feature))
-        cite.append(f"features.{feature}: faces and requirements")
+        entry = record(bundle.feature_definitions.get(feature))
+        joint = record(entry.get("joint"))
+        cite.append(
+            f"plan.joint_features.{joint['id']}: analytic transient cylinder"
+            if joint
+            else f"features.{feature}: faces and requirements"
+        )
         cite.extend(_citations(entry.get("cite")))
     if setup is not None:
         cite.append(f"plan.setups.{setup['id']}: frame and hold")
@@ -176,8 +181,9 @@ def unavailable(bundle, rule, subject, facts, cite):
 
 
 def mapped_feature(bundle, facts, name):
-    feature = record(bundle.features["features"].get(name))
-    refs = feature.get("faces", UNKNOWN)
+    feature = record(bundle.feature_definitions.get(name))
+    joint = record(feature.get("joint"))
+    refs = [joint["label"]] if joint else feature.get("faces", UNKNOWN)
     errors = record(facts.get("mapping_errors"))
     if isinstance(refs, list):
         invalid = [ref for ref in refs if ref != UNKNOWN and ref in errors]
@@ -287,7 +293,16 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                 )
             else:
                 _, away, invalid = op_claims(bundle, facts, setup, op)
-                if invalid:
+                if detail.get("joint_error"):
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "error",
+                        {},
+                        cite,
+                        f"{subject}: {detail['joint_error']}.",
+                    )
+                elif invalid:
                     blocked = Finding(
                         rule,
                         subject,
@@ -415,7 +430,16 @@ def setup_contexts(bundle, rule):
         detail = record(record(facts.get("setups")).get(subject))
         blocked = unavailable(bundle, rule, subject, facts, cite)
         if blocked is None:
-            if inputs["kind"] == UNKNOWN:
+            if detail.get("assembly_error"):
+                blocked = Finding(
+                    rule,
+                    subject,
+                    "error",
+                    {},
+                    cite,
+                    f"{subject}: {detail['assembly_error']}.",
+                )
+            elif inputs["kind"] == UNKNOWN:
                 blocked = Finding(
                     rule, subject, "unknown", {}, cite, f"{subject}: holding identity is unknown."
                 )

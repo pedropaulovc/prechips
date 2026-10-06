@@ -219,7 +219,7 @@ def evaluate(bundle):
             continue
 
         feature_name = op.get("feature", UNKNOWN)
-        feature = record(bundle.features["features"].get(feature_name))
+        feature = record(bundle.feature_definitions.get(feature_name))
         axial = action in AXIAL_OPS
         rough = isinstance(action, str) and action.startswith("rough_")
         dome = feature.get("kind") == "dome"

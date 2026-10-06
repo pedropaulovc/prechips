@@ -259,6 +259,154 @@ Operation = record(
     },
     indexed=("do",),
 )
+type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
+type KnownBand = Annotated[list[float], Field(min_length=2, max_length=2)]
+# Authored unit vectors carry trig residue; the kernel's pose tolerance applies.
+UNIT_TOLERANCE = 1e-6
+
+
+def _cited(value: Any) -> bool:
+    values = value if isinstance(value, list) else [value]
+    return bool(values) and all(
+        isinstance(item, str) and item.strip() and item.strip() != UNKNOWN for item in values
+    )
+
+
+def _known_text(value: str, what: str) -> None:
+    if not value.strip() or value.strip() == UNKNOWN:
+        raise ValueError(f"{what} must be known and non-empty.")
+
+
+def _unit(vector: Any, what: str) -> None:
+    if vector != UNKNOWN and abs(sum(v * v for v in vector) ** 0.5 - 1.0) > UNIT_TOLERANCE:
+        raise ValueError(f"{what} must be a unit vector.")
+
+
+def _ordered(band: Any, what: str, *, floor: float, inclusive: bool) -> None:
+    if band == UNKNOWN:
+        return
+    low, high = band
+    if not (low >= floor if inclusive else low > floor) or low > high:
+        relation = ">=" if inclusive else ">"
+        raise ValueError(f"{what} must be an ordered [lo, hi] band with lo {relation} {floor:g}.")
+
+
+class JointFeature(InputModel):
+    """A plan-owned transient cylinder on one stock component, never a finished surface.
+
+    Unsuffixed lengths (``at``, ``dia``, ``nominal_dia``, ``depth``) are in manifest units
+    in the model frame. Numeric literal unknown is joint-geometry debt; identities are strict.
+    """
+
+    kind: Literal["cylinder_bore", "cylinder_spigot"]
+    component: str
+    at: KnownPoint3 | Unknown
+    axis: KnownPoint3 | Unknown
+    dia: KnownBand | Unknown
+    nominal_dia: float | Unknown
+    depth: float | Unknown
+    thru: bool
+    cite: Citations
+    requirements: list[Literal["dia"]] = Field(default_factory=lambda: ["dia"])
+    precision: dict[str, int | Unknown] | Unknown = UNKNOWN
+    note: str | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def known_geometry(self) -> JointFeature:
+        _known_text(self.component, "A joint feature component")
+        if not _cited(self.cite):
+            raise ValueError("A joint feature must cite its author's geometry source.")
+        _unit(self.axis, "A joint feature axis")
+        _ordered(self.dia, "A joint feature dia", floor=0.0, inclusive=False)
+        if self.dia != UNKNOWN and self.nominal_dia != UNKNOWN:
+            if not self.dia[0] <= self.nominal_dia <= self.dia[1]:
+                raise ValueError("A joint feature nominal_dia must lie within its dia band.")
+        if self.depth != UNKNOWN and self.depth <= 0:
+            raise ValueError("A joint feature depth must be positive, also when thru.")
+        if len(set(self.requirements)) != len(self.requirements):
+            raise ValueError("A joint feature lists a requirement twice.")
+        return self
+
+
+class JointInterface(InputModel):
+    """One planar rectangular contact patch: model-frame centre (manifest units)."""
+
+    at: KnownPoint3 | Unknown
+    normal: KnownPoint3 | Unknown
+    x: KnownPoint3 | Unknown
+    size_mm: KnownBand | Unknown
+    cite: Citations
+
+    @model_validator(mode="after")
+    def known_geometry(self) -> JointInterface:
+        if not _cited(self.cite):
+            raise ValueError("A joint interface must cite its source.")
+        _unit(self.normal, "A joint interface normal")
+        _unit(self.x, "A joint interface x")
+        if self.normal != UNKNOWN and self.x != UNKNOWN:
+            if abs(sum(a * b for a, b in zip(self.normal, self.x, strict=True))) > UNIT_TOLERANCE:
+                raise ValueError("A joint interface x must be orthogonal to its normal.")
+        if self.size_mm != UNKNOWN and min(self.size_mm) <= 0:
+            raise ValueError("A joint interface size_mm must be positive.")
+        return self
+
+
+_FIT_METHODS = {
+    "clearance": {"silver_braze", "retaining_compound"},
+    "interference": {"press"},
+}
+
+
+class CylindricalJoint(InputModel):
+    """Socket/spigot join of exactly two branches; fit bands are diametral mm."""
+
+    kind: Literal["cylindrical"]
+    socket: str
+    spigot: str
+    fit: Literal["clearance", "interference"]
+    clearance_mm: KnownBand | Unknown | None = None
+    interference_mm: KnownBand | Unknown | None = None
+    method: Literal["silver_braze", "retaining_compound", "press"]
+    process: str
+    cite: Citations
+
+    @model_validator(mode="after")
+    def declared_fit(self) -> CylindricalJoint:
+        _known_text(self.process, "A joint process")
+        if not _cited(self.cite):
+            raise ValueError("A joint must cite its fit and process source.")
+        if self.method not in _FIT_METHODS[self.fit]:
+            raise ValueError(f"A {self.fit} joint cannot be made by {self.method}.")
+        band, other = (
+            (self.clearance_mm, self.interference_mm)
+            if self.fit == "clearance"
+            else (self.interference_mm, self.clearance_mm)
+        )
+        if band is None or other is not None:
+            raise ValueError(
+                f"A {self.fit} joint must declare {self.fit}_mm and no other fit band."
+            )
+        _ordered(band, f"{self.fit}_mm", floor=0.0, inclusive=self.fit == "clearance")
+        return self
+
+
+class SurfaceJoint(InputModel):
+    """Planar butt join of exactly two branches through declared contact interfaces."""
+
+    kind: Literal["surface"]
+    method: Literal["weld", "silver_braze"]
+    process: str
+    cite: Citations
+    interfaces: Annotated[list[JointInterface], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def declared_process(self) -> SurfaceJoint:
+        _known_text(self.process, "A joint process")
+        if not _cited(self.cite):
+            raise ValueError("A joint must cite its interface and process source.")
+        return self
+
+
 Setup = record(
     "Setup",
     {
@@ -270,9 +418,24 @@ Setup = record(
         "hold": Hold,
         "zero": Zero,
         "ops": list[Operation],
+        "joint": CylindricalJoint | SurfaceJoint,
     },
     indexed=("machine",),
 )
+
+
+def stock_ancestry(routes: Any) -> dict[str, frozenset[str]]:
+    """Root supplies behind each validated setup output; ``routes`` = (id, refs or None).
+
+    A setup whose routing is omitted is its own root: its material is unexplained.
+    """
+    ancestry: dict[str, frozenset[str]] = {}
+    for sid, refs in routes:
+        roots = frozenset(
+            root for ref in refs or () for root in ancestry.get(ref, frozenset((ref,)))
+        )
+        ancestry[sid] = roots or frozenset((sid,))
+    return ancestry
 
 
 class Plan(InputModel):
@@ -289,6 +452,8 @@ class Plan(InputModel):
     # Author-declared setup frames in model coordinates; never feature source frames.
     frames: dict[str, PlanFrame] | Unknown = UNKNOWN
     setups: list[Setup]
+    # Plan-owned transient joint cylinders keyed by id; never exported finished features.
+    joint_features: dict[str, JointFeature] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def named_frames(self) -> Plan:
@@ -350,6 +515,96 @@ class Plan(InputModel):
             if setup.id != UNKNOWN:
                 earlier.add(setup.id)
                 ancestry[setup.id] = set(consumed) if consumed else {setup.id}
+        return self
+
+    @model_validator(mode="after")
+    def joints(self) -> Plan:
+        """Exactly two-branch arrays declare one joint; transient cuts stay on their branch."""
+        features = self.joint_features
+        stock = self.stock if isinstance(self.stock, Stock) else None
+        components = stock.components if stock is not None else UNKNOWN
+        component_ids = (
+            {component.id for component in components} if isinstance(components, list) else set()
+        )
+        for name, feature in features.items():
+            _known_text(name, "A joint feature id")
+            if feature.component not in component_ids:
+                raise ValueError(
+                    f"Joint feature {name!r} names component {feature.component!r}, which is "
+                    "not a declared stock component."
+                )
+        ancestry = stock_ancestry(
+            (
+                setup.id,
+                (setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in])
+                if "stock_in" in setup.model_fields_set
+                else None,
+            )
+            for setup in self.setups
+            if setup.id != UNKNOWN
+        )
+        joined: dict[str, str] = {}
+        for setup in self.setups:
+            where = f"Setup {setup.id}"
+            refs = setup.stock_in if "stock_in" in setup.model_fields_set else UNKNOWN
+            declared = "joint" in setup.model_fields_set
+            if not isinstance(refs, list):
+                if declared:
+                    raise ValueError(f"{where} declares a joint but receives one stock_in.")
+                continue
+            if len(refs) != 2:
+                raise ValueError(
+                    f"{where} joins {len(refs)} stock_in references; a joint joins exactly two "
+                    "branches until a physical joint graph is supported."
+                )
+            roots = sorted(set().union(*(ancestry.get(ref, {ref}) for ref in refs)))
+            if len(roots) > 2:
+                raise ValueError(
+                    f"{where} joins {len(roots)} stock supplies ({', '.join(roots)}); a joint, "
+                    "including one that joins an earlier assembly, may combine only two "
+                    "components until a physical joint graph is supported."
+                )
+            joint = setup.joint
+            if not declared or joint == UNKNOWN:
+                raise ValueError(f"{where} stock_in array requires a declared joint.")
+            if not isinstance(joint, CylindricalJoint):
+                continue
+            sides = {}
+            for role, kind in (("socket", "cylinder_bore"), ("spigot", "cylinder_spigot")):
+                name = getattr(joint, role)
+                feature = features.get(name)
+                if feature is None or feature.kind != kind:
+                    raise ValueError(
+                        f"{where} joint {role} {name!r} is not a plan joint feature of kind {kind}."
+                    )
+                if name in joined:
+                    raise ValueError(
+                        f"{where} joint {role} {name!r} is already joined in setup {joined[name]}."
+                    )
+                joined[name] = setup.id
+                root = f"stock.{feature.component}"
+                owners = [ref for ref in refs if root in ancestry.get(ref, {ref})]
+                if not owners:
+                    raise ValueError(
+                        f"{where} joint {role} {name!r} belongs to component "
+                        f"{feature.component!r}, which no consumed branch carries."
+                    )
+                sides[role] = owners[0]
+            if sides["socket"] == sides["spigot"]:
+                raise ValueError(
+                    f"{where} joint socket and spigot must come from different stock_in branches."
+                )
+        for setup in self.setups:
+            for op in setup.ops if isinstance(setup.ops, list) else ():
+                feature = features.get(op.feature) if isinstance(op.feature, str) else None
+                if feature is None:
+                    continue
+                root = f"stock.{feature.component}"
+                if ancestry.get(setup.id) != {root}:
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op} claims joint feature {op.feature!r} "
+                        f"outside the unjoined {root} branch; transient cuts precede the join."
+                    )
         return self
 
 
@@ -631,7 +886,7 @@ InventoryItem = record(
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
-            "diameter_in thickness_in resolution_in runout_max_in "
+            "diameter_in thickness_in runout_max_in "
             "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev "
             "shank_mm capacity_mm"
         ),
@@ -671,6 +926,8 @@ InventoryItem = record(
                 "length_in",
                 "width_mm",
                 "width_in",
+                "resolution_mm",
+                "resolution_in",
                 "kerf_mm",
                 "kerf_in",
             ),
@@ -718,7 +975,6 @@ InventoryItem = record(
         "range_mm": float | list[Number],
         # Roughness capability of a roughness gauge/comparator/profilometer, Ra µm [lo, hi].
         "ra_range": Annotated[list[Number], Field(min_length=2, max_length=2)],
-        "resolution_mm": Number,
         "size_in": str | list[Number],
         "nominal_dia_mm": dict[str, Number],
         "nominal_dia_cite": dict[str, Citations],

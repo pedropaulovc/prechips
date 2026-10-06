@@ -40,6 +40,9 @@ def evaluate(bundle):
     unsupported = set()
     mapping = record(facts.get("mapping"))
     for setup, op in operations(bundle):
+        # Transient preparation, even with an explicit face override, never cuts the final STEP.
+        if record(record(bundle.feature_definitions.get(op.get("feature"))).get("joint")):
+            continue
         if op.get("do") in SAW_OPS:
             # A saw cut removes stock; its kerf face is not credit toward target faces.
             continue

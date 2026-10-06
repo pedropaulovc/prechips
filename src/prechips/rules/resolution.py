@@ -44,6 +44,16 @@ def same_length(a, b):
     return math.isclose(a, b, rel_tol=0.0, abs_tol=LENGTH_TOLERANCE_MM)
 
 
+def manifest_mm(bundle, value):
+    """A manifest-unit feature length (scalar or band) in mm; unknown units stay unknown."""
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units", UNKNOWN))
+    if scale is None:
+        return UNKNOWN
+    if isinstance(value, list):
+        return [v * scale if number(v) else UNKNOWN for v in value]
+    return value * scale if number(value) else UNKNOWN
+
+
 def fraction(value):
     try:
         return Fraction(str(value).removesuffix("in").replace("-", "/"))
@@ -71,7 +81,9 @@ def claim_refs(bundle, op):
     """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``."""
     if "faces" in op:
         return op["faces"]
-    return record(bundle.features["features"].get(op.get("feature"))).get("faces", UNKNOWN)
+    feature = record(bundle.feature_definitions.get(op.get("feature")))
+    joint = record(feature.get("joint"))
+    return [joint["label"]] if joint else feature.get("faces", UNKNOWN)
 
 
 def known_refs(refs):
@@ -89,7 +101,7 @@ def owns_feature(bundle, op, name):
     """
     if "faces" not in op:
         return False
-    feature = record(bundle.features["features"].get(name))
+    feature = record(bundle.feature_definitions.get(name))
     if feature.get("kind") in HOLE_KINDS and op.get("do") not in COMPLETE_FORM:
         return False
     claimed, declared = op["faces"], feature.get("faces", UNKNOWN)

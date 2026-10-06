@@ -32,7 +32,7 @@ def lathe(radius_mode=False, x=None, touches=None, inventory=None):
         },
         "tool_touches": touches if touches is not None else [],
     }
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "dro": {
                 "controller": "el400",
@@ -49,6 +49,8 @@ def lathe(radius_mode=False, x=None, touches=None, inventory=None):
             "gauges": {"mic": {"kind": "micrometer"}, **(inventory or {})},
         },
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def row(bundle):

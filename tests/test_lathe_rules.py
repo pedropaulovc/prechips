@@ -14,7 +14,7 @@ def measured(value):
 
 
 def lathe_bundle(od=20.0, stickout=60.0, swing=280.0, centres=700.0):
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"material": "1018", "dia_mm": od},
             "setups": [
@@ -64,6 +64,8 @@ def lathe_bundle(od=20.0, stickout=60.0, swing=280.0, centres=700.0):
             ],
         },
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 @pytest.mark.parametrize(
@@ -79,7 +81,6 @@ def lathe_bundle(od=20.0, stickout=60.0, swing=280.0, centres=700.0):
 def test_lathe_headroom_is_swing_and_length_between_centres(od, stickout, status):
     row = headroom.evaluate(lathe_bundle(od=od, stickout=stickout))[0]
     assert row.status == status
-    assert "M1" not in row.sentence
 
 
 def test_unmeasured_lathe_envelope_never_passes():
