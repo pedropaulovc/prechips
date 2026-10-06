@@ -9,7 +9,6 @@ import pytest
 from prechips.kernel.render_diagram import _Diagram
 from prechips.kernel.render_png import RenderCanvas
 
-
 _FRONT = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
 _WHITE = (255, 255, 255)
 
@@ -75,7 +74,9 @@ def _decode_png(data):
                 else:
                     estimate = left + above - upper_left
                     distances = (
-                        abs(estimate - left), abs(estimate - above), abs(estimate - upper_left)
+                        abs(estimate - left),
+                        abs(estimate - above),
+                        abs(estimate - upper_left),
                     )
                     predictor = (left, above, upper_left)[distances.index(min(distances))]
                 row[i] = (row[i] + predictor) & 255
@@ -100,13 +101,28 @@ def _printed_scene():
         (1 / math.sqrt(3), -1 / math.sqrt(3), 1 / math.sqrt(3)),
     )
     points = (
-        (0, 0, 0), (20, 0, 0), (20, 10, 0), (0, 10, 0),
-        (0, 0, 8), (20, 0, 8), (20, 10, 8), (0, 10, 8),
+        (0, 0, 0),
+        (20, 0, 0),
+        (20, 10, 0),
+        (0, 10, 0),
+        (0, 0, 8),
+        (20, 0, 8),
+        (20, 10, 8),
+        (0, 10, 8),
     )
     triangles = (
-        (0, 1, 2), (0, 2, 3), (4, 6, 5), (4, 7, 6),
-        (0, 4, 5), (0, 5, 1), (1, 5, 6), (1, 6, 2),
-        (2, 6, 7), (2, 7, 3), (3, 7, 4), (3, 4, 0),
+        (0, 1, 2),
+        (0, 2, 3),
+        (4, 6, 5),
+        (4, 7, 6),
+        (0, 4, 5),
+        (0, 5, 1),
+        (1, 5, 6),
+        (1, 6, 2),
+        (2, 6, 7),
+        (2, 7, 3),
+        (3, 7, 4),
+        (3, 4, 0),
     )
     removal = (((2, 2, 8.1), (18, 2, 8.1), (2, 8, 8.1)), ((0, 1, 2),), (240, 170, 50), True)
     canvas = RenderCanvas(((points, triangles, (160, 175, 185)), removal), camera)
@@ -183,14 +199,18 @@ def test_hatch_is_clipped_to_visible_triangles_and_cannot_bleed_through_occlusio
     solid = _canvas(((points, triangles, colour),))
     hatched = _canvas(((points, triangles, colour, True),))
     assert _pixel(hatched, 100, 104) != _pixel(solid, 100, 104)
-    assert all(a < b for a, b in zip(_pixel(hatched, 100, 104), _pixel(solid, 100, 104)))
+    assert all(
+        a < b for a, b in zip(_pixel(hatched, 100, 104), _pixel(solid, 100, 104), strict=False)
+    )
     assert _pixel(hatched, 100, 110) == _pixel(solid, 100, 110)
     assert _pixel(hatched, 110, 40) == _WHITE  # inside bounding box, outside the triangle
     assert _pixel(hatched, 5, 104) == _WHITE
     front = _square(1, (100, 140, 190))
     expected = _canvas((front,))
-    for meshes in ((front, (points, triangles, colour, True)),
-                   ((points, triangles, colour, True), front)):
+    for meshes in (
+        (front, (points, triangles, colour, True)),
+        ((points, triangles, colour, True), front),
+    ):
         assert _canvas(meshes).rgb == expected.rgb
 
 

@@ -5607,8 +5607,10 @@ class _Setup:
             if self.jaws is not None
             else None
         )
-        datums = [{"label": end["label"], "point_mm": [0.0, 0.0, end["z_mm"]]}
-                  for end in annotation.get("ends", [])]
+        datums = [
+            {"label": end["label"], "point_mm": [0.0, 0.0, end["z_mm"]]}
+            for end in annotation.get("ends", [])
+        ]
         for datum in annotation.get("datums", []):
             indices = self.owner.features.get(datum["feature"])
             if isinstance(indices, list) and indices:
@@ -5616,10 +5618,12 @@ class _Setup:
                 box = [min(b[i] for b in boxes) for i in range(3)] + [
                     max(b[i] for b in boxes) for i in range(3, 6)
                 ]
-                datums.append({
-                    "label": datum["label"],
-                    "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
-                })
+                datums.append(
+                    {
+                        "label": datum["label"],
+                        "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                    }
+                )
         notes = []
         if not self.ops:
             notes.append("Holding/fit-up only: no cutting operation in this setup.")
@@ -5635,7 +5639,9 @@ class _Setup:
             and self.hold.get("clamps")
             and not annotation.get("clamp_order_declared")
         ):
-            render_debts.append("NOT SHOWN: tightening order is not declared; follow the hold instructions.")
+            render_debts.append(
+                "NOT SHOWN: tightening order is not declared; follow the hold instructions."
+            )
         shows = ["holding", "setup axes and zero"]
         if tool is not None:
             shows.append("selected tool approach")
@@ -5662,12 +5668,18 @@ class _Setup:
             ]
             centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
             components.append(
-                {"name": name, "label": "FOLLOW REST", "role": "rest", "box_mm": box,
-                 "center_mm": centre}
+                {
+                    "name": name,
+                    "label": "FOLLOW REST",
+                    "role": "rest",
+                    "box_mm": box,
+                    "center_mm": centre,
+                }
             )
         clamp_labels = {
             component["label"].split(": ", 1)[0]: component["label"]
-            for component in components if component["label"].startswith("C") and ": " in component["label"]
+            for component in components
+            if component["label"].startswith("C") and ": " in component["label"]
         }
         spec = {
             "setup_id": self.setup.get("id"),
@@ -5697,15 +5709,24 @@ class _Setup:
                 [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
                 for edge in self.finished.Edges
                 if edge.Length > STOCK_TOL
-            ] if not lathe else [],
+            ]
+            if not lathe
+            else [],
         }
         if lathe:
             spec["lathe_profiles"] = self._render_profiles(output, jaw_z)
-        scene.update({
-            "view": view, "width_px": 1600, "height_px": 1000,
-            "shows": shows, "legend": legend, "render_debts": render_debts,
-            "waypoints": spec["waypoints"], "primary_op": tool.get("op") if tool else None,
-        })
+        scene.update(
+            {
+                "view": view,
+                "width_px": 1600,
+                "height_px": 1000,
+                "shows": shows,
+                "legend": legend,
+                "render_debts": render_debts,
+                "waypoints": spec["waypoints"],
+                "primary_op": tool.get("op") if tool else None,
+            }
+        )
         details = [c for c in components if c["role"] == "detail"]
         if details:
             scene["fixture_detail_labels"] = details
@@ -5720,10 +5741,13 @@ class _Setup:
             local = name.rsplit(":", 1)[-1]
             key = owner if role == "clamp" or owner == "stop" else local
             if role == "clamp":
-                index = next((c["index"] for c in annotation.get("clamps", [])
-                              if c["owner"] == owner), None)
-                label = next((c["label"] for c in annotation.get("clamps", [])
-                              if c["owner"] == owner), owner.replace("_", " "))
+                index = next(
+                    (c["index"] for c in annotation.get("clamps", []) if c["owner"] == owner), None
+                )
+                label = next(
+                    (c["label"] for c in annotation.get("clamps", []) if c["owner"] == owner),
+                    owner.replace("_", " "),
+                )
                 if index in order:
                     label = f"C{order.index(index) + 1}: {label}"
             elif owner == "stop":
@@ -5791,11 +5815,17 @@ class _Setup:
                 z = (op["z_from"] + op["z_to"]) / 2
             else:
                 indices = self._indices(op)
-                z = max(self.faces[index].CenterOfMass.z for index in indices) if isinstance(indices, list) and indices else self.box[5]
+                z = (
+                    max(self.faces[index].CenterOfMass.z for index in indices)
+                    if isinstance(indices, list) and indices
+                    else self.box[5]
+                )
             r = max(abs(self.box[0]), abs(self.box[3])) + tool["radius_mm"] + 3
             section, holders = self._turn_sections(tool, (r, z), not holder_missing)
-            outlines = [[[x, 0.0, station] for x, station in polygon]
-                        for polygon in [section] + (holders or [])]
+            outlines = [
+                [[x, 0.0, station] for x, station in polygon]
+                for polygon in [section] + (holders or [])
+            ]
             tip = [r, 0.0, z]
             approach = [[r + 15, 0.0, z], tip]
         elif _sawn(op) and _positive(op, "kerf_mm") is not None:
@@ -5825,11 +5855,21 @@ class _Setup:
             if radius is None or length is None:
                 return None, "STOP: selected cutter dimensions are unresolved; do not run."
             indices = self._indices(op)
-            point = self.faces[indices[0]].CenterOfMass if isinstance(indices, list) and indices else V(0, 0, self.box[5])
+            point = (
+                self.faces[indices[0]].CenterOfMass
+                if isinstance(indices, list) and indices
+                else V(0, 0, self.box[5])
+            )
             x, y, z = point.x, point.y, self.box[5] + 5
             tip = [x, y, z]
-            outlines = [[[x - radius, y, z], [x + radius, y, z],
-                         [x + radius, y, z + length], [x - radius, y, z + length]]]
+            outlines = [
+                [
+                    [x - radius, y, z],
+                    [x + radius, y, z],
+                    [x + radius, y, z + length],
+                    [x - radius, y, z + length],
+                ]
+            ]
             approach = [[x, y, z + length + 12], [x, y, self.box[5]]]
         feed = None
         direction = annotation.get("directions", {}).get(op_number)
@@ -5846,8 +5886,12 @@ class _Setup:
                 start = [tip[0] + 8.0, tip[1], tip[2]]
                 feed = [start, [start[i] + delta[i] for i in range(3)]]
         return {
-            "label": label, "op": op_number, "tip_mm": tip,
-            "outline_mm": outlines[0], "outlines_mm": outlines, "approach_mm": approach,
+            "label": label,
+            "op": op_number,
+            "tip_mm": tip,
+            "outline_mm": outlines[0],
+            "outlines_mm": outlines,
+            "approach_mm": approach,
             "feed_mm": feed,
         }, None
 
@@ -5872,8 +5916,12 @@ class _Setup:
                     lo, hi = max(0.0, t0), min(1.0, t1)
                     if hi < lo:
                         continue
-                    lines.append([[r0 + (r1 - r0) * lo, z0 + (z1 - z0) * lo],
-                                  [r0 + (r1 - r0) * hi, z0 + (z1 - z0) * hi]])
+                    lines.append(
+                        [
+                            [r0 + (r1 - r0) * lo, z0 + (z1 - z0) * lo],
+                            [r0 + (r1 - r0) * hi, z0 + (z1 - z0) * hi],
+                        ]
+                    )
                 else:
                     lines.append([[r0, z0], [r1, z1]])
             profiles.append({"label": label, "colour": colour, "lines": lines})
