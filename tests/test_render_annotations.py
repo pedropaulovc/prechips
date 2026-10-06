@@ -155,8 +155,24 @@ def test_only_an_established_cutting_order_draws_travel_arrows(order, directed):
     assert not any(path["directed"] for path in paths if path["op"] == "40")
 
 
+def test_clamp_badges_keep_the_declared_index_and_never_count_a_locator_as_a_clamp():
+    setup = _setup()
+    setup["hold"] = {
+        "fixture": "none",
+        "clamps": [{"ref": "strap"}, {"ref": "pin", "restraint": "locate"}]
+        + [{"ref": "strap"} for _ in range(4)],
+        "clamp_order": [1, 3, 4, 5, 6],
+    }
+
+    clamps = setup_annotations(_bundle(), setup, {})["clamps"]
+
+    # The picture's badge is the HOLD text's code: entry 3 stays C3 although a locator
+    # sits between it and C1.
+    assert [clamp["code"] for clamp in clamps] == ["C1", "LOC2", "C3", "C4", "C5", "C6"]
+
+
 @pytest.mark.parametrize("unknown_middle", [False, True])
-def test_raster_passes_remain_independent_even_when_a_middle_pass_is_incomplete(unknown_middle):
+def test_raster_passes_remain_independent_and_keep_their_table_pass_numbers(unknown_middle):
     first = [[0, 0], [10, 0]]
     middle = [[10, 2], ["unknown", 2], [0, 2]] if unknown_middle else [[10, 2], [0, 2]]
     last = [[0, 4], [10, 4]]
@@ -169,8 +185,11 @@ def test_raster_passes_remain_independent_even_when_a_middle_pass_is_incomplete(
     assert all(path["op"] == "10" for path in paths)
     # A fabricated traverse between raster passes would change Y within a path.
     assert all(len({point[1] for point in path["xy"]}) == 1 for path in paths)
-    assert set(_point_keys(waypoints, 10)) == {(0, 0), (10, 0), (0, 4), (10, 4)}
-    _assert_table_keys(waypoints)
+    # The sheet numbers raster rows as passes, not P keys: the picture keys them the same way,
+    # an incomplete middle pass keeping its own number.
+    assert [path["raster"]["pass"] for path in paths] == ([1, 3] if unknown_middle else [1, 2, 3])
+    assert all(path["raster"]["of"] == 3 for path in paths)
+    assert waypoints == []
 
 
 @pytest.mark.parametrize("x_display", ["diameter", "radius"])

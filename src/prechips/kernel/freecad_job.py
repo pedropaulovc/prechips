@@ -164,6 +164,8 @@ HIT_MM3 = 1e-6  # common volume that counts as an intersection
 HIT_BALL_MM = 0.01  # mm: proof-ball radius; its 4.19e-6 mm^3 volume exceeds HIT_MM3
 STOCK_TOL = 1e-3  # mm: as-is face distance to the envelope, claimed-face contact
 COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is not cleared
+DATUM_DRAW_MM = 0.5  # mm: a datum face this near the stock's surface is drawn as present
+PROFILE_SPAN = 6  # stock diameters the lathe profile detail stretches to show every cut
 # mm along a printed cutter-centre chord within which the kernel locates where the cutter
 # first meets stock outside its op's stock_removal_bounds (_Setup._clip_checkpoints).
 CLIP_PRECISION_MM = 1e-4
@@ -5667,11 +5669,46 @@ class _Setup:
                 V(x0 - 1, 0, z1 + 1),
             ]
             meridian = Part.Face(Part.makePolygon(vertices + [vertices[0]]))
+        fixture_kind = _fixture_kind(self.setup.get("hold"))
+        # A custom fixture on a bench or saw locates the work with saddles, pins and stops
+        # standing beside it: a plan view hides them, so it is drawn as a section.
+        view = (
+            "lathe"
+            if lathe
+            else "isometric"
+            if fixture_kind != "custom"
+            else "plan"
+            if self.setup.get("machine_kind") == "mill"
+            else "elevation"
+        )
+        halfspace, section_view = None, None
+        if view == "elevation":
+            # Section on the stock's centre plane across its longer horizontal side; the
+            # near half of every solid is removed so saddles, pins and stops show.
+            centre = [(self.box[i] + self.box[i + 3]) / 2 for i in range(3)]
+            big = 10 * max(size, 1.0) + 1000
+            if self.box[3] - self.box[0] >= self.box[4] - self.box[1]:
+                axis, keep = 1, 1  # view from -Y, keep y >= centre
+                halfspace = Part.makeBox(2 * big, big, 2 * big, V(-big, centre[1], -big))
+                camera = [[1, 0, 0], [0, 0, 1], [0, -1, 0]]
+                note = f"SECTION AT SETUP Y {_r(centre[1])}  /  VIEW FROM -Y  /  X RIGHT, Z UP"
+            else:
+                axis, keep = 0, -1  # view from +X, keep x <= centre
+                halfspace = Part.makeBox(big, 2 * big, 2 * big, V(centre[0] - big, -big, -big))
+                camera = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
+                note = f"SECTION AT SETUP X {_r(centre[0])}  /  VIEW FROM +X  /  Y RIGHT, Z UP"
+            section_view = (axis, keep, centre[axis], camera, note)
 
         def mesh(shape, colour, hatch=False, section=False):
             # A lathe elevation is a meridian section: the removed annulus's
             # outside surface must not hide the retained core behind it.
-            points, triangles = (shape.common(meridian) if section else shape).tessellate(tolerance)
+            if section:
+                shape = shape.common(meridian)
+            elif halfspace is not None:
+                shape = shape.common(halfspace)
+                if not shape.Faces:
+                    return
+            points, triangles = shape.tessellate(tolerance)
             meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch))
 
         mesh(output if output is not None else self.part, _COLOURS["part"], section=lathe)
@@ -5714,7 +5751,7 @@ class _Setup:
             mesh(shape, colour)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
         scene = {
-            "fixture_kind": _fixture_kind(self.setup.get("hold")),
+            "fixture_kind": fixture_kind,
             "jaws": jaws,
             "parallels": "absent"
             if not self._expects_parallels()
@@ -5736,7 +5773,6 @@ class _Setup:
             "debts": debts,
         }
         annotation = self.setup.get("render", {})
-        view = "lathe" if lathe else "plan" if scene["fixture_kind"] == "custom" else "isometric"
         tool, tool_debt = self._render_tool(annotation, lathe)
         if tool_debt:
             render_debts.append(tool_debt)
@@ -5759,13 +5795,28 @@ class _Setup:
             pose = self.hold["pose"]
             jaw_front_oblique = abs(pose["z"][2]) < PARALLEL
             jaw_z = None if jaw_front_oblique else pose["origin_mm"][2]
+        ends = {}
+        for end in annotation.get("ends", []):
+            # Two names for one end face print as one label.
+            ends.setdefault(round(end["z_mm"], 4), []).append(end)
         datums = [
-            {"label": end["label"], "point_mm": [0.0, 0.0, end["z_mm"]]}
-            for end in annotation.get("ends", [])
+            {
+                "label": " / ".join(end["label"] for end in group),
+                "point_mm": [0.0, 0.0, group[0]["z_mm"]],
+                "kind": "end",
+            }
+            for group in ends.values()
         ]
+        drawn = output if output is not None else self.part
+        surface = Part.Compound(drawn.Faces) if drawn is not None else None
         for datum in annotation.get("datums", []):
             indices = self.owner.features.get(datum["feature"])
             if isinstance(indices, list) and indices:
+                # A datum is drawn only once this setup's stock carries its surface.
+                if surface is None or not all(
+                    self._on_surface(self.faces[i], surface) for i in indices
+                ):
+                    continue
                 boxes = [self.face_boxes[i] for i in indices]
                 box = [min(b[i] for b in boxes) for i in range(3)] + [
                     max(b[i] for b in boxes) for i in range(3, 6)
@@ -5788,7 +5839,7 @@ class _Setup:
             if self.box[2] < back - STOCK_TOL:
                 notes.append("Bar passes through the spindle bore.")
         if (
-            view == "plan"
+            view in ("plan", "elevation")
             and self.hold
             and self.hold.get("clamps")
             and not annotation.get("clamp_order_declared")
@@ -5807,14 +5858,11 @@ class _Setup:
             "Blue-grey: material retained after this setup.",
             "Amber hatch: material removed in this setup.",
             "Brown/purple: holding. Green: selected tool and approach.",
-            "Dashed machine outlines: context only, not measured solids.",
         ]
-        if not lathe:
-            legend.append("Dashed blue: nominal part outline, not proof that it has been cut.")
         if removal is None:
             legend[0] = "Blue-grey: arriving stock; cuts not confirmed."
             legend.pop(1)
-        components = self._render_components(annotation)
+        components = self._render_components(annotation, named=view == "elevation")
         for name, jaws, _ in rests:
             boxes = [_bbox(jaw) for jaw in jaws]
             box = [min(b[i] for b in boxes) for i in range(3)] + [
@@ -5830,11 +5878,25 @@ class _Setup:
                     "center_mm": centre,
                 }
             )
-        clamp_labels = {
-            component["label"].split(": ", 1)[0]: component["label"]
-            for component in components
-            if component["label"].startswith("C") and ": " in component["label"]
-        }
+        if section_view is not None:
+            axis, keep, plane = section_view[:3]
+            # A solid wholly on the removed near side is not in the section: no callout.
+            components = [
+                c
+                for c in components
+                if "box_mm" not in c
+                or (c["box_mm"][axis + 3] > plane if keep > 0 else c["box_mm"][axis] < plane)
+            ]
+        cut = []
+        for op in self.ops:
+            indices = self._indices(op)
+            if isinstance(indices, list):
+                cut.extend(i for i in indices if i < len(self.finished.Faces))
+        edges = {}
+        for index in dict.fromkeys(cut):
+            for edge in self.faces[index].Edges:
+                if edge.Length > STOCK_TOL:
+                    edges.setdefault(edge.hashCode(), edge)
         spec = {
             "setup_id": self.setup.get("id"),
             "view": view,
@@ -5850,26 +5912,47 @@ class _Setup:
             "axial_paths": annotation.get("axial_paths", []),
             "waypoints": waypoints,
             "fixed_jaw_label": annotation.get("fixed_jaw_label"),
-            "custom_clamp_order": [
-                clamp_labels[key]
-                for key in sorted(
-                    (key for key in clamp_labels if key[1:].isdigit()),
-                    key=lambda key: int(key[1:]),
-                )
-            ],
+            "holding_name": annotation.get("holding_name"),
+            "chuck_name": annotation.get("chuck_name")
+            or (
+                annotation.get("holding_name")
+                if self.hold and self.hold.get("kind") == "chuck"
+                else None
+            ),
             "preload": annotation.get("preload"),
             "legend": legend,
             "notes": notes + render_debts,
+            # Only the finished faces this setup cuts: the overlay shows the cuts' target.
             "nominal_outline_mm": [
                 [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
-                for edge in self.finished.Edges
-                if edge.Length > STOCK_TOL
+                for edge in edges.values()
             ]
             if not lathe
             else [],
         }
+        if section_view is not None:
+            spec["camera"], spec["view_note"] = section_view[3], section_view[4]
+        target = annotation.get("target")
+        indices = self.owner.features.get(target["feature"]) if target else None
+        if isinstance(indices, list) and indices:
+            boxes = [self.face_boxes[i] for i in indices]
+            spec["target"] = {
+                "label": target["label"],
+                "point_mm": [
+                    (min(b[i] for b in boxes) + max(b[i + 3] for b in boxes)) / 2 for i in range(3)
+                ],
+            }
+        arc = self._index_arc(annotation, fixture_kind)
+        if arc:
+            spec["index_arc"] = arc
         if lathe:
-            spec["lathe_profiles"] = self._render_profiles(output, jaw_z)
+            spec["lathe_profiles"], beyond = self._render_profiles(output, jaw_z, removal)
+            if beyond is not None:
+                # The detail window never hides a cut silently.
+                spec["notes"].append(
+                    f"Jaw-end profile is a window; this setup's cuts continue to Z {_r(beyond, 2)}"
+                    " (main view)."
+                )
         scene.update(
             {
                 "view": view,
@@ -5887,6 +5970,45 @@ class _Setup:
         if details:
             scene["fixture_detail_labels"] = details
         return render_diagram(meshes, spec), scene
+
+    def _index_arc(self, annotation, fixture_kind):
+        """A dividing head's authored index: an arc about the head axis on the jaw face,
+        from the jaw-1 reference to the index angle, right-handed about the chuck's +z
+        (the direction the jaws are clocked in), or None."""
+        angle = annotation.get("index_deg")
+        hold = self.hold or {}
+        pose = hold.get("pose")
+        if fixture_kind != "dividing_head" or not _number(angle) or not isinstance(pose, dict):
+            return None
+        origin, axis, x_axis = V(*pose["origin_mm"]), V(*pose["z"]), V(*pose["x"])
+        y_axis = axis.cross(x_axis)
+        radius = (
+            hold["body_dia_mm"] / 2 + 8
+            if _number(hold.get("body_dia_mm"))
+            else max(self.box[i + 3] - self.box[i] for i in range(3)) / 2 + 8
+        )
+
+        def at(degrees, r):
+            t = math.radians(degrees)
+            p = origin + (x_axis * math.cos(t) + y_axis * math.sin(t)) * r
+            return [p.x, p.y, p.z]
+
+        steps = max(1, math.ceil(abs(angle) / 2))
+        return {
+            "label": f"HEAD INDEX {f'{angle:+g}' if angle else '0'} DEG",
+            "points_mm": [at(angle * k / steps, radius) for k in range(steps + 1)],
+            "reference_mm": [at(0.0, radius - 10), at(0.0, radius + 10)],
+        }
+
+    @staticmethod
+    def _on_surface(face, surface):
+        """True when ``face``'s interior samples lie on ``surface`` within DATUM_DRAW_MM: the
+        stock carries that finished face (to within a finishing leave)."""
+        samples, _ = _face_samples(face, 1.0, interior_only=True)
+        points = [point for point, _ in samples[:: max(1, len(samples) // 5)]] or [
+            face.CenterOfMass
+        ]
+        return all(Part.Vertex(point).distToShape(surface)[0] <= DATUM_DRAW_MM for point in points)
 
     def _clipped_sketch(self, annotation):
         """(sketch paths, waypoints, render debts): the annotation's sketch plus each bounded
@@ -5931,26 +6053,26 @@ class _Setup:
                     match.setdefault("rows", []).append(ids[index])
         return paths, waypoints, debts
 
-    def _render_components(self, annotation):
-        """Callout assemblies, keeping every exact solid in the actual drawing."""
+    def _render_components(self, annotation, named=False):
+        """Callout assemblies, keeping every exact solid in the actual drawing. ``named``
+        calls out each shop-made fixture solid (pins, saddles, stops) by its own name."""
         grouped = {}
-        order = annotation.get("clamp_order", [])
         for component in self.fixture:
             name, owner, role = component["name"], component["owner"], component["role"]
             local = name.rsplit(":", 1)[-1]
             key = owner if role == "clamp" or owner == "stop" else local
+            code = None
             if role == "clamp":
-                index = next(
-                    (c["index"] for c in annotation.get("clamps", []) if c["owner"] == owner), None
-                )
-                label = next(
-                    (c["label"] for c in annotation.get("clamps", []) if c["owner"] == owner),
-                    owner.replace("_", " "),
-                )
-                if index in order:
-                    label = f"C{order.index(index) + 1}: {label}"
+                clamp = next((c for c in annotation.get("clamps", []) if c["owner"] == owner), None)
+                label = clamp["label"] if clamp else owner.replace("_", " ")
+                if clamp:
+                    # The declared clamp number and kind, as the HOLD text prints it.
+                    code = clamp["code"]
+                    label = f"{code}: {label}"
             elif owner == "stop":
                 key, label, role = owner, "STOP", "stop"
+            elif role == "head":
+                key, label = "head", annotation.get("holding_name") or "HEAD"
             else:
                 label = local.replace("_", " ").replace("-", " ").upper()
                 if name == "fixed_jaw":
@@ -5961,6 +6083,11 @@ class _Setup:
                     role = "pad"
                 elif local.startswith("base"):
                     label, role = "FIXTURE PLATE", "plate"
+                elif role == "fixture" and named:
+                    # Numbered twins (two pins) share one callout.
+                    base = label.rstrip("0123456789").rstrip()
+                    label = base + "S" if base != label else label
+                    key = owner + ":" + label
                 elif role == "fixture":
                     # The shop view labels the assembly, not every bolt/shim
                     # primitive. All exact solids and names stay in the scene.
@@ -5972,6 +6099,8 @@ class _Setup:
                     max(previous[i], box[i]) for i in range(3, 6)
                 ]
             grouped[key] = {"name": key, "label": label, "role": role, "box_mm": list(box)}
+            if code:
+                grouped[key]["code"] = code
         for component in grouped.values():
             box = component["box_mm"]
             component["center_mm"] = [(box[i] + box[i + 3]) / 2 for i in range(3)]
@@ -6103,11 +6232,22 @@ class _Setup:
             "feed_mm": feed,
         }, None
 
-    def _render_profiles(self, output, jaw_z):
-        """Clipped real meridian chords for the enlarged exposed-end detail."""
+    def _render_profiles(self, output, jaw_z, removal=None):
+        """(meridian chords, z or None) for the enlarged exposed-end detail: from the jaw
+        front over three stock diameters, stretched over every cut of this setup while that
+        stays within PROFILE_SPAN diameters. A longer cut keeps the window and returns
+        the z it continues to, so the detail never clips a cut silently."""
         lower = jaw_z if _number(jaw_z) else self.box[2]
         diameter = max(self.box[3] - self.box[0], self.box[4] - self.box[1])
         upper = min(self.box[5], lower + 3 * diameter)
+        beyond = None
+        if removal is not None and removal.Volume > STOCK_MM3:
+            top = min(self.box[5], removal.BoundBox.ZMax)
+            if top > upper + STOCK_TOL:
+                if top - lower <= PROFILE_SPAN * diameter:
+                    upper = top
+                else:
+                    beyond = top
         profiles = []
         for label, shape, colour in (
             ("arriving stock", self.part, _COLOURS["removed"]),
@@ -6133,7 +6273,7 @@ class _Setup:
                 else:
                     lines.append([[r0, z0], [r1, z1]])
             profiles.append({"label": label, "colour": colour, "lines": lines})
-        return profiles
+        return profiles, beyond
 
     def _rest_render(self, debts):
         """[(name, jaw solids, pose)] of each posed follow rest at its first served op's
@@ -8173,8 +8313,7 @@ class _Setup:
             regions.append(region)
         else:
             straight = [
-                isinstance(self.faces[index].Surface, (Part.Cylinder, Part.Cone))
-                for index in valid
+                isinstance(self.faces[index].Surface, (Part.Cylinder, Part.Cone)) for index in valid
             ]
             regions.extend(self._profile_regions(meridians, straight, window, outer))
         regions = [
@@ -8263,9 +8402,7 @@ class _Setup:
                 for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
                     cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
                     angle = math.acos(cos)
-                    sag = max(
-                        sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4)
-                    )
+                    sag = max(sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4))
                 sag += 1e-6
             points = [(r - nr * sag, z - nz * sag) for (r, z), (nr, nz) in chain]
             first, last = chain[0][0], chain[-1][0]
