@@ -62,6 +62,11 @@ def _span(kind: str, path: Path):
     return active.span("input.load", kind=kind, path=str(path)) if active else nullcontext()
 
 
+def _exported(feature: dict) -> list:
+    requirements = feature.get("requirements")
+    return requirements if isinstance(requirements, list) else []
+
+
 def _load(path: Path, model: type[InputModel], kind: str) -> tuple[dict, str]:
     with _span(kind, path):
         try:
@@ -99,7 +104,7 @@ def load_bundle(
     policy: str | Path | None = None,
     cutting_data: str | Path | None = None,
 ) -> Bundle:
-    from prechips.rules.resolution import SAW_OPS
+    from prechips.rules.resolution import SAW_OPS, op_features
 
     plan_path = Path(plan_path).resolve()
     plan, plan_hash = _load(plan_path, Plan, "plan")
@@ -139,26 +144,33 @@ def load_bundle(
         if "unknown" in op_ids or len(set(op_ids)) != len(op_ids):
             raise BadInput(f"{setup['id']}: operation numbers must be known and unique.")
         for op in ops:
+            for hold in op.get("process_holds", []):
+                held = definitions.get(hold["feature"], {})
+                if hold["requirement"] not in _exported(held):
+                    raise BadInput(
+                        f"{setup['id']}:{op['op']}: process hold {hold['feature']} "
+                        f"{hold['requirement']} is not an exported drawing requirement."
+                    )
             if op.get("do") in SAW_OPS and "feature" not in op:
                 if op.get("checks") or op.get("missing_requirements"):
                     raise BadInput(
                         f"{setup['id']}:{op['op']}: saw inspection checks need a manifest feature."
                     )
                 continue
-            if op.get("feature") not in definitions:
+            names = op_features(op)
+            if not names or any(name not in definitions for name in names):
                 raise BadInput(
                     f"{setup['id']}:{op['op']}: feature is neither in the manifest nor "
                     "plan.joint_features."
                 )
-            feature = definitions[op["feature"]]
-            requirements = feature.get("requirements")
-            exported = requirements if isinstance(requirements, list) else []
+            label = "/".join(names)
+            exported = {item for name in names for item in _exported(definitions[name])}
             checks = op.get("checks")
             if isinstance(checks, dict):
                 for requirement in checks:
                     if requirement not in exported:
                         raise BadInput(
-                            f"{setup['id']}:{op['op']}: {op['feature']} checks.{requirement} "
+                            f"{setup['id']}:{op['op']}: {label} checks.{requirement} "
                             "is not in the exported requirements; use missing_requirements "
                             "for an absent requirement."
                         )
@@ -167,10 +179,17 @@ def load_bundle(
                 for requirement in missing:
                     if requirement in exported:
                         raise BadInput(
-                            f"{setup['id']}:{op['op']}: {op['feature']} "
+                            f"{setup['id']}:{op['op']}: {label} "
                             f"missing_requirements.{requirement} is already exported; "
                             "use checks for that requirement."
                         )
+        hold = setup.get("hold")
+        face = hold.get("stop_face") if isinstance(hold, dict) else None
+        if face not in (None, "unknown", "stock_end") and face not in definitions:
+            raise BadInput(
+                f"{setup['id']}: hold.stop_face {face!r} is neither a manifest feature, "
+                'plan.joint_features nor "stock_end".'
+            )
         frame = setup.get("frame", "unknown")
         if (
             isinstance(features["frames"], dict)
