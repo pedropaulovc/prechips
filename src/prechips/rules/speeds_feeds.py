@@ -20,7 +20,16 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
-from .resolution import MANUAL, SAW_OPS, UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import (
+    MANUAL,
+    SAW_OPS,
+    UNKNOWN,
+    _citations,
+    length_mm,
+    number,
+    resolve,
+    uncertain,
+)
 from .tip_endpoints import mapping, records
 
 
@@ -110,9 +119,11 @@ def _saw(subject, op, machine, tool, stock, material, material_class, cutting):
     ]
     sfm = descent = source = UNKNOWN
     row_unknown = len(matching) != 1
-    if len(matching) == 1 and _cited(matching[0].get("cite")):
+    # Blank or "unknown" citation entries are discarded; only surviving citations source.
+    citations = _citations(matching[0].get("cite")) if len(matching) == 1 else []
+    if citations:
         selected = matching[0]
-        source = selected["cite"]
+        source = citations[0] if isinstance(selected["cite"], str) else citations
         sfm = selected.get("sfm", UNKNOWN)
         descent = selected.get("feed_mm_min", UNKNOWN)
         row_unknown = uncertain(selected)
@@ -151,8 +162,7 @@ def _saw(subject, op, machine, tool, stock, material, material_class, cutting):
         "inventory machine blade_speed_sfm [min, max], inclusive clamp",
         "cutting-data aliases and rows",
     ]
-    if _cited(source):
-        cite.extend(source if isinstance(source, list) else [source])
+    cite.extend(citations)
     sentence = (
         "Blade speed/descent feed cannot be certified: the single cited saw_cut row, "
         "blade, material or machine blade-speed range is missing, ambiguous or unverified."
