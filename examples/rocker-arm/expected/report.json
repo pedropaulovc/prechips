@@ -27,10 +27,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S1:10: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 26,
+        "certain_tool_hits": 0,
         "flute_len_mm": 22.2,
         "holder_gauge_len_mm": 6.0,
         "holder_hits": 0,
@@ -38,10 +38,10 @@
         "projection_mm": 38.5,
         "radius_mm": 4.7625,
         "sample_count": 26,
-        "tool_hits": 26
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:10"
     },
     {
@@ -78,15 +78,15 @@
       "message": "S1:20: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 61,
+        "certain_tool_hits": 1,
         "flute_len_mm": 22.2,
         "holder_gauge_len_mm": 6.0,
         "holder_hits": 0,
         "holder_radius_mm": 15.875,
-        "projection_mm": 38.5,
+        "projection_mm": 38.0,
         "radius_mm": 4.7625,
         "sample_count": 61,
-        "tool_hits": 61
+        "tool_hits": 1
       },
       "rule": "accessibility",
       "status": "error",
@@ -126,7 +126,7 @@
       "message": "S1:25: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 57,
+        "certain_tool_hits": 1,
         "flute_len_mm": 22.2,
         "holder_gauge_len_mm": 6.0,
         "holder_hits": 0,
@@ -134,7 +134,7 @@
         "projection_mm": 38.5,
         "radius_mm": 4.7625,
         "sample_count": 61,
-        "tool_hits": 57
+        "tool_hits": 1
       },
       "rule": "accessibility",
       "status": "error",
@@ -178,7 +178,7 @@
         "holder_gauge_len_mm": 6.0,
         "holder_hits": 0,
         "holder_radius_mm": 15.875,
-        "projection_mm": 38.5,
+        "projection_mm": 38.0,
         "radius_mm": 4.7625,
         "sample_count": 74,
         "tool_hits": 74
@@ -222,11 +222,65 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:40: stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S1:40: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 38,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.0,
+        "radius_mm": 4.7625,
+        "sample_count": 193,
+        "tool_hits": 38
+      },
       "rule": "accessibility",
       "status": "error",
       "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "features.hub_faces: faces and requirements",
+        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "plan.frames.TA: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "plan.setups.S1.ops.5: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S1:5: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.0,
+        "radius_mm": 4.7625,
+        "sample_count": 26,
+        "tool_hits": 0
+      },
+      "rule": "accessibility",
+      "status": "pass",
+      "subject": "S1:5"
     },
     {
       "cite": [
@@ -261,10 +315,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:50: stock_removal_bounds extends 9.997434 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S1:50: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.0,
+        "radius_mm": 4.7625,
+        "sample_count": 53,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:50"
     },
     {
@@ -301,10 +366,10 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S1:60: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S1:60: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 126,
+        "certain_tool_hits": 0,
         "flute_len_mm": 1.9,
         "holder_gauge_len_mm": 95.0,
         "holder_hits": 0,
@@ -312,10 +377,10 @@
         "projection_mm": 27.0,
         "radius_mm": 0.99,
         "sample_count": 126,
-        "tool_hits": 126
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:60"
     },
     {
@@ -352,10 +417,10 @@
         "inventory.tools.drill-index-115/D: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S1:70: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S1:70: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 78,
+        "certain_tool_hits": 0,
         "flute_len_mm": 68.3,
         "holder_gauge_len_mm": 95.0,
         "holder_hits": 0,
@@ -363,10 +428,10 @@
         "projection_mm": 81.0,
         "radius_mm": 3.1242,
         "sample_count": 78,
-        "tool_hits": 78
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:70"
     },
     {
@@ -395,10 +460,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:10: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 26,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:10"
     },
     {
@@ -431,7 +507,15 @@
       "message": "S2:15: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 9
+        "certain_tool_hits": 1,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.0,
+        "radius_mm": 4.7625,
+        "sample_count": 61,
+        "tool_hits": 1
       },
       "rule": "accessibility",
       "status": "error",
@@ -467,7 +551,15 @@
       "message": "S2:20: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 9
+        "certain_tool_hits": 1,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 61,
+        "tool_hits": 1
       },
       "rule": "accessibility",
       "status": "error",
@@ -538,10 +630,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:28: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:28: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 74,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.0,
+        "radius_mm": 4.7625,
+        "sample_count": 74,
+        "tool_hits": 74
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "error",
       "subject": "S2:28"
     },
     {
@@ -574,10 +677,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:30: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:30: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 74,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 74,
+        "tool_hits": 74
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "error",
       "subject": "S2:30"
     },
     {
@@ -616,10 +730,21 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:32: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:32: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 1.9,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 27.0,
+        "radius_mm": 0.99,
+        "sample_count": 78,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:32"
     },
     {
@@ -658,10 +783,21 @@
         "inventory.tools.rocker-rod-pilot-drill/1.90mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:33: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:33: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 12.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 24.0,
+        "radius_mm": 0.95,
+        "sample_count": 78,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:33"
     },
     {
@@ -700,13 +836,21 @@
         "inventory.tools.rocker-rod-reamer/2.0mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:34: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S2:34: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 70
+        "certain_tool_hits": 0,
+        "flute_len_mm": 11.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 34.0,
+        "radius_mm": 1.002,
+        "sample_count": 78,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:34"
     },
     {
@@ -744,11 +888,65 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S2:40: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 38,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.0,
+        "radius_mm": 4.7625,
+        "sample_count": 193,
+        "tool_hits": 38
+      },
       "rule": "accessibility",
       "status": "error",
       "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "features.hub_faces: faces and requirements",
+        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "plan.setups.S2.ops.5: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:5: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.0,
+        "radius_mm": 4.7625,
+        "sample_count": 26,
+        "tool_hits": 0
+      },
+      "rule": "accessibility",
+      "status": "pass",
+      "subject": "S2:5"
     },
     {
       "cite": [
@@ -783,10 +981,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: stock_removal_bounds extends 9.997434 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S2:50: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.0,
+        "radius_mm": 4.7625,
+        "sample_count": 53,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:50"
     },
     {
@@ -817,10 +1026,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:10: sampled claimed faces clear the selected cutter and holder cylinders.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 74,
+        "tool_hits": 0
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:10"
     },
     {
@@ -855,13 +1075,21 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: selected cutter or holder is certainly occluded by part/fixture material.",
+      "message": "S3:20: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 70
+        "certain_tool_hits": 0,
+        "flute_len_mm": 26.0,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 72.0,
+        "radius_mm": 3.256,
+        "sample_count": 78,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S3:20"
     },
     {
@@ -895,10 +1123,21 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S4:30: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S4:30: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 29,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 53,
+        "tool_hits": 29
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "error",
       "subject": "S4:30"
     },
     {
@@ -934,84 +1173,22 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S4:40: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S4:40: selected cutter or holder is certainly occluded by part/fixture material.",
+      "numbers": {
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 109,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 193,
+        "tool_hits": 109
+      },
       "rule": "accessibility",
-      "status": "unknown",
+      "status": "error",
       "subject": "S4:40"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 accessibility",
-        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
-        "features.tip_land_pos_x: faces and requirements",
-        "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:530-538",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
-        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "plan.setups.S4: frame and hold",
-        "inventory.fixtures.rocker-profile-fixture: declared dimensions",
-        "plan.frames.TA: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "plan.setups.S4.ops.41: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S4:41: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
-      "rule": "accessibility",
-      "status": "unknown",
-      "subject": "S4:41"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 accessibility",
-        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
-        "features.tip_land_neg_x: faces and requirements",
-        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "plan.setups.S4: frame and hold",
-        "inventory.fixtures.rocker-profile-fixture: declared dimensions",
-        "plan.frames.TA: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "plan.setups.S4.ops.42: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S4:42: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
-      "rule": "accessibility",
-      "status": "unknown",
-      "subject": "S4:42"
     },
     {
       "cite": [
@@ -1467,7 +1644,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
+            "sha256": "6d86da0b679d4fb1fb892cdad86c2137ba9fcdc8c34e962983839ad06328b62f"
           },
           "features": {
             "path": "examples/rocker-arm/features.toml",
@@ -1475,11 +1652,11 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "1d4befc7d7ea4696791c47cf3315eba0d51f237591e33954cfd2a8079c1665c9"
+            "sha256": "bba389aa7f559573a5b87abcae0ba7076c0ebec8980764d1c63e854f145a1687"
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
-            "sha256": "f65c538b38feddd982e7b0a66ca67431aa48ecb2600aea0806956228d08bbc0b"
+            "sha256": "cbf1cfab03e9e2db34b0f3cd98cb19b2079053f403f084e8d2dd9c76a89c681c"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -2738,6 +2915,9 @@
         "contours": [],
         "entry_surfaces": [
           {
+            "op": 5
+          },
+          {
             "op": 10
           },
           {
@@ -2842,7 +3022,16 @@
         "operations": [
           {
             "direction": "conventional",
-            "do": "face",
+            "do": "rough_face",
+            "feature": "hub_faces",
+            "op": 5,
+            "rough_allowance_mm": 0.2,
+            "to_z": 0.2,
+            "tool": "endmills-lms-6784/3-8in-2fl"
+          },
+          {
+            "direction": "conventional",
+            "do": "finish_face",
             "feature": "hub_faces",
             "op": 10,
             "to_z": 0.0,
@@ -5905,6 +6094,10 @@
         "contours": [],
         "entry_surfaces": [
           {
+            "op": 5,
+            "rod_hole": -2.27825
+          },
+          {
             "op": 10,
             "rod_hole": -2.27825
           },
@@ -6027,6 +6220,15 @@
           }
         ],
         "operations": [
+          {
+            "direction": "conventional",
+            "do": "rough_face",
+            "feature": "hub_faces",
+            "op": 5,
+            "rough_allowance_mm": 0.2,
+            "to_z": 0.2,
+            "tool": "endmills-lms-6784/3-8in-2fl"
+          },
           {
             "direction": "conventional",
             "do": "finish_face",
@@ -9730,12 +9932,6 @@
             "op": 40
           },
           {
-            "op": 41
-          },
-          {
-            "op": 42
-          },
-          {
             "op": 43
           },
           {
@@ -9845,22 +10041,6 @@
             "do": "finish_profile",
             "feature": "profile_outer",
             "op": 40,
-            "to_z": -6.02825,
-            "tool": "endmills-lms-6784/3-8in-4fl"
-          },
-          {
-            "direction": "conventional",
-            "do": "finish_profile",
-            "feature": "tip_land_pos_x",
-            "op": 41,
-            "to_z": -6.02825,
-            "tool": "endmills-lms-6784/3-8in-4fl"
-          },
-          {
-            "direction": "conventional",
-            "do": "finish_profile",
-            "feature": "tip_land_neg_x",
-            "op": 42,
             "to_z": -6.02825,
             "tool": "endmills-lms-6784/3-8in-4fl"
           },
@@ -10668,11 +10848,13 @@
           {
             "from": "S1",
             "indicate": "pivot_bore",
+            "runout_limit_mm": 0.02,
             "tool": "rocker-datum-indicator"
           },
           {
             "from": "S2",
             "indicate": "pivot_bore",
+            "runout_limit_mm": 0.02,
             "tool": "rocker-datum-indicator"
           }
         ]
@@ -10715,10 +10897,10 @@
         "plan: finishing cuts and zero.transfer",
         "illustrative example value (plausible hobby-shop vise re-seat repeatability), not measured"
       ],
-      "message": "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget.",
+      "message": "Datum cuts or the re-fixture acceptance budget remain unresolved.",
       "numbers": {
         "angularity_datums": [],
-        "datum_op": "S4:41",
+        "datum_op": "S1:25",
         "datums": {
           "A": [
             "S3:20"
@@ -10726,9 +10908,7 @@
           "B": [
             "S1:25"
           ],
-          "C": [
-            "S4:41"
-          ]
+          "C": []
         },
         "feature_op": "S2:34",
         "feature_ops": [
@@ -10760,16 +10940,6 @@
             "same_setup": false,
             "status": "pass",
             "tolerance_mm": 0.2
-          },
-          {
-            "datum": "C",
-            "datum_feature": "tip_land_pos_x",
-            "datum_op": "S4:41",
-            "feature_op": "S2:34",
-            "indicated_transfer": false,
-            "same_setup": false,
-            "status": "pass",
-            "tolerance_mm": 0.2
           }
         ],
         "same_setup": false,
@@ -10778,12 +10948,13 @@
           {
             "from": "S1",
             "indicate": "pivot_bore",
+            "runout_limit_mm": 0.02,
             "tool": "rocker-datum-indicator"
           }
         ]
       },
       "rule": "datum_consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "rod_hole"
     },
     {
@@ -10881,6 +11052,7 @@
           {
             "from": "S3",
             "indicate": "rocker-pivot-screw ground head",
+            "runout_limit_mm": 0.01,
             "tool": "rocker-datum-indicator"
           }
         ]
@@ -10896,7 +11068,7 @@
       "message": "S1:10: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
-        "operation": "face",
+        "operation": "finish_face",
         "tool": "endmills-lms-6784/3-8in-4fl",
         "tool_kind": "endmill_set"
       },
@@ -10906,17 +11078,35 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S1].ops[20].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S1:20: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "message": "S1:20: Tool projection is 3.9895×D, within 4×D; this engagement proxy requires no DOC reduction.",
       "numbers": {
+        "diameter_mm": 9.525,
+        "doc_mm": 1.5,
+        "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [],
         "operation": "rough_face",
+        "over_limit": false,
+        "projection_basis": "selected tool/holder projection",
+        "projection_ld": 3.9895013123359577,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
-        "tool_kind": "endmill_set"
+        "tool_kind": "endmill_set",
+        "tool_oal_mm": 63.5
       },
       "rule": "engagement",
-      "status": "not_applicable",
+      "status": "pass",
       "subject": "S1:20"
     },
     {
@@ -10963,6 +11153,39 @@
       "rule": "engagement",
       "status": "not_applicable",
       "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S1].ops[5].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:5: Tool projection is 3.9895×D, within 4×D; this engagement proxy requires no DOC reduction.",
+      "numbers": {
+        "diameter_mm": 9.525,
+        "doc_mm": 1.5,
+        "doc_scale": 1,
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [],
+        "operation": "rough_face",
+        "over_limit": false,
+        "projection_basis": "selected tool/holder projection",
+        "projection_ld": 3.9895013123359577,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": 1.5,
+        "tool": "endmills-lms-6784/3-8in-2fl",
+        "tool_kind": "endmill_set",
+        "tool_oal_mm": 63.5
+      },
+      "rule": "engagement",
+      "status": "pass",
+      "subject": "S1:5"
     },
     {
       "cite": [
@@ -11026,17 +11249,35 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S2].ops[15].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S2:15: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "message": "S2:15: Tool projection is 3.9895×D, within 4×D; this engagement proxy requires no DOC reduction.",
       "numbers": {
+        "diameter_mm": 9.525,
+        "doc_mm": 1.5,
+        "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [],
         "operation": "rough_face",
+        "over_limit": false,
+        "projection_basis": "selected tool/holder projection",
+        "projection_ld": 3.9895013123359577,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
-        "tool_kind": "endmill_set"
+        "tool_kind": "endmill_set",
+        "tool_oal_mm": 63.5
       },
       "rule": "engagement",
-      "status": "not_applicable",
+      "status": "pass",
       "subject": "S2:15"
     },
     {
@@ -11161,6 +11402,39 @@
     },
     {
       "cite": [
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "plan.setups[S2].ops[5].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S2:5: Tool projection is 3.9895×D, within 4×D; this engagement proxy requires no DOC reduction.",
+      "numbers": {
+        "diameter_mm": 9.525,
+        "doc_mm": 1.5,
+        "doc_scale": 1,
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [],
+        "operation": "rough_face",
+        "over_limit": false,
+        "projection_basis": "selected tool/holder projection",
+        "projection_ld": 3.9895013123359577,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": 1.5,
+        "tool": "endmills-lms-6784/3-8in-2fl",
+        "tool_kind": "endmill_set",
+        "tool_oal_mm": 63.5
+      },
+      "rule": "engagement",
+      "status": "pass",
+      "subject": "S2:5"
+    },
+    {
+      "cite": [
         "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S2:50: engagement applies only to an endmill cutting operation with an authored DOC.",
@@ -11233,36 +11507,6 @@
       "rule": "engagement",
       "status": "not_applicable",
       "subject": "S4:40"
-    },
-    {
-      "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
-      ],
-      "message": "S4:41: engagement applies only to an endmill cutting operation with an authored DOC.",
-      "numbers": {
-        "holder": "r8-collets-lms-4860/3-8in",
-        "operation": "finish_profile",
-        "tool": "endmills-lms-6784/3-8in-4fl",
-        "tool_kind": "endmill_set"
-      },
-      "rule": "engagement",
-      "status": "not_applicable",
-      "subject": "S4:41"
-    },
-    {
-      "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
-      ],
-      "message": "S4:42: engagement applies only to an endmill cutting operation with an authored DOC.",
-      "numbers": {
-        "holder": "r8-collets-lms-4860/3-8in",
-        "operation": "finish_profile",
-        "tool": "endmills-lms-6784/3-8in-4fl",
-        "tool_kind": "endmill_set"
-      },
-      "rule": "engagement",
-      "status": "not_applicable",
-      "subject": "S4:42"
     },
     {
       "cite": [
@@ -11394,8 +11638,10 @@
         "plan.setups.S1.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S1.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S1.ops.5.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.50.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.50: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S1.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S1.ops.60.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.60: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S1.ops.70.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -11420,40 +11666,60 @@
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 131.87265000000002,
-            "op": 10,
+            "lower_margin_mm": 131.57265,
+            "op": 5,
             "spindle_nose_table_band_mm": [
-              192.83265,
-              202.3044
+              192.53265,
+              201.8044
             ],
-            "stack_mm": 197.3044,
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
-              0.0,
+              0.2,
               9.47175
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 229.49559999999997,
+            "tool": "endmills-lms-6784/3-8in-2fl",
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 229.99559999999997,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.7944,
-            "op": 20,
+            "lower_margin_mm": 131.87265000000002,
+            "op": 10,
             "spindle_nose_table_band_mm": [
-              190.7544,
-              197.83265
+              192.83265,
+              198.03265
             ],
             "stack_mm": 197.3044,
+            "tip_z_bounds_mm": [
+              0.0,
+              5.2
+            ],
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": 38.5,
+            "upper_margin_mm": 233.76734999999996,
+            "verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "lower_margin_mm": 129.2944,
+            "op": 20,
+            "spindle_nose_table_band_mm": [
+              190.2544,
+              197.33265
+            ],
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
               -2.07825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 233.96734999999995,
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 234.46734999999995,
             "verified": true
           },
           {
@@ -11480,60 +11746,60 @@
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.7944,
+            "lower_margin_mm": 129.2944,
             "op": 30,
             "spindle_nose_table_band_mm": [
-              190.7544,
-              197.83265
+              190.2544,
+              197.33265
             ],
-            "stack_mm": 197.3044,
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
               -2.07825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 233.96734999999995,
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 234.46734999999995,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 128.5444,
+            "lower_margin_mm": 128.0444,
             "op": 40,
             "spindle_nose_table_band_mm": [
-              189.5044,
-              197.83265
+              189.0044,
+              197.33265
             ],
-            "stack_mm": 197.3044,
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
               -3.32825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 233.96734999999995,
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 234.46734999999995,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 128.5444,
+            "lower_margin_mm": 128.0444,
             "op": 50,
             "spindle_nose_table_band_mm": [
-              189.5044,
-              197.83265
+              189.0044,
+              197.33265
             ],
-            "stack_mm": 197.3044,
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
               -3.32825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 233.96734999999995,
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 234.46734999999995,
             "verified": true
           },
           {
@@ -11632,8 +11898,10 @@
         "plan.setups.S2.ops.34: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S2.ops.5.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.50.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.50: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S2.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
@@ -11654,40 +11922,60 @@
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 131.87265000000002,
-            "op": 10,
+            "lower_margin_mm": 131.57265,
+            "op": 5,
             "spindle_nose_table_band_mm": [
-              192.83265,
-              202.3044
+              192.53265,
+              201.8044
             ],
-            "stack_mm": 197.3044,
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
-              0.0,
+              0.2,
               9.47175
             ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 229.49559999999997,
+            "tool": "endmills-lms-6784/3-8in-2fl",
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 229.99559999999997,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.7944,
-            "op": 15,
+            "lower_margin_mm": 131.87265000000002,
+            "op": 10,
             "spindle_nose_table_band_mm": [
-              190.7544,
-              197.83265
+              192.83265,
+              198.03265
             ],
             "stack_mm": 197.3044,
+            "tip_z_bounds_mm": [
+              0.0,
+              5.2
+            ],
+            "tool": "endmills-lms-6784/3-8in-4fl",
+            "tool_projection_mm": 38.5,
+            "upper_margin_mm": 233.76734999999996,
+            "verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "lower_margin_mm": 129.2944,
+            "op": 15,
+            "spindle_nose_table_band_mm": [
+              190.2544,
+              197.33265
+            ],
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
               -2.07825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 233.96734999999995,
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 234.46734999999995,
             "verified": true
           },
           {
@@ -11714,20 +12002,20 @@
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.7944,
+            "lower_margin_mm": 129.2944,
             "op": 28,
             "spindle_nose_table_band_mm": [
-              190.7544,
-              197.83265
+              190.2544,
+              197.33265
             ],
-            "stack_mm": 197.3044,
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
               -2.07825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 233.96734999999995,
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 234.46734999999995,
             "verified": true
           },
           {
@@ -11814,40 +12102,40 @@
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 128.5444,
+            "lower_margin_mm": 128.0444,
             "op": 40,
             "spindle_nose_table_band_mm": [
-              189.5044,
-              197.83265
+              189.0044,
+              197.33265
             ],
-            "stack_mm": 197.3044,
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
               -3.32825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 233.96734999999995,
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 234.46734999999995,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 128.5444,
+            "lower_margin_mm": 128.0444,
             "op": 50,
             "spindle_nose_table_band_mm": [
-              189.5044,
-              197.83265
+              189.0044,
+              197.33265
             ],
-            "stack_mm": 197.3044,
+            "stack_mm": 196.8044,
             "tip_z_bounds_mm": [
               -3.32825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 233.96734999999995,
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": 234.46734999999995,
             "verified": true
           }
         ]
@@ -11947,8 +12235,6 @@
         "AUTHOR'S CHOICE",
         "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
         "features.features.profile_outer.bounds/at",
-        "features.features.tip_land_neg_x.bounds/at",
-        "features.features.tip_land_pos_x.bounds/at",
         "features.features.top_edge.bounds/at",
         "features.frames.model; plan.frames.TA",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
@@ -11965,10 +12251,6 @@
         "plan.setups.S4.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S4.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S4.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.S4.ops.41.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.S4.ops.41: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.S4.ops.42.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.S4.ops.42: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
@@ -12011,46 +12293,6 @@
             "holder_gauge_len_mm": 6.0,
             "lower_margin_mm": 11.96175000000001,
             "op": 40,
-            "spindle_nose_table_band_mm": [
-              72.92175,
-              83.95
-            ],
-            "stack_mm": 78.95,
-            "tip_z_bounds_mm": [
-              -6.02825,
-              5.0
-            ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 347.84999999999997,
-            "verified": true
-          },
-          {
-            "approach_mm": 5.0,
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 11.96175000000001,
-            "op": 41,
-            "spindle_nose_table_band_mm": [
-              72.92175,
-              83.95
-            ],
-            "stack_mm": 78.95,
-            "tip_z_bounds_mm": [
-              -6.02825,
-              5.0
-            ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "upper_margin_mm": 347.84999999999997,
-            "verified": true
-          },
-          {
-            "approach_mm": 5.0,
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 11.96175000000001,
-            "op": 42,
             "spindle_nose_table_band_mm": [
               72.92175,
               83.95
@@ -12402,10 +12644,13 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "S2: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
       "rule": "fixture_interference",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -12419,10 +12664,13 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "S3: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
       "rule": "fixture_interference",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3"
     },
     {
@@ -12436,10 +12684,13 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "S4: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S4: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
       "rule": "fixture_interference",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S4"
     },
     {
@@ -12462,6 +12713,7 @@
           "25": 2.4046999999999983,
           "30": 2.604699999999998,
           "40": 1.354699999999998,
+          "5": 4.882949999999998,
           "50": 1.354699999999998
         },
         "fixture_height_mm": 44.945299999999996,
@@ -12480,6 +12732,17 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
+            "margin_mm": 235.39559999999994,
+            "op": 5,
+            "sum_mm": 196.4044,
+            "tool": "endmills-lms-6784/3-8in-2fl",
+            "tool_oal_mm": 63.5,
+            "tool_projection_mm": 38.0,
+            "verify": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
             "margin_mm": 234.89559999999994,
             "op": 10,
             "sum_mm": 196.9044,
@@ -12491,12 +12754,12 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 234.89559999999994,
+            "margin_mm": 235.39559999999994,
             "op": 20,
-            "sum_mm": 196.9044,
+            "sum_mm": 196.4044,
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "verify": false
           },
           {
@@ -12513,34 +12776,34 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 234.89559999999994,
+            "margin_mm": 235.39559999999994,
             "op": 30,
-            "sum_mm": 196.9044,
+            "sum_mm": 196.4044,
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "verify": false
           },
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 234.89559999999994,
+            "margin_mm": 235.39559999999994,
             "op": 40,
-            "sum_mm": 196.9044,
+            "sum_mm": 196.4044,
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "verify": false
           },
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 234.89559999999994,
+            "margin_mm": 235.39559999999994,
             "op": 50,
-            "sum_mm": 196.9044,
+            "sum_mm": 196.4044,
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "verify": false
           },
           {
@@ -12615,6 +12878,7 @@
           "28": 2.604699999999998,
           "30": 2.4046999999999983,
           "40": 1.354699999999998,
+          "5": 4.882949999999998,
           "50": 1.354699999999998
         },
         "fixture_height_mm": 44.945299999999996,
@@ -12633,6 +12897,17 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
+            "margin_mm": 235.39559999999994,
+            "op": 5,
+            "sum_mm": 196.4044,
+            "tool": "endmills-lms-6784/3-8in-2fl",
+            "tool_oal_mm": 63.5,
+            "tool_projection_mm": 38.0,
+            "verify": false
+          },
+          {
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
             "margin_mm": 234.89559999999994,
             "op": 10,
             "sum_mm": 196.9044,
@@ -12644,12 +12919,12 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 234.89559999999994,
+            "margin_mm": 235.39559999999994,
             "op": 15,
-            "sum_mm": 196.9044,
+            "sum_mm": 196.4044,
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "verify": false
           },
           {
@@ -12666,12 +12941,12 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 234.89559999999994,
+            "margin_mm": 235.39559999999994,
             "op": 28,
-            "sum_mm": 196.9044,
+            "sum_mm": 196.4044,
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "verify": false
           },
           {
@@ -12721,23 +12996,23 @@
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 234.89559999999994,
+            "margin_mm": 235.39559999999994,
             "op": 40,
-            "sum_mm": 196.9044,
+            "sum_mm": 196.4044,
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "verify": false
           },
           {
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "margin_mm": 234.89559999999994,
+            "margin_mm": 235.39559999999994,
             "op": 50,
-            "sum_mm": 196.9044,
+            "sum_mm": 196.4044,
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "verify": false
           }
         ],
@@ -12897,28 +13172,6 @@
             "tool_oal_mm": 63.5,
             "tool_projection_mm": 38.5,
             "verify": false
-          },
-          {
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
-            "margin_mm": 334.59999999999997,
-            "op": 41,
-            "sum_mm": 97.2,
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
-            "verify": false
-          },
-          {
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
-            "margin_mm": 334.59999999999997,
-            "op": 42,
-            "sum_mm": 97.2,
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_oal_mm": 63.5,
-            "tool_projection_mm": 38.5,
-            "verify": false
           }
         ],
         "stock_bottom_z": -7.0565,
@@ -12962,6 +13215,7 @@
           "25": "conventional",
           "30": "conventional",
           "40": "conventional",
+          "5": "conventional",
           "50": "conventional"
         },
         "deburr_mm": 0.25,
@@ -12975,7 +13229,7 @@
           "jaw_above_parallels_mm": 6.8453,
           "jaw_center_along_mm": 0.0,
           "jaws_along": "x",
-          "note": "Grip the full-thickness rails on matched narrow risers plus 1/2 in parallels. The 64 mm risers fit between the 65 mm closed jaws and fully carry both parallels. Keep the cutter's whole swept diameter inside the clearing bounds, not just its centre.",
+          "note": "Grip the full-thickness rails on matched narrow risers plus 1/2 in parallels. The 64 mm risers fit between the 65 mm closed jaws and fully carry both parallels. Keep the cutter's whole swept diameter inside the clearing bounds, not just its centre. Use light conventional cuts at the outboard tips; stop and resolve chatter before deepening the cut.",
           "parallels": "parallels-lms-6745/1-2in",
           "parallels_centres_mm": [
             [
@@ -13000,7 +13254,25 @@
             ]
           ],
           "riser_up": "height",
-          "stop": "left blank end against fixed-jaw stop",
+          "stop": "switch on the magnetic fixed-jaw end stop and bring the left blank end gently against its nose; positioning contact only, no cutting load",
+          "stop_fixture": "rocker-vise-stop",
+          "stop_pose": {
+            "origin_mm": [
+              -79.3369,
+              37.0,
+              -4.68295
+            ],
+            "x": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
           "supports": "rocker-riser-bars"
         },
         "missing": [],
@@ -13025,12 +13297,14 @@
           "28": "conventional",
           "30": "conventional",
           "40": "conventional",
+          "5": "conventional",
           "50": "conventional"
         },
         "deburr_mm": 0.25,
         "fixture": "vise-pm-6",
         "hold": {
           "clamp": "hand snug, then quarter turn; confirm seating and rail engagement",
+          "clamp_order": [],
           "clamps": [
             {
               "note": "passive upward-bearing support jack, not a clamp; adjust to touch the finished strap without lifting the rail frame, then lock the jack",
@@ -13082,7 +13356,7 @@
           "jaw_above_parallels_mm": 6.8453,
           "jaw_center_along_mm": 0.0,
           "jaws_along": "x",
-          "note": "Seat the retained rails, not the thin strap or a hub rim.",
+          "note": "Seat the retained rails, not the thin strap or a hub rim. Use light conventional cuts at the outboard tips; stop and resolve chatter before deepening the cut.",
           "parallels": "parallels-lms-6745/1-2in",
           "parallels_centres_mm": [
             [
@@ -13107,7 +13381,25 @@
             ]
           ],
           "riser_up": "height",
-          "stop": "left blank end against fixed-jaw stop; indicate pilot to transfer datum",
+          "stop": "switch on the magnetic fixed-jaw end stop and bring the left blank end gently against its nose; then indicate the pilot to transfer datum",
+          "stop_fixture": "rocker-vise-stop",
+          "stop_pose": {
+            "origin_mm": [
+              -79.3369,
+              28.0,
+              -4.68295
+            ],
+            "x": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "z": [
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
           "supports": "rocker-riser-bars"
         },
         "missing": [],
@@ -13132,6 +13424,10 @@
         "fixture": "rocker-profile-fixture",
         "hold": {
           "clamp": "two stepped padded straps on upper datum face B, remote studs outside the retained rail frame; supported toes, no stud through the part",
+          "clamp_order": [
+            1,
+            2
+          ],
           "clamps": [
             {
               "note": "rod-side supported toe; bridge clears the raw rail and the stud is outside the blank at Y45",
@@ -13174,6 +13470,27 @@
                 ]
               },
               "ref": "rocker-hub-strap"
+            },
+            {
+              "note": "permanently fitted rod-hole pin, unchanged for S4; no clamp or lift load",
+              "pose": {
+                "origin_mm": [
+                  133.06740213488345,
+                  8.456064115939025,
+                  -4.77825
+                ],
+                "x": [
+                  0.9979869699018047,
+                  0.06341930231573287,
+                  0.0
+                ],
+                "z": [
+                  0.0,
+                  0.0,
+                  -1.0
+                ]
+              },
+              "ref": "rocker-rod-diamond-pin"
             }
           ],
           "fixed_jaw": "not_applicable",
@@ -13181,8 +13498,8 @@
           "grip_mm": "not_applicable",
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
-          "locate": "first indicate the empty plate bore and retain its X/Y reference; set the lower strap face on the pads, coarsely align the arms with the pad layout, and indicate the D pilot",
-          "note": "Coarse rotational alignment only keeps the arms over the twelve support pads and the strap toes on face B; it does not establish datum C. Seat the lower strap face first, then match the shimmed rail rests to the actual raw rails without lifting the part from the pads. The 8 mm stand relief clears the reamer after the 0.20 mm placement check.",
+          "locate": "first indicate the empty plate bore and retain its X/Y reference; lower the blank straight down over the permanent rod-hole pin onto the pads and indicate the D pilot",
+          "note": "The permanent pin and coarse arm alignment keep the part over its twelve support pads and the strap toes on face B; they do not establish datum C. Seat the lower strap face first, then match the shimmed rail rests to the actual raw rails without lifting the part. The 8 mm stand relief clears the reamer after the 0.20 mm placement check.",
           "parallels": "not_applicable",
           "pose": {
             "origin_mm": [
@@ -13221,14 +13538,19 @@
         "coolant": "cutting_oil_brush",
         "cut_directions": {
           "30": "conventional",
-          "40": "conventional",
-          "41": "conventional",
-          "42": "conventional"
+          "40": "conventional"
         },
         "deburr_mm": 0.25,
         "fixture": "rocker-profile-fixture",
         "hold": {
           "clamp": "washer and shoulder screw prevent hub lift; pads carry Z; separate toe clamps retain both scrap rails on matched shimmed rests",
+          "clamp_order": [
+            1,
+            3,
+            4,
+            5,
+            6
+          ],
           "clamps": [
             {
               "note": "ground locating shoulder through reamed datum A; bored washer clamps the hub",
@@ -13363,7 +13685,7 @@
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
           "locate": "reamed bore A on the shoulder screw, lower strap face on support pads, rod hole on the diamond clocking pin",
-          "note": "The part and scrap frame are held independently. The web transmits early profile loads to the clamped frame; the hardened diamond pin is the positive tangential stop during and after the closing cut. Keep every scrap clamp tight through op 42. The 1.9875 mm pin in a 2.000..2.010 mm process hole has 0.0125..0.0225 mm diametral clearance, included in the clocking budget.",
+          "note": "The part and scrap frame are held independently. The web transmits early profile loads to the clamped frame; the hardened diamond pin is the positive tangential stop during and after the closing cut in op 40. Keep every scrap clamp tight through op 40. The 1.9875 mm pin in a 2.000..2.010 mm process hole has 0.0125..0.0225 mm diametral clearance, included in the clocking budget.",
           "parallels": "not_applicable",
           "pose": {
             "origin_mm": [
@@ -13382,6 +13704,7 @@
               1.0
             ]
           },
+          "preload_direction": "counterclockwise",
           "stop": "shoulder screw locates A; preload counterclockwise against the diamond pin before tightening; its radial flats allow centre-distance variation",
           "supports": "not_applicable"
         },
@@ -13653,7 +13976,7 @@
       "numbers": {
         "gauge": "rocker-position-height-gauge",
         "gauge_kind": "height_gauge",
-        "inspection_method": "Seat upper datum face B against an angle plate and square the rod-side land C to the surface plate. Fit a 6.5 mm pin in datum bore A and the largest calibrated go pin that fits the rod hole; measure over both pins with the height gauge in two orthogonal orientations, subtract pin radii, and compare the centre offsets to the basic drawing coordinates within the Ø0.20 zone.",
+        "inspection_method": "Use the rocker-inspection-box with its fixed ground C stop bar. Select the largest freely passing pins from rocker-position-pins for datum bore A and the rod hole; record their actual calibrated diameters. Seat only the strap datum B against the box face, place the A axis within 5 mm of the box's left edge, and leave the integral hub clear above the box. Seat C on the fixed bar and secure the B contact with the two rocker-inspection-clamps through the left windows, without bending or clamping the free span.\n\nEquilibrate the part, box, pins and rocker-position-blocks on the granite plate at 20 ±1 °C. Use the height gauge only to carry the 1 µm rocker-datum-indicator, not as a long-range absolute scale. For each pin reading, wring a stack of known actual calibrated block lengths near the pin's top, zero the indicator on the stack, then sweep the pin crown and read its height deviation with the same carrier setting. Verify the indicator's positive sense for a higher contact. Pin-centre height = actual stack height + indicator deviation - actual pin radius.\n\nFirst view: C faces down onto the bar and the hub-pin centre is above the rod-pin centre by about 132.4 mm. Take the comparator readings within 2 mm of each accessible bore face and record X = hub-centre height minus rod-centre height. Tip the entire box onto its marked ground RIGHT side; the rod centre must be below the hub centre by about 15.8 mm. Do not unclamp the part or lose C contact. Repeat the near-face block-comparator readings and record Y = hub-centre height minus rod-centre height. Gently press the opposite, non-rod tip toward the fixed C bar to reseat C, release it, and repeat both readings at the same comparator settings; HOLD if either changes by more than 0.002 mm. This seating check is required before accepting the tipped-view result.\n\nCheck the B-to-A-axis approximation in both views by comparing the hub-pin height near its accessible mouth with the height 10 mm farther out: HOLD if the change exceeds 0.005 mm or the strap cannot seat without leaning the pin. Do not claim ideal datum simulation from B contact alone.\n\nThe CAD-derived nominal differences in this fixed-C inspection basis are X = 132.3912 mm and Y = 15.8429 mm, not the milling setup XY coordinates. Calculate 2 * sqrt((X - 132.3912)^2 + (Y - 15.8429)^2). The drawing zone remains diameter 0.20 mm at RFS, with no bonus tolerance; use diameter 0.16 mm as the shop guardband and HOLD larger results for disposition. These are illustrative process limits, not measured first-article readings.\n",
         "limits": 0.2,
         "op": "S4:50",
         "range_mm": [
@@ -14099,11 +14422,49 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:40: stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S1:40: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
+      },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "features.hub_faces: faces and requirements",
+        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "plan.frames.TA: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "plan.setups.S1.ops.5: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S1:5: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
+      },
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S1:5"
     },
     {
       "cite": [
@@ -14138,10 +14499,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:50: stock_removal_bounds extends 9.997434 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S1:50: concave corner radii admit the selected cutter.",
+      "numbers": {
+        "cad_sharp_corners": 0,
+        "corner_radii_mm": [
+          800.0
+        ],
+        "corner_radius_max_design_mm": "unknown",
+        "minimum_corner_radius_mm": 800.0,
+        "tool_radius_mm": 4.7625
+      },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:50"
     },
     {
@@ -14178,16 +14547,13 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S1:60: concave corner radii admit the selected cutter.",
+      "message": "S1:60: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "corner_radii_mm": [
-          3.25
-        ],
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 0.99
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S1:60"
     },
     {
@@ -14224,16 +14590,13 @@
         "inventory.tools.drill-index-115/D: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S1:70: concave corner radii admit the selected cutter.",
+      "message": "S1:70: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "corner_radii_mm": [
-          3.25
-        ],
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 3.1242
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S1:70"
     },
     {
@@ -14492,16 +14855,13 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:32: concave corner radii admit the selected cutter.",
+      "message": "S2:32: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "corner_radii_mm": [
-          0.99695
-        ],
-        "minimum_corner_radius_mm": 0.99695,
+        "corner_radii_mm": [],
         "tool_radius_mm": 0.99
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S2:32"
     },
     {
@@ -14540,16 +14900,13 @@
         "inventory.tools.rocker-rod-pilot-drill/1.90mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:33: concave corner radii admit the selected cutter.",
+      "message": "S2:33: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "corner_radii_mm": [
-          0.99695
-        ],
-        "minimum_corner_radius_mm": 0.99695,
+        "corner_radii_mm": [],
         "tool_radius_mm": 0.95
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S2:33"
     },
     {
@@ -14588,16 +14945,13 @@
         "inventory.tools.rocker-rod-reamer/2.0mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:34: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S2:34: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "corner_radii_mm": [
-          0.99695
-        ],
-        "minimum_corner_radius_mm": 0.99695,
+        "corner_radii_mm": [],
         "tool_radius_mm": 1.002
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:34"
     },
     {
@@ -14635,11 +14989,49 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S2:40: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
+      },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "features.hub_faces: faces and requirements",
+        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "plan.setups.S2.ops.5: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:5: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
+      },
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S2:5"
     },
     {
       "cite": [
@@ -14674,10 +15066,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: stock_removal_bounds extends 9.997434 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S2:50: concave corner radii admit the selected cutter.",
+      "numbers": {
+        "cad_sharp_corners": 0,
+        "corner_radii_mm": [
+          800.0
+        ],
+        "corner_radius_max_design_mm": "unknown",
+        "minimum_corner_radius_mm": 800.0,
+        "tool_radius_mm": 4.7625
+      },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:50"
     },
     {
@@ -14749,16 +15149,13 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S3:20: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "corner_radii_mm": [
-          3.25
-        ],
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 3.256
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:20"
     },
     {
@@ -14794,9 +15191,11 @@
       ],
       "message": "S4:30: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           800.0
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 800.0,
         "tool_radius_mm": 4.7625
       },
@@ -14845,85 +15244,6 @@
       "rule": "internal_corner_radius",
       "status": "not_applicable",
       "subject": "S4:40"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 internal_corner_radius",
-        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
-        "features.tip_land_pos_x: faces and requirements",
-        "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:530-538",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
-        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "plan.setups.S4: frame and hold",
-        "inventory.fixtures.rocker-profile-fixture: declared dimensions",
-        "plan.frames.TA: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "plan.setups.S4.ops.41: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S4:41: claimed faces have no concave edges perpendicular to the tool axis.",
-      "numbers": {
-        "corner_radii_mm": [],
-        "tool_radius_mm": 4.7625
-      },
-      "rule": "internal_corner_radius",
-      "status": "not_applicable",
-      "subject": "S4:41"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 internal_corner_radius",
-        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
-        "features.tip_land_neg_x: faces and requirements",
-        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "plan.setups.S4: frame and hold",
-        "inventory.fixtures.rocker-profile-fixture: declared dimensions",
-        "plan.frames.TA: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "plan.setups.S4.ops.42: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S4:42: claimed faces have no concave edges perpendicular to the tool axis.",
-      "numbers": {
-        "corner_radii_mm": [],
-        "tool_radius_mm": 4.7625
-      },
-      "rule": "internal_corner_radius",
-      "status": "not_applicable",
-      "subject": "S4:42"
     },
     {
       "cite": [
@@ -15147,12 +15467,16 @@
       "message": "hub_faces: not a hole chain.",
       "numbers": {
         "chain": [
-          "face",
+          "rough_face",
+          "finish_face",
+          "rough_face",
           "finish_face"
         ],
         "kind": "face",
         "ops": [
+          "S1:5",
           "S1:10",
+          "S2:5",
           "S2:10"
         ]
       },
@@ -15321,12 +15645,10 @@
       "message": "tip_land_neg_x: not a hole chain.",
       "numbers": {
         "chain": [
-          "finish_profile",
           "inspect"
         ],
         "kind": "face",
         "ops": [
-          "S4:42",
           "S4:44"
         ]
       },
@@ -15343,12 +15665,10 @@
       "message": "tip_land_pos_x: not a hole chain.",
       "numbers": {
         "chain": [
-          "finish_profile",
           "inspect"
         ],
         "kind": "face",
         "ops": [
-          "S4:41",
           "S4:43"
         ]
       },
@@ -15388,7 +15708,8 @@
       "message": "S1: rough/finish, face/spot, hole and release order is consistent.",
       "numbers": {
         "sequence": [
-          "10 face hub_faces",
+          "5 rough_face hub_faces",
+          "10 finish_face hub_faces",
           "20 rough_face strap_datum_b",
           "25 finish_face strap_datum_b",
           "30 rough_profile hub_od",
@@ -15411,6 +15732,7 @@
       "message": "S2: rough/finish, face/spot, hole and release order is consistent.",
       "numbers": {
         "sequence": [
+          "5 rough_face hub_faces",
           "10 finish_face hub_faces",
           "15 rough_face strap_faces",
           "20 finish_face strap_faces",
@@ -15456,8 +15778,6 @@
         "sequence": [
           "30 finish_profile top_edge",
           "40 finish_profile profile_outer",
-          "41 finish_profile tip_land_pos_x",
-          "42 finish_profile tip_land_neg_x",
           "43 inspect tip_land_pos_x",
           "44 inspect tip_land_neg_x",
           "50 inspect rod_hole",
@@ -15545,8 +15865,8 @@
         "flute_len_mm": 22.2,
         "holder_wall_hits": 0,
         "oal_mm": 63.5,
-        "projection_mm": 38.5,
-        "reach_depth_mm": 6.75
+        "projection_mm": 38.0,
+        "reach_depth_mm": 6.55
       },
       "rule": "reach",
       "status": "pass",
@@ -15630,8 +15950,8 @@
         "flute_len_mm": 22.2,
         "holder_wall_hits": 0,
         "oal_mm": 63.5,
-        "projection_mm": 38.5,
-        "reach_depth_mm": 6.75
+        "projection_mm": 38.0,
+        "reach_depth_mm": 6.55
       },
       "rule": "reach",
       "status": "pass",
@@ -15672,11 +15992,55 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:40: stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S1:40: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 7.8
+      },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "features.hub_faces: faces and requirements",
+        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "plan.frames.TA: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "plan.setups.S1.ops.5: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S1:5: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 4.27175
+      },
+      "rule": "reach",
+      "status": "pass",
+      "subject": "S1:5"
     },
     {
       "cite": [
@@ -15711,10 +16075,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S1:50: stock_removal_bounds extends 9.997434 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S1:50: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 7.8
+      },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:50"
     },
     {
@@ -15757,7 +16127,7 @@
         "holder_wall_hits": 0,
         "oal_mm": 47.6,
         "projection_mm": 27.0,
-        "reach_depth_mm": 11.52825
+        "reach_depth_mm": 4.97175
       },
       "rule": "reach",
       "status": "pass",
@@ -15803,7 +16173,7 @@
         "holder_wall_hits": 0,
         "oal_mm": 101.6,
         "projection_mm": 81.0,
-        "reach_depth_mm": 11.52825
+        "reach_depth_mm": 13.405459
       },
       "rule": "reach",
       "status": "pass",
@@ -15835,10 +16205,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:10: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:10: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 4.47175
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:10"
     },
     {
@@ -15868,10 +16244,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:15: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:15: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 6.55
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:15"
     },
     {
@@ -15901,10 +16283,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:20: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:20: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 6.75
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:20"
     },
     {
@@ -15972,10 +16360,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:28: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:28: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 6.55
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:28"
     },
     {
@@ -16008,10 +16402,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:30: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:30: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 6.75
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:30"
     },
     {
@@ -16050,10 +16450,16 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:32: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:32: depth exceeds flute length but fits OAL with the holder cylinder clear of walls.",
+      "numbers": {
+        "flute_len_mm": 1.9,
+        "holder_wall_hits": 0,
+        "oal_mm": 47.6,
+        "projection_mm": 27.0,
+        "reach_depth_mm": 7.25
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:32"
     },
     {
@@ -16092,10 +16498,16 @@
         "inventory.tools.rocker-rod-pilot-drill/1.90mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:33: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:33: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 12.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 38.0,
+        "projection_mm": 24.0,
+        "reach_depth_mm": 9.820818
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:33"
     },
     {
@@ -16134,10 +16546,16 @@
         "inventory.tools.rocker-rod-reamer/2.0mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:34: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2:34: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 11.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 49.0,
+        "projection_mm": 34.0,
+        "reach_depth_mm": 9.25
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2:34"
     },
     {
@@ -16175,11 +16593,55 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:40: stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S2:40: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 7.8
+      },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "features.hub_faces: faces and requirements",
+        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
+        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "plan.setups.S2.ops.5: selected action/tool/holder",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
+        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
+      ],
+      "message": "S2:5: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 4.27175
+      },
+      "rule": "reach",
+      "status": "pass",
+      "subject": "S2:5"
     },
     {
       "cite": [
@@ -16214,10 +16676,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S2:50: stock_removal_bounds extends 9.997434 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius.",
-      "numbers": {},
+      "message": "S2:50: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 7.8
+      },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:50"
     },
     {
@@ -16248,10 +16716,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S3:10: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:10: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 2.27825
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:10"
     },
     {
@@ -16286,10 +16760,16 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:20: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3:20: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 26.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 93.0,
+        "projection_mm": 72.0,
+        "reach_depth_mm": 7.0575
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3:20"
     },
     {
@@ -16323,10 +16803,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S4:30: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S4:30: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 2.5
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S4:30"
     },
     {
@@ -16362,84 +16848,17 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "S4:40: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S4:40: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 2.5
+      },
       "rule": "reach",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S4:40"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 reach",
-        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
-        "features.tip_land_pos_x: faces and requirements",
-        "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:530-538",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
-        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "plan.setups.S4: frame and hold",
-        "inventory.fixtures.rocker-profile-fixture: declared dimensions",
-        "plan.frames.TA: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "plan.setups.S4.ops.41: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S4:41: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
-      "rule": "reach",
-      "status": "unknown",
-      "subject": "S4:41"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.2 reach",
-        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
-        "features.tip_land_neg_x: faces and requirements",
-        "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
-        "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "plan.setups.S4: frame and hold",
-        "inventory.fixtures.rocker-profile-fixture: declared dimensions",
-        "plan.frames.TA: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "plan.setups.S4.ops.42: selected action/tool/holder",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
-        "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
-      ],
-      "message": "S4:42: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
-      "rule": "reach",
-      "status": "unknown",
-      "subject": "S4:42"
     },
     {
       "cite": [
@@ -16676,7 +17095,9 @@
         "feature_kind": "face",
         "kind": "face",
         "ops": [
+          "S1:5",
           "S1:10",
+          "S2:5",
           "S2:10"
         ]
       },
@@ -17029,7 +17450,6 @@
         "feature_kind": "face",
         "kind": "face",
         "ops": [
-          "S4:42",
           "S4:44"
         ]
       },
@@ -17078,7 +17498,6 @@
         "feature_kind": "face",
         "kind": "face",
         "ops": [
-          "S4:41",
           "S4:43"
         ]
       },
@@ -17288,6 +17707,35 @@
       "rule": "speeds_feeds",
       "status": "pass",
       "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows",
+        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+      ],
+      "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
+      "numbers": {
+        "chip_load_mm_per_tooth": 0.05,
+        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
+        "diameter_in": 0.37500000000000006,
+        "feed_mm_min": 90.0,
+        "flutes": 2,
+        "material": "1018 low-carbon steel",
+        "material_class": "low_carbon_steel",
+        "material_verify": false,
+        "operation": "face",
+        "rpm": 900,
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": false,
+        "sfm": 90.0,
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
+      "status": "pass",
+      "subject": "S1:5"
     },
     {
       "cite": [
@@ -17658,6 +18106,35 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "chip_load_mm_per_tooth": 0.05,
+        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
+        "diameter_in": 0.37500000000000006,
+        "feed_mm_min": 90.0,
+        "flutes": 2,
+        "material": "1018 low-carbon steel",
+        "material_class": "low_carbon_steel",
+        "material_verify": false,
+        "operation": "face",
+        "rpm": 900,
+        "rpm_max": 3000.0,
+        "rpm_min": 50.0,
+        "rpm_range_verify": false,
+        "sfm": 90.0,
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
+      "status": "pass",
+      "subject": "S2:5"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows",
+        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+      ],
+      "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
+      "numbers": {
         "chip_load_mm_per_tooth": 0.04,
         "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
         "diameter_in": 0.37500000000000006,
@@ -17796,64 +18273,6 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
-        "inventory machine spindle range",
-        "cutting-data aliases and rows",
-        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
-      ],
-      "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
-      "numbers": {
-        "chip_load_mm_per_tooth": 0.04,
-        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
-        "diameter_in": 0.37500000000000006,
-        "feed_mm_min": 144.0,
-        "flutes": 4,
-        "material": "1018 low-carbon steel",
-        "material_class": "low_carbon_steel",
-        "material_verify": false,
-        "operation": "profile",
-        "rpm": 900,
-        "rpm_max": 3000.0,
-        "rpm_min": 50.0,
-        "rpm_range_verify": false,
-        "sfm": 90.0,
-        "tool_material": "HSS"
-      },
-      "rule": "speeds_feeds",
-      "status": "pass",
-      "subject": "S4:41"
-    },
-    {
-      "cite": [
-        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
-        "inventory machine spindle range",
-        "cutting-data aliases and rows",
-        "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
-      ],
-      "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
-      "numbers": {
-        "chip_load_mm_per_tooth": 0.04,
-        "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
-        "diameter_in": 0.37500000000000006,
-        "feed_mm_min": 144.0,
-        "flutes": 4,
-        "material": "1018 low-carbon steel",
-        "material_class": "low_carbon_steel",
-        "material_verify": false,
-        "operation": "profile",
-        "rpm": 900,
-        "rpm_max": 3000.0,
-        "rpm_min": 50.0,
-        "rpm_range_verify": false,
-        "sfm": 90.0,
-        "tool_material": "HSS"
-      },
-      "rule": "speeds_feeds",
-      "status": "pass",
-      "subject": "S4:42"
-    },
-    {
-      "cite": [
         "PLAN.md §4.1 speeds/feeds"
       ],
       "message": "This manual operation has no cutting speed or feed.",
@@ -17950,7 +18369,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
@@ -17958,6 +18377,7 @@
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "not_applicable",
         "supports": [
           {
@@ -18006,7 +18426,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
@@ -18014,6 +18434,7 @@
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "not_applicable",
         "supports": [
           {
@@ -18062,7 +18483,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
@@ -18070,6 +18491,7 @@
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "not_applicable",
         "supports": [],
         "uncovered_z_mm": [],
@@ -18090,7 +18512,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -18111,18 +18533,24 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "not_applicable",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "hub_od"
         ],
+        "unresolved_reasons": {
+          "hub_od": "no declared z_mm; kernel: the kernel measured no faces of revolution for this setup (no turning-model operation, or an unusable setup frame)"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -18244,12 +18672,17 @@
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S2: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2: minimum wall inside the grip zone meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 2.079311,
+        "thin_wall_floor_mm": 1.5
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -18261,12 +18694,17 @@
         "plan.frames.TA: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S3: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S3: minimum wall under the strap footprints meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 2.5,
+        "thin_wall_floor_mm": 1.5
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S3"
     },
     {
@@ -18278,12 +18716,17 @@
         "plan.frames.TA: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S4: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S4: minimum wall under the strap footprints meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 2.5,
+        "thin_wall_floor_mm": 1.5
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S4"
     },
     {
@@ -18396,6 +18839,25 @@
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S1:5: holder interface and shank fit.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_capacity_mm": 9.524999999999999,
+        "holder_standard": "R8",
+        "machine": "PM-30MV",
+        "machine_standard": "R8",
+        "shank_mm": 9.524999999999999,
+        "tool": "endmills-lms-6784/3-8in-2fl"
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "S1:5"
     },
     {
       "cite": [
@@ -18630,6 +19092,25 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
+      "message": "S2:5: holder interface and shank fit.",
+      "numbers": {
+        "holder": "r8-collets-lms-4860/3-8in",
+        "holder_capacity_mm": 9.524999999999999,
+        "holder_standard": "R8",
+        "machine": "PM-30MV",
+        "machine_standard": "R8",
+        "shank_mm": 9.524999999999999,
+        "tool": "endmills-lms-6784/3-8in-2fl"
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "S2:5"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
       "message": "S2:50: holder interface and shank fit.",
       "numbers": {
         "holder": "r8-collets-lms-4860/3-8in",
@@ -18719,44 +19200,6 @@
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "S4:40"
-    },
-    {
-      "cite": [
-        "inventory spindle/holder/shank fields",
-        "PLAN.md §4.1"
-      ],
-      "message": "S4:41: holder interface and shank fit.",
-      "numbers": {
-        "holder": "r8-collets-lms-4860/3-8in",
-        "holder_capacity_mm": 9.524999999999999,
-        "holder_standard": "R8",
-        "machine": "PM-30MV",
-        "machine_standard": "R8",
-        "shank_mm": 9.524999999999999,
-        "tool": "endmills-lms-6784/3-8in-4fl"
-      },
-      "rule": "tool_resolves",
-      "status": "pass",
-      "subject": "S4:41"
-    },
-    {
-      "cite": [
-        "inventory spindle/holder/shank fields",
-        "PLAN.md §4.1"
-      ],
-      "message": "S4:42: holder interface and shank fit.",
-      "numbers": {
-        "holder": "r8-collets-lms-4860/3-8in",
-        "holder_capacity_mm": 9.524999999999999,
-        "holder_standard": "R8",
-        "machine": "PM-30MV",
-        "machine_standard": "R8",
-        "shank_mm": 9.524999999999999,
-        "tool": "endmills-lms-6784/3-8in-4fl"
-      },
-      "rule": "tool_resolves",
-      "status": "pass",
-      "subject": "S4:42"
     },
     {
       "cite": [
@@ -19222,7 +19665,7 @@
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "plan.setups.S1.ops.10",
+        "plan.setups.S1.ops.5",
         "features.features.hub_faces.bounds/at",
         "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
@@ -19239,10 +19682,14 @@
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "plan.setups.S1.ops.5.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S1.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.stock_state.top_z/entry_z/local_thickness",
+        "plan.setups.S1.ops.10",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S1.ops.20",
         "features.features.strap_datum_b.bounds/at",
         "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:510-529",
@@ -19250,7 +19697,6 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28-28",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S1.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S1.ops.25",
@@ -19317,7 +19763,40 @@
               "y": 29.29464,
               "z": 16.0
             },
-            "do": "face",
+            "do": "rough_face",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "hub_faces",
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "op": 5,
+            "rough_allowance_mm": 0.2,
+            "tip_z_bounds_mm": [
+              0.2,
+              9.47175
+            ],
+            "tool": "endmills-lms-6784/3-8in-2fl",
+            "tool_projection_mm": 38.0,
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              44.2,
+              53.47175
+            ],
+            "z_verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "conservative_stock_spans_mm": {
+              "x": 292.509136,
+              "y": 29.29464,
+              "z": 16.0
+            },
+            "do": "finish_face",
             "endpoint": "not_applicable",
             "extent_mm": "unknown",
             "feature": "hub_faces",
@@ -19327,7 +19806,7 @@
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
-              9.47175
+              5.2
             ],
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_projection_mm": 38.5,
@@ -19339,7 +19818,7 @@
             },
             "z_bounds_mm": [
               44.5,
-              53.97175
+              49.7
             ],
             "z_verified": true
           },
@@ -19363,7 +19842,7 @@
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
@@ -19371,8 +19850,8 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              42.42175,
-              49.5
+              41.92175,
+              49.0
             ],
             "z_verified": true
           },
@@ -19429,7 +19908,7 @@
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "tool_radius_mm": 4.7625,
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
@@ -19443,8 +19922,8 @@
               ]
             },
             "z_bounds_mm": [
-              42.42175,
-              49.5
+              41.92175,
+              49.0
             ],
             "z_verified": true
           },
@@ -19468,7 +19947,7 @@
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "tool_radius_mm": 4.7625,
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
@@ -19476,8 +19955,8 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              41.17175,
-              49.5
+              40.67175,
+              49.0
             ],
             "z_verified": true
           },
@@ -19501,7 +19980,7 @@
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "tool_radius_mm": 4.7625,
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
@@ -19509,8 +19988,8 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              41.17175,
-              49.5
+              40.67175,
+              49.0
             ],
             "z_verified": true
           },
@@ -19654,11 +20133,11 @@
             "travel_verified": true
           },
           "z": {
-            "located_span_mm": 139.82825,
-            "lower_bound_margin_mm": 215.77174999999997,
-            "margin_mm": 215.77174999999997,
-            "minimum_required_mm": 139.82825,
-            "required_mm": 139.82825,
+            "located_span_mm": 140.32825,
+            "lower_bound_margin_mm": 215.27174999999997,
+            "margin_mm": 215.27174999999997,
+            "minimum_required_mm": 140.32825,
+            "required_mm": 140.32825,
             "required_verified": true,
             "travel_mm": 355.59999999999997,
             "travel_verified": true
@@ -19678,7 +20157,7 @@
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "plan.setups.S2.ops.10",
+        "plan.setups.S2.ops.5",
         "features.features.hub_faces.bounds/at",
         "harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
@@ -19695,16 +20174,19 @@
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "plan.setups.S2.ops.5.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S2.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.stock_state.top_z/entry_z/local_thickness",
+        "plan.setups.S2.ops.10",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S2.ops.15",
         "features.features.strap_faces.bounds/at",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28-28",
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S2.ops.15.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.15: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.20",
@@ -19783,6 +20265,39 @@
               "y": 29.29464,
               "z": 16.0
             },
+            "do": "rough_face",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "hub_faces",
+            "holder": "r8-collets-lms-4860/3-8in",
+            "holder_gauge_len_mm": 6.0,
+            "op": 5,
+            "rough_allowance_mm": 0.2,
+            "tip_z_bounds_mm": [
+              0.2,
+              9.47175
+            ],
+            "tool": "endmills-lms-6784/3-8in-2fl",
+            "tool_projection_mm": 38.0,
+            "tool_radius_mm": "unknown",
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              44.2,
+              53.47175
+            ],
+            "z_verified": true
+          },
+          {
+            "approach_mm": 5.0,
+            "conservative_stock_spans_mm": {
+              "x": 292.509136,
+              "y": 29.29464,
+              "z": 16.0
+            },
             "do": "finish_face",
             "endpoint": "not_applicable",
             "extent_mm": "unknown",
@@ -19793,7 +20308,7 @@
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
-              9.47175
+              5.2
             ],
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_projection_mm": 38.5,
@@ -19805,7 +20320,7 @@
             },
             "z_bounds_mm": [
               44.5,
-              53.97175
+              49.7
             ],
             "z_verified": true
           },
@@ -19829,7 +20344,7 @@
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
@@ -19837,8 +20352,8 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              42.42175,
-              49.5
+              41.92175,
+              49.0
             ],
             "z_verified": true
           },
@@ -19895,7 +20410,7 @@
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "tool_radius_mm": 4.7625,
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
@@ -19909,8 +20424,8 @@
               ]
             },
             "z_bounds_mm": [
-              42.42175,
-              49.5
+              41.92175,
+              49.0
             ],
             "z_verified": true
           },
@@ -20149,7 +20664,7 @@
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "tool_radius_mm": 4.7625,
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
@@ -20157,8 +20672,8 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              41.17175,
-              49.5
+              40.67175,
+              49.0
             ],
             "z_verified": true
           },
@@ -20182,7 +20697,7 @@
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
-            "tool_projection_mm": 38.5,
+            "tool_projection_mm": 38.0,
             "tool_radius_mm": 4.7625,
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
@@ -20190,8 +20705,8 @@
               "y": "unknown"
             },
             "z_bounds_mm": [
-              41.17175,
-              49.5
+              40.67175,
+              49.0
             ],
             "z_verified": true
           }
@@ -20218,11 +20733,11 @@
             "travel_verified": true
           },
           "z": {
-            "located_span_mm": 92.82825,
-            "lower_bound_margin_mm": 262.77175,
-            "margin_mm": 262.77175,
-            "minimum_required_mm": 92.82825,
-            "required_mm": 92.82825,
+            "located_span_mm": 93.32825,
+            "lower_bound_margin_mm": 262.27175,
+            "margin_mm": 262.27175,
+            "minimum_required_mm": 93.32825,
+            "required_mm": 93.32825,
             "required_verified": true,
             "travel_mm": 355.59999999999997,
             "travel_verified": true
@@ -20471,15 +20986,6 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
         "plan.setups.S4.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S4.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.S4.ops.41",
-        "features.features.tip_land_pos_x.bounds/at",
-        "harmonic-analyzer/cad/scripts/draw_rocker_arm.py:530-538",
-        "plan.setups.S4.ops.41.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.S4.ops.41: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.S4.ops.42",
-        "features.features.tip_land_neg_x.bounds/at",
-        "plan.setups.S4.ops.42.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.S4.ops.42: stock_states current top and local entry; hole tip/exit endpoints",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y",
         "inventory.machines.PM-30MV.envelope.travel.z"
@@ -20535,72 +21041,6 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 40,
-            "rough_allowance_mm": 0,
-            "tip_z_bounds_mm": [
-              -6.02825,
-              5.0
-            ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "tool_radius_mm": 4.7625,
-            "tool_radius_verified": true,
-            "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
-            },
-            "z_bounds_mm": [
-              38.47175,
-              49.5
-            ],
-            "z_verified": true
-          },
-          {
-            "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 292.509136,
-              "y": 29.29464,
-              "z": 11.52825
-            },
-            "do": "finish_profile",
-            "endpoint": "not_applicable",
-            "extent_mm": "unknown",
-            "feature": "tip_land_pos_x",
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
-            "op": 41,
-            "rough_allowance_mm": 0,
-            "tip_z_bounds_mm": [
-              -6.02825,
-              5.0
-            ],
-            "tool": "endmills-lms-6784/3-8in-4fl",
-            "tool_projection_mm": 38.5,
-            "tool_radius_mm": 4.7625,
-            "tool_radius_verified": true,
-            "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
-            },
-            "z_bounds_mm": [
-              38.47175,
-              49.5
-            ],
-            "z_verified": true
-          },
-          {
-            "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 292.509136,
-              "y": 29.29464,
-              "z": 11.52825
-            },
-            "do": "finish_profile",
-            "endpoint": "not_applicable",
-            "extent_mm": "unknown",
-            "feature": "tip_land_neg_x",
-            "holder": "r8-collets-lms-4860/3-8in",
-            "holder_gauge_len_mm": 6.0,
-            "op": 42,
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -6.02825,
@@ -20736,7 +21176,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.TA: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
@@ -20748,9 +21188,11 @@
         "exposed_z_mm": "unknown",
         "frame": "TA",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -20763,7 +21205,7 @@
       "message": "S1:10: the static turning proxy does not apply to this operation.",
       "numbers": {
         "feature": "hub_faces",
-        "operation": "face"
+        "operation": "finish_face"
       },
       "rule": "turning_deflection",
       "status": "not_applicable",
@@ -20820,6 +21262,19 @@
       "rule": "turning_deflection",
       "status": "not_applicable",
       "subject": "S1:40"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
+      "message": "S1:5: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "hub_faces",
+        "operation": "rough_face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:5"
     },
     {
       "cite": [
@@ -20994,6 +21449,19 @@
       "cite": [
         "PLAN.md:563-568 (§4.4 physics proxies)"
       ],
+      "message": "S2:5: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "hub_faces",
+        "operation": "rough_face"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S2:5"
+    },
+    {
+      "cite": [
+        "PLAN.md:563-568 (§4.4 physics proxies)"
+      ],
       "message": "S2:50: the static turning proxy does not apply to this operation.",
       "numbers": {
         "feature": "top_edge",
@@ -21054,32 +21522,6 @@
       "rule": "turning_deflection",
       "status": "not_applicable",
       "subject": "S4:40"
-    },
-    {
-      "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
-      ],
-      "message": "S4:41: the static turning proxy does not apply to this operation.",
-      "numbers": {
-        "feature": "tip_land_pos_x",
-        "operation": "finish_profile"
-      },
-      "rule": "turning_deflection",
-      "status": "not_applicable",
-      "subject": "S4:41"
-    },
-    {
-      "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
-      ],
-      "message": "S4:42: the static turning proxy does not apply to this operation.",
-      "numbers": {
-        "feature": "tip_land_neg_x",
-        "operation": "finish_profile"
-      },
-      "rule": "turning_deflection",
-      "status": "not_applicable",
-      "subject": "S4:42"
     },
     {
       "cite": [
@@ -21172,7 +21614,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "S1: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.",
+      "message": "S1: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit the declared vise hold.",
       "numbers": {
         "claimed_in_jaws": [],
         "contact_grip_mm": [
@@ -21202,10 +21644,21 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "S2: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
-      "numbers": {},
+      "message": "S2: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit the declared vise hold.",
+      "numbers": {
+        "claimed_in_jaws": [],
+        "contact_grip_mm": [
+          6.8453,
+          6.8453
+        ],
+        "opening_mm": 155.82899999999998,
+        "parallel_pair": true,
+        "parallels_height_mm": 12.7,
+        "required_grip_mm": 6.0,
+        "width_mm": 65.0
+      },
       "rule": "vise",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -21305,7 +21758,7 @@
             "paper_mm": 0.05,
             "radius_mm": "not_applicable",
             "sign": 1,
-            "tool": "endmills-lms-6784/3-8in-4fl"
+            "tool": "endmills-lms-6784/3-8in-2fl"
           }
         },
         "binding": "nominal",
@@ -21315,6 +21768,12 @@
         },
         "frame": "TA",
         "retouch": [
+          {
+            "axis_set": 0.25,
+            "op": 5,
+            "paper_mm": 0.05,
+            "top_z": 0.2
+          },
           {
             "axis_set": 0.05,
             "op": 10,
@@ -21413,7 +21872,7 @@
             "paper_mm": 0.05,
             "radius_mm": "not_applicable",
             "sign": 1,
-            "tool": "endmills-lms-6784/3-8in-4fl"
+            "tool": "endmills-lms-6784/3-8in-2fl"
           }
         },
         "binding": "nominal",
@@ -21423,6 +21882,12 @@
         },
         "frame": "TB",
         "retouch": [
+          {
+            "axis_set": 0.25,
+            "op": 5,
+            "paper_mm": 0.05,
+            "top_z": 0.2
+          },
           {
             "axis_set": 0.05,
             "op": 10,
@@ -21455,7 +21920,19 @@
           },
           {
             "axis_set": 0.05,
-            "op": 50,
+            "op": 32,
+            "paper_mm": 0.05,
+            "top_z": 0.0
+          },
+          {
+            "axis_set": 0.05,
+            "op": 33,
+            "paper_mm": 0.05,
+            "top_z": 0.0
+          },
+          {
+            "axis_set": 0.05,
+            "op": 34,
             "paper_mm": 0.05,
             "top_z": 0.0
           }
@@ -21464,6 +21941,7 @@
         "transfer": {
           "from": "S1",
           "indicate": "pivot_bore",
+          "runout_limit_mm": 0.02,
           "tool": "rocker-datum-indicator"
         }
       },
@@ -21553,6 +22031,7 @@
         "transfer": {
           "from": "S2",
           "indicate": "pivot_bore",
+          "runout_limit_mm": 0.02,
           "tool": "rocker-datum-indicator"
         }
       },
@@ -21635,6 +22114,7 @@
         "transfer": {
           "from": "S3",
           "indicate": "rocker-pivot-screw ground head",
+          "runout_limit_mm": 0.01,
           "tool": "rocker-datum-indicator"
         }
       },
@@ -21643,11 +22123,11 @@
       "subject": "S4"
     }
   ],
-  "hash": "b33a07a2efa9061b95cebf78e5258adaa615ab3752a41d3c78e52ed68ac23215",
+  "hash": "a833258b33e1414bb75c33be3751d0e5a70893bfaf6a7aae4041ee7030359b51",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
+      "sha256": "6d86da0b679d4fb1fb892cdad86c2137ba9fcdc8c34e962983839ad06328b62f"
     },
     "features": {
       "path": "examples/rocker-arm/features.toml",
@@ -21655,15 +22135,27 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "1d4befc7d7ea4696791c47cf3315eba0d51f237591e33954cfd2a8079c1665c9"
+      "sha256": "bba389aa7f559573a5b87abcae0ba7076c0ebec8980764d1c63e854f145a1687"
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
-      "sha256": "f65c538b38feddd982e7b0a66ca67431aa48ecb2600aea0806956228d08bbc0b"
+      "sha256": "cbf1cfab03e9e2db34b0f3cd98cb19b2079053f403f084e8d2dd9c76a89c681c"
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "14928052069317bf80be36e7968d37c4f1333b1025e0e5eb2eac6be4c397a929"
+      "sha256": "137f8984f2541b94757fc8fd96484584c8b212b717ae5f5b4e36753e1430f1e7"
+    },
+    "render:S2": {
+      "path": "setup-S2.png",
+      "sha256": "516b955ac21ad527453f0687d02b7853152ab7e5e9c4be12bd675b1df256df0d"
+    },
+    "render:S3": {
+      "path": "setup-S3.png",
+      "sha256": "8a8420bb95cbcb7f8f093be58af6523aac9298cf8813ae1b5edc14b3ae83a412"
+    },
+    "render:S4": {
+      "path": "setup-S4.png",
+      "sha256": "d4808e1843d0923befe0a62d5e06e383025e0aefcc3fad02bfd9c03e9ebd628d"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -21710,17 +22202,1040 @@
             "exact": true,
             "name": "riser 2 rocker-riser-bars",
             "role": "riser"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:base",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:switch",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:arm",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:finger",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:nose",
+            "role": "fixture"
           }
         ],
         "debts": [],
         "fixture_kind": "vise",
+        "height_px": 1000,
         "jaws": "exact",
-        "parallels": "exact"
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids."
+        ],
+        "parallels": "exact",
+        "primary_op": "5",
+        "render_debts": [],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)",
+          "profile sketch keyed to the coordinate rows"
+        ],
+        "view": "isometric",
+        "waypoints": [
+          {
+            "label": "P1",
+            "op": "30",
+            "xy": [
+              10.0625,
+              0.0
+            ]
+          },
+          {
+            "label": "P2",
+            "op": "30",
+            "xy": [
+              -10.0625,
+              1.7763568394002505e-15
+            ]
+          },
+          {
+            "label": "P3",
+            "op": "40",
+            "xy": [
+              -135.08223993473453,
+              -1.772940311334878
+            ]
+          },
+          {
+            "label": "P4",
+            "op": "40",
+            "xy": [
+              0.0,
+              -12.962499999999977
+            ]
+          },
+          {
+            "label": "P5",
+            "op": "40",
+            "xy": [
+              135.08223993473453,
+              -1.772940311334878
+            ]
+          },
+          {
+            "label": "P6",
+            "op": "50",
+            "xy": [
+              -149.21634347544392,
+              27.090844434470455
+            ]
+          },
+          {
+            "label": "P7",
+            "op": "50",
+            "xy": [
+              0.0,
+              12.962499999999977
+            ]
+          },
+          {
+            "label": "P8",
+            "op": "50",
+            "xy": [
+              149.21634347544392,
+              27.090844434470455
+            ]
+          },
+          {
+            "label": "P9",
+            "op": "40",
+            "xy": [
+              -149.2163434754439,
+              27.090844434470483
+            ]
+          },
+          {
+            "label": "P10",
+            "op": "40",
+            "xy": [
+              -151.62066862390043,
+              14.067609627752226
+            ]
+          },
+          {
+            "label": "P11",
+            "op": "40",
+            "xy": [
+              149.2163434754439,
+              27.090844434470483
+            ]
+          },
+          {
+            "label": "P12",
+            "op": "40",
+            "xy": [
+              151.62066862390043,
+              14.067609627752226
+            ]
+          }
+        ],
+        "width_px": 1600
       },
-      "sha256": "14928052069317bf80be36e7968d37c4f1333b1025e0e5eb2eac6be4c397a929"
+      "sha256": "137f8984f2541b94757fc8fd96484584c8b212b717ae5f5b4e36753e1430f1e7"
+    },
+    "S2": {
+      "fixture": "modeled",
+      "path": "setup-S2.png",
+      "scene": {
+        "components": [
+          {
+            "exact": true,
+            "name": "fixed_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "moving_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "parallel 1",
+            "role": "parallel"
+          },
+          {
+            "exact": true,
+            "name": "parallel 2",
+            "role": "parallel"
+          },
+          {
+            "exact": true,
+            "name": "riser 1 rocker-riser-bars",
+            "role": "riser"
+          },
+          {
+            "exact": true,
+            "name": "riser 2 rocker-riser-bars",
+            "role": "riser"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:base",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:switch",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:arm",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:finger",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "stop rocker-vise-stop:nose",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-s2-support-jack:head",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-s2-support-jack:screw",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-s2-support-jack:locknut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-s2-support-jack:body",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-s2-support-jack:head",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-s2-support-jack:screw",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-s2-support-jack:locknut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-s2-support-jack:body",
+            "role": "clamp"
+          }
+        ],
+        "debts": [],
+        "fixture_kind": "vise",
+        "height_px": 1000,
+        "jaws": "exact",
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids."
+        ],
+        "parallels": "exact",
+        "primary_op": "5",
+        "render_debts": [],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)",
+          "profile sketch keyed to the coordinate rows"
+        ],
+        "view": "isometric",
+        "waypoints": [
+          {
+            "label": "P1",
+            "op": "28",
+            "xy": [
+              10.0625,
+              0.0
+            ]
+          },
+          {
+            "label": "P2",
+            "op": "28",
+            "xy": [
+              -10.0625,
+              -1.7763568394002505e-15
+            ]
+          },
+          {
+            "label": "P3",
+            "op": "30",
+            "xy": [
+              9.8625,
+              0.0
+            ]
+          },
+          {
+            "label": "P4",
+            "op": "30",
+            "xy": [
+              -9.8625,
+              -1.7763568394002505e-15
+            ]
+          },
+          {
+            "label": "P5",
+            "op": "40",
+            "xy": [
+              -135.08223993473453,
+              1.772940311334878
+            ]
+          },
+          {
+            "label": "P6",
+            "op": "40",
+            "xy": [
+              0.0,
+              12.962499999999977
+            ]
+          },
+          {
+            "label": "P7",
+            "op": "40",
+            "xy": [
+              135.08223993473453,
+              1.772940311334878
+            ]
+          },
+          {
+            "label": "P8",
+            "op": "50",
+            "xy": [
+              -149.21634347544392,
+              -27.090844434470455
+            ]
+          },
+          {
+            "label": "P9",
+            "op": "50",
+            "xy": [
+              0.0,
+              -12.962499999999977
+            ]
+          },
+          {
+            "label": "P10",
+            "op": "50",
+            "xy": [
+              149.21634347544392,
+              -27.090844434470455
+            ]
+          },
+          {
+            "label": "P11",
+            "op": "40",
+            "xy": [
+              -149.2163434754439,
+              -27.090844434470483
+            ]
+          },
+          {
+            "label": "P12",
+            "op": "40",
+            "xy": [
+              -151.62066862390043,
+              -14.067609627752226
+            ]
+          },
+          {
+            "label": "P13",
+            "op": "40",
+            "xy": [
+              149.2163434754439,
+              -27.090844434470483
+            ]
+          },
+          {
+            "label": "P14",
+            "op": "40",
+            "xy": [
+              151.62066862390043,
+              -14.067609627752226
+            ]
+          }
+        ],
+        "width_px": 1600
+      },
+      "sha256": "516b955ac21ad527453f0687d02b7853152ab7e5e9c4be12bd675b1df256df0d"
+    },
+    "S3": {
+      "fixture": "modeled",
+      "path": "setup-S3.png",
+      "scene": {
+        "components": [
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:base",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r1",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l1",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r2",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l2",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r3",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l3",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r4",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l4",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r5",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l5",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r6",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l6",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:hub-stand",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-rest-ru",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-shim-ru",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-rest-lu",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-shim-lu",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-rest-rl",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-shim-rl",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-rest-ll",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-shim-ll",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-head-rl",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-shank-rl",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-head-ll",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-shank-ll",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-head-ru",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-shank-ru",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-head-lu",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-shank-lu",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-hub-strap:toe",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-hub-strap:beam",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-hub-strap:heel",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-hub-strap:stud",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-hub-strap:nut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-hub-strap:toe",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-hub-strap:beam",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-hub-strap:heel",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-hub-strap:stud",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-hub-strap:nut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 3 rocker-rod-diamond-pin:collar",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 3 rocker-rod-diamond-pin:rodlocator",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 3 rocker-rod-diamond-pin:shank",
+            "role": "clamp"
+          }
+        ],
+        "debts": [],
+        "fixture_kind": "custom",
+        "height_px": 1000,
+        "jaws": "not_applicable",
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids."
+        ],
+        "parallels": "absent",
+        "primary_op": "10",
+        "render_debts": [],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)",
+          "profile sketch keyed to the coordinate rows"
+        ],
+        "view": "plan",
+        "waypoints": [
+          {
+            "label": "P1",
+            "op": "10",
+            "xy": [
+              9.8625,
+              0.0
+            ]
+          },
+          {
+            "label": "P2",
+            "op": "10",
+            "xy": [
+              -9.8625,
+              1.7763568394002505e-15
+            ]
+          }
+        ],
+        "width_px": 1600
+      },
+      "sha256": "8a8420bb95cbcb7f8f093be58af6523aac9298cf8813ae1b5edc14b3ae83a412"
+    },
+    "S4": {
+      "fixture": "modeled",
+      "path": "setup-S4.png",
+      "scene": {
+        "components": [
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:base",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r1",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l1",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r2",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l2",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r3",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l3",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r4",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l4",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r5",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l5",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-r6",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:pad-l6",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:hub-stand",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-rest-ru",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-shim-ru",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-rest-lu",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-shim-lu",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-rest-rl",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-shim-rl",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-rest-ll",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:rail-shim-ll",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-head-rl",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-shank-rl",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-head-ll",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-shank-ll",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-head-ru",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-shank-ru",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-head-lu",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "rocker-profile-fixture:holddown-shank-lu",
+            "role": "fixture"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-pivot-screw:washer",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-pivot-screw:head",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-pivot-screw:shoulder",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 1 rocker-pivot-screw:thread",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-rod-diamond-pin:collar",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-rod-diamond-pin:rodlocator",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 2 rocker-rod-diamond-pin:shank",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 3 rocker-rail-clamp:beam",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 3 rocker-rail-clamp:heel",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 3 rocker-rail-clamp:stud",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 3 rocker-rail-clamp:nut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 4 rocker-rail-clamp:beam",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 4 rocker-rail-clamp:heel",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 4 rocker-rail-clamp:stud",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 4 rocker-rail-clamp:nut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 5 rocker-rail-clamp:beam",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 5 rocker-rail-clamp:heel",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 5 rocker-rail-clamp:stud",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 5 rocker-rail-clamp:nut",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 6 rocker-rail-clamp:beam",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 6 rocker-rail-clamp:heel",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 6 rocker-rail-clamp:stud",
+            "role": "clamp"
+          },
+          {
+            "exact": true,
+            "name": "clamp 6 rocker-rail-clamp:nut",
+            "role": "clamp"
+          }
+        ],
+        "debts": [],
+        "fixture_kind": "custom",
+        "height_px": 1000,
+        "jaws": "not_applicable",
+        "legend": [
+          "Blue-grey: arriving stock; cuts not confirmed.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids."
+        ],
+        "parallels": "absent",
+        "primary_op": "30",
+        "render_debts": [
+          "NOT SHOWN: cuts are unresolved; this is the arriving stock only."
+        ],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "profile sketch keyed to the coordinate rows"
+        ],
+        "view": "plan",
+        "waypoints": [
+          {
+            "label": "P1",
+            "op": "30",
+            "xy": [
+              -149.05619988178967,
+              26.85665164257466
+            ]
+          },
+          {
+            "label": "P2",
+            "op": "30",
+            "xy": [
+              0.0,
+              12.762500000000045
+            ]
+          },
+          {
+            "label": "P3",
+            "op": "30",
+            "xy": [
+              149.05619988178967,
+              26.85665164257466
+            ]
+          },
+          {
+            "label": "P4",
+            "op": "40",
+            "xy": [
+              -134.98846676019727,
+              -1.5858170990776443
+            ]
+          },
+          {
+            "label": "P5",
+            "op": "40",
+            "xy": [
+              0.0,
+              -12.762500000000045
+            ]
+          },
+          {
+            "label": "P6",
+            "op": "40",
+            "xy": [
+              134.98846676019727,
+              -1.5858170990776443
+            ]
+          },
+          {
+            "label": "P7",
+            "op": "40",
+            "xy": [
+              -149.0561998817896,
+              26.856651642574732
+            ]
+          },
+          {
+            "label": "P8",
+            "op": "40",
+            "xy": [
+              -151.40440259297674,
+              14.137408864120289
+            ]
+          },
+          {
+            "label": "P9",
+            "op": "40",
+            "xy": [
+              149.0561998817896,
+              26.856651642574732
+            ]
+          },
+          {
+            "label": "P10",
+            "op": "40",
+            "xy": [
+              151.40440259297674,
+              14.137408864120289
+            ]
+          }
+        ],
+        "width_px": 1600
+      },
+      "sha256": "d4808e1843d0923befe0a62d5e06e383025e0aefcc3fad02bfd9c03e9ebd628d"
     }
   },
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e",
   "verification": "planned"
 }

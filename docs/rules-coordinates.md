@@ -51,7 +51,37 @@ can substitute for an unknown model transform only in an unbound frame; the row
 retains `local_from = {op, field, axis}`. This does not bind fitted shaft length
 to nominal model geometry. Dome axial samples compute
 `radius=sqrt(sphere_radius^2-(z-sphere_centre_z)^2)` at authored steps and include
-the exact endpoint. Tool-nose compensation remains unknown.
+the exact endpoint. Each row then gets the tool-nose compensation. The selected
+tool must not be flagged uncertain, and its nose radius `rn` must be known and
+≥ 0. The nose must also be what touches every row. Each row records its contact
+normal `normal_deg`, measured from +X (radially outward) toward +Z. For a
+right-hand tool feeding toward the chuck, the nose arc spans
+`entering_angle_deg + insert_angle_deg − 180` to `entering_angle_deg`: the
+trailing edge sets the lower bound and the major edge the upper. Both angles
+must be accepted inventory facts. A normal outside that range is cut by an edge
+or flank, not the nose, so no nose offset exists there.
+
+When the nose meets every row, its centre lies `rn` out along the sphere's
+surface normal `n`. Each row then adds `x_tool_mm = display·(r + rn·(n_r − 1))`
+and `z_tool_mm = z + rn·(n_z − 1)`. These are the DRO readings of the imaginary
+tool tip when the tool was touched off on an outside diameter (X) and on a +Z
+end face (Z), the `zero_check` tool-touch convention, recorded as
+`tool_reference`. Then `tool_nose_compensation_mm = rn`, and the sheet prints
+tool columns beside the surface columns. The surface columns are never
+relabelled as compensated.
+
+Compensation stays unknown, the sheet STOP stays, and `coordinates` is unknown
+when any of these holds:
+
+- the nose radius is unknown or negative;
+- the tool is uncertain;
+- the dome apex faces the chuck, so it is not cut from the +Z touch-off side;
+- the tool is not right-hand;
+- an entering or insert angle is unknown or does not form an insert;
+- any row's contact normal lies outside the nose arc. The reason names those
+  rows' Z.
+
+`tool_nose_compensation_reason` names which one applied.
 
 For contours, cutter radius is selected diameter/2. An explicitly rough
 operation produces its rough table at cutter radius plus `rough_allowance_mm`
@@ -87,6 +117,28 @@ passes. Tables are numeric nominal geometry, not cutter accessibility, fixtures,
 wall thickness or collision proof. Unknown/unverified cutter or frame binding
 keeps status unknown. M2 lathe feasibility remains unimplemented even where
 nominal stations/dome tables are displayed.
+
+**Cutting order.** Arc rows, each join fragment and a closed `linear_table`
+outline are listed in the real traverse, judged in the setup top view (setup
+XY after the model-to-setup transform, so a part turned over between setups
+swaps which mirrored side runs which way). With `n` the cutter-side wall
+normal (from the cut wall toward the cutter centre: outward for a convex arc
+or outside outline, inward for a concave arc, the offset side of a land) and
+`t` the travel, a clockwise spindle (machine `spindle.rotation = "cw"`, viewed
+from above looking down setup -Z) cuts `conventional` when `(n × t)·Z > 0`
+and `climb` when it is negative; `ccw` inverts both. Each table is reversed
+when its geometric order disagrees with the op's `direction`, so the −X join
+fragment, the bottom arc and the +X fragment chain end to start. Each record
+carries `cut_order` (the authored direction) and `spindle_rotation`. An op
+`direction` other than `conventional`/`climb`, an undeclared spindle rotation,
+unknown setup points or a degenerate witness set `cut_order = "unknown"` with
+`cut_order_reason`, keep the geometric order, and make the setup's
+coordinates finding `unknown` with
+`Cutting order is unknown: <reasons>.` appended to its message. The traveler
+says "rows in cutting order (<direction>, <rotation> spindle)" only for a known
+order and otherwise "rows NOT in an established cutting order: <reason>"; the
+setup picture draws travel arrows only on such directed paths. Raster pocket
+passes are independent cuts and claim no travel direction.
 
 Exact message:
 

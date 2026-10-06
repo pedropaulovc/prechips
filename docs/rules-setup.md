@@ -183,9 +183,17 @@ the entries behind the current reports, sorted and deduplicated by id.
 ## `datum_consistency`
 
 One subject per feature. Drawing datum names map to actual feature finishing
-cuts, not setup-frame labels. Relationships include position and angularity
-datums, coaxial feature and height-from feature. Reamed/bored/tapped datum finishing cuts replace
-pilots; rough/nonfinishing actions do not establish a final datum. Every feature
+cuts, not setup-frame labels. A feature's cuts are the ops that name it plus
+every op that owns it by complete explicit-face ownership (see
+[plan operations](plan.md#operation)): an op whose known, nonempty explicit
+`faces` contain all of the feature's known, nonempty declared faces, e.g. a
+finish profile whose end joins cut an exported tip land. Relationships include
+position and angularity datums, coaxial feature and height-from feature.
+Reamed/bored/tapped datum finishing cuts replace pilots, including across that
+merged label/owner set; rough, manual (`inspect`, `deburr`, `coating`, `release`,
+`fit`, `scribe`) and other nonfinishing actions (`spot`, `transfer`, saw) never
+establish a final datum, whether named or owning. A datum name that
+maps to no feature has no cuts. Every feature
 finishing-cut/datum-cut pair is evaluated. Same setup passes; an indicated
 transfer passes only when it names that feature/datum and originates at or
 after the datum finishing setup and before the current setup. Otherwise compare
