@@ -121,23 +121,32 @@ size check is not a position check; a declared gauge is not first-article data.
 ## Process holds
 
 An op's `process_holds` adds one `{setup}:{op}` inspection subject. Each hold's
-`band` must lie inside its drawing requirement band, limits included (a scalar
-geometric zone `v` reads as [0, v]): any hold reaching outside is `error`
-(`{setup}:{op}: process hold band outside the drawing band ({feature}
-{requirement}).`), an unresolved drawing band is `unknown`, otherwise `pass`.
-Evidence: each hold's band, drawing band, gauge, reason and
-`inside_drawing_band`. Its gauge is a selected reference checked by
-`tool_resolves`. The sheet prints it as `PROCESS HOLD — not a drawing limit:
-<reason> — <feature> <requirement> <band>: <gauge>`, at the hold's own digits.
+`band` must lie inside its drawing requirement band, limits included. Only a
+scalar zone or maximum (`position_dia`, `coaxiality_dia`, `angularity_dia`,
+`finish_ra`) `v` reads as [0, v]; any other scalar is a nominal with no band, so
+the hold is `unknown`. Each hold's gauge is graded like a drawing check, against
+the hold band: it must be able to measure the requirement, span the band and
+resolve its width. A hold reaching outside the drawing band is `error`
+(`process hold band outside the drawing band (…)`), and so is a gauge that cannot
+read it (`process hold gauge cannot hold the band (…)`). An unresolved drawing
+band, or an unknown, unlisted or unverified gauge, is `unknown`. Otherwise it is
+`pass`. Evidence: each hold's band, drawing band, gauge, reason,
+`inside_drawing_band`, `gauge_status` and `gauge_message`. The sheet prints it as
+`PROCESS HOLD — not a drawing limit: <reason> — <feature> <requirement> <band>:
+<gauge>`, at the hold's own digits.
 
 ## `finish_route`
 
-One row per part. A drawing `material.finish` with no `coating` op in the route
-is `warn` (a job-page caution: the route never applies the finish). A coating op
-passes it. An explicitly unknown finish is `unknown`; no declared finish is
-`not_applicable`. Whether each coating op's `process` resolves to an outside
-`services` item or in-house `consumables` is `tool_resolves` per op: absent is
-`unknown`, unlisted is `error`.
+One row per part. In plan order, a coating applies the drawing `material.finish`
+only if it comes after the route's last cutting op. No such coating (none at all,
+or each one followed by a cut that removes it) is `warn` (a job-page caution).
+A coating followed only by ops of explicitly unknown action is `unknown`.
+Otherwise it is `pass`. An explicitly unknown finish is `unknown`; no declared
+finish is `not_applicable`. Whether each coating op's `process` resolves to an
+outside `services` item or in-house `consumables` is checked per op by
+`tool_resolves`: absent is `unknown`, unlisted is `error`, and a consumables
+entry whose product list is unknown, empty, or has a blank or `"unknown"`
+product is `unknown`.
 
 ## Angularity
 

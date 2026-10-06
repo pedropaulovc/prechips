@@ -433,7 +433,12 @@ def coating_process(bundle_or_inventory, reference):
     consumables = inventory.get("consumables", {})
     if isinstance(consumables, dict) and reference in consumables:
         products = consumables[reference]
-        known = isinstance(products, list) and bool(products)
+        # A blank or "unknown" product is not a resolved product.
+        known = (
+            isinstance(products, list)
+            and bool(products)
+            and all(isinstance(p, str) and p.strip() not in {"", UNKNOWN} for p in products)
+        )
         return "consumables", {
             "kind": "consumables",
             "products": products if known else UNKNOWN,

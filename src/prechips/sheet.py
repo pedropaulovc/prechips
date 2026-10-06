@@ -1890,11 +1890,16 @@ class _Traveler:
         process = op.get("process", "unknown")
         cells = []
         for reference in process if isinstance(process, list) else [process]:
-            category, _ = coating_process(self.bundle, reference)
+            category, item = coating_process(self.bundle, reference)
             if reference == "unknown":
                 cells.append("? coating process not set")
             elif category == "services":
-                cells.append("outside: " + self.short_reference(reference, "services"))
+                # Name what is sent out and to whom: the service id and the coating it applies.
+                applied = _mapping(item).get("coating")
+                cells.append(
+                    f"outside: {_text(reference)}"
+                    + (f" ({_text(applied)})" if applied not in (None, "unknown") else "")
+                )
             elif category == "consumables":
                 cells.append(f"{_text(reference)} (in-house)")
             else:

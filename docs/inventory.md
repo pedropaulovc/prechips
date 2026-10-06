@@ -7,7 +7,8 @@ modeled InventoryItem map. `source` may be a source string or Source record.
 `services` are outside processes the shop sends work to (a coating vendor), not
 shop-owned kit; a plan `coating` op's `process` names a `services` item or a
 `consumables` entry. A `consumables` entry is an id mapping to the in-house
-product names; an explicitly unknown product list leaves that process unresolved.
+product names; an unknown or empty product list, or a blank or `"unknown"`
+product, leaves that process unresolved.
 Named set members/coverage may resolve without pretending an unlisted member
 was measured or purchased. Explicit `present = false` means missing;
 an item-level `verify = true`, an unverified `source`, or explicitly unknown
