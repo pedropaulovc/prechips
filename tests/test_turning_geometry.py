@@ -272,6 +272,31 @@ def test_parting_off_to_the_axis_removes_the_core_a_later_bore_would(engine, sha
     assert cored == pytest.approx(bar + math.pi * 1.5**2 * 5, rel=1e-6)
 
 
+def test_facing_reach_is_the_faced_profile_while_a_blade_plunge_is_the_bar_radius(engine, shafts):
+    step = shafts["shaft"]
+    end = engine.refs(step, (-4, -4, 40), (4, 4, 40), kind="Plane")
+    hold = {"reason": "chuck not modelled here"}
+
+    def facing(op):
+        result = engine.run(
+            engine.job(
+                step,
+                {"end": end},
+                [_lathe([op]), {**_lathe([], "S2"), "hold": hold}],
+                stock=_bar(length=45.0),
+            )
+        )
+        return result["ops"]["S1:10"]
+
+    # A single-point tool feeds radially through the end it has just faced: no stock
+    # stays beside the nose, so the 6 mm bar radius is not a buried depth.
+    faced = facing(_turn("S1:10", "end", to_z=40.0, to_dia_mm=0.0))
+    assert faced["reach_depth_mm"] == pytest.approx(0.0, abs=1e-3)
+    # A parting blade plunges between the part and the slug: its depth is the bar radius.
+    parted = facing({**_blade("S1:10", "end", 1.6, to_z=40.0, to_dia_mm=0.0), "do": "part_off"})
+    assert parted["reach_depth_mm"] == pytest.approx(6.0, abs=1e-3)
+
+
 def test_turned_and_faced_stock_is_what_the_next_setup_receives(engine, shafts):
     step = shafts["filleted"]
     features = _features(engine, step)

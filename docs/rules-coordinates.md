@@ -51,7 +51,22 @@ can substitute for an unknown model transform only in an unbound frame; the row
 retains `local_from = {op, field, axis}`. This does not bind fitted shaft length
 to nominal model geometry. Dome axial samples compute
 `radius=sqrt(sphere_radius^2-(z-sphere_centre_z)^2)` at authored steps and include
-the exact endpoint. Tool-nose compensation remains unknown.
+the exact endpoint. Each row then gets the tool-nose compensation. The selected
+tool must not be flagged uncertain, and its nose radius `rn` must be known and
+≥ 0. The nose centre lies `rn` out along the sphere's surface normal `n`, so each
+row adds `x_tool_mm = display·(r + rn·(n_r − 1))` and `z_tool_mm = z + rn·(n_z − 1)`.
+These are the DRO readings of the imaginary tool tip when the tool was touched
+off on an outside diameter (X) and on a +Z end face (Z), the `zero_check`
+tool-touch convention, recorded as `tool_reference`. Then
+`tool_nose_compensation_mm = rn`, and the sheet prints tool columns beside the
+surface columns. Compensation stays unknown, the sheet STOP stays, and
+`coordinates` is unknown when any of these holds:
+
+- the nose radius is unknown or negative;
+- the tool is uncertain;
+- the dome apex faces the chuck, so it is not cut from the +Z touch-off side.
+
+`tool_nose_compensation_reason` names which one applied.
 
 For contours, cutter radius is selected diameter/2. An explicitly rough
 operation produces its rough table at cutter radius plus `rough_allowance_mm`

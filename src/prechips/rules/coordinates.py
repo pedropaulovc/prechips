@@ -459,7 +459,11 @@ def _spindle_rows(bundle, setup, name, feature, frame, dro):
     return rows, cite
 
 
-def _dome(name, feature, op, radius_mode):
+def _dome(name, feature, op, radius_mode, nose=UNKNOWN):
+    """Axial table of the dome's finished surface and, for a known nose radius, the
+    imaginary-tip readings of a tool touched off on an outside diameter (X) and on a +Z
+    end face (Z), the lathe tool-touch convention: the nose centre sits ``nose`` along the
+    surface normal, so the tip reads ``nose * (n - 1)`` from the surface point per axis."""
     sphere = feature.get("sphere_radius", UNKNOWN)
     apex, base = op.get("z_from", UNKNOWN), op.get("z_to", UNKNOWN)
     step = mapping(op.get("contour")).get("step_mm", UNKNOWN)
@@ -467,6 +471,13 @@ def _dome(name, feature, op, radius_mode):
         return None
     sign = 1 if apex > base else -1
     centre = apex - sign * sphere
+    if not number(nose) or nose < 0:
+        compensation, why = UNKNOWN, "the selected tool's nose radius is unknown"
+    elif sign < 0:
+        compensation, why = UNKNOWN, "the dome apex faces the chuck, not the +Z touch-off face"
+    else:
+        compensation, why = nose, None
+    display = 1 if radius_mode else 2
     rows = []
     count = math.ceil(abs(apex - base) / step)
     for i in range(count + 1):
@@ -475,16 +486,19 @@ def _dome(name, feature, op, radius_mode):
         if squared < -1e-10:
             return None
         radius = math.sqrt(max(0, squared))
-        rows.append(
-            {
-                "z_mm": z,
-                "radius_mm": radius,
-                "diameter_mm": 2 * radius,
-                "x_target_mm": radius if radius_mode else 2 * radius,
-                "setup_xz": [radius if radius_mode else 2 * radius, z],
-            }
-        )
-    return {
+        row = {
+            "z_mm": z,
+            "radius_mm": radius,
+            "diameter_mm": 2 * radius,
+            "x_target_mm": display * radius,
+            "setup_xz": [display * radius, z],
+        }
+        if why is None:
+            normal_r, normal_z = radius / sphere, (z - centre) / sphere
+            row["x_tool_mm"] = display * (radius + compensation * (normal_r - 1))
+            row["z_tool_mm"] = z + compensation * (normal_z - 1)
+        rows.append(row)
+    contour = {
         "feature": name,
         "op": op["op"],
         "method": "axial_table",
@@ -494,8 +508,12 @@ def _dome(name, feature, op, radius_mode):
         "apex_z_mm": apex,
         "base_z_mm": base,
         "step_mm": step,
-        "tool_nose_compensation_mm": UNKNOWN,
+        "tool_nose_compensation_mm": compensation,
+        "tool_reference": "imaginary tip: X touched on an outside diameter, Z on a +Z end face",
     }
+    if why is not None:
+        contour["tool_nose_compensation_reason"] = why
+    return contour
 
 
 def evaluate(bundle):
@@ -641,10 +659,18 @@ def evaluate(bundle):
                         profile["cutter_centre"] = path
                         generated = True
                 elif contour.get("method") == "axial_table" and (not paired or stage == "finish"):
-                    dome = _dome(name, feature, op, dro.get("radius_mode") is True)
+                    nose = length_mm(tool, "nose_radius") if tool and not uncertain(tool) else None
+                    dome = _dome(
+                        name,
+                        feature,
+                        op,
+                        dro.get("radius_mode") is True,
+                        nose if number(nose) else UNKNOWN,
+                    )
                     if dome:
                         numbers["contours"].append(dome)
                         generated = True
+                        unknown |= not number(dome["tool_nose_compensation_mm"])
                 if not generated:
                     profile["cutter_centre"] = UNKNOWN
                 numbers["profiles"].append(profile)

@@ -6755,7 +6755,8 @@ class _Setup:
         samples = [meridian[key] for key in sorted(meridian)]
         to_z = op.get("to_z")
         sides = {1 if n[1] > 0 else -1 for _, _, n in samples if abs(n[1]) > REVOLVED_TOL}
-        if _number(to_z) and len(sides) == 1 and samples:
+        faced_feed = _number(to_z) and len(sides) == 1 and bool(samples)
+        if faced_feed:
             # A facing/parting op leaves its to_z plane: it is posed there, across the
             # claims' radii (and down to to_dia/2 when it parts to a diameter).
             side, faced = sides.pop(), {}
@@ -6784,6 +6785,11 @@ class _Setup:
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
         reach, wall_hits = 0.0, 0
+        # A single-point tool facing to to_z feeds radially through stock it has just faced:
+        # only material left by the op (a shoulder beside the nose) is buried depth. A blade
+        # plunges between the part and the slug, so its depth is measured in entry stock.
+        radial_feed = faced_feed and tool["corners"] != 2
+        reach_stock = part if radial_feed else self.part
         for index, point, normal in samples:
             # Without a section (its reason keeps the hits unknown) the pose is nominal.
             centre, (low, high) = self._turn_pose(tool, point, normal, segments)
@@ -6820,13 +6826,17 @@ class _Setup:
             # the sample.
             band = _band(point[0], outer, low, high)
             if band is not None:
-                common = band.common(self.part)
+                common = band.common(reach_stock)
                 if common.Volume > HIT_MM3:
                     reach = max(reach, _max_radius(common) - point[0])
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
-        facts["reach_depth_mm"] = _r(reach)
+        if radial_feed and obstacle is None:
+            facts["reach_depth_mm"] = UNKNOWN
+            reasons["reach_depth_mm"] = obstacle_reason or "the faced profile is unknown"
+        else:
+            facts["reach_depth_mm"] = _r(reach)
         holder_reason = ("op lacks " + ", ".join(holder_missing)) if holder_missing else None
         if holder_reason or obstacle_reason:
             facts["holder_wall_hits"] = UNKNOWN

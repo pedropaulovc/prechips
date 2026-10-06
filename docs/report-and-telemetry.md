@@ -273,8 +273,9 @@ Each setup then starts on a new page, in this order:
 10. **CONTOURS**: one block per contour op with its tool and direction, the
    table at DRO precision and, when the render supplies `scene.waypoints`, a
    `P` column keyed to the labels drawn in the picture. A missing tool prints
-   `STOP … tool not selected; do not run` instead of a table; an uncompensated
-   lathe profile says the nose radius compensation is not computed.
+   `STOP … tool not selected; do not run` instead of a table; a lathe dome table
+   prints the imaginary-tip tool X/Z columns when the nose compensation is known,
+   otherwise it says the nose radius compensation is not computed.
 
 Every setup ends with the sign-off line, kept on the page with the setup's last
 block. Setup coordinates, Z targets and DRO values print at the DRO's display
