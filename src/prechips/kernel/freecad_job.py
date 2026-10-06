@@ -611,6 +611,8 @@ _PLACERS = {"vise": "_place", "chuck": "_place_chuck", "solids": "_place_solids"
 _VISE_FACTS = ("parallel_pair", "width_mm", "contact_grip_mm", "claimed_in_jaws", "min_wall_mm")
 # Components whose interpenetration with the entering stock is a declaration error.
 _SOLID_ROLES = frozenset(("chuck_jaw", "chuck_body", "head", "centre", "fixture", "clamp", "riser"))
+# Vise accessories that stand between the jaws, below the seat.
+_VISE_ACCESSORIES = frozenset(("parallel", "riser"))
 
 
 def _pose_matrix(pose):
@@ -637,6 +639,27 @@ def _primitive(spec):
     if spec["shape"] == "box":
         return Part.makeBox(*spec["size_mm"], at)
     return Part.makeCylinder(spec["dia_mm"] / 2, spec["length_mm"], at, V(*spec["axis"]))
+
+
+def _owner_primitives(specs):
+    """(spec, local shape) per drawn primitive of one owner, its ``void``s cut away.
+
+    A void (bore, tapped hole, slot) cuts the owner's primitives it names in ``cuts``, else
+    all of them; it never cuts another owner's solid.
+    """
+    voids = [(spec.get("cuts"), _primitive(spec)) for spec in specs if spec.get("void")]
+    result = []
+    for spec in specs:
+        if spec.get("void"):
+            continue
+        shape = _primitive(spec)
+        for cuts, void in voids:
+            if cuts is not None and spec.get("local") not in cuts:
+                continue
+            if shape.BoundBox.intersect(void.BoundBox):
+                shape = shape.cut(void)
+        result.append((spec, shape))
+    return result
 
 
 # --------------------------------------------------------------------------- PNG
@@ -1042,6 +1065,7 @@ class _Setup:
         self.fixture_ready = False  # the holding itself is placed, so hit counts can be made
         self.fixture_debts = []  # scene-only debts (supports below the seat, poses to check)
         self.fixture_gaps = []  # undrawn components that could be obstacles
+        self.undrawn = []  # declared components that are not drawn (interference debts)
         self.chuck = None  # placed chuck geometry for the turning model, else None
         self.regions = {}
         self.culled_part = None
@@ -1514,6 +1538,9 @@ class _Setup:
             self.fixture_reason = reason
         if self.hold is not None:
             self._accessories()
+            self._interference(facts)
+        else:
+            reasons["fixture_clashes"] = reason
         if (
             self.fixture_ready
             and hold["kind"] == "solids"
@@ -1526,11 +1553,16 @@ class _Setup:
                 if facts[key] == UNKNOWN:
                     reasons.setdefault(key, reason)
 
-    def _add(self, name, role, solid, box=None, swept=None):
-        """Record one placed setup-frame fixture component (``box`` when it is that AABB)."""
+    def _add(self, name, role, solid, box=None, swept=None, owner=None):
+        """Record one placed setup-frame fixture component (``box`` when it is that AABB).
+
+        ``owner`` groups the primitives of one authored body (a fixture's or a clamp's
+        ``solids``); they are one assembly, never checked against each other.
+        """
         component = {
             "name": name,
             "role": role,
+            "owner": owner or name,
             "solid": solid,
             "box": box,
             "bbox": box if box is not None else _bbox(solid),
@@ -1542,7 +1574,7 @@ class _Setup:
         self.fixture.append(component)
         return component
 
-    def _add_local(self, name, role, shape, matrix, swept=None):
+    def _add_local(self, name, role, shape, matrix, swept=None, owner=None):
         """Place a fixture-local shape (and its revolved envelope) into the setup frame."""
         placed = shape.copy()
         placed.transformShape(matrix)
@@ -1550,7 +1582,14 @@ class _Setup:
         if swept is not None:
             envelope = swept.copy()
             envelope.transformShape(matrix)
-        return self._add(name, role, placed, swept=envelope)
+        return self._add(name, role, placed, swept=envelope, owner=owner)
+
+    def _add_owned(self, specs, role, matrix, owner):
+        """Place one owner's authored primitives (voids cut) and return their solids."""
+        return [
+            self._add_local(spec["name"], role, shape, matrix, owner=owner)["solid"]
+            for spec, shape in _owner_primitives(specs)
+        ]
 
     def _place_chuck(self, hold, facts):
         """Jaws close on the stock's extremes along each jaw inside the grip zone.
@@ -1596,19 +1635,20 @@ class _Setup:
                 swept = Part.makeCylinder(outer, depth, V(0, 0, -depth)).cut(
                     Part.makeCylinder(radius, depth, V(0, 0, -depth))
                 )
-            self._add_local(f"chuck jaw {index}", "chuck_jaw", jaw, matrix, swept)
+            self._add_local(f"chuck jaw {index}", "chuck_jaw", jaw, matrix, swept, owner="chuck")
         length = hold["body_length_mm"]
         back = V(0, 0, -depth - length)
         body = Part.makeCylinder(hold["body_dia_mm"] / 2, length, back).cut(
             Part.makeCylinder(hold["bore_dia_mm"] / 2, length, back)
         )
-        self._add_local("chuck body", "chuck_body", body, matrix, body if lathe else None)
+        self._add_local(
+            "chuck body", "chuck_body", body, matrix, body if lathe else None, owner="chuck"
+        )
         if hold.get("head_solids"):
             nose = FreeCAD.Matrix()
             nose.move(back)
             nose = matrix.multiply(nose)
-            for spec in hold["head_solids"]:
-                self._add_local(spec["name"], "head", _primitive(spec), nose)
+            self._add_owned(hold["head_solids"], "head", nose, "head")
         if hold.get("centre"):
             self._place_centre(hold["centre"], hold["pose"], lathe)
         if hold.get("fixture_kind") == "chuck_3jaw" and max(radii) - min(radii) > COVER_MM:
@@ -1658,7 +1698,7 @@ class _Setup:
         if length - cone > PLANE_TOL:
             point = point.fuse(Part.makeCylinder(radius, length - cone, tip + axis * cone, axis))
         name = f"dead centre {centre['name']}"
-        self._add(name, "centre", point, swept=point if lathe else None)
+        self._add(name, "centre", point, swept=point if lathe else None, owner="tailstock")
         if centre["quill_extension_mm"] > 0:
             quill = Part.makeCylinder(
                 centre["quill_dia_mm"] / 2,
@@ -1666,15 +1706,20 @@ class _Setup:
                 tip + axis * length,
                 axis,
             )
-            self._add("tailstock quill", "centre", quill, swept=quill if lathe else None)
+            self._add(
+                "tailstock quill",
+                "centre",
+                quill,
+                swept=quill if lathe else None,
+                owner="tailstock",
+            )
         if point.distToShape(self.part)[0] > STOCK_TOL:
             self.fixture_debts.append(f"{name} tip does not reach the stock")
 
     def _place_solids(self, hold, facts):
         """An authored fixture body (angle plate, custom nest) at its declared pose."""
         matrix = _pose_matrix(hold["pose"])
-        for spec in hold.get("solids", []):
-            self._add_local(spec["name"], "fixture", _primitive(spec), matrix)
+        self._add_owned(hold.get("solids", []), "fixture", matrix, "fixture")
         if not self.fixture:
             return "no fixture solid is declared free of measurement debt"
         if all(c["solid"].distToShape(self.part)[0] > STOCK_TOL for c in self.fixture):
@@ -1684,12 +1729,25 @@ class _Setup:
             )
         return None
 
+    def _place_clamps(self, hold):
+        """Each posed clamp member's solids (strap, stud, heel; voids cut) as one owner."""
+        clamps = []
+        for clamp in hold.get("clamps", []):
+            matrix = _pose_matrix(clamp["pose"])
+            clamps.append(
+                (clamp["name"], self._add_owned(clamp["solids"], "clamp", matrix, clamp["name"]))
+            )
+        return clamps
+
     def _accessories(self):
         """Parallels, riser blocks and clamps of a declared hold, plus host-side debts."""
         hold = self.hold
         parallels, debt = self._parallels()
         if debt is not None:
             self.fixture_debts.append(debt)
+        # Components that exist but are not drawn: any of them may interpenetrate.
+        self.undrawn = [debt] if debt is not None else []
+        self.undrawn.extend(str(item) for item in (*hold.get("debts", []), *hold.get("gaps", [])))
         for index, box in enumerate(parallels or (), start=1):
             self._add(f"parallel {index}", "parallel", _box_shape(box), box)
             for side in ("fixed", "moving") if self.jaws is not None else ():
@@ -1706,14 +1764,7 @@ class _Setup:
             for index, (x, y) in enumerate(riser["centres_mm"], start=1):
                 box = (x - dx / 2, y - dy / 2, top - up, x + dx / 2, y + dy / 2, top)
                 self._add(f"riser {index} {riser['name']}", "riser", _box_shape(box), box)
-        clamps = []
-        for clamp in hold.get("clamps", []):
-            matrix = _pose_matrix(clamp["pose"])
-            parts = [
-                self._add_local(spec["name"], "clamp", _primitive(spec), matrix)["solid"]
-                for spec in clamp["solids"]
-            ]
-            clamps.append((clamp["name"], parts))
+        clamps = self._place_clamps(hold)
         self.clamp_parts = [
             (name, V(*clamp["pose"]["z"]) * -1, parts)
             for (name, parts), clamp in zip(clamps, hold.get("clamps", []), strict=True)
@@ -1734,6 +1785,64 @@ class _Setup:
         for name, parts in clamps:
             if all(part.distToShape(self.part)[0] > STOCK_TOL for part in parts):
                 self.fixture_debts.append(f"{name} does not bear on the stock at its pose")
+
+    def _interference(self, facts):
+        """Drawn fixture components that interpenetrate the entry stock or each other, and
+        vise accessories outside the closed jaw opening; undrawn components stay debts.
+
+        Contact is allowed: a clash is common volume above STOCK_MM3. Primitives of one
+        owner (an authored body, a clamp assembly, the chuck) are one part and not paired.
+        """
+        clashes, debts = [], list(self.undrawn)
+        components = self.fixture
+        for component in components:
+            if not _boxes_overlap(component["bbox"], self.box):
+                continue
+            volume = component["solid"].common(self.part).Volume
+            if volume > STOCK_MM3:
+                clashes.append(
+                    f"{component['name']} interpenetrates the setup-entry stock ({_r(volume)} mm^3)"
+                )
+        for index, first in enumerate(components):
+            for second in components[index + 1 :]:
+                roles = {first["role"], second["role"]}
+                if first["owner"] == second["owner"] or (
+                    "jaw" in roles and roles & _VISE_ACCESSORIES
+                ):
+                    continue  # one part, or the jaw-opening check below
+                if not _boxes_overlap(first["bbox"], second["bbox"]):
+                    continue
+                volume = first["solid"].common(second["solid"]).Volume
+                if volume > STOCK_MM3:
+                    clashes.append(
+                        f"{first['name']} interpenetrates {second['name']} ({_r(volume)} mm^3)"
+                    )
+        if self.hold.get("kind") == "vise":
+            self._jaw_opening(components, clashes, debts)
+        elif not self.fixture_ready:
+            debts.append(f"holding not placed: {self.fixture_reason}")
+        for component in components:
+            for name, box in self.fixture_possible:
+                if component["role"] != "jaw" and _boxes_overlap(component["bbox"], box):
+                    debts.append(f"{component['name']} may meet the {name.replace('_', ' ')}")
+        facts["fixture_clashes"] = clashes
+        facts["fixture_clash_debts"] = list(dict.fromkeys(debts))
+
+    def _jaw_opening(self, components, clashes, debts):
+        """Parallels and risers stand between the jaws: inside the opening closed on the stock."""
+        accessories = [c for c in components if c["role"] in _VISE_ACCESSORIES]
+        if self.jaws is None:
+            debts.append(f"vise jaws not placed: {self.fixture_reason}")
+            return
+        axis, lo, hi = self.clamp["c_axis"], self.clamp["lo"], self.clamp["hi"]
+        name = "xy"[axis]
+        for component in accessories:
+            box = component["bbox"]
+            if box[axis] < lo - STOCK_TOL or box[axis + 3] > hi + STOCK_TOL:
+                clashes.append(
+                    f"{component['name']} spans {name} {_r(box[axis])}..{_r(box[axis + 3])} mm, "
+                    f"outside the jaw opening {name} {_r(lo)}..{_r(hi)} mm closed on the stock"
+                )
 
     def _fixture_hits(self, solid):
         """Names of placed fixture components (revolved on a lathe) that ``solid`` meets."""
