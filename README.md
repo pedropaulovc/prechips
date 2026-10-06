@@ -3,7 +3,9 @@
 Checks before chips: a deterministic, offline checker and printable traveler for
 an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
 plan, workholding, indexing and physics rule families, write a canonical findings
-report, and render Letter-portrait HTML with setup pages and contour continuations.
+report, and render a Letter-portrait shop traveler: one setup per page with
+holding steps, DRO zero, tools, operations, speeds/feeds and inspection, plus
+contour tables (see docs/report-and-telemetry.md, "Generated traveler").
 M4 adds eight geometry and workholding rules measured on the bundle's STEP by a
 local FreeCAD kernel, plus a deterministic setup render on the sheet. M5 adds
 measured machine/holder inventory, envelope/travel screens and a machine
