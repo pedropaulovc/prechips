@@ -310,12 +310,18 @@ ancestor. Independent route alternatives may restart from the same supply but
 cannot join that material lineage twice.
 Cutter self-contact exclusion is only a thin shell of the sampled face;
 another claimed groove wall remains an obstacle. Under the user's
-2026-10-05 pose decision, concave floor/rising-wall edge samples shift the
-cutter axis one radius into the floor away from the wall, with tangency to
-both walls at a two-wall concave floor corner and at nearby concave-corner
-edge samples within a cutter radius of the second wall. Convex edges and
-ordinary interior samples are unchanged; convex wall/wall island vertices
-retain legacy samples with no added corner pose. Tangency does not certify
+2026-10-05 pose decision, a floor sample on or within one cutter radius of
+any concave floor/rising-wall edge, straight or curved (pocket walls and boss
+feet alike), moves its axis along the wall's in-plane normal at the nearest
+edge point until the cutter is tangent; every such edge bounds it at once, so
+two-wall concave corners and samples near them stand tangent to both walls,
+and a concave circle at least the cutter's radius bounds it exactly. A cutter
+wider than its gap or circle keeps the sample's own axis and reports the real
+hit. Convex edges and farther interior samples are unchanged; convex
+wall/wall island vertices add no bound and no corner pose. An edge the shifted
+axis comes within a radius of joins the bounds once (a finite constraint
+closure, not a search). This is a
+per-sample rule, not a whole-face pose. Tangency does not certify
 corner radii. Floor-only claims do not certify wall/wall corners;
 `internal_corner_radius` retains its existing scope and checks a sharp
 wall/wall corner when the operation claims both walls.
@@ -356,7 +362,9 @@ finished surface: each sample moves `a` along the unit normal before the
 cutter-radius XY shift, floor-edge/corner constraints use `r + a`, derived
 stock protects the finished solid offset outward by `a` (drafted faces
 included), and later finishing ops remove it. An explicit `to_z` caps the endpoint rather
-than adding a second leave. An unknown leave is accessibility and later-stock
+than adding a second leave; a finishing op's numeric `to_z` above its face is
+likewise its actual tip (a 0.1 mm spring pass samples there, not at the
+floor). An unknown leave is accessibility and later-stock
 debt. A failed arc-join offset may use a validated, conservative
 intersection-join offset (extra leave at convex corners), never the nominal
 solid; if both fail, the result is named offset debt. Holding, rendering

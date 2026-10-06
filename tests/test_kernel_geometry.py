@@ -298,7 +298,8 @@ def _setup(ops, hold, frame=IDENTITY, setup_id="S1"):
     return {"id": setup_id, "frame": frame, "hold": hold, "ops": ops}
 
 
-def test_interior_floor_pose_keeps_boss_while_its_own_wall_pose_clears(engine, solids):
+def test_plate_samples_near_a_boss_and_its_own_wall_poses_both_clear_it(engine, solids):
+    # User decision 2026-10-05: plate-top samples within R of the boss foot stand tangent.
     step = solids["boss"]
     top = engine.refs(step, (0, 0, 10), (60, 40, 10))
     boss = engine.refs(step, (33, 16, 10), (41, 24, 16))
@@ -306,10 +307,8 @@ def test_interior_floor_pose_keeps_boss_while_its_own_wall_pose_clears(engine, s
     assert len(top) == 1 and len(boss) == 2 and len(side) == 1
     ops = [_op("S1:10", "top", 3.0, 10.0, 20.0), _op("S1:20", "boss", 3.0, 10.0, 20.0)]
     result = engine.run(engine.job(step, {"top": top, "boss": boss}, [_setup(ops, _vise(5.0))]))
-    plate, own = result["ops"]["S1:10"], result["ops"]["S1:20"]
-    assert plate["tool_hits"] > 0 and plate["obstacles"]["tool"] == ["part"]
-    assert side[0] in plate["hit_refs"]["tool"]
-    assert own["sample_count"] > 0 and own["tool_hits"] == 0 and own["obstacles"]["tool"] == []
+    for op in (result["ops"]["S1:10"], result["ops"]["S1:20"]):
+        assert op["sample_count"] > 0 and op["tool_hits"] == 0 and op["obstacles"]["tool"] == []
 
 
 @pytest.mark.parametrize("name, clears", [("step", True), ("undercut-step", False)])
