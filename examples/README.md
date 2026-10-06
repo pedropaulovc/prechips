@@ -856,10 +856,18 @@ S1 faces the seat and profiles only the foot-depth region, with explicit bounded
 clearance retaining the upper-ear stock for S2/S3. S2 stands the foot on one
 41.275 mm tall narrow parallel pair (not wide blocks under closed jaws), clears
 the L relief and ear sides, then drills both hold-down holes over an open central
-exit gap. S3 faces the shared outer plane and cuts the arch/cross-bore on the
-angle plate, with the strap's underside on the free foot top and force toward
-the seat. The indicated transfer includes the actual `seat_face` height datum.
-The arch is checked with a labelled illustrative R7 radius gauge.
+exit gap. A stiff 3/8 in 120-degree spotter projects 31 mm from the chuck, keeping
+its nose above the uncut ear; a 0.6 mm tip depth makes a 2.08 mm spot.
+
+S3 uses the angle plate's bolted foot-end ledge to resist downward cutting loads,
+with the strap's underside on the free foot top and force toward the seat.
+The indicated transfer includes the actual `seat_face` height datum; the Y
+edge-finder pickup uses the plate front beside the part, not the thin seat lip.
+After the shared outer face is finished, S3:11 checks the final 6 mm ear thickness
+(the S2 in-process ear was still 7 mm). The R7 arch gets a radius-gauge check.
+The reamed bore uses paired metric 6.500 mm go / 6.530 mm no-go pins rather than
+inch-increment pins; after release, the seat rests on the surface plate and a
+height gauge reads the go-pin top minus half its diameter for the bore height.
 
 The plan retains `drawing.revision = "unknown"` because no certified dimensioned
 drawing exists; this does not create a waived or suppressed finding. All setup

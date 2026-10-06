@@ -817,16 +817,16 @@ height_mm = { value = 41.275, measured = { by = "example (plausible, not measure
 [tools.bracket-spot-drill]
 kind = "spot_drill"
 material = "M42"
-shank_in = "1/8"
+shank_in = "3/8"
 flutes = 2
-dia_mm = { value = 3.175, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
+dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
 point_angle = { value = 120, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator" } }
-flute_len_mm = { value = 12.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
-oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
-note = "Illustrative long 1/8 in cobalt 120-degree spotting drill; its 43.5 mm projection keeps the R8 chuck above the bracket ear, and its body diameter is below every following drill diameter."
+flute_len_mm = { value = 15.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 50.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+note = "Illustrative stiff 3/8 in cobalt 120-degree spotting drill; 31 mm projection keeps the R8 chuck above the 27.2 mm ear. At 0.6 mm tip depth the conical spot is only 2.08 mm in diameter."
 
 [tools.bracket-spot-drill.projection_mm]
-"drill-chuck-r8" = { value = 43.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to tool tip" } }
+"drill-chuck-r8" = { value = 31.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to tool tip" } }
 
 # --- pivot-bracket additions ---
 [gauges.bracket-cross-bore-pins]
