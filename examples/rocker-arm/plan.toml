@@ -210,7 +210,7 @@ doc_mm = 1.5 # author's choice, same axial step as the op 20 face rough
 rough_allowance_mm = 0.20 # author's choice, radial allowance restored from rev 3
 direction = "conventional" # author's choice
 approach_mm = 5.0
-contour = { method = "arc_table", step_deg = 10.0 } # author's choice, continuous circle through checkpoints
+contour = { method = "arc_table", step_deg = 10.0 } # author's choice
 note = "Upper hub island about the pivot axis; finished in S3 with the bore."
 
 [[setups.ops]]
@@ -467,7 +467,7 @@ to_z = -2.27825 # lower hub OD runs down to the lower strap face
 doc_mm = 2.3 # author's choice: the full 2.28 mm hub wall in one light finishing level (0.20 mm radial)
 direction = "conventional" # author's choice
 approach_mm = 5.0
-contour = { method = "arc_table", step_deg = 10.0 } # author's choice, continuous circle
+contour = { method = "arc_table", step_deg = 10.0 } # author's choice
 note = "Lower hub OD about the transferred pilot axis."
 
 [setups.ops.checks]
@@ -639,7 +639,7 @@ to_z = -2.27825 # upper hub OD runs down to the upper strap face
 doc_mm = 2.3 # author's choice: the full 2.28 mm hub wall in one light finishing level (0.20 mm radial)
 direction = "conventional" # author's choice
 approach_mm = 5.0
-contour = { method = "arc_table", step_deg = 10.0 } # author's choice, continuous circle
+contour = { method = "arc_table", step_deg = 10.0 } # author's choice
 note = "Upper hub OD and pivot ream without relocation. Lower hub patches were finished in S2 about the transferred pilot; inspect both patches to the reamed datum after profiling."
 
 [setups.ops.checks]
