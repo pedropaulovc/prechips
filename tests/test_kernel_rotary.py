@@ -175,7 +175,12 @@ def test_head_axis_not_perpendicular_to_setup_z_is_unsupported(engine, parts):
     assert op["tool_hits"] == "unknown" and op["claimed_indices"] == "unknown"
 
 
-def test_unproved_rotary_removal_does_not_count_allowance_as_certain_hits(engine, parts):
+def test_underivable_rotary_removal_stops_the_stock_builder_and_meets_its_entry_stock(
+    engine, parts
+):
+    # A claimed cone has no derivable rotary removal: that cut stops the stock builder.
+    # Its flute is credited none of the clearance it failed to derive, so it meets the
+    # whole bar it entered with, and the stock this setup leaves is unknown downstream.
     step = parts["conical"]
     body = engine.refs(step, *BODY, kind="Cone")
     assert len(body) == 1
@@ -186,11 +191,15 @@ def test_unproved_rotary_removal_does_not_count_allowance_as_certain_hits(engine
         "origin_mm": [-15.0, 0.0, 0.0],
         "axis": [1.0, 0.0, 0.0],
     }
-    op = _rotary(engine, step, body, _head(), stock)
-    assert op["claim_errors"] == []
-    assert op["tool_hits"] == "unknown"
-    assert "rotary removal is derived only" in op["reasons"]["tool_hits"]
-    assert op["min_hits"]["tool"] == 0
+    op = {**_op("S1:10", "body", 3.0, 10.0, 30.0), "approach": "rotary"}
+    setups = [_setup([op], _head()), _setup([], _head(), setup_id="S2")]
+    result = engine.run(engine.job(step, {"body": body}, setups, stock=stock))
+    assert result["status"] == "ok", result
+    stopped = result["ops"]["S1:10"]
+    assert stopped["claim_errors"] == []
+    assert isinstance(stopped["tool_hits"], int) and stopped["tool_hits"] > 0, stopped
+    assert stopped["obstacles"]["tool"] == ["part"], stopped
+    assert "S1:10" in result["setups"]["S2"]["stock_reason"], result["setups"]["S2"]
 
 
 @pytest.mark.parametrize(
@@ -251,11 +260,14 @@ def test_rotary_mixed_three_eighth_and_one_eighth_cutters_cover_adjacent_or_over
             "gaps": [],
             "unknown": [],
         }
-    # Coverage is not clearance: each op sees raw entry stock outside its own
-    # clipped boundary, even where the other op's portion completes the union.
-    for op in result["ops"].values():
+    # Coverage is not clearance. The first op is never credited the later op's cut, so it
+    # meets raw stock beyond its own clipped boundary; the second meets the stock the
+    # first op's accepted cut left, which already cleared what lies beyond its boundary.
+    first, second = result["ops"]["S1:10"], result["ops"]["S1:20"]
+    for op in (first, second):
         assert op["claim_errors"] == [] and op["claimed_indices"] == [index]
-        assert op["tool_hits"] > 0 and op["obstacles"]["tool"] == ["part"], op
+    assert first["tool_hits"] > 0 and first["obstacles"]["tool"] == ["part"], first
+    assert second["tool_hits"] == 0 and second["obstacles"]["tool"] == [], second
 
 
 def test_rotary_rough_portion_provides_cut_but_not_finish_credit(engine, parts):

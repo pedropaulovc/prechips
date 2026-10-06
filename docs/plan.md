@@ -595,11 +595,13 @@ between a claim and the rest of its box never strands it; the pieces are then
 cut from the current stock, which only removes material and never restores what
 an earlier op cleared. Known future planned-hole columns, with their finite caps,
 stay stock; and the removal must not split an original input solid. A violation is named stock
-debt, not an error: later stock that depends on it stays unresolved, while
-genuine collisions with finished material remain independent errors.
-It shapes stock passed to later setups and excludes only this operation's own
-derivable allowance from its flute obstacles; holder, reach and holding facts
-still use setup-entry stock. This is an authored process/fixture volume, not a
+debt, not an error: later stock that depends on it stays unresolved (later ops
+of the same setup keep only certain finished-material flute hits, with tool hits
+unknown), while genuine collisions with finished material remain independent
+errors. It shapes the stock later flutes of this setup and later setups meet,
+and excludes this operation's own derivable allowance from its flute obstacles;
+holder, reach and holding facts still use setup-entry stock. This is an
+authored process/fixture volume, not a
 measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
 needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
@@ -632,11 +634,13 @@ unknown. A whole-face non-rotary claim, or `stock.as_is_faces` for
 [`coverage`](rules-geometry.md#coverage).
 
 Own-removal combines each claimed cylinder's radial sweep with the actual
-vertical cutter columns at concave wall-tangent sample poses. Their union is
-clipped to the axial/angular window, then the finished solid is subtracted:
-finished bosses/pads and material outside that derivable allowance remain
-obstacles. Only the flute excludes its own allowance; holder and reach
-screens retain setup-entry stock. This is one top-dead-centre pose per sample,
+vertical cutter columns at concave wall-tangent sample poses. Each volume is
+clipped to the axial/angular window, the finished solid is subtracted, and the
+volumes are cut from the stock one by one in order, never fused: finished
+bosses/pads and material outside that derivable allowance remain obstacles.
+Only the flute meets the stock left after this removal; an underivable removal
+credits none of it. Holder and reach screens retain setup-entry stock. This is
+one top-dead-centre pose per sample,
 not a continuous toolpath or proof of clearance while rotating between poses.
 
 `doc_mm` enables the engagement screen only for an endmill-family cutter on a

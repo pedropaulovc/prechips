@@ -267,9 +267,12 @@ search, and it is the rotary rule only: axial milling keeps the
 incident-wall floor-edge convention under [`accessibility`](#accessibility).
 Cutter and holder cylinders and the reach column are then turned back by the
 sample's angle. Cutter and holder obstacles exclude only the sampled face's
-thin inward shell; only the flute also excludes this op's own derivable
-rotary removal. The holder otherwise retains setup-entry stock, and reach and
-holder-wall screens use setup-entry stock without the own-removal exclusion.
+thin inward shell. The flute meets the stock its setup's one op-order pass
+accepts after this op, like any milling flute (see
+[In-process stock](#in-process-stock)): a rotary removal that cannot be
+derived stops that pass, so its own flute meets all of its before-op stock and
+later flutes keep only their certain finished hits. The holder retains
+setup-entry stock, and reach and holder-wall screens use setup-entry stock.
 Chuck jaws and body turn with the work; the head body, tailstock and clamps
 stay put and are checked at the presented pose.
 
@@ -279,10 +282,11 @@ window ends) with the actual vertical cutter columns at concave wall-offset
 poses on those cylinders. Each column starts at its presented cutter tip,
 extends to the stock's outer top and is rotated back into the work's frame.
 These wall-tangent columns account for material a vertical cutter clears that
-a radial sweep alone leaves beside a concave wall. The combined volume is
-clipped to the op's axial/angular window, then cut against the finished solid.
-This is derivable own-removal, not merely counting intersections with finished
-faces: finished bosses and pads remain intact, stock outside the combined
+a radial sweep alone leaves beside a concave wall. Each volume is clipped to
+the op's axial/angular window, then cut against the finished solid; the
+volumes stay independent and are cut from the stock one by one in order, never
+fused. This is derivable own-removal, not merely counting intersections with
+finished faces: finished bosses and pads remain intact, stock outside the
 allowance stays an obstacle, and holder/fixture obstacles are not excused.
 Planar annuli sweep no removal of their own. Corners: a concave edge in a plane
 through the head axis is 0; other concave edges are unresolved.
@@ -440,11 +444,29 @@ shared supply ancestor. Independent forks may start from the same supply again
 as route alternatives, but cannot join that material lineage twice.
 Each setup output subtracts only that setup's derivable claimed removals from
 its selected input. Current-setup removals do not change current holding facts,
-image, reach or holder obstacles. The flute alone excludes the current op's own
-derivable allowance above the sampled finished face within its claimed clearing
-footprint: that material is being cut, not an obstacle. No other op's removal is
-borrowed. Finished face indices stay bound to the original STEP even when
-booleans change the stock's face order.
+image, reach or holder obstacles. A milling or hole flute instead meets the
+stock its setup's earlier ops leave: before any op is measured, one pass in op
+order derives each op's before-op stock and the stock it accepts after that
+op's cut, so a flute never meets material an earlier derived cut removed and is
+never credited with a later cut. A flute meets that accepted after-op stock,
+not a separate replay of its cut: the current op's own derivable allowance
+above the sampled finished face within its claimed clearing footprint (a hole
+op's own cutter volume) is being cut, not an obstacle. A milling op claiming a
+face away from the approach is credited no removal and meets its before-op
+stock. If an earlier cut cannot be derived (unresolved claims or `to_z`, an
+underivable leave or clearing box, a split or emptied stock piece, a failed
+boolean), that op keeps its own known before-op stock and its flute meets all
+of it, never credited with the clearance that failed, but every later op's
+flute meets only finished material: its certain finished hits stay certain
+(`min_hits`) and its tool hits become unknown, naming the stopping op. This is
+a deliberate regression
+for such later ops, which on entry stock would otherwise have read clear or
+blocked from material that may already be gone. Final profile-wall overstock
+and complete-form cap debts are judged once on the setup's end stock and never
+change an earlier op's before-op stock. Turning keeps its own turned-profile
+obstacle model, unchanged and independent of this pass. Finished face indices
+stay bound to the original STEP even when booleans change the stock's face
+order.
 
 The supply needs the positive dimensions and model-frame placement described
 under [plan stock](plan.md#stock). As-is face references do not define a stock
@@ -622,7 +644,11 @@ allowance. An explicit `to_z` caps the endpoint rather than adding to the
 leave: the tip is the higher of `to_z` and the floor plus its leave, so a
 `to_z` already at the rough floor plus a 0.2 mm leave is that endpoint, not
 0.4 mm above the floor. The tip never goes below the retained leave, and
-numerical lift still separates it from the finished face. An unknown
+numerical lift still separates it from the finished face. A finishing op's
+numeric `to_z` above the sampled face is likewise its actual tip: a spring
+pass to 0.1 mm above the floor samples there, matching its own cut, so the
+skin it leaves is stock below the tip rather than a hit, and a later
+full-depth pass removes that skin as its own cut. An unknown
 authored leave makes the op's accessibility `unknown` and later stock that
 depends on it debt. The protected solid is built by offsetting the finished
 solid outward by the leave. Where that offset's arc join cannot be built (a
@@ -630,42 +656,155 @@ blind cone can make it fail), an intersection-join offset may be used
 instead, but only if it is valid, contains the finished solid and keeps the
 same solid count. It is conservative and leaves extra material at convex
 corners, never less than the leave, and there is never a fallback to the
-nominal finished solid or a zero leave. If both constructions fail, the
-result is named offset debt.
+nominal finished solid or a zero leave. Where both whole-part constructions
+fail (a zero-height land tangent to a cylinder, as on the cone pivot post's
+journal pads, makes OCC fail at any leave), the op's guard is built
+exactly in each box where one of its consumers subtracts it: its claimed
+faces grown by its wall-check reach (`max(a, carried) + 0.01` mm, also
+covering its band and pose contacts), and its clearing box above `to_z` or
+its whole unclipped +Z claim sweep. In each box the finished part's offset
+equals the arc-join offset of the finished part within the box grown by
+`2a`, cropped to the box. Every positive-volume source and cropped component
+is kept, each piece must offset to one valid solid containing it, and the
+crop must contain the finished material in the box. Every Boolean in the
+construction must be valid; one that meets nothing is empty, but faces
+without a solid are debt, never taken as empty. Only arc joins qualify, and
+each consumer subtracts only inside its own box. The lineage band of a
+lower-leave op then needs no whole-part offset by the carried leave. Its
+candidates are the carried-leave skin of the claimed faces: each face
+thickened, plus on each convex edge two claimed faces share a tube (an arc
+pipe must have volume πr²L) with a ball on each of its vertices. An edge's
+kind is decided only where it is exact along the whole edge: a line both
+faces are invariant along (planes, cylinders with a parallel axis, cones
+through their apex) or a circle both are invariant around (coaxial planes,
+cylinders, cones, tori, spheres). Tangent and concave shared edges add
+nothing, and any other shared edge is debt. Each candidate is cut on its
+own, and every positive band fragment, however small, is kept, grouped by
+contact, never fused; the band is the groups that border a claimed lateral
+face. No piece may overlap the finished part or an unclaimed neighbour slab
+by more than 1e-3 mm³. The op's own clearance is cut first, then each band
+group in turn. A group is skipped only if none of it is in the stock piece,
+or if the cuts before it took all but at most 1e-6 mm³ of a group that held
+more, because cutting material that is already gone only adds OCC
+coincident-face artefacts. A tiny group still whole, or one whose remainder
+is not valid topology, is cut. Only the end of the op's cuts is judged, so a
+fragment one piece splits off may still go with a later piece. No more than
+1e-3 mm³ of the band may survive in each input stock piece the op leaves, and
+that piece must stay one valid solid; otherwise the stock reason names the
+removal that broke it ("its own clearance" or "lineage band group N"), and the
+op that stopped the stock pass is credited none of its clearance. If any
+construction fails, the result
+is named offset debt.
+Every offset and pipe is built on a deep copy of the solid, face or edge it
+starts from. OCC's offset rewrites the edge tolerances and pcurves of the
+shape it runs on, so offsetting a face shared with the finished part would
+change that part, and every later Boolean against it, by call order.
 
-**User decision, 2026-10-05:** at a concave edge shared by a floor and a
-rising wall, the floor-sample cutter axis shifts one cutter radius into the
-floor, away from the wall. At a two-wall concave floor corner the pose is
-tangent to both walls; nearby concave-corner edge samples also use both-wall
-tangency when the second wall lies within a cutter radius. This replaces the
-former boundary-centred floor pose; convex edges and ordinary interior
-samples are unchanged. Convex wall/wall island vertices retain their legacy
-samples without an added corner pose. Tangency selects a pose, not a
-corner-radius certification. Floor-only claims do not certify wall/wall
+**User decision, 2026-10-05, extended to every concave floor edge:** a planar
+floor sample on or within one cutter radius of any concave floor/rising-wall
+edge, straight or curved (pocket walls and boss feet alike), moves its cutter
+axis away from that edge along the wall's in-plane normal at the edge's
+nearest point until the cutter is tangent. Every such edge bounds the axis at
+once, so a two-wall concave floor corner, and a sample near one, stands
+tangent to both walls. The axis is the smallest move meeting every bound: a
+circular wall concave toward the floor whose radius is at least the cutter's
+bounds it by its exact tangent circle, any other edge by its tangent
+half-plane at the nearest point, and the move is one of finitely many analytic
+candidates (no search). A shifted axis may come within a radius of a concave
+edge the sample was not near (the far wall of an acute cusp), or be carried
+across a wall into its material (an island inside a narrow V); that edge then
+joins the bounds and the axis is solved again. An axis has crossed a wall when
+that wall's floor edge is its nearest and it stands straight behind the edge's
+interior; a sample's own position never counts as crossing, so a floor sample
+beside a thin rib is not bounded by the rib's far face. This finite constraint
+closure only adds walls not yet bounding, at most once each, and is not a pose
+search.
+A sample beyond an edge's end counts that edge only through the wall/wall edge
+rising from that end, classified there rather than by another edge the two
+walls share elsewhere. At a concave corner the wall's own line bounds it. At a
+sharp convex island corner it is bounded only when it is past the end of every
+wall meeting there (the corner is each floor edge's own nearest point and the
+sample lies off each wall's normal): the nearest boundary point is then the
+corner itself, so the axis moves straight away from the corner until tangent.
+A sample in front of or behind a wall's interior is bounded by that wall alone,
+a tangent junction or split face bounds nothing, and convex corners get no
+corner pose of their own. When no axis clears every bounding wall (a cutter
+wider than the slot, gap or pocket circle), the sample keeps its own axis and
+its collision is a real hit; an unclassifiable floor edge remains localized
+pose debt. On a non-circular concave curve, or a circle smaller than the
+cutter, the nearest-point half-plane may still leave the pose crossing the
+wall, which is reported as a hit, never cleared. Convex floor edges, samples
+farther than a radius from every concave edge and wall samples are
+unchanged. This is a per-sample rule for floors that keep their samples.
+Tangency selects a pose, not a corner-radius certification. Floor-only
+claims do not certify wall/wall
 corner radii: `internal_corner_radius` still checks a sharp wall/wall corner
 only when the op claims both walls, with its existing scope unchanged.
 Adjacent finished walls are not removed to manufacture clearance, and
 undercut or leaning walls remain obstacles.
 
+**Whole-face floor pose (literal face-inside-cutter):** a claimed +Z planar
+floor of a milling (non-hole) op whose entire face fits inside the actual
+cutter disc `D(c, r)` gets exactly one pose and no surface or corner samples;
+its reach, holder, flute and hit references all use that pose. The axis is
+derived, never searched: the covering axes are the intersection of `D(p, r)`
+over the face's points, a convex set fixed by the outer wire (inner wires
+never change it). A straight edge contributes its end discs; a Z-axis circular
+edge its end discs and, across the cone opposite its span, `|c - o| <= r -
+rho`. Finitely many analytic candidates (boundary-circle meets, arc centres,
+cone-ray crossings) prove the set empty when none of them covers the face
+under the exact farthest-distance test, which has no `STOCK_TOL` widening. A
+single covering axis is certified as the unique minimal enclosing centre (its
+farthest supports surround it, no angular gap above pi) and is the pose, so
+an exact rectangle, triangle or circle of the cutter's size is one point, not
+a thin face. Otherwise the pose is the area centroid over every face of the
+native locus (every distinct outer vertex kept as a constraint), accepted only
+when those faces merge without overlap into one face whose single boundary
+turns one way and lies on the cover circles, and the centroid and every
+covering candidate pass the exact test; else, like a failed native boolean or
+Extrema, it is pose debt. Legality comes from the face's own concave rising edges, islands
+included, not from the centroid: a cutter covering such an edge and standing
+`r + a` clear of its wall stands on its centre of curvature, so with a rough
+leave `a > 0` any rising wall, and otherwise any rising wall that is not a
+concave Z circle (lines, island feet, splines), leaves the face on its
+samples. With only concave Z-circle walls the pose is a wall centre `o`, taken
+in sorted order, that meets every such wall's own floor bound `|c - o_i| <=
+rho_i - r` (the tangent-circle bound of the per-sample rule, within its
+1e-7 mm) and covers the face; equal-radius walls about distinct centres, or a
+wall smaller than the cutter, meet no such centre and keep the samples. The tip is
+unchanged: the higher of `to_z` and the floor plus its leave, plus lift. A
+face larger than the cutter, an annulus wider than it included, keeps its
+samples: reverse containment (the cutter inside the face) is not this rule.
+An outer contour with other curves is decided only when discs about its exact
+points (vertices and Extrema extremes) share no point, which keeps its
+samples; otherwise, like any unclassifiable floor edge or failed tangent axis,
+that floor's pose is undefined: its own poses drop, certain hits on the op's
+other faces stay in `min_hits`, `hit_refs` and `obstacles`, and the op's
+measured facts become `unknown` with
+`<face>: floor tool pose is undefined (...)`.
+
 The holder cylinder (gauge diameter, gauge length) starts `projection_mm`
-above the tip. Both cylinders are intersected with actual setup-entry
-material minus a thin inward offset shell of **that sampled face only**,
-plus the jaw boxes. The flute also excludes only this op's derivable
-outside-finished allowance; the holder still sees it. The shell removes
-numerical self-contact, not a cutter-radius slab and not another finished
-face of the same feature. A cutter wider than a claimed groove therefore
-still intersects the opposite claimed wall. Holding, rendering and holder
-obstacles use actual setup-entry stock; no pose borrows another op's removal.
+above the tip. Both cylinders are intersected with material minus a thin
+inward offset shell of **that sampled face only**, plus the jaw boxes. The
+holder meets actual setup-entry material. The flute meets the stock the
+setup's earlier derived cuts leave (see [in-process stock](#in-process-stock)), less this op's
+own derivable outside-finished allowance; the holder still sees both. The
+shell removes numerical self-contact, not a cutter-radius slab and not another
+finished face of the same feature. A cutter wider than a claimed groove
+therefore still intersects the opposite claimed wall. Holding, rendering,
+reach and holder obstacles use actual setup-entry stock, and no flute is
+credited with a later op's removal.
 
 Claimed concave cone or sphere point caps are not blanket-exempt. Only a hole
 op's own known matched cap is: a cap (as defined for planned-hole columns)
 that shares a real edge with a claimed concave cylindrical bore parallel to
 setup Z and lies wholly below that bore, closing the end away from the tool.
 An upward-facing cap is not matched. For an op whose hole cut resolves, a
-sample on that cap uses the unmodified actual setup-entry stock instead of the
-own-face offset shell, which cannot be built at a cone apex; the on-axis
-cutter's numerical-lift shrink already removes self-contact, and the holder
-also sees the full entry stock. The cap's actual collision is still checked:
+sample on that cap uses the unmodified stock (the flute's stock before this op,
+less its own cut) instead of the own-face offset shell, which cannot be built
+at a cone apex; the on-axis cutter's numerical-lift shrink already removes
+self-contact, and the holder also sees the full entry stock. The cap's actual
+collision is still checked:
 a wrong point angle, a point deeper than the finished cap, or a flat-bottomed
 tool against a matched cone or sphere hits. A wider countersink and tilted or
 unrelated caps keep their offset shell, unknowns and real hits, and no other
@@ -738,9 +877,19 @@ For milling, a far-side face (outward normal opposing setup +Z by more than
 90°) is an invalid cutting claim, reported as an error naming the face before
 tool-dimension debt can hide it.
 
-The kernel tests pin the discriminations: a boss beside a claimed plate top
-is a hit naming the boss face; an offset cutter tangent to its claimed side
-wall clears while the sample-centred mutant intersects the wall; a Ø10 cutter
+The kernel tests pin the discriminations: a plate-top sample within a cutter
+radius of a boss stands tangent to it and clears, as do samples near an R10 or
+exactly cutter-sized circular pocket wall, an arc/chord corner and the walls
+of a groove exactly two radii wide, while a cutter wider than its circle or
+groove reports the real wall hit; samples near a 40° V tip whose two-wall axis
+lands inside an r0.5 island stand past the island (only the two samples whose
+island and V-wall bounds conflict report the hit), and plate samples beside a
+1 mm rib clear it; a plate sample past both walls of a square island's convex
+corner stands tangent to the corner and clears, and a sample just past one
+wall's end but in front of the other, in a slot exactly two radii wide, stands
+tangent to that wall alone and clears; an offset cutter tangent to
+its claimed side wall clears while the sample-centred mutant intersects the
+wall; a Ø10 cutter
 in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the
 holder only when they stand high enough. The concave floor-edge convention
 above changes the prescribed pose, not the obstacle solid. There is no pose
