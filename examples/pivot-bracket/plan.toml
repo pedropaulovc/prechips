@@ -259,9 +259,6 @@ to_z = 0.0
 direction = "conventional"       # author's choice
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, 9.0], y = [6.0, 33.2], z = [3.0, 22.2] }, open_side = "-y" } # same raw blank sweep; retained ear wall at setup Y -3
 
-[setups.ops.checks]
-thickness = "calipers"
-
 [[setups.ops]]
 op = 30
 do = "face"
@@ -305,10 +302,10 @@ width = "calipers"
 op = 60
 do = "spot"
 feature = "hold_down_a"
-tool = "center-drills-lms-4859/2"
+tool = "bracket-spot-drill"       # long 120-degree spotter keeps the chuck above the ear
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-depth_mm = 2.0                   # author's choice: spot from the finished foot top
+depth_mm = 0.6                   # 2.08 mm spot diameter, smaller than the following #15 drill
 
 [[setups.ops]]
 op = 70
@@ -327,10 +324,10 @@ station = "calipers"
 op = 80
 do = "spot"
 feature = "hold_down_b"
-tool = "center-drills-lms-4859/2"
+tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-depth_mm = 2.0                   # author's choice
+depth_mm = 0.6
 
 [[setups.ops]]
 op = 90
@@ -376,7 +373,7 @@ pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
-supports = "not_applicable"      # the plate itself locates the seat
+supports = "not_applicable"      # the plate assembly includes the load-bearing foot-end ledge
 clamps = [
   { ref = "clamping-kit-lms-1144/strap-pad", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, note = "strap underside on the finished foot top; pressure toward the seat/angle plate, studs outside the foot width" },
 ]
@@ -384,8 +381,8 @@ method = "strap_clamps"
 clamp = "padded strap tightened on the free foot, reacting against the angle plate"
 grip_mm = "not_applicable"       # strap contact, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
-stop = "finished left foot edge at TC X = -8 against a plate stop" # author's choice
-note = "Seat (model Y = 0) against the angle-plate upright, outer face up and 2 mm proud of the plate top. The padded strap spans the free foot top at TC Z = -16, pressing it toward the plate; studs are outside X +/-8, never through the hold-down holes. Keep the strap and its heel below TC Z = -12, clear of the arch and cross-bore work."
+stop = "foot free end at TC Z = -24.2 on the bolted plate ledge; finished left foot edge at TC X = -8 aligned before clamping"
+note = "Seat (model Y = 0) against the angle-plate upright, outer face up and 2 mm proud of the plate top. Rest the foot free end on the bolted ledge at TC Z = -24.2 to take the downward facing/drilling load. The padded strap at TC Z = -16 presses the foot toward the plate; studs are outside X +/-8. Indicate the exposed 2 mm seat lip with a small-ball DTI above the plate, then tighten and recheck. Pick up Y on the common plate front plane beside the part from -Y, not over the plate. Strap and heel stay below TC Z = -12, clear of the arch and cross-bore."
 
 [setups.zero.transfer]
 from = "S2"
@@ -400,9 +397,9 @@ tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
 [setups.zero.y]
-edge = "seat_against_plate"
-edge_mm = 0.0                    # the seat plane is the plate face
-from = "+y"
+edge = "plate_front_beside_part"  # use the exposed plate face at X = 30, clear of the work
+edge_mm = 0.0                    # plate face and seated datum A share Y0
+from = "-y"
 tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
@@ -423,6 +420,15 @@ holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author's choice
 to_z = 0.0                       # outer face, model Z = -3
 direction = "conventional"       # author's choice
+
+[[setups.ops]]
+op = 11
+do = "inspect"
+feature = "ear_relief"
+note = "Check 6 mm ear thickness only after both faces are finished; it was still 7 mm in S2."
+
+[setups.ops.checks]
+thickness = "calipers"
 
 [[setups.ops]]
 op = 15
@@ -454,10 +460,10 @@ radius = "radius-gauge"
 op = 30
 do = "spot"
 feature = "cross_bore"
-tool = "center-drills-lms-4859/2"
+tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author's choice
-depth_mm = 2.0                   # author's choice: spot from the faced outer face
+depth_mm = 0.6                   # 2.08 mm spot diameter, below the 1/4 in predrill diameter
 
 [[setups.ops]]
 op = 40
@@ -478,5 +484,8 @@ approach_mm = 5.0                # author's choice
 exit_mm = 2.0                    # author's choice
 
 [setups.ops.checks]
-dia = "pin-gauges"               # 6.50 go / 6.53 no-go
-height = "calipers"              # seat to lower bore edge plus half the gauged diameter
+dia = "bracket-cross-bore-pins"   # metric 6.500 go / 6.530 no-go, not inch-step pins
+height = "height-gauge"
+
+[setups.ops.inspection_methods]
+height = "After release, seat datum A on the surface plate with the 6.500 mm go pin in the bore. Measure the pin top and subtract half the pin diameter; accept the 25.1-25.3 mm centre height."

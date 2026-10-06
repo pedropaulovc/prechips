@@ -615,6 +615,7 @@ bed_height_mm = { value = 66.7, measured = { by = "example (plausible, not measu
 solids = [
   { name = "base", shape = "box", at_mm = [-63.5, 0.0, -90.9], size_mm = [127.0, 101.6, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge" } },
   { name = "upright", shape = "box", at_mm = [-63.5, 0.0, -78.2], size_mm = [127.0, 12.7, 76.2], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge" } },
+  { name = "bolted foot-end ledge", shape = "box", at_mm = [-8.0, -6.0, -30.2], size_mm = [16.0, 6.0, 6.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge, ledge top at TC Z=-24.2" } },
 ]
 
 # Example shop-made fixture for rocker S3 (illustrative example item). Frame: the
@@ -811,3 +812,26 @@ width_mm = { value = 3.175, measured = { by = "example (plausible, not measured)
 
 [fixtures.bracket-high-parallels.members."1-5-8in"]
 height_mm = { value = 41.275, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge on a surface plate" } }
+
+# --- pivot-bracket additions ---
+[tools.bracket-spot-drill]
+kind = "spot_drill"
+material = "M42"
+shank_in = "1/8"
+flutes = 2
+dia_mm = { value = 3.175, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
+point_angle = { value = 120, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator" } }
+flute_len_mm = { value = 12.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+note = "Illustrative long 1/8 in cobalt 120-degree spotting drill; its 43.5 mm projection keeps the R8 chuck above the bracket ear, and its body diameter is below every following drill diameter."
+
+[tools.bracket-spot-drill.projection_mm]
+"drill-chuck-r8" = { value = 43.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to tool tip" } }
+
+# --- pivot-bracket additions ---
+[gauges.bracket-cross-bore-pins]
+kind = "pin_gauge_set"
+range_mm = [6.49, 6.54]
+sizes_mm = [6.5, 6.53]
+resolution_mm = 0.005
+note = 'Illustrative paired metric bore-limit pins: 6.500 mm go and 6.530 mm no-go, with 0.005 mm comparison capability. Provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bench micrometer against a gauge block stack" }. Not the shared inch-increment pin set.'
