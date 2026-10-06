@@ -56,8 +56,10 @@ the installed FreeCAD 1.1, then `PATH`, with results cached under
 `PRECHIPS_KERNEL_CACHE`. A missing kernel is `?` plus exit 4, never a pass; a
 kernel failure is `✗`. No CAM, geometry certification or fixture solid is
 implied by a declared input/display field: fixture solids exist only for a
-vise whose `jaw_height`/`jaw_width`/`jaw_depth`/`opening` are explicit and not
-`verify = true`, plus a declared pose, and face identity comes only from a
+vise, riser, chuck, dividing head, dead centre, angle plate, clamp or custom
+fixture whose own dimensions (or authored `solids` primitives) are explicit
+and not `verify = true`, plus a declared pose; a fixture is `modeled` only
+when every drawn component is exact and no debt remains, and face identity comes only from a
 geometry-matched STEP `ADVANCED_FACE` reference, never from import order or
 the nearest face. M2 rules evaluate declared profile, holding, indexing and
 physics inputs; unknown K_c/E, shop limits, `thin_wall_floor_mm` and verified

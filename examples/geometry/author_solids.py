@@ -2,10 +2,10 @@
 
 Run under FreeCAD only (stdlib + FreeCAD; never imported by prechips):
 
-    freecadcmd.exe examples/geometry/author_solids.py -- build
+    freecadcmd.exe examples/geometry/author_solids.py -- build [<file.STEP> ...]
     freecadcmd.exe examples/geometry/author_solids.py -- faces <file.STEP> [...]
 
-``build`` writes the three designed test solids beside their fixtures as STEP
+``build`` writes the designed test solids (or only the named ones) beside their fixtures as STEP
 (AP214, LF line endings) and prints each file's SHA-256. ``faces`` lists every
 ``ADVANCED_FACE`` of a STEP in file order as ``#<entity>/ADVANCED_FACE[<ordinal>]/<label>``
 with the surface geometry read from the STEP text itself (plane normal and
@@ -33,11 +33,13 @@ HERE = Path(__file__).resolve().parent
 POCKET_BLOCK = dict(block=(70.0, 50.0, 60.0), pocket=(40.0, 24.0), depth=45.0, corner_r=6.0)
 SLOT_BLOCK = dict(block=(60.0, 40.0, 20.0), pocket=(30.0, 12.0), depth=6.0)
 STEP_BLOCK = dict(block=(60.0, 40.0, 20.0), step_from_x=30.0, step_depth=10.0)
+FIXTURE_PUCK = dict(radius=15.0, height=20.0)
 
 SOLIDS = {
     "pocket-reach/pocket-block.STEP": "pocket_block",
     "sharp-corner/slot-block.STEP": "slot_block",
     "unclaimed-face/step-block.STEP": "step_block",
+    "fixture-holds/fixture-puck.STEP": "fixture_puck",
 }
 
 
@@ -85,8 +87,17 @@ def step_block():
     return block.cut(cutter)
 
 
-def build():
+def fixture_puck():
+    """R15 x 20 puck on the Z axis, bottom face at z = 0 (three faces)."""
+    import Part
+
+    return Part.makeCylinder(FIXTURE_PUCK["radius"], FIXTURE_PUCK["height"])
+
+
+def build(names=()):
     for relative, maker in SOLIDS.items():
+        if names and Path(relative).name not in names:
+            continue
         shape = globals()[maker]()
         assert shape.isValid() and len(shape.Solids) == 1, relative
         path = HERE / relative
@@ -213,7 +224,7 @@ def _fmt(value):
 def main(argv: list[str]) -> int:
     args = [a for a in argv if a != "--"]
     if args[:1] == ["build"]:
-        build()
+        build(args[1:])
         return 0
     if args[:1] == ["faces"] and len(args) > 1:
         for name in args[1:]:

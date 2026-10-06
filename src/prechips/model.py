@@ -126,25 +126,33 @@ StockState = record(
 )
 Reference = record("Reference", {**texts("ref orientation note"), **numbers("height_mm")})
 Index = record("Index", {"fixture": str, "feature": str, "angle_deg": Number, "positions": int})
+type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
+# A fixture-local frame placed in the setup frame (mm): origin plus unit x and z axes.
+Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
+ClampPlacement = record("ClampPlacement", {**texts("ref note"), "pose": Pose})
+type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
 Hold = record(
     "Hold",
     {
         **texts(
             "fixture jaws_along fixed_jaw parallels support support_orientation "
             "grip_on stop clamp note centre_lubrication riser method orientation locator "
-            "release jaw_protection locate"
+            "release jaw_protection locate chuck riser_up riser_along parallels_along"
         ),
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
         "jaw_center_along_mm": Number,
-        "parallels_centres_mm": Annotated[
-            list[Annotated[list[Number], Field(min_length=2, max_length=2)]],
-            Field(min_length=2, max_length=2),
-        ],
+        "parallels_centres_mm": Annotated[PlanCentres, Field(min_length=2, max_length=2)],
+        "riser_centres_mm": Annotated[PlanCentres, Field(min_length=1)],
         "supports": str | list[str | Reference],
         **flags("grip_mm_verify jaw_above_parallels_mm_verify"),
         "index": Index,
+        "pose": Pose,
+        "jaw_clock_deg": Number,
+        "support_tip_mm": Point3,
+        "quill_extension_mm": Number,
+        "clamps": list[ClampPlacement],
     },
 )
 AxisZero = record(
@@ -462,7 +470,14 @@ Spindle = record(
 type ProjectionMap = dict[str, MeasuredLength]
 LeadScrew = record("LeadScrew", {**numbers("tpi dial_in"), "cross_feed_ipr": Vector})
 Capacity = record("Capacity", numbers("drill end_mill face_mill"))
-Tailstock = record("Tailstock", {"taper": str, "quill_travel_in": Number})
+Tailstock = record(
+    "Tailstock",
+    {
+        "taper": str,
+        "quill_travel_in": Number,
+        **dict.fromkeys(("quill_dia_mm", "quill_dia_in"), MeasuredLength),
+    },
+)
 Threads = record("Threads", {"inch_tpi": Vector, "metric_pitch_mm": Vector})
 Toolpost = record("Toolpost", {**texts("series type note"), "holders": int, "included": bool})
 DirectIndex = record("DirectIndex", numbers("positions step_deg"))
@@ -470,6 +485,20 @@ Tilt = record("Tilt", numbers("down up"))
 Bars = record(
     "Bars",
     {"count": int, "type": str, "shank_in": Number, "min_bore_in": Vector, "depth_in": Vector},
+)
+# One primitive of a fixture body, in its owner's local frame (plain mm). Its own
+# measured/verify qualify it, like a LengthMeasurement; nothing above it does.
+FixtureSolid = record(
+    "FixtureSolid",
+    {
+        **texts("name shape note"),
+        "at_mm": Point3,
+        "size_mm": Point3,
+        "axis": Point3,
+        **numbers("dia_mm length_mm"),
+        "measured": Measurement,
+        "verify": bool,
+    },
 )
 InventoryItem = record(
     "InventoryItem",
@@ -563,6 +592,13 @@ InventoryItem = record(
         "plate_holes": dict[str, Vector],
         "bars": Bars,
         "members": dict[str, "InventoryItem | Unknown"],
+        "solids": list[FixtureSolid],
+        # Chuck body dimensions (fixture solids).
+        **dict.fromkeys(
+            ("body_dia_mm", "body_dia_in", "body_length_mm", "body_length_in")
+            + ("bore_dia_mm", "bore_dia_in"),
+            MeasuredLength,
+        ),
     },
 )
 InventoryItem.model_rebuild()
@@ -576,6 +612,9 @@ _INVENTORY_LENGTH_STEMS = frozenset(
 )
 _ENVELOPE_LENGTH_STEMS = frozenset(("spindle_to_table_max", "spindle_to_table_min", "travel"))
 _TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))
+
+# Chuck body dimensions (fixture solids).
+_INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
 
 
 def _inventory_lengths(

@@ -85,7 +85,47 @@ def test_numeric_preparation_changes_only_the_next_setup_stock(
     assert hashlib.sha256(image).hexdigest() == render["sha256"]
     assert report["inputs"][f"render:{target_sid}"]["sha256"] == render["sha256"]
     assert render["fixture"] == "modeled"
-    assert render["scene"] == {"jaws": "exact", "parallels": "exact", "debts": []}
+    scene = render["scene"]
+    assert {key: scene[key] for key in ("fixture_kind", "jaws", "parallels", "debts")} == {
+        "fixture_kind": "vise",
+        "jaws": "exact",
+        "parallels": "exact",
+        "debts": [],
+    }
+    roles = {component["role"] for component in scene["components"]}
+    assert roles >= {"jaw", "parallel"}
+    assert all(component["exact"] for component in scene["components"])
+
+
+def test_every_holding_kind_is_modeled_and_its_strap_or_centre_occludes_the_top(
+    tmp_path, monkeypatch, freecad_kernel
+):
+    examples = copy_examples(tmp_path)
+    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
+    result, report, _ = run_fixture(examples, "fixture-holds", "plan.toml", tmp_path / "run")
+    assert result.returncode == report["expected_exit"] == 2, result.stderr
+    kinds = {
+        sid: (render["fixture"], render["scene"]["fixture_kind"], render["scene"]["debts"])
+        for sid, render in report["renders"].items()
+    }
+    assert kinds == {
+        "S1": ("modeled", "vise", []),
+        "S2": ("modeled", "angle_plate", []),
+        "S3": ("modeled", "custom", []),
+        "S4": ("modeled", "dividing_head", []),
+        "S5": ("modeled", "chuck_4jaw", []),
+        "S6": ("modeled", "chuck_3jaw", []),
+    }
+    access = {sid: finding(report, "accessibility", f"{sid}:10")["status"] for sid in kinds}
+    # Strap over the top face (S2, S3) and the head's dead centre on it (S4) occlude it.
+    assert access == {
+        "S1": "pass",
+        "S2": "error",
+        "S3": "error",
+        "S4": "error",
+        "S5": "pass",
+        "S6": "pass",
+    }
 
 
 @pytest.mark.parametrize(("name", "plan_filename", "target_sid", "exit_code", "rules"), CASES)

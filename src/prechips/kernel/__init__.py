@@ -11,7 +11,7 @@ import tempfile
 from contextlib import nullcontext
 from pathlib import Path
 
-from prechips.measurements import length_fact
+from prechips.measurements import angle_fact, length_fact, record_trusted
 from prechips.rules._envelope import measurement_item, tool_projection
 from prechips.rules.resolution import (
     WORKHOLDING_CATEGORIES,
@@ -122,15 +122,74 @@ def removal_bounds(bounds, units):
     return result
 
 
-def hold_inputs(bundle, setup):
-    hold = record(setup.get("hold"))
-    category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
-    fixture = measurement_item(bundle, category, hold.get("fixture")) if category else {}
-    kind = record(fixture).get("kind", UNKNOWN)
-    result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
-    if kind != "vise":
-        result["reason"] = "Fixture solids are not declared for this holding kind."
-        return result
+_CHUCK_JAWS = {"chuck_3jaw": 3, "chuck_4jaw": 4}
+_CHUCK_DIMS = ("body_dia", "body_length", "bore_dia", "jaw_width", "jaw_height", "jaw_depth")
+_ABSENT = (None, "none", "not_applicable")
+_BLOCK_EDGES = ("length", "width", "height")
+
+
+def _positive_length(item, field):
+    value = _accepted_length(item, field)
+    return value if number(value) and value > 0 else UNKNOWN
+
+
+def _pose(value):
+    """A setup-frame pose with unit, orthogonal x and z axes, or None."""
+    pose = record(value)
+    if not all(_vector(pose.get(key)) for key in ("origin_mm", "x", "z")):
+        return None
+    x, z = pose["x"], pose["z"]
+    norms = [sum(v * v for v in axis) ** 0.5 for axis in (x, z)]
+    dot = sum(a * b for a, b in zip(x, z, strict=True))
+    if any(abs(n - 1) > 1e-6 for n in norms) or abs(dot) > 1e-6:
+        return None
+    return {key: list(pose[key]) for key in ("origin_mm", "x", "z")}
+
+
+def _solids(item, owner):
+    """(engine primitives, debts) for an inventory item's authored ``solids``."""
+    solids = record(item).get("solids", UNKNOWN)
+    if not isinstance(solids, list) or not solids:
+        return [], [f"{owner} declares no solids"]
+    result, debts = [], []
+    for index, solid in enumerate(solids, start=1):
+        solid = record(solid)
+        name = solid.get("name", UNKNOWN)
+        name = name if name != UNKNOWN else f"#{index}"
+        label = f"{owner} solid {name}"
+        trusted, why = record_trusted(solid, require_measured=False)
+        if not trusted:
+            debts.append(f"{label}: {why}")
+            continue
+        at, shape = solid.get("at_mm"), solid.get("shape")
+        primitive = {"name": f"{owner}:{name}", "shape": shape, "at_mm": at}
+        if shape == "box":
+            size = solid.get("size_mm")
+            ok = _vector(at) and _vector(size) and all(v > 0 for v in size)
+            primitive["size_mm"] = size
+        elif shape == "cylinder":
+            axis = solid.get("axis")
+            dims = [solid.get("dia_mm"), solid.get("length_mm")]
+            ok = (
+                _vector(at)
+                and _vector(axis)
+                and abs(sum(v * v for v in axis) ** 0.5 - 1) <= 1e-6
+                and all(number(v) and v > 0 for v in dims)
+            )
+            primitive.update(axis=axis, dia_mm=dims[0], length_mm=dims[1])
+        else:
+            ok = False
+        if ok:
+            result.append(primitive)
+        else:
+            debts.append(
+                f"{label}: needs shape box (at_mm, positive size_mm) or cylinder "
+                "(at_mm, unit axis, positive dia_mm and length_mm)"
+            )
+    return result, debts
+
+
+def _vise_inputs(bundle, hold, fixture, result):
     missing = []
     for key in ("fixed_jaw", "jaws_along"):
         value = hold.get(key, UNKNOWN)
@@ -150,16 +209,6 @@ def hold_inputs(bundle, setup):
     centre = hold.get("jaw_center_along_mm", UNKNOWN)
     if number(centre):
         result["jaw_center_along_mm"] = centre
-    centres = hold.get("parallels_centres_mm", UNKNOWN)
-    if (
-        isinstance(centres, list)
-        and len(centres) == 2
-        and all(
-            isinstance(point, list) and len(point) == 2 and all(number(value) for value in point)
-            for point in centres
-        )
-    ):
-        result["parallels_centres_mm"] = centres
     for key in ("jaw_height", "jaw_width", "jaw_depth", "opening"):
         value = _accepted_length(fixture, key)
         if number(value) and value > 0:
@@ -172,14 +221,212 @@ def hold_inputs(bundle, setup):
         result["parallels_height_mm"] = height
     else:
         missing.append("parallels_height_mm")
-    for dimension in ("length", "width"):
-        value = _accepted_length(parallels, dimension)
-        if number(value) and value > 0:
-            result["parallels_" + dimension + "_mm"] = value
     if missing:
         result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
             missing
         )
+
+
+def _centres(value, minimum, maximum=None):
+    return (
+        isinstance(value, list)
+        and minimum <= len(value) <= (maximum or len(value))
+        and all(
+            isinstance(point, list) and len(point) == 2 and all(number(v) for v in point)
+            for point in value
+        )
+    )
+
+
+def _parallels_inputs(bundle, hold, result):
+    """Parallel boxes (below the seat) need dimensions, two centres and a length axis."""
+    reference = hold.get("parallels")
+    if reference in _ABSENT:
+        return
+    result["parallels_ref"] = reference
+    parallels = measurement_item(bundle, "fixtures", reference)
+    for dimension in ("height", "length", "width"):
+        value = _positive_length(parallels, dimension)
+        if value != UNKNOWN:
+            result["parallels_" + dimension + "_mm"] = value
+    if _centres(hold.get("parallels_centres_mm"), 2, 2):
+        result["parallels_centres_mm"] = hold["parallels_centres_mm"]
+    along = hold.get("jaws_along") if result["kind"] == "vise" else hold.get("parallels_along")
+    if along in ("x", "y"):
+        result["parallels_along"] = along
+
+
+def _riser_inputs(bundle, hold, result, debts):
+    """Vise riser blocks under the parallels: oriented edges and declared centres."""
+    reference = hold.get("riser")
+    if reference in _ABSENT and isinstance(hold.get("supports"), str):
+        candidate = measurement_item(bundle, "fixtures", hold["supports"])
+        if record(candidate).get("kind") == "blocks_123":
+            reference = hold["supports"]
+    if reference in _ABSENT:
+        return
+    block = measurement_item(bundle, "fixtures", reference)
+    edges = {edge: _positive_length(block, edge) for edge in _BLOCK_EDGES}
+    up, along = hold.get("riser_up"), hold.get("riser_along")
+    missing = [f"{reference} {edge}" for edge, value in edges.items() if value == UNKNOWN]
+    if up not in _BLOCK_EDGES or along not in _BLOCK_EDGES or up == along:
+        missing.append("riser_up / riser_along (two different block edges)")
+    if not _centres(hold.get("riser_centres_mm"), 1):
+        missing.append("riser_centres_mm")
+    if result.get("jaws_along") not in ("x", "y"):
+        missing.append("jaws_along")
+    if missing:
+        debts.append("riser blocks not drawn: " + ", ".join(missing) + " undeclared")
+        return
+    across = next(edge for edge in _BLOCK_EDGES if edge not in (up, along))
+    result["riser"] = {
+        "name": reference,
+        "size_mm": [edges[along], edges[across], edges[up]],
+        "centres_mm": hold["riser_centres_mm"],
+    }
+
+
+def _chuck_inputs(chuck, hold, result, reference):
+    """Chuck body/jaw dimensions and pose; jaws close on the stock in the kernel."""
+    missing = []
+    result["chuck_ref"] = reference
+    result["jaws"] = _CHUCK_JAWS.get(record(chuck).get("kind"))
+    if result["jaws"] is None:
+        missing.append(f"chuck {reference!r} kind (chuck_3jaw or chuck_4jaw)")
+    pose = _pose(hold.get("pose"))
+    if pose is None:
+        missing.append("pose (origin_mm and unit orthogonal x, z)")
+    else:
+        result["pose"] = pose
+    clock = hold.get("jaw_clock_deg", UNKNOWN)
+    if number(clock):
+        result["jaw_clock_deg"] = clock
+    else:
+        missing.append("jaw_clock_deg")
+    grip = hold.get("grip_mm", UNKNOWN)
+    if hold.get("grip_mm_verify") is not False and "grip_mm_verify" in hold:
+        grip = UNKNOWN
+    if number(grip) and grip > 0:
+        result["grip_mm"] = grip
+    else:
+        missing.append("grip_mm")
+    for dimension in _CHUCK_DIMS:
+        value = _positive_length(chuck, dimension)
+        if value == UNKNOWN:
+            missing.append(dimension + "_mm")
+        else:
+            result[dimension + "_mm"] = value
+    if missing:
+        result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
+            missing
+        )
+    elif result["bore_dia_mm"] >= result["body_dia_mm"]:
+        result["reason"] = f"chuck {reference!r} bore_dia is not smaller than its body_dia"
+
+
+def _centre_inputs(bundle, machine, hold, result, gaps):
+    """A dead centre and the ``machine``'s tailstock quill on the chuck axis, or the gap."""
+    reference = hold.get("support")
+    if reference in _ABSENT:
+        return
+    item = measurement_item(bundle, "fixtures", reference) if reference != UNKNOWN else {}
+    if record(item).get("kind") != "dead_centre":
+        gaps.append(f"support {reference!r} has no dead_centre fixture solid model")
+        return
+    values = {
+        "dia_mm": _positive_length(item, "dia"),
+        "length_mm": _positive_length(item, "length"),
+        "quill_dia_mm": _positive_length(record(machine.get("tailstock")), "quill_dia"),
+    }
+    angle = angle_fact(item, "point_angle", require_measured=False)
+    values["point_angle_deg"] = (
+        angle["value"] if angle["verified"] and 0 < angle["value"] < 180 else UNKNOWN
+    )
+    extension = hold.get("quill_extension_mm", UNKNOWN)
+    values["quill_extension_mm"] = extension if number(extension) and extension >= 0 else UNKNOWN
+    tip = hold.get("support_tip_mm", UNKNOWN)
+    values["tip_mm"] = tip if _vector(tip) else UNKNOWN
+    missing = [key for key, value in values.items() if value == UNKNOWN]
+    if "pose" not in result:
+        missing.append("hold.pose (centre axis)")
+    if missing:
+        gaps.append(f"dead centre {reference!r} not drawn: " + ", ".join(missing) + " unresolved")
+        return
+    result["centre"] = {"name": reference, **values}
+
+
+def _clamp_inputs(bundle, hold, result, gaps):
+    clamps = hold.get("clamps", [])
+    placed = []
+    for index, clamp in enumerate(clamps if isinstance(clamps, list) else [], start=1):
+        clamp = record(clamp)
+        reference = clamp.get("ref", UNKNOWN)
+        item = measurement_item(bundle, "fixtures", reference) if reference != UNKNOWN else {}
+        pose = _pose(clamp.get("pose"))
+        if not item:
+            gaps.append(f"clamp {index} {reference!r} is not a listed fixture")
+            continue
+        if pose is None:
+            gaps.append(f"clamp {index} {reference!r} pose is undeclared or not orthonormal")
+            continue
+        solids, debts = _solids(item, f"clamp {index} {reference}")
+        gaps.extend(debts)
+        if solids:
+            placed.append({"name": f"clamp {index} {reference}", "pose": pose, "solids": solids})
+    if placed:
+        result["clamps"] = placed
+
+
+def _supports_gaps(hold, result, gaps):
+    supports = hold.get("supports")
+    values = supports if isinstance(supports, list) else [supports]
+    drawn = record(result.get("riser")).get("name")
+    for value in values:
+        reference = record(value).get("ref", UNKNOWN) if isinstance(value, dict) else value
+        if reference in _ABSENT or reference == drawn:
+            continue
+        gaps.append(f"supports {reference!r} has no fixture solid model")
+
+
+def hold_inputs(bundle, setup):
+    hold = record(setup.get("hold"))
+    category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
+    fixture = measurement_item(bundle, category, hold.get("fixture")) if category else {}
+    kind = record(fixture).get("kind", UNKNOWN)
+    result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
+    # Scene-only debts (supports below the seat) and gaps (undrawn possible obstacles).
+    debts, gaps = [], []
+    if kind == "vise":
+        _vise_inputs(bundle, hold, fixture, result)
+        _riser_inputs(bundle, hold, result, debts)
+    elif kind in _CHUCK_JAWS:
+        _chuck_inputs(fixture, hold, result, hold.get("fixture"))
+        machine = measurement_item(bundle, "machines", setup.get("machine"))
+        _centre_inputs(bundle, machine, hold, result, gaps)
+    elif kind == "dividing_head":
+        reference = hold.get("chuck", UNKNOWN)
+        chuck = measurement_item(bundle, "fixtures", reference) if reference != UNKNOWN else {}
+        _chuck_inputs(chuck, hold, result, reference)
+        solids, missing = _solids(fixture, hold.get("fixture"))
+        result["head_solids"] = solids
+        gaps.extend(missing)
+        # A dividing head's own tailstock carries the centre.
+        _centre_inputs(bundle, fixture, hold, result, gaps)
+    elif kind != UNKNOWN and isinstance(record(fixture).get("solids"), list):
+        pose = _pose(hold.get("pose"))
+        if pose is None:
+            result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: pose"
+        else:
+            result["pose"] = pose
+        result["solids"], missing = _solids(fixture, hold.get("fixture"))
+        gaps.extend(missing)
+    else:
+        result["reason"] = "Fixture solids are not declared for this holding kind."
+    _parallels_inputs(bundle, hold, result)
+    _clamp_inputs(bundle, hold, result, gaps)
+    # Vise supports sit below the seat (render-only); elsewhere an undrawn support may collide.
+    _supports_gaps(hold, result, debts if kind == "vise" else gaps)
+    result["debts"], result["gaps"] = debts, gaps
     return result
 
 
@@ -305,6 +552,8 @@ _ENGINE_HOLD = (
     "parallels_height_mm",
     "parallels_length_mm",
     "parallels_width_mm",
+    "parallels_along",
+    "riser",
 )
 # Vise inputs whose absence stops jaw placement in the engine.
 _ENGINE_HOLD_REQUIRED = (
@@ -316,18 +565,53 @@ _ENGINE_HOLD_REQUIRED = (
     "jaw_depth_mm",
     "parallels_height_mm",
 )
+_ENGINE_CHUCK = (
+    "jaws",
+    "pose",
+    "jaw_clock_deg",
+    "grip_mm",
+    *(dimension + "_mm" for dimension in _CHUCK_DIMS),
+    "centre",
+    "head_solids",
+)
+_ENGINE_COMMON = (
+    "parallels_ref",
+    "parallels_height_mm",
+    "parallels_length_mm",
+    "parallels_width_mm",
+    "parallels_centres_mm",
+    "parallels_along",
+    "clamps",
+    "debts",
+    "gaps",
+)
 
 
 def _engine_hold(hold):
-    if hold["kind"] != "vise":
-        return {"kind": hold["kind"]}
-    result = {"kind": "vise"}
-    result.update({key: hold[key] for key in _ENGINE_HOLD if key in hold and hold[key] != UNKNOWN})
-    missing = [key for key in _ENGINE_HOLD_REQUIRED if key not in result]
-    if missing:
-        result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
-            missing
+    """The kernel's view of one hold: kind-specific placement plus drawn accessories."""
+    kind = hold["kind"]
+    common = {key: hold[key] for key in _ENGINE_COMMON if key in hold}
+    if kind == "vise":
+        result = {"kind": "vise", "fixture_kind": "vise", **common}
+        result.update(
+            {key: hold[key] for key in _ENGINE_HOLD if key in hold and hold[key] != UNKNOWN}
         )
+        missing = [key for key in _ENGINE_HOLD_REQUIRED if key not in result]
+        if missing:
+            result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
+                missing
+            )
+        return result
+    if kind in _CHUCK_JAWS or kind == "dividing_head":
+        result = {"kind": "chuck", "fixture_kind": kind, **common}
+        result.update({key: hold[key] for key in _ENGINE_CHUCK if key in hold})
+    elif "solids" in hold:
+        result = {"kind": "solids", "fixture_kind": kind, **common}
+        result.update({key: hold[key] for key in ("pose", "solids") if key in hold})
+    else:
+        return {"kind": kind, "fixture_kind": kind, **common, "reason": hold.get("reason")}
+    if hold.get("reason"):
+        result["reason"] = hold["reason"]
     return result
 
 

@@ -217,9 +217,35 @@ fields are listed in the job's reason text and the dependent rules are `?`.
   `jaws_along`, setup-frame coordinate) and `parallels_centres_mm` (exactly
   two `[x, y]` setup-frame centres); the parallels `length` (along the jaws)
   and `width` (along the clamp axis) also pass when their facts are accepted.
-  Any other
-  holding kind carries `Fixture solids are not declared for this holding
-  kind.`: no chuck, collet, fixture-plate or clamp solid exists in M4.
+  A vise may also stand its parallels on risers: `hold.riser` (or a
+  `blocks_123` `supports` item) with its accepted `length`/`width`/`height`,
+  `riser_up`, `riser_along` and `riser_centres_mm`.
+- Per setup, other holding kinds (every pose is a unit-x/unit-z right-handed
+  `{origin_mm, x, z}` in the setup frame; a non-orthogonal or non-unit pose
+  is not accepted):
+  - `chuck_3jaw` / `chuck_4jaw`: the chuck's accepted `body_dia`,
+    `body_length`, `bore_dia`, `jaw_width`, `jaw_height`, `jaw_depth`, the
+    plan `pose` (origin at the jaw-face centre, +z toward the work),
+    `jaw_clock_deg` (jaw 1 from pose x) and `grip_mm`. The jaws close on the
+    entry stock inside the grip zone; a scroll (3-jaw) chuck whose contact
+    radii differ is a debt.
+  - `dividing_head`: the same chuck inputs from the item `hold.chuck`
+    names, plus the head's own authored `solids`, hung behind the chuck body.
+  - A `dead_centre` `support` (chuck or head): its `dia`, `length` and
+    `point_angle`, the tailstock `quill_dia` (the machine's, or the dividing
+    head's own `tailstock`), the plan's `support_tip_mm` and
+    `quill_extension_mm`.
+  - Any kind whose inventory item authors `solids` (angle plate, custom
+    fixture, clamping-kit member): each `box` (`at_mm` min corner,
+    `size_mm`) or `cylinder` (`at_mm`, unit `axis`, `dia_mm`, `length_mm`)
+    in the item frame, placed by `hold.pose`; `clamps = [{ref, pose}]` place
+    clamp members the same way. A primitive with its own `verify = true` or
+    an unmeasured dimension is not drawn and becomes a debt.
+  - Any other kind (collet, a support without a `dead_centre` model) carries
+    `Fixture solids are not declared for this holding kind.` or, for an
+    undrawn support beside drawn solids, a gap: clear samples stay `unknown`
+    with `undrawn fixture components (...)`.
+  Every drawn solid is an accessibility, reach-holder and holder obstacle.
 
 Tool axis is the setup frame's +Z. The part is transformed into the declared
 setup frame; the frame is the author's declaration, not a measured setup.
@@ -513,23 +539,34 @@ For each setup with a numeric frame and derivable incoming stock the kernel
 returns a 640×480 PNG: an orthographic, z-buffered, flat-shaded software
 rasterization of that stock (grey, exposed claimed surfaces blue), the certain
 fixed and moving jaw boxes (two browns), the possible-jaw strips when the
-lateral centre is undeclared (two pale tints) and the parallels when drawn
-(grey-green). It is written by the engine's own PNG encoder with no
+lateral centre is undeclared (two pale tints), the parallels when drawn
+(grey-green) and every other drawn fixture solid in its role colour (risers,
+chuck jaws and body, dividing head, centre and quill, authored fixture
+solids, clamps). It is written by the engine's own PNG encoder with no
 timestamp, text, font or machine-specific metadata, so the bytes are
 reproducible across runs and cache hits. Alongside the image the engine
-returns `render_scene = {jaws, parallels, debts}`: `jaws` is `absent`
+returns `render_scene = {fixture_kind, jaws, parallels, components, debts}`.
+`fixture_kind` is the inventory holding kind; `components` lists every drawn
+solid as `{name, role, exact}` (`exact = false` only for the vise's
+lateral-undeclared jaw extents). For a vise, `jaws` is `absent`
 (unplaced; debt `jaws not drawn: <fixture reason>`), `exact` or
 `lateral_undeclared` (debt `jaw position along <axis> is undeclared (no
 jaw_center_along_mm): dark jaws span only the part's <e> mm grip-zone
 extent; light strips show where the other <w−e> mm of each <w> mm jaw may
-lie`); `parallels` is `absent` (no usable hold inputs: non-vise holding or
-a vise with dimension/pose debt, debt `jaws not drawn: <fixture reason>`),
-`exact` or `not_modelled` (as in the shipped rocker S1, whose measured vise
-and declared `jaw_center_along_mm` give exact jaws while the parallels lack
-`width` and `parallels_centres_mm`: debt `parallels not drawn:
-parallels_width_mm, parallels_centres_mm undeclared`). `fixture_rendered` is
-true only when the jaws are placed and
-the debt list is empty, i.e. exact jaws and exact parallels. Everything else
+lie`); `parallels` is `absent` (no usable hold inputs: unresolved holding
+or a vise with dimension/pose debt, debt `jaws not drawn: <fixture
+reason>`), `exact` or `not_modelled` (as in the shipped rocker S1, whose
+measured vise and declared `jaw_center_along_mm` give exact jaws while the
+parallels lack `width` and `parallels_centres_mm`: debt `parallels not
+drawn: parallels_width_mm, parallels_centres_mm undeclared`). For a chuck or
+dividing head `jaws` is `exact` once placed; jawless kinds report
+`not_applicable`; an unplaced non-vise fixture is `absent` with debt
+`fixture not drawn: <reason>`. Further debts name an undrawn possible
+obstacle (`not drawn: …`), a strap that does not bear on the stock top, a
+solid that intersects the entry stock, or unequal scroll-chuck contact
+radii. `fixture_rendered` is true only when the fixture is placed, at least
+one component is drawn, every component is exact and the debt list is
+empty. Everything else
 is a partial picture with its debts spelled out; a stock-only or envelope
 picture is not a holding proof. Non-derivable stock produces no figure. How
 the file is named, hashed into the
@@ -544,8 +581,8 @@ report and captioned is in
   approach model. A numeric frame or tool dimension cannot turn the axial
   engine verdict into a radial lathe proof. Lathe headroom stays `unsupported`
   as before.
-- Only a vise whose `jaw_height` / `jaw_width` / `jaw_depth` / `opening`
-  facts each resolve without their own debt is modeled, seated at the part's
+- A vise is modeled only when its `jaw_height` / `jaw_width` / `jaw_depth` /
+  `opening` facts each resolve without their own debt, seated at the part's
   lowest Z. The exact jaw pose along the jaws and the parallel solids exist
   only when the plan authors `jaw_center_along_mm` and
   `parallels_centres_mm` and the parallels row's height, length and width
@@ -555,7 +592,10 @@ report and captioned is in
   `verify = true` is identity debt for the declared-input rules, not a
   geometry veto), while the shipped parallels declare no `width` and no
   shipped plan declares `parallels_centres_mm`; those are debts to declare,
-  not values to invent.
+  not values to invent. Chucks, heads, centres, clamps and authored solids
+  follow the same trust rule: each dimension and pose is authored and
+  accepted, never defaulted. Collets, soft-jaw profiles and toe clamps
+  without authored `solids` are not drawn.
 - Accessibility and reach are sampled/projected measurements with a fixed
   grid, not full swept toolpath simulation; a feature narrower than the
   sampling can be missed between samples. Chatter, clamp deformation and the

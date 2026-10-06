@@ -264,11 +264,18 @@ kernel failure is `✗`. Successful facts are cached locally under
 the STEP digest, consumed geometry inputs, engine source and kernel binary.
 Feature and explicit per-op `faces` are matched by each STEP `ADVANCED_FACE`'s
 own geometry, never import order; invalid or far-side cutting claims are `✗`.
-Fixture solids come only from a vise's explicit `jaw_height` / `jaw_width` /
-`jaw_depth` / `opening`, the parallels' `height` (plus `length` / `width` for
-their solids) and the plan's `fixed_jaw` / `jaws_along` / `grip_mm` /
-`jaw_above_parallels_mm`, with optional authored `jaw_center_along_mm` and
-`parallels_centres_mm` for the exact pose. Those fixture dimensions, the
+Fixture solids come only from explicit inventory dimensions and plan poses:
+a vise's `jaw_height` / `jaw_width` / `jaw_depth` / `opening`, the parallels'
+`height` (plus `length` / `width` for their solids) and riser blocks, with the
+plan's `fixed_jaw` / `jaws_along` / `grip_mm` / `jaw_above_parallels_mm` and
+optional authored `jaw_center_along_mm` and `parallels_centres_mm`; a 3- or
+4-jaw chuck's body/bore/jaw dimensions with `hold.pose` and `jaw_clock_deg`
+(a dividing head adds its own authored `solids` and the chuck `hold.chuck`
+names); a dead centre with its tailstock quill; and authored `solids` boxes
+and cylinders for angle plates, custom fixtures and clamping-kit straps placed
+by `hold.pose` / `hold.clamps`. Every drawn solid is an accessibility and
+holder obstacle, and the report's scene lists each component and its
+`fixture_kind`. Those fixture dimensions, the
 tool `dia` / `flute_len` / `oal`, the holder `gauge_dia` / `gauge_len` /
 `grip` and the tool/holder projection are read as M5 fact-local length
 facts with measurement not required: a plain nominal number is accepted
@@ -303,9 +310,10 @@ consumer's labelled manifests and adjacent STEP exports are consumed for all
 three drawn pilot parts (M3); pivot-bracket remains authored. Export delivery
 does not establish live prechips farm/trace acceptance or physical readiness.
 M4 geometry is sampled B-rep measurement
-with a vise as the only modeled fixture: lathe setups have no chuck/collet
-solid (`vise` not applicable, `thin_wall_under_clamp` unsupported,
-accessibility unresolved). Only the authored bracket lacks STEP bytes.
+with vise, chuck, dividing-head, centre, angle-plate, clamp and custom
+fixture solids drawn only from explicit dimensions and poses; collets have no
+solid, and lathe setups keep `vise` not applicable, `thin_wall_under_clamp`
+unsupported and accessibility unresolved. Only the authored bracket lacks STEP bytes.
 Shaft, rocker and cone preserve their consumer-exported face sets and exact
 adjacent STEP files; exported face identities do not establish operation
 coverage. The rocker's S1 upper strap operations explicitly claim the exported
