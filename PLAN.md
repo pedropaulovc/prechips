@@ -1062,10 +1062,8 @@ sheet.
 
    The exported contracts include expanded rocker datum/tip features, shaft
    face splits, the cone journal's unknown requirement identity, and rendered
-   metric general bands. Current expected pilot exits are 4 / 2 / 2 / 2 / 2
-   (shaft / rocker / bracket / cone one-piece / cone built-up). The one-piece cone
-   moved from 4 to 2 because its exported `mount_west` nominal conflicts with its
-   band and restored milling frames expose far-side boss-face claims.
+   metric general bands. Current expected pilot exits are 4 / 2 / 2 / 2
+   (shaft / rocker / bracket / cone built-up).
    Existing inspection choices follow the split exported feature owners with
    unchanged gauges. Unknown requirement identities, measurements and methods
    remain unresolved, not invented. Consumer handling of the export as delivered:
@@ -1110,7 +1108,7 @@ sheet.
    - **`mount_west` sign.** The export has `station_nominal = -12.98` (signed X)
      but `station = [12.47, 13.49]` (built from `abs(ATTACHMENT_X)`). The
      consumer's generic nominal-within-band input check reports
-     `mount_west:station` as an `error`, so the one-piece cone exits 2. This is an
+     `mount_west:station` as an `error`. This is an
      honest stop on an exported inconsistency. Prechips does not flip the sign or
      drop the field.
 
@@ -1148,9 +1146,9 @@ sheet.
    fragmentation is checked per input piece. These are necessary-condition
    screens, not physical setup or toolpath certification; unresolved inputs
    remain unknown. The dated gate evidence below predates this integration.
-   Restored cone milling frames also expose real directional claim errors:
-   one-piece S2:40 (`crank_boss`) and S2:50 (`cone_boss`), and built-up S2:50
-   (`cone_boss`), claim entire cylindrical face sets including faces pointing
+   Restored cone milling frames also expose a real directional claim error:
+   built-up S2:50
+   (`cone_boss`) claims an entire cylindrical face set including faces pointing
    away from the milling approach. These remain directional-claim `error`
    findings. Resolving the authored milling route/face claims is
    a separate prechips planning follow-up; fixing HA's station sign alone

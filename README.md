@@ -66,18 +66,16 @@ From the repository root (the plans name their shared inputs):
 uv run prechips traveler examples/pivot-shaft/plan.toml --out out/pivot-shaft
 uv run prechips traveler examples/rocker-arm/plan.toml --out out/rocker-arm
 uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracket
-uv run prechips traveler examples/cone-pivot-post/plan.toml --out out/cone-pivot-post
-uv run prechips compare examples/cone-pivot-post/plan.toml examples/cone-pivot-post/built-up.toml --out out/cone-comparison
+uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
 ```
 
-Current expected consumer CLI exits are **shaft 4 / rocker 2 / bracket 2 / cone
-one-piece 2 / cone built-up 2**. Existing inspection choices follow the exported
-feature owners without inventing methods or changing gauges. The shaft keeps
-required unknowns. Missing tooling, holding and inspection capability keep
-their stops. The cone examples carry explicitly labelled construction and
-signed-station divergences from the upstream export; these are not claims
-that the original drawing or export was corrected. Known frames can expose
-far-side face claims requiring an authored route and claim correction.
+Current expected consumer CLI exits are **shaft 0 / rocker 2 / bracket 2 / cone
+built-up 2**. Inspection choices follow the exported feature owners. Missing
+tooling, holding and inspection capability keep their stops. The cone example
+carries explicitly labelled construction and signed-station divergences from
+the upstream export; these are not claims that the original drawing or export
+was corrected. Known frames can expose far-side face claims requiring an
+authored route and claim correction.
 Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
 spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
 Only the consumer side of M3 is done; the HA follow-ups and the combined gate
@@ -91,15 +89,12 @@ No verified cutting-table numbers are supplied; unknown RPM/feed cells stay
 unknown. See [examples/README.md](examples/README.md) for export provenance,
 source-contract changes and the separate synthetic geometry fixtures.
 
-The cone candidates are authored **full-envelope one-piece blank** and **block
-plus separate boss** alternatives, not route generation or a recommendation.
-The example manifest explicitly permits built-up construction, but permission
-alone does not prepare or assemble material. Its migrated built-up candidate
-declares temporary socket/spigot features and a pressed joint with numeric
-debt; that debt withholds the physical union rather than inventing a fit.
-No shaft cross-hole is invented. Unknown cutting-data K_c/E is not a numerical
-machining claim. Comparison leaves net volume and waste unknown without a
-sourced manifest volume; it does not transplant an old analytic estimate.
+The cone keeps a single authored **built-up** candidate. The one-piece plan and
+its example comparison are retired by the 2026-10-06 user decision. Drawing
+permission alone does not prepare or assemble material: temporary socket/spigot
+features, physical joint preparation and assembly remain checked. No shaft
+cross-hole is invented, and unknown physical or cutting facts are never
+numerical machining claims.
 
 ## CLI: five noninteractive verbs
 

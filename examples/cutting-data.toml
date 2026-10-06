@@ -149,11 +149,50 @@ feed_mm_rev = 0.03
 cite = "illustrative example value (plausible hobby-lathe HSS parting starting point), not transcribed from a handbook"
 # --- end pivot-shaft additions ---
 
+# --- cone-pivot-post built-up additions ---
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "carbide"
+operation = "profile"
+diameter_range = [0.0, 4.8]
+sfm = 90
+chip_load_mm_per_tooth = 0.01
+cite = "illustrative example value: short-projection 3/16 in carbide cutter with light radial passes beside the cone-pad walls in 1018; conservative hobby-mill starting point, not handbook data"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "drill"
+diameter_range = [13.01, 25.4]
+sfm = 55
+chip_load_mm_per_tooth = 0.06
+cite = "illustrative example value: reduced-shank socket drill in 1018; conservative hobby-mill starting point, not handbook data"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "ream"
+diameter_range = [13.01, 25.4]
+sfm = 30
+chip_load_mm_per_tooth = 0.025
+cite = "illustrative example value: large straight-flute socket reamer in 1018; conservative hobby-mill starting point, not handbook data"
+# --- end cone-pivot-post built-up additions ---
+
 [[material]]
 material_class = "low_carbon_steel"
 kc_n_per_mm2 = 1900
 e_gpa = 200
 cite = "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
+
+# --- cone-pivot-post additions ---
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "saw_cut"
+sfm = 80
+feed_mm_min = 25.0
+cite = "illustrative example value (plausible 4 x 6 bandsaw blade speed and descent feed for 2 x 3 in mild steel), not transcribed from a handbook"
+# --- end cone-pivot-post additions ---
 
 # --- pivot-bracket additions ---
 [[cut]]

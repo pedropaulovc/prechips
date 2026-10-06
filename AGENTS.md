@@ -129,7 +129,7 @@ FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
 The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
 outputs correctly stop with 2 or 4. Current expected M3 CLI exits are
-4 / 2 / 2 / 2 / 2 (shaft / rocker / bracket / cone one-piece / cone built-up).
+4 / 2 / 2 / 2 (shaft / rocker / bracket / cone built-up).
 Approved source-backed example corrections must retain their documented
 provenance, not erase requirements to recover an exit. Migrate existing
 inspection choices to the exact exported feature owners rather than dropping
@@ -139,9 +139,8 @@ unknown. Only the consumer side of M3 is done. Consult PLAN §8 M3 for the open
 HA items and the combined gate.
 Use the CLI examples in [README.md](README.md) and isolated output directories
 to exercise behavior.
-The cone's one-piece and built-up candidates also remain PLANNED; comparison
-must refuse built-up construction unless the drawing manifest explicitly permits
-it. Indexing uses one angular setting for the inclined journal, never a fictional
+The cone's built-up candidate also remains PLANNED. Indexing uses one angular
+setting for the inclined journal, never a fictional
 shaft cross-hole. Closure is checked only for a full pattern: `positions >= 2`
 with `angle_deg` omitted (step exactly `360 / positions`). Authored angles are
 open patterns: every landing is checked, with no closure. One setting also has
