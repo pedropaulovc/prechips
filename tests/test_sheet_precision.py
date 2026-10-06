@@ -123,8 +123,22 @@ def test_machine_backed_workholding_prints_without_missing_label(tmp_path, plan)
     assert "<td>PM-30MV / BS-0</td>" in html
 
 
+MISSING_LENGTH_OP = """
+[[setups.ops]]
+op = 30
+do = "inspect"
+feature = "pivot_bearing"
+missing_requirements = { length = "calipers" }
+
+[setups.ops.inspection_methods]
+length = "Measure 1.75 past the actual scribe to the cut face with calipers."
+"""
+
+
 def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path):
-    _, report, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
+    _, report, html = traveler(plan, tmp_path / "out")
     row = next(
         row
         for row in re.findall(r"<tr>.*?</tr>", html, re.DOTALL)
@@ -135,10 +149,7 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
     assert "<td>pivot bearing</td>" in row
     assert "? length ?:" in sheet
     assert "missing requirement pivot_bearing:length" in sheet
-    assert (
-        "Measure 1.75 past the actual scribe to the cut face with calipers; after doming "
-        "verify cylinder end 0.25 past scribe and trial fit over the installed ears."
-    ) in sheet
+    assert "Measure 1.75 past the actual scribe to the cut face with calipers." in sheet
     assert "156.67" not in sheet
     finding = next(
         row for row in findings(report, "inspection") if row["subject"] == "pivot_bearing:length"

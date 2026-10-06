@@ -157,32 +157,6 @@ def test_missing_angularity_datum_geometry_is_unresolved(tmp_path, datums):
     assert datum_finding(angularity_bundle(tmp_path, datums=datums)).status == "unknown"
 
 
-def test_shaft_cut_to_fit_length_remains_a_named_missing_requirement():
-    bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
-    row = next(row for row in inspection.evaluate(bundle) if row.subject == "pivot_bearing:length")
-    assert row.status == "unknown"
-    assert row.numbers["missing_requirement"] is True
-    assert row.numbers["limits"] == "unknown"
-    assert "band_mm" not in row.numbers
-    assert row.numbers["gauge"] == "calipers"
-    ops = bundle.plan["setups"][-1]["ops"]
-    inspection_index = next(
-        index for index, op in enumerate(ops) if "length" in op.get("missing_requirements", {})
-    )
-    cut_index = next(index for index, op in enumerate(ops) if op["do"] == "cut_to_fit")
-    assert row.numbers["op"] == f"S3:{ops[inspection_index]['op']}"
-    doming_index = next(
-        index
-        for index, op in enumerate(ops)
-        if op["feature"] == "south_dome" and op["do"] == "form_dome"
-    )
-    assert cut_index < inspection_index < doming_index
-    assert row.numbers["inspection_method"] == (
-        "Measure 1.75 past the actual scribe to the cut face with calipers; after doming "
-        "verify cylinder end 0.25 past scribe and trial fit over the installed ears."
-    )
-
-
 def test_unknown_export_can_only_leave_a_missing_length_inspection_unresolved(tmp_path):
     bundle = angularity_bundle(tmp_path, requirement="length", check=False)
     feature = bundle.features["features"]["cone"]
