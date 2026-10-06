@@ -188,6 +188,7 @@ class _Diagram:
                                                    for c in self.components)
         self.callouts = []
         self.obstacles = []
+        self.context_labels = []
         self.position_badges = []
         self.lathe_window = None
         self.off_window_keys = []
@@ -314,6 +315,8 @@ class _Diagram:
             self._waypoint_badges(self.position_badges, lambda p: p, (278, 205, 900, 593),
                                   prefix="", colour=_FIXTURE)
         self._insets()
+        for x, y, label, scale in self.context_labels:
+            _text(self.canvas, x, y, label, _MUTED, scale=scale, align="centre", backing=True)
         self._footer()
         return self.canvas.png()
 
@@ -346,20 +349,24 @@ class _Diagram:
                 _outline(c, [(x - 8, y + 110), (x + 98, y + 110),
                              (x + 98, y + 128), (x - 8, y + 128)], dashed=True)
                 self.obstacles.append((x - 36, y - 30, x + 130, y + 130))
-                _text(c, x + 47, y - 26, "HEADSTOCK", _MUTED, align="centre", backing=True)
-                _text(c, x + 47, y + 87, "SYMBOL", _MUTED, scale=2, align="centre", backing=True)
+                self.context_labels.extend(((x + 47, y - 26, "HEADSTOCK", 3),
+                                            (x + 47, y + 87, "SYMBOL", 2)))
             centres = [item for item in self.components if _role(item) in ("centre", "center")]
             if centres or self.stock_pixels:
                 _, top, right, bottom = _bounds(self._component_pixels(centres) if centres else self.stock_pixels)
+                if not centres:
+                    tool_pixels = [c.project(point) for outline in (
+                        self.tool.get("outlines_mm") or [self.tool.get("outline_mm", [])]
+                    ) for point in outline] if self.tool else []
+                    right = max([right] + [point[0] for point in tool_pixels]) + 44
                 x, y = right + 8, (top + bottom) / 2 - 44
                 _outline(c, [(x, y + 20), (x + 20, y), (x + 82, y),
                              (x + 82, y + 88), (x, y + 88)], dashed=True)
                 _outline(c, [(x - 4, y + 88), (x + 88, y + 88),
                              (x + 88, y + 106), (x - 4, y + 106)], dashed=True)
                 self.obstacles.append((x - 40, y - 30, x + 125, y + 110))
-                _text(c, x + 41, y - 26, "TAILSTOCK", _MUTED, align="centre", backing=True)
-                _text(c, x + 41, y + 66, "SYMBOL" if centres else "NO CENTRE DRAWN",
-                      _MUTED, scale=2, align="centre", backing=True)
+                self.context_labels.extend(((x + 41, y - 26, "TAILSTOCK", 3),
+                                            (x + 41, y + 66, "SYMBOL" if centres else "NO CENTRE DRAWN", 2)))
         elif self.is_vise:
             jaws = [item for item in self.components
                     if _role(item) in ("fixed_jaw", "moving_jaw", "jaw")]
@@ -371,8 +378,7 @@ class _Diagram:
                      (right + 45, bottom + 45), (left - 45, bottom + 45)]
             _outline(c, table, dashed=True)
             _outline(c, vise, dashed=True)
-            _text(c, (left + right) / 2, 194,
-                  "TABLE / VISE: SYMBOLS ONLY", _MUTED, align="centre", backing=True)
+            self.context_labels.append(((left + right) / 2, 194, "TABLE / VISE: SYMBOLS ONLY", 3))
 
     def _nominal_overlay(self, project, clip=None, faint=False):
         """Keep dash phase across small tessellated chords of each exact edge."""
