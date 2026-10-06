@@ -679,12 +679,14 @@ from = "-y"
 tool = "edge-finder"
 check_jog_mm = 10.0
 [setups.zero.z]
-feature = "head"
-edge_mm = 0.0
-from = "indicated"
-method = "indicate_axis"
-tool = "dti"
+face = "head"
+edge_mm = 21.3753
+from = "+z"
+method = "touch_then_set"
+tool = "center-drills-lms-4859/2"
+paper_mm = 0.0
 check_jog_mm = 10.0
+retouch_after = []
 [[setups.ops]]
 op = 10
 do = "spot"
@@ -778,12 +780,14 @@ from = "-y"
 tool = "edge-finder"
 check_jog_mm = 10.0
 [setups.zero.z]
-feature = "body"
-edge_mm = 0.0
-from = "indicated"
-method = "indicate_axis"
-tool = "dti"
+face = "body"
+edge_mm = 21.0055
+from = "+z"
+method = "touch_then_set"
+tool = "center-drills-lms-4859/2"
+paper_mm = 0.0
 check_jog_mm = 10.0
+retouch_after = []
 [[setups.ops]]
 op = 10
 do = "spot"
