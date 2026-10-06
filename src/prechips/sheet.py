@@ -276,6 +276,10 @@ _METHODS = {
     "touch_then_set": "touch it, then set",
     "touch_then_set_after_face": "touch the faced end, then set",
     "measure_then_set": "touch it, then set from the measured M",
+    "edge_then_set": (
+        "spindle stopped; bring this tool's Z-cutting edge to it, "
+        "withdraw along X without moving Z, then set"
+    ),
 }
 _STOCK_FORMS = {
     "round_bar": "round bar",

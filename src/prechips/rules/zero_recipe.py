@@ -152,7 +152,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     )
     pending = False
 
-    def z_event(index, surface, z, touch_paper, source, method="touch_then_set"):
+    def z_event(index, surface, z, touch_paper, source):
         if number(z):
             z_events.append(
                 {
@@ -162,19 +162,14 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                     "paper": touch_paper,
                     "top": surface == "top",
                     "source": source,
-                    "method": method,
                 }
             )
 
-    # A re-touch finds the surface as its source did (a scribe is aligned to, not
-    # touched); a zero that faced its surface first is only touched again.
-    zero_method = recipe.get("method")
-    zero_method = "touch_then_set" if zero_method in (None, "face_then_set") else zero_method
     for index, (op, _, after) in enumerate(states):
         if index == start:
             set_z = recipe.get("tool", UNKNOWN)
             if recipe.get("method") not in MEASURED:
-                z_event(index, face, zero_z, paper, "zero", zero_method)
+                z_event(index, face, zero_z, paper, "zero")
         for touch in placed.get(index, []):
             if touch.get("z_face"):
                 set_z = touch.get("tool", UNKNOWN)
@@ -185,7 +180,6 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                         touch.get("edge_mm"),
                         touch.get("paper_mm", UNKNOWN),
                         f"tool touch before op {op['op']}",
-                        touch.get("method", "touch_then_set"),
                     )
             if lathe:
                 set_x, x_gauge = touch.get("tool", UNKNOWN), touch.get("gauge", x_gauge)
@@ -212,12 +206,14 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                     lost.append("z")
                 else:
                     edge, touch_paper = source["z"], source["paper"]
+                    # The source's own recipe names its tool's edge (a blade corner);
+                    # the incoming tool repeats the surface in tool-neutral words.
                     record.update(
                         z_face=source["face"],
                         edge_mm=edge,
                         paper_mm=touch_paper,
                         z_axis_set=edge + touch_paper if number(touch_paper) else UNKNOWN,
-                        method=source["method"],
+                        method="edge_then_set" if lathe else "touch_then_set",
                         repeats=source["source"],
                     )
             if "x" in changed:
