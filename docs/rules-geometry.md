@@ -334,10 +334,19 @@ nearest it, relieved to the nearest clear pose within twice the nose radius as
 a cut sample is. Those poses count in `tool_hits`/`holder_hits`, so an air start
 into the dead centre or an overtravel into the chuck jaws is an accessibility
 error. `window_poses` records each end's Z, diameter, what it meets and the
-nearest placed fixture component with its clearance. Served follow rests are
-not set at a window end: when their jaws, set on the work with the tool at
-`z_from`, would meet a fixture component, `rest_engagement` gives the cut Z
-from which they clear it and accessibility warns to set them only after it.
+nearest placed fixture component with its clearance; at `z_from` it adds
+`max_start_z_mm`, the furthest start back against the feed before the tool or
+holder touches that component (stepped out by the clearance until within
+0.001 mm; none when nothing is met within 250 mm). The traveler boxes a start
+within 3 mm of a component with both numbers. Served follow rests are not set
+at a window end: when their jaws, set on the work with the tool at `z_from`,
+would meet a fixture component, `rest_engagement` gives the cut Z from which
+they clear it. The plan's `hold.supports[].engage_at_z_mm` (the Z the tool
+passes before the jaws go on) passes when it is at or past that Z along the
+feed and inside the op window, is an `error` before it or after `z_to`, and is
+`unknown` when undeclared or when no clear Z was computed. A blade's
+`blade_z_mm` is its axial extent over its cutting poses; the traveler's jaw
+distance uses its chuck-side face, not only the Z its op names.
 
 ### Follow and steady rests
 

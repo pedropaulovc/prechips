@@ -164,6 +164,12 @@ HIT_MM3 = 1e-6  # common volume that counts as an intersection
 HIT_BALL_MM = 0.01  # mm: proof-ball radius; its 4.19e-6 mm^3 volume exceeds HIT_MM3
 STOCK_TOL = 1e-3  # mm: as-is face distance to the envelope, claimed-face contact
 COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is not cleared
+# A turning op's furthest clear start (_Setup._window_record): stepped out by its clearance
+# until within START_TOL mm of a fixture component, at most START_STEPS steps and
+# START_OUT_MM mm back from the planned start.
+START_TOL = 1e-3
+START_STEPS = 200
+START_OUT_MM = 250.0
 # mm along a printed cutter-centre chord within which the kernel locates where the cutter
 # first meets stock outside its op's stock_removal_bounds (_Setup._clip_checkpoints).
 CLIP_PRECISION_MM = 1e-4
@@ -8584,10 +8590,13 @@ class _Setup:
         windows = [] if faced_feed else self._turn_windows(op, tool, samples)
         poses = [(index, point, normal, None) for index, point, normal in samples]
         poses += [(w["index"], w["point"], (1.0, 0.0), w) for w in windows]
+        blade_z = []
         for index, point, normal, window in poses:
             # Without a section (its reason keeps the hits unknown) the pose is nominal.
             if window is None:
                 centre, (low, high) = self._turn_pose(tool, point, normal, segments)
+                if tool["corners"] == 2:
+                    blade_z += [low, high]
             else:
                 # As a cut sample: a nose meeting the profile within twice its radius (a
                 # fillet or corner at the window end) stands at the nearest clear pose.
@@ -8648,6 +8657,10 @@ class _Setup:
                 common = band.common(reach_stock)
                 if common.Volume > HIT_MM3:
                     reach = max(reach, _max_radius(common) - point[0])
+        if blade_z:
+            # The blade's axial extent over its cutting poses: both faces, not the one Z
+            # the op names (a part-off's blade lies beyond the face it leaves).
+            facts["blade_z_mm"] = [_r(min(blade_z)), _r(max(blade_z))]
         if windows:
             facts["window_poses"] = [
                 self._window_record(w, tool, holder_missing, subject)
@@ -8733,28 +8746,56 @@ class _Setup:
             )
         return windows
 
-    def _window_record(self, window, tool, holder_missing, subject):
-        """One window end's pose and the placed fixture component nearest its tool/holder."""
-        section, pieces = self._turn_sections(tool, window["centre"], not holder_missing)
+    def _window_solids(self, tool, centre, holder_missing):
+        section, pieces = self._turn_sections(tool, centre, not holder_missing)
         solids = [_revolved(section)]
         if pieces is not None:
             solids += list(map(_revolved, pieces))
-        point = window["point"]
-        record = {"end": window["end"], "z_mm": _r(point[1]), "dia_mm": _r(2 * point[0])}
+        return [solid for solid in solids if solid is not None]
+
+    def _nearest_fixture(self, solids, subject):
+        """(name, distance) of the placed fixture component nearest ``solids``, else None."""
         nearest = None
         for component in self.fixture if self.fixture_ready else []:
             subjects = component.get("subjects", "all")
             if subjects != "all" and subject not in subjects:
                 continue
             for solid in solids:
-                if solid is None:
-                    continue
                 distance = solid.distToShape(component["envelope"])[0]
                 if nearest is None or distance < nearest[1]:
                     nearest = (component["name"], distance)
-        if nearest is not None:
-            record["nearest_fixture"] = nearest[0]
-            record["clearance_mm"] = _r(nearest[1])
+        return nearest
+
+    def _window_record(self, window, tool, holder_missing, subject):
+        """One window end's pose and the placed fixture component nearest its tool/holder.
+
+        At ``z_from`` it also gives ``max_start_z_mm``: the start furthest back (against
+        the feed, same diameter) before the tool or holder touches a fixture component.
+        It is stepped out by the current clearance each time, so every step stays clear,
+        and is recorded only once that clearance is within START_TOL of contact; a start
+        with nothing behind it within START_OUT_MM records none."""
+        point = window["point"]
+        record = {"end": window["end"], "z_mm": _r(point[1]), "dia_mm": _r(2 * point[0])}
+        solids = self._window_solids(tool, window["centre"], holder_missing)
+        nearest = self._nearest_fixture(solids, subject)
+        if nearest is None:
+            return record
+        record["nearest_fixture"] = nearest[0]
+        record["clearance_mm"] = _r(nearest[1])
+        if window["end"] != "z_from" or nearest[1] <= START_TOL:
+            return record
+        against, (cr, cz) = -tool["feed_z"], window["centre"]
+        out, gap = 0.0, nearest
+        for _ in range(START_STEPS):
+            out += gap[1]
+            if out > START_OUT_MM:
+                return record
+            moved = self._window_solids(tool, (cr, cz + against * out), holder_missing)
+            gap = self._nearest_fixture(moved, subject)
+            if gap[1] <= START_TOL:
+                record["max_start_z_mm"] = _r(point[1] + against * out)
+                record["max_start_meets"] = gap[0]
+                return record
         return record
 
     def _rest_engagement(self, posed, tool, windows, subject):

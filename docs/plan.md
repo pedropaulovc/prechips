@@ -620,6 +620,7 @@ not proof that its rotation is collision-free or its torque/locking adequate.
 | `note` | `str` |
 | `height_mm` | `float` |
 | `jaw_lead_mm` | `float` |
+| `engage_at_z_mm` | `float`: follow rest only; the cut Z the tool passes before its jaws are set on the work, checked by `accessibility` against the kernel's clear Z ([geometry](rules-geometry.md#window-ends)) |
 | `at_z_mm` | `float` |
 | `jaw_side` | `str` (`turned` or `uncut`; follow rests only) |
 | `ops` | `list[int]` |

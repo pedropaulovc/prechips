@@ -224,3 +224,49 @@ def test_a_dome_stair_is_not_assumed_for_an_apex_toward_the_chuck():
     finding = _dome(z_from=0.25, z_to=1.75, rough_allowance_mm=0.2)
     assert "stair_tables" not in finding.numbers
     assert finding.status == "unknown"
+
+
+_ENGAGE = {"rest": "follow_rest", "start_z_mm": 166.0, "meets": ["dead centre"]}
+
+
+def _rest_row(monkeypatch, engage_z, declared):
+    """Accessibility for a clear turning op whose follow rest, set with the tool at its
+    start, would meet the dead centre until the tool passes ``engage_z``."""
+    from prechips.rules import accessibility
+    from prechips.rules.geometry_common import TURNING, TURNING_HOLDER_KEYS, TURNING_TOOL_KEYS
+
+    rest = {"ref": "follow_rest", "ops": [10], "jaw_lead_mm": 8.0}
+    if declared is not None:
+        rest["engage_at_z_mm"] = declared
+    setup = {"id": "S1", "hold": {"supports": [rest]}}
+    op = {"op": 10, "do": "rough_turn", "z_from": 166.0, "z_to": 0.2}
+    inputs = {key: 1.0 for key in TURNING_TOOL_KEYS + TURNING_HOLDER_KEYS}
+    inputs.update(approach=TURNING, feed_z=-1)
+    detail = {
+        "sample_count": 19,
+        "tool_hits": 0,
+        "holder_hits": 0,
+        "rest_engagement": [{**_ENGAGE, "engage_z_mm": engage_z}],
+    }
+    contexts = [(setup, op, {}, detail, inputs, [], None)]
+    monkeypatch.setattr(accessibility, "op_contexts", lambda *_, **__: iter(contexts))
+    [row] = accessibility.evaluate(None)
+    return row
+
+
+def test_a_follow_rest_goes_on_only_once_the_tool_passes_its_declared_clear_z(monkeypatch):
+    # Feeding toward the chuck, jaws set at Z152 ride clear of the centre (clear from
+    # 155.474); set at Z160 they still meet it; undeclared, nobody knows where to set them.
+    assert _rest_row(monkeypatch, 155.474, 152.0).status == "pass"
+    late = _rest_row(monkeypatch, 155.474, 160.0)
+    assert late.status == "error"
+    assert "set at Z160, before Z155.474" in late.sentence
+    assert _rest_row(monkeypatch, 155.474, None).status == "unknown"
+    # Past the op's end the rest never goes on for the cut it serves.
+    assert _rest_row(monkeypatch, 155.474, -5.0).status == "error"
+    # With no clear position computed a declaration cannot be checked.
+    assert _rest_row(monkeypatch, "unknown", 152.0).status == "unknown"
+    assert (
+        _rest_row(monkeypatch, 155.474, 152.0).numbers["rest_engagement"][0]["declared_z_mm"]
+        == 152.0
+    )
