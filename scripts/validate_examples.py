@@ -1267,9 +1267,23 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "BASIC angle lost four places",
     )
     require(geometry["crank_bore"]["dimension_type"] == "basic", "cone angle lost BASIC identity")
+    # Example divergence (examples/README.md): the BASIC angle may carry only the angular
+    # limit HA derives from the 0.10 diametral FCF over the 72.0344 crank bore
+    # (cone_pivot_post_spec.py:373-375), never an independent +/- band.
+    angle_tol = geometry["crank_bore"].get("angle_tol_deg", "unknown")
     require(
-        geometry["crank_bore"].get("angle_tol_deg", "unknown") == "unknown",
-        "BASIC angle acquired a +/- band",
+        angle_tol == "unknown"
+        or abs(
+            angle_tol
+            - math.degrees(
+                math.atan(
+                    geometry["crank_bore"]["angularity_dia"]
+                    / geometry["crank_boss_faces"]["length_nominal"]
+                )
+            )
+        )
+        < 5e-5,
+        "BASIC angle acquired a +/- band beyond its FCF-derived limit",
     )
     near(geometry["crank_bore"]["angularity_dia"], 0.10, "cone diametral FCF")
     require(
@@ -1283,8 +1297,12 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "exported cone features lost STEP face bindings",
     )
     require(features["frames"]["setup"] == "unknown", "unverified setup binding")
+    # "nominal" places model geometry in setup coordinates; a plan frame never claims a
+    # measured physical binding.
     require(
-        all(frame["binding"] == "unknown" for frame in plan.get("frames", {}).values()),
+        all(
+            frame["binding"] in {"unknown", "nominal"} for frame in plan.get("frames", {}).values()
+        ),
         "cone plan frames claim a physical binding",
     )
     require(plan["stock"]["on_hand"] is False, "authored cone blanks are not on-hand inventory")
@@ -1294,22 +1312,58 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "blank dimensions lack author provenance",
     )
     if plan["construction"] == "one_piece":
-        # Radial extremum at the crank boss far end; a Ø45 body-only blank
-        # cannot contain the integral boss. This is nominal stock coverage,
-        # not a cutter sweep or verified jaw/tool clearance.
-        boss = geometry["crank_boss"]
+        # The blank must contain the body/head cylinders over the post height and
+        # the integral crank boss from its -Z land to its far +Z face. This is
+        # nominal stock coverage, not a cutter sweep or verified jaw/tool clearance.
+        stock = plan["stock"]
         ends = geometry["crank_boss_faces"]
-        radial_bound = math.hypot(
-            ends["length_nominal"] - ends["station_nominal"], boss["dia_nominal"] / 2
-        )
-        require(plan["stock"]["dia_mm"] / 2 >= radial_bound, "one-piece blank excludes crank boss")
-        require(
-            plan["stock"]["length_mm"] >= geometry["body"]["height_nominal"],
-            "one-piece blank excludes body height",
-        )
+        radius = max(geometry["body"]["dia_nominal"], geometry["head"]["dia_nominal"]) / 2
+        boss_z = (-ends["station_nominal"], ends["length_nominal"] - ends["station_nominal"])
+        if stock["form"] == "flat_bar":
+            lo, hi = blank_box(stock)
+            require(
+                lo[1] <= 0.0 and hi[1] >= geometry["body"]["height_nominal"],
+                "one-piece blank excludes body height",
+            )
+            require(lo[0] <= -radius and hi[0] >= radius, "one-piece blank excludes the body")
+            require(
+                lo[2] <= min(-radius, boss_z[0]) and hi[2] >= max(radius, boss_z[1]),
+                "one-piece blank excludes crank boss",
+            )
+        else:
+            boss = geometry["crank_boss"]
+            radial_bound = math.hypot(boss_z[1], boss["dia_nominal"] / 2)
+            require(stock["dia_mm"] / 2 >= radial_bound, "one-piece blank excludes crank boss")
+            require(
+                stock["length_mm"] >= geometry["body"]["height_nominal"],
+                "one-piece blank excludes body height",
+            )
     else:
         require(len(pieces) == 2, "built-up candidate must declare its two real leaf blanks")
         require(plan["stock"]["form"] == "built_up", "built-up blank form lost candidate identity")
+
+
+def blank_box(piece: dict):
+    """Model-frame bounds of a rectangular bar from its corner, axis and section axis."""
+    axis, across = piece["axis"], piece["section_axis"]
+    third = [
+        axis[1] * across[2] - axis[2] * across[1],
+        axis[2] * across[0] - axis[0] * across[2],
+        axis[0] * across[1] - axis[1] * across[0],
+    ]
+    a, b = piece["section_mm"]
+    corners = [
+        [
+            o + i * piece["length_mm"] * u + j * a * v + k * b * w
+            for o, u, v, w in zip(piece["origin_mm"], axis, across, third, strict=True)
+        ]
+        for i in (0, 1)
+        for j in (0, 1)
+        for k in (0, 1)
+    ]
+    return [min(c[n] for c in corners) for n in range(3)], [
+        max(c[n] for c in corners) for n in range(3)
+    ]
 
 
 def blank_volume(piece: dict):
@@ -1318,7 +1372,7 @@ def blank_volume(piece: dict):
         return math.pi * (piece["dia_mm"] / 2) ** 2 * length
     section = piece.get("section_mm")
     if (
-        piece["form"] == "rectangular_blank"
+        piece["form"] in {"rectangular_blank", "flat_bar"}
         and isinstance(section, list)
         and len(section) == 2
         and all(numeric(v) for v in [*section, length])
