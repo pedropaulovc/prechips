@@ -152,7 +152,8 @@ centre_lubrication = "CRC cutting oil on dead-centre seat; replenish between cut
 stickout_mm = 167.5         # author's choice: jaw fronts Z-1.5 to plain end Z166, tailstock supported
 pose = { origin_mm = [0.0, 0.0, -1.5], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
-support_tip_mm = [0.0, 0.0, 166.0]
+centre_hole_dia_mm = 3.5    # AUTHOR'S CHOICE: #2 centre drill sunk to a Ø3.5 countersink mouth (prerequisite)
+support_tip_mm = [0.0, 0.0, 162.97]  # the 60° point seated in the Ø3.5 countersink: 166 - 1.75 / tan 30° = 162.97
 quill_extension_mm = 30.0   # author's choice: quill 30 mm out of the tailstock barrel
 
 [setups.zero.x]
@@ -181,7 +182,7 @@ gauge = "micrometers/0-1in"
 z_face = "shoulder_thrust"
 edge_mm = 0.0
 paper_mm = 0.05            # author's choice: cigarette paper keeps the blade corner off the finished thrust face
-method = "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z; Axis Set Z +0.05"  # author's choice
+method = "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
 after_op = 30
 before_ops = [50]
 
@@ -328,7 +329,7 @@ gauge = "micrometers/0-1in"
 z_face = "shoulder_north_face"
 edge_mm = -7.5
 paper_mm = 0.05            # author's choice: cigarette paper keeps the blade corner off the finished shoulder face
-method = "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z; Axis Set Z -7.45"  # author's choice
+method = "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
 after_op = 30
 before_ops = [40]
 
@@ -414,7 +415,8 @@ z_to = -1.5                   # apex 0.0, base -1.5, sphere R 4.11 centred at -4
 doc_mm = 0.2
 feed_mm_rev = 0.04
 direction = "apex_to_base"  # author's choice: hand traverse from T2 Z0 to -1.5
-contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: target spherical surface, not nose-compensated toolpath
+rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
+contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
 note = "Forms the dome and with it the north end of the journal (JournalLength)."
 
 [setups.ops.checks]
@@ -517,7 +519,7 @@ gauge = "micrometers/0-1in"
 z_face = "scribe"
 edge_mm = 0.0
 paper_mm = 0.0             # author's choice: chuck-side corner aligned to the scribe, stationary spindle
-method = "align corner to scribe; withdraw along X without moving Z; Axis Set Z"  # author's choice
+method = "spindle stopped; align the chuck-side corner to the scribe; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
 before_ops = [10]
 
 [[setups.ops]]
@@ -556,7 +558,8 @@ z_to = 0.25                # author's choice: apex 1.75 - sourced dome height 1.
 doc_mm = 0.2
 feed_mm_rev = 0.04
 direction = "apex_to_base"  # author's choice
-contour = { method = "axial_table", step_mm = 0.1 }  # author's choice
+rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
+contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
 
 [setups.ops.checks]
 height = "calipers"         # author's choice: axial outside-jaw contact at apex and base rim
