@@ -76,6 +76,8 @@ import os
 import struct
 import sys
 import tempfile
+import time
+from contextlib import contextmanager
 import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -112,6 +114,22 @@ AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
 WIDTH, HEIGHT = 640, 480
 V = FreeCAD.Vector
 Z = V(0, 0, 1)
+
+
+@contextmanager
+def _timed(records, key):
+    """Nonoperative elapsed/process-CPU facts, only when the caller requests them."""
+    if records is None:
+        yield
+        return
+    wall, cpu = time.perf_counter(), time.process_time()
+    record = {}
+    records[key] = record
+    try:
+        yield record
+    finally:
+        record["wall_ms"] = _r((time.perf_counter() - wall) * 1000)
+        record["cpu_ms"] = _r((time.process_time() - cpu) * 1000)
 
 
 class _Unknown(Exception):
@@ -476,21 +494,40 @@ def _cylinder_hits_box(cx, cy, radius, z0, z1, box, touching=False):
 
 
 class _Culled:
-    """A solid whose vertical-cylinder intersections skip the boolean when no face is near."""
+    """Cull and memoize cylinder intersections against one immutable stock solid.
+
+    Cached shapes are read-only and expire with their stock/own-face region.
+    Cap retained material shapes; cheap empty answers do not retain any B-rep.
+    """
+
+    KEEP = 256
 
     def __init__(self, shape):
         self.shape = shape
         self.boxes = [_tolerant_box(face) for face in shape.Faces]
+        self.answers = {}
+        self.kept = 0
 
     def common(self, cx, cy, radius, z0, z1):
         """The solid's material inside the cylinder, or None when there is none."""
+        key = (cx, cy, radius, z0, z1)
+        if key in self.answers:
+            return self.answers[key]
         if not any(_cylinder_hits_box(cx, cy, radius, z0, z1, box, True) for box in self.boxes):
             # No face reaches the cylinder, so it lies wholly inside or wholly outside.
             if not self.shape.isInside(V(cx, cy, (z0 + z1) / 2), 1e-9, False):
-                return None
-            return Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
-        common = self.shape.common(Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0)))
-        return common if common.Volume > HIT_MM3 else None
+                answer = None
+            else:
+                answer = Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
+        else:
+            common = self.shape.common(Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0)))
+            answer = common if common.Volume > HIT_MM3 else None
+        if answer is None:
+            self.answers[key] = None
+        elif self.kept < _Culled.KEEP:
+            self.answers[key] = answer
+            self.kept += 1
+        return answer
 
 
 def _tolerant_box(face):
@@ -780,14 +817,19 @@ def _raster(p0, p1, p2, pixel, rgb, depth):
 # --------------------------------------------------------------------------- job
 
 
-def run_job(job):
+def run_job(job, timing=False):
     """Result dict for one job; failures become status error/unknown with a reason."""
-    try:
-        return _Job(job).run()
-    except _Unknown as exc:
-        return {"status": UNKNOWN, "reason": str(exc)}
-    except Exception as exc:
-        return {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
+    measured = {} if timing else None
+    with _timed(measured, "job") as clocks:
+        try:
+            result = _Job(job, clocks).run()
+        except _Unknown as exc:
+            result = {"status": UNKNOWN, "reason": str(exc)}
+        except Exception as exc:
+            result = {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
+    if timing:
+        result["timing"] = measured["job"]
+    return result
 
 
 def run(payload):
@@ -795,15 +837,24 @@ def run(payload):
         jobs = payload["jobs"]
         if not isinstance(jobs, list):
             return {"status": "error", "reason": "batch 'jobs' is not a list"}
-        return {"results": [run_job(job) for job in jobs]}
+        timing = payload.get("timing") is True
+        measured = {} if timing else None
+        with _timed(measured, "batch"):
+            result = {"results": [run_job(job, timing) for job in jobs]}
+        if timing:
+            result["timing"] = measured["batch"]
+        return result
     return run_job(payload)
 
 
 class _Job:
-    def __init__(self, job):
+    def __init__(self, job, timing=None):
         if not isinstance(job, dict) or job.get("version") != 1:
             raise ValueError("input is not a version-1 prechips geometry job")
         self.job = job
+        self.timing = timing
+        if timing is not None:
+            timing["setups"] = {}
 
     def run(self):
         job = self.job
@@ -882,7 +933,10 @@ class _Job:
                 box = _bbox(held)
                 self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
             runner = _Setup(self, setup, held, held_reason)
-            facts, ops = runner.run()
+            clocks = self.timing["setups"] if self.timing is not None else None
+            with _timed(clocks, str(setup.get("id"))) as setup_clocks:
+                runner.timing = setup_clocks
+                facts, ops = runner.run()
             sid = str(setup.get("id"))
             result["setups"][sid] = facts
             result["ops"].update(ops)
@@ -1072,10 +1126,14 @@ class _Setup:
         self.directions = {}  # finished face index -> direction verdict cache
         self.revolutions = {}  # finished face index -> turning verdict cache
         self.turn_obstacles = {}  # op subject -> (held stock minus its own turned removal, why)
+        self.timing = None
 
     # ------------------------------------------------------------------ setup facts
 
     def run(self):
+        clocks = self.timing
+        phases = None if clocks is None else clocks.setdefault("phases", {})
+        op_clocks = None if clocks is None else clocks.setdefault("ops", {})
         matrix, frame_reason = _frame_matrix(self.setup.get("frame"))
         facts = {
             "fixture_rendered": False,
@@ -1112,14 +1170,18 @@ class _Setup:
                 "min_wall_mm",
             ):
                 facts["reasons"][key] = frame_reason
-            ops = {self._subject(op): self._op_unknown(op, frame_reason) for op in self.ops}
+            ops = {}
+            for op in self.ops:
+                with _timed(op_clocks, self._subject(op)):
+                    ops[self._subject(op)] = self._op_unknown(op, frame_reason)
             return facts, ops
         if self.stock_reason is None:
             self._use(self._placed(self.held))
             self.box = _bbox(self.part)
             facts["stock_bbox_mm"] = [_r(v) for v in self.box]
             facts["stock_volume_mm3"] = _r(self.part.Volume)
-            self._fixture(facts)
+            with _timed(phases, "fixture"):
+                self._fixture(facts)
         else:
             # Finished material is a subset of any real stock: hits on it stay sound, but
             # nothing measured on it may pass or be drawn as the held part.
@@ -1137,23 +1199,27 @@ class _Setup:
         # Lathe chucks grip radially: their thin-wall fact is the run of material under each
         # jaw. ``chuck`` is set only once the fixture-solid model has placed a chuck.
         if self.stock_reason is None and self.chuck is not None:
-            self._chuck_walls(facts)
+            with _timed(phases, "chuck_walls"):
+                self._chuck_walls(facts)
         # Every op and the render see the stock as it enters the setup; this setup's own
         # removals only shape the stock handed to the next one.
         ops = {}
         for op in self.ops:
-            result = self._op(op)
-            if self.stock_reason is not None:
-                self._unproven(result, self.stock_reason)
-            ops[self._subject(op)] = result
+            with _timed(op_clocks, self._subject(op)):
+                result = self._op(op)
+                if self.stock_reason is not None:
+                    self._unproven(result, self.stock_reason)
+                ops[self._subject(op)] = result
         if self.stock_reason is None:
-            png, scene = self._render()
+            with _timed(phases, "render"):
+                png, scene = self._render()
             facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
             facts["render_scene"] = scene
             facts["fixture_rendered"] = (
                 self.fixture_ready and bool(scene["components"]) and not scene["debts"]
             )
-            self.stock_out, self.stock_out_reason = self._output()
+            with _timed(phases, "stock_output"):
+                self.stock_out, self.stock_out_reason = self._output()
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -2629,7 +2695,9 @@ class _Setup:
             if solid is None:
                 ax, ay, radius, z0, z1 = cylinder
                 solid = Part.makeCylinder(radius, z1 - z0, V(ax, ay, z0))
-            if common.distToShape(face)[0] < 1e-6 and face.common(solid).Area > CONTACT_MM2:
+            # Most AABB candidates miss the face itself. Reject those before measuring
+            # distance to the much more complex stock/tool intersection.
+            if face.common(solid).Area > CONTACT_MM2 and common.distToShape(face)[0] < 1e-6:
                 refs.add(self.owner.labels[index])
         return refs
 
@@ -3010,7 +3078,7 @@ class _Setup:
         for index, face in enumerate(self.faces):
             if index == own or not _boxes_overlap(box, self.face_boxes[index]):
                 continue
-            if common.distToShape(face)[0] < 1e-6 and face.common(solid).Area > CONTACT_MM2:
+            if face.common(solid).Area > CONTACT_MM2 and common.distToShape(face)[0] < 1e-6:
                 refs.add(self.owner.labels[index])
         return refs
 
