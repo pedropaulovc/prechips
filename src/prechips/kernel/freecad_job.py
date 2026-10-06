@@ -95,18 +95,17 @@ import hashlib
 import json
 import math
 import os
-import struct
 import sys
 import tempfile
 import time
 from contextlib import contextmanager
-import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
 from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
+from render_diagram import render_diagram  # noqa: E402
 
 UNKNOWN = "unknown"
 LIFT = 1e-3  # mm: cylinders shrink radially and lift off the sample by this clearance
@@ -138,7 +137,6 @@ TURNING = "turning"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
-WIDTH, HEIGHT = 640, 480
 V = FreeCAD.Vector
 Z = V(0, 0, 1)
 
@@ -940,13 +938,9 @@ def _owner_primitives(specs):
 # --------------------------------------------------------------------------- PNG
 
 
-_TOWARD = V(1, -1, 1).normalize()  # camera at front (-Y), right (+X), above (+Z)
-_RIGHT = V(1, 1, 0).normalize()
-_UP = _RIGHT.cross(-_TOWARD).normalize()
-_LIGHT = V(0.4, -0.6, 1.0).normalize()
 _COLOURS = {
-    "part": (186, 186, 186),
-    "claimed": (92, 142, 212),
+    "part": (164, 177, 189),
+    "removed": (226, 166, 66),
     "fixed_jaw": (112, 92, 72),
     "moving_jaw": (150, 122, 92),
     "fixed_jaw_possible": (214, 204, 194),  # where the undeclared rest of the jaw may lie
@@ -960,96 +954,6 @@ _COLOURS = {
     "fixture": (120, 104, 136),
     "clamp": (164, 132, 64),
 }
-
-
-def _png(width, height, rgb):
-    stride = width * 3
-    raw = b"".join(b"\x00" + bytes(rgb[row * stride : (row + 1) * stride]) for row in range(height))
-
-    def chunk(tag, data):
-        return (
-            struct.pack(">I", len(data))
-            + tag
-            + data
-            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-        )
-
-    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", header)
-        + chunk(b"IDAT", zlib.compress(raw, 9))
-        + chunk(b"IEND", b"")
-    )
-
-
-def _render(meshes):
-    """Orthographic z-buffered flat-shaded PNG of (points, triangles, colour) meshes."""
-    projected = []
-    for points, triangles, colour in meshes:
-        screen = [(p.dot(_RIGHT), p.dot(_UP), p.dot(_TOWARD)) for p in points]
-        projected.append((points, screen, triangles, colour))
-    xs = [s[0] for _, screen, _, _ in projected for s in screen]
-    ys = [s[1] for _, screen, _, _ in projected for s in screen]
-    rgb = bytearray(b"\xff" * (WIDTH * HEIGHT * 3))
-    if not xs:
-        return _png(WIDTH, HEIGHT, rgb)
-    span = max(max(xs) - min(xs), 1e-9), max(max(ys) - min(ys), 1e-9)
-    scale = min(0.92 * WIDTH / span[0], 0.92 * HEIGHT / span[1])
-    cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
-    depth = [-math.inf] * (WIDTH * HEIGHT)
-    for points, screen, triangles, colour in projected:
-        pix = [
-            (WIDTH / 2 + (x - cx) * scale, HEIGHT / 2 - (y - cy) * scale, d) for x, y, d in screen
-        ]
-        for a, b, c in triangles:
-            normal = (points[b] - points[a]).cross(points[c] - points[a])
-            if normal.Length < 1e-15:
-                continue
-            shade = 0.3 + 0.7 * abs(normal.normalize().dot(_LIGHT))
-            pixel = bytes(min(255, int(channel * shade + 0.5)) for channel in colour)
-            _raster(pix[a], pix[b], pix[c], pixel, rgb, depth)
-    return _png(WIDTH, HEIGHT, rgb)
-
-
-def _raster(p0, p1, p2, pixel, rgb, depth):
-    (x0, y0, d0), (x1, y1, d1), (x2, y2, d2) = p0, p1, p2
-    area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
-    if abs(area) < 1e-12:
-        return
-    if area < 0:
-        x1, y1, d1, x2, y2, d2 = x2, y2, d2, x1, y1, d1
-        area = -area
-    # depth plane d = gx*x + gy*y + g0
-    gx = ((d1 - d0) * (y2 - y0) - (d2 - d0) * (y1 - y0)) / area
-    gy = ((d2 - d0) * (x1 - x0) - (d1 - d0) * (x2 - x0)) / area
-    g0 = d0 - gx * x0 - gy * y0
-    edges = ((x0, y0, x1, y1), (x1, y1, x2, y2), (x2, y2, x0, y0))
-    row_lo = max(0, math.ceil(min(y0, y1, y2) - 0.5))
-    row_hi = min(HEIGHT - 1, math.floor(max(y0, y1, y2) - 0.5))
-    left_bound, right_bound = min(x0, x1, x2), max(x0, x1, x2)
-    for row in range(row_lo, row_hi + 1):
-        yc = row + 0.5
-        lo, hi = left_bound, right_bound
-        for ax, ay, bx, by in edges:
-            # inside when (bx-ax)*(yc-ay) - (by-ay)*(x-ax) >= 0
-            slope = -(by - ay)
-            offset = (bx - ax) * (yc - ay) + (by - ay) * ax
-            if slope > 0:
-                lo = max(lo, -offset / slope)
-            elif slope < 0:
-                hi = min(hi, -offset / slope)
-            elif offset < 0:
-                lo, hi = 1.0, 0.0
-        first = max(0, math.ceil(lo - 0.5))
-        last = min(WIDTH - 1, math.floor(hi - 0.5))
-        base = row * WIDTH
-        for column in range(first, last + 1):
-            value = gx * (column + 0.5) + gy * yc + g0
-            slot = base + column
-            if value > depth[slot]:
-                depth[slot] = value
-                rgb[slot * 3 : slot * 3 + 3] = pixel
 
 
 # --------------------------------------------------------------------------- job
@@ -1470,6 +1374,8 @@ class _Setup:
                     self._unproven(result, self.stock_reason)
                 ops[self._subject(op)] = result
         if self.stock_reason is None:
+            with _timed(phases, "stock_output"):
+                self.stock_out, self.stock_out_reason = self._output(ops)
             with _timed(phases, "render"):
                 png, scene = self._render()
             facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
@@ -1477,8 +1383,6 @@ class _Setup:
             facts["fixture_rendered"] = (
                 self.fixture_ready and bool(scene["components"]) and not scene["debts"]
             )
-            with _timed(phases, "stock_output"):
-                self.stock_out, self.stock_out_reason = self._output(ops)
             saws = [
                 {"subject": self._subject(op), **ops[self._subject(op)]}
                 for op in self.ops
@@ -1486,6 +1390,10 @@ class _Setup:
             ]
             if saws:
                 scene["saw_cuts"] = saws
+        for result in ops.values():
+            completion = result.get("cap_completion")
+            if completion is not None and completion["unformed"] == UNKNOWN:
+                completion["reason"] = self.stock_out_reason
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -1509,7 +1417,7 @@ class _Setup:
         self.culled_part = None
         self.regions = {}
 
-    def _output(self, facts):
+    def _output(self, ops):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
 
         A hole op (``hole`` metadata) removes its geometry-located bore cylinder (see
@@ -1523,16 +1431,18 @@ class _Setup:
         cuts the lineage leave off its claimed lateral faces (:meth:`_band`). Every
         profile-claimed face with a horizontal normal component must be clear of overstock
         beyond its op's guard at its interior after the setup's removals; merely sweeping a
-        sliver from a drafted wall does not prove it cleared.
+        sliver from a drafted wall does not prove it cleared. Each complete-form hole op's
+        own claimed caps (``cap_completion`` in its ``ops`` facts) must likewise be clear of
+        the setup's final stock; touched caps are named there and make the output stock debt.
         """
         where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
-        stock, walls = self.part, []
+        stock, walls, forms = self.part, [], []
         try:
             for op in self.ops:
                 subject = self._subject(op)
                 if _sawn(op):
                     stock, detail = self._saw_stock(op, stock)
-                    facts[subject] = detail
+                    ops[subject] = detail
                     why = detail.get("saw_error") or detail.get("saw_reason")
                     if why is not None:
                         return None, f"{subject}: {why}; {where}"
@@ -1553,6 +1463,9 @@ class _Setup:
                     if cut["reason"] is not None:
                         return None, f"{subject} {cut['reason']}; {where}"
                     removal = cut["removal"]
+                    # Judged on the final stock even when this cut removes nothing new.
+                    if "cap_completion" in ops[subject]:
+                        forms.append((subject, ops[subject]["cap_completion"]))
                 else:
                     leave, why = self._guarded(op)
                     if why is not None:
@@ -1605,6 +1518,20 @@ class _Setup:
                         "stock_removal_bounds (cleared XY footprint, retained rail/ear volume "
                         f"of an interrupted profile) for it; {where}"
                     )
+            # The exact wall contact test without a to_z clip or leave: a complete-form
+            # cut is never rough, and stock left below its floor still leaves a cap unformed.
+            residue = stock.cut(self.finished) if forms else None
+            labels, unformed = self.owner.labels, []
+            for subject, completion in forms:
+                touched = self._covered(residue, completion["caps"], None)
+                completion["unformed"] = [i for i in completion["caps"] if labels[i] in touched]
+                if touched:
+                    unformed.append(f"{subject} {', '.join(touched)}")
+            if unformed:
+                return None, (
+                    "stock still touches claimed hole cap(s) after the setup's cuts, so their "
+                    f"final cut does not form them: {'; '.join(unformed)}; {where}"
+                )
             model = stock.copy()
             model.transformShape(self.matrix.inverse())
         except Exception as exc:
@@ -2383,6 +2310,9 @@ class _Setup:
             for index, (x, y) in enumerate(riser["centres_mm"], start=1):
                 box = (x - dx / 2, y - dy / 2, top - up, x + dx / 2, y + dy / 2, top)
                 self._add(f"riser {index} {riser['name']}", "riser", _box_shape(box), box)
+        stop = hold.get("stop")
+        if stop:
+            self._add_owned(stop["solids"], "fixture", _pose_matrix(stop["pose"]), "stop")
         clamps = self._place_clamps(hold)
         self.clamp_parts = [
             (name, V(*clamp["pose"]["z"]) * -1, parts)
@@ -2792,19 +2722,28 @@ class _Setup:
         return merged[0][1] - max(merged[0][0], 0.0)
 
     def _render(self):
-        """PNG of the stock entering the setup (claimed surfaces tinted) and the fixture."""
-        claimed = set()
-        for op in self.ops:
-            valid = self._claims(op)[0]
-            if isinstance(valid, list):
-                claimed.update(valid)
+        """Arriving stock, exact fixture, and this setup's derived removal, in setup axes."""
         size = max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
         tolerance = max(0.01, size / 400)
-        meshes = []
-        for face in self.part.Faces:
-            points, triangles = face.tessellate(tolerance)
-            colour = "claimed" if self._source(face) in claimed else "part"
-            meshes.append((points, triangles, _COLOURS[colour]))
+        meshes, render_debts = [], []
+        output, removal = None, None
+        if self.stock_out is not None:
+            try:
+                output = self._placed(self.stock_out)
+                removal = self.part.cut(output)
+            except Exception:
+                render_debts.append("NOT SHOWN: material removed could not be drawn.")
+                output = None
+        else:
+            render_debts.append("NOT SHOWN: cuts are unresolved; this is the arriving stock only.")
+
+        def mesh(shape, colour, hatch=False):
+            points, triangles = shape.tessellate(tolerance)
+            meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch))
+
+        mesh(output if output is not None else self.part, _COLOURS["part"])
+        if removal is not None and removal.Volume > STOCK_MM3:
+            mesh(removal, _COLOURS["removed"], True)
         debts, solids, possible = [], [], []
         vise = self.hold is not None and self.hold.get("kind") == "vise"
         if not self.fixture_ready:
@@ -2837,8 +2776,7 @@ class _Setup:
                 solids += possible
                 possible = []
         for _, shape, colour in solids + possible:
-            points, triangles = shape.tessellate(tolerance)
-            meshes.append((points, triangles, colour))
+            mesh(shape, colour)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
         scene = {
             "fixture_kind": _fixture_kind(self.setup.get("hold")),
@@ -2858,7 +2796,229 @@ class _Setup:
             ],
             "debts": debts,
         }
-        return _render(meshes), scene
+        annotation = self.setup.get("render", {})
+        lathe = self.setup.get("machine_kind") == "lathe"
+        view = "lathe" if lathe else "plan" if scene["fixture_kind"] == "custom" else "isometric"
+        tool, tool_debt = self._render_tool(annotation, lathe)
+        if tool_debt:
+            render_debts.append(tool_debt)
+        jaw_z = (
+            self.hold["pose"]["origin_mm"][2]
+            if lathe and self.hold and isinstance(self.hold.get("pose"), dict)
+            else max(self.jaws[side][5] for side in ("fixed", "moving"))
+            if self.jaws is not None
+            else None
+        )
+        datums = [{"label": end["label"], "point_mm": [0.0, 0.0, end["z_mm"]]}
+                  for end in annotation.get("ends", [])]
+        for datum in annotation.get("datums", []):
+            indices = self.owner.features.get(datum["feature"])
+            if isinstance(indices, list) and indices:
+                boxes = [self.face_boxes[i] for i in indices]
+                box = [min(b[i] for b in boxes) for i in range(3)] + [
+                    max(b[i] for b in boxes) for i in range(3, 6)
+                ]
+                datums.append({
+                    "label": datum["label"],
+                    "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                })
+        notes = []
+        if not self.ops:
+            notes.append("Holding/fit-up only: no cutting operation in this setup.")
+        if removal is not None and removal.Volume <= STOCK_MM3:
+            notes.append("No material removed in this setup.")
+        if lathe and self.hold and _number(jaw_z):
+            back = jaw_z - self.hold.get("jaw_depth_mm", 0) - self.hold.get("body_length_mm", 0)
+            if self.box[2] < back - STOCK_TOL:
+                notes.append("Bar passes through the spindle bore.")
+        if (
+            view == "plan"
+            and self.hold
+            and self.hold.get("clamps")
+            and not annotation.get("clamp_order_declared")
+        ):
+            render_debts.append("NOT SHOWN: tightening order is not declared; follow the hold instructions.")
+        shows = ["holding", "setup axes and zero"]
+        if tool is not None:
+            shows.append("selected tool approach")
+        if removal is not None:
+            shows.append("material removed this setup (amber hatch)")
+        if annotation.get("paths") or annotation.get("axial_paths"):
+            shows.append("profile sketch keyed to the coordinate rows")
+        legend = [
+            "Blue-grey: material retained after this setup.",
+            "Amber hatch: material removed in this setup.",
+            "Brown/purple: holding. Green: selected tool and approach.",
+            "Dashed machine outlines: context only, not measured solids.",
+        ]
+        if removal is None:
+            legend[0] = "Blue-grey: arriving stock; cuts not confirmed."
+            legend.pop(1)
+        components = self._render_components(annotation)
+        clamp_labels = {
+            component["label"].split(": ", 1)[0]: component["label"]
+            for component in components if component["label"].startswith("C") and ": " in component["label"]
+        }
+        spec = {
+            "setup_id": self.setup.get("id"),
+            "view": view,
+            "stock_box": list(self.box),
+            "components": components,
+            "zero_mm": [0.0, 0.0, 0.0],
+            "jaw_front_z_mm": jaw_z,
+            "stickout_mm": annotation.get("stickout_mm"),
+            "datums": datums,
+            "primary_tool": tool,
+            "paths": annotation.get("paths", []),
+            "axial_paths": annotation.get("axial_paths", []),
+            "waypoints": annotation.get("waypoints", []),
+            "fixed_jaw_label": annotation.get("fixed_jaw_label"),
+            "custom_clamp_order": [
+                clamp_labels[key]
+                for key in sorted(
+                    (key for key in clamp_labels if key[1:].isdigit()),
+                    key=lambda key: int(key[1:]),
+                )
+            ],
+            "preload": annotation.get("preload"),
+            "legend": legend,
+            "notes": notes + render_debts,
+        }
+        if lathe:
+            spec["lathe_profiles"] = self._render_profiles(output, jaw_z)
+        scene.update({
+            "view": view, "width_px": 1600, "height_px": 1000,
+            "shows": shows, "legend": legend, "render_debts": render_debts,
+            "waypoints": spec["waypoints"], "primary_op": tool.get("op") if tool else None,
+        })
+        return render_diagram(meshes, spec), scene
+
+    def _render_components(self, annotation):
+        """Callout assemblies, keeping every exact solid in the actual drawing."""
+        grouped = {}
+        order = annotation.get("clamp_order", [])
+        for component in self.fixture:
+            name, owner, role = component["name"], component["owner"], component["role"]
+            local = name.rsplit(":", 1)[-1]
+            key = owner if role == "clamp" or owner == "stop" else local
+            if role == "clamp":
+                index = next((c["index"] for c in annotation.get("clamps", [])
+                              if c["owner"] == owner), None)
+                label = next((c["label"] for c in annotation.get("clamps", [])
+                              if c["owner"] == owner), owner.replace("_", " "))
+                if index in order:
+                    label = f"C{order.index(index) + 1}: {label}"
+            elif owner == "stop":
+                key, label, role = owner, "STOP", "stop"
+            else:
+                label = local.replace("_", " ").replace("-", " ").upper()
+                if name == "fixed_jaw":
+                    label, role = annotation.get("fixed_jaw_label", "FIXED JAW"), "fixed_jaw"
+                elif name == "moving_jaw":
+                    label, role = "MOVING JAW", "moving_jaw"
+                elif local.startswith("pad"):
+                    role = "pad"
+                elif local.startswith("base"):
+                    label, role = "FIXTURE PLATE", "plate"
+            box = component["bbox"]
+            if key in grouped:
+                previous = grouped[key]["box_mm"]
+                box = [min(previous[i], box[i]) for i in range(3)] + [
+                    max(previous[i], box[i]) for i in range(3, 6)
+                ]
+            grouped[key] = {"name": key, "label": label, "role": role, "box_mm": list(box)}
+        for component in grouped.values():
+            box = component["box_mm"]
+            component["center_mm"] = [(box[i] + box[i + 3]) / 2 for i in range(3)]
+        return list(grouped.values())
+
+    def _render_tool(self, annotation, lathe):
+        """Selected primary cutter's actual silhouette at an illustrative approach pose."""
+        if not self.ops:
+            return None, None
+        op = self.ops[0]
+        label = annotation.get("tools", {}).get(str(op.get("subject", "").rsplit(":", 1)[-1]))
+        op_number = str(op.get("subject", "")).rsplit(":", 1)[-1]
+        label = label or "selected tool"
+        if lathe and _turned(op):
+            tool, missing, holder_missing = self._turn_tool(op)
+            if missing:
+                return None, "STOP: selected turning tool dimensions are unresolved; do not run."
+            if _number(op.get("to_z")):
+                z = op["to_z"]
+            elif _number(op.get("z_from")) and _number(op.get("z_to")):
+                z = (op["z_from"] + op["z_to"]) / 2
+            else:
+                indices = self._indices(op)
+                z = max(self.faces[index].CenterOfMass.z for index in indices) if isinstance(indices, list) and indices else self.box[5]
+            r = max(abs(self.box[0]), abs(self.box[3])) + tool["radius_mm"] + 3
+            section, holders = self._turn_sections(tool, (r, z), not holder_missing)
+            outlines = [[[x, 0.0, station] for x, station in polygon]
+                        for polygon in [section] + (holders or [])]
+            tip = [r, 0.0, z]
+            approach = [[r + 15, 0.0, z], tip]
+        elif _sawn(op) and _positive(op, "kerf_mm") is not None:
+            plane = op.get("cut_plane", {})
+            axis = {"x": 0, "y": 1, "z": 2}.get(plane.get("axis"))
+            if axis is None or not _number(plane.get("value")):
+                return None, "STOP: saw cut plane is unresolved; do not run."
+            transverse = (axis + 1) % 3
+            tip = [(self.box[i] + self.box[i + 3]) / 2 for i in range(3)]
+            tip[axis] = plane["value"]
+            kerf = op["kerf_mm"]
+            outline = []
+            for side, end in ((-1, 0), (1, 0), (1, 3), (-1, 3)):
+                point = list(tip)
+                point[axis] += side * kerf / 2
+                point[transverse] = self.box[transverse + end]
+                outline.append(point)
+            outlines = [outline]
+            start = list(tip)
+            start[transverse] = self.box[transverse + 3] + 15
+            approach = [start, tip]
+            label += " (blade symbol; width = kerf)"
+        else:
+            radius, length = _positive(op, "radius_mm"), _positive(op, "flute_len_mm")
+            if radius is None or length is None:
+                return None, "STOP: selected cutter dimensions are unresolved; do not run."
+            indices = self._indices(op)
+            point = self.faces[indices[0]].CenterOfMass if isinstance(indices, list) and indices else V(0, 0, self.box[5])
+            x, y, z = point.x, point.y, self.box[5] + 5
+            tip = [x, y, z]
+            outlines = [[[x - radius, y, z], [x + radius, y, z],
+                         [x + radius, y, z + length], [x - radius, y, z + length]]]
+            approach = [[x, y, z + length + 12], [x, y, self.box[5]]]
+        return {
+            "label": label, "op": op_number, "tip_mm": tip,
+            "outline_mm": outlines[0], "outlines_mm": outlines, "approach_mm": approach,
+        }, None
+
+    def _render_profiles(self, output, jaw_z):
+        """Clipped real meridian chords for the enlarged exposed-end detail."""
+        lower = jaw_z if _number(jaw_z) else self.box[2]
+        upper = self.box[5]
+        profiles = []
+        for label, shape, colour in (
+            ("arriving stock", self.part, _COLOURS["removed"]),
+            ("after this setup", output, _COLOURS["part"]),
+        ):
+            if shape is None:
+                continue
+            lines = []
+            for r0, z0, r1, z1 in _meridian_segments(shape):
+                if max(z0, z1) < lower or min(z0, z1) > upper:
+                    continue
+                if z1 != z0:
+                    t0, t1 = sorted(((lower - z0) / (z1 - z0), (upper - z0) / (z1 - z0)))
+                    lo, hi = max(0.0, t0), min(1.0, t1)
+                    if hi < lo:
+                        continue
+                    lines.append([[r0 + (r1 - r0) * lo, z0 + (z1 - z0) * lo],
+                                  [r0 + (r1 - r0) * hi, z0 + (z1 - z0) * hi]])
+                else:
+                    lines.append([[r0, z0], [r1, z1]])
+            profiles.append({"label": label, "colour": colour, "lines": lines})
+        return profiles
 
     def _parallels(self):
         """Parallel boxes from declared dimensions and centres, or the debt that prevents them."""
@@ -2969,6 +3129,13 @@ class _Setup:
             reasons["claimed_indices"] = self._undefined(undefined)
         else:
             facts["claimed_indices"] = sorted(valid)
+            hole_meta = op.get("hole")
+            if isinstance(hole_meta, dict) and hole_meta.get("complete_form") is True:
+                caps = sorted(self._own_caps(valid))
+                if caps:
+                    # Its claimed caps must be formed by the setup's final stock: run()
+                    # fills ``unformed`` from :meth:`_output`, or why it stays unknown.
+                    facts["cap_completion"] = {"caps": caps, "unformed": UNKNOWN}
         # Faces whose normals are only partly evaluable are still sampled: a hit on them
         # is a definite hit (``min_hits``), but no measured fact may pass on them while
         # the claim verdict itself stays unknown.

@@ -2175,3 +2175,8 @@ _METADATA = {"cite", "source", "paths", "features", "step_sha256", "inspection_m
 def render_traveler(bundle, findings, report, approval=None) -> str:
     """Render fresh declared/computed instructions; approval never supplies numbers."""
     return _Traveler(bundle, findings, report, approval).render()
+
+
+def tool_label(bundle, reference) -> str:
+    """The traveler's short shop name for a tool reference (e.g. '1.60 mm parting blade')."""
+    return _Traveler(bundle, [], {}, None).tool_name(reference)

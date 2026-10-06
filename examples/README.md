@@ -30,6 +30,8 @@ unchanged: anything still `unknown` keeps its finding unknown.
 | `cone-pivot-post/features.toml` | `features.mount_west.station_nominal` | `-12.98` → `12.98` | sign bug, [HA #1214](https://github.com/pedropaulovc/harmonic-analyzer/issues/1214) |
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
+| `rocker-arm/features.toml` | `material.thickness` | `"unknown"` → `2.5` | drawing manufacturing note 2 states `STRAP 2.50 THICK`; this is the nominal strap, not the integral hub length or supplied blank thickness |
+| `rocker-arm/plan.toml` | `drawing.revision` | `"unknown"` → `"v40"` | bind the authored illustrative plan to the source manifest's `drawing.revision`; this does not release or approve the plan |
 | `pivot-bracket/features.toml` | all feature bands, general tolerances and precision | no dimensioned drawing → hand-authored plausible example limits | v39 STEP defines nominal geometry only; every feature cites `example (plausible, no dimensioned drawing)` |
 | `pivot-shaft/features.toml` | `features.north_relief.corner_radius_max_design`, `features.south_relief.corner_radius_max_design` | absent → `0.25` | design intent `pivot_shaft_spec.py:55-73` (`CORNER_RADIUS_MAX`, the title block's R0.25 MAX corner left by the grooving tool); the export omits the groove sizing limit |
 
@@ -119,10 +121,69 @@ PLAN §8 M3.
 | Part | What it demonstrates | Current exit |
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
-| `rocker-arm` | Three-setup route, integral hub, retained rails/ears and supported final profiling, consuming the exported datum and tip-land features. | **2**: original missing tools and supported profile fixture remain stops. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: inventory and authored setup data are complete; floor/pointed-tool poses, own-bore corner classification and downstream planned-bore stock await the accessibility engine integration. |
+| `rocker-arm` | Four setups: retained rail frame with a modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (legacy proof)**: `940cb9d` artifacts are stale. Legal cutter-centre/occluder handling and physical-stop rendering await current-source exit-0/all-scene proof. |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: physical inventory and authored setup data are complete; all three native fixture scenes are modeled without debts. Legal planar cutter poses, the finish-floor cut plane and preceding-operation stock clearance remain engine-owned accessibility stops. |
 | `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
+
+### Rocker-arm supported route
+
+The illustrative rocker plan binds the exported `v40` drawing revision and
+uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
+a clean checker exit is released-plan approval or a measured first article.
+
+The checked-in rocker artifacts are a **stale legacy baseline** from
+`940cb9d`, not verification of the current engine or the revised physical
+holding below. The native distance and setup-entry removal-mask fixes are now
+integrated; StockRoutes' legal cutter-centre/occluder correction and
+SetupRender's physical-stop rendering are still being completed. Fresh
+exit-0/all-scene output, not the historical baseline, is the acceptance proof.
+
+The four holding states are explicit, rather than pretending a clamp can move
+halfway through a fixed setup:
+
+- **S1/S2 — retained rail frame in the vise.** A **340 × 65 × 16 mm** example
+  blank puts the full-thickness rails and end ears outside the entire 9.525 mm
+  roughing-cutter sweep, not just its centreline. Opposed roughing retains a
+  0.40 mm connecting web. The 1/2 in parallels sit entirely beneath the rails
+  on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance
+  to each closed jaw and 6.8453 mm nominal vertical jaw engagement. A modeled
+  magnetic end stop touches the left blank end for positioning only; it carries
+  no cutting load and does not modify Pedro's vise. S2 adds adjustable passive
+  jacks under the S1-finished strap, set to just contact without lifting the
+  rails. The rod hole is spotted, drilled 1.90 mm and reamed 2.00 mm before the
+  outside pockets leave only the web.
+- **S3 — supported upper hub and ream.** Stepped padded straps press over the
+  fixture pads; their studs are outside the whole blank and their bridges
+  clear the retained rails. Indicate the empty plate bore first, lower the blank
+  straight down onto the permanent rod-hole diamond pin and pads, confirm the
+  pilot is within 0.20 mm radial of the plate axis, and then indicate the pilot
+  as working A. Stop for a rod-hole/pilot-spacing mismatch; do not force it over
+  the pin. The 8 mm stand relief gives the 6.512 mm reamer clearance. Match
+  rail-rest shims after seating the finished strap on the pads; no fixed spacer
+  is allowed to lift it. No profile cut crosses these straps.
+- **S4 — pinned, shoulder-screw profile fixture.** Remove the S3 straps while
+  leaving the part seated on the permanent diamond pin and support pads; fit the shoulder screw and bored washer
+  through the reamed pivot bore. The pin is the positive tangential clocking
+  stop. Preload counterclockwise viewed from above (looking down setup -Z)
+  before tightening, then indicate the screw head ground coaxial with its shoulder.
+  The screw prevents lift and the twelve pads carry Z, not cutting torque.
+  Separate toe clamps retain the scrap rails on matched shimmed rests, so
+  neither the part nor the scrap becomes loose when the final web releases.
+
+Final inspection checks both hub patches against the reamed datum, and rod
+position against A|B|C with face B seated and the finished rod-side land C
+squared. Fixture dimensions and primitive solids in the rocker additions
+block carry `example (plausible, not measured)` labels; these are authored
+example clearances, not approved CAM toolpaths or actual shop measurements.
+The letter-D pilot leaves about 0.264 mm diametral reaming stock. Custom metric
+GO/NO-GO plugs verify the 6.500..6.530 bore. The rod's process GO 2.000 /
+NO-GO 2.010 plugs control a reamed hole, not an unrealistically close twist
+drill; the 1.9875 mm stop has 0.0125..0.0225 mm diametral clearance.
+A 1 µm test indicator records pivot pilot-to-ream centre shift against the
+0.020 mm radial process limit, and final rod position uses a 1 µm digital
+height gauge. The pin takes tangential finish loads but no clamp or lift load.
+
 
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats
 required unknown/unsupported/warn; only clean required subjects permit exit 0.
@@ -861,6 +922,10 @@ example design intent rather than imported drawing acceptance limits.
 S1 faces the seat and profiles only the foot-depth region, with explicit bounded
 clearance retaining the upper-ear stock for S2/S3. S2 stands the foot on one
 41.275 mm tall narrow parallel pair (not wide blocks under closed jaws).
+Both vise holds use no longitudinal end stop: each blank is clamped, then
+edge-found against the raw faces for its own DRO zero. No unmodeled stop is
+claimed. The S2 foot's 3.6703 mm jaw engagement leaves its top 2.3297 mm above
+the jaws; tool exits remain between the narrow parallels.
 The open relief clears the raw free-run overhang, not merely the finished-face
 footprint. Separate outside-in left/right side-slot rasters retain the rectangular
 crown stock; the 31.75 mm long-flute cutter reaches the 26.2 mm inner wall with

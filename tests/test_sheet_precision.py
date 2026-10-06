@@ -108,7 +108,8 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     )
     page = next(page for page in sections(html, "CONTOURS") if "south dome" in page)
     table = page[page.index("<table", page.index("south dome")) :]
-    stations = [float(z) for z in re.findall(r"<tr><td>[^<]*</td><td>([^<]*)</td></tr>", table)]
+    rows = re.findall(r"<tr>((?:<td>[^<]*</td>)+)</tr>", table)
+    stations = [float(re.findall(r"<td>([^<]*)</td>", row)[-1]) for row in rows]
     expected = [round(r["z_mm"], 2) for r in dome["rows"]]
     assert stations[: len(expected)] == expected
     assert len(set(expected)) == len(expected)
@@ -139,15 +140,11 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
     _, report, html = traveler(plan, tmp_path / "out")
-    rows = [
-        text(cells)
-        for page in sections(html, "OPERATIONS")
-        for number, cells in op_rows(page)
-        if "pivot bearing" in cells and "|inspect|" in text(cells)
-    ]
-    # The unresolved length check is printed, marked unknown, and invents no number.
-    assert any("? length" in row for row in rows)
-    assert all("156.67" not in row for row in rows)
+    row = next(
+        cells for number, cells in op_rows(sections(html, "OPERATIONS")[-1]) if number == "30"
+    )
+    assert "calipers" in text(row)
+    assert "156.67" not in text(row)
     finding = next(
         row for row in findings(report, "inspection") if row["subject"] == "pivot_bearing:length"
     )
