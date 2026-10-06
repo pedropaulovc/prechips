@@ -677,26 +677,51 @@ class _Job:
         setups = job.get("setups", [])
         if not isinstance(setups, list):
             raise ValueError("job setups is not a list")
-        stock, reason = self._supply()
+        supplies = self._supplies()
+        stock, reason = self._joined(list(supplies), supplies)
         result["stock"] = (
             {"bbox_mm": [_r(v) for v in _bbox(stock)], "volume_mm3": _r(stock.Volume)}
             if reason is None
             else {"reason": reason}
         )
-        previous = None
+        outputs = dict(supplies)
         for setup in setups:
-            held, held_reason = self._held(setup, stock, reason, previous)
+            held, held_reason = self._held(setup, outputs)
+            if held_reason is None:
+                box = _bbox(held)
+                self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
             runner = _Setup(self, setup, held, held_reason)
             facts, ops = runner.run()
-            result["setups"][str(setup.get("id"))] = facts
+            sid = str(setup.get("id"))
+            result["setups"][sid] = facts
             result["ops"].update(ops)
-            stock, reason = runner.stock_out, runner.stock_out_reason
-            previous = str(setup.get("id"))
+            outputs[sid] = runner.stock_out, runner.stock_out_reason
         return result
 
-    def _supply(self):
-        """The authored supplied stock in model mm, or why it cannot be derived."""
+    def _supplies(self):
+        """Each separately authored supply is independent of other branches' geometry debt."""
         stock = self.job.get("stock")
+        components = stock.get("components") if isinstance(stock, dict) else None
+        if isinstance(components, dict) and components:
+            supplies = {}
+            for name, component in components.items():
+                solid, reason = self._supply(component, complete=False)
+                supplies["stock." + name] = (
+                    solid,
+                    f"stock.{name}: {reason}" if reason is not None else None,
+                )
+            refs = self.job.get("as_is_faces")
+            if isinstance(refs, list) and refs:
+                joined, reason = self._joined(list(supplies), supplies)
+                if reason is None:
+                    _, reason = self._as_is(joined)
+                if reason is not None:
+                    return {name: (None, reason) for name in supplies}
+            return supplies
+        return {"stock": self._supply(stock)}
+
+    def _supply(self, stock, complete=True):
+        """A model-frame supply; a component need not contain the entire finished assembly."""
         if not isinstance(stock, dict):
             return None, "plan stock envelope is unknown; in-process stock cannot be derived"
         if stock.get("reason"):
@@ -710,14 +735,17 @@ class _Job:
                 solid = _envelope(stock)
             except ValueError as exc:
                 return None, f"{exc}; in-process stock cannot be derived"
-            outside = self.solid.cut(solid).Volume
-            if outside > STOCK_MM3:
-                return None, (
-                    f"the finished part extends {_r(outside)} mm^3 outside the authored stock "
-                    "envelope; in-process stock cannot be derived"
-                )
-        box = _bbox(solid)
-        self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
+            if complete:
+                outside = self.solid.cut(solid).Volume
+                if outside > STOCK_MM3:
+                    return None, (
+                        f"the finished part extends {_r(outside)} mm^3 outside the authored stock "
+                        "envelope; in-process stock cannot be derived"
+                    )
+        return self._as_is(solid) if complete else (solid, None)
+
+    def _as_is(self, solid):
+        """As-stock surfaces belong to the full supply envelope, including joined components."""
         refs = self.job.get("as_is_faces")
         if isinstance(refs, list):
             unmapped = sorted(
@@ -728,7 +756,7 @@ class _Job:
                     "as-is face reference(s) unmapped, so their supplied-stock surfaces cannot "
                     "be checked: " + ", ".join(unmapped)
                 )
-            shell = solid.Shells[0]
+            shell = Part.makeCompound(solid.Shells)
             off = []
             for ref in refs:
                 samples, _ = _face_samples(self.solid.Faces[self.mapping[ref]], 1.0)
@@ -744,21 +772,27 @@ class _Job:
         return solid, None
 
     @staticmethod
-    def _held(setup, stock, reason, previous):
-        """Stock a setup receives: the supply first, then the previous setup's output only."""
+    def _joined(refs, sources):
+        """Union supplies/earlier outputs in model coordinates, never in their setup frames."""
+        solids = []
+        for ref in refs:
+            if not isinstance(ref, str) or ref not in sources:
+                return None, f"stock_in reference {ref!r} is not a supply or earlier setup output"
+            solid, reason = sources[ref]
+            if reason is not None:
+                return None, reason
+            solids.append(solid)
+        if not solids:
+            return None, "stock_in requires at least one supply or earlier setup output"
+        if len(solids) == 1:
+            return solids[0], None
+        return solids[0].multiFuse(solids[1:]).removeSplitter(), None
+
+    def _held(self, setup, sources):
+        """Stock received from an explicit single reference or an assembly of references."""
         stock_in = setup.get("stock_in", UNKNOWN) if isinstance(setup, dict) else UNKNOWN
-        if previous is None and stock_in != "stock":
-            why = f"stock_in {stock_in!r} of the first setup is not the supplied 'stock'"
-        elif previous is not None and stock_in == "stock":
-            why = f"stock_in 'stock' restarts from the supplied stock after setup {previous}"
-        elif previous is not None and stock_in != previous:
-            why = (
-                f"stock_in {stock_in!r} is not the previous setup {previous!r}; "
-                "only a linear route is derived"
-            )
-        else:
-            return stock, reason
-        return None, why + "; in-process stock cannot be derived"
+        refs = stock_in if isinstance(stock_in, list) else [stock_in]
+        return self._joined(refs, sources)
 
     def _declared(self):
         features = self.job.get("features", {})
@@ -964,12 +998,16 @@ class _Setup:
                 if removal is None:
                     continue
                 pieces = [p for p in stock.cut(removal).Solids if p.Volume > STOCK_MM3]
-                if len(pieces) != 1 or not pieces[0].isValid():
+                if (
+                    not pieces
+                    or len(pieces) > len(stock.Solids)
+                    or not all(piece.isValid() for piece in pieces)
+                ):
                     return None, (
                         f"{subject}: removing its claimed clearance leaves {len(pieces)} valid "
                         f"stock piece(s); {where}"
                     )
-                stock = pieces[0]
+                stock = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
             overstock = stock.cut(self.finished)
             for subject, claimed, to_z in walls:
                 covered = self._covered(overstock, claimed, to_z)

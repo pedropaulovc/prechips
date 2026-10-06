@@ -285,10 +285,19 @@ undeclared jaw centre draws only the certain jaw material plus a pale
 possible-jaw envelope and keeps samples inside it `?`. The render is a
 deterministic rasterization of the kernel tessellation, hashed into
 `report.json` with its scene record so an approval binds to it.
-Each setup is checked and drawn on its authored stock envelope after earlier
-setups' claimed removals, not silently on the finished solid. Non-derivable
-stock is named `?` and produces no misleading setup image. Cutter exclusion is
-only a thin shell of the sampled face; another claimed groove wall remains an
+Each setup is checked and drawn on the input explicitly selected by `stock_in`:
+`"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
+setup id, not only the previous one. A nonempty reference array joins solids by
+Boolean union in model coordinates. All supplies and outputs remain model-frame;
+assembly adds no implicit transform. Components require unique ASCII
+letter/digit/hyphen/underscore ids and their own `origin_mm`, `axis` and
+`section_axis` pose facts, with the same semantics as root stock. Each contains
+only its own piece, not the whole finished STEP; missing component geometry
+remains individual debt. Setup outputs subtract their own derivable removals.
+Unknown or forward authored references, including `"unknown"`, are bad input
+(exit 3); omitted `stock_in` remains debt, never auto-linear. Non-derivable stock is named
+`?` and produces no misleading setup image.
+Cutter exclusion is only a thin shell of the sampled face; another claimed groove wall remains an
 obstacle. Missing surface normals never become clearance or reach passes.
 Kernel-absent runs remove stale setup PNGs in the same output transaction.
 Nothing here is a toolpath or a certification of the physical setup. See

@@ -81,8 +81,12 @@ def evaluate(bundle):
                 if earlier and earlier[-1][0]["id"] != sid:
                     transfer = record(record(setup.get("zero")).get("transfer"))
                     source = setup.get("stock_in")
+                    sources = source if isinstance(source, list) else [source]
                     earlier_ids = {s["id"] for s, _ in before}
-                    if source not in earlier_ids and transfer.get("from") not in earlier_ids:
+                    if (
+                        not any(ref in earlier_ids for ref in sources)
+                        and transfer.get("from") not in earlier_ids
+                    ):
                         errors.append(f"op {op['op']} has no incoming route from the drilled setup")
         nums = {
             "sequence": [f"{o['op']} {o['do']} {o.get('feature', '')}" for o in own],

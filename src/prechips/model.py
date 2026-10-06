@@ -86,15 +86,27 @@ Dro = record(
         "direction": Direction,
     },
 )
-StockComponent = record(
-    "StockComponent",
-    {
-        **texts("form note"),
-        **numbers("dia_mm length_mm"),
-        "section_mm": Vector,
-        "cite": Citations,
-    },
-)
+
+
+class StockComponent(InputModel):
+    id: Annotated[str, Field(min_length=1, pattern=r"^[A-Za-z0-9_-]+$")]
+    form: str | Unknown = UNKNOWN
+    note: str | Unknown = UNKNOWN
+    dia_mm: Number = UNKNOWN
+    length_mm: Number = UNKNOWN
+    section_mm: Vector = UNKNOWN
+    origin_mm: Vector = UNKNOWN
+    axis: Vector = UNKNOWN
+    section_axis: Vector = UNKNOWN
+    cite: Citations = UNKNOWN
+
+    @model_validator(mode="after")
+    def known_id(self) -> StockComponent:
+        if self.id == UNKNOWN:
+            raise ValueError("Stock component id must be a known identifier.")
+        return self
+
+
 Stock = record(
     "Stock",
     {
@@ -221,7 +233,8 @@ Operation = record(
 Setup = record(
     "Setup",
     {
-        **texts("id machine frame coolant stock_in note"),
+        **texts("id machine frame coolant note"),
+        "stock_in": str | Annotated[list[str], Field(min_length=1)],
         "deburr_mm": Number,
         "deburr_cite": Citations,
         "stock_state": StockState,
@@ -254,6 +267,48 @@ class Plan(InputModel):
             not name.strip() or name == UNKNOWN for name in self.frames
         ):
             raise ValueError("Plan frame names must be known, non-empty names.")
+        return self
+
+    @model_validator(mode="after")
+    def stock_routes(self) -> Plan:
+        components = self.stock.components if isinstance(self.stock, Stock) else UNKNOWN
+        component_ids = []
+        if isinstance(components, list):
+            component_ids = [component.id for component in components]
+            if len(set(component_ids)) != len(component_ids):
+                raise ValueError("Stock component ids must be unique.")
+        setup_ids = [setup.id for setup in self.setups]
+        known_ids = [sid for sid in setup_ids if sid != UNKNOWN]
+        if len(set(known_ids)) != len(known_ids):
+            raise ValueError("Setup ids must be unique.")
+        if any(not sid.strip() or sid == "stock" or sid.startswith("stock.") for sid in known_ids):
+            raise ValueError(
+                "Setup ids must be non-empty and cannot use the reserved stock namespace."
+            )
+        earlier = set()
+        for setup in self.setups:
+            # Omitted routing remains input debt, never an inferred linear route.
+            if "stock_in" in setup.model_fields_set:
+                refs = setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in]
+                for ref in refs:
+                    where = f"Setup {setup.id} stock_in reference {ref!r}"
+                    if ref == "stock":
+                        if isinstance(components, list) and components:
+                            raise ValueError(
+                                f"{where} requires a single stock supply; use stock.<component id>."
+                            )
+                    elif ref.startswith("stock."):
+                        if ref.removeprefix("stock.") not in component_ids:
+                            raise ValueError(f"{where} names an unknown stock component.")
+                    elif ref not in earlier:
+                        reason = (
+                            "is not an earlier setup"
+                            if ref in known_ids
+                            else "is an unknown stock reference"
+                        )
+                        raise ValueError(f"{where} {reason}.")
+            if setup.id != UNKNOWN:
+                earlier.add(setup.id)
         return self
 
 

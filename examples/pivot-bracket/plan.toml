@@ -48,7 +48,7 @@ machine = "PM-30MV"
 frame = "A"                      # seat up; frame x/y/z = machine +X/+Y/+Z
 coolant = "cutting-oil"           # author's choice: brush listed cutting oil on cuts
 deburr_mm = "unknown"            # no drawing adopts the title-block edge break
-stock_in = "blank"
+stock_in = "stock"
 
 [setups.stock_state]             # frame A, surfaces as S1 receives them
 top_z = 1.0                      # author's choice: raw seat at model Y = -1

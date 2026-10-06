@@ -113,7 +113,7 @@ machine = "PM-1127VF-LB"
 frame = "T1"                 # plan.frames.T1 (author's choice; exported `setup` stays unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice; listed consumable, not a cutting-data claim
 deburr_mm = 0.25             # title block: break edges R0.25 OR CHAMFER 0.25 MAX (title_block.yaml:45)
-stock_in = "prepared_blank"
+stock_in = "stock"
 
 [setups.stock_state]
 od_mm = 10.0                 # bar as bought, nominal; not measured

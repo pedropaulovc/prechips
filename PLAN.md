@@ -1069,9 +1069,18 @@ sheet.
    kernel yields one console `?` line and unknown geometry, not fabricated
    passes; named mapping and directional-claim errors remain errors.
 
-   Geometry checks and rasterized pictures use **setup-entry stock**:
-   a numerically placed box/round supply minus only earlier setups'
-   derivable removals. Current-setup cuts shape output stock, while the flute
+   Geometry checks and rasterized pictures use **setup-entry stock** selected
+   explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
+   built-up component, any earlier setup id (not just the previous setup), or a
+   nonempty array joined by Boolean union. Supplies and setup outputs stay in
+   model coordinates; joining applies no implicit assembly transform. Components
+   require unique ASCII letter/digit/hyphen/underscore ids and accept `origin_mm`,
+   `axis` and `section_axis` with root-stock pose semantics. Each contains only
+   its own piece, not the full finished STEP. Missing component geometry remains
+   individual debt. Unknown or forward authored references are bad input
+   (exit 3), including `"unknown"`; omitted `stock_in` is debt, never auto-linear.
+   Each output subtracts its setup's derivable removals from its selected input.
+   Current-setup cuts shape output stock, while the flute
    alone excludes its own op's derivable allowance; holder, reach, holding and
    image facts still use setup-entry stock. `stock_removal_bounds` is restricted
    to the claimed faces' union XY bbox plus a known cutter radius,

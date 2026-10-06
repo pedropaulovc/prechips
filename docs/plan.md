@@ -168,8 +168,10 @@ provenance.
 | `cite` | `Citations` |
 
 For a built-up stock candidate, `components` lists the separately authored
-blanks. Each `StockComponent` accepts `form`, `dia_mm`, `length_mm`,
-`section_mm`, `note`, and `cite` with the same types as the stock fields above.
+blanks. Each `StockComponent` requires a unique `id` containing only ASCII
+letters, digits, hyphens or underscores (`[A-Za-z0-9_-]+`). It accepts `form`,
+`dia_mm`, `length_mm`, `section_mm`, `origin_mm`, `axis`, `section_axis`, `note`,
+and `cite` with the same types and model-frame pose semantics as root stock.
 A round blank uses diameter and length; a rectangular blank uses two section
 dimensions and length. These are authored purchase/process choices, not
 confirmed on-hand inventory. Missing dimensions or citations keep comparison
@@ -183,9 +185,11 @@ For a rectangular blank `section_axis` is the perpendicular unit direction
 of `section_mm[0]`; `axis × section_axis` carries `section_mm[1]`. The box is
 the product of those three positive intervals; a round blank is the declared
 diameter cylinder along `axis`. Dimensions/placement describe authored material,
-not measured stock on hand. Missing placement or dimensions, unsupported
-built-up stock, and incompatible as-is surfaces keep stock-dependent geometry
-`?` with a reason. `as_is_faces` never creates a stock solid by itself.
+not measured stock on hand. Each built-up component must contain only its own
+piece, not the full finished STEP. Missing component dimensions or placement
+remain individual stock debt; a known component does not resolve another one.
+Incompatible as-is surfaces also keep stock-dependent geometry `?` with a reason.
+`as_is_faces` never creates a stock solid by itself.
 
 `as_is_faces` lists STEP face references (same forms as a feature's `faces`)
 that stay as supplied stock; the M4 `coverage` rule unites them with the faces
@@ -233,7 +237,7 @@ setups. Unknown controller/install facts remain unresolved independently.
 | `machine` | `str` |
 | `frame` | `str` |
 | `coolant` | `str` |
-| `stock_in` | `str` |
+| `stock_in` | `str \| list[str]` |
 | `note` | `str` |
 | `deburr_mm` | `Number` |
 | `deburr_cite` | `Citations` |
@@ -241,6 +245,14 @@ setups. Unknown controller/install facts remain unresolved independently.
 | `hold` | `Hold` |
 | `zero` | `Zero` |
 | `ops` | `list[Operation]` |
+
+`stock_in` names `"stock"` for a single supply, `"stock.<id>"` for a built-up
+component, or any earlier setup's `id` (not necessarily the immediately previous
+setup). A nonempty array of these references joins their solids by Boolean union
+in model coordinates. Unknown or forward authored references are bad input
+(exit 3), including authored `"unknown"` as a source. Omitted `stock_in`
+remains stock debt; it does not infer a linear route. Every supply and setup output stays in the model frame:
+joining references never applies an implicit assembly transform.
 
 ## StockState
 

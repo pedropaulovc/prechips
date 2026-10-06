@@ -223,7 +223,6 @@ def test_host_only_edits_reuse_the_cache_and_consumed_edits_rerun(tmp_path, monk
         ({"form": "finished_test_solid", "as_is_faces": ["#2"]}, "neither section_mm nor dia_mm"),
         ({**BOX, "dia_mm": 20.0}, "both section_mm and dia_mm"),
         ({k: v for k, v in BOX.items() if k != "origin_mm"}, "origin_mm"),
-        ({**BOX, "components": [{"section_mm": [1, 1]}]}, "built-up stock components"),
     ],
 )
 def test_unauthored_stock_envelope_is_a_named_reason(tmp_path, stock, reason):
@@ -496,7 +495,6 @@ def _variants(engine, step):
     )
     yield {**BOX, "section_mm": [40.0, 25.0]}, top, {}, "as-is face(s) do not lie"
     yield {**BOX, "origin_mm": [0.0, 0.0, 1.0]}, (), {}, "outside the authored stock envelope"
-    yield BOX, (), {"stock_in": "S0"}, "stock_in 'S0' of the first setup"
 
 
 def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids):
@@ -637,3 +635,125 @@ def test_another_ops_removal_and_a_retained_web_do_not_clear_the_current_flute(e
     )
     assert result["ops"]["S1:10"]["tool_hits"] > 0
     assert result["ops"]["S1:20"]["tool_hits"] == 0
+
+
+def test_nonprevious_output_keeps_its_removal_despite_an_unresolved_other_branch(engine, solids):
+    step = solids["step"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
+    setups = [
+        _setup("S1", [_floor_op("S1:10")]),
+        {**_setup("S2", [_floor_op("S2:10")]), "stock_in": "stock"},
+        {**_setup("S3", []), "stock_in": "S1"},
+    ]
+    setups[1]["ops"][0]["feature"] = "unmapped"
+    result = engine.run(engine.job(step, {"floor": floor}, setups))
+    assert "stock_reason" not in result["setups"]["S3"]
+    assert result["setups"]["S3"]["stock_volume_mm3"] == pytest.approx(36000.0)
+    # S2 restarts from supplied material, not from S1's already machined output.
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(48000.0)
+
+
+def test_component_supplies_and_assembly_union_use_model_frame_without_double_counting(engine, solids):
+    stock = {
+        "components": {
+            "body": {**BOX, "length_mm": 40.0},
+            "boss": {**BOX, "origin_mm": [30.0, 0.0, 0.0], "length_mm": 30.0},
+        }
+    }
+    first = {
+        **_setup("S0", []),
+        "stock_in": "stock.body",
+        "frame": {**IDENTITY, "origin": [10.0, 0.0, 0.0]},
+    }
+    second = {
+        **_setup("S1", []),
+        "stock_in": "stock.boss",
+        "frame": {
+            "origin": [30.0, 0.0, 0.0],
+            "x": [0.0, 1.0, 0.0],
+            "y": [-1.0, 0.0, 0.0],
+            "z": [0.0, 0.0, 1.0],
+        },
+    }
+    result = engine.run(
+        engine.job(
+            solids["block"],
+            setups=[first, second, {**_setup("S2", []), "stock_in": ["S0", "S1"]}],
+            stock=stock,
+        )
+    )
+    rows = result["setups"]
+    assert rows["S0"]["stock_bbox_mm"] == [-10.0, 0.0, 0.0, 30.0, 40.0, 20.0]
+    assert rows["S0"]["stock_volume_mm3"] == pytest.approx(32000.0)
+    assert rows["S1"]["stock_bbox_mm"] == [0.0, -30.0, 0.0, 40.0, 0.0, 20.0]
+    assert rows["S1"]["stock_volume_mm3"] == pytest.approx(24000.0)
+    joined = rows["S2"]
+    assert joined["stock_bbox_mm"] == [0.0, 0.0, 0.0, 60.0, 40.0, 20.0]
+    assert joined["stock_volume_mm3"] == pytest.approx(48000.0)
+    assert joined["render_png_base64"] and "stock_reason" not in joined
+
+
+def test_missing_component_geometry_only_blocks_routes_that_receive_it(engine, solids):
+    stock = {
+        "components": {
+            "body": {**BOX, "length_mm": 30.0},
+            "boss": {"reason": "round stock placement/dimensions undeclared: origin_mm"},
+        }
+    }
+    setups = [
+        {**_setup("S0", []), "stock_in": "stock.body"},
+        {**_setup("S1", []), "stock_in": "stock.boss"},
+        {**_setup("S2", []), "stock_in": "S0"},
+        {**_setup("S3", []), "stock_in": ["S2", "S1"]},
+    ]
+    result = engine.run(engine.job(solids["block"], setups=setups, stock=stock))
+    rows = result["setups"]
+    assert rows["S2"]["stock_volume_mm3"] == pytest.approx(24000.0)
+    assert rows["S2"]["render_png_base64"] and "stock_reason" not in rows["S2"]
+    assert "stock.boss" in rows["S1"]["stock_reason"]
+    assert "origin_mm" in rows["S3"]["stock_reason"]
+    assert "render_png_base64" not in rows["S1"]
+    assert "render_png_base64" not in rows["S3"]
+
+
+def test_component_as_is_faces_are_checked_on_the_union_exterior(engine, solids):
+    step = solids["block"]
+    top = engine.refs(step, (0, 0, 20), (60, 40, 20))
+    setup = {**_setup("S0", []), "stock_in": ["stock.body", "stock.boss"]}
+    stock = {
+        "components": {
+            "body": {**BOX, "length_mm": 30.0},
+            "boss": {**BOX, "origin_mm": [30.0, 0.0, 0.0], "length_mm": 30.0},
+        }
+    }
+    valid = engine.run(engine.job(step, setups=[setup], as_is=top, stock=stock))["setups"]["S0"]
+    assert valid["stock_volume_mm3"] == pytest.approx(48000.0)
+    for component in stock["components"].values():
+        component["section_mm"] = [40.0, 25.0]
+    invalid = engine.run(engine.job(step, setups=[setup], as_is=top, stock=stock))["setups"]["S0"]
+    assert "as-is face" in invalid["stock_reason"]
+    assert "render_png_base64" not in invalid
+
+
+def test_disconnected_assembly_keeps_both_pieces_after_derivable_clearing(engine, solids):
+    step = solids["block"]
+    top = engine.refs(step, (0, 0, 20), (60, 40, 20))
+    stock = {
+        "components": {
+            "left": {**BOX, "length_mm": 20.0, "section_mm": [40.0, 25.0]},
+            "right": {
+                **BOX,
+                "origin_mm": [40.0, 0.0, 0.0],
+                "length_mm": 20.0,
+                "section_mm": [40.0, 25.0],
+            },
+        }
+    }
+    setups = [
+        {**_setup("S1", [_floor_op("S1:10")]), "stock_in": ["stock.left", "stock.right"]},
+        {**_setup("S2", []), "stock_in": "S1"},
+    ]
+    rows = engine.run(engine.job(step, {"floor": top}, setups, stock=stock))["setups"]
+    assert rows["S1"]["stock_volume_mm3"] == pytest.approx(40000.0)
+    assert rows["S2"]["stock_volume_mm3"] == pytest.approx(32000.0)
+    assert rows["S2"]["render_png_base64"] and "stock_reason" not in rows["S2"]
