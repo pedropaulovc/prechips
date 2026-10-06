@@ -114,7 +114,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
+            "sha256": "fccc2e77df569c590521faf0c746d0954a87b429994f2496a93668ff8f59fc34"
           },
           "features": {
             "path": "examples/geometry/fixture-holds/features.toml",
@@ -168,6 +168,10 @@
         "arc_table": [],
         "binding": "unknown",
         "contours": [],
+        "dro_grid": {
+          "decimals": 3,
+          "step": 0.001
+        },
         "entry_surfaces": [
           {
             "op": 10
@@ -179,6 +183,7 @@
           {
             "direction": "climb",
             "do": "finish_face",
+            "dro_to_z": 20.0,
             "feature": "top",
             "op": 10,
             "to_z": 20.0,
@@ -204,6 +209,10 @@
         "arc_table": [],
         "binding": "unknown",
         "contours": [],
+        "dro_grid": {
+          "decimals": 3,
+          "step": 0.001
+        },
         "entry_surfaces": [
           {
             "op": 10
@@ -215,6 +224,7 @@
           {
             "direction": "climb",
             "do": "finish_face",
+            "dro_to_z": 20.0,
             "feature": "top",
             "op": 10,
             "to_z": 20.0,
@@ -240,6 +250,10 @@
         "arc_table": [],
         "binding": "unknown",
         "contours": [],
+        "dro_grid": {
+          "decimals": 3,
+          "step": 0.001
+        },
         "entry_surfaces": [
           {
             "op": 10
@@ -251,6 +265,7 @@
           {
             "direction": "climb",
             "do": "finish_face",
+            "dro_to_z": 20.0,
             "feature": "top",
             "op": 10,
             "to_z": 20.0,
@@ -1608,7 +1623,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": 30.0,
         "held_diameter_source": "plan.stock.dia_mm",
@@ -1616,6 +1631,7 @@
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "unknown",
         "supports": [],
         "uncovered_z_mm": [],
@@ -1638,7 +1654,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": 30.0,
         "held_diameter_source": "plan.stock.dia_mm",
@@ -1646,6 +1662,7 @@
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "unknown",
         "supports": [],
         "uncovered_z_mm": [],
@@ -1668,7 +1685,7 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": 30.0,
         "held_diameter_source": "plan.stock.dia_mm",
@@ -1676,6 +1693,7 @@
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
+        "stock_reason": null,
         "support_status": "unknown",
         "supports": [],
         "uncovered_z_mm": [],
@@ -2667,11 +2685,11 @@
       "subject": "S3"
     }
   ],
-  "hash": "76e22fa2719625ea519a9b7913cd4ff41cdd142cc8d29370e5c332a3b39426d1",
+  "hash": "801d4a7970e158ec22e9a2e3b0c167b57cc94fb2ee682ae7e90a3f44b5545bc7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
+      "sha256": "fccc2e77df569c590521faf0c746d0954a87b429994f2496a93668ff8f59fc34"
     },
     "features": {
       "path": "examples/geometry/fixture-holds/features.toml",
@@ -2687,15 +2705,15 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "d73abd0dfa4e41abc79d56d6f6b67521ae4f3d045ca3957f8ce3e9211eb6e5e2"
+      "sha256": "500343a2651dfdb19c6a74225f38cb09502db18c4966b4b4da4d8d2b2a03ffec"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "e5635ffd75c364ca735b8428501e6076aa7a1be8c244c4ad5485bfd565d4d4a3"
+      "sha256": "1b0ad587431de1cdc1cb9b5b6cabc6bae009df10cd8a726bdd433698bc5fda46"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "5174d5c76648360ba99e2e09ebec784f760c6a6bd052718364694a81ac60e0a5"
+      "sha256": "806b336757af892d7645f3a3fcd4e3c31f705c910f515e81110c3657db378819"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -2746,10 +2764,29 @@
         ],
         "debts": [],
         "fixture_kind": "vise",
+        "height_px": 1000,
         "jaws": "exact",
-        "parallels": "exact"
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids.",
+          "Dashed blue: nominal part outline, not proof that it has been cut."
+        ],
+        "parallels": "exact",
+        "primary_op": "10",
+        "render_debts": [],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)"
+        ],
+        "view": "isometric",
+        "waypoints": [],
+        "width_px": 1600
       },
-      "sha256": "d73abd0dfa4e41abc79d56d6f6b67521ae4f3d045ca3957f8ce3e9211eb6e5e2"
+      "sha256": "500343a2651dfdb19c6a74225f38cb09502db18c4966b4b4da4d8d2b2a03ffec"
     },
     "S2": {
       "fixture": "unresolved",
@@ -2781,10 +2818,31 @@
           "clamp 1 test-clamp-kit/stud-strap:stud intersects the setup-entry stock (565.486678 mm^3) at the declared pose"
         ],
         "fixture_kind": "custom",
+        "height_px": 1000,
         "jaws": "not_applicable",
-        "parallels": "absent"
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids.",
+          "Dashed blue: nominal part outline, not proof that it has been cut."
+        ],
+        "parallels": "absent",
+        "primary_op": "10",
+        "render_debts": [
+          "NOT SHOWN: tightening order is not declared; follow the hold instructions."
+        ],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)"
+        ],
+        "view": "plan",
+        "waypoints": [],
+        "width_px": 1600
       },
-      "sha256": "e5635ffd75c364ca735b8428501e6076aa7a1be8c244c4ad5485bfd565d4d4a3"
+      "sha256": "1b0ad587431de1cdc1cb9b5b6cabc6bae009df10cd8a726bdd433698bc5fda46"
     },
     "S3": {
       "fixture": "modeled",
@@ -2814,10 +2872,31 @@
         ],
         "debts": [],
         "fixture_kind": "custom",
+        "height_px": 1000,
         "jaws": "not_applicable",
-        "parallels": "absent"
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach.",
+          "Dashed machine outlines: context only, not measured solids.",
+          "Dashed blue: nominal part outline, not proof that it has been cut."
+        ],
+        "parallels": "absent",
+        "primary_op": "10",
+        "render_debts": [
+          "NOT SHOWN: tightening order is not declared; follow the hold instructions."
+        ],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)"
+        ],
+        "view": "plan",
+        "waypoints": [],
+        "width_px": 1600
       },
-      "sha256": "5174d5c76648360ba99e2e09ebec784f760c6a6bd052718364694a81ac60e0a5"
+      "sha256": "806b336757af892d7645f3a3fcd4e3c31f705c910f515e81110c3657db378819"
     }
   },
   "rules_version": "m5-rev9",
