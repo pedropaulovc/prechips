@@ -1305,11 +1305,17 @@ class _Traveler:
             if _known(support.get("jaw_lead_mm")):
                 lead = self.operative(support["jaw_lead_mm"])
                 # A follow rest's jaws ride the Ø just cut ("turned", the default) or the
-                # uncut stock ahead of the tool ("uncut").
+                # uncut stock ahead of the tool ("uncut"). The lead is a distance along the
+                # work, never printed beside a Ø sign where it would read as a diameter.
                 if support.get("jaw_side", "turned") == "uncut":
-                    line += f", jaws on the uncut stock {lead} mm ahead of the tool"
+                    line += f", jaws {lead} mm ahead of the tool, on the uncut stock"
                 else:
-                    line += f", jaws on the turned Ø {lead} mm behind the tool"
+                    # Each pass turns a new diameter, so trailing jaws are reset every pass.
+                    line += f", jaws {lead} mm behind the tool, on the diameter just turned:"
+                    line += " reset them on every pass"
+                    engage = support.get("engage_at_z_mm")
+                    if _known(engage):
+                        line += f" once the tool passes Z {self.operative(engage)}"
             steps.append(line + ".")
         if stated("support"):
             label = "Tailstock: " if lathe else "Support: "

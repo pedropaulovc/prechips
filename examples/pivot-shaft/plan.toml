@@ -35,7 +35,7 @@ north_allowance_mm = 5.0     # author's choice: stub past the north apex, grippe
 supply_length_mm = 175       # "SUPPLY 175 LONG, PLAIN END UNCUT." (pivot_shaft_spec.py:182,186)
 supply_datum = "north dome apex plane to south supply end"  # author's choice; drawing leaves datum unstated
 on_hand = false              # inventory stock = [] (pedro-shop.toml:7)
-prerequisite = "blank sawn and faced to 180, south (plain) end centre-drilled with a #2 centre drill to a Ø3.5 countersink (drawing: CENTRES OK)"  # AUTHOR'S CHOICE: Ø3.5, a shallow seat, so the dead-centre point sits 3.03 inside the end and the turning tool's trailing edge clears its cone at the end of the bar
+prerequisite = "blank sawn and faced to 180, south (plain) end centre-drilled with a #2 centre drill to a Ø3.0 countersink (drawing: CENTRES OK)"  # AUTHOR'S CHOICE: Ø3.0, a shallow seat, so the dead-centre point sits 2.59 inside the end and the turning tool's trailing edge clears its cone by about 0.5 at the Z166.3 start
 # Model frame: the blank's south (plain) face centre, running +Z to the north stub end
 # (supply station = north apex 1.5 - 175 = -173.5; north end = apex + stub 5 = 6.5).
 origin_mm = [0.0, 0.0, -173.5]
@@ -152,8 +152,8 @@ centre_lubrication = "CRC cutting oil on dead-centre seat; replenish between cut
 stickout_mm = 167.5         # author's choice: jaw fronts Z-1.5 to plain end Z166, tailstock supported
 pose = { origin_mm = [0.0, 0.0, -1.5], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
-centre_hole_dia_mm = 3.5    # AUTHOR'S CHOICE: #2 centre drill sunk to a Ø3.5 countersink mouth (prerequisite)
-support_tip_mm = [0.0, 0.0, 162.97]  # the 60° point seated in the Ø3.5 countersink: 166 - 1.75 / tan 30° = 162.97
+centre_hole_dia_mm = 3.0    # AUTHOR'S CHOICE: #2 centre drill sunk to a Ø3.0 countersink mouth (prerequisite)
+support_tip_mm = [0.0, 0.0, 163.41]  # the 60° point seated in the Ø3.0 countersink: 166 - 1.5 / tan 30° = 163.402, rounded proud
 quill_extension_mm = 30.0   # author's choice: quill 30 mm out of the tailstock barrel
 
 [setups.zero.x]
@@ -198,7 +198,7 @@ rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
 doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body
 feed_mm_rev = 0.08
 direction = "toward_chuck"  # author's choice: plain end to shoulder; cutting load pushes into the headstock
-note = "Four passes, Ø10 → Ø6.55. Each pass: open the follow-rest jaws wide, clear of the dead centre; start at Z166.3; at Z152 stop the feed (S3 cuts that end length off), bring both rest jaws onto the diameter just cut and lock them; resume to the shoulder. The Ø10 shoulder stays as bar."
+note = "Four passes, Ø10 → Ø6.55; the rest jaws are reset on each new diameter. Each pass: open the follow-rest jaws wide, clear of the dead centre; start at Z166.3; at Z152 stop the feed and then the spindle (S3 cuts that end length off), bring both rest jaws onto the diameter just cut and lock them, restart the spindle and resume the feed to the shoulder. The Ø10 shoulder stays as bar."
 
 [[setups.ops]]
 op = 20
@@ -210,7 +210,7 @@ to_z = 0.0                    # shoulder thrust face = T1 origin
 doc_mm = 0.2
 feed_mm_rev = 0.05
 direction = "radially_outward"  # author's choice: finish the face from the body out to the shoulder O.D.
-note = "Feed out from the Ø6.35 body to the Ø10 O.D.: the tool starts in the corner, so the face meets the body square, and the burr goes over the O.D. edge."
+note = "Op 10 left the body at Ø6.55, 0.2 short of the shoulder: feed out from the Ø6.55 body to the Ø10 O.D. The tool starts in the corner, so the face meets the body square, and the burr goes over the O.D. edge; op 30 then finishes the body to Ø6.35 right up to this face."
 
 [setups.ops.checks]
 finish_ra = "roughness-comparator"
@@ -226,7 +226,7 @@ z_to = 0.0
 doc_mm = 0.1                # Ø6.55 → Ø6.35
 feed_mm_rev = 0.05
 direction = "toward_chuck"  # author's choice: plain end to the thrust face in one pass
-note = "One pass, Ø6.55 → Ø6.35, with the same rest sequence: jaws open at the start, feed stopped at Z152 to set them on the finished diameter, then on to the thrust face. Mic at both ends and the middle for taper before moving on."
+note = "One pass, Ø6.55 → Ø6.35, with the same rest sequence: jaws open at the start; at Z152 stop the feed and then the spindle, set the jaws on the finished diameter and lock them, restart the spindle and feed on to the thrust face. Mic at both ends and the middle for taper before moving on."
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
@@ -257,6 +257,12 @@ note = "DIN 509 relief: two square plunges with the 1/16 in blade, chuck-side co
 [setups.ops.checks]
 dia = "calipers"
 width = "calipers"
+
+[[setups.ops]]
+op = 60
+do = "deburr"
+feature = "shoulder_thrust"
+note = "Spindle stopped, lathe in neutral, carriage and follow rest run back clear. Turn the chuck by hand and break the two edges this setup made: the shoulder O.D. edge on the thrust face, and the bearing-side edge of the south relief at Z2. Use a fine needle file held at 45°, then a slip stone, to R0.25 or 0.25 chamfer max. Do not touch the thrust face, the relief floor or the bearing Ø. Check each edge under the 10x measuring loupe: the break shows all round, is no wider than 0.25 (2½ reticle divisions), and no burr catches a fingernail."  # AUTHOR'S CHOICE: hand deburr with the spindle stopped, the safe novice method on a lathe
 
 # ---------------------------------------------------------------- S2
 # T2 stations: apex 0, dome base -1.5, journal -1.5..-5.5, north relief
@@ -445,6 +451,12 @@ note = "Shoulder length: caliper across the Ø10 shoulder, north face to thrust 
 [setups.ops.checks]
 length = "calipers"
 
+[[setups.ops]]
+op = 80
+do = "deburr"
+feature = "shoulder_north_face"
+note = "Spindle stopped, lathe in neutral, carriage run back clear. Turn the chuck by hand and break the edges this setup made: the shoulder O.D. edge on the north face, the journal-side edge of the north relief at Z-5.5 and the dome base rim. Use the fine needle file held at 45°, then the slip stone, to R0.25 or 0.25 chamfer max. Do not touch the shoulder north face, the relief floor, the journal Ø or the dome. Check each edge under the 10x measuring loupe: the break shows all round, is no wider than 0.25 (2½ reticle divisions), and no burr catches a fingernail."  # AUTHOR'S CHOICE: hand deburr with the spindle stopped, before the part leaves this chucking
+
 # ---------------------------------------------------------------- S3
 # After fit-up scribes the shaft at the south ear's outer face
 # (draw_channel_assembly.py:101-110). The consumer comment names a saw cut
@@ -544,7 +556,10 @@ to_z = 1.75                # author's choice: midpoint of the sourced "CUT THE P
 doc_mm = 0.25              # two facing passes, Z2.25 → 1.75
 feed_mm_rev = 0.05
 direction = "radially_inward"  # author's choice
-inspection_note = "Spindle stopped: caliper depth rod from the actual scribe to the faced end; the drawing allows 1.5 to 2.0 (cut the plain end 1.5 to 2.0 past the scribe). Outside that, stop before doming."
+# Fit-up band source: harmonic-analyzer/cad/scripts/draw_channel_assembly.py:82,101-110 (channel
+# assembly fit-up note, "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE"); the shaft drawing
+# (features.toml) carries no such requirement, so this is a fit-up hold, not a drawing limit.
+inspection_note = "Fit-up hold from the channel assembly drawing's fit-up note, not a shaft-drawing limit: the faced end must stand 1.50 to 2.00 past the scribe. Measure it on the DRO with the spindle stopped and the lathe in neutral. Turn the chuck by hand until the scribe faces you, bring the T1 tool point back over the scribe under the 10x measuring loupe and read Z: it must read 0.00 ±0.05; if not, the part has moved: stop. Then bring the T1 Z-cutting edge onto the faced end with cigarette paper until the paper drags and read Z; that reading minus the 0.05 paper is the scribe-to-end distance. Outside 1.50 to 2.00, stop before doming."
 note = "Face the parted end to Z1.75 in two passes, feeding toward the centre; stop at centre height and check that no pip is left."
 
 [[setups.ops]]
@@ -566,6 +581,12 @@ height = "calipers"         # author's choice: axial outside-jaw contact at apex
 
 [setups.ops.inspection_methods]
 height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim and trial fit the assembly."  # author's choice
+
+[[setups.ops]]
+op = 35
+do = "deburr"
+feature = "south_dome"
+note = "Spindle stopped, lathe in neutral, carriage run back clear. Turn the chuck by hand and break the south dome base rim with the fine needle file held at 45°, then the slip stone, to R0.25 or 0.25 chamfer max. Do not touch the dome or the bearing Ø. Check it under the 10x measuring loupe: the break shows all round, is no wider than 0.25 (2½ reticle divisions), and no burr catches a fingernail. Deburr before the part comes out for oiling."  # AUTHOR'S CHOICE: hand deburr with the spindle stopped, before the op 40 oil film
 
 [[setups.ops]]
 op = 40

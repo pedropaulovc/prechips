@@ -403,3 +403,29 @@ def test_op_notes_print_under_their_own_row_on_the_front_sheet(tmp_path):
                 noted += 1
     assert noted
     assert "See note on" not in text(html)
+
+
+@pytest.mark.parametrize(
+    ("side", "where"), [("turned", "behind the tool"), ("uncut", "ahead of the tool")]
+)
+def test_follow_rest_hold_prints_its_jaw_lead_as_a_distance_not_a_diameter(side, where, tmp_path):
+    # The jaw lead is how far the rest jaws trail (or lead) the tool along the work. Printed
+    # after a Ø sign it read as a fixed contact diameter, contradicting the ops that reset
+    # the jaws on every newly turned diameter.
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    authored = plan.read_text(encoding="utf-8")
+    edited, count = re.subn(
+        r'jaw_lead_mm = 8\.0, jaw_side = "turned"',
+        f'jaw_lead_mm = 9.5, jaw_side = "{side}"',
+        authored,
+    )
+    assert count == 1
+    plan.write_text(edited, encoding="utf-8")
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    hold = text(sections(html, "HOLD")[0])
+    (line,) = [part for part in hold.split("|") if part.startswith("Support: follow")]
+    assert f"9.50 mm {where}" in line
+    assert not re.search(r"Ø\s*9\.50*\b", line)
+    # Trailing jaws ride each pass's new diameter, so the HOLD says they are reset per pass,
+    # at the declared engagement Z; leading jaws ride the uncut stock and are not.
+    assert ("every pass" in line and "Z 152.00" in line) == (side == "turned")
