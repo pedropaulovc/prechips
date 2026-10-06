@@ -35,7 +35,7 @@
       },
       "inventory": {
         "path": "examples/inventory/pedro-shop.toml",
-        "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+        "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
       },
       "plan": {
         "path": "examples/cone-pivot-post/plan.toml",
@@ -1130,7 +1130,7 @@
             },
             "inventory": {
               "path": "examples/inventory/pedro-shop.toml",
-              "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+              "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
             },
             "plan": {
               "path": "examples/cone-pivot-post/plan.toml",
@@ -3586,6 +3586,7 @@
           "plan: stock state and setup frame",
           "https://www.precisionmatthews.com/products/pm-30mv",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y"
         ],
@@ -3730,7 +3731,9 @@
             }
           ],
           "stock_bottom_z": 0.0,
-          "stock_extent_x_mm": 120.0,
+          "stock_entry_basis": "kernel setup-entry stock",
+          "stock_entry_reason": "round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived",
+          "stock_extent_x_mm": "unknown",
           "stock_extent_y_mm": "unknown",
           "stock_height_mm": 114.0,
           "stock_top_above_jaws_mm": "unknown",
@@ -3741,7 +3744,7 @@
           "travel_checks": {
             "x": {
               "fixture_mm": "unknown",
-              "part_mm": 120.0,
+              "part_mm": "unknown",
               "required_mm": "unknown",
               "travel_mm": 584.1999999999999
             },
@@ -3764,20 +3767,23 @@
           "plan: stock state and setup frame",
           "https://www.precisionmatthews.com/products/pm-30mv",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y"
         ],
         "message": "S3: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
         "numbers": {
-          "bed_height_mm": "unknown",
+          "bed_height_mm": "not_applicable",
           "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
           "cut_tip_above_jaws_mm": {},
           "fixture_height_mm": "unknown",
           "fixture_verify": false,
+          "head_axis_z": "unknown",
+          "head_centre_height_mm": 100.01249999999999,
           "holder_gauge_len_mm": "unknown",
           "insertion_mm": 25,
           "jaw_obstruction": {
-            "jaw_top_z": "unknown",
+            "jaw_top_z": "not_applicable",
             "requires_path_check": false
           },
           "measurements": [],
@@ -3831,10 +3837,12 @@
             }
           ],
           "stock_bottom_z": -21.0055,
-          "stock_extent_x_mm": 120.0,
+          "stock_entry_basis": "kernel setup-entry stock",
+          "stock_entry_reason": "round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived",
+          "stock_extent_x_mm": "unknown",
           "stock_extent_y_mm": "unknown",
           "stock_height_mm": 42.011,
-          "stock_top_above_jaws_mm": "unknown",
+          "stock_top_above_jaws_mm": "not_applicable",
           "stock_top_z": 21.0055,
           "sum_mm": "unknown",
           "support_blocks_mm": 0,
@@ -3842,7 +3850,7 @@
           "travel_checks": {
             "x": {
               "fixture_mm": "unknown",
-              "part_mm": 120.0,
+              "part_mm": "unknown",
               "required_mm": "unknown",
               "travel_mm": 584.1999999999999
             },
@@ -3852,7 +3860,8 @@
               "required_mm": "unknown",
               "travel_mm": 222.25
             }
-          }
+          },
+          "work_top_above_table_mm": "unknown"
         },
         "rule": "headroom",
         "status": "unknown",
@@ -3865,6 +3874,7 @@
           "plan: stock state and setup frame",
           "https://www.precisionmatthews.com/products/pm-30mv",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "kernel.setups.S4.stock_bbox_mm: setup-entry stock in the setup frame",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y"
         ],
@@ -3921,7 +3931,9 @@
             }
           ],
           "stock_bottom_z": -72.0344,
-          "stock_extent_x_mm": 120.0,
+          "stock_entry_basis": "kernel setup-entry stock",
+          "stock_entry_reason": "round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived",
+          "stock_extent_x_mm": "unknown",
           "stock_extent_y_mm": "unknown",
           "stock_height_mm": 72.0344,
           "stock_top_above_jaws_mm": "unknown",
@@ -3932,7 +3944,7 @@
           "travel_checks": {
             "x": {
               "fixture_mm": "unknown",
-              "part_mm": 120.0,
+              "part_mm": "unknown",
               "required_mm": "unknown",
               "travel_mm": 584.1999999999999
             },
@@ -8593,6 +8605,7 @@
           "features.features.mount_west_counterbore.bounds/at",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:81-81",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:80-80",
+          "features.features.mount_west.at",
           "plan.setups.S2.ops.80.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.80: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S2.ops.90",
@@ -8604,13 +8617,14 @@
           "plan.setups.S2.ops.100: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S2.ops.110",
           "features.features.mount_east_counterbore.bounds/at",
+          "features.features.mount_east.at",
           "plan.setups.S2.ops.110.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.110: stock_states current top and local entry; hole tip/exit endpoints",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.110 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
+        "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.40 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.40 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
         "numbers": {
           "measurements": [
             {
@@ -8635,14 +8649,6 @@
               ],
               "id": "plan.setups.S2.ops.100.z_geometry",
               "instruction": "author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
-              "units": "mm"
-            },
-            {
-              "cite": [
-                "features.features.mount_east_counterbore.bounds/at; plan.stock"
-              ],
-              "id": "plan.setups.S2.ops.110.xy_geometry",
-              "instruction": "author: Measure plan.setups.S2.ops.110 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
               "units": "mm"
             },
             {
@@ -8731,14 +8737,6 @@
               ],
               "id": "plan.setups.S2.ops.70.z_geometry",
               "instruction": "author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
-              "units": "mm"
-            },
-            {
-              "cite": [
-                "features.features.mount_west_counterbore.bounds/at; plan.stock"
-              ],
-              "id": "plan.setups.S2.ops.80.xy_geometry",
-              "instruction": "author: Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
               "units": "mm"
             },
             {
@@ -9045,7 +9043,20 @@
                 "tip_z": 79.9802,
                 "total_depth_mm": 6.0198
               },
-              "extent_mm": "unknown",
+              "extent_mm": {
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
               "feature": "mount_west_counterbore",
               "holder": "unknown",
               "holder_gauge_len_mm": "unknown",
@@ -9060,8 +9071,14 @@
               "tool_radius_mm": "unknown",
               "tool_radius_verified": false,
               "xy_cutter_bounds_mm": {
-                "x": "unknown",
-                "y": "unknown"
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ]
               },
               "z_bounds_mm": "unknown",
               "z_verified": false
@@ -9194,7 +9211,20 @@
                 "tip_z": 79.9802,
                 "total_depth_mm": 6.0198
               },
-              "extent_mm": "unknown",
+              "extent_mm": {
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
               "feature": "mount_east_counterbore",
               "holder": "unknown",
               "holder_gauge_len_mm": "unknown",
@@ -9209,8 +9239,14 @@
               "tool_radius_mm": "unknown",
               "tool_radius_verified": false,
               "xy_cutter_bounds_mm": {
-                "x": "unknown",
-                "y": "unknown"
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ]
               },
               "z_bounds_mm": "unknown",
               "z_verified": false
@@ -10854,10 +10890,10 @@
     "construction": "built_up",
     "exit": 2,
     "findings": {
-      "error": 3,
-      "not_applicable": 127,
+      "error": 6,
+      "not_applicable": 131,
       "pass": 46,
-      "unknown": 182,
+      "unknown": 184,
       "unsupported": 1
     },
     "fixtures": [
@@ -10876,11 +10912,11 @@
       },
       "inventory": {
         "path": "examples/inventory/pedro-shop.toml",
-        "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+        "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
       },
       "plan": {
         "path": "examples/cone-pivot-post/built-up.toml",
-        "sha256": "f5b74b4ec149fdd41292be6be079c323701b1a683bf3e1994e0c9c1b78f335b9"
+        "sha256": "d9a9e1b0d08aff84bb4c9fbea5942c6e2968c884f0a6c6117468c6ece1b36b36"
       },
       "shop_policy": {
         "path": "examples/shop-policy.toml",
@@ -11650,7 +11686,7 @@
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
           "plan.setups.S4.ops.5: selected action/tool/holder"
         ],
-        "message": "S4:5: fit_up does not cut geometry.",
+        "message": "S4:5: fit does not cut geometry.",
         "numbers": {},
         "rule": "accessibility",
         "status": "not_applicable",
@@ -11829,6 +11865,38 @@
         "rule": "blind_depth",
         "status": "not_applicable",
         "subject": "crank_boss_faces"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 tip endpoints",
+          "features manifest hole geometry",
+          "plan stock_state and operation depth/exit",
+          "inventory selected tool geometry"
+        ],
+        "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
+        "numbers": {
+          "endpoints": [],
+          "kind": "hole"
+        },
+        "rule": "blind_depth",
+        "status": "unknown",
+        "subject": "crank_socket"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 tip endpoints",
+          "features manifest hole geometry",
+          "plan stock_state and operation depth/exit",
+          "inventory selected tool geometry"
+        ],
+        "message": "Not a hole; no tip endpoint applies.",
+        "numbers": {
+          "endpoints": [],
+          "kind": "boss"
+        },
+        "rule": "blind_depth",
+        "status": "not_applicable",
+        "subject": "crank_spigot"
       },
       {
         "cite": [
@@ -12071,11 +12139,11 @@
             },
             "inventory": {
               "path": "examples/inventory/pedro-shop.toml",
-              "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+              "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
             },
             "plan": {
               "path": "examples/cone-pivot-post/built-up.toml",
-              "sha256": "f5b74b4ec149fdd41292be6be079c323701b1a683bf3e1994e0c9c1b78f335b9"
+              "sha256": "d9a9e1b0d08aff84bb4c9fbea5942c6e2968c884f0a6c6117468c6ece1b36b36"
             },
             "shop_policy": {
               "path": "examples/shop-policy.toml",
@@ -12713,7 +12781,7 @@
           "operations": [
             {
               "direction": "along_crank_axis",
-              "do": "fit_up",
+              "do": "fit",
               "feature": "crank_boss",
               "op": 5,
               "tool": "unknown"
@@ -13468,7 +13536,7 @@
         "message": "S4:5: engagement applies only to an endmill cutting operation with an authored DOC.",
         "numbers": {
           "holder": "unknown",
-          "operation": "fit_up",
+          "operation": "fit",
           "tool": "unknown",
           "tool_kind": "unknown"
         },
@@ -14097,7 +14165,6 @@
           "AUTHOR'S CHOICE",
           "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
           "features.features.crank_bore.bounds/at",
-          "features.features.crank_boss.bounds/at",
           "features.frames.model; plan.frames.C4",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
           "https://www.precisionmatthews.com/products/pm-30mv",
@@ -14111,12 +14178,10 @@
           "plan.setups.S4.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S4.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S4.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
-          "plan.setups.S4.ops.5.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-          "plan.setups.S4.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.stock_state.top_z/entry_z/local_thickness",
           "plan.setups.stock_state: physical supported stock height"
         ],
-        "message": "S4: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S4.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
+        "message": "S4: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S4.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
         "numbers": {
           "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
           "fixture_height_mm": "unknown",
@@ -14163,14 +14228,6 @@
             },
             {
               "cite": [
-                "plan.setups.S4.ops.5"
-              ],
-              "id": "plan.setups.S4.ops.5.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
-              "units": "mm"
-            },
-            {
-              "cite": [
                 "inventory.tools.unknown"
               ],
               "id": "tools.unknown.resolve",
@@ -14186,23 +14243,6 @@
           "spindle_to_table_max_mm": 431.79999999999995,
           "spindle_to_table_min_mm": 60.959999999999994,
           "stacks": [
-            {
-              "approach_mm": "unknown",
-              "holder": "unknown",
-              "holder_gauge_len_mm": "unknown",
-              "lower_margin_mm": "unknown",
-              "op": 5,
-              "spindle_nose_table_band_mm": "unknown",
-              "stack_mm": "unknown",
-              "tip_z_bounds_mm": [
-                0.0,
-                0.0
-              ],
-              "tool": "unknown",
-              "tool_projection_mm": "unknown",
-              "upper_margin_mm": "unknown",
-              "verified": false
-            },
             {
               "approach_mm": "unknown",
               "holder": "unknown",
@@ -14710,6 +14750,7 @@
           "plan: stock state and setup frame",
           "https://www.precisionmatthews.com/products/pm-30mv",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "kernel.setups.S0.stock_bbox_mm: setup-entry stock in the setup frame",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y"
         ],
@@ -14744,6 +14785,8 @@
             }
           ],
           "stock_bottom_z": -89.0,
+          "stock_entry_basis": "kernel setup-entry stock",
+          "stock_entry_reason": "stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived",
           "stock_extent_x_mm": "unknown",
           "stock_extent_y_mm": "unknown",
           "stock_height_mm": 92.0,
@@ -14832,6 +14875,7 @@
           "plan: stock state and setup frame",
           "https://www.precisionmatthews.com/products/pm-30mv",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y"
         ],
@@ -14965,6 +15009,8 @@
             }
           ],
           "stock_bottom_z": 0.0,
+          "stock_entry_basis": "kernel setup-entry stock",
+          "stock_entry_reason": "stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived",
           "stock_extent_x_mm": "unknown",
           "stock_extent_y_mm": "unknown",
           "stock_height_mm": 89.0,
@@ -14999,20 +15045,23 @@
           "plan: stock state and setup frame",
           "https://www.precisionmatthews.com/products/pm-30mv",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y"
         ],
         "message": "S3: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
         "numbers": {
-          "bed_height_mm": "unknown",
+          "bed_height_mm": "not_applicable",
           "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
           "cut_tip_above_jaws_mm": {},
           "fixture_height_mm": "unknown",
           "fixture_verify": false,
+          "head_axis_z": "unknown",
+          "head_centre_height_mm": 100.01249999999999,
           "holder_gauge_len_mm": "unknown",
           "insertion_mm": 25,
           "jaw_obstruction": {
-            "jaw_top_z": "unknown",
+            "jaw_top_z": "not_applicable",
             "requires_path_check": false
           },
           "measurements": [],
@@ -15066,10 +15115,12 @@
             }
           ],
           "stock_bottom_z": -21.0055,
+          "stock_entry_basis": "kernel setup-entry stock",
+          "stock_entry_reason": "stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived",
           "stock_extent_x_mm": "unknown",
           "stock_extent_y_mm": "unknown",
           "stock_height_mm": 42.011,
-          "stock_top_above_jaws_mm": "unknown",
+          "stock_top_above_jaws_mm": "not_applicable",
           "stock_top_z": 21.0055,
           "sum_mm": "unknown",
           "support_blocks_mm": 0,
@@ -15087,7 +15138,8 @@
               "required_mm": "unknown",
               "travel_mm": 222.25
             }
-          }
+          },
+          "work_top_above_table_mm": "unknown"
         },
         "rule": "headroom",
         "status": "unknown",
@@ -15100,6 +15152,7 @@
           "plan: stock state and setup frame",
           "https://www.precisionmatthews.com/products/pm-30mv",
           "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+          "kernel.setups.S4.stock_bbox_mm: setup-entry stock in the setup frame",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y"
         ],
@@ -15121,17 +15174,6 @@
           "retained_rail_bottom_z": -72.0344,
           "spindle_to_table_max_mm": 431.79999999999995,
           "stacks": [
-            {
-              "holder": "unknown",
-              "holder_gauge_len_mm": "unknown",
-              "margin_mm": "unknown",
-              "op": 5,
-              "sum_mm": "unknown",
-              "tool": "unknown",
-              "tool_oal_mm": "unknown",
-              "tool_projection_mm": "unknown",
-              "verify": true
-            },
             {
               "holder": "unknown",
               "holder_gauge_len_mm": "unknown",
@@ -15167,6 +15209,8 @@
             }
           ],
           "stock_bottom_z": -72.0344,
+          "stock_entry_basis": "kernel setup-entry stock",
+          "stock_entry_reason": "stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived",
           "stock_extent_x_mm": "unknown",
           "stock_extent_y_mm": "unknown",
           "stock_height_mm": 72.0344,
@@ -15363,12 +15407,11 @@
         "cite": [
           "PLAN.md §4.1 hold fields"
         ],
-        "message": "S4: holding declarations need hold.fixture, ops.5.holder, ops.10.holder, ops.20.holder, ops.30.holder.",
+        "message": "S4: holding declarations need hold.fixture, ops.10.holder, ops.20.holder, ops.30.holder.",
         "numbers": {
           "coolant": "CRC cutting oil brushed on",
           "cut_directions": {
-            "30": "negative_setup_z",
-            "5": "along_crank_axis"
+            "30": "negative_setup_z"
           },
           "deburr_mm": 0.25,
           "fixture": "unknown",
@@ -15386,7 +15429,6 @@
           },
           "missing": [
             "hold.fixture",
-            "ops.5.holder",
             "ops.10.holder",
             "ops.20.holder",
             "ops.30.holder"
@@ -15768,6 +15810,38 @@
         "rule": "inspection",
         "status": "unknown",
         "subject": "crank_boss_faces:station"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 inspection",
+          "plan.joint_features.crank_socket: TEMPORARY JOINT FEATURE (removed by later ops)",
+          "inventory gauge range/resolution/verification"
+        ],
+        "message": "crank_socket dia: no requirement-keyed inspection check.",
+        "numbers": {
+          "gauge": "unknown",
+          "limits": "unknown",
+          "requirement": "dia"
+        },
+        "rule": "inspection",
+        "status": "error",
+        "subject": "crank_socket:dia"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 inspection",
+          "plan.joint_features.crank_spigot: TEMPORARY JOINT FEATURE (removed by later ops)",
+          "inventory gauge range/resolution/verification"
+        ],
+        "message": "crank_spigot dia: no requirement-keyed inspection check.",
+        "numbers": {
+          "gauge": "unknown",
+          "limits": "unknown",
+          "requirement": "dia"
+        },
+        "rule": "inspection",
+        "status": "error",
+        "subject": "crank_spigot:dia"
       },
       {
         "cite": [
@@ -16868,7 +16942,7 @@
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
           "plan.setups.S4.ops.5: selected action/tool/holder"
         ],
-        "message": "S4:5: fit_up does not cut geometry.",
+        "message": "S4:5: fit does not cut geometry.",
         "numbers": {},
         "rule": "internal_corner_radius",
         "status": "not_applicable",
@@ -16899,6 +16973,70 @@
         "rule": "internal_corner_radius",
         "status": "not_applicable",
         "subject": "S4:6"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.2 joint_assembly",
+          "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+          "plan.setups.S4: frame and hold",
+          "plan.frames.C4: author-declared setup frame",
+          "AUTHOR'S CHOICE",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+          "plan.setups.S4.joint: cylindrical join",
+          "AUTHOR'S CHOICE: unresolved pressed-boss proposal",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7"
+        ],
+        "message": "S4: joined stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
+        "numbers": {
+          "completed_joint_features": "unknown",
+          "joint": "cylindrical",
+          "stock_in": [
+            "S3",
+            "S1"
+          ]
+        },
+        "rule": "joint_assembly",
+        "status": "unknown",
+        "subject": "S4"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 joint_fit",
+          "plan.setups.S4.joint: fit, diametral band and process",
+          "AUTHOR'S CHOICE: unresolved pressed-boss proposal",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+          "AUTHOR'S CHOICE: proposed pressed-boss socket; dimensions and preparation unresolved",
+          "AUTHOR'S CHOICE: proposed pressed-boss spigot; dimensions and preparation unresolved",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+        ],
+        "message": "S4: joint geometry unknown (plan.joint_features.crank_socket.at_mm, plan.joint_features.crank_socket.axis, plan.joint_features.crank_socket.dia_mm, plan.joint_features.crank_socket.nominal_dia_mm, plan.joint_features.crank_socket.depth_mm, plan.joint_features.crank_spigot.at_mm, plan.joint_features.crank_spigot.axis, plan.joint_features.crank_spigot.dia_mm, plan.joint_features.crank_spigot.nominal_dia_mm, plan.joint_features.crank_spigot.depth_mm, setups[S4].joint.interference_mm); no union.",
+        "numbers": {
+          "band_mm": "unknown",
+          "engagement_dia_mm": "unknown",
+          "engagement_mm": "unknown",
+          "fit": "interference",
+          "guaranteed_mm": "unknown",
+          "method": "press",
+          "missing": [
+            "plan.joint_features.crank_socket.at_mm",
+            "plan.joint_features.crank_socket.axis",
+            "plan.joint_features.crank_socket.dia_mm",
+            "plan.joint_features.crank_socket.nominal_dia_mm",
+            "plan.joint_features.crank_socket.depth_mm",
+            "plan.joint_features.crank_spigot.at_mm",
+            "plan.joint_features.crank_spigot.axis",
+            "plan.joint_features.crank_spigot.dia_mm",
+            "plan.joint_features.crank_spigot.nominal_dia_mm",
+            "plan.joint_features.crank_spigot.depth_mm",
+            "setups[S4].joint.interference_mm"
+          ],
+          "socket": "plan.joint_features.crank_socket",
+          "spigot": "plan.joint_features.crank_spigot",
+          "violations": []
+        },
+        "rule": "joint_fit",
+        "status": "unknown",
+        "subject": "S4"
       },
       {
         "cite": [
@@ -17012,7 +17150,7 @@
             "rough_turn",
             "finish_turn",
             "inspect",
-            "fit_up"
+            "fit"
           ],
           "kind": "boss",
           "ops": [
@@ -17051,6 +17189,38 @@
         "rule": "op_chain",
         "status": "not_applicable",
         "subject": "crank_boss_faces"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 op chain",
+          "plan authored route",
+          "features declared process/thread"
+        ],
+        "message": "crank_socket: no drill operation; no spot operation.",
+        "numbers": {
+          "chain": [],
+          "kind": "hole",
+          "ops": []
+        },
+        "rule": "op_chain",
+        "status": "error",
+        "subject": "crank_socket"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 op chain",
+          "plan authored route",
+          "features declared process/thread"
+        ],
+        "message": "crank_spigot: not a hole chain.",
+        "numbers": {
+          "chain": [],
+          "kind": "boss",
+          "ops": []
+        },
+        "rule": "op_chain",
+        "status": "not_applicable",
+        "subject": "crank_spigot"
       },
       {
         "cite": [
@@ -17291,7 +17461,7 @@
         "message": "S4: rough/finish, face/spot, hole and release order is consistent.",
         "numbers": {
           "sequence": [
-            "5 fit_up crank_boss",
+            "5 fit crank_boss",
             "6 inspect crank_boss_faces",
             "10 spot crank_bore",
             "20 drill crank_bore",
@@ -18058,7 +18228,7 @@
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
           "plan.setups.S4.ops.5: selected action/tool/holder"
         ],
-        "message": "S4:5: fit_up does not cut geometry.",
+        "message": "S4:5: fit does not cut geometry.",
         "numbers": {},
         "rule": "reach",
         "status": "not_applicable",
@@ -18308,6 +18478,44 @@
         "rule": "sizing",
         "status": "not_applicable",
         "subject": "crank_boss_faces"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 sizing",
+          "plan.joint_features.crank_socket: TEMPORARY JOINT FEATURE (removed by later ops)",
+          "AUTHOR'S CHOICE: proposed pressed-boss socket; dimensions and preparation unresolved",
+          "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7"
+        ],
+        "message": "crank_socket: selected finishing tool or its measured size is unresolved.",
+        "numbers": {
+          "feature_kind": "hole",
+          "kind": "hole",
+          "ops": [],
+          "tool": "unknown",
+          "tool_dia_basis": "inventory geometry",
+          "tool_dia_mm": "unknown",
+          "unit": "mm"
+        },
+        "rule": "sizing",
+        "status": "unknown",
+        "subject": "crank_socket"
+      },
+      {
+        "cite": [
+          "PLAN.md §4.1 sizing",
+          "plan.joint_features.crank_spigot: TEMPORARY JOINT FEATURE (removed by later ops)",
+          "AUTHOR'S CHOICE: proposed pressed-boss spigot; dimensions and preparation unresolved",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+        ],
+        "message": "crank_spigot: dimensions are set by the path or endpoint, not cutter diameter.",
+        "numbers": {
+          "feature_kind": "boss",
+          "kind": "boss",
+          "ops": []
+        },
+        "rule": "sizing",
+        "status": "not_applicable",
+        "subject": "crank_spigot"
       },
       {
         "cite": [
@@ -19241,30 +19449,14 @@
       },
       {
         "cite": [
-          "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
-          "inventory machine spindle range",
-          "cutting-data aliases and rows"
+          "PLAN.md §4.1 speeds/feeds"
         ],
-        "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+        "message": "This manual operation has no cutting speed or feed.",
         "numbers": {
-          "chip_load_mm_per_tooth": "unknown",
-          "cutting_data_row": "unknown",
-          "diameter_in": "unknown",
-          "feed_mm_min": "unknown",
-          "flutes": "unknown",
-          "material": "unknown",
-          "material_class": "unknown",
-          "material_verify": false,
-          "operation": "fit_up",
-          "rpm": "unknown",
-          "rpm_max": 3000.0,
-          "rpm_min": 50.0,
-          "rpm_range_verify": false,
-          "sfm": "unknown",
-          "tool_material": "unknown"
+          "operation": "fit"
         },
         "rule": "speeds_feeds",
-        "status": "unknown",
+        "status": "not_applicable",
         "subject": "S4:5"
       },
       {
@@ -20128,21 +20320,6 @@
       },
       {
         "cite": [
-          "inventory spindle/holder/shank fields",
-          "PLAN.md §4.1"
-        ],
-        "message": "S4:5: assembly fit needs measured shank, holder and machine facts.",
-        "numbers": {
-          "holder": "unknown",
-          "machine": "PM-30MV",
-          "tool": "unknown"
-        },
-        "rule": "tool_resolves",
-        "status": "unknown",
-        "subject": "S4:5"
-      },
-      {
-        "cite": [
           "inventory selected identity/declared member coverage",
           "PLAN.md §3.3"
         ],
@@ -20431,6 +20608,7 @@
           "features.features.mount_west_counterbore.bounds/at",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:81-81",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:80-80",
+          "features.features.mount_west.at",
           "plan.setups.S2.ops.80.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.80: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S2.ops.90",
@@ -20442,13 +20620,14 @@
           "plan.setups.S2.ops.100: stock_states current top and local entry; hole tip/exit endpoints",
           "plan.setups.S2.ops.110",
           "features.features.mount_east_counterbore.bounds/at",
+          "features.features.mount_east.at",
           "plan.setups.S2.ops.110.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S2.ops.110: stock_states current top and local entry; hole tip/exit endpoints",
           "inventory.machines.PM-30MV.envelope.travel.x",
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.110 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
+        "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
         "numbers": {
           "measurements": [
             {
@@ -20473,14 +20652,6 @@
               ],
               "id": "plan.setups.S2.ops.100.z_geometry",
               "instruction": "author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
-              "units": "mm"
-            },
-            {
-              "cite": [
-                "features.features.mount_east_counterbore.bounds/at; plan.stock"
-              ],
-              "id": "plan.setups.S2.ops.110.xy_geometry",
-              "instruction": "author: Measure plan.setups.S2.ops.110 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
               "units": "mm"
             },
             {
@@ -20553,14 +20724,6 @@
               ],
               "id": "plan.setups.S2.ops.70.z_geometry",
               "instruction": "author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
-              "units": "mm"
-            },
-            {
-              "cite": [
-                "features.features.mount_west_counterbore.bounds/at; plan.stock"
-              ],
-              "id": "plan.setups.S2.ops.80.xy_geometry",
-              "instruction": "author: Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
               "units": "mm"
             },
             {
@@ -20837,7 +21000,20 @@
                 "tip_z": 79.9802,
                 "total_depth_mm": 6.0198
               },
-              "extent_mm": "unknown",
+              "extent_mm": {
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
               "feature": "mount_west_counterbore",
               "holder": "unknown",
               "holder_gauge_len_mm": "unknown",
@@ -20852,8 +21028,14 @@
               "tool_radius_mm": "unknown",
               "tool_radius_verified": false,
               "xy_cutter_bounds_mm": {
-                "x": "unknown",
-                "y": "unknown"
+                "x": [
+                  -12.98,
+                  -12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ]
               },
               "z_bounds_mm": "unknown",
               "z_verified": false
@@ -20986,7 +21168,20 @@
                 "tip_z": 79.9802,
                 "total_depth_mm": 6.0198
               },
-              "extent_mm": "unknown",
+              "extent_mm": {
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ],
+                "z": [
+                  86.0,
+                  86.0
+                ]
+              },
               "feature": "mount_east_counterbore",
               "holder": "unknown",
               "holder_gauge_len_mm": "unknown",
@@ -21001,8 +21196,14 @@
               "tool_radius_mm": "unknown",
               "tool_radius_verified": false,
               "xy_cutter_bounds_mm": {
-                "x": "unknown",
-                "y": "unknown"
+                "x": [
+                  12.98,
+                  12.98
+                ],
+                "y": [
+                  0.0,
+                  0.0
+                ]
               },
               "z_bounds_mm": "unknown",
               "z_verified": false
@@ -21392,39 +21593,33 @@
           "plan.frames.C4",
           "AUTHOR'S CHOICE",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
-          "plan.setups.S4.ops.5",
-          "features.features.crank_boss.bounds/at",
-          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-          "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
-          "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-          "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-          "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-          "harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP",
-          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
-          "features.frames.model",
-          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10",
-          "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395",
-          "plan.setups.S4.ops.5.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-          "plan.setups.S4.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
-          "plan.setups.stock_state.top_z/entry_z/local_thickness",
           "plan.setups.S4.ops.10",
           "features.features.crank_bore.bounds/at",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:380-389",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:372-372",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:51-51",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10",
+          "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-62",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:50-50",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:145-145",
           "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+          "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+          "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+          "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:390-390",
+          "harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279",
           "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:157-157",
+          "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
           "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
           "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:158-158",
           "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
+          "features.frames.model",
           "plan.setups.S4.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S4.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
+          "plan.setups.stock_state.top_z/entry_z/local_thickness",
           "plan.setups.S4.ops.20",
           "plan.setups.S4.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
           "plan.setups.S4.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
@@ -21435,7 +21630,7 @@
           "inventory.machines.PM-30MV.envelope.travel.y",
           "inventory.machines.PM-30MV.envelope.travel.z"
         ],
-        "message": "S4: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S4.ops.5 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
+        "message": "S4: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
         "numbers": {
           "measurements": [
             {
@@ -21472,22 +21667,6 @@
             },
             {
               "cite": [
-                "features.features.crank_boss.bounds/at; plan.stock"
-              ],
-              "id": "plan.setups.S4.ops.5.xy_geometry",
-              "instruction": "author: Measure plan.setups.S4.ops.5 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
-              "units": "mm"
-            },
-            {
-              "cite": [
-                "plan.setups.S4.ops.5"
-              ],
-              "id": "plan.setups.S4.ops.5.z_geometry",
-              "instruction": "author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
-              "units": "mm"
-            },
-            {
-              "cite": [
                 "inventory.tools.unknown"
               ],
               "id": "tools.unknown.resolve",
@@ -21496,32 +21675,6 @@
             }
           ],
           "operations": [
-            {
-              "approach_mm": "unknown",
-              "conservative_stock_spans_mm": "not_applicable",
-              "do": "fit_up",
-              "endpoint": "not_applicable",
-              "extent_mm": "unknown",
-              "feature": "crank_boss",
-              "holder": "unknown",
-              "holder_gauge_len_mm": "unknown",
-              "op": 5,
-              "rough_allowance_mm": 0,
-              "tip_z_bounds_mm": [
-                0.0,
-                0.0
-              ],
-              "tool": "unknown",
-              "tool_projection_mm": "unknown",
-              "tool_radius_mm": "unknown",
-              "tool_radius_verified": false,
-              "xy_cutter_bounds_mm": {
-                "x": "unknown",
-                "y": "unknown"
-              },
-              "z_bounds_mm": "unknown",
-              "z_verified": false
-            },
             {
               "approach_mm": "unknown",
               "conservative_stock_spans_mm": "not_applicable",
@@ -21694,20 +21847,20 @@
             "x": {
               "located_span_mm": 0.0,
               "lower_bound_margin_mm": 584.1999999999999,
-              "margin_mm": "unknown",
+              "margin_mm": 584.1999999999999,
               "minimum_required_mm": 0.0,
-              "required_mm": "unknown",
-              "required_verified": false,
+              "required_mm": 0.0,
+              "required_verified": true,
               "travel_mm": 584.1999999999999,
               "travel_verified": true
             },
             "y": {
               "located_span_mm": 0.0,
               "lower_bound_margin_mm": 222.25,
-              "margin_mm": "unknown",
+              "margin_mm": 222.25,
               "minimum_required_mm": 0.0,
-              "required_mm": "unknown",
-              "required_verified": false,
+              "required_mm": 0.0,
+              "required_verified": true,
               "travel_mm": 222.25,
               "travel_verified": true
             },
@@ -22372,7 +22525,7 @@
         "message": "S4:5: the static turning proxy does not apply to this operation.",
         "numbers": {
           "feature": "crank_boss",
-          "operation": "fit_up"
+          "operation": "fit"
         },
         "rule": "turning_deflection",
         "status": "not_applicable",

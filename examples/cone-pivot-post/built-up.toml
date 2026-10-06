@@ -1,6 +1,6 @@
-# Hand-authored M2 built-up ALTERNATIVE, not an authorized construction.
+# Hand-authored M2 built-up ALTERNATIVE; physical joint preparation remains unresolved.
 # Same part/features as plan.toml; separate filename is its comparison identity.
-# No drawing note permits a pressed boss. Joint dimensions/capability remain unknown.
+# Built-up construction is an explicitly labelled example divergence; joint dimensions/capability remain unknown.
 part = "cone-pivot-post"
 features = "features.toml"
 construction = "built_up"
@@ -17,7 +17,7 @@ cutting_data = "../cutting-data.toml"
 form = "built_up"
 material = "unknown"
 on_hand = false # inventory stock=[]; no purchase or on-hand identity asserted
-note = "AUTHOR'S CHOICE: block body plus separately turned pressed crank boss. No drawing permission, joint detail, press, arbor, actual stock grade or catalogue identity is supplied. Construction gate must stop this candidate."
+note = "AUTHOR'S CHOICE: block body plus separately turned pressed crank boss. The example manifest permits built-up construction, but no joint detail, press, arbor, actual stock grade or catalogue identity is supplied. Physical joint preparation and assembly remain stops."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355"]
 [[stock.components]]
 id = "body"
@@ -33,6 +33,30 @@ dia_mm = 25.0 # AUTHOR'S CHOICE: above printed crank boss21.9
 length_mm = 100.0 # AUTHOR'S CHOICE: boss72.0344 plus foot-facing/grip allowances
 note = "AUTHOR'S CHOICE: crank boss leaf blank; no interference, interface diameter or joint engagement invented. Catalogue identity unknown."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
+
+# AUTHOR'S CHOICE: identify the proposed joint without inventing a detail or cut.
+# Numeric debt intentionally prevents preparation geometry and assembly union.
+[joint_features.crank_socket]
+kind = "cylinder_bore"
+component = "body"
+at = "unknown"
+axis = "unknown"
+dia = "unknown"
+nominal_dia = "unknown"
+depth = "unknown"
+thru = false # AUTHOR'S CHOICE: proposed finite blind socket, not an approved detail
+cite = ["AUTHOR'S CHOICE: proposed pressed-boss socket; dimensions and preparation unresolved", "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7"]
+[joint_features.crank_spigot]
+kind = "cylinder_spigot"
+component = "boss"
+at = "unknown"
+axis = "unknown"
+dia = "unknown"
+nominal_dia = "unknown"
+depth = "unknown"
+thru = false # AUTHOR'S CHOICE: finite male engagement, no through feature claimed
+cite = ["AUTHOR'S CHOICE: proposed pressed-boss spigot; dimensions and preparation unresolved", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
+
 [dro]
 controller = "unknown"
 manual = "Electronica EL400 Operation Manual"
@@ -515,6 +539,15 @@ stock_in = ["S3", "S1"]
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.25
 deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
+[setups.joint]
+kind = "cylindrical"
+socket = "crank_socket"
+spigot = "crank_spigot"
+fit = "interference"
+interference_mm = "unknown"
+method = "press"
+process = "AUTHOR'S CHOICE: proposed pressed boss only. STOP: fit dimensions, preparation cuts, press and arbor remain unresolved."
+cite = ["AUTHOR'S CHOICE: unresolved pressed-boss proposal", "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7"]
 [setups.stock_state]
 top_z = 0.0 # crank north machined face in C4, spec:53-54
 bottom_z = -72.0344 # spec:55-56
@@ -561,12 +594,12 @@ check_jog_mm = 10.0
 retouch_after = []
 [[setups.ops]]
 op = 5
-do = "fit_up"
+do = "fit"
 feature = "crank_boss"
 tool = "unknown"
 holder = "unknown"
 direction = "along_crank_axis" # AUTHOR'S CHOICE; press/joint hardware is not supplied
-note = "AUTHOR'S CHOICE: proposed pressed boss, not drawing-authorized. Interface diameter, interference, engagement, joint strength, press and arbor are unknown. STOP; no press fit or purchased hardware is fabricated."
+note = "AUTHOR'S CHOICE: proposed pressed boss under the example's labelled construction permission. Interface diameter, interference, engagement, joint strength, press and arbor are unknown. STOP; no press fit or purchased hardware is fabricated."
 [setups.ops.checks]
 dia = "calipers"
 [[setups.ops]]

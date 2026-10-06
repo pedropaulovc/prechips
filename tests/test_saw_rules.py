@@ -1,12 +1,13 @@
 """Saw cuts consume sourced blade data, not spindle maths, and skip tool-cylinder geometry."""
 
 from copy import deepcopy
-from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 from test_envelope_m5 import bundle as envelope_bundle
 from test_geometry_rules import bundle  # noqa: F401  (pytest fixture)
 
+from prechips.inputs import Bundle
 from prechips.rules import (
     accessibility,
     coverage,
@@ -33,7 +34,7 @@ SPINDLE_KEYS = {"rpm", "rpm_min", "rpm_max", "diameter_in", "flutes", "chip_load
 
 
 def saw_bundle(action="saw_cut", machine_kind="bandsaw", rows=(ROW,)):
-    return SimpleNamespace(
+    return Bundle(
         plan={
             "stock": {"material": "6061"},
             "setups": [
@@ -71,6 +72,9 @@ def saw_bundle(action="saw_cut", machine_kind="bandsaw", rows=(ROW,)):
         },
         cutting_data={"aliases": {"6061": "aluminum"}, "cut": [deepcopy(r) for r in rows]},
         policy={},
+        paths={},
+        hashes={},
+        root=Path("."),
     )
 
 

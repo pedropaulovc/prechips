@@ -561,6 +561,7 @@ not exist.
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
 | stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
+| joint_fit (always required): worst-case diametral clearance/interference interval lies inside the matching declared band, with collinear finite cylinder engagement | plan.joint_features (component, at, axis, dia, nominal_dia, depth), plan.setups.joint (fit, band, method/process/cite), features.units | M2 | "Worst-case interference lies outside the declared fit; no union." |
 
 ### 4.2 Setup geometry (on the B-rep — needs the kernel)
 
@@ -571,6 +572,7 @@ not exist.
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default | features.faces, plan.ops.faces, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
+| joint_assembly (always required): received prepared branches satisfy actual target geometry, overlap/insertion or full internal surface contact, and final-material coverage plus permitted finite fill | STEP final solid, selected stock lineage/output completion, plan.joint_features, plan.setups.joint | M4 | "Join refused: the received branch has lost required finished material." |
 
 **Accessibility pose decision — user, 2026-10-05.** Ordinary wall samples
 keep the cutter-radius offset along the horizontal outward normal. A floor
@@ -1201,9 +1203,10 @@ sheet.
 
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
-   built-up component, any earlier setup id (not just the previous setup), or a
-   nonempty array joined by Boolean union. Supplies and setup outputs stay in
-   model coordinates; joining applies no implicit assembly transform. Components
+   built-up component, any earlier setup id (not just the previous setup), or an
+   exactly two-reference array with a required physical `joint` declaration.
+   Supplies and setup outputs stay in model coordinates; joining applies no
+   implicit assembly transform. Components
    require known, nonempty, unique ids matched exactly, with no ASCII whitelist,
    and accept `origin_mm`, `axis` and `section_axis` with root-stock pose semantics. Each contains only
    its own piece, not the full finished STEP. Missing component geometry remains
@@ -1220,6 +1223,42 @@ sheet.
    empty or omitted declarations add no cross-component dependency. Removal
    fragmentation is checked per input solid, so deleting one assembly piece
    cannot mask splitting another.
+   **Joint-feature engine implemented:** plan-owned finite sockets and spigots
+   resolve for operation/dimension rules without modifying the exported
+   manifest or earning final STEP coverage. Cylindrical joints check all
+   diametral fit extremes, branch-specific preparation and actual geometry,
+   finite engagement, actual overlap and straight-axis insertion. Surface joints
+   require essentially full finite rectangle contact on both sides inside the
+   final solid, without bulk overlap. Component-owned protection applies to all
+   preparation cuts; assembly rechecks received final-material coverage plus
+   authorized derived fill. Numeric unknowns withhold union/render as named debt;
+   identities and invalid ancestry are bad input. Exactly two physical component
+   lineages are supported; nested joins to a third component remain refused.
+   Transient taps/counterbores are named debt, not cylindrical substitutes.
+   The built-up cone's engine-branch migration deliberately keeps unresolved
+   numeric preparation/fit facts; the complete authored example route is separate.
+   Manual-only bench setups have no zero/DRO/headroom screen, and routed mill
+   headroom uses the actual setup-entry stock bbox rather than the raw blank.
+   **Scoped joint proof, 2026-10-06:** **449** affected host/native behavior
+   tests passed under FreeCAD 1.1, including finite-spigot late material loss,
+   rotated authored spans, full rectangle extents/contact and bulk-overlap refusal.
+   Actual synthetic bench `traveler` runs gave exit **0**, a passing
+   `joint_assembly` and one setup image for a known full butt interface;
+   changing its size to `"unknown"` gave exit **4**, unknown assembly and no
+   setup image. Both emitted traveler HTML. An authored 10×10 mm interface that
+   crossed the finished exterior now refused assembly (exit **2**, no image),
+   rather than being shortened to 10×2 mm and approved. The complete cone's
+   normalized native S1 prefix, with 20/25 mm grips, retained known stock after
+   its spring pass and had no tool/holder hits or false shoulder debt.
+   This is local engine evidence, not physical fixture or first-article approval.
+   **Consolidated joint-worktree gate:** locked `uv sync`, repository formatting
+   (**126** files) and the example validator (**27** TOML files; twelve traveler
+   bundles plus comparison) passed. The required-FreeCAD suite recorded
+   **1857 passed**, with one imported stale fixture-default assertion failing.
+   The repaired reference-pilot case passed after removing blanket fixture/default
+   approval assertions; its actual collision findings and authored data were not
+   changed. Remaining Ruff diagnostics are four unchanged base findings: three
+   native `zip` calls without `strict=` and one long raw FreeCAD author-script line.
    Each output subtracts its setup's derivable removals from its selected input.
    Facing's planar outer-wire sweep clears raw caps over hole mouths while
    preserving finished islands. Generic bounded clearing preserves known

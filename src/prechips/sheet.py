@@ -12,6 +12,7 @@ import math
 import re
 from html import escape
 
+from .joint_features import TEMPORARY_LABEL
 from .model import tolerance_requirements
 from .rules.resolution import (
     MANUAL,
@@ -286,7 +287,8 @@ class _Traveler:
     def __init__(self, bundle, findings, report, approval):
         self.bundle = bundle
         self.plan = bundle.plan
-        self.features = bundle.features.get("features", {})
+        # Operative features: the exported manifest plus resolved plan joint features.
+        self.features = bundle.feature_definitions
         self.general_precision = bundle.features.get("precision")
         self.findings = sorted(
             findings, key=lambda f: (_field(f, "rule", ""), _field(f, "subject", ""))
@@ -329,6 +331,7 @@ class _Traveler:
             if isinstance(frame, str) and frame != "unknown":
                 self.frames.setdefault(frame, []).append(setup["id"])
         self.setup = None
+        self.setup_stops = {}
 
     # ------------------------------------------------------------------ numbers
     def precision(self, feature=None, dimension=None):
@@ -336,6 +339,35 @@ class _Traveler:
         if isinstance(overrides, dict):
             return overrides.get(dimension, self.general_precision)
         return overrides
+
+    def feature_label(self, feature):
+        """An exported feature prints its shop name; a transient joint feature is marked
+        temporary."""
+        joint = _mapping(self.features.get(feature, {}).get("joint"))
+        if not joint:
+            return self.feature_name(feature)
+        kind = {"cylinder_bore": "socket bore", "cylinder_spigot": "spigot"}[joint["kind"]]
+        return (
+            f"{self.feature_name(feature)} ({kind} on {_text(joint['component'])}): "
+            f"{TEMPORARY_LABEL}"
+        )
+
+    def joint_text(self, setup):
+        """How a two-branch setup joins: method, process and the declared fit band."""
+        joint = _mapping(setup.get("joint"))
+        if not joint:
+            return ""
+        text = f" Joined by {_text(joint['method'])} ({_text(joint['process'])})"
+        if joint["kind"] == "cylindrical":
+            band = joint.get(f"{joint['fit']}_mm")
+            limits = " to ".join(map(_number, band)) if isinstance(band, list) else _text(band)
+            text += (
+                f": spigot {self.feature_name(joint['spigot'])} into socket "
+                f"{self.feature_name(joint['socket'])}, {joint['fit']} {limits} mm diametral"
+            )
+        else:
+            text += f" at {len(joint['interfaces'])} declared interface(s)"
+        return text + "."
 
     def value(self, value, feature=None, dimension=None, drawing=True):
         """Format with the dimension's declared drawing precision when one exists.
@@ -393,107 +425,13 @@ class _Traveler:
 
     # ------------------------------------------------------------- vocabulary
     def reference(self, reference, category=None):
-        if reference in (None, "unknown", "none", "not_applicable"):
-            return _text(reference)
-        if not isinstance(reference, str):
-            return "?"
-        identity_category = category
-        if category == "fixtures":
-            identity_category = (
-                inventory_category(self.bundle, reference, WORKHOLDING_CATEGORIES) or category
-            )
-        item = resolve(self.bundle, identity_category, reference)
-        root, _, member = reference.partition("/")
-        raw = (
-            _mapping(_mapping(self.bundle.inventory.get(identity_category)).get(root))
-            if identity_category
-            else {}
-        )
-        if not raw:
-            raw_category = inventory_category(self.bundle, reference, tuple(self.bundle.inventory))
-            raw = (
-                _mapping(_mapping(self.bundle.inventory.get(raw_category)).get(root))
-                if raw_category
-                else {}
-            )
-        record = item or raw
-        name = record.get("name", record.get("label"))
-        if not name:
-            if category == "machines" or root in _mapping(self.bundle.inventory.get("machines")):
-                name = root
-            else:
-                kind = record.get("kind", "unknown")
-                if kind in _KIND_NAMES:
-                    name = _KIND_NAMES[kind]
-                    size = _amount(record.get("diameter_in"))
-                    if size is not None:
-                        name = f"{size:g} in {name}"
-                    if re.fullmatch(r"[A-Z]+-?\d+", root):
-                        name = f"{root} {name}"
-                elif kind in {"accessory", "unknown", "custom"}:
-                    name = re.sub(r"\bmt(\d)\b", r"MT\1", root.replace("-", " ").replace("_", " "))
-                else:
-                    name = _text(kind)
-                name = name.removesuffix(" set")
-        if member:
-            if record.get("kind") == "micrometer_set":
-                member = member.removesuffix("in") + " in"
-            elif record.get("kind") == "qctp_set":
-                number, _, role = member.partition("-")
-                name = "QCTP holder"
-                member = f"#{number} {role.replace('-', '/')}" if number.isdigit() else member
-            else:
-                # "1-4in" is a 1/4 in size; "0-1in" is a 0–1 in range.
-                member = re.sub(r"\b0-(\d+)in\b", r"0-\1 in", member)
-                member = re.sub(r"\b([1-9]\d*)-(\d+)in\b", r"\1/\2 in", member)
-                member = re.sub(r"^(\d+)in$", r"\1 in", member)
-                member = re.sub(r"-(\d+)fl", r" \1-flute", member)
-            if record.get("kind") == "center_drill_set" and member.isdigit():
-                member = "#" + member
-            name = f"{name} {member}" if record.get("kind") == "qctp_set" else f"{member} {name}"
-        elif item:
-            for field, unit in (("tip_in", "in"), ("dia_in", "in"), ("dia_mm", "mm")):
-                size = record.get(field)
-                if isinstance(size, (int, float)):
-                    name = f"{size:g} {unit} {name}"
-                    break
-        if record.get("standard"):
-            name = f"{record['standard']} {name}"
-        return f"{name} (not in shop list)" if item is None else str(name)
+        return reference_label(self.bundle, reference, category)
 
     def short_reference(self, reference, category=None):
-        label = self.reference(reference, category)
-        for full, short in (
-            ("4-flute", "4fl"),
-            ("2-flute", "2fl"),
-            ("endmill", "EM"),
-            ("center drill", "CD"),
-            ("drill index", "drill"),
-            ("dial test indicator", "DTI"),
-            ("dial indicator", "indicator"),
-            ("micrometers", "mic"),
-            ("micrometer", "mic"),
-        ):
-            label = label.replace(full, short)
-        return label
+        return short_reference_label(self.bundle, reference, category)
 
     def tool_name(self, reference):
-        """Short shop name for a cutting tool."""
-        item = resolve(self.bundle, "tools", reference)
-        if not item:
-            return self.short_reference(reference, "tools")
-        member = reference.partition("/")[2]
-        kind = item.get("kind")
-        if kind == "insert_holders":
-            entering = _amount(item.get("entering_angle_deg"))
-            if entering is None:
-                return f"{member} insert holder"
-            role = "profiling" if entering < 90 else "turning/facing"
-            return f"{member} {role} holder"
-        if kind == "parting_blade":
-            width = _amount(item.get("blade_width_mm"))
-            return (f"{self.operative(width)} mm " if width else "") + "parting blade"
-        return self.short_reference(reference, "tools")
+        return tool_label(self.bundle, reference)
 
     def tool_detail(self, reference):
         item = resolve(self.bundle, "tools", reference)
@@ -572,8 +510,10 @@ class _Traveler:
             text,
         )
         text = text.replace("PLAN.md", "approved plan")
+        # Computed residue (0.470333, -2.07825) prints at DRO resolution; an authored
+        # value of up to four decimals (a 1.9875 pin, a 0.0254 limit) is a fact, kept as is.
         text = re.sub(
-            r"(?<![\w.])(-?\d+\.\d{4,})(?![\w.])",
+            r"(?<![\w.])(-?\d+\.\d{5,})(?![\w.])",
             lambda m: _number(float(m[1]), self.decimals),
             text,
         )
@@ -962,17 +902,22 @@ class _Traveler:
                 missing.append("spindle-to-table room over the dividing head")
         elif "bed_height_mm" in numbers or "sum_mm" in numbers:
             need, have = numbers.get("sum_mm"), numbers.get("spindle_to_table_max_mm")
+            # The needed height is the tallest op's stack, so its stickout and holder are
+            # printed with it and the shown terms add up to the total.
+            worst = next((s for s in numbers.get("stacks", []) if s.get("sum_mm") == need), {})
             stack = [
                 ("vise / fixture", numbers.get("bed_height_mm")),
                 ("risers", numbers.get("support_blocks_mm")),
                 ("parallels", numbers.get("parallels_mm")),
                 ("work", numbers.get("stock_height_mm")),
-                ("tool in holder", numbers.get("insertion_mm")),
+                ("tool stickout", worst.get("tool_projection_mm")),
+                ("holder", worst.get("holder_gauge_len_mm")),
+                ("tool-change room", numbers.get("insertion_mm")),
             ]
-            if _known(need):
+            if _known(need) and worst:
                 parts = [f"{name} {o(v)}" for name, v in stack if _known(v) and v]
                 lines.append(
-                    "Spindle-to-table stack: "
+                    f"Spindle-to-table, tallest stack (op {_text(worst.get('op'))}): "
                     + " + ".join(parts)
                     + f" = {o(need)} needed of {o(have)}: {fits(need, have)}."
                 )
@@ -1582,7 +1527,7 @@ class _Traveler:
                     (
                         _text(op["op"]),
                         action,
-                        self.feature_name(feature)
+                        self.feature_label(feature)
                         if feature is not None
                         else "stock"
                         if saw
@@ -1965,7 +1910,7 @@ class _Traveler:
         line = f"Starts from: {self.arrival(setup)}"
         if parts:
             line += " — " + ", ".join(parts)
-        line += "."
+        line += "." + self.joint_text(setup)
         if state.get("note"):
             line += " " + self.bench(state["note"], setup).rstrip(".") + "."
         return _p(line)
@@ -2012,7 +1957,7 @@ class _Traveler:
         return line
 
     def requirements(self):
-        rows = []
+        rows, temporary = [], []
         for feature, definition in self.features.items():
             values = [
                 "? requirement not identified"
@@ -2022,15 +1967,29 @@ class _Traveler:
                 + self.band(definition.get(d), feature, d)
                 for d in dict.fromkeys(tolerance_requirements(definition))
             ]
+            if _mapping(definition.get("joint")):
+                # Plan-authored preparation, never drawing acceptance.
+                temporary.append(
+                    (
+                        self.feature_label(feature),
+                        "; ".join(values) or "No preparation requirements declared.",
+                    )
+                )
+                continue
             rows.append(
                 (self.feature_name(feature), "; ".join(values) or "no toleranced requirement")
             )
         thickness = _mapping(self.bundle.features.get("material")).get("thickness")
         if _known(thickness):
             rows.append(("part", f"finished thickness {self.value(thickness)}"))
-        return "<h2>DRAWING REQUIREMENTS</h2>" + _table(
+        html = "<h2>DRAWING REQUIREMENTS</h2>" + _table(
             ["feature", "limits"], rows, widths=[30, 70]
         )
+        if temporary:
+            html += f"<h2>{escape(TEMPORARY_LABEL)}</h2>" + _table(
+                ["plan feature", "limits"], temporary, widths=[30, 70]
+            )
+        return html
 
     def drawing_revision(self):
         revision = self.plan.get("drawing", {}).get("revision", "unknown")
@@ -2046,6 +2005,12 @@ class _Traveler:
         if self.bundle.features.get("step_sha256", "unknown") == "unknown":
             topics.append("3D model / drawing pairing")
         cautions.extend(str(w) for w in self.approval.get("warnings", []))
+        stopped = [sid for sid, count in self.setup_stops.items() if count]
+        if stopped:
+            stops.append(
+                f"Setup{'s' if len(stopped) > 1 else ''} {', '.join(stopped)}: STOP items on "
+                "the setup page — do not run a setup until its STOPs are cleared."
+            )
         html = "<h2>JOB STATUS</h2>"
         html += self.status_boxes(stops, cautions, topics) or _p(
             "No stops, cautions or unverified checks for the job as a whole."
@@ -2109,6 +2074,7 @@ class _Traveler:
             label = _ops_label(ops, every)
             stops.append(f"{label[:1].upper() + label[1:]} — {text}")
         title = f"SETUP {setup['id']} — {machine}" + (f" ({_text(kind)})" if kind else "")
+        self.setup_stops[setup["id"]] = len(stops)
         blocks = [f"<h2>{escape(title)}</h2>" + self.status_boxes(stops, cautions, topics)]
         if setup.get("note"):
             blocks[0] += _p(self.bench(setup["note"], setup))
@@ -2133,8 +2099,9 @@ class _Traveler:
 
     def render(self):
         setups = self.plan.get("setups", [])
-        sections = [("Job", [self.header(setups)])]
-        sections.extend((f"Setup {s['id']}", self.setup_section(s)) for s in setups)
+        # Setup pages are built first so the job status can name every stopped setup.
+        pages = [(f"Setup {s['id']}", self.setup_section(s)) for s in setups]
+        sections = [("Job", [self.header(setups)]), *pages]
         drawing = self.plan.get("drawing", {})
         part = _text(self.plan.get("part"))
         revision = self.drawing_revision()
@@ -2182,6 +2149,110 @@ def render_traveler(bundle, findings, report, approval=None) -> str:
     return _Traveler(bundle, findings, report, approval).render()
 
 
+# The shop-name helpers read only the bundle's inventory (and its units for a blade
+# width), so the render host can label tools without building a traveler.
+def reference_label(bundle, reference, category=None) -> str:
+    """Shop name for an inventory reference; '(not in shop list)' when it does not resolve."""
+    if reference in (None, "unknown", "none", "not_applicable"):
+        return _text(reference)
+    if not isinstance(reference, str):
+        return "?"
+    identity_category = category
+    if category == "fixtures":
+        identity_category = (
+            inventory_category(bundle, reference, WORKHOLDING_CATEGORIES) or category
+        )
+    item = resolve(bundle, identity_category, reference)
+    root, _, member = reference.partition("/")
+    raw = (
+        _mapping(_mapping(bundle.inventory.get(identity_category)).get(root))
+        if identity_category
+        else {}
+    )
+    if not raw:
+        raw_category = inventory_category(bundle, reference, tuple(bundle.inventory))
+        raw = (
+            _mapping(_mapping(bundle.inventory.get(raw_category)).get(root)) if raw_category else {}
+        )
+    record = item or raw
+    name = record.get("name", record.get("label"))
+    if not name:
+        if category == "machines" or root in _mapping(bundle.inventory.get("machines")):
+            name = root
+        else:
+            kind = record.get("kind", "unknown")
+            if kind in _KIND_NAMES:
+                name = _KIND_NAMES[kind]
+                size = _amount(record.get("diameter_in"))
+                if size is not None:
+                    name = f"{size:g} in {name}"
+                if re.fullmatch(r"[A-Z]+-?\d+", root):
+                    name = f"{root} {name}"
+            elif kind in {"accessory", "unknown", "custom"}:
+                name = re.sub(r"\bmt(\d)\b", r"MT\1", root.replace("-", " ").replace("_", " "))
+            else:
+                name = _text(kind)
+            name = name.removesuffix(" set")
+    if member:
+        if record.get("kind") == "micrometer_set":
+            member = member.removesuffix("in") + " in"
+        elif record.get("kind") == "qctp_set":
+            number, _, role = member.partition("-")
+            name = "QCTP holder"
+            member = f"#{number} {role.replace('-', '/')}" if number.isdigit() else member
+        else:
+            # "1-4in" is a 1/4 in size; "0-1in" is a 0–1 in range.
+            member = re.sub(r"\b0-(\d+)in\b", r"0-\1 in", member)
+            member = re.sub(r"\b([1-9]\d*)-(\d+)in\b", r"\1/\2 in", member)
+            member = re.sub(r"^(\d+)in$", r"\1 in", member)
+            member = re.sub(r"-(\d+)fl", r" \1-flute", member)
+        if record.get("kind") == "center_drill_set" and member.isdigit():
+            member = "#" + member
+        name = f"{name} {member}" if record.get("kind") == "qctp_set" else f"{member} {name}"
+    elif item:
+        for field, unit in (("tip_in", "in"), ("dia_in", "in"), ("dia_mm", "mm")):
+            size = record.get(field)
+            if isinstance(size, (int, float)):
+                name = f"{size:g} {unit} {name}"
+                break
+    if record.get("standard"):
+        name = f"{record['standard']} {name}"
+    return f"{name} (not in shop list)" if item is None else str(name)
+
+
+def short_reference_label(bundle, reference, category=None) -> str:
+    """`reference_label` with the long tool words cut for table cells."""
+    label = reference_label(bundle, reference, category)
+    for full, short in (
+        ("4-flute", "4fl"),
+        ("2-flute", "2fl"),
+        ("endmill", "EM"),
+        ("center drill", "CD"),
+        ("drill index", "drill"),
+        ("dial test indicator", "DTI"),
+        ("dial indicator", "indicator"),
+        ("micrometers", "mic"),
+        ("micrometer", "mic"),
+    ):
+        label = label.replace(full, short)
+    return label
+
+
 def tool_label(bundle, reference) -> str:
     """The traveler's short shop name for a tool reference (e.g. '1.60 mm parting blade')."""
-    return _Traveler(bundle, [], {}, None).tool_name(reference)
+    item = resolve(bundle, "tools", reference)
+    if not item:
+        return short_reference_label(bundle, reference, "tools")
+    member = reference.partition("/")[2]
+    kind = item.get("kind")
+    if kind == "insert_holders":
+        entering = _amount(item.get("entering_angle_deg"))
+        if entering is None:
+            return f"{member} insert holder"
+        role = "profiling" if entering < 90 else "turning/facing"
+        return f"{member} {role} holder"
+    if kind == "parting_blade":
+        width = _amount(item.get("blade_width_mm"))
+        decimals = _DRO_DECIMALS.get(bundle.features.get("units"), 2)
+        return (f"{_number(width, decimals)} mm " if width else "") + "parting blade"
+    return short_reference_label(bundle, reference, "tools")

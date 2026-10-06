@@ -5,6 +5,7 @@ this boundary. Display annotations never certify a holding or a toolpath.
 """
 
 from prechips.rules.resolution import number, record, resolve
+from prechips.sheet import tool_label
 
 
 def _xy(value, scale):
@@ -118,8 +119,13 @@ def setup_annotations(bundle, setup, numbers):
         else None,
         "clamps": _clamps(bundle, hold),
         "tools": {
-            str(op["op"]): str(op.get("tool", "tool not selected")).replace("_", " ")
+            str(op["op"]): tool_label(bundle, op.get("tool", "unknown"))
             for op in setup["ops"]
+        },
+        "directions": {
+            str(op["op"]): op.get("direction")
+            for op in setup["ops"]
+            if isinstance(op.get("direction"), str) and op["direction"] != "unknown"
         },
     }
     result["paths"], result["waypoints"] = (

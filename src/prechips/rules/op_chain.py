@@ -6,7 +6,7 @@ from .resolution import length_mm, number, operations, resolve, same_length, unc
 
 def evaluate(bundle):
     result = []
-    for name, feature in bundle.features["features"].items():
+    for name, feature in bundle.feature_definitions.items():
         route = operations(bundle, name)
         actions = [op["do"] for _, op in route]
         nums = {

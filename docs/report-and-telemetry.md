@@ -89,6 +89,16 @@ hatch is **entry stock minus this setup's derived exit stock**, not a finished
 part substituted for arriving material or a simulated toolpath. If the exit
 stock or a cutter cannot be established, a plain `render_debts` sentence says
 what is not shown; that display debt never changes a rule verdict.
+Lathe material is drawn in meridian section so the removed annulus cannot
+conceal the retained core; the jaw-end detail magnifies nearby shoulders and
+reliefs without hiding the full stock length in the main view. Mill/custom
+views overlay a dashed **nominal part outline**, including behind arriving
+stock, solely to locate the drawing relative to pads, pins and coordinate keys.
+That outline is never a claim that the supply already has the finished shape.
+Selected cutters use the traveler's short human tool names. A separate feed
+arrow, when the plan declares its direction, is a direction symbol, not a path.
+An unresolved saw cut plane produces a plain STOP annotation and retains its
+downstream stock debt; it never prevents other geometry facts being returned.
 
 `scene` additionally records `view`, `width_px`, `height_px`, plain-language
 `shows` / `legend`, `render_debts`, `primary_op`, and sparse `waypoints`.
@@ -100,11 +110,16 @@ operation panels so repeated corners keep every coordinate key legible.
 Numbered custom-clamp badges follow authored `hold.clamp_order`, not an order
 inferred from prose; an explicit empty list means no accessory tightening
 actions. Holding/fit-up-only setups show no invented cutter.
+Fixture construction primitives remain visible as geometry and individually
+named in `scene.components`; printed callouts group body/support hardware so
+bolt and shim details do not force the pad, pin and clamp labels into tiny text.
 
 Exact posed fixture solids remain the only basis for `fixture = "modeled"`.
 Dashed table, vise-body and machine-context outlines are clearly marked
 schematic and do not enter geometry checks. A stop is drawn from a selected
 inventory fixture and declared `stop_pose`, never guessed from a holding note.
+Lathe views also show the right-side tailstock context when no centre is drawn;
+that symbol does not claim a selected or verified support.
 Unknown incoming stock produces no figure. See
 [geometry rules](rules-geometry.md#renders).
 
@@ -204,10 +219,13 @@ No verb reads expected fixtures as runtime answers.
 The traveler is the shop-floor product: Letter portrait, written for a machinist
 at the machine. A job page opens with the part, drawing number, revision (or
 `REV NOT CONFIRMED`, which is also a STOP line) and the `PLANNED` banner, then
-**JOB STATUS** (STOP / CAUTION / not-verified boxes), the drawing material and
-finish, a one-line speeds/feeds source, the DRO manual named once, **STOCK AND
-ROUTE** (stock size, supply notes and a setup → machine → holding table) and
-**DRAWING REQUIREMENTS** (feature → limits).
+**JOB STATUS** (STOP / CAUTION / not-verified boxes; a setup with its own STOP
+items is named here too, so the job page never says "no stops" over a stopped
+setup), the drawing material and finish, a one-line speeds/feeds source, the
+DRO manual named once, **STOCK AND ROUTE** (stock size, supply notes and a
+setup → machine → holding table) and **DRAWING REQUIREMENTS** (feature →
+limits). Authored values keep their digits (a 1.9875 mm pin, a 0.0254 mm
+runout limit); only computed numbers are cut to DRO resolution.
 
 Each setup then starts on a new page, in this order:
 
@@ -231,9 +249,11 @@ Each setup then starts on a new page, in this order:
 5. **CLEARANCE**, machine specific. A lathe shows chuck Ø against swing,
    work Ø against swing over the cross-slide, length against between-centres,
    quill extension and the jaw-front distance to the closest tool stop. A mill
-   shows the spindle-to-table stack, per-op tool stickout and spare travel, jaw
-   top Z and table travel. Uncomputed items are grouped into one `Not computed —
-   check at the machine` line.
+   shows the spindle-to-table stack for the tallest op (holding, work, tool
+   stickout, holder and the 25 mm tool-change room, adding up to the total),
+   per-op tool stickout and spare travel, jaw top Z and table travel.
+   Uncomputed items are grouped into one `Not computed — check at the machine`
+   line.
 6. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
    QCTP station and the ops that use it. Op rows refer to tools by `T#`.
 7. **DRO ZERO**: positive directions, then one row per axis — what to touch

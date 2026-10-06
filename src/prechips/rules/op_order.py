@@ -42,7 +42,7 @@ def evaluate(bundle):
             after = route[index + 1 :]
             feature = op.get("feature")
             action = op["do"]
-            spec = bundle.features["features"].get(feature, {})
+            spec = bundle.feature_definitions.get(feature, {})
             prerequisite_feature = (
                 spec.get("hole", spec.get("parent", feature))
                 if action == "counterbore"

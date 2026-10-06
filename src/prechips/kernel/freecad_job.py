@@ -42,9 +42,9 @@ Measurement conventions (setup frame, tool axis +Z):
   ops leave, derived once in op order before measuring, less its own actual cut;
   later cuts are never credited, and after an underivable earlier cut only
   finished material counts and tool hits stay unknown. Holders and reach retain
-  all setup-entry stock. Unrelated finished features remain obstacles. Milling
-  only: turning keeps its own turned-profile obstacle. A hole's own bore radius
-  is sizing, not a corner.
+  all setup-entry stock. Unrelated component-owned finished features remain
+  obstacles. Milling only: turning keeps its own turned-profile obstacle. A hole's
+  own bore radius is sizing, not a corner.
   Supply and earlier setups' removals determine the held stock and holder/reach
   obstacles. A rough mill op's ``rough_allowance_mm`` leave moves its poses along the unit
   normal (floor-edge limits r + a) and stays in derived stock; authored clearing boxes
@@ -96,7 +96,8 @@ Measurement conventions (setup frame, tool axis +Z):
   to_z; a facing op, part-off or cut-to-fit given to_dia, from to_dia/2 to the stock
   end, a part-off's default the axis, never a bore inferred from the finished
   part), extended at the profile's end radius over the declared z_from..z_to
-  span and limited to it, minus the finished part.
+  span and limited to it, intersected with the current post-op stock, minus
+  component-owned finished material. Null or zero-volume remnants are not removal.
   Reach depth is the material radius beside the nose/blade (z within its axial
   extent, r beyond the sample).  Concave profile corners are sharp concave
   edges between claimed faces (0) and concave tori/spheres (their profile
@@ -115,6 +116,7 @@ import os
 import sys
 import tempfile
 import time
+
 from contextlib import contextmanager
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1195,6 +1197,8 @@ class _Culled:
         replaces it in the boolean; the cylinder still bounds the face culling.
         Actual solids bypass the cylinder-answer cache.
         """
+        if self.shape.isNull():
+            return None
         key = (cx, cy, radius, z0, z1)
         cacheable = solid is None
         if cacheable and key in self.answers:
@@ -1205,7 +1209,9 @@ class _Culled:
                 answer = None
             else:
                 answer = (
-                    solid if solid is not None else Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
+                    solid
+                    if solid is not None
+                    else Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
                 )
         else:
             if solid is None:
@@ -1580,6 +1586,214 @@ def _vertical(face, axis):
     return not skipped and all(abs(normal.dot(axis)) < 1e-9 for _, normal in samples)
 
 
+def _joint_parameters(spec, diameter=None, depth=None, at=None):
+    """A finite authored target, never an unbounded through-hole or inferred nominal."""
+    diameter = spec.get("nominal_dia_mm") if diameter is None else diameter
+    depth = spec.get("depth_mm") if depth is None else depth
+    if not all(_number(value) and value > 0 for value in (diameter, depth)):
+        raise _Unknown("joint cylinder diameter/depth is unknown")
+    at = spec.get("at_mm") if at is None else at
+    if not isinstance(at, list) or len(at) != 3 or not all(_number(v) for v in at):
+        raise _Unknown("joint cylinder starting centre is unknown")
+    axis = spec.get("axis")
+    if not isinstance(axis, list) or len(axis) != 3 or not all(_number(v) for v in axis):
+        raise _Unknown("joint cylinder axis is unknown")
+    direction = V(*axis)
+    if abs(direction.Length - 1) > 1e-6:
+        raise ValueError("joint cylinder axis is not a unit vector")
+    return diameter, depth, V(*at), direction
+
+
+def _joint_cylinder(spec, diameter=None, depth=None, at=None):
+    diameter, depth, at, direction = _joint_parameters(spec, diameter, depth, at)
+    return Part.makeCylinder(diameter / 2, depth, at, direction)
+
+
+def _joint_engagement(socket, spigot):
+    for spec in (socket, spigot):
+        _joint_parameters(spec)
+    axis, other = V(*socket["axis"]), V(*spigot["axis"])
+    offset = V(*spigot["at_mm"]) - V(*socket["at_mm"])
+    if abs(axis.dot(other)) < PARALLEL or offset.cross(axis).Length > AXIS_TOL:
+        raise ValueError("socket and spigot cylinders are not coaxial")
+    ends = [offset.dot(axis), (offset + other * spigot["depth_mm"]).dot(axis)]
+    start, end = max(0.0, min(ends)), min(socket["depth_mm"], max(ends))
+    if end - start <= PLANE_TOL:
+        raise ValueError("socket and spigot have no finite axial engagement")
+    bands = [socket.get("dia_mm"), spigot.get("dia_mm")]
+    if not all(
+        isinstance(band, list)
+        and len(band) == 2
+        and all(_number(v) and v > 0 for v in band)
+        and band[0] <= band[1]
+        for band in bands
+    ):
+        raise _Unknown("joint engagement diameter bands are unknown")
+    return {
+        "at_mm": list(V(*socket["at_mm"]) + axis * start),
+        "axis": list(axis),
+        "depth_mm": end - start,
+        "diameter_mm": max(band[1] for band in bands),
+    }
+
+
+def _joint_cut_spec(cut, frame):
+    """The operation's finite cylinder, including its authored depth or spindle window."""
+    action = cut.get("action")
+    if action in {"tap", "counterbore"}:
+        geometry = "thread" if action == "tap" else "counterbore step"
+        raise _Unknown(
+            f"{action} on plan.joint_features.{cut.get('joint_feature')} is refused: "
+            f"its {geometry} geometry is not modelled on transient joint features"
+        )
+    spec = dict(cut)
+    _joint_parameters(spec, spec.get("diameter_mm"))
+    if spec["kind"] == "cylinder_bore":
+        matrix, reason = _frame_matrix(frame)
+        if reason:
+            raise _Unknown(reason)
+        at, axis = V(*spec["at_mm"]), V(*spec["axis"])
+        local = matrix.multVec(at)
+        direction = matrix.multVec(at + axis) - local
+        if abs(direction.z) < PARALLEL:
+            raise ValueError("socket cylinder is not parallel to the axial tool feed")
+        if direction.z > 0:
+            if not spec.get("thru"):
+                raise ValueError("blind socket starting centre is not its tool-entry cap")
+            # A through cylinder has two equivalent geometric caps, but the tool feeds -Z.
+            spec["at_mm"] = list(at + axis * spec["depth_mm"])
+            spec["axis"] = list(-axis)
+    if "op_depth_mm" in spec:
+        depth = spec["op_depth_mm"]
+        if not _number(depth) or depth <= 0:
+            raise _Unknown("joint operation depth is unknown")
+        spec["depth_mm"] = depth
+    if "z_from" in spec or "z_to" in spec:
+        if not all(_number(spec.get(key)) for key in ("z_from", "z_to")):
+            raise _Unknown("joint operation z_from/z_to is unknown")
+        matrix, reason = _frame_matrix(frame)
+        if reason:
+            raise _Unknown(reason)
+        origin, axis = V(*spec["at_mm"]), V(*spec["axis"])
+        local = matrix.multVec(origin)
+        direction = matrix.multVec(origin + axis) - local
+        if abs(direction.z) < PARALLEL:
+            raise ValueError("joint spindle window is not parallel to its cylinder axis")
+        ends = sorted((spec[key] - local.z) / direction.z for key in ("z_from", "z_to"))
+        if ends[1] - ends[0] <= PLANE_TOL:
+            raise ValueError("joint operation spindle window spans no length")
+        spec["at_mm"] = list(origin + axis * ends[0])
+        spec["depth_mm"] = ends[1] - ends[0]
+    return spec
+
+
+def _joint_profile(spec, frame, top=None):
+    """The same pointed/flat axial tool profiles used by ordinary hole operations."""
+    action = spec.get("action")
+    if spec["kind"] == "cylinder_spigot":
+        if action not in {"turn", "rough_turn", "finish_turn"}:
+            raise _Unknown(f"{action!r} has no supported spigot cutting profile")
+        return _joint_cylinder(spec, spec.get("diameter_mm"))
+    if action not in {"drill", "ream", "bore", "rough_bore", "finish_bore", "spot"}:
+        raise _Unknown(f"{action!r} has no supported socket cutting profile")
+    if action == "spot" and "op_depth_mm" not in spec:
+        raise _Unknown(f"{action} joint cut needs an authored finite op_depth_mm")
+    _joint_parameters(spec, spec.get("diameter_mm"))
+    if action not in {"drill", "spot"} and top is None:
+        return _joint_cylinder(spec, spec["diameter_mm"])
+    angle = spec.get("point_angle_deg")
+    if action in {"drill", "spot"} and (not _number(angle) or not 0 < angle < 180):
+        raise _Unknown(f"{action} joint cut lacks an accepted point angle")
+    matrix, reason = _frame_matrix(frame)
+    if reason:
+        raise _Unknown(reason)
+    entry = matrix.multVec(V(*spec["at_mm"]))
+    axis = matrix.multVec(V(*spec["at_mm"]) + V(*spec["axis"])) - entry
+    if axis.dot(Z) > -PARALLEL:
+        raise ValueError("joint axial tool profile is not aligned with -setup Z")
+    radius = spec["diameter_mm"] / 2
+    depth = spec["depth_mm"]
+    tip = entry.z - depth
+    ceiling = entry.z if top is None else max(entry.z, top)
+    if action in {"drill", "spot"}:
+        slope = math.tan(math.radians(angle / 2))
+        if action == "drill":
+            tip -= radius / slope
+        profile = _pointed_cutter(entry.x, entry.y, tip, radius, slope, ceiling - tip)
+    else:
+        profile = Part.makeCylinder(radius, ceiling - tip, V(entry.x, entry.y, tip), Z)
+    profile.transformShape(matrix.inverse())
+    return profile
+
+
+def _joint_faces(spec, cylinder):
+    faces = []
+    axis, end = V(*spec["axis"]), V(*spec["at_mm"]) + V(*spec["axis"]) * spec["depth_mm"]
+    for face in cylinder.Faces:
+        if isinstance(face.Surface, (Part.Cylinder, Part.Cone)):
+            target = face.copy()
+            if spec["kind"] == "cylinder_bore":
+                target.reverse()
+            faces.append(target)
+        elif spec["kind"] == "cylinder_bore" and not spec.get("thru"):
+            point = _inner_point(face)
+            if point is not None and abs((point - end).dot(axis)) < PLANE_TOL:
+                target = face.copy()
+                target.reverse()
+                faces.append(target)
+    return faces
+
+
+def _interface(spec):
+    """The finite contact rectangle, centred at the authored point in model millimetres."""
+    if not all(
+        isinstance(spec.get(key), list)
+        and len(spec[key]) == 3
+        and all(_number(v) for v in spec[key])
+        for key in ("at_mm", "normal", "x")
+    ):
+        raise _Unknown("joint interface placement is unknown")
+    at, normal, across = (
+        _stock_vector(spec, key, unit)
+        for key, unit in (("at_mm", False), ("normal", True), ("x", True))
+    )
+    if abs(normal.dot(across)) > 1e-6:
+        raise ValueError("joint interface normal and x are not orthogonal")
+    size = spec.get("size_mm")
+    if not isinstance(size, list) or len(size) != 2 or not all(_number(v) and v > 0 for v in size):
+        raise _Unknown("joint interface size is unknown")
+    across, along = across * (size[0] / 2), normal.cross(across) * (size[1] / 2)
+    points = [at - across - along, at + across - along, at + across + along, at - across + along]
+    return Part.Face(Part.makePolygon(points + points[:1])), at, normal
+
+
+def _axis_extent(shape, axis):
+    box = _bbox(shape)
+    values = [
+        V(x, y, z).dot(axis)
+        for x in (box[0], box[3])
+        for y in (box[1], box[4])
+        for z in (box[2], box[5])
+    ]
+    return min(values), max(values)
+
+
+def _straight_sweep(shape, vector):
+    """Exact linear occupied sweep: endpoint solids plus prisms of the boundary faces."""
+    moved = shape.copy()
+    moved.translate(vector)
+    pieces = [shape, moved]
+    for face in shape.Faces:
+        if _vertical(face, vector / vector.Length):
+            continue
+        prism = face.extrude(vector)
+        if abs(prism.Volume) > HIT_MM3:
+            if prism.Volume < 0:
+                prism.reverse()
+            pieces.append(prism)
+    return pieces[0].multiFuse(pieces[1:]).removeSplitter()
+
+
 # --------------------------------------------------------------------------- fixtures
 
 
@@ -1769,6 +1983,16 @@ class _Job:
         if not isinstance(setups, list):
             raise ValueError("job setups is not a list")
         supplies, (stock, reason) = self._supplies()
+        self.raw_supplies = supplies
+        self.states = {
+            ref: {"components": {ref.removeprefix("stock.")}, "completed": {}, "joined": set()}
+            for ref in supplies
+        }
+        self._init_joints()
+        result["transient_faces"] = [
+            {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
+            for index in range(len(self.synthetic_faces))
+        ]
         result["stock"] = (
             {"bbox_mm": [_r(v) for v in _bbox(stock)], "volume_mm3": _r(stock.Volume)}
             if reason is None
@@ -1777,22 +2001,29 @@ class _Job:
         outputs = dict(supplies)
         leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
         for setup in setups:
-            held, held_reason = self._held(setup, outputs)
+            held, held_reason, state, assembly_error = self._held(setup, outputs)
             if held_reason is None:
                 box = _bbox(held)
                 self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
             stock_in = setup.get("stock_in") if isinstance(setup, dict) else None
             refs = stock_in if isinstance(stock_in, list) else [stock_in]
             leave = max([0.0] + [leaves.get(ref, 0.0) for ref in refs if isinstance(ref, str)])
-            runner = _Setup(self, setup, held, held_reason, leave)
+            runner = _Setup(self, setup, held, held_reason, state, leave)
             clocks = self.timing["setups"] if self.timing is not None else None
             with _timed(clocks, str(setup.get("id"))) as setup_clocks:
                 runner.timing = setup_clocks
                 facts, ops = runner.run()
+            if assembly_error is not None:
+                facts["assembly_error"] = assembly_error
             sid = str(setup.get("id"))
             result["setups"][sid] = facts
             result["ops"].update(ops)
             outputs[sid] = runner.stock_out, runner.stock_out_reason
+            self.states[sid] = {
+                "components": state["components"],
+                "completed": runner.completed if runner.stock_out_reason is None else {},
+                "joined": state["joined"],
+            }
             leaves[sid] = runner.leave_out
         return result
 
@@ -1896,10 +2127,310 @@ class _Job:
         return solids[0].multiFuse(solids[1:]).removeSplitter(), None
 
     def _held(self, setup, sources):
-        """Stock received from an explicit single reference or an assembly of references."""
-        stock_in = setup.get("stock_in", UNKNOWN) if isinstance(setup, dict) else UNKNOWN
+        """Resolve one exact branch, or validate and join exactly two independent branches."""
+        stock_in = setup.get("stock_in", UNKNOWN)
         refs = stock_in if isinstance(stock_in, list) else [stock_in]
-        return self._joined(refs, sources)
+        state = {"components": set(), "completed": {}, "joined": set()}
+        error = None
+        try:
+            for ref in refs:
+                if ref not in sources or ref not in self.states:
+                    raise ValueError(
+                        f"stock_in reference {ref!r} is not a supply or earlier output"
+                    )
+                upstream = self.states[ref]
+                if state["components"] & upstream["components"]:
+                    raise ValueError("stock_in branches share component ancestry")
+                state["components"].update(upstream["components"])
+                state["completed"].update(upstream["completed"])
+                state["joined"].update(upstream["joined"])
+                if sources[ref][1] is not None:
+                    raise _Unknown(sources[ref][1])
+            for component in state["components"] - state["joined"]:
+                if component in self.ownership_errors:
+                    raise ValueError(self.ownership_errors[component])
+                if component in self.ownership_reasons:
+                    raise _Unknown(self.ownership_reasons[component])
+            if not isinstance(stock_in, list):
+                return sources[refs[0]][0], None, state, None
+            if len(refs) != 2:
+                raise ValueError("a declared joint requires exactly two stock_in branches")
+            joint = setup.get("joint")
+            if not isinstance(joint, dict):
+                raise ValueError("every stock_in array requires a declared joint")
+            if joint.get("fit_error"):
+                raise ValueError(joint["fit_error"])
+            if joint.get("reason"):
+                raise _Unknown(joint["reason"])
+            if joint.get("kind") == "cylindrical":
+                joined = self._cylindrical_join(refs, sources, joint, state)
+            elif joint.get("kind") == "surface":
+                joined = self._surface_join(refs, sources, joint)
+            else:
+                raise ValueError("joint kind is not cylindrical or surface")
+            raw = [self.raw_supplies["stock." + name][0] for name in state["components"]]
+            envelope = raw[0].multiFuse(raw[1:]) if len(raw) > 1 else raw[0]
+            missing = self.solid.common(envelope).cut(joined).Volume
+            if missing > STOCK_MM3:
+                raise ValueError(
+                    f"assembled outputs leave {_r(missing)} mm^3 "
+                    "of protected finished material missing"
+                )
+            if not joined.isValid() or len(joined.Solids) != 1:
+                raise ValueError("declared joint leaves disconnected or invalid material")
+            state["joined"].update(state["components"])
+            return joined, None, state, None
+        except _Unknown as exc:
+            return None, str(exc), state, None
+        except (ValueError, KeyError) as exc:
+            error = str(exc)
+        return None, error, state, error
+
+    def _init_joints(self):
+        self.joint_features = self.job.get("joint_features", {})
+        self.synthetic_faces, self.joint_indices, self.joint_op_indices = [], {}, {}
+        self.joint_targets, self.ownership_reasons = {}, {}
+        self.ownership_errors = {}
+        self.protected = {
+            name: self.solid for state in self.states.values() for name in state["components"]
+        }
+        roots = {ref: state["components"] for ref, state in self.states.items()}
+        for setup in self.job["setups"]:
+            refs = setup.get("stock_in")
+            refs = refs if isinstance(refs, list) else [refs]
+            roots[setup["id"]] = set().union(*(roots.get(ref, set()) for ref in refs))
+        spigots = []
+        for name, spec in sorted(self.joint_features.items()):
+            try:
+                target = _joint_cylinder(spec)
+            except _Unknown:
+                continue
+            self.joint_targets[name] = target
+            self.joint_indices[name] = self._add_joint_faces(spec, target)
+        for setup in self.job["setups"]:
+            joint = setup.get("joint")
+            if not isinstance(joint, dict):
+                continue
+            if joint.get("kind") == "cylindrical":
+                socket = self.joint_features.get(joint.get("socket"), {})
+                spigot = self.joint_features.get(joint.get("spigot"), {})
+                target = self.joint_targets.get(joint.get("spigot"))
+                if target is None:
+                    for spec in (socket, spigot):
+                        if spec:
+                            self.ownership_reasons[spec["component"]] = (
+                                "joint ownership cylinder is unknown"
+                            )
+                    continue
+                owned = self.solid.common(target)
+                components = {socket["component"], spigot["component"]}
+                for other, material, other_components in spigots:
+                    if owned.common(material).Volume > STOCK_MM3:
+                        error = (
+                            "spigot ownership overlaps finished material: "
+                            f"{other}, {joint['spigot']}"
+                        )
+                        for component in components | other_components:
+                            self.ownership_errors[component] = error
+                spigots.append((joint["spigot"], owned, components))
+                self.protected[spigot["component"]] = self.protected[spigot["component"]].common(
+                    owned
+                )
+                self.protected[socket["component"]] = self.protected[socket["component"]].cut(owned)
+            elif joint.get("kind") == "surface":
+                try:
+                    interfaces = joint.get("interfaces")
+                    if not isinstance(interfaces, list) or not interfaces:
+                        raise _Unknown("surface joint interfaces are unknown")
+                    refs = setup["stock_in"]
+                    size = 4 * math.dist(_bbox(self.solid)[:3], _bbox(self.solid)[3:]) + 10
+                    for spec in interfaces:
+                        _, at, normal = _interface(spec)
+                        for ref in refs:
+                            names = roots.get(ref, set())
+                            if ref == joint.get("negative_ref", refs[0]):
+                                sign = -1
+                            elif ref == joint.get("positive_ref", refs[1]):
+                                sign = 1
+                            else:
+                                raise ValueError("surface joint side reference is not received")
+                            wide, _, _ = _interface({**spec, "size_mm": [size, size]})
+                            half = wide.extrude(normal * (sign * size))
+                            for name in names:
+                                self.protected[name] = self.protected[name].common(half)
+                        if joint.get("negative_ref", refs[0]) == joint.get("positive_ref", refs[1]):
+                            raise ValueError(
+                                "surface joint requires opposite branch side ownership"
+                            )
+                except _Unknown as exc:
+                    for ref in setup["stock_in"]:
+                        for name in roots.get(ref, set()):
+                            self.ownership_reasons[name] = str(exc)
+                except ValueError as exc:
+                    for ref in setup["stock_in"]:
+                        for name in roots.get(ref, set()):
+                            self.ownership_errors[name] = str(exc)
+        for setup in self.job["setups"]:
+            for op in setup.get("ops", []):
+                cut = op.get("joint_cut")
+                if isinstance(cut, dict) and not cut.get("reason"):
+                    try:
+                        spec = _joint_cut_spec(cut, setup.get("frame"))
+                        cylinder = _joint_profile(spec, setup.get("frame"))
+                    except (_Unknown, ValueError):
+                        continue
+                    self.joint_op_indices[op["subject"]] = self._add_joint_faces(spec, cylinder)
+        self.features.update(
+            {name: self.joint_indices.get(name, UNKNOWN) for name in self.joint_features}
+        )
+
+    def _add_joint_faces(self, spec, target):
+        indices = []
+        for face in _joint_faces(spec, target):
+            indices.append(len(self.labels))
+            self.labels.append(
+                spec.get("label", "plan.joint_features." + spec.get("joint_feature", ""))
+            )
+            self.synthetic_faces.append(face)
+        return indices
+
+    def _prepared(self, solid, name, state):
+        spec = self.joint_features[name]
+        cut = state["completed"].get(name)
+        if not cut or cut.get("component") != spec["component"]:
+            raise ValueError(
+                f"joint feature {name} has no completed preparation on its received ancestor"
+            )
+        target = _joint_cylinder(spec, cut["diameter_mm"])
+        if spec["kind"] == "cylinder_bore":
+            if solid.common(target).Volume > STOCK_MM3:
+                raise ValueError(f"prepared socket {name} still contains material")
+        else:
+            if target.cut(solid).Volume > STOCK_MM3:
+                raise ValueError(f"prepared spigot {name} is missing target material")
+            outer = _joint_cylinder(spec, 4 * math.dist(_bbox(solid)[:3], _bbox(solid)[3:]) + 10)
+            if solid.common(outer).cut(target).Volume > STOCK_MM3:
+                raise ValueError(
+                    f"prepared spigot {name} retains exterior stock in its finite span"
+                )
+        return cut
+
+    def _cylindrical_join(self, refs, sources, joint, state):
+        socket_name, spigot_name = joint["socket"], joint["spigot"]
+        socket_spec, spigot_spec = (
+            self.joint_features[socket_name],
+            self.joint_features[spigot_name],
+        )
+        socket_ref, spigot_ref = joint["socket_ref"], joint["spigot_ref"]
+        if socket_ref == spigot_ref or {socket_ref, spigot_ref} != set(refs):
+            raise ValueError("socket and spigot must arrive on different received branches")
+        for ref, spec in ((socket_ref, socket_spec), (spigot_ref, spigot_spec)):
+            if self.states[ref]["components"] != {spec["component"]}:
+                raise ValueError(
+                    "joint feature does not belong to its exact received component ancestry"
+                )
+        socket, spigot = sources[socket_ref][0], sources[spigot_ref][0]
+        socket_cut = self._prepared(socket, socket_name, self.states[socket_ref])
+        spigot_cut = self._prepared(spigot, spigot_name, self.states[spigot_ref])
+        a, b = socket_spec["dia_mm"], spigot_spec["dia_mm"]
+        fit = joint.get("fit")
+        if not all(
+            isinstance(band, list) and len(band) == 2 and all(_number(v) for v in band)
+            for band in (a, b, joint.get("band_mm"))
+        ):
+            raise _Unknown("joint fit diameter bands are unknown")
+        guaranteed = (
+            [a[0] - b[1], a[1] - b[0]] if fit == "clearance" else [b[0] - a[1], b[1] - a[0]]
+        )
+        band = joint["band_mm"]
+        if (
+            fit not in {"clearance", "interference"}
+            or guaranteed[0] < -1e-9
+            or guaranteed[0] < band[0] - 1e-9
+            or guaranteed[1] > band[1] + 1e-9
+        ):
+            raise ValueError("socket/spigot fit fails at a worst-case diameter extreme")
+        if (fit == "interference" and joint.get("method") != "press") or (
+            fit == "clearance" and joint.get("method") not in {"silver_braze", "retaining_compound"}
+        ):
+            raise ValueError("joint method does not match its declared fit")
+        engagement = _joint_engagement(socket_spec, spigot_spec)
+        fill = _joint_cylinder(engagement, engagement.get("diameter_mm"))
+        allowed_overlap = Part.Shape()
+        if fit == "interference":
+            outer = _joint_cylinder(engagement, spigot_cut["diameter_mm"])
+            inner = _joint_cylinder(engagement, socket_cut["diameter_mm"])
+            allowed_overlap = outer.cut(inner)
+        overlap = socket.common(spigot)
+        if fit == "interference":
+            overlap = overlap.cut(allowed_overlap)
+        if overlap.Volume > STOCK_MM3:
+            raise ValueError(
+                f"joint branches overlap {_r(overlap.Volume)} mm^3 outside the press-fit annulus"
+            )
+        axis = V(*socket_spec["axis"])
+        distance = _axis_extent(spigot, axis)[1] - _axis_extent(socket, axis)[0] + 1.0
+        swept = _straight_sweep(spigot, axis * -distance).common(socket)
+        if fit == "interference":
+            swept = swept.cut(allowed_overlap)
+        if swept.Volume > STOCK_MM3:
+            raise ValueError(
+                "spigot insertion sweep meets socket material outside the interference annulus"
+            )
+        if fit == "interference":
+            return socket.fuse(spigot).removeSplitter()
+        if not joint.get("process"):
+            raise ValueError("clearance joint fill requires an authored joining process")
+        return socket.multiFuse([spigot, fill]).removeSplitter()
+
+    def _surface_join(self, refs, sources, joint):
+        negative, positive = joint.get("negative_ref", refs[0]), joint.get("positive_ref", refs[1])
+        if negative == positive or {negative, positive} != set(refs):
+            raise ValueError("surface joint side references must be the two received branches")
+        first, second = sources[negative][0], sources[positive][0]
+        if first.common(second).Volume > STOCK_MM3:
+            raise ValueError("surface joint branches have undeclared overlapping bulk")
+        interfaces = joint.get("interfaces")
+        if not isinstance(interfaces, list) or not interfaces:
+            raise _Unknown("surface joint interfaces are unknown")
+        if joint.get("method") not in {"weld", "silver_braze"}:
+            raise ValueError("surface joint method must be weld or silver_braze")
+        for spec in interfaces:
+            rectangle, at, normal = _interface(spec)
+            tolerance = max(AREA_ABS, rectangle.Area * AREA_REL)
+            for sign in (-1, 1):
+                inside = rectangle.copy()
+                inside.translate(normal * (sign * STOCK_TOL))
+                if inside.cut(self.solid).Area > tolerance:
+                    raise ValueError("surface joint interface is not internal to finished material")
+            sides = []
+            for shape, sign in ((first, 1), (second, -1)):
+                faces = []
+                for face in shape.Faces:
+                    if not isinstance(face.Surface, Part.Plane):
+                        continue
+                    point = _inner_point(face)
+                    if point is None or abs((point - at).dot(normal)) > PLANE_TOL:
+                        continue
+                    outward = _normal_at(face, point)
+                    if outward.dot(normal) * sign >= PARALLEL:
+                        faces.append((face, outward))
+                sides.append(faces)
+            patches = [
+                a.common(b).common(rectangle)
+                for a, na in sides[0]
+                for b, nb in sides[1]
+                if na.dot(nb) <= -PARALLEL
+            ]
+            if not patches:
+                raise ValueError("surface joint interface has no opposing physical contact faces")
+            covered = patches[0].multiFuse(patches[1:]) if len(patches) > 1 else patches[0]
+            missing = rectangle.cut(covered).Area
+            if missing > max(AREA_ABS, rectangle.Area * AREA_REL):
+                raise ValueError(
+                    f"surface joint interface lacks {_r(missing)} mm^2 of declared contact"
+                )
+        return first.fuse(second).removeSplitter()
 
     def _declared(self):
         features = self.job.get("features", {})
@@ -1947,7 +2478,13 @@ class _Job:
 
 class _Setup:
     def __init__(
-        self, owner, setup, held=None, stock_reason="in-process stock was not derived", leave=0.0
+        self,
+        owner,
+        setup,
+        held=None,
+        stock_reason="in-process stock was not derived",
+        state=None,
+        leave=0.0,
     ):
         self.owner = owner
         self.setup = setup if isinstance(setup, dict) else {}
@@ -1956,6 +2493,11 @@ class _Setup:
         self.leave_in = leave
         self.leave_out = max([leave] + [a for a, _ in map(_leave, self.ops) if a is not None])
         self.reasons = {}
+        self.state = state or {"components": set(), "completed": {}, "joined": set()}
+        self.completed = dict(self.state["completed"])
+        self.protected = None
+        self.certain = None
+        self.joint_errors = {}
         # Model-frame stock this setup receives, or why it is unknown.
         self.held, self.stock_reason = (None, stock_reason) if held is None else (held, None)
         # Model-frame stock this setup leaves for the next one, or why it is unknown.
@@ -1971,7 +2513,8 @@ class _Setup:
         self.built = None
         self.matrix = None
         self.finished = None  # the finished solid in the setup frame
-        self.faces = []  # its faces: every face index/label refers to these
+        # Imported faces, then analytic transient surfaces; owner.labels indexes both.
+        self.faces = []
         self.face_boxes = []
         self.part = None  # material present for the current fact: in-process stock
         self.box = None  # bounding box of the stock as held (seat, top)
@@ -2000,8 +2543,8 @@ class _Setup:
         self.cover_axes = {}  # (floor index, radius, leave) -> (whole-face axis or None, error)
         self.hole_cuts = {}  # (id(op), indices, radius) -> _hole_cut record
         self.hole_columns = None  # finished hole-face index -> entry-stock-long bore column
-        # rough leave -> (finished solid offset outward by it, or None, why); and
-        # (leave, window) -> (exact offset pieces of the finished part within it, or None, why)
+        # rough leave -> (protected solid offset outward by it, or None, why); and
+        # (leave, window) -> (exact offset pieces of protected material within it, or None, why)
         self.guards = {}
         self.slabs = {}  # (face index, thickness) -> (face thickened outward, or None, why)
         self.skins = {}  # (claimed indices, leave) -> (their offset skin primitives, or None, why)
@@ -2035,6 +2578,21 @@ class _Setup:
                 self.matrix = matrix
                 self.finished = finished
                 self.faces = finished.Faces
+                self.faces += [self._placed(face) for face in self.owner.synthetic_faces]
+                owned = [
+                    self.owner.protected[component]
+                    for component in self.state["components"]
+                    if self.owner.protected[component].Volume > HIT_MM3
+                ]
+                protection = (
+                    owned[0].multiFuse(owned[1:])
+                    if len(owned) > 1
+                    else owned[0]
+                    if owned
+                    else Part.Shape()
+                )
+                self.protected = self._placed(protection)
+                self.certain = self._placed(self._certain_material())
                 self.face_boxes = [_tolerant_box(face) for face in self.faces]
         if matrix is None:
             self.stock_out_reason = (
@@ -2064,9 +2622,9 @@ class _Setup:
             with _timed(phases, "fixture"):
                 self._fixture(facts)
         else:
-            # Finished material is a subset of any real stock: hits on it stay sound, but
-            # nothing measured on it may pass or be drawn as the held part.
-            self._use(self.finished)
+            # Only protected material belonging to these received components is certain.
+            # Other components and the permitted socket void are not present on this branch.
+            self._use(self.certain)
             self.box = _bbox(self.finished)
             facts["stock_reason"] = self.fixture_reason = self.stock_reason
             for key in (
@@ -2119,10 +2677,18 @@ class _Setup:
             ]
             if saws:
                 scene["saw_cuts"] = saws
+            if self.stock_out_reason is None:
+                facts["stock_out_volume_mm3"] = _r(self.stock_out.Volume)
+                facts["stock_out_bbox_mm"] = [_r(v) for v in _bbox(self.stock_out)]
+                facts["completed_joint_features"] = sorted(self.completed)
+        if self.stock_out_reason is not None:
+            facts["stock_out_reason"] = self.stock_out_reason
         for result in ops.values():
             completion = result.get("cap_completion")
             if completion is not None and completion["unformed"] == UNKNOWN:
                 completion["reason"] = self.stock_out_reason
+        for subject, error in self.joint_errors.items():
+            ops[subject]["joint_error"] = error
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -2162,7 +2728,8 @@ class _Setup:
     def _placed(self, shape):
         """A setup-frame copy of a model-frame shape."""
         placed = shape.copy()
-        placed.transformShape(self.matrix)
+        if not placed.isNull():
+            placed.transformShape(self.matrix)
         return placed
 
     def _use(self, solid):
@@ -2170,6 +2737,193 @@ class _Setup:
         self.part = solid
         self.culled_part = None
         self.regions = {}
+
+    def _certain_material(self):
+        pieces = []
+        for component in self.state["components"]:
+            ref = "stock" if component == "stock" else "stock." + component
+            raw = self.owner.raw_supplies.get(ref, (None, None))[0]
+            if raw is None:
+                continue
+            piece = self.owner.protected[component].common(raw)
+            if component not in self.state["joined"]:
+                for setup in self.owner.job["setups"]:
+                    joint = setup.get("joint")
+                    if not isinstance(joint, dict) or joint.get("kind") != "cylindrical":
+                        continue
+                    socket = self.owner.joint_features[joint["socket"]]
+                    if socket["component"] != component:
+                        continue
+                    try:
+                        engagement = _joint_engagement(
+                            socket, self.owner.joint_features[joint["spigot"]]
+                        )
+                    except (_Unknown, ValueError):
+                        continue
+                    piece = piece.cut(_joint_cylinder(engagement, engagement["diameter_mm"]))
+            if piece.Volume > HIT_MM3:
+                pieces.append(piece)
+        return (
+            pieces[0].multiFuse(pieces[1:])
+            if len(pieces) > 1
+            else pieces[0]
+            if pieces
+            else Part.Shape()
+        )
+
+    def _joint_check(self, op):
+        cut = op.get("joint_cut")
+        if not isinstance(cut, dict):
+            raise ValueError("joint operation has no analytic cut declaration")
+        name = cut.get("joint_feature")
+        declared = self.owner.joint_features.get(name)
+        if not declared or op.get("feature") != name or cut.get("kind") != declared["kind"]:
+            raise ValueError("joint operation feature identity or cylinder kind is inconsistent")
+        if "faces" in op:
+            raise ValueError("joint operations cannot claim finished STEP faces")
+        if (
+            self.state["components"] != {declared["component"]}
+            or declared["component"] in self.state["joined"]
+        ):
+            raise ValueError(
+                "joint operation does not consume its exact unjoined component ancestor"
+            )
+        if cut.get("component") != declared["component"]:
+            raise ValueError("joint operation component does not match its declaration")
+        if cut.get("reason"):
+            raise _Unknown(cut["reason"])
+        spec = _joint_cut_spec(cut, self.setup.get("frame"))
+        cylinder = _joint_profile(spec, self.setup.get("frame"))
+        at = self.matrix.multVec(V(*spec["at_mm"]))
+        axis = self.matrix.multVec(V(*spec["at_mm"]) + V(*spec["axis"])) - at
+        if declared["kind"] == "cylinder_bore":
+            if _turned(op) or axis.dot(Z) > -PARALLEL:
+                raise ValueError("socket cut requires an axial approach opposite its depth axis")
+        elif not _turned(op) or abs(axis.dot(Z)) < PARALLEL or math.hypot(at.x, at.y) > AXIS_TOL:
+            raise ValueError("spigot cut requires turning coaxially about setup Z")
+        diameter, band = spec.get("diameter_mm"), declared.get("dia_mm")
+        if not isinstance(band, list) or len(band) != 2 or not all(_number(v) for v in band):
+            raise _Unknown("joint operation diameter band is unknown")
+        if (
+            spec.get("finishing")
+            and spec.get("completes")
+            and not band[0] - 1e-9 <= diameter <= band[1] + 1e-9
+        ):
+            raise ValueError("finishing joint cylinder diameter is outside its declared band")
+        return name, spec, cylinder
+
+    def _joint_removal(self, op, stock):
+        try:
+            name, spec, cylinder = self._joint_check(op)
+            target = self._placed(cylinder)
+            if spec["kind"] == "cylinder_bore":
+                path = _joint_profile(spec, self.setup.get("frame"), _bbox(stock)[5] + STOCK_TOL)
+                removal = stock.common(self._placed(path))
+            else:
+                outer = _joint_cylinder(
+                    spec, 4 * math.dist(_bbox(stock)[:3], _bbox(stock)[3:]) + 10
+                )
+                removal = stock.common(self._placed(outer))
+                if removal.isNull() or removal.Volume <= HIT_MM3:
+                    return None, None
+                removal = removal.cut(target)
+            if removal.isNull() or removal.Volume <= HIT_MM3:
+                return None, None
+            intrusion = (
+                removal.common(self.protected) if self.protected.Volume > HIT_MM3 else Part.Shape()
+            )
+            if spec["kind"] == "cylinder_bore" and intrusion.Volume > HIT_MM3:
+                for setup in self.owner.job["setups"]:
+                    joint = setup.get("joint")
+                    if (
+                        isinstance(joint, dict)
+                        and joint.get("kind") == "cylindrical"
+                        and joint.get("socket") == name
+                    ):
+                        engagement = _joint_engagement(
+                            self.owner.joint_features[name],
+                            self.owner.joint_features[joint["spigot"]],
+                        )
+                        allowance = _joint_cylinder(engagement, engagement["diameter_mm"])
+                        intrusion = intrusion.cut(self._placed(allowance))
+            if intrusion.Volume > STOCK_MM3:
+                raise ValueError(
+                    f"joint cut removes {_r(intrusion.Volume)} mm^3 "
+                    "of protected finished material outside joint engagement"
+                )
+            return removal, None
+        except _Unknown as exc:
+            return None, str(exc)
+        except ValueError as exc:
+            self.joint_errors[self._subject(op)] = str(exc)
+            return None, str(exc)
+
+    def _joint_corners(self, op):
+        """Primitive topology checked against the actual post-cut branch, not final STEP."""
+        name, spec, cylinder = self._joint_check(op)
+        if spec["kind"] == "cylinder_spigot":
+            after, reason = self._turn_obstacle(op)
+        else:
+            removal, reason = self._joint_removal(op, self.part)
+            after = self.part if removal is None else self.part.cut(removal)
+        if reason:
+            return reason
+        if spec["kind"] == "cylinder_bore":
+            if spec.get("action") in {"drill", "spot", "ream"}:
+                return []  # The accepted axial tool profile itself generates its bore/floor.
+            axis = V(*spec["axis"])
+            end = V(*spec["at_mm"]) + axis * spec["depth_mm"]
+            for face in cylinder.Faces:
+                point = _inner_point(face)
+                if (
+                    isinstance(face.Surface, Part.Plane)
+                    and point is not None
+                    and abs((point - end).dot(axis)) < PLANE_TOL
+                ):
+                    if self._placed(face).common(after).Area > CONTACT_MM2:
+                        return (
+                            f"plan.joint_features.{name}: blind-floor corner needs "
+                            "the cutter's floor-edge geometry, not its radial diameter"
+                        )
+            if spec.get("thru"):
+                return []
+            return (
+                f"plan.joint_features.{name}: blind-cylinder floor topology "
+                "is not established on received stock"
+            )
+        declared = self.owner.joint_features[name]
+        axis, at = V(*declared["axis"]), V(*declared["at_mm"])
+        radius = spec["diameter_mm"] / 2
+        for centre in (at - axis * STOCK_TOL, at + axis * declared["depth_mm"]):
+            probe = {**spec, "at_mm": list(centre), "depth_mm": STOCK_TOL}
+            outer = _joint_cylinder(probe, 2 * (radius + REACH_BAND))
+            inner = _joint_cylinder(probe, 2 * radius)
+            if self._placed(outer.cut(inner)).common(after).Volume > HIT_MM3:
+                return (
+                    f"plan.joint_features.{name}: retained stock forms a shoulder "
+                    "at the finite target end; no shoulder radius or seat is authored"
+                )
+        return []  # Standalone external cylinder: lateral surface and convex end caps.
+
+    def _complete_joint(self, op, stock):
+        name, spec, _ = self._joint_check(op)
+        if not spec.get("finishing") or not spec.get("completes"):
+            return
+        declared = self.owner.joint_features[name]
+        actual = _joint_cylinder(spec, spec["diameter_mm"])
+        full = _joint_cylinder(declared, spec["diameter_mm"])
+        if full.cut(actual).Volume > STOCK_MM3:
+            self.completed.pop(name, None)
+            return
+        record = {
+            "component": declared["component"],
+            "diameter_mm": spec["diameter_mm"],
+            "subject": self._subject(op),
+        }
+        model = stock.copy()
+        model.transformShape(self.matrix.inverse())
+        self.owner._prepared(model, name, {"completed": {name: record}})
+        self.completed[name] = record
 
     def _where(self):
         return f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
@@ -2213,19 +2967,28 @@ class _Setup:
                     stopped = f"{subject} {why}; {where}"
                     continue
                 own, groups = plan
-                if own is None and not groups:
-                    continue
-                pieces = []
-                for original in stock.Solids:
-                    kept, why = self._remove(original, own, groups)
-                    if why is not None:
-                        stopped = f"{subject}: {why}; {where}"
-                        break
-                    pieces.extend(kept)
-                if stopped is None and not pieces:
-                    stopped = f"{subject}: claimed clearance leaves no stock; {where}"
-                if stopped is None:
-                    stock = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
+                after = stock
+                if own is not None or groups:
+                    pieces = []
+                    for original in stock.Solids:
+                        kept, why = self._remove(original, own, groups)
+                        if why is not None:
+                            stopped = f"{subject}: {why}; {where}"
+                            break
+                        pieces.extend(kept)
+                    if stopped is None and not pieces:
+                        stopped = f"{subject}: claimed clearance leaves no stock; {where}"
+                    if stopped is None:
+                        after = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
+                if stopped is None and isinstance(op.get("joint_cut"), dict):
+                    # A finishing joint cut completes its feature on the stock it leaves.
+                    try:
+                        self._complete_joint(op, after)
+                    except ValueError as exc:
+                        self.joint_errors[subject] = str(exc)
+                        stopped = f"{subject}: {exc}; {where}"
+                if stopped is None and after is not stock:
+                    stock = after
                     self.stock_states.append(stock)
             except Exception as exc:
                 stopped = f"in-process stock boolean failed ({exc}); {where}"
@@ -2278,16 +3041,17 @@ class _Setup:
         """(the cut ``op`` makes in ``stock``, or None, and why it cannot be derived).
 
         A cut is ``(own clearance or None, connected band groups)``, each group a list of
-        solids; ``(None, [])`` removes nothing. A turning op removes its revolved stock
+        solids; ``(None, [])`` removes nothing. A joint op (``joint_cut``) removes its
+        analytic transient cylinder (:meth:`_joint_removal`), a turning op its revolved stock
         (:meth:`_turn_removal`) and a hole op (``hole`` metadata) its geometry-located bore
         cylinder (see :meth:`_hole_cut`). Other ops remove only stock outside their guard:
-        the finished solid offset by their own rough leave (:meth:`_protect`). An authored
-        clearing box removes that within the box above ``to_z``, leaving unclaimed hole
-        columns to their own ops; its pieces must border a claim on the stock entering the
-        setup, so an earlier op clearing the bridge between a claim and the rest of its box
-        never strands that box. Other ops sweep direction-valid claims along +Z, keeping
-        unclaimed rails, ears, webs and overstock. A lower-leave op also cuts the lineage
-        leave off its claimed lateral faces of ``stock`` (:meth:`_band`).
+        the component-owned finished solid offset by their own rough leave
+        (:meth:`_protect`). An authored clearing box removes that within the box above
+        ``to_z``, leaving unclaimed hole columns to their own ops; its pieces must border a
+        claim on the stock entering the setup, so an earlier op clearing the bridge between a
+        claim and the rest of its box never strands that box. Other ops sweep direction-valid
+        claims along +Z, keeping unclaimed rails, ears, webs and overstock. A lower-leave op
+        also cuts the lineage leave off its claimed lateral faces of ``stock`` (:meth:`_band`).
         """
         valid, away, why = self._claims(op)
         if not isinstance(valid, list):
@@ -2295,8 +3059,11 @@ class _Setup:
         to_z = op.get("to_z")
         if to_z is not None and not _number(to_z):
             return None, "to_z is unknown"
+        if isinstance(op.get("joint_cut"), dict):
+            removal, why = self._joint_removal(op, stock)
+            return (None, why) if why is not None else ((removal, []), None)
         if _turned(op):
-            removal, why = self._turn_removal(op, valid)
+            removal, why = self._turn_removal(op, valid, stock)
             return (None, why) if why is not None else ((removal, []), None)
         if isinstance(op.get("hole"), dict):
             cut = self._hole_cut(op, valid, _positive(op, "radius_mm"))
@@ -2348,7 +3115,8 @@ class _Setup:
         try:
             for op in self.ops:
                 if (
-                    _sawn(op)
+                    isinstance(op.get("joint_cut"), dict)
+                    or _sawn(op)
                     or _turned(op)
                     or isinstance(op.get("hole"), dict)
                     or "stock_removal_bounds" in op
@@ -2394,6 +3162,11 @@ class _Setup:
                 )
             model = stock.copy()
             model.transformShape(self.matrix.inverse())
+            for name in list(self.completed):
+                try:
+                    self.owner._prepared(model, name, {"completed": self.completed})
+                except (ValueError, _Unknown):
+                    del self.completed[name]
         except Exception as exc:
             return None, f"in-process stock boolean failed ({exc}); {where}"
         return model, None
@@ -2475,9 +3248,7 @@ class _Setup:
             low, high = plane["value"] - kerf / 2, plane["value"] + kerf / 2
             box = _bbox(stock)
             # Every halfspace/slab encloses the native stock on its other two axes.
-            bounds = [value - 1.0 for value in box[:3]] + [
-                value + 1.0 for value in box[3:]
-            ]
+            bounds = [value - 1.0 for value in box[:3]] + [value + 1.0 for value in box[3:]]
             slab = list(bounds)
             slab[axis], slab[axis + 3] = low, high
             kerf_volume = stock.common(_box_shape(slab)).Volume
@@ -2509,7 +3280,11 @@ class _Setup:
                 facts["saw_reason"] = "saw retained-stock boolean is invalid"
             else:
                 removed = stock.cut(keep)
-                target_loss = self.finished.common(removed).Volume
+                target_loss = (
+                    self.protected.common(removed).Volume
+                    if self.protected.Volume > HIT_MM3
+                    else 0.0
+                )
                 if target_loss > HIT_MM3:
                     facts["saw_error"] = (
                         f"saw removes {_r(target_loss)} mm^3 of finished target material"
@@ -2631,6 +3406,23 @@ class _Setup:
             faces, prisms = [], []
             for index in valid:
                 face = self.faces[index]
+                surface = face.Surface
+                if (
+                    isinstance(surface, Part.Cylinder)
+                    and abs(surface.Axis.dot(up)) >= PARALLEL
+                    and _cylinder_concave(face)
+                ):
+                    z0 = _bbox(face)[2]
+                    faces.append(face)
+                    prisms.append(
+                        Part.makeCylinder(
+                            surface.Radius,
+                            self.owner.sweep_mm,
+                            V(surface.Center.x, surface.Center.y, z0),
+                            up,
+                        )
+                    )
+                    continue
                 if _vertical(face, up):
                     continue
                 if facing and isinstance(face.Surface, Part.Plane) and len(face.Wires) > 1:
@@ -2801,18 +3593,18 @@ class _Setup:
         return shape, None
 
     def _guard(self, leave, window=None):
-        """(finished solid offset outward by ``leave``, or None, and why not).
+        """(component-owned finished solid offset outward by ``leave``, or None, and why not).
 
         Arc joins give the exact offset; where OCC cannot build them (a drill-point apex)
         sharp intersection joins give a superset that keeps more stock. The leave stays
-        stock: a valid finite solid containing the finished part, or named debt, never the
-        nominal solid in its place.
+        stock: a valid finite solid containing the branch's protected material, or named
+        debt, never the nominal solid in its place.
 
         With a ``window`` box: the exact offset's pieces inside it, as
         :meth:`_window_guard` builds them.
         """
-        if leave == 0:
-            return (self.finished if window is None else [self.finished]), None
+        if leave == 0 or self.protected.isNull():
+            return (self.protected if window is None else [self.protected]), None
         if window is not None:
             key = (leave, tuple(window))
             if key not in self.guards:
@@ -2822,16 +3614,16 @@ class _Setup:
             errors = []
             for join in (0, 2):
                 try:
-                    guard = _offset(self.finished, leave, join)
+                    guard = _offset(self.protected, leave, join)
                     if (
                         not guard.isValid()
-                        or len(guard.Solids) != len(self.finished.Solids)
+                        or len(guard.Solids) != len(self.protected.Solids)
                         or not all(math.isfinite(v) for v in _bbox(guard))
-                        or guard.Volume <= self.finished.Volume
+                        or guard.Volume <= self.protected.Volume
                     ):
                         raise ValueError("not a valid finite enclosing solid")
-                    if self.finished.cut(guard).Volume > STOCK_MM3:
-                        raise ValueError("it does not contain the finished part")
+                    if self.protected.cut(guard).Volume > STOCK_MM3:
+                        raise ValueError("it does not contain the branch's protected material")
                     self.guards[leave] = (guard, None)
                     break
                 except Exception as exc:
@@ -2839,27 +3631,31 @@ class _Setup:
             else:
                 self.guards[leave] = (
                     None,
-                    f"finished part offset by its {_r(leave)} mm rough_allowance_mm leave "
-                    f"failed ({'; '.join(errors)})",
+                    f"protected finished material offset by its {_r(leave)} mm "
+                    f"rough_allowance_mm leave failed ({'; '.join(errors)})",
                 )
         return self.guards[leave]
 
     def _window_guard(self, leave, window):
-        """(exact offset pieces of the finished part inside ``window``, or None, and why not).
+        """(exact offset pieces of the protected material inside ``window``, or None, and
+        why not).
 
-        The finished part's offset within a box equals the offset of its part within the
-        box grown by at least ``leave``, cropped to the box: no point beyond the grown box
-        is within ``leave`` of the box. Grown by twice the leave, the cut faces' own offsets
-        stay outside the box. Only arc joins, the exact offset, qualify; each solid of the
-        part within the grown box, however small, must offset to one valid enclosing solid,
-        and every positive cropped component is kept. The source and containment Booleans
-        must be valid: faces without a solid are invalid, not an empty window.
+        The branch's protected material (:meth:`_guard`) offset within a box equals the
+        offset of its part within the box grown by at least ``leave``, cropped to the box:
+        no point beyond the grown box is within ``leave`` of the box. Grown by twice the
+        leave, the cut faces' own offsets stay outside the box. Only arc joins, the exact
+        offset, qualify; each solid of the material within the grown box, however small,
+        must offset to one valid enclosing solid, and every positive cropped component is
+        kept. The source and containment Booleans must be valid: faces without a solid are
+        invalid, not an empty window.
         """
         grown = (*(v - 2 * leave for v in window[:3]), *(v + 2 * leave for v in window[3:]))
         box = _box_shape(window)
         pieces = []
         try:
-            source = _valid(self.finished.common(_box_shape(grown)), "the part in the grown box")
+            source = _valid(
+                self.protected.common(_box_shape(grown)), "the protected material in the grown box"
+            )
             for solid in [] if source is None else source.Solids:
                 offset = _offset(solid, leave)
                 if (
@@ -2870,20 +3666,22 @@ class _Setup:
                 ):
                     raise ValueError("not a valid finite enclosing solid")
                 if solid.cut(offset).Volume > STOCK_MM3:
-                    raise ValueError("it does not contain the finished part")
+                    raise ValueError("it does not contain the branch's protected material")
                 cropped = _valid(offset.common(box), "cropped to the window it")
                 if cropped is not None:
                     pieces.extend(piece for piece in cropped.Solids if piece.Volume > 0)
-            inside = _valid(self.finished.common(box), "the part in the window")
+            inside = _valid(self.protected.common(box), "the protected material in the window")
             for piece in pieces:
                 if inside is not None:
                     inside = _valid(inside.cut(piece), "the part in the window less the guard")
             if inside is not None and inside.Volume > STOCK_MM3:
-                raise ValueError("cropped to the window it does not contain the finished part")
+                raise ValueError(
+                    "cropped to the window it does not contain the branch's protected material"
+                )
         except Exception as exc:
             return None, (
-                f"finished part offset by its {_r(leave)} mm rough_allowance_mm leave within "
-                f"[{', '.join(_r(v) for v in window)}] failed (arc joins: {exc})"
+                f"protected finished material offset by its {_r(leave)} mm rough_allowance_mm "
+                f"leave within [{', '.join(_r(v) for v in window)}] failed (arc joins: {exc})"
             )
         return pieces, None
 
@@ -2895,7 +3693,7 @@ class _Setup:
             return [], [], None
         if self.neighbours is None:
             self.neighbours = {}
-            for _, a, b in _shared_edges(self.faces, range(len(self.faces))):
+            for _, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
                 self.neighbours.setdefault(a, set()).add(b)
                 self.neighbours.setdefault(b, set()).add(a)
         slabs = []
@@ -3038,7 +3836,7 @@ class _Setup:
 
     @staticmethod
     def _unproven(facts, reason):
-        """Unknown stock blocks clearance; finished-solid hits and corner radii survive."""
+        """Unknown stock blocks clearance; only component-certain hits and corner radii survive."""
         why = f"in-process stock unknown: {reason}"
         facts["stock_reason"] = reason
         facts["reason"] = why
@@ -3067,13 +3865,17 @@ class _Setup:
         if "faces" in op:
             return op["faces"], f"op {self._subject(op)} faces"
         name = op.get("feature")
+        if name in self.owner.joint_features:
+            return [self.owner.joint_features[name]["label"]], f"joint feature {name!r}"
         declared = self.owner._declared()
         if not isinstance(name, str) or name not in declared:
             return None, f"feature {name!r} is not declared"
         return declared[name], f"feature {name!r}"
 
     def _indices(self, op):
-        """Sorted finished-face indices an op claims, or unknown while any ref is unresolved."""
+        """Claimed STEP or analytic transient indexes; only STEP indexes earn final coverage."""
+        if isinstance(op.get("joint_cut"), dict):
+            return self.owner.joint_op_indices.get(self._subject(op), UNKNOWN)
         refs, _ = self._claim_refs(op)
         indices = self.owner._feature(refs)
         return indices if indices != UNKNOWN and indices else UNKNOWN
@@ -3111,6 +3913,11 @@ class _Setup:
 
     def _claims(self, op):
         """(direction-valid indices or unknown, labels facing away, reason) for an op."""
+        if isinstance(op.get("joint_cut"), dict):
+            try:
+                self._joint_check(op)
+            except (ValueError, _Unknown) as exc:
+                return UNKNOWN, [], str(exc)
         if _sawn(op):
             return [], [], None
         indices = self._indices(op)
@@ -3689,7 +4496,7 @@ class _Setup:
         if point is None:
             return None
         vertex = Part.Vertex(point)
-        for index, box in enumerate(self.face_boxes):
+        for index, box in enumerate(self.face_boxes[: len(self.finished.Faces)]):
             if all(box[i] - STOCK_TOL <= point[i] <= box[i + 3] + STOCK_TOL for i in range(3)):
                 if self.faces[index].distToShape(vertex)[0] < STOCK_TOL:
                     return index
@@ -3841,6 +4648,7 @@ class _Setup:
         size = max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
         tolerance = max(0.01, size / 400)
         meshes, render_debts = [], []
+        lathe = self.setup.get("machine_kind") == "lathe"
         output, removal = None, None
         if self.stock_out is not None:
             try:
@@ -3852,13 +4660,28 @@ class _Setup:
         else:
             render_debts.append("NOT SHOWN: cuts are unresolved; this is the arriving stock only.")
 
-        def mesh(shape, colour, hatch=False):
-            points, triangles = shape.tessellate(tolerance)
+        meridian = None
+        if lathe:
+            x0, _, z0, x1, _, z1 = self.box
+            vertices = [
+                V(x0 - 1, 0, z0 - 1),
+                V(x1 + 1, 0, z0 - 1),
+                V(x1 + 1, 0, z1 + 1),
+                V(x0 - 1, 0, z1 + 1),
+            ]
+            meridian = Part.Face(Part.makePolygon(vertices + [vertices[0]]))
+
+        def mesh(shape, colour, hatch=False, section=False):
+            # A lathe elevation is a meridian section: the removed annulus's
+            # outside surface must not hide the retained core behind it.
+            points, triangles = (
+                shape.common(meridian) if section else shape
+            ).tessellate(tolerance)
             meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch))
 
-        mesh(output if output is not None else self.part, _COLOURS["part"])
+        mesh(output if output is not None else self.part, _COLOURS["part"], section=lathe)
         if removal is not None and removal.Volume > STOCK_MM3:
-            mesh(removal, _COLOURS["removed"], True)
+            mesh(removal, _COLOURS["removed"], True, section=lathe)
         debts, solids, possible = [], [], []
         vise = self.hold is not None and self.hold.get("kind") == "vise"
         if not self.fixture_ready:
@@ -3918,7 +4741,6 @@ class _Setup:
             "debts": debts,
         }
         annotation = self.setup.get("render", {})
-        lathe = self.setup.get("machine_kind") == "lathe"
         view = "lathe" if lathe else "plan" if scene["fixture_kind"] == "custom" else "isometric"
         tool, tool_debt = self._render_tool(annotation, lathe)
         if tool_debt:
@@ -3972,6 +4794,8 @@ class _Setup:
             "Brown/purple: holding. Green: selected tool and approach.",
             "Dashed machine outlines: context only, not measured solids.",
         ]
+        if not lathe:
+            legend.append("Dashed blue: nominal part outline, not proof that it has been cut.")
         if removal is None:
             legend[0] = "Blue-grey: arriving stock; cuts not confirmed."
             legend.pop(1)
@@ -3983,7 +4807,7 @@ class _Setup:
             ]
             centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
             components.append(
-                {"name": name, "label": name.upper(), "role": "rest", "box_mm": box,
+                {"name": name, "label": "FOLLOW REST", "role": "rest", "box_mm": box,
                  "center_mm": centre}
             )
         clamp_labels = {
@@ -4014,6 +4838,11 @@ class _Setup:
             "preload": annotation.get("preload"),
             "legend": legend,
             "notes": notes + render_debts,
+            "nominal_outline_mm": [
+                [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                for edge in self.finished.Edges
+                if edge.Length > STOCK_TOL
+            ] if not lathe else [],
         }
         if lathe:
             spec["lathe_profiles"] = self._render_profiles(output, jaw_z)
@@ -4051,6 +4880,10 @@ class _Setup:
                     role = "pad"
                 elif local.startswith("base"):
                     label, role = "FIXTURE PLATE", "plate"
+                elif role == "fixture":
+                    # The shop view labels the assembly, not every bolt/shim
+                    # primitive. All exact solids and names stay in the scene.
+                    key, label = owner + ":body_supports", "FIXTURE BODY / SUPPORTS"
             box = component["bbox"]
             if key in grouped:
                 previous = grouped[key]["box_mm"]
@@ -4090,6 +4923,8 @@ class _Setup:
             approach = [[r + 15, 0.0, z], tip]
         elif _sawn(op) and _positive(op, "kerf_mm") is not None:
             plane = op.get("cut_plane", {})
+            if not isinstance(plane, dict):
+                return None, "STOP: saw cut plane is unresolved; do not run."
             axis = {"x": 0, "y": 1, "z": 2}.get(plane.get("axis"))
             if axis is None or not _number(plane.get("value")):
                 return None, "STOP: saw cut plane is unresolved; do not run."
@@ -4119,15 +4954,31 @@ class _Setup:
             outlines = [[[x - radius, y, z], [x + radius, y, z],
                          [x + radius, y, z + length], [x - radius, y, z + length]]]
             approach = [[x, y, z + length + 12], [x, y, self.box[5]]]
+        feed = None
+        direction = annotation.get("directions", {}).get(op_number)
+        if lathe:
+            delta = (
+                [0.0, 0.0, -12.0] if direction == "toward_chuck"
+                else [0.0, 0.0, 12.0] if direction == "from_chuck"
+                else [12.0, 0.0, 0.0] if direction == "radially_outward"
+                else [-12.0, 0.0, 0.0] if direction == "radially_inward"
+                else [-12.0, 0.0, 0.0] if op.get("do") in ("part_off", "cut_to_fit")
+                else None
+            )
+            if delta is not None:
+                start = [tip[0] + 8.0, tip[1], tip[2]]
+                feed = [start, [start[i] + delta[i] for i in range(3)]]
         return {
             "label": label, "op": op_number, "tip_mm": tip,
             "outline_mm": outlines[0], "outlines_mm": outlines, "approach_mm": approach,
+            "feed_mm": feed,
         }, None
 
     def _render_profiles(self, output, jaw_z):
         """Clipped real meridian chords for the enlarged exposed-end detail."""
         lower = jaw_z if _number(jaw_z) else self.box[2]
-        upper = self.box[5]
+        diameter = max(self.box[3] - self.box[0], self.box[4] - self.box[1])
+        upper = min(self.box[5], lower + 3 * diameter)
         profiles = []
         for label, shape, colour in (
             ("arriving stock", self.part, _COLOURS["removed"]),
@@ -4243,6 +5094,87 @@ class _Setup:
             facts["reasons"][key] = reason
         return facts
 
+    def _joint_axial_op(self, op):
+        """Centred real axial tool/holder solids, never tangent offset cylinders on a cone."""
+        _, spec, _ = self._joint_check(op)
+        removal, reason = self._joint_removal(op, self.part)
+        if reason:
+            return self._op_unknown(op, reason)
+        after = self.part if removal is None else self.part.cut(removal)
+        entry = self.matrix.multVec(V(*spec["at_mm"]))
+        radius = _positive(op, "radius_mm")
+        flute = _positive(op, "flute_len_mm")
+        tip = entry.z - spec["depth_mm"]
+        slope = None
+        if spec["action"] in {"drill", "spot"}:
+            slope = math.tan(math.radians(spec["point_angle_deg"] / 2))
+            if spec["action"] == "drill":
+                tip -= spec["diameter_mm"] / (2 * slope)
+        facts = {
+            "reasons": {},
+            "claimed_indices": self._indices(op),
+            "claim_errors": [],
+            "sample_count": 1,
+            "corner_radii_mm": [],
+            "reach_depth_mm": _r(max(entry.z, self.box[5]) - tip),
+            "obstacles": {"tool": [], "holder": []},
+            "hit_refs": {"tool": [], "holder": []},
+            "min_hits": {"tool": 0, "holder": 0},
+        }
+        solids = {}
+        if radius is not None and flute is not None:
+            if radius <= LIFT:
+                facts["reasons"]["tool_hits"] = "axial tool radius is below modelling clearance"
+            elif slope is None:
+                solids["tool"] = Part.makeCylinder(
+                    radius - LIFT, flute, V(entry.x, entry.y, tip + LIFT), Z
+                )
+            else:
+                solids["tool"] = _pointed_cutter(
+                    entry.x, entry.y, tip + LIFT, radius - LIFT, slope, flute
+                )
+        else:
+            facts["reasons"]["tool_hits"] = "axial tool radius/flute length is unmeasured"
+        keys = ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
+        holder = {key: _positive(op, key) for key in keys}
+        missing = [key for key, value in holder.items() if value is None]
+        if not missing:
+            solids["holder"] = Part.makeCylinder(
+                holder["holder_radius_mm"],
+                holder["holder_gauge_len_mm"],
+                V(entry.x, entry.y, tip + holder["projection_mm"]),
+                Z,
+            )
+        else:
+            facts["reasons"]["holder_hits"] = "op lacks " + ", ".join(missing)
+        for kind in ("tool", "holder"):
+            solid = solids.get(kind)
+            if solid is None:
+                facts[kind + "_hits"] = UNKNOWN
+                if kind == "holder":
+                    facts["holder_wall_hits"] = UNKNOWN
+                    facts["reasons"]["holder_wall_hits"] = facts["reasons"]["holder_hits"]
+                continue
+            hit = solid.common(after).Volume > HIT_MM3
+            obstacles = set(self._fixture_hits(solid)) if self.fixture_ready else set()
+            if hit:
+                obstacles.add("part")
+            certain = int(bool(obstacles))
+            facts["min_hits"][kind] = certain
+            facts["obstacles"][kind] = sorted(obstacles)
+            if kind == "holder":
+                facts["holder_wall_hits"] = int(hit)
+            if not self.fixture_ready or self.fixture_gaps or self.fixture_possible:
+                facts[kind + "_hits"] = UNKNOWN
+                facts["reasons"][kind + "_hits"] = (
+                    self.fixture_reason or "fixture geometry is incomplete"
+                )
+            else:
+                facts[kind + "_hits"] = certain
+        if facts["reasons"]:
+            facts["reason"] = next(iter(facts["reasons"].values()))
+        return facts
+
     def _op(self, op):
         if _sawn(op):
             # The stock builder's facts; otherwise why the stock before this saw is unknown.
@@ -4252,6 +5184,17 @@ class _Setup:
                 return self.saws[id(op)]
             return self._saw_facts(op, self.cuts[id(op)][2])
         owner = self.owner
+        if isinstance(op.get("joint_cut"), dict):
+            if self.stock_reason is not None:
+                return self._op_unknown(op, self.stock_reason)
+            _, reason = self._joint_removal(op, self.part)
+            if reason is not None:
+                facts = self._op_unknown(op, reason)
+                if self._subject(op) in self.joint_errors:
+                    facts["joint_error"] = self.joint_errors[self._subject(op)]
+                return facts
+            if op["joint_cut"].get("action") in {"drill", "spot", "ream"}:
+                return self._joint_axial_op(op)
         refs, what = self._claim_refs(op)
         if refs is None:
             return self._op_unknown(op, what)
@@ -4272,7 +5215,18 @@ class _Setup:
         if indices == UNKNOWN:
             return self._op_unknown(op, f"{what}: face references are unknown")
         if _turned(op):
-            return self._turn_op(op, indices)
+            facts = self._turn_op(op, indices)
+            if isinstance(op.get("joint_cut"), dict):
+                previous = facts["reasons"].pop("corner_radii_mm", None)
+                corner = self._joint_corners(op)
+                facts["corner_radii_mm"] = corner if isinstance(corner, list) else UNKNOWN
+                if not isinstance(corner, list):
+                    facts["reasons"]["corner_radii_mm"] = corner
+                if facts.get("reason") == previous:
+                    facts.pop("reason", None)
+                if facts["reasons"] and "reason" not in facts:
+                    facts["reason"] = next(iter(facts["reasons"].values()))
+            return facts
         valid, away, undefined = self._split(indices)
         facts = {"reasons": {}}
         reasons = facts["reasons"]
@@ -4311,7 +5265,15 @@ class _Setup:
                 reasons[key] = reason
         else:
             hole = isinstance(op.get("hole"), dict)
-            corner = self._corners(sampled, hole) if not undefined else reasons["claimed_indices"]
+            corner = (
+                (
+                    self._joint_corners(op)
+                    if isinstance(op.get("joint_cut"), dict)
+                    else self._corners(sampled, hole)
+                )
+                if not undefined
+                else reasons["claimed_indices"]
+            )
             facts["corner_radii_mm"] = corner if isinstance(corner, list) else UNKNOWN
             if not isinstance(corner, list):
                 reasons["corner_radii_mm"] = corner
@@ -4347,6 +5309,8 @@ class _Setup:
         A hole op's own tool-axis bores are not internal corners: sizing owns their diameter.
         Nor are those bores' own matched caps (:meth:`_own_caps`), which its tool cuts.
         """
+        if any(index >= len(self.finished.Faces) for index in indices):
+            return "transient joint targets do not establish finished-part corner topology"
         part, faces, labels = self.finished, self.faces, self.owner.labels
         radii, problems = set(), []
         caps = self._own_caps(indices) if hole else set()
@@ -4575,7 +5539,7 @@ class _Setup:
         if not tools:
             return record
         cylinder = tools[0].fuse(tools[1:]) if len(tools) > 1 else tools[0]
-        removal = cylinder.cut(self.finished)
+        removal = cylinder.cut(self.protected)
         # A spot never widens its own bore: its mouth must fit the future bore, so an
         # over-deep spot's cone stays an obstacle against that finished wall.
         for _, _, members in axes if action != "spot" else ():
@@ -4606,7 +5570,11 @@ class _Setup:
         for setup in setups if isinstance(setups, list) else ():
             ops = setup.get("ops") if isinstance(setup, dict) else None
             for op in ops if isinstance(ops, list) else ():
-                if isinstance(op, dict) and isinstance(op.get("hole"), dict):
+                if (
+                    isinstance(op, dict)
+                    and not isinstance(op.get("joint_cut"), dict)
+                    and isinstance(op.get("hole"), dict)
+                ):
                     refs, _ = self._claim_refs(op)
                     found = self.owner._feature(refs)
                     if found != UNKNOWN:
@@ -4692,7 +5660,7 @@ class _Setup:
                     bores.append(index)
             neighbours = {}
             if bores:
-                for _, a, b in _shared_edges(self.faces, range(len(self.faces))):
+                for _, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
                     neighbours.setdefault(a, set()).add(b)
                     neighbours.setdefault(b, set()).add(a)
             for index in bores:
@@ -4757,7 +5725,7 @@ class _Setup:
         """
         if self.floor_adjacency is None:
             walls, failed, pairs = {}, {}, {}
-            for edge, a, b in _shared_edges(self.faces, range(len(self.faces))):
+            for edge, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
                 pairs.setdefault((min(a, b), max(a, b)), []).append(edge)
                 middle = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
                 for floor, wall in ((a, b), (b, a)):
@@ -5051,15 +6019,21 @@ class _Setup:
 
     def _sample_facts(self, op, indices, radius, facts):
         reasons = facts["reasons"]
-        hole_cut = self._hole_cut(op, indices, radius) if isinstance(op.get("hole"), dict) else None
+        joint = isinstance(op.get("joint_cut"), dict)
+        hole_cut = (
+            self._hole_cut(op, indices, radius)
+            if not joint and isinstance(op.get("hole"), dict)
+            else None
+        )
         if hole_cut is not None and hole_cut["reason"] is not None:
             for key in self._MEASURED:
                 facts[key] = UNKNOWN
                 reasons[key] = hole_cut["reason"]
             return
         slope = hole_cut["cone_slope"] if hole_cut is not None else None
-        # A rough op's poses stand its known leave off the finished surface along the normal.
-        leave, why = (0.0, None) if hole_cut is not None else self._guarded(op)
+        # Transient faces already include their joint cut's allowance; ordinary rough
+        # poses stand their known leave off the finished surface along the normal.
+        leave, why = (0.0, None) if joint or hole_cut is not None else self._guarded(op)
         if why is not None:
             for key in self._MEASURED:
                 facts[key] = UNKNOWN
@@ -5069,8 +6043,10 @@ class _Setup:
         samples, sample_problems, undefined = [], [], {}
         for index in indices:
             face = self.faces[index]
+            # Transient joint faces are not finished-part floors with corner topology.
             floor = (
-                isinstance(face.Surface, Part.Plane)
+                not joint
+                and isinstance(face.Surface, Part.Plane)
                 and _normal_at(face, face.Surface.Position).z >= PARALLEL
             )
             if floor and hole_cut is None:
@@ -5122,7 +6098,7 @@ class _Setup:
                 ay += radius * normal.y / horizontal
             elif normal.z >= PARALLEL:
                 level += leave
-                if not fixed:
+                if not joint and not fixed:
                     try:
                         ax, ay = self._floor_axis(index, point, radius + leave)
                     except Exception as exc:
@@ -5306,7 +6282,8 @@ class _Setup:
         """
         refs = set()
         common_box = _tolerant_box(common)
-        for index, face in enumerate(self.faces):
+        for index in range(len(self.finished.Faces)):
+            face = self.faces[index]
             if index == own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
                 continue
             if _distant_box(common_box, self.face_boxes[index]):
@@ -5395,18 +6372,22 @@ class _Setup:
         x0, y0, _, x1, y1, _ = self.box
         return math.hypot(max(abs(x0), abs(x1)), max(abs(y0), abs(y1))) + 1.0
 
-    def _turn_removal(self, op, valid):
-        """(revolved stock outside the finished part this turning op removes or None, why).
+    def _turn_removal(self, op, valid, stock):
+        """(revolved stock outside component-owned finished material removed here or None, why).
 
         A ``to_z`` op faces: everything beyond the plane on its claims' axial side, outside
-        their innermost radius, up to the finished part's end on that side (a shoulder) or
-        the stock end when nothing finished lies beyond (an end face). A facing op, part-off
+        their innermost radius, up to the protected material's end on that side (a shoulder)
+        or the stock end when nothing protected lies beyond (an end face). A facing op, part-off
         or cut-to-fit given ``to_dia_mm`` sweeps from to_dia/2 (0: the axis) to the stock end
         instead: the separated piece goes, whatever bore the part receives later. Other ops
         cut down to each claimed meridian; with ``z_from``/``z_to`` the profile is extended at
         its end radii and its axial faces swept along their normals to the window, then
         limited to it. Without a window removal stays within the claimed faces' own z extent.
+        Only material still present after preceding ops is removal: coincident faces and
+        zero-volume boolean remnants from a spring pass never become cutting solids.
         """
+        if isinstance(op.get("joint_cut"), dict):
+            return self._joint_removal(op, stock)
         if not valid:
             return None, None
         meridians = [self._revolution(index)[1] for index in valid]
@@ -5430,16 +6411,29 @@ class _Setup:
             regions.append(region)
         else:
             regions.extend(self._profile_regions(meridians, window, outer))
-        regions = [region for region in regions if region is not None]
+        regions = [
+            region
+            for region in regions
+            if region is not None and not region.isNull() and region.Volume > HIT_MM3
+        ]
         if not regions:
             return None, None
         removal = regions[0].fuse(regions[1:]) if len(regions) > 1 else regions[0]
         if window is not None:
             removal = removal.common(_band(0.0, outer, *window))
-        removal = removal.cut(self.finished)
-        if removal.Volume <= HIT_MM3:
+        if removal.isNull() or removal.Volume <= HIT_MM3:
             return None, None
-        return removal, None
+        removal = stock.common(removal)
+        if removal.isNull() or removal.Volume <= HIT_MM3:
+            return None, None
+        if self.protected.Volume > HIT_MM3:
+            removal = removal.cut(self.protected)
+        pieces = [piece for piece in removal.Solids if piece.Volume > HIT_MM3]
+        if not pieces:
+            return None, None
+        if not all(piece.isValid() for piece in pieces):
+            return None, "turned removal boolean is invalid"
+        return (pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)), None
 
     def _facing_region(self, meridians, to_z, outer, to_dia=None):
         samples = [sample for meridian in meridians for sample in meridian]
@@ -5451,10 +6445,12 @@ class _Setup:
         if to_dia is not None:
             return _band(to_dia / 2, outer, min(to_z, stock_end), max(to_z, stock_end)), None
         inner = min(r for (r, _), _ in samples)
-        x0, y0, z0, x1, y1, z1 = _bbox(self.finished)
-        finished_end = z1 if side > 0 else z0
-        beyond = (finished_end - to_z) * side > PLANE_TOL
-        end = finished_end if beyond else stock_end
+        end = stock_end
+        if self.protected.Solids:
+            box = _bbox(self.protected)
+            protected_end = box[5] if side > 0 else box[2]
+            if (protected_end - to_z) * side > PLANE_TOL:
+                end = protected_end
         return _band(inner, outer, min(to_z, end), max(to_z, end)), None
 
     def _profile_regions(self, meridians, window, outer):
@@ -5477,7 +6473,7 @@ class _Setup:
             chain.sort(key=lambda item: (item[0][1], item[0][0]))
             # Chords of a concave meridian run through air: push every point into the
             # material by the largest chord sagitta, so no sliver of overstock survives;
-            # cutting the finished part back out keeps the region exact. The region closes
+            # cutting protected material back out keeps the region exact. The region closes
             # through the unshifted end points, so no slab survives under its ends either.
             sag = 0.0
             for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
@@ -5502,7 +6498,7 @@ class _Setup:
             regions.append(_band(high[3], outer, high[2], window[1]))
         return regions
 
-    def _turn_cut(self, op):
+    def _turn_cut(self, op, stock):
         """(this turning op's revolved removal or None, and why it cannot be derived)."""
         valid, _, why = self._claims(op)
         if not isinstance(valid, list):
@@ -5511,7 +6507,7 @@ class _Setup:
         if to_z is not None and not _number(to_z):
             return None, "to_z is unknown"
         try:
-            return self._turn_removal(op, valid)
+            return self._turn_removal(op, valid, stock)
         except Exception as exc:
             return None, f"turned removal boolean failed ({exc})"
 
@@ -5529,10 +6525,16 @@ class _Setup:
                     stock, failed = self.turn_obstacles[name]
                     continue
                 if failed is None:
-                    removal, why = self._turn_cut(other)
+                    removal, why = self._turn_cut(other, stock)
                     if why is None and removal is not None:
                         try:
-                            stock = stock.cut(removal)
+                            after = stock.cut(removal)
+                            if after.isNull() or after.Volume <= STOCK_MM3:
+                                why = "turned removal leaves no stock"
+                            elif not after.isValid():
+                                why = "turned remaining-stock boolean is invalid"
+                            else:
+                                stock = after
                         except Exception as exc:
                             why = f"turned removal boolean failed ({exc})"
                     if why is not None:
@@ -5765,14 +6767,14 @@ class _Setup:
             samples = [faced[key] for key in sorted(faced)]
         facts["sample_count"] = len(samples)
         obstacle, obstacle_reason = self._turn_obstacle(op)
-        # Without the post-op profile only finished material is a certain obstacle.
-        part = obstacle if obstacle is not None else self.finished
+        # A failed removal proves only protected material present on this exact branch.
+        part = obstacle if obstacle is not None else self.certain
         try:
             segments = _meridian_segments(part)
         except Exception as exc:
             segments = []
             obstacle_reason = obstacle_reason or f"meridian section for tool poses failed ({exc})"
-        part_box = _bbox(part)
+        part_box = _bbox(part) if part.Solids else self.box
         placed = self.fixture_ready
         outer = self._outer()
         subject = self._subject(op)
@@ -5838,7 +6840,7 @@ class _Setup:
                 reasons[key] = holder_reason
             elif obstacle_reason:
                 facts[key] = UNKNOWN
-                reasons[key] = f"{obstacle_reason}; {certain} sample(s) hit finished material"
+                reasons[key] = f"{obstacle_reason}; {certain} sample(s) hit certain branch material"
             elif not placed:
                 facts[key] = UNKNOWN
                 reasons[key] = (
@@ -5999,7 +7001,8 @@ class _Setup:
         """Finished face refs bounding a turning-tool hit, excluding the sampled face."""
         box, refs = _bbox(solid), set()
         common_box = _tolerant_box(common)
-        for index, face in enumerate(self.faces):
+        for index in range(len(self.finished.Faces)):
+            face = self.faces[index]
             if index == own or not _boxes_overlap(box, self.face_boxes[index]):
                 continue
             if _distant_box(common_box, self.face_boxes[index]):
@@ -6010,6 +7013,8 @@ class _Setup:
 
     def _turn_corners(self, indices):
         """Sorted concave meridian corner radii between/inside claims, or why unknown."""
+        if any(index >= len(self.finished.Faces) for index in indices):
+            return "transient joint targets do not establish finished-part corner topology"
         part, faces, labels = self.finished, self.faces, self.owner.labels
         radii, problems = set(), []
         for index in indices:
