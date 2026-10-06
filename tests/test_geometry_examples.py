@@ -286,7 +286,7 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
     plan = examples / "rocker-arm" / "plan.toml"
     pilot_kernel_cache(plan)
     result, report, _ = traveler(plan, tmp_path / "ref")
-    assert result.returncode == 2, result.stderr
+    assert result.returncode == 0, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
     assert (
         report["step_sha256"]
