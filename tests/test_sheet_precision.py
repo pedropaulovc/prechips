@@ -88,11 +88,10 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     endpoint = next(
         row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 10 to_z"
     )
-    assert coordinates["status"] == "unknown"
-    # Plan frame T3 restores X/Y; its unbound Z keeps the authored local endpoint.
+    assert coordinates["status"] == "pass"
+    # Nominal frame T3 (z = -model Z from -156.67) maps the authored local endpoint.
     assert endpoint["setup"] == [0.0, 0.0, 1.75]
-    assert endpoint["model"] == [0.0, 0.0, "unknown"]
-    assert endpoint["local_from"] == {"op": 10, "field": "to_z", "axis": "z"}
+    assert endpoint["model"] == pytest.approx([0.0, 0.0, -158.42])
     assert any("frame T3" in heading for heading in sections(html, "COORDINATES"))
     coordinate_rows = re.findall(r"<tr>.*?</tr>", "".join(sections(html, "COORDINATES")), re.DOTALL)
     endpoint_row = next(
