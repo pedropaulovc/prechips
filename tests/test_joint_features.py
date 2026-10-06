@@ -654,6 +654,57 @@ def test_transient_completion_cannot_credit_final_faces_even_with_explicit_overr
     assert finished.numbers["uncovered_faces"] == ([] if final_cut else [0])
 
 
+@pytest.mark.parametrize(
+    "certified, status",
+    [
+        ([0], "pass"),
+        (None, "error"),
+        ([], "error"),
+        ([0, 2], "error"),  # a transient joint index poisons the whole certificate
+        ([0, 1], "error"),
+        (["0"], "error"),
+    ],
+)
+def test_joint_turn_credits_only_its_kernel_certified_final_faces(tmp_path, certified, status):
+    features = FEATURES.replace(
+        "requirements = []",
+        'requirements = ["finish_ra"]\nfinish_ra = 1.6\nfaces = ["#1"]',
+    )
+    text = _plan().replace('id = "J"', 'id = "J"\nmachine = "mill"')
+    text = text.replace('id = "P"', 'id = "P"\nmachine = "lathe"')
+    bundle = _load(tmp_path, text, features)
+    bundle.plan["stock"]["as_is_faces"] = []
+    bundle.inventory["machines"]["lathe"] = {"kind": "lathe", "verify": False}
+    turned = {"approach": "turning", "claimed_indices": [2], "claim_errors": []}
+    if certified is not None:
+        turned["certified_indices"] = certified
+    bundle = dataclasses.replace(
+        bundle,
+        kernel={
+            "status": "ok",
+            "faces": [{"ref": "#1", "index": 0}],
+            "mapping": {"#1": 0},
+            "mapping_errors": {},
+            "features": {"subject": [0], "socket": [1], "spigot": [2]},
+            "setups": {
+                "B": {"completed_joint_features": ["socket"]},
+                "P": {"completed_joint_features": ["spigot"]},
+            },
+            "ops": {
+                "B:10": {"claimed_indices": [1], "claim_errors": []},
+                "P:10": turned,
+            },
+        },
+    )
+    (covered,) = coverage.evaluate(bundle)
+    (finished,) = finish_coverage.evaluate(bundle)
+    # An uncertified joint cut earns nothing: the final face's cut and finish obligations
+    # stay open (never debt, unsupported or not_applicable).
+    assert covered.status == finished.status == status
+    assert covered.numbers["unclaimed_indices"] == ([] if status == "pass" else [0])
+    assert finished.numbers["uncovered_faces"] == ([] if status == "pass" else [0])
+
+
 def test_exported_faces_cannot_refer_to_transient_labels(tmp_path):
     features = FEATURES + '\nfaces = ["plan.joint_features.socket"]\n'
     with pytest.raises(BadInput):

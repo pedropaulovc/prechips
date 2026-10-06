@@ -154,6 +154,21 @@ entity references and never enter final face, source, as-is, coverage or corner
 mappings. Dimensional and operation consumers use the resolved feature mapping;
 final `coverage` and `finish_coverage` still iterate only the original manifest.
 Neither transient completion nor joint filler proves a final surface was cut.
+A joint op's analytic claims never credit an imported face. The one exception
+is measured: a finishing spigot turn whose cut the stock builder accepted
+certifies (`certified_indices`) each imported face it leaves as its own turned
+surface. The face must be an outward cylinder face lying on the turned cylinder
+itself: its radius and axis match the turned diameter and spigot axis within
+1e-6 mm over the face's whole extent, so a cut that leaves stock even below the
+0.001 mm stock tolerance earns nothing. Its full area must lie inside the op's
+finite cut window, inside that component's owned finished material and on the
+accepted after-op stock. Only those faces earn `coverage`, and
+`finish_coverage` too when the op is a finishing cut. A rough, unknown,
+stopped or rejected cut, a face outside or only partly inside the window, a
+face at another diameter or about another axis and any transient index earn
+nothing. Earning
+nothing leaves the face's obligations open; it is never debt or
+`not_applicable`.
 
 
 ## Approach models
@@ -324,6 +339,29 @@ head is turning. Setups that turn the head freely declare
 or `angle_deg`); `indexing` then passes on a verified dividing head with no
 landings to check, errors on any other fixture kind or when positions/angles
 are also declared, and is `unknown` while the head is unverified.
+
+### Window ends
+
+A single-point turning op with numeric `z_from`/`z_to` is also posed where it
+starts and stops: the nose's leading extreme at that Z (the DRO reading after a
++Z end-face touch) on the turned diameter of the claimed cylinder sample
+nearest it, relieved to the nearest clear pose within twice the nose radius as
+a cut sample is. Those poses count in `tool_hits`/`holder_hits`, so an air start
+into the dead centre or an overtravel into the chuck jaws is an accessibility
+error. `window_poses` records each end's Z, diameter, what it meets and the
+nearest placed fixture component with its clearance; at `z_from` it adds
+`max_start_z_mm`, the furthest start back against the feed before the tool or
+holder touches that component (stepped out by the clearance until within
+0.001 mm; none when nothing is met within 250 mm). The traveler boxes a start
+within 3 mm of a component with both numbers. Served follow rests are not set
+at a window end: when their jaws, set on the work with the tool at `z_from`,
+would meet a fixture component, `rest_engagement` gives the cut Z from which
+they clear it. The plan's `hold.supports[].engage_at_z_mm` (the Z the tool
+passes before the jaws go on) passes when it is at or past that Z along the
+feed and inside the op window, is an `error` before it or after `z_to`, and is
+`unknown` when undeclared or when no clear Z was computed. A blade's
+`blade_z_mm` is its axial extent over its cutting poses; the traveler's jaw
+distance uses its chuck-side face, not only the Z its op names.
 
 ### Follow and steady rests
 
@@ -504,7 +542,7 @@ boxes. A missing or withheld entry box leaves travel unresolved. Equality
 with a measured travel limit passes; exceeding it fails.
 
 A machine with inventory `kind = "bench"` or `"manual"` whose non-empty
-operation list contains only `fit` and `inspect` needs no DRO or spindle
+operation list contains only `fit`, `inspect`, `deburr` and `coating` needs no DRO or spindle
 screen: `zero_check`, `coordinates` and `headroom` are `not_applicable`.
 Joint geometry and modeled holding still apply. Adding any cutting or unknown
 operation reinstates the normal machine screens.
@@ -966,15 +1004,56 @@ solids (containment, then `distToShape >= rho - 1e-7`), never an area offset
 or a bounding box. Only the section at `z` steers the axis: overhangs above,
 leave below `z`, future hole cores and unclaimed raw stock do not, but the
 full flute against the accepted after-op stock and the holder against
-setup-entry stock still meet them at the chosen axis. Another curve within
-`2 rho` of a sample (a B-spline or ellipse wall), an ambiguous section (a
-certain face starting or ending within 1e-7 mm of `z`, an open or invalid
-section wire), missing raw supply or a failed native construction leaves that
-floor's pose undefined: its own poses drop, certain hits on the op's other
-faces stay in `min_hits`, `hit_refs` and `obstacles`, and the op's measured
-facts become `unknown` with `<face>: floor tool pose is undefined (...)`.
-Farther curves never make a pose undefined. Concave floor corners add their
-own samples; convex island corners get none.
+setup-entry stock still meet them at the chosen axis.
+
+Another curve within `2 rho` of an illegal sample (a B-spline or ellipse wall)
+has no exact offset, so that sample needs a native nearest-bound certificate.
+Its domain is the whole native section at `z`, every edge included (the
+approximating B-splines `slice` returns among them), and every certain solid:
+nothing new is approximated or ignored, and nothing beyond the native model's
+precision is claimed about the physical surface. Let `q` be the section's
+native closest point (exactly one pair, or bit-identical duplicates; never a
+tolerance cluster or an average) and `d = |p - q|`, from the coordinates.
+Every axis at least `rho` from the material point `q` is at least `rho - d`
+from `p` (triangle inequality), and `c = q + rho (p - q) / d` attains that
+bound, so a `c` with exact clearance `rho` is the unique nominal nearest axis.
+Native acceptance is the fixed 1e-7 mm comparison above, so a legal `c` proves
+only that no accepted axis is more than 1e-7 mm nearer; no uniqueness among
+accepted axes is claimed. `c` therefore joins the supported candidates in the
+unchanged ranking: the nearest enumerated distance `best` lies in
+`[d_c - 1e-7, d_c]`, where `d_c = |c - p|`; the selected distance is at most
+`best + 1e-7`, hence at most `d_c + 1e-7`. Centroid and least-`(x, y)` ties
+apply as before. Two cases certify. Outside: the sample is outside every certain solid (boundary
+counts as inside), `1e-7 < d < rho`, and every native Edge reported at `q`
+resolves to exactly one section edge. On a straight line: `d <= 1e-7`, the
+sample is strictly inside no certain solid, the only section edge within
+1e-7 mm of it is one native line whose foot `q` lies more than 1e-7 mm inside
+both ends, and exactly one of `q ± rho n` (`n` the line's unit normal) is
+legal. The precision policy is conservative and fixed: a closest point reported
+on an unsupported curve (even at its end parameter) refuses when that edge's
+native `getTolerance(1)` exceeds 1e-7 mm, which in practice refuses every
+projection inside a sliced B-spline (they carry about 4e-5 mm), while lines,
+circles and vertices count at the native model's precision; neither `rho` nor
+1e-7 mm ever grows. The boundary case is line-only scope, not a claim that a
+smooth spline normal is wrong: a spline, circle, seam, corner or vertex
+boundary stays uncertified.
+For context only, an accepted axis within `d_c + eps` of the sample (`eps` =
+1e-7 mm) lies within `R(d) = sqrt(eps^2 + 4 rho eps (rho - d) / d)` of `c`
+(about 0.0015 mm at `rho = 3`, `d = 1`, growing as `d` nears `eps`); on a line
+the analogue is `R_B = sqrt(eps^2 + 4 rho eps)` (about 0.0011 mm) while the
+foot stays at least that far from the ends, though the fixed end margin is only
+1e-7 mm and band competitors keep the ordinary ranking. These describe the
+numeric tie band, never a radius allowance or an eligibility gate.
+
+An uncertified sample (a contradictory classification, an illegal `c`, two or
+no legal normals, or any refusal above; a farther legal supported axis never
+stands in for it), an ambiguous section (a certain face starting or ending
+within 1e-7 mm of `z`, an open or invalid section wire), missing raw supply or
+a failed native construction leaves that floor's pose undefined: its own poses
+drop, certain hits on the op's other faces stay in `min_hits`, `hit_refs` and
+`obstacles`, and the op's measured facts become `unknown` with `<face>: floor
+tool pose is undefined (...)`. Farther curves never make a pose undefined.
+Concave floor corners add their own samples; convex island corners get none.
 A legal centre selects a pose, not a corner-radius certification. Floor-only
 claims do not certify wall/wall
 corner radii: `internal_corner_radius` still checks a sharp wall/wall corner
@@ -1105,8 +1184,13 @@ radii wide, while a cutter wider than its circle or groove, or a sharp
 concave corner sample with no legal centre within `rho`, reports the real wall
 hit; a plate sample past both walls of a square island's convex corner moves
 straight away from the corner and clears; equal candidates break to the face
-centroid; a nearby ellipse wall makes only that floor's pose undefined; an
-offset cutter tangent to
+centroid; beside a B-spline wall, an outside sample whose native closest point
+is a vertex and a sample on a straight edge take their certified bounds, while
+a spline boundary, a strictly interior sample, a vertex boundary, a projection
+inside a spline whose native tolerance exceeds 1e-7 mm and a bound blocked by
+a second obstacle (a farther clear supported axis notwithstanding) leave only
+that floor's pose undefined and keep another face's certain hits; an offset
+cutter tangent to
 its claimed side wall clears while the sample-centred mutant intersects the
 wall; a Ø10 cutter
 in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the

@@ -190,7 +190,11 @@ class RenderCanvas:
     by ``png()``, so repeated encoding is idempotent.
     """
 
-    def __init__(self, meshes, camera, viewport=(180, 160, 1420, 730), width=1600, height=1000):
+    def __init__(
+        self, meshes, camera, viewport=(180, 160, 1420, 730), width=1600, height=1000, fit=None
+    ):
+        """``fit``: world points the view is scaled to; every mesh when None. Geometry
+        outside the fitted viewport is cropped at its edge."""
         if (
             isinstance(width, bool)
             or isinstance(height, bool)
@@ -224,6 +228,11 @@ class RenderCanvas:
                 xmin, xmax = min(xmin, x), max(xmax, x)
                 ymin, ymax = min(ymin, y), max(ymax, y)
             projected.append((points, screen, triangles, colour, hatch))
+        if fit is not None:
+            fitted = [(_dot(p, self._right), _dot(p, self._up)) for p in fit]
+            if fitted:
+                xmin, xmax = min(x for x, _ in fitted), max(x for x, _ in fitted)
+                ymin, ymax = min(y for _, y in fitted), max(y for _, y in fitted)
         if xmin == math.inf:
             return
         self._world_centre = ((xmin + xmax) / 2, (ymin + ymax) / 2)

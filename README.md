@@ -364,8 +364,10 @@ cannot join that material lineage twice.
 Plan-owned `joint_features` describe cylindrical sockets and spigots prepared on
 component stock for a joint, separately from the exported finished-part manifest;
 the traveler prints them as plan-only joint preparation, not drawing dimensions.
-Their operations participate in sizing, inspection and geometric clearance,
-but earn no finished STEP-face coverage. Declared fit bands must cover the
+Their operations participate in sizing, inspection and geometric clearance.
+They earn finished STEP-face coverage only where the kernel measures that an
+accepted finishing spigot turn leaves an exported face as its own surface,
+over the face's full area. Declared fit bands must cover the
 worst-case mating diameters, prepared geometry must reach the join along the
 selected stock lineage, and the kernel refuses interference outside the
 permitted fit or missing component-owned finished material at the join.
@@ -397,10 +399,31 @@ included), certified against the whole native section. Only the section at the
 tip height steers the axis: overhangs, leave below it, future hole cores and
 unclaimed raw do not, but the full flute against the accepted after-op stock
 and the holder against setup-entry stock still meet them there. Another curve
-near a sample, an ambiguous section (a face starting or ending at that height,
-an open wire) or missing raw supply leaves that floor's pose undefined: it
-drops only its own poses, other faces' certain hits stay and the op's measured
-facts are `unknown`.
+near an illegal sample has no exact offset, so the sample needs a native
+nearest-bound certificate over the whole native section (every edge, the
+approximating B-splines the native slice returns included, and every certain
+solid; nothing newly approximated or ignored). With q the section's one native
+closest point and d = |p − q|, every axis at least ρ from q is at least ρ − d
+from p, so c = q + ρ(p − q)/d with exact clearance ρ is the unique nominal
+nearest axis. Native acceptance uses the fixed 1e-7 mm, so a legal c only
+proves no accepted axis is more than 1e-7 mm nearer (no uniqueness among
+accepted axes is claimed): c joins the supported candidates and the unchanged
+ranking: the nearest enumerated distance `best` lies in [d_c − 1e-7, d_c],
+where d_c = |c − p|; the selected distance is at most `best + 1e-7`, and
+therefore at most `d_c + 1e-7`. It certifies a sample outside every certain
+solid (1e-7 < d < ρ) or one on
+exactly one native straight line (d ≤ 1e-7, not strictly inside, foot more
+than 1e-7 mm inside both ends, exactly one legal normal).
+Precision policy is conservative: a closest point on an unsupported curve whose
+native tolerance exceeds 1e-7 mm refuses, and neither ρ nor 1e-7 mm grows;
+spline, circle, seam, corner and vertex boundaries stay uncertified by scope.
+The tie-band radii R(d) = √(ε² + 4ρε(ρ − d)/d) and R_B = √(ε² + 4ρε) (ε =
+1e-7 mm; about 0.0015 mm at ρ = 3, d = 1) are numeric context, never a radius
+allowance or an eligibility gate. An uncertified sample (a farther legal axis
+never substitutes), an ambiguous section (a face starting or ending at that
+height, an open wire) or missing raw supply leaves that floor's pose undefined:
+it drops only its own poses, other faces' certain hits stay and the op's
+measured facts are `unknown`.
 A legal centre does not certify
 corner radii. Floor-only claims do not certify wall/wall corners;
 `internal_corner_radius` retains its existing scope and checks a sharp

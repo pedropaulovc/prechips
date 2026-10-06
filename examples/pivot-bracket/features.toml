@@ -178,7 +178,7 @@ cite = ["example (plausible, no dimensioned drawing)"]
 [features.cross_bore]
 kind = "hole"
 frame = "model"
-at = [0.0, 25.2, -3.0]           # bore axis on the outer face (entry in S3)
+at = [0.0, 25.2, -3.0]           # bore axis on the outer face (entry in S4)
 axis = [0.0, 0.0, 1.0]
 requirements = ["dia", "height", "thru"]
 dia = [6.5, 6.53]                # example (plausible): reamed 6.50/6.53 pivot fit

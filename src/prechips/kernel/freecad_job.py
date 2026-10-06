@@ -24,8 +24,12 @@ Measurement conventions (setup frame, tool axis +Z):
   sample keeps its axis; ties within PLANAR_EQUAL_MM (1e-7 mm, never a radius or
   STOCK_TOL) go to the face's area centroid, then the least (x, y). No legal centre
   within rho keeps the sample's axis and reports its genuine hit. Candidates are
-  exact offsets of nearby line and Z-circle section edges, certified natively;
-  another nearby curve, an ambiguous section or missing raw supply makes that
+  exact offsets of nearby line and Z-circle section edges, certified natively.
+  Another nearby curve has no exact offset: the sample's native nearest-bound
+  certificate over the whole section (an outside native closest point q with
+  c = q + rho (p - q) / |p - q| legal, or one straight-line boundary with exactly
+  one legal normal) adds its proved axis to those candidates and their ranking.
+  An uncertified sample, an ambiguous section or missing raw supply makes that
   floor's pose undefined: its poses drop, every other face's certain hits stay,
   and the op's measured facts become unknown with the reason. Only the section
   at z steers the axis; overhangs, leave below z, future hole cores and unclaimed
@@ -108,6 +112,12 @@ Measurement conventions (setup frame, tool axis +Z):
   radius).  Chuck grip-zone walls are radial lines through each jaw: the
   material run starting at the jaw contact.  The result is a deterministic
   sampled screen: it proves no tool path, chip flow, cutting load or chatter.
+* Joint certificates: a joint op's analytic claims are transient indices, never STEP
+  faces. Once the stock builder accepts a finishing spigot turn, ``certified_indices``
+  lists each imported face it leaves as its own surface: an outward cylinder face whose
+  full area lies inside the turned radius +-``STOCK_TOL`` over the finite cut window,
+  inside the branch's component-owned finished material and on the accepted after-op
+  stock (exact face-minus-solid areas, never samples).
 * Rotary (mill ops with ``approach = "rotary"``; dividing-head setups): the head
   axis is the chuck pose z through its origin and must be perpendicular to setup Z
   (otherwise the op is unsupported). Claimable portions are the positive-area
@@ -164,6 +174,14 @@ HIT_MM3 = 1e-6  # common volume that counts as an intersection
 HIT_BALL_MM = 0.01  # mm: proof-ball radius; its 4.19e-6 mm^3 volume exceeds HIT_MM3
 STOCK_TOL = 1e-3  # mm: as-is face distance to the envelope, claimed-face contact
 COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is not cleared
+# A turning op's furthest clear start (_Setup._window_record): stepped out by its clearance
+# until within START_TOL mm of a fixture component, at most START_STEPS steps and
+# START_OUT_MM mm back from the planned start.
+START_TOL = 1e-3
+START_STEPS = 200
+START_OUT_MM = 250.0
+DATUM_DRAW_MM = 0.5  # mm: a datum face this near the stock's surface is drawn as present
+PROFILE_SPAN = 6  # stock diameters the lathe profile detail stretches to show every cut
 # mm along a printed cutter-centre chord within which the kernel locates where the cutter
 # first meets stock outside its op's stock_removal_bounds (_Setup._clip_checkpoints).
 CLIP_PRECISION_MM = 1e-4
@@ -3088,6 +3106,9 @@ class _Setup:
         self.protected = None
         self.certain = None
         self.joint_errors = {}
+        # Subject -> finished STEP face indices an accepted finishing spigot turn leaves as
+        # its own cut surface (:meth:`_certify_joint`); no entry certifies nothing.
+        self.certified = {}
         # Model-frame stock this setup receives, or why it is unknown.
         self.held, self.stock_reason = (None, stock_reason) if held is None else (held, None)
         # Model-frame stock this setup leaves for the next one, or why it is unknown.
@@ -3130,6 +3151,7 @@ class _Setup:
         # (follow rest name, op subject) -> its carriage-relative jaw poses for that op
         self.rest_poses = {}
         self.chuck = None  # placed chuck geometry for the turning model, else None
+        self.centre_seat = None  # the work's declared centre-hole countersink, else None
         self.regions = {}
         self.culled_part = None
         self.directions = {}  # finished face index -> direction verdict cache
@@ -3311,6 +3333,9 @@ class _Setup:
                 completion["reason"] = self.stock_out_reason
         for subject, error in self.joint_errors.items():
             ops[subject]["joint_error"] = error
+        for subject, indices in self.certified.items():
+            if subject not in self.joint_errors:
+                ops[subject]["certified_indices"] = indices
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -3535,6 +3560,76 @@ class _Setup:
         self.owner._prepared(model, name, {**self.state, "completed": {name: record}})
         self.completed[name] = record
 
+    def _certify_joint(self, op, after):
+        """Record the finished STEP faces an accepted finishing spigot turn leaves as its cut.
+
+        Credit comes from the cut geometry, never from feature identity: a face of the
+        exported part qualifies only when it is an outward cylinder face lying on the turned
+        cylinder itself (radius and axis within ``PLANE_TOL`` over the face's whole extent,
+        so no stock a stock tolerance would forgive still covers it), whose full area lies
+        inside the op's finite cut window, inside this branch's component-owned finished
+        material and on ``after``, the stock :meth:`_build` accepted for this op. Rough,
+        unknown, stopped or rejected cuts never reach here or record nothing; a failed
+        boolean withholds the whole certificate. Transient joint faces are never candidates.
+        """
+        _, spec, _ = self._joint_check(op)
+        if spec["kind"] != "cylinder_spigot" or not (
+            spec.get("finishing") and spec.get("completes")
+        ):
+            return
+        radius = spec["diameter_mm"] / 2
+        if radius <= STOCK_TOL or self.protected.Volume <= HIT_MM3:
+            return
+        at = self.matrix.multVec(V(*spec["at_mm"]))
+        axis = (self.matrix.multVec(V(*spec["at_mm"]) + V(*spec["axis"])) - at).normalize()
+
+        def off_axis(point):
+            offset = point - at
+            return (offset - axis * offset.dot(axis)).Length
+
+        certified = []
+        try:
+            # The turned surface over the finite cut window, thickened by STOCK_TOL each way.
+            band = self._placed(
+                _joint_cylinder(spec, 2 * (radius + STOCK_TOL)).cut(
+                    _joint_cylinder(spec, 2 * (radius - STOCK_TOL))
+                )
+            )
+            box = _bbox(band)
+            for index in range(len(self.finished.Faces)):
+                face, bounds = self.faces[index], self.face_boxes[index]
+                surface = face.Surface
+                if (
+                    not isinstance(surface, Part.Cylinder)
+                    or abs(surface.Radius - radius) > PLANE_TOL
+                    or not all(
+                        box[k] - STOCK_TOL <= bounds[k] and bounds[k + 3] <= box[k + 3] + STOCK_TOL
+                        for k in range(3)
+                    )
+                ):
+                    continue
+                # The face's axis must be the spigot axis wherever the face lies: distance to
+                # a line is convex along another line, so both ends of the span bound it.
+                own = V(surface.Axis).normalize()
+                mid = (face.BoundBox.Center - surface.Center).dot(own)
+                half = face.BoundBox.DiagonalLength / 2
+                ends = (surface.Center + own * (mid - half), surface.Center + own * (mid + half))
+                if any(off_axis(end) > PLANE_TOL for end in ends):
+                    continue
+                point = _inner_point(face)
+                if point is None:
+                    continue
+                outward = point - at
+                outward = outward - axis * outward.dot(axis)
+                if _normal_at(face, point).dot(outward) <= 0:
+                    continue  # Material outside the face: not a turned spigot surface.
+                limit = max(AREA_ABS, face.Area * AREA_REL)
+                if all(face.cut(shape).Area <= limit for shape in (band, self.protected, after)):
+                    certified.append(index)
+        except Part.OCCError:
+            return
+        self.certified[self._subject(op)] = certified
+
     def _where(self):
         return f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
 
@@ -3599,6 +3694,8 @@ class _Setup:
                     except ValueError as exc:
                         self.joint_errors[subject] = str(exc)
                         stopped = f"{subject}: {exc}; {where}"
+                    else:
+                        self._certify_joint(op, after)
                 if stopped is None and after is not stock:
                     stock = after
                     self.stock_states.append(stock)
@@ -4978,6 +5075,11 @@ class _Setup:
                 swept=quill if lathe else None,
                 owner="tailstock",
             )
+        if centre.get("hole_dia_mm"):
+            # The work's centre hole: a countersink of the centre's own point angle from
+            # the tip out to its declared mouth, which the setup-entry stock lacks.
+            mouth = centre["hole_dia_mm"] / 2
+            self.centre_seat = Part.makeCone(0, mouth, mouth / math.tan(half), tip, axis)
         if point.distToShape(self.part)[0] > STOCK_TOL:
             self.fixture_debts.append(f"{name} tip does not reach the stock")
 
@@ -5046,10 +5148,11 @@ class _Setup:
         self._place_steady_rests(hold)
         if hold.get("kind") == "vise":
             return
+        stock = self.part if self.centre_seat is None else self.part.cut(self.centre_seat)
         for component in self.fixture:
             if component["role"] not in _SOLID_ROLES:
                 continue
-            common = component["solid"].common(self.part)
+            common = component["solid"].common(stock)
             if common.Volume > STOCK_MM3:
                 self.fixture_debts.append(
                     f"{component['name']} intersects the setup-entry stock "
@@ -5089,10 +5192,11 @@ class _Setup:
         """
         clashes, debts = [], list(self.undrawn)
         components = self.fixture
+        stock = self.part if self.centre_seat is None else self.part.cut(self.centre_seat)
         for component in components:
             if not _boxes_overlap(component["bbox"], self.box):
                 continue
-            volume = component["solid"].common(self.part).Volume
+            volume = component["solid"].common(stock).Volume
             if volume > STOCK_MM3:
                 clashes.append(
                     f"{component['name']} interpenetrates the setup-entry stock ({_r(volume)} mm^3)"
@@ -5667,11 +5771,46 @@ class _Setup:
                 V(x0 - 1, 0, z1 + 1),
             ]
             meridian = Part.Face(Part.makePolygon(vertices + [vertices[0]]))
+        fixture_kind = _fixture_kind(self.setup.get("hold"))
+        # A custom fixture on a bench or saw locates the work with saddles, pins and stops
+        # standing beside it: a plan view hides them, so it is drawn as a section.
+        view = (
+            "lathe"
+            if lathe
+            else "isometric"
+            if fixture_kind != "custom"
+            else "plan"
+            if self.setup.get("machine_kind") == "mill"
+            else "elevation"
+        )
+        halfspace, section_view = None, None
+        if view == "elevation":
+            # Section on the stock's centre plane across its longer horizontal side; the
+            # near half of every solid is removed so saddles, pins and stops show.
+            centre = [(self.box[i] + self.box[i + 3]) / 2 for i in range(3)]
+            big = 10 * max(size, 1.0) + 1000
+            if self.box[3] - self.box[0] >= self.box[4] - self.box[1]:
+                axis, keep = 1, 1  # view from -Y, keep y >= centre
+                halfspace = Part.makeBox(2 * big, big, 2 * big, V(-big, centre[1], -big))
+                camera = [[1, 0, 0], [0, 0, 1], [0, -1, 0]]
+                note = f"SECTION AT SETUP Y {_r(centre[1])}  /  VIEW FROM -Y  /  X RIGHT, Z UP"
+            else:
+                axis, keep = 0, -1  # view from +X, keep x <= centre
+                halfspace = Part.makeBox(big, 2 * big, 2 * big, V(centre[0] - big, -big, -big))
+                camera = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
+                note = f"SECTION AT SETUP X {_r(centre[0])}  /  VIEW FROM +X  /  Y RIGHT, Z UP"
+            section_view = (axis, keep, centre[axis], camera, note)
 
         def mesh(shape, colour, hatch=False, section=False):
             # A lathe elevation is a meridian section: the removed annulus's
             # outside surface must not hide the retained core behind it.
-            points, triangles = (shape.common(meridian) if section else shape).tessellate(tolerance)
+            if section:
+                shape = shape.common(meridian)
+            elif halfspace is not None:
+                shape = shape.common(halfspace)
+                if not shape.Faces:
+                    return
+            points, triangles = shape.tessellate(tolerance)
             meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch))
 
         mesh(output if output is not None else self.part, _COLOURS["part"], section=lathe)
@@ -5714,7 +5853,7 @@ class _Setup:
             mesh(shape, colour)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
         scene = {
-            "fixture_kind": _fixture_kind(self.setup.get("hold")),
+            "fixture_kind": fixture_kind,
             "jaws": jaws,
             "parallels": "absent"
             if not self._expects_parallels()
@@ -5736,7 +5875,6 @@ class _Setup:
             "debts": debts,
         }
         annotation = self.setup.get("render", {})
-        view = "lathe" if lathe else "plan" if scene["fixture_kind"] == "custom" else "isometric"
         tool, tool_debt = self._render_tool(annotation, lathe)
         if tool_debt:
             render_debts.append(tool_debt)
@@ -5759,13 +5897,28 @@ class _Setup:
             pose = self.hold["pose"]
             jaw_front_oblique = abs(pose["z"][2]) < PARALLEL
             jaw_z = None if jaw_front_oblique else pose["origin_mm"][2]
+        ends = {}
+        for end in annotation.get("ends", []):
+            # Two names for one end face print as one label.
+            ends.setdefault(round(end["z_mm"], 4), []).append(end)
         datums = [
-            {"label": end["label"], "point_mm": [0.0, 0.0, end["z_mm"]]}
-            for end in annotation.get("ends", [])
+            {
+                "label": " / ".join(end["label"] for end in group),
+                "point_mm": [0.0, 0.0, group[0]["z_mm"]],
+                "kind": "end",
+            }
+            for group in ends.values()
         ]
+        drawn = output if output is not None else self.part
+        surface = Part.Compound(drawn.Faces) if drawn is not None else None
         for datum in annotation.get("datums", []):
             indices = self.owner.features.get(datum["feature"])
             if isinstance(indices, list) and indices:
+                # A datum is drawn only once this setup's stock carries its surface.
+                if surface is None or not all(
+                    self._on_surface(self.faces[i], surface) for i in indices
+                ):
+                    continue
                 boxes = [self.face_boxes[i] for i in indices]
                 box = [min(b[i] for b in boxes) for i in range(3)] + [
                     max(b[i] for b in boxes) for i in range(3, 6)
@@ -5788,7 +5941,7 @@ class _Setup:
             if self.box[2] < back - STOCK_TOL:
                 notes.append("Bar passes through the spindle bore.")
         if (
-            view == "plan"
+            view in ("plan", "elevation")
             and self.hold
             and self.hold.get("clamps")
             and not annotation.get("clamp_order_declared")
@@ -5807,14 +5960,11 @@ class _Setup:
             "Blue-grey: material retained after this setup.",
             "Amber hatch: material removed in this setup.",
             "Brown/purple: holding. Green: selected tool and approach.",
-            "Dashed machine outlines: context only, not measured solids.",
         ]
-        if not lathe:
-            legend.append("Dashed blue: nominal part outline, not proof that it has been cut.")
         if removal is None:
             legend[0] = "Blue-grey: arriving stock; cuts not confirmed."
             legend.pop(1)
-        components = self._render_components(annotation)
+        components = self._render_components(annotation, named=view == "elevation")
         for name, jaws, _ in rests:
             boxes = [_bbox(jaw) for jaw in jaws]
             box = [min(b[i] for b in boxes) for i in range(3)] + [
@@ -5830,11 +5980,25 @@ class _Setup:
                     "center_mm": centre,
                 }
             )
-        clamp_labels = {
-            component["label"].split(": ", 1)[0]: component["label"]
-            for component in components
-            if component["label"].startswith("C") and ": " in component["label"]
-        }
+        if section_view is not None:
+            axis, keep, plane = section_view[:3]
+            # A solid wholly on the removed near side is not in the section: no callout.
+            components = [
+                c
+                for c in components
+                if "box_mm" not in c
+                or (c["box_mm"][axis + 3] > plane if keep > 0 else c["box_mm"][axis] < plane)
+            ]
+        cut = []
+        for op in self.ops:
+            indices = self._indices(op)
+            if isinstance(indices, list):
+                cut.extend(i for i in indices if i < len(self.finished.Faces))
+        edges = {}
+        for index in dict.fromkeys(cut):
+            for edge in self.faces[index].Edges:
+                if edge.Length > STOCK_TOL:
+                    edges.setdefault(edge.hashCode(), edge)
         spec = {
             "setup_id": self.setup.get("id"),
             "view": view,
@@ -5850,26 +6014,47 @@ class _Setup:
             "axial_paths": annotation.get("axial_paths", []),
             "waypoints": waypoints,
             "fixed_jaw_label": annotation.get("fixed_jaw_label"),
-            "custom_clamp_order": [
-                clamp_labels[key]
-                for key in sorted(
-                    (key for key in clamp_labels if key[1:].isdigit()),
-                    key=lambda key: int(key[1:]),
-                )
-            ],
+            "holding_name": annotation.get("holding_name"),
+            "chuck_name": annotation.get("chuck_name")
+            or (
+                annotation.get("holding_name")
+                if self.hold and self.hold.get("kind") == "chuck"
+                else None
+            ),
             "preload": annotation.get("preload"),
             "legend": legend,
             "notes": notes + render_debts,
+            # Only the finished faces this setup cuts: the overlay shows the cuts' target.
             "nominal_outline_mm": [
                 [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
-                for edge in self.finished.Edges
-                if edge.Length > STOCK_TOL
+                for edge in edges.values()
             ]
             if not lathe
             else [],
         }
+        if section_view is not None:
+            spec["camera"], spec["view_note"] = section_view[3], section_view[4]
+        target = annotation.get("target")
+        indices = self.owner.features.get(target["feature"]) if target else None
+        if isinstance(indices, list) and indices:
+            boxes = [self.face_boxes[i] for i in indices]
+            spec["target"] = {
+                "label": target["label"],
+                "point_mm": [
+                    (min(b[i] for b in boxes) + max(b[i + 3] for b in boxes)) / 2 for i in range(3)
+                ],
+            }
+        arc = self._index_arc(annotation, fixture_kind)
+        if arc:
+            spec["index_arc"] = arc
         if lathe:
-            spec["lathe_profiles"] = self._render_profiles(output, jaw_z)
+            spec["lathe_profiles"], beyond = self._render_profiles(output, jaw_z, removal)
+            if beyond is not None:
+                # The detail window never hides a cut silently.
+                spec["notes"].append(
+                    f"Jaw-end profile is a window; this setup's cuts continue to Z {_r(beyond, 2)}"
+                    " (main view)."
+                )
         scene.update(
             {
                 "view": view,
@@ -5887,6 +6072,45 @@ class _Setup:
         if details:
             scene["fixture_detail_labels"] = details
         return render_diagram(meshes, spec), scene
+
+    def _index_arc(self, annotation, fixture_kind):
+        """A dividing head's authored index: an arc about the head axis on the jaw face,
+        from the jaw-1 reference to the index angle, right-handed about the chuck's +z
+        (the direction the jaws are clocked in), or None."""
+        angle = annotation.get("index_deg")
+        hold = self.hold or {}
+        pose = hold.get("pose")
+        if fixture_kind != "dividing_head" or not _number(angle) or not isinstance(pose, dict):
+            return None
+        origin, axis, x_axis = V(*pose["origin_mm"]), V(*pose["z"]), V(*pose["x"])
+        y_axis = axis.cross(x_axis)
+        radius = (
+            hold["body_dia_mm"] / 2 + 8
+            if _number(hold.get("body_dia_mm"))
+            else max(self.box[i + 3] - self.box[i] for i in range(3)) / 2 + 8
+        )
+
+        def at(degrees, r):
+            t = math.radians(degrees)
+            p = origin + (x_axis * math.cos(t) + y_axis * math.sin(t)) * r
+            return [p.x, p.y, p.z]
+
+        steps = max(1, math.ceil(abs(angle) / 2))
+        return {
+            "label": f"HEAD INDEX {f'{angle:+g}' if angle else '0'} DEG",
+            "points_mm": [at(angle * k / steps, radius) for k in range(steps + 1)],
+            "reference_mm": [at(0.0, radius - 10), at(0.0, radius + 10)],
+        }
+
+    @staticmethod
+    def _on_surface(face, surface):
+        """True when ``face``'s interior samples lie on ``surface`` within DATUM_DRAW_MM: the
+        stock carries that finished face (to within a finishing leave)."""
+        samples, _ = _face_samples(face, 1.0, interior_only=True)
+        points = [point for point, _ in samples[:: max(1, len(samples) // 5)]] or [
+            face.CenterOfMass
+        ]
+        return all(Part.Vertex(point).distToShape(surface)[0] <= DATUM_DRAW_MM for point in points)
 
     def _clipped_sketch(self, annotation):
         """(sketch paths, waypoints, render debts): the annotation's sketch plus each bounded
@@ -5931,26 +6155,26 @@ class _Setup:
                     match.setdefault("rows", []).append(ids[index])
         return paths, waypoints, debts
 
-    def _render_components(self, annotation):
-        """Callout assemblies, keeping every exact solid in the actual drawing."""
+    def _render_components(self, annotation, named=False):
+        """Callout assemblies, keeping every exact solid in the actual drawing. ``named``
+        calls out each shop-made fixture solid (pins, saddles, stops) by its own name."""
         grouped = {}
-        order = annotation.get("clamp_order", [])
         for component in self.fixture:
             name, owner, role = component["name"], component["owner"], component["role"]
             local = name.rsplit(":", 1)[-1]
             key = owner if role == "clamp" or owner == "stop" else local
+            code = None
             if role == "clamp":
-                index = next(
-                    (c["index"] for c in annotation.get("clamps", []) if c["owner"] == owner), None
-                )
-                label = next(
-                    (c["label"] for c in annotation.get("clamps", []) if c["owner"] == owner),
-                    owner.replace("_", " "),
-                )
-                if index in order:
-                    label = f"C{order.index(index) + 1}: {label}"
+                clamp = next((c for c in annotation.get("clamps", []) if c["owner"] == owner), None)
+                label = clamp["label"] if clamp else owner.replace("_", " ")
+                if clamp:
+                    # The declared clamp number and kind, as the HOLD text prints it.
+                    code = clamp["code"]
+                    label = f"{code}: {label}"
             elif owner == "stop":
                 key, label, role = owner, "STOP", "stop"
+            elif role == "head":
+                key, label = "head", annotation.get("holding_name") or "HEAD"
             else:
                 label = local.replace("_", " ").replace("-", " ").upper()
                 if name == "fixed_jaw":
@@ -5961,6 +6185,11 @@ class _Setup:
                     role = "pad"
                 elif local.startswith("base"):
                     label, role = "FIXTURE PLATE", "plate"
+                elif role == "fixture" and named:
+                    # Numbered twins (two pins) share one callout.
+                    base = label.rstrip("0123456789").rstrip()
+                    label = base + "S" if base != label else label
+                    key = owner + ":" + label
                 elif role == "fixture":
                     # The shop view labels the assembly, not every bolt/shim
                     # primitive. All exact solids and names stay in the scene.
@@ -5972,6 +6201,8 @@ class _Setup:
                     max(previous[i], box[i]) for i in range(3, 6)
                 ]
             grouped[key] = {"name": key, "label": label, "role": role, "box_mm": list(box)}
+            if code:
+                grouped[key]["code"] = code
         for component in grouped.values():
             box = component["box_mm"]
             component["center_mm"] = [(box[i] + box[i + 3]) / 2 for i in range(3)]
@@ -6103,11 +6334,22 @@ class _Setup:
             "feed_mm": feed,
         }, None
 
-    def _render_profiles(self, output, jaw_z):
-        """Clipped real meridian chords for the enlarged exposed-end detail."""
+    def _render_profiles(self, output, jaw_z, removal=None):
+        """(meridian chords, z or None) for the enlarged exposed-end detail: from the jaw
+        front over three stock diameters, stretched over every cut of this setup while that
+        stays within PROFILE_SPAN diameters. A longer cut keeps the window and returns
+        the z it continues to, so the detail never clips a cut silently."""
         lower = jaw_z if _number(jaw_z) else self.box[2]
         diameter = max(self.box[3] - self.box[0], self.box[4] - self.box[1])
         upper = min(self.box[5], lower + 3 * diameter)
+        beyond = None
+        if removal is not None and removal.Volume > STOCK_MM3:
+            top = min(self.box[5], removal.BoundBox.ZMax)
+            if top > upper + STOCK_TOL:
+                if top - lower <= PROFILE_SPAN * diameter:
+                    upper = top
+                else:
+                    beyond = top
         profiles = []
         for label, shape, colour in (
             ("arriving stock", self.part, _COLOURS["removed"]),
@@ -6133,7 +6375,7 @@ class _Setup:
                 else:
                     lines.append([[r0, z0], [r1, z1]])
             profiles.append({"label": label, "colour": colour, "lines": lines})
-        return profiles
+        return profiles, beyond
 
     def _rest_render(self, debts):
         """[(name, jaw solids, pose)] of each posed follow rest at its first served op's
@@ -7628,6 +7870,93 @@ class _Setup:
             self.planar_legal[key] = legal
         return self.planar_legal[key]
 
+    def _planar_certificate(self, section, px, py, z, rho, vertex, touching):
+        """A legal axis ``c`` for the illegal sample ``p = (px, py)`` (``vertex``, at
+        height ``z``) with no legal axis more than PLANAR_EQUAL_MM nearer ``p``, proved
+        from the whole native section without an exact offset of its curves, or None.
+
+        ``q`` is the section's native closest point (one pair or bit-identical
+        duplicates, never a tolerance cluster or average) and ``d = |p - q|`` comes from
+        coordinates. Every axis at least ``rho`` from material point ``q`` is at least
+        ``rho - d`` from ``p``, so a ``c`` at that distance with exact clearance ``rho``
+        is the unique nominal nearest axis. :meth:`_planar_legal` accepts clearance
+        ``rho - PLANAR_EQUAL_MM``, so a native pass proves only that no accepted axis is
+        more than PLANAR_EQUAL_MM nearer: ``c`` joins the supported candidates and their
+        ranking, never bypassing it.
+
+        Outside (``PLANAR_EQUAL_MM < d < rho``, ``p`` outside every certain solid),
+        ``c = q + rho (p - q) / d``. Every closest native Edge must resolve to exactly one
+        section edge, and one without an exact offset refuses when its native tolerance
+        exceeds PLANAR_EQUAL_MM (a conservative precision policy; a closest Vertex is
+        accepted). On a line (``d <= PLANAR_EQUAL_MM``, ``p`` strictly inside no certain
+        solid), ``touching`` (the slots the scan measured within PLANAR_EQUAL_MM of
+        ``p``) must be one line edge whose native foot ``q`` lies more than
+        PLANAR_EQUAL_MM inside both ends, and exactly one of ``q ± rho n`` must be legal.
+        A curve, seam, corner or vertex boundary, a classification the section
+        contradicts or an illegal ``c`` gives None; a farther legal axis never stands
+        in for it. Native failures raise.
+        """
+        shape = section["shape"]
+        distance, pairs, infos = _distance(shape, vertex)
+        if not pairs or len(pairs) != len(infos):
+            return None
+        q = pairs[0][0]
+        qx, qy, qz = q.x, q.y, q.z
+        if any((a.x, a.y, a.z) != (qx, qy, qz) for a, _ in pairs[1:]):
+            return None
+        if not _trustworthy((distance, qx, qy, qz)) or abs(qz - z) > PLANAR_EQUAL_MM:
+            return None
+        d = math.hypot(px - qx, py - qy)
+        if abs(distance - d) > PLANAR_EQUAL_MM:
+            return None
+        edges, closest = shape.Edges, set()
+        for info in infos:
+            if info[0] == "Vertex":
+                closest.add(None)
+                continue
+            if info[0] != "Edge" or not 0 <= info[1] < len(edges):
+                return None
+            edge = edges[info[1]]
+            slots = [slot for slot, entry in enumerate(section["edges"]) if entry[0].isSame(edge)]
+            if len(slots) != 1:
+                return None
+            closest.add(slots[0])
+        point, solids = vertex.Point, self.certain.Solids
+        if d > PLANAR_EQUAL_MM:
+            if d >= rho or any(solid.isInside(point, 1e-9, True) for solid in solids):
+                return None
+            for slot in closest - {None}:
+                edge, _, data, _, _ = section["edges"][slot]
+                if data is None:
+                    tolerance = edge.getTolerance(1)
+                    if not (_trustworthy((tolerance,)) and 0 <= tolerance <= PLANAR_EQUAL_MM):
+                        return None
+            candidates = [(qx + rho * (px - qx) / d, qy + rho * (py - qy) / d)]
+        else:
+            if any(solid.isInside(point, 1e-9, False) for solid in solids):
+                return None
+            if len(touching) != 1 or closest != {touching[0]}:
+                return None
+            _, kind, data, _, _ = section["edges"][touching[0]]
+            if kind != "line":
+                return None
+            ax, ay, bx, by = data
+            length = math.hypot(bx - ax, by - ay)
+            ux, uy = (bx - ax) / length, (by - ay) / length
+            along = (qx - ax) * ux + (qy - ay) * uy
+            if not PLANAR_EQUAL_MM < along < length - PLANAR_EQUAL_MM:
+                return None
+            candidates = [(qx - side * uy, qy + side * ux) for side in (rho, -rho)]
+        cover = rho + PLANAR_EQUAL_MM
+        legal = [
+            (x, y)
+            for x, y in candidates
+            if _trustworthy((x, y))
+            and math.hypot(x - px, y - py) <= cover
+            and self._planar_legal(section, x, y, z, rho)
+        ]
+        return legal[0] if len(legal) == 1 else None
+
     def _planar_axis(self, index, point, radius, leave, z):
         """The nearest legal tool axis ``(x, y)`` for a sample ``point`` of +Z planar face
         ``index`` whose tip stands at actual height ``z``.
@@ -7650,8 +7979,11 @@ class _Setup:
         ``2 rho`` of the sample, the only ones that can bound an axis within ``rho`` of
         it. Candidates are certified natively against the whole section in increasing
         distance (:meth:`_planar_legal`), so supersets are harmless. Such a nearby edge
-        that is neither a line nor a Z-axis circle, an ambiguous section, or missing raw
-        supply raises ValueError: the floor's pose is undefined, not free.
+        that is neither a line nor a Z-axis circle has no exact offset: the sample then
+        needs its native nearest-bound certificate (:meth:`_planar_certificate`), whose
+        one proved axis joins the candidates and their ranking. An uncertified sample, an
+        ambiguous section, or missing raw supply raises ValueError: the floor's pose is
+        undefined, not free.
         """
         why = self._certain_debt()
         if why is not None:
@@ -7663,16 +7995,20 @@ class _Setup:
             return px, py
         reach = 2 * rho + PLANAR_EQUAL_MM
         vertex = Part.Vertex(V(px, py, z))
-        primitives, found, unsupported = set(), set(), set()
+        primitives, found, unsupported, touching = set(), set(), set(), []
         for slot, (edge, kind, data, ends, box) in enumerate(section["edges"]):
             if (
                 px < box[0] - reach
                 or px > box[3] + reach
                 or py < box[1] - reach
                 or py > box[4] + reach
-                or _distance(edge, vertex)[0] > reach
             ):
                 continue
+            distance = _distance(edge, vertex)[0]
+            if distance > reach:
+                continue
+            if distance <= PLANAR_EQUAL_MM:
+                touching.append(slot)
             if data is None:
                 unsupported.add(kind)
                 continue
@@ -7683,11 +8019,14 @@ class _Setup:
             primitives.update(offsets)
             found.update(caps)
         if unsupported:
-            raise ValueError(
-                f"its section at pose height z={_r(z)} has "
-                f"{', '.join(sorted(unsupported))} edge(s) within {_r(reach)} mm of a "
-                "sample, which have no exact legal-centre offset"
-            )
+            certified = self._planar_certificate(section, px, py, z, rho, vertex, touching)
+            if certified is None:
+                raise ValueError(
+                    f"its section at pose height z={_r(z)} has "
+                    f"{', '.join(sorted(unsupported))} edge(s) within {_r(reach)} mm of a "
+                    "sample, which have no exact legal-centre offset"
+                )
+            found.add(certified)
         cover = rho + PLANAR_EQUAL_MM
         centroid = self.faces[index].CenterOfMass
         cx, cy = centroid.x, centroid.y
@@ -8173,8 +8512,7 @@ class _Setup:
             regions.append(region)
         else:
             straight = [
-                isinstance(self.faces[index].Surface, (Part.Cylinder, Part.Cone))
-                for index in valid
+                isinstance(self.faces[index].Surface, (Part.Cylinder, Part.Cone)) for index in valid
             ]
             regions.extend(self._profile_regions(meridians, straight, window, outer))
         regions = [
@@ -8263,9 +8601,7 @@ class _Setup:
                 for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
                     cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
                     angle = math.acos(cos)
-                    sag = max(
-                        sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4)
-                    )
+                    sag = max(sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4))
                 sag += 1e-6
             points = [(r - nr * sag, z - nz * sag) for (r, z), (nr, nz) in chain]
             first, last = chain[0][0], chain[-1][0]
@@ -8576,15 +8912,40 @@ class _Setup:
         # plunges between the part and the slug, so its depth is measured in entry stock.
         radial_feed = faced_feed and tool["corners"] != 2
         reach_stock = part if radial_feed else self.part
-        for index, point, normal in samples:
+        windows = [] if faced_feed else self._turn_windows(op, tool, samples)
+        poses = [(index, point, normal, None) for index, point, normal in samples]
+        poses += [(w["index"], w["point"], (1.0, 0.0), w) for w in windows]
+        blade_z = []
+        for index, point, normal, window in poses:
             # Without a section (its reason keeps the hits unknown) the pose is nominal.
-            centre, (low, high) = self._turn_pose(tool, point, normal, segments)
+            if window is None:
+                centre, (low, high) = self._turn_pose(tool, point, normal, segments)
+                if tool["corners"] == 2:
+                    blade_z += [low, high]
+            else:
+                # As a cut sample: a nose meeting the profile within twice its radius (a
+                # fillet or corner at the window end) stands at the nearest clear pose.
+                centre = window["centre"]
+                nose = tool["radius_mm"]
+
+                def free(c, nose=nose):
+                    return _disk_clear(c, nose - LIFT, segments)
+
+                if segments and not free(centre):
+                    centre = _nearest_free(free, centre, 2 * nose) or centre
+                window["centre"] = centre
+                window["meets"] = set()
             section, pieces = self._turn_sections(tool, centre, not holder_missing)
             solids = {"tool": _revolved(section)}
             if pieces is not None:
                 parts = [solid for solid in map(_revolved, pieces) if solid is not None]
                 solids["holder"] = parts[0].fuse(parts[1:]) if len(parts) > 1 else parts[0]
-            rest_hits, rest_gap = self._rest_hits(posed, tool, point, section, pieces, subject)
+            # A window end cuts nothing: the served rests are set on the work later.
+            rest_hits, rest_gap = (
+                self._rest_hits(posed, tool, point, section, pieces, subject)
+                if window is None
+                else ({"tool": set(), "holder": set()}, None)
+            )
             if rest_gap is not None and rest_gap not in rest_gaps:
                 rest_gaps.append(rest_gap)
             for kind, solid in solids.items():
@@ -8603,6 +8964,8 @@ class _Setup:
                 if labels:
                     counters[kind][0] += 1
                     counters[kind][1].update(labels)
+                    if window is not None:
+                        window["meets"].update(labels)
                 elif (
                     self.fixture_gaps
                     or rest_gap is not None
@@ -8610,6 +8973,8 @@ class _Setup:
                     or any(_boxes_overlap(_bbox(solid), box) for _, box in self.fixture_possible)
                 ):
                     uncertain[kind] += 1
+            if window is not None:
+                continue
             # Reach: material radius beside the nose/blade (within its axial extent) beyond
             # the sample.
             band = _band(point[0], outer, low, high)
@@ -8617,6 +8982,19 @@ class _Setup:
                 common = band.common(reach_stock)
                 if common.Volume > HIT_MM3:
                     reach = max(reach, _max_radius(common) - point[0])
+        if blade_z:
+            # The blade's axial extent over its cutting poses: both faces, not the one Z
+            # the op names (a part-off's blade lies beyond the face it leaves).
+            facts["blade_z_mm"] = [_r(min(blade_z)), _r(max(blade_z))]
+        if windows:
+            facts["window_poses"] = [
+                self._window_record(w, tool, holder_missing, subject)
+                | {"meets": sorted(w["meets"])}
+                for w in windows
+            ]
+            engage = self._rest_engagement(posed, tool, windows, subject)
+            if engage:
+                facts["rest_engagement"] = engage
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
@@ -8659,6 +9037,127 @@ class _Setup:
                 )
             else:
                 facts[key] = certain
+
+    @staticmethod
+    def _turn_windows(op, tool, samples):
+        """[{end, index, point, centre, sample_z}]: a single-point tool standing where its
+        op starts and stops (docs/rules-geometry.md "Turning"). ``z_from``/``z_to`` is the
+        nose's leading extreme there, the DRO reading after a +Z end-face touch; the nose
+        rides the turned diameter of the claimed cylinder sample nearest that Z (``index``
+        at ``sample_z``), so an air start past the work or an overtravel past the cut is
+        posed where the tool stands."""
+        if tool["corners"] == 2:
+            return []
+        radial = [
+            (index, point)
+            for index, point, normal in samples
+            if abs(normal[1]) <= REVOLVED_TOL and normal[0] > 0
+        ]
+        nose, against = tool["radius_mm"], -tool["feed_z"]
+        windows = []
+        for end in ("z_from", "z_to"):
+            if not radial or not _number(op.get(end)):
+                continue
+            z = float(op[end])
+            index, point = min(radial, key=lambda item: (abs(item[1][1] - z), item[1][0]))
+            windows.append(
+                {
+                    "end": end,
+                    "index": index,
+                    "point": (point[0], z),
+                    "centre": (point[0] + nose, z + against * nose),
+                    "sample_z": point[1],
+                }
+            )
+        return windows
+
+    def _window_solids(self, tool, centre, holder_missing):
+        section, pieces = self._turn_sections(tool, centre, not holder_missing)
+        solids = [_revolved(section)]
+        if pieces is not None:
+            solids += list(map(_revolved, pieces))
+        return [solid for solid in solids if solid is not None]
+
+    def _nearest_fixture(self, solids, subject):
+        """(name, distance) of the placed fixture component nearest ``solids``, else None."""
+        nearest = None
+        for component in self.fixture if self.fixture_ready else []:
+            subjects = component.get("subjects", "all")
+            if subjects != "all" and subject not in subjects:
+                continue
+            for solid in solids:
+                distance = solid.distToShape(component["envelope"])[0]
+                if nearest is None or distance < nearest[1]:
+                    nearest = (component["name"], distance)
+        return nearest
+
+    def _window_record(self, window, tool, holder_missing, subject):
+        """One window end's pose and the placed fixture component nearest its tool/holder.
+
+        At ``z_from`` it also gives ``max_start_z_mm``: the start furthest back (against
+        the feed, same diameter) before the tool or holder touches a fixture component.
+        It is stepped out by the current clearance each time, so every step stays clear,
+        and is recorded only once that clearance is within START_TOL of contact; a start
+        with nothing behind it within START_OUT_MM records none."""
+        point = window["point"]
+        record = {"end": window["end"], "z_mm": _r(point[1]), "dia_mm": _r(2 * point[0])}
+        solids = self._window_solids(tool, window["centre"], holder_missing)
+        nearest = self._nearest_fixture(solids, subject)
+        if nearest is None:
+            return record
+        record["nearest_fixture"] = nearest[0]
+        record["clearance_mm"] = _r(nearest[1])
+        if window["end"] != "z_from" or nearest[1] <= START_TOL:
+            return record
+        against, (cr, cz) = -tool["feed_z"], window["centre"]
+        out, gap = 0.0, nearest
+        for _ in range(START_STEPS):
+            out += gap[1]
+            if out > START_OUT_MM:
+                return record
+            moved = self._window_solids(tool, (cr, cz + against * out), holder_missing)
+            gap = self._nearest_fixture(moved, subject)
+            if gap[1] <= START_TOL:
+                record["max_start_z_mm"] = _r(point[1] + against * out)
+                record["max_start_meets"] = gap[0]
+                return record
+        return record
+
+    def _rest_engagement(self, posed, tool, windows, subject):
+        """[{rest, start_z_mm, meets, engage_z_mm}] for each served follow rest whose jaws,
+        set on the work with the tool at the op's ``z_from`` start, would meet a placed
+        fixture component: the cut Z from which they clear it, found between the start and
+        the nearest claimed cylinder sample (where they ride the work), else unknown."""
+        result = []
+        start = next((window for window in windows if window["end"] == "z_from"), None)
+        if start is None:
+            return result
+        first, inside = start["point"][1], start["sample_z"]
+        for rest, _, rest_section, _ in posed:
+            radius = _outer_radius(rest_section, inside, inside)
+            if radius is None or radius <= PLANE_TOL:
+                continue
+
+            def meets(z, rest=rest, radius=radius):
+                names = set()
+                for jaw in self._rest_jaws(rest, radius, z, tool["feed_z"])[0]:
+                    names.update(self._fixture_hits(jaw, subject))
+                return sorted(names)
+
+            met = meets(first)
+            if not met:
+                continue
+            entry = {"rest": rest["name"], "start_z_mm": _r(first), "meets": met}
+            if meets(inside):
+                entry["engage_z_mm"] = UNKNOWN
+            else:
+                clashing, clear = first, inside
+                for _ in range(30):
+                    middle = (clashing + clear) / 2
+                    clashing, clear = (middle, clear) if meets(middle) else (clashing, middle)
+                entry["engage_z_mm"] = _r(clear)
+            result.append(entry)
+        return result
 
     # ------------------------------------------------------------------ follow rests
 
@@ -8712,6 +9211,20 @@ class _Setup:
             posed.append((rest, profile, section, record))
         return posed, blocked
 
+    @staticmethod
+    def _rest_jaws(rest, radius, cut_z, feed_z):
+        """(follow-rest jaw boxes set to ``radius`` for a cut at ``cut_z``, their lowest Z)."""
+        ahead = feed_z if rest["side"] == "uncut" else -feed_z
+        middle = cut_z + ahead * rest["lead_mm"]
+        z0, depth = middle - rest["jaw_depth_mm"] / 2, rest["jaw_depth_mm"]
+        width = rest["jaw_width_mm"]
+        jaws = []
+        for angle in rest["jaw_angles_deg"]:
+            jaw = Part.makeBox(rest["jaw_height_mm"], width, depth, V(radius, -width / 2, z0))
+            jaw.rotate(V(0, 0, 0), V(0, 0, 1), angle)
+            jaws.append(jaw)
+        return jaws, z0
+
     def _rest_hits(self, posed, tool, point, section, pieces, subject):
         """({tool kind: follow rest names its jaws meet}, why a rest could not be posed or
         None) for one cutting point; jaw clashes with the work and the fixture are recorded.
@@ -8742,15 +9255,9 @@ class _Setup:
                     record["gaps"].append(why)
                 gap = gap or why
                 continue
-            ahead = tool["feed_z"] if rest["side"] == "uncut" else -tool["feed_z"]
-            middle = point[1] + ahead * rest["lead_mm"]
-            z0, depth = middle - rest["jaw_depth_mm"] / 2, rest["jaw_depth_mm"]
-            width = rest["jaw_width_mm"]
-            jaws = []
-            for angle in rest["jaw_angles_deg"]:
-                jaw = Part.makeBox(rest["jaw_height_mm"], width, depth, V(radius, -width / 2, z0))
-                jaw.rotate(V(0, 0, 0), V(0, 0, 1), angle)
-                jaws.append(jaw)
+            jaws, z0 = self._rest_jaws(rest, radius, point[1], tool["feed_z"])
+            depth = rest["jaw_depth_mm"]
+            for angle, jaw in zip(rest["jaw_angles_deg"], jaws, strict=True):
                 for other in self._fixture_hits(jaw, subject):
                     key = f"{label} jaw at {_r(angle)} deg meets {other}"
                     record["clashes"][key] = record["clashes"].get(key, 0) + 1

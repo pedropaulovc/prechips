@@ -53,6 +53,45 @@ def _checkpoints(detail):
     return values, hit, unknown
 
 
+def _engagement(setup, op, entry, feed_z):
+    """(status, declared Z, why) for one kernel ``rest_engagement`` entry: a follow rest
+    whose jaws, set with the tool at the op's start, would meet a fixture component. The
+    plan's ``hold.supports[].engage_at_z_mm`` (the cut Z the tool passes before the jaws
+    go on) passes once it is at or past the computed clear Z along the feed and within the
+    op's window; before it is an error; undeclared or uncomputed stays unknown."""
+    rest, op_number = entry.get("rest"), op.get("op")
+    supports = (setup.get("hold") or {}).get("supports")
+    items = supports if isinstance(supports, list) else []
+    declared = next(
+        (
+            item.get("engage_at_z_mm", "unknown")
+            for item in items
+            if isinstance(item, dict)
+            and item.get("ref") == rest
+            and (not isinstance(item.get("ops"), list) or op_number in item["ops"])
+        ),
+        "unknown",
+    )
+    clear, met = entry.get("engage_z_mm"), ", ".join(entry.get("meets", []))
+    start = f"{rest} jaws set with the tool at its start Z{entry.get('start_z_mm'):g} meet {met}"
+    if not number(declared):
+        why = f"{start}: declare hold.supports[{rest}].engage_at_z_mm, the Z the tool passes "
+        why += f"before the jaws go on (clear from Z{clear:.3f})" if number(clear) else "first"
+        return "unknown", "unknown", why
+    if not number(clear) or feed_z not in (-1, 1):
+        return "unknown", declared, f"{start}: no clear jaw position was computed to check"
+    end = op.get("z_to")
+    if (declared - clear) * feed_z < -1e-9:
+        return (
+            "error",
+            declared,
+            (f"{start}: set at Z{declared:g}, before Z{clear:.3f} where they clear it"),
+        )
+    if number(end) and (declared - end) * feed_z > 1e-9:
+        return "error", declared, f"{start}: set at Z{declared:g}, after the op ends at Z{end:g}"
+    return "pass", declared, None
+
+
 def evaluate(bundle):
     rows = []
     required = (
@@ -138,6 +177,33 @@ def evaluate(bundle):
                 "selected cutter or holder is certainly occluded by part/fixture material",
             )
         values.update(checkpoints)
+        windows = detail.get("window_poses")
+        if isinstance(windows, list) and windows:
+            values["window_poses"] = windows
+            standing = [
+                f"standing at its {w.get('end')} Z{w.get('z_mm')} it meets "
+                + ", ".join(w.get("meets", []))
+                for w in windows
+                if w.get("meets")
+            ]
+            if standing and status == "error":
+                message += " (" + "; ".join(standing) + ")"
+        if isinstance(detail.get("blade_z_mm"), list):
+            values["blade_z_mm"] = detail["blade_z_mm"]
+        engage = detail.get("rest_engagement")
+        if isinstance(engage, list) and engage:
+            judged = [_engagement(setup, op, e, values.get("feed_z")) for e in engage]
+            values["rest_engagement"] = [
+                e | {"declared_z_mm": z} for e, (_, z, _) in zip(engage, judged, strict=True)
+            ]
+            rank = {"pass": 0, "unknown": 1, "error": 2}
+            worst = max((verdict for verdict, _, _ in judged), key=rank.get)
+            notes = [why for verdict, _, why in judged if verdict != "pass"]
+            if worst == "error" or (status == "pass" and worst == "unknown"):
+                message = (
+                    "; ".join(notes) if status == "pass" else f"{message}; " + "; ".join(notes)
+                )
+                status = worst
         if checkpoint_hit:
             message = checkpoint_hit if status != "error" else f"{message}; {checkpoint_hit}"
             status = "error"

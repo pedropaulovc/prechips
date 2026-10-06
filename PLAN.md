@@ -600,9 +600,27 @@ certified natively against the whole section; never a search, an area offset
 or a bounding box. Only the section at the tip height steers the axis:
 overhangs, leave below it, future hole cores and unclaimed raw do not, but the
 full flute (accepted after-op stock) and the holder (setup-entry stock) still
-meet them at the chosen axis. Another curve near a sample, an ambiguous section
-or missing raw supply leaves that floor's pose undefined: its own poses drop,
-other faces' certain hits stay and the op's measured facts are unknown.
+meet them at the chosen axis. Another curve near an illegal sample has no
+exact offset; the sample then needs a native nearest-bound certificate over the
+whole native section (every edge, the approximating B-splines the native slice
+returns included, and every certain solid). With q its one native closest point
+and d = |p − q|, every axis at least ρ from q is at least ρ − d from p, so
+c = q + ρ(p − q)/d with exact clearance ρ is the unique nominal nearest axis;
+native acceptance at the fixed 1e-7 mm proves only that no accepted axis is
+more than 1e-7 mm nearer, so c joins the supported candidates and the unchanged
+ranking (nearest enumerated distance `best` in [d_c − 1e-7, d_c],
+d_c = |c − p|; selected distance at most `best + 1e-7`, hence `d_c + 1e-7`).
+It certifies a sample outside every certain solid (1e-7 < d < ρ) or on exactly one native
+straight line (d ≤ 1e-7, not strictly inside, foot more than 1e-7 mm inside
+both ends, exactly one legal normal). Precision policy is conservative: a
+closest point on an unsupported curve whose native tolerance exceeds 1e-7 mm
+refuses, ρ and 1e-7 mm never grow, and spline, circle, seam, corner and vertex
+boundaries stay uncertified by scope. The tie-band radii R(d) and R_B (about
+0.0015 and 0.0011 mm at ρ = 3, d = 1) are numeric context, never a radius
+allowance or eligibility gate. An uncertified sample (a farther legal axis never
+substitutes), an ambiguous section or missing raw supply leaves that floor's
+pose undefined: its own poses drop, other faces' certain hits stay and the op's
+measured facts are unknown.
 A legal centre is not corner-radius certification. Floor-only claims do not certify
 a wall/wall corner: `internal_corner_radius` retains its existing scope and
 checks a sharp wall/wall corner when the op claims both walls. No adjacent
@@ -1253,7 +1271,9 @@ sheet.
    cannot mask splitting another.
    **Joint-feature engine implemented:** plan-owned finite sockets and spigots
    resolve for operation/dimension rules without modifying the exported
-   manifest or earning final STEP coverage. Cylindrical joints check all
+   manifest. Their analytic claims never earn final STEP coverage; a finishing
+   spigot turn earns it only for exported faces the kernel certifies lie, over
+   their full area, on its accepted finite cut. Cylindrical joints check all
    diametral fit extremes, branch-specific preparation and actual geometry,
    finite engagement, actual overlap and straight-axis insertion. Surface joints
    require essentially full finite rectangle contact on both sides inside the
@@ -1355,9 +1375,13 @@ sheet.
    centre outside the branch's certain material and at least ρ (`r` finishing,
    `r + a` roughing) from its section there, moving at most ρ; ties within
    1e-7 mm go to the face centroid, then the least (x, y). No legal centre keeps
-   the sample's axis and its genuine hit. Unsupported nearby curves, ambiguous
-   sections or missing raw supply drop only that floor's poses and leave the
-   op's facts unknown. A legal centre does not
+   the sample's axis and its genuine hit. A nearby curve without an exact offset
+   needs the native nearest-bound certificate (an outside native closest point
+   or one straight-line boundary), whose proved axis joins the supported ranking
+   with the chosen distance in [d_c − 1e-7, d_c]; ρ and the 1e-7 mm tolerance
+   never grow. Uncertified samples, ambiguous sections or missing raw supply drop
+   only that floor's poses, keep other faces' certain hits and leave the op's
+   facts unknown. A legal centre does not
    certify corner radii, and floor-only claims do not certify wall/wall corners.
    `internal_corner_radius` retains its existing claimed-face scope:
    a sharp wall/wall corner is checked when the op claims both walls.

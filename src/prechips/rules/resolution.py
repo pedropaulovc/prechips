@@ -77,11 +77,25 @@ def record(value):
     return value if isinstance(value, dict) else {}
 
 
+def op_features(op):
+    """Every feature an op names: its one feature, or an inspect op's list; none if absent."""
+    feature = op.get("feature")
+    if isinstance(feature, list):
+        return list(feature)
+    return [] if feature is None else [feature]
+
+
+def op_feature(op):
+    """The one feature an op cuts or works on; ``None`` when absent or an inspect list."""
+    feature = op.get("feature")
+    return feature if isinstance(feature, str) else None
+
+
 def claim_refs(bundle, op):
     """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``."""
     if "faces" in op:
         return op["faces"]
-    feature = record(bundle.feature_definitions.get(op.get("feature")))
+    feature = record(bundle.feature_definitions.get(op_feature(op)))
     joint = record(feature.get("joint"))
     return [joint["label"]] if joint else feature.get("faces", UNKNOWN)
 
@@ -395,18 +409,45 @@ def selected_references(plan):
 def operations(bundle, feature=None, owned=False):
     """Every (setup, op), or those naming ``feature``; ``owned`` adds complete claimers.
 
-    With ``owned`` an op also selects a feature it does not name when its explicit faces
-    claim the whole feature (``owns_feature``). Labels keep describing the op's own
-    feature, so label-scoped callers (chains, sizing, inspection) keep the default.
+    An inspect op naming a feature list selects each feature it names. With ``owned`` an
+    op also selects a feature it does not name when its explicit faces claim the whole
+    feature (``owns_feature``). Labels keep describing the op's own feature, so
+    label-scoped callers (chains, sizing, inspection) keep the default.
     """
     return [
         (setup, op)
         for setup in bundle.plan["setups"]
         for op in setup["ops"]
         if feature is None
-        or op.get("feature") == feature
+        or feature in op_features(op)
         or (owned and owns_feature(bundle, op, feature))
     ]
+
+
+def coating_process(bundle_or_inventory, reference):
+    """Where a coating op's process resolves: ``("consumables", record)`` for in-house kit,
+    ``("services", item)`` for an outside process, else ``(None, None)``."""
+    inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
+    if not isinstance(reference, str) or reference in {UNKNOWN, "none", "not_applicable"}:
+        return None, None
+    consumables = inventory.get("consumables", {})
+    if isinstance(consumables, dict) and reference in consumables:
+        products = consumables[reference]
+        # A blank or "unknown" product is not a resolved product.
+        known = (
+            isinstance(products, list)
+            and bool(products)
+            and all(isinstance(p, str) and p.strip() not in {"", UNKNOWN} for p in products)
+        )
+        return "consumables", {
+            "kind": "consumables",
+            "products": products if known else UNKNOWN,
+            "verify": not known,
+        }
+    item = resolve(inventory, "services", reference)
+    if item is None and consumables == UNKNOWN:
+        return "consumables", {"kind": UNKNOWN, "verify": True}
+    return ("services", item) if item is not None else (None, None)
 
 
 def saw_setup(setup):
