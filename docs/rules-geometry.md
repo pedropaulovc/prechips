@@ -364,16 +364,20 @@ Each setup output subtracts only that setup's derivable claimed removals from
 its selected input. Current-setup removals do not change current holding facts,
 image, reach or holder obstacles. A milling or hole flute instead meets the
 stock its setup's earlier ops leave: before any op is measured, one pass in op
-order derives each op's before-op stock and removal, so a flute never meets
-material an earlier derived cut removed and is never credited with a later
-cut. It also excludes the current op's own derivable allowance above the
-sampled finished face within its claimed clearing footprint (a hole op's own
-cutter volume): that material is being cut, not an obstacle. If an earlier
-cut cannot be derived (unresolved claims or `to_z`, an underivable leave or
-clearing box, a split or emptied stock piece, a failed boolean), that op keeps
-its own known before-op stock, but every later op's flute meets only finished
-material: its certain finished hits stay certain (`min_hits`) and its tool
-hits become unknown, naming the stopping op. This is a deliberate regression
+order derives each op's before-op stock and the stock it accepts after that
+op's cut, so a flute never meets material an earlier derived cut removed and is
+never credited with a later cut. A flute meets that accepted after-op stock,
+not a separate replay of its cut: the current op's own derivable allowance
+above the sampled finished face within its claimed clearing footprint (a hole
+op's own cutter volume) is being cut, not an obstacle. A milling op claiming a
+face away from the approach is credited no removal and meets its before-op
+stock. If an earlier cut cannot be derived (unresolved claims or `to_z`, an
+underivable leave or clearing box, a split or emptied stock piece, a failed
+boolean), that op keeps its own known before-op stock and its flute meets all
+of it, never credited with the clearance that failed, but every later op's
+flute meets only finished material: its certain finished hits stay certain
+(`min_hits`) and its tool hits become unknown, naming the stopping op. This is
+a deliberate regression
 for such later ops, which on entry stock would otherwise have read clear or
 blocked from material that may already be gone. Final profile-wall overstock
 and complete-form cap debts are judged once on the setup's end stock and never

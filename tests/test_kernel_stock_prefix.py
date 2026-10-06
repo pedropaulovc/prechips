@@ -1,8 +1,9 @@
 """A flute meets the stock this setup's earlier derived cuts leave, never a later cut's.
 
-Holders keep the setup-entry stock. Once an earlier cut cannot be derived, a later flute
-keeps only its certain finished-material hits and its tool hits stay unknown. Final
-profile-wall debts judged after all cuts never change an op's before-op stock.
+Holders keep the setup-entry stock. The op whose cut stops the stock builder meets all of
+its before-op stock. Once an earlier cut cannot be derived, a later flute keeps only its
+certain finished-material hits and its tool hits stay unknown. Final profile-wall debts
+judged after all cuts never change an op's before-op stock.
 FreeCAD-backed tests run ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and
 skip without it.
 """
@@ -81,11 +82,11 @@ def _finish(subject="S1:20"):
     return {**op, "do": "finish_profile", "rough_allowance_mm": LEAVE}
 
 
-def _job(engine, step, ops):
+def _job(engine, step, ops, **features):
     west = engine.refs(step, (5, 5, 0), (5, 45, 20), kind="Plane")
     assert len(west) == 1
     setups = [_setup(ops, HOLD, setup_id="S1"), _setup([], HOLD, setup_id="S2")]
-    return engine.job(step, {"west": west}, setups, stock=BLANK)
+    return engine.job(step, {"west": west, **features}, setups, stock=BLANK)
 
 
 def test_earlier_clearance_frees_a_later_flute_never_its_holder_or_an_earlier_flute(engine, solids):
@@ -136,3 +137,19 @@ def test_underivable_earlier_cut_leaves_later_flute_unknown_with_its_finished_hi
     rough = unknown["ops"]["S1:10"]
     assert isinstance(rough["tool_hits"], int) and rough["tool_hits"] > 0, rough
     assert "S1:10" in unknown["setups"]["S2"]["stock_reason"]
+
+
+def test_a_cut_that_stops_the_builder_frees_none_of_its_own_flute(engine, solids):
+    step = solids["island"]
+    south = engine.refs(step, (5, 5, 0), (65, 5, 20), kind="Plane")
+    assert len(south) == 1
+    # The box clears the strip south of the part but strands the blank's last 3 mm, so
+    # its derived cut splits the stock and is rejected.
+    bounds = {"x": [0.0, 70.0], "y": [-2.0, 5.0], "z": [0.0, 20.0]}
+    rough = {**_rough(bounds), "feature": "south"}
+    result = engine.run(_job(engine, step, [rough], south=south))
+    reason = result["setups"]["S2"]["stock_reason"]
+    assert "S1:10: removing its claimed clearance splits an input stock piece" in reason, reason
+    # Its flute, standing within the box, meets the whole strip the rejected cut left.
+    op = result["ops"]["S1:10"]
+    assert op["tool_hits"] > 0 and op["obstacles"]["tool"] == ["part"], op

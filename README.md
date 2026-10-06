@@ -368,11 +368,13 @@ to manufacture clearance.
 
 A milling or hole flute meets the stock its setup's earlier derived cuts
 leave (one pass in op order before measuring; a later cut is never credited)
-and alone excludes its op's own derivable outside-finished allowance or, for
-drill/spot/ream/bore/tap/counterbore, its own actual cutter volume to
-declared depth or explicit through extent. After an underivable earlier cut,
-later flutes keep only certain finished-material hits and their tool hits are
-unknown, deliberately, even where entry stock would read clear. Final wall
+and alone excludes its op's own accepted cut: its derivable outside-finished
+allowance or, for drill/spot/ream/bore/tap/counterbore, its own actual cutter
+volume to declared depth or explicit through extent. The op whose cut stops
+that pass is credited none of its failed clearance. After an underivable
+earlier cut, later flutes keep only certain finished-material hits and their
+tool hits are unknown, deliberately, even where entry stock would read clear.
+Final wall
 and cap debts never change a before-op stock. Turning keeps its own
 turned-profile obstacle model.
 Hole axes/centres derive from geometry-matched concave cylindrical faces

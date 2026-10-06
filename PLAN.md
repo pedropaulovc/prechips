@@ -1222,10 +1222,11 @@ sheet.
    hole remain material.
    Current-setup cuts shape output stock and, in op order, the stock each
    later milling or hole flute of the setup meets (never a later cut's); the
-   flute also excludes its own op's derivable allowance; holder, reach,
-   holding and image facts still use setup-entry stock. After an underivable
-   earlier cut, later flutes keep only certain finished hits and their tool
-   hits are unknown; final wall/cap debts never change a before-op stock.
+   flute also excludes its own op's accepted cut, never the failed clearance of
+   the op that stops the pass; holder, reach, holding and image facts still use
+   setup-entry stock. After an underivable earlier cut, later flutes keep only
+   certain finished hits and their tool hits are unknown; final wall/cap debts
+   never change a before-op stock.
    `stock_removal_bounds` is the
    authored cleared footprint (possibly several passes), not capped to the
    claimed faces' XY bbox plus cutter radius and not a whole-toolpath proof.

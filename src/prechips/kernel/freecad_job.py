@@ -1768,9 +1768,10 @@ class _Setup:
         self.stock_out, self.stock_out_reason = None, self.stock_reason
         # Setup-frame stock entering the setup and after each op that changes it.
         self.stock_states = []
-        # Stock builder (:meth:`_build`): id(op) -> (setup-frame stock before it, the removal
-        # derived for it or None, None) or (None, None, why that stock is unknown); the facts
-        # of each saw it reached; and (end stock, None) or (None, why it stopped).
+        # Stock builder (:meth:`_build`): id(op) -> (setup-frame stock before it, the stock
+        # accepted after it (its before stock when it stopped the builder), None) or (None,
+        # None, why that stock is unknown); the facts of each saw it reached; and (end
+        # stock, None) or (None, why it stopped).
         self.cuts = {}
         self.saws = {}
         self.built = None
@@ -1979,12 +1980,14 @@ class _Setup:
         """(setup-frame stock after this setup's cuts, or None, and why it cannot be derived).
 
         One pass in op order, before any op is measured: ``cuts`` records the stock before
-        each op and the removal derived for it (:meth:`_cut`), ``saws`` each reached saw's
-        facts (:meth:`_saw_stock`) and ``stock_states`` every changed state. Each input stock
-        solid loses its removal separately and must stay one valid piece. The first op whose
-        cut cannot be derived (or splits, empties or fails a boolean) stops the pass: its own
-        before-op stock stays known, every later op's is unknown for that reason, and no
-        later cut is ever credited to an earlier op.
+        each op and the stock it accepted after removing the cut derived for it
+        (:meth:`_cut`), ``saws`` each reached saw's facts (:meth:`_saw_stock`) and
+        ``stock_states`` every changed state. Each input stock solid loses its removal
+        separately and must stay one valid piece. The first op whose cut cannot be derived
+        (or splits, empties or fails a boolean) stops the pass: its own before-op stock stays
+        known and is also its after stock, so its failed clearance is never credited; every
+        later op's is unknown for that reason, and no later cut is ever credited to an
+        earlier op.
         """
         where = self._where()
         stock, stopped = self.part, None
@@ -2028,7 +2031,7 @@ class _Setup:
             except Exception as exc:
                 stopped = f"in-process stock boolean failed ({exc}); {where}"
             finally:
-                self.cuts[id(op)] = (before, removal, None)
+                self.cuts[id(op)] = (before, stock, None)
         return (None, stopped) if stopped is not None else (stock, None)
 
     def _cut(self, op, stock):
@@ -4239,28 +4242,27 @@ class _Setup:
             return None
         return columns[0].fuse(columns[1:]) if len(columns) > 1 else columns[0]
 
-    def _flute_regions(self, op, regions, hole_cut=None):
-        """The material a flute meets: the stock before this op (:meth:`_build`) less this
-        op's own removal, each region keeping its sampled face's shell out.
+    def _flute_regions(self, op, regions):
+        """The material a flute meets: the stock the builder accepted after this op
+        (:meth:`_build`), each region keeping its sampled face's shell out.
 
-        Earlier ops' material is absent only because their derived cuts removed it; later
-        cuts are never credited. A hole op's own removal is its ``hole_cut``; a milling op's
-        is the builder's removal for it, unless a claim faces away from the approach. Once
-        an earlier cut is underivable the stock before this op is unknown: only finished
-        material, present in any real stock, remains a flute obstacle. Holder obstacles and
-        reach never see this; they keep the setup-entry ``regions``.
+        Earlier ops' material is absent only because their accepted cuts removed it; later
+        cuts are never credited, nor is the cut of an op that stopped the builder: it meets
+        its whole before-op stock. A milling op with a claim facing away from the approach
+        is credited no removal either; a hole op always is. Once an earlier cut is
+        underivable the stock before this op is unknown: only finished material, present in
+        any real stock, remains a flute obstacle. Holder obstacles and reach never see this;
+        they keep the setup-entry ``regions``.
         """
         if self.stock_reason is not None:
             return regions
-        before, removal, unknown = self.cuts[id(op)]
+        before, after, unknown = self.cuts[id(op)]
         if unknown is not None:
             stock = self.finished
+        elif isinstance(op.get("hole"), dict) or not self._claims(op)[1]:
+            stock = after
         else:
-            if isinstance(op.get("hole"), dict):
-                removal = hole_cut["removal"]
-            elif self._claims(op)[1]:
-                removal = None
-            stock = before if removal is None else before.cut(removal)
+            stock = before
         if stock is self.part:
             return regions
         gone = self.part.cut(stock)
@@ -4709,7 +4711,7 @@ class _Setup:
             index: (self._culled_part(), None) if index in caps else self._region(index)
             for index in indices
         }
-        flute_regions = self._flute_regions(op, regions, hole_cut)
+        flute_regions = self._flute_regions(op, regions)
         # Why the stock before this op is unknown: its flute then met finished material only.
         unbuilt = None if self.stock_reason is not None else self.cuts[id(op)][2]
         region_reason = (
