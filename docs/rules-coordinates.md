@@ -164,39 +164,58 @@ order and otherwise "rows NOT in an established cutting order: <reason>"; the
 setup picture draws travel arrows only on such directed paths. Raster pocket
 passes are independent cuts and claim no travel direction.
 
-**Bounds clip.** An op with `stock_removal_bounds` may remove stock only inside
-that box, so its cutter centre must stay r inside each XY bound. The inset box
-(`lo + r`, `hi − r`, each rounded inward to the DRO grid) clips the printed
-arc rows and join points in cutting order: where the path crosses an inset
-bound, an exact point on the arc or join is added and marked `clipped_at` with
-the bound it meets (`stock_removal_bounds y 31.7 − r`); points past it are
-dropped (`dropped_rows`, `dropped_points`). An end point inside the inset box is
-kept, one outside it is clipped, with no tolerance beyond 1e-9 plan units.
-Tables that share an end stay one path where that end is kept. A path the box
-splits leaves each table piece as a `fragment` `[k, n]` and is debt: no credited
-cut links the pieces, so the setup's coordinates finding is `unknown`. A path
-wholly outside the inset box prints nothing and is debt too ("its cutter-centre
-path lies wholly outside its bounds inset by r"). The traveler notes "path
-clipped where the cutter meets …" and "separate piece k of n".
+**Bounds clip.** `stock_removal_bounds` is a material footprint: an op may
+remove stock only inside that box, but its cutter may run past the box through
+air. Only the kernel knows where the cutter first meets the op's before-op stock
+outside the box, so the coordinates pass prints a bounded op's tables whole
+into the kernel request (`kernel_clip`) and prints, after the kernel run, the
+kernel's clip of them (`checkpoint_clips`; see
+[rules-geometry](rules-geometry.md#accessibility)). The kernel sweeps the
+cutter along each printed path in cutting order and bisects each chord whose
+sweep meets that stock to `CLIP_PRECISION_MM` (1e-4 mm); the finished part is
+its own obstacle there, never stock, as in the row check. The clip point is
+added and marked `clipped_at` ("first contact with stock outside
+stock_removal_bounds") and printed at the nearest DRO grid point on the legal
+side of its chord from which the cutter still sweeps clear; rows past it are
+dropped (`dropped_rows`, `dropped_points`). A path that never meets such stock
+prints whole. Tables that share an end stay one path where that end is kept. A
+path that leaves and re-enters legality leaves each piece as a `fragment`
+`[k, n]` and is debt: no credited cut links the pieces and none is
+reconnected, so the setup's coordinates finding is `unknown`. A path with no
+legal part, no kernel result, a kernel clip that is unknown or a clip that does
+not match the printed table prints nothing and is unknown, never the unclipped
+path. The traveler notes "path clipped at the cutter's first contact with
+stock outside stock removal bounds" and "separate piece k of n". The sheet's
+tables, this check, the kernel's row check and the setup picture's waypoints
+all use these clipped rows and their ids; the op's removal stays its box.
 
-**Printed values.** The operator cuts what the DRO shows: 2 decimals in mm,
-4 in inches (`DRO_DECIMALS`). Every arc row and join point carries `dro_xy`, the
-nearest grid point that, for each of the feature's walls (its arcs between their
-ends, its lands and tapers, a top arc's linked lands), is no nearer that wall
-than the exact point or the authored cutter-centre offset, whichever is less,
-and stays inside the DRO-rounded inset box (a corner of its grid cell, else up
-to two steps out, else unknown); a table end and the join it meets print one
-value. Every table carries `dro_tip_z`, and each profile `dro_to_z`: the
-authored depth rounded up, never deeper (−2.07825 prints −2.07), leaving under
-one display step of skin. The traveler prints these values; the kernel checks
-them and credits their sweep, so nothing between the sheet and the stock model
-is rounded twice.
+**Printed values.** The operator cuts what the DRO shows. One rule serves
+every axis: the DRO grid is the setup machine's declared inventory
+`resolution` (`resolution_mm` or `resolution_in`), else 0.001 plan units
+(`DRO_DEFAULT_STEP`), printed at the decimals of one step (`dro_grid`). Every
+arc row and join point carries `dro_xy`, the nearest grid point that, for each
+of the feature's walls (its arcs between their ends, its lands and tapers, a top
+arc's linked lands), is no nearer that wall than the exact point or the authored
+cutter-centre offset, whichever is less (a corner of its grid cell, else up to
+two steps out, else unknown); a table end and the join it meets print one
+value. Every table carries `dro_tip_z`, and each profile and operation
+`dro_to_z`: the authored depth rounded up, never deeper (−2.07825 prints −2.078
+on the default grid). The op rows and contour table headers print the same
+value. A final forming cut whose `to_z` ends on its finished face (no `exit_mm`)
+and whose rounded-up depth leaves more skin than its feature's narrowest
+numeric tolerance band is an error (`dro_z_residual_errors`). Every join record
+carries its `stage`, `allowance_mm` (the rough leave, 0 for finish) and
+`offset_mm` (cutter radius plus allowance). The traveler prints these values;
+the kernel clips, checks and credits them, so nothing between the sheet and the
+stock model is rounded twice.
 
 **Row ids and native check.** Each printed row has an id:
 `S1:40 rough arc row 3` for an arc row and `S1:40 rough line +X[0]` for a join
-point, with ` fragment k` after the table name for a clipped piece. The kernel
-stands the op's cutter at every printed row from its printed tip up and applies
-rule A′ ([rules-geometry](rules-geometry.md#accessibility)): a row whose cutter
+point, with ` fragment k` after the table name for a clipped piece; the kernel
+names the rows of the pieces it clips with the same formats (`ROW_FORMAT`,
+`FRAGMENT_FORMAT`). The kernel stands the op's cutter at every printed row
+from its printed tip up and applies rule A′
+([rules-geometry](rules-geometry.md#accessibility)): a row whose cutter
 meets the finished part, the op's rough leave, a fixture, stock outside a
 bounded op's box, or stock a later setup grips, presses, locates, rests or
 supports on is an accessibility error naming the row; an unresolved check is
@@ -213,9 +232,14 @@ When unresolved it appends:
 
 ` Missing geometry or unverified tool/frame binding prevents a cleared toolpath.`
 
-A clipped path left in pieces or none (and unclippable bounds) appends:
+A bounded op's path left in pieces or none, or whose kernel clip is unknown,
+appends:
 
 ` Stock-removal clip debt: op {op} {stage}: {reason}.` (`;`-joined per pass)
+
+A finish depth the DRO leaves above its face past the feature's band appends:
+
+` DRO depth rounding error: op {op} prints Z {dro} for to_z {to_z}: … .`
 
 Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,

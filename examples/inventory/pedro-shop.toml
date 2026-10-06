@@ -19,6 +19,8 @@ source = "https://www.precisionmatthews.com/products/pm-30mv"
 control = "cncjs over grbl-class controller; operated manually via XHC WHB04B-6 pendant + EL400 DRO emulator"
 operation_mode = "manual_with_digital_positioning"
 headstock_tilt_deg = 90
+# The DRO grid the sheet prints and the kernel checks (docs/rules-coordinates.md).
+resolution_mm = { value = 0.001, measured = { by = "example (plausible, not measured)", date = "2026-10-06", instrument = "cncjs DRO readout: grbl reports mm positions to 3 decimals" } }
 note = "CNC conversion replaces leadscrews/dials; envelope and travel below are illustrative example values (vendor numbers relabelled), not grbl soft limits."
 
 [machines.PM-30MV.envelope]

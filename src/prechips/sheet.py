@@ -14,7 +14,7 @@ from html import escape
 
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .model import tolerance_requirements
-from .rules.coordinates import DRO_DECIMALS, OVERSHOOT_NOTE, row_id
+from .rules.coordinates import OVERSHOOT_NOTE, dro_grid, dro_z, row_id
 from .rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -467,7 +467,6 @@ class _Traveler:
             and not self.approval.get("warnings")
         )
         self.units = bundle.features.get("units", "unknown")
-        self.decimals = DRO_DECIMALS.get(self.units, 2)
         self.pages = []
         self.references = {}
         for reference in sorted(selected_references(self.plan)):
@@ -604,6 +603,12 @@ class _Traveler:
             sign = "+" if match[1] == "positive" else "−"
             return f"toward {sign}{match[2].upper()}"
         return _text(value).replace("toward ", "→ ")
+
+    @property
+    def decimals(self):
+        """The DRO decimals of the setup being written (:func:`dro_grid`): its machine's
+        declared resolution, else the default grid."""
+        return dro_grid(self.bundle, self.setup or {})[1]
 
     def operative(self, value):
         """Machine targets (tips, stations, cutter centres) print at DRO resolution."""
@@ -1507,7 +1512,7 @@ class _Traveler:
         if "z_from" in op and "z_to" in op:
             parts.append(f"Z {o(op['z_from'])} → {o(op['z_to'])}")
         elif "to_z" in op:
-            parts.append(f"Z → {o(op['to_z'])}")
+            parts.append(f"Z → {o(self.dro_to_z(setup, op))}")
         if "depth_mm" in op:
             parts.append(f"depth {o(op['depth_mm'])}")
         if "exit_mm" in op:
@@ -1521,6 +1526,16 @@ class _Traveler:
         if any("?" in part for part in parts):
             parts.append(_Box("STOP: Z target not set"))
         return parts or (["—"] if op.get("do") in MANUAL else [_Box("STOP: Z target not set")])
+
+    def dro_to_z(self, setup, op):
+        """The depth the DRO shows for ``op``: the ``dro_to_z`` coordinates checked (rounded
+        up, never deeper than ``to_z``), the same Z its contour tables print."""
+        numbers = self.records.get(("coordinates", setup["id"]), {})
+        operations = numbers.get("operations") if isinstance(numbers, dict) else None
+        for entry in operations if isinstance(operations, list) else []:
+            if isinstance(entry, dict) and str(entry.get("op")) == str(op.get("op")):
+                return entry.get("dro_to_z", "unknown")
+        return dro_z(op.get("to_z", "unknown"), dro_grid(self.bundle, setup))
 
     def endpoint(self, setup, op):
         numbers = self.records.get(("blind_depth", op.get("feature")), {})
@@ -1797,12 +1812,20 @@ class _Traveler:
         points = _mapping(render.get("scene")).get("waypoints")
         return [_mapping(p) for p in points] if isinstance(points, list) else []
 
-    def waypoint(self, waypoints, op, point):
+    def waypoint(self, waypoints, op, point, row=None):
+        """A table row's picture label: the waypoint listing its row id ``row`` (an arc or
+        join table row, keyed by the same printed rows as the picture), else the waypoint at
+        its ``point`` (any other table)."""
         for record in waypoints:
+            if str(record.get("op")) != str(op):
+                continue
+            if row is not None:
+                if row in (record.get("rows") or []):
+                    return str(record.get("label", ""))
+                continue
             xy = record.get("xy", record.get("xz"))
             if (
-                str(record.get("op")) == str(op)
-                and isinstance(xy, list)
+                isinstance(xy, list)
                 and len(xy) == 2
                 and all(_known(v) for v in (*xy, *point))
                 and math.dist(xy, point) <= 0.01
@@ -1832,15 +1855,19 @@ class _Traveler:
 
     @staticmethod
     def clip(table, markers):
-        """Where coordinates clipped this table at its op's stock_removal_bounds."""
+        """Where the kernel clipped this table at its op's stock_removal_bounds (the cutter's
+        first contact with stock outside them), and the debt of a piece no cut links."""
         clipped = list(dict.fromkeys(_text(marker) for marker in markers if marker))
         text = ""
         if clipped:
-            text = "; path clipped where the cutter meets " + ", ".join(clipped)
+            text = "; path clipped at the cutter's " + ", ".join(clipped)
             text += " (points past it are not cut by this op)"
         fragment = table.get("fragment")
         if isinstance(fragment, list) and len(fragment) == 2:
-            text += f"; separate piece {fragment[0]} of {fragment[1]}, not linked by a cut"
+            text += (
+                f"; separate piece {fragment[0]} of {fragment[1]}, not linked by a cut: "
+                "debt, the stock between the pieces is not cleared by this op"
+            )
         return text
 
     def contours(self, setup, tools):
@@ -1850,23 +1877,33 @@ class _Traveler:
         waypoints = self.waypoints(setup)
         operations = {str(op["op"]): op for op in setup.get("ops", [])}
         blocks = {}
+        stages = {"rough": 0, "finish": 1}
 
         def block(op):
-            return blocks.setdefault(str(op), {"parts": [], "z": set()})
+            return blocks.setdefault(str(op), {"parts": [], "z": set(), "stops": []})
+
+        def order(entry, table=None):
+            """Rough before finish, then the cut sequence coordinates proved, else listed."""
+            if table is None:
+                return (len(stages), -1, len(entry["parts"]))
+            stage = stages.get(table.get("stage"), len(stages))
+            sequence = table.get("sequence")
+            return (stage, sequence if isinstance(sequence, int) else -1, len(entry["parts"]))
 
         for arc in (
             numbers.get("arc_table", []) if isinstance(numbers.get("arc_table"), list) else []
         ):
             entry = block(arc.get("op"))
             rows = []
-            for record in arc.get("rows", []):
-                xy = record.get("setup_xy", [record.get("x"), record.get("y")])
+            subject = f"{setup['id']}:{arc.get('op')}"
+            for index, record in enumerate(arc.get("rows", [])):
                 printed = record.get("dro_xy") or ["unknown", "unknown"]
                 z = record.get("dro_tip_z", arc.get("dro_tip_z"))
                 entry["z"].add(o(z))
+                key = row_id(subject, "arc_table", arc, index)
                 rows.append(
                     [
-                        self.waypoint(waypoints, arc.get("op"), xy),
+                        self.waypoint(waypoints, arc.get("op"), None, key),
                         self.angle(record.get("angle_deg")),
                         o(printed[0]),
                         o(printed[1]),
@@ -1887,7 +1924,8 @@ class _Traveler:
             description += self.cut_order(arc) + self.clip(
                 arc, [row.get("clipped_at") for row in arc.get("rows", [])]
             )
-            entry["parts"].append((description, ["P", "angle °", "X", "Y", "Z"], rows))
+            headings = ["P", "angle °", "X", "Y", "Z"]
+            entry["parts"].append((order(entry, arc), description, headings, rows))
         for line in numbers.get("line_table", []):
             entry = block(line.get("op"))
             rows = []
@@ -1896,14 +1934,14 @@ class _Traveler:
             proven = proven.get("checkpoint_overshoot_ok") if isinstance(proven, dict) else None
             proven = set(proven) if isinstance(proven, list) else set()
             printed, flags = line.get("dro_xy") or [], line.get("overshoot") or []
-            for index, xy in enumerate(line.get("setup_xy", [])):
+            for index in range(len(line.get("setup_xy", []))):
                 dro = printed[index] if index < len(printed) else ["unknown", "unknown"]
-                ok = index < len(flags) and flags[index] is True
-                ok = ok and row_id(subject, "line_table", line, index) in proven
+                key = row_id(subject, "line_table", line, index)
+                ok = index < len(flags) and flags[index] is True and key in proven
                 entry["z"].add(o(line.get("dro_tip_z")))
                 rows.append(
                     [
-                        self.waypoint(waypoints, line.get("op"), xy),
+                        self.waypoint(waypoints, line.get("op"), None, key),
                         OVERSHOOT_NOTE if ok else "",
                         o(dro[0]),
                         o(dro[1]),
@@ -1913,7 +1951,7 @@ class _Traveler:
             side = _text(line.get("side"))
             description = f"Straight joins on the {side} side" + self.cut_order(line)
             description += self.clip(line, line.get("clipped_at") or [])
-            entry["parts"].append((description, ["P", "", "X", "Y", "Z"], rows))
+            entry["parts"].append((order(entry, line), description, ["P", "", "X", "Y", "Z"], rows))
         arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
         for profile in numbers.get("profiles", []):
             op = str(profile.get("op"))
@@ -1923,6 +1961,8 @@ class _Traveler:
             entry = block(op)
             if not isinstance(points, list) or not points:
                 entry.setdefault("unresolved", True)
+                if profile.get("clip_reason"):
+                    entry["stops"].append(_text(profile["clip_reason"]))
                 continue
             z = o(profile.get("dro_to_z", profile.get("to_z")))
             entry["z"].add(z)
@@ -1948,7 +1988,7 @@ class _Traveler:
                         [self.waypoint(waypoints, op, point[:2]), "", o(point[0]), o(point[1]), z]
                     )
             description = "Cutter-centre checkpoints" + self.cut_order(profile)
-            entry["parts"].append((description, headings, rows))
+            entry["parts"].append((order(entry), description, headings, rows))
         for contour in numbers.get("contours", []):
             if not isinstance(contour, dict) or contour.get("method") != "axial_table":
                 continue
@@ -2000,7 +2040,7 @@ class _Traveler:
                     "nose-radius compensation set at the machine"
                 )
                 headings = ["P", f"X ({x_unit})", "Z"]
-            entry["parts"].append((description, headings, rows))
+            entry["parts"].append((order(entry), description, headings, rows))
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
         if not blocks:
@@ -2028,9 +2068,10 @@ class _Traveler:
                     "stop",
                 )
             elif not entry["parts"]:
-                content += _p("STOP: contour points not computed — do not run.", "stop")
+                reasons = "".join(f" — {reason}" for reason in entry["stops"])
+                content += _p(f"STOP: contour points not computed{reasons} — do not run.", "stop")
             else:
-                for description, headings, rows in entry["parts"]:
+                for _, description, headings, rows in sorted(entry["parts"], key=lambda p: p[0]):
                     columns = [
                         i
                         for i, h in enumerate(headings)
@@ -2595,7 +2636,7 @@ def short_reference_label(bundle, reference, category=None) -> str:
 
 
 def tool_label(bundle, reference) -> str:
-    """The traveler's short shop name for a tool reference (e.g. '1.60 mm parting blade')."""
+    """The traveler's short shop name for a tool reference (e.g. '1.6 mm parting blade')."""
     item = resolve(bundle, "tools", reference)
     if not item:
         return short_reference_label(bundle, reference, "tools")
@@ -2609,6 +2650,5 @@ def tool_label(bundle, reference) -> str:
         return f"{member} {role} holder"
     if kind == "parting_blade":
         width = _amount(item.get("blade_width_mm"))
-        decimals = DRO_DECIMALS.get(bundle.features.get("units"), 2)
-        return (f"{_number(width, decimals)} mm " if width else "") + "parting blade"
+        return (f"{_number(width)} mm " if width else "") + "parting blade"
     return short_reference_label(bundle, reference, "tools")

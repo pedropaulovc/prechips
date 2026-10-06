@@ -1,20 +1,24 @@
 """Every printed DRO cutter-centre checkpoint stands where rule A′ lets the cutter.
 
 The kernel stands the op's cutter cylinder at each printed row, from its tip up above the
-setup-entry stock. Finished material, the op's leave and fixture solids always error, and
-a bounded op's cutter may meet only stock inside its clearing box. An unbounded profile
-op's printed run-out is credited removal: its corner miter may nick retained scrap, but
-never stock a later setup grips, presses, locates, rests or supports on; a later setup
+setup-entry stock. Finished material, the op's leave and fixture solids always error. A
+bounded op's printed paths are first clipped where its cutter first meets stock outside its
+clearing box: a path that leaves and re-enters is pieces, never reconnected. An unbounded
+profile op's printed run-out is credited removal: its corner miter may nick retained scrap,
+but never stock a later setup grips, presses, locates, rests or supports on; a later setup
 whose contacts are unresolved leaves the rows unknown. FreeCAD-backed tests run
 ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
+import math
 import subprocess
 
 import pytest
 from test_kernel_geometry import Engine, _op, _setup, _vise
 from test_kernel_held_split import UP, _box
 from test_kernel_stock_prefix import BLANK, HOLD
+
+from prechips.rules.coordinates import FRAGMENT_FORMAT, ROW_FORMAT
 
 _AUTHOR = r"""
 import sys
@@ -55,16 +59,35 @@ def engine(tmp_path, freecad_kernel):
     return Engine(tmp_path, freecad_kernel)
 
 
-def _printed(subject, stage, tables, tip=0.0, overshoot=()):
-    """Coordinates checkpoints as build_job passes them: each table a path of named rows;
-    ``overshoot`` names the corner-miter row ids."""
+def _printed(subject, stage, tables, tip=0.0, overshoot=(), bounded=False):
+    """Coordinates checkpoints as build_job passes them: each ``(name, points)`` line table
+    a path of named rows, its cutter clearing from the left of its travel; ``overshoot``
+    names the corner-miter row ids. A ``bounded`` op's tables print on a 0.001 mm DRO."""
     rows, paths = [], []
     for name, points in tables:
-        for i, xy in enumerate(points):
-            row = {"id": f"{subject} {stage} {name}[{i}]", "xy_mm": list(xy), "tip_z_mm": tip}
-            rows.append({**row, "overshoot": True} if row["id"] in overshoot else row)
-        paths.append({"xy_mm": [list(xy) for xy in points], "tip_z_mm": tip})
-    return {"rows": rows, "paths": paths}
+        name = f"{subject} {stage} {name}"
+        ids = [name + ROW_FORMAT["line_table"].format(i) for i in range(len(points))]
+        for row_id, xy in zip(ids, points, strict=True):
+            row = {"id": row_id, "xy_mm": list(xy), "tip_z_mm": tip}
+            rows.append({**row, "overshoot": True} if row_id in overshoot else row)
+        paths.append(
+            {
+                "table": ids[0],
+                "name": name,
+                "kind": "line_table",
+                "cutter_side": "left",
+                "directed": True,
+                "xy_mm": [list(xy) for xy in points],
+                "tip_z_mm": tip,
+                "ids": ids,
+                "overshoot": [row_id in overshoot for row_id in ids],
+            }
+        )
+    result = {"rows": rows, "paths": paths, "bounded": bounded}
+    if bounded:
+        result["dro"] = {"step": 0.001, "decimals": 3, "scale": 1.0}
+        result["row_format"], result["fragment_format"] = ROW_FORMAT, FRAGMENT_FORMAT
+    return result
 
 
 def _job(engine, step, ops, later=SEATED, **walls):
@@ -121,32 +144,99 @@ def _later(op):
     }
 
 
-def test_a_bounded_cutter_meets_only_stock_inside_its_box(engine, island):
-    op = _op("S1:10", "west", 3.0, 25.0, 30.0)
-    rough = {
-        **op,
-        "do": "rough_profile",
-        "rough_allowance_mm": 0.2,
+# A rough cutter off the DRO grid, so no contact lands on a grid point; the kernel's cutter
+# is LIFT (1 um) narrower than its radius.
+RADIUS = 3.0003
+RHO = RADIUS - 1e-3
+
+
+def _bounded(tables, stage="rough", box=(0.0, 5.0, -5.0, 20.0), subject="S1:10"):
+    """A west-wall profile bounded by default to the blank's west strip south of y 20;
+    a rough one leaves 0.2 mm."""
+    op = {
+        **_op(subject, "west", RADIUS, 25.0, 30.0),
+        "do": f"{stage}_profile",
         "to_z": 0.0,
-        # The box clears the west strip's south half only.
-        "stock_removal_bounds": {"x": [0.0, 5.0], "y": [-5.0, 20.0], "z": [0.0, 20.0]},
-        # 1.8 = 5 - 0.2 leave - 3 radius: tangent to the leave.
-        "checkpoints": _printed(
-            "S1:10", "rough", [("line -X", [(1.8, 10.0), (1.8, 25.0), (8.0, 30.0), (35.0, -8.0)])]
-        ),
+        "stock_removal_bounds": {"x": list(box[:2]), "y": list(box[2:]), "z": [0.0, 20.0]},
     }
-    result = engine.run(_job(engine, island, [rough], west=WEST))
-    facts = result["ops"]["S1:10"]
+    if stage == "rough":
+        op["rough_allowance_mm"] = 0.2
+    if tables:
+        op["checkpoints"] = _printed(subject, stage, tables, bounded=True)
+    return op
+
+
+def _clips(engine, island, tables, ops=(), **bounded):
+    job = _job(engine, island, [*ops, _bounded(tables, **bounded)], west=WEST)
+    facts = engine.run(job)["ops"]["S1:10"]
+    clips = facts["checkpoint_clips"]
+    assert "reason" not in clips, clips
+    # The clipped rows are all rule A′ judges, and they are clear.
+    assert facts["checkpoint_errors"] == [] and facts["checkpoint_hits"] == 0, facts
+    return facts, clips
+
+
+def test_a_bounded_sweep_grazing_the_finished_part_between_clear_rows_is_not_clipped(
+    engine, island
+):
+    # Op 5 clears the frame about the island's south-west corner; op 10's chord then
+    # grazes that corner 0.01 mm between two clear rows, as a printed arc's chord sags
+    # into its wall. The finished part is rule A′'s obstacle at the rows, never stock the
+    # clip stops at, though it lies outside op 10's box.
+    cleared = _bounded([], stage="finish", box=(0.0, 20.0, -5.0, 20.0), subject="S1:5")
+    c = 10.0 - (RHO - 0.01) * math.sqrt(2)  # the chord x + y = c
+    path = [(1.5, c - 1.5), (c - 1.5, 1.5)]
+    box = (0.0, 5.0, -5.0, 5.0)
+    facts, clips = _clips(engine, island, [("line S", path)], [cleared], stage="finish", box=box)
+    (entry,) = clips["paths"]
+    assert entry["pieces"] == [[{"row": 0}, {"row": 1}]] and entry["clip_points"] == []
+    assert facts["checkpoint_count"] == 2
+
+
+def test_a_bounded_path_past_its_box_only_through_air_is_not_clipped(engine, island):
+    # Inside the box beside the leave, then west and north past the box in the air beyond
+    # the blank's x 0: no stock outside the box is ever met.
+    path = [(1.5, 0.0), (1.5, 10.0), (-10.0, 10.0), (-10.0, 40.0)]
+    facts, clips = _clips(engine, island, [("line -X", path)])
+    (entry,) = clips["paths"]
+    assert entry["pieces"] == [[{"row": i} for i in range(4)]]
+    assert entry["clip_points"] == [] and entry["dropped_rows"] == []
     assert facts["checkpoint_count"] == 4
-    # Inside the box beside the leave: clear. Past the box's y 20: stock it never removes.
-    # Over the island: the finished part. South of the blank: the front (moving) vise jaw.
-    assert _errors(facts) == {
-        ("S1:10 rough line -X[1]", "stock outside its stock_removal_bounds"),
-        ("S1:10 rough line -X[2]", "finished part"),
-        ("S1:10 rough line -X[3]", "moving_jaw"),
-    }, facts
-    assert facts["checkpoint_hits"] == 3
-    assert all(error["volume_mm3"] > 1.0 for error in facts["checkpoint_errors"])
+
+
+def test_a_bounded_path_into_stock_past_its_box_ends_at_the_first_contact(engine, island):
+    facts, clips = _clips(engine, island, [("line -X", [(1.5, 0.0), (1.5, 40.0)])])
+    (entry,) = clips["paths"]
+    ((first, end),) = entry["pieces"]
+    assert first == {"row": 0} and entry["dropped_rows"] == ["S1:10 rough line -X[1]"]
+    # The cutter first meets the blank past the box's y 20 when its edge reaches it.
+    contact = 20.0 - RHO
+    assert end["after"] == 0
+    assert end["exact_xy"][0] == pytest.approx(1.5)
+    assert abs(end["exact_xy"][1] - contact) <= clips["precision_mm"], end
+    # Printed on the DRO grid on the legal side: short of the contact, never past it.
+    assert end["dro_xy"] == [1.5, 17.0]
+    assert facts["checkpoint_count"] == 2
+
+
+def test_a_bounded_path_that_leaves_and_reenters_its_box_is_two_pieces(engine, island):
+    # North into stock past y 20, west out of the blank, then south and back east into the
+    # box: the legal parts are two pieces, the stock between them never reconnected.
+    path = [(1.5, 0.0), (1.5, 40.0), (-10.0, 40.0), (-10.0, 10.0), (1.5, 10.0)]
+    facts, clips = _clips(engine, island, [("line -X", path)])
+    (entry,) = clips["paths"]
+    leave, enter = entry["pieces"]
+    assert leave[0] == {"row": 0} and leave[1]["after"] == 0
+    assert enter[0]["after"] == 1 and enter[1:] == [{"row": 2}, {"row": 3}, {"row": 4}]
+    assert entry["dropped_rows"] == ["S1:10 rough line -X[1]"]
+    # It regains the path once the cutter's edge clears the blank's x 0 face.
+    assert abs(enter[0]["exact_xy"][0] + RHO) <= clips["precision_mm"], enter[0]
+    assert enter[0]["dro_xy"] == [-3.0, 40.0]
+    assert [point["after"] for point in entry["clip_points"]] == [
+        "S1:10 rough line -X[0]",
+        "S1:10 rough line -X[1]",
+    ]
+    assert facts["checkpoint_count"] == 6
 
 
 def test_a_corner_miter_into_retained_scrap_is_legal_and_noted(engine, island):
@@ -183,30 +273,6 @@ def test_an_unresolved_later_contact_leaves_the_rows_unknown(engine, island):
         in (facts["checkpoint_reason"])
     )
     assert facts["checkpoint_overshoot_ok"] == []
-
-
-def test_unclipped_rows_gouging_a_rail_a_later_setup_clamps_are_errors(engine, island):
-    # The box clears y 45..52 above z 10 and keeps the 3 mm rail y 52..55; its inset box
-    # lets the cutter centre reach y 49. The clipped row stands at y 48; the old unclipped
-    # one at y 50.5 runs 1.5 mm into the rail, under the later pad on y 53..55.
-    rough = {
-        **_op("S1:20", "north", 3.0, 25.0, 30.0),
-        "do": "rough_profile",
-        "rough_allowance_mm": 0.0,
-        "to_z": 10.0,
-        "stock_removal_bounds": {"x": [0.0, 70.0], "y": [45.0, 52.0], "z": [0.0, 20.0]},
-        "checkpoints": _printed(
-            "S1:20", "rough", [("line clipped", [(30.0, 48.0)]), ("line old", [(40.0, 50.5)])], 10.0
-        ),
-    }
-    result = engine.run(_job(engine, island, [rough], later=_clamped((40.0, 54.0)), north=NORTH))
-    facts = result["ops"]["S1:20"]
-    assert _errors(facts) == {
-        ("S1:20 rough line old[0]", "stock outside its stock_removal_bounds"),
-        ("S1:20 rough line old[0]", "pad:pad"),
-    }, facts
-    assert _later(facts) == {("S1:20 rough line old[0]", "S2", "clamp press")}
-    assert facts["checkpoint_hits"] == 1
 
 
 def test_a_run_out_that_parts_the_stock_is_refused_by_the_held_split_check(engine, island):

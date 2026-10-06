@@ -820,7 +820,24 @@ except as the rough leave below moves it.
 **Printed checkpoints (rule A′).** For an op whose coordinates tables print
 cutter-centre rows ([rules-coordinates](rules-coordinates.md)), the kernel
 stands the op's cutter cylinder (radius less 0.001 mm) at every printed row's
-displayed setup XY from its displayed tip up above the setup-entry stock. Each
+displayed setup XY from its displayed tip up above the setup-entry stock.
+A bounded op's tables arrive whole and are clipped first: the kernel sweeps
+that cylinder along each printed path and ends it where its common volume with
+the op's before-op stock outside its `stock_removal_bounds` box, less the
+finished part, first exceeds 1e-6 mm³, located by bisection to
+`CLIP_PRECISION_MM` (1e-4 mm) along the chord and printed on the setup's DRO
+grid (`dro`) at the nearest point on the legal side, no nearer the walls, from
+which the cutter still sweeps clear. A path that leaves and re-enters that
+stock is several pieces, never reconnected (a closed path's pieces across its
+seam are one); one with no legal part has none. Facts: `checkpoint_clips`
+(`clipped_at`, `precision_mm`, and per printed path its first row id `table`,
+`rows`, `pieces` of `row` indices and clip points `after` a row at fraction `t`
+with `exact_xy` and `dro_xy` in plan units, `dropped_rows`, `clip_points`), or
+its `reason` when the clip is unknown: the frame, cutter radius, DRO grid,
+before-op stock or a boolean is unresolved, and then no row remains. The kept
+rows, renamed per piece with the coordinates row-id formats, are the only rows
+the row check and the setup picture's waypoints use; a bounded op's removal
+stays its box, never a printed run-out. Each
 row is an error naming it when that cylinder meets the finished part, the op's
 rough leave (its guard less the finished part, inside what the row removes),
 a fixture component, or, for a bounded op, before-op stock outside its

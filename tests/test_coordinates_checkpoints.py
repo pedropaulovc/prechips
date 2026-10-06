@@ -1,11 +1,13 @@
-"""Printed cutter-centre tables stop where an op's stock_removal_bounds stop its removal.
+"""A bounded op's printed cutter-centre tables are the kernel's clip of them.
 
-A bounded op credits removal only inside its clearing box, so its cutter centre stays r
-inside each XY bound, rounded inward to the DRO grid. The printed path is clipped there:
-a crossing becomes an exact row marked ``clipped_at``, a path the box splits is debt with
-each piece a fragment, and a path wholly outside prints nothing and is debt. Every printed
-value rounds to the safe side: XY no nearer the wall and inside the box, the tip never
-deeper than authored.
+An op with stock_removal_bounds may remove stock only inside that box, and only the kernel
+knows where its cutter first meets stock outside it. The kernel request carries the whole
+printed tables; the rule pass prints the kernel's clip (``checkpoint_clips``): the rows it
+keeps and its clip points, marked ``clipped_at``. A path left in pieces is fragments plus
+debt, never reconnected; no legal part, no kernel result or a clip that does not match
+the printed table prints nothing and is unknown, never the unclipped path. Every printed
+value rounds to the safe side on the machine's DRO grid: its declared resolution, else
+three decimals.
 """
 
 import math
@@ -22,110 +24,234 @@ from prechips.rules import coordinates
 # model XY - (5, 2): the path spans setup x -9.2..-0.8, y -9..-7.6, about (-5, -2).
 ARC = "kind = 'profile'\nradius = 10.0\narc_centre = [0.0, 0.0, 0.0]\nend = [6.0, -8.0, 0.0]\n"
 CENTRE = (-5.0, -2.0)
-EPSILON = 1e-6
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
+SUBJECT = "S1:20"
+TABLE = "S1:20 finish arc"
+CONTACT = "first contact with stock outside stock_removal_bounds"
 
 
-def finding(tmp_path, x=(-30.0, 30.0), y=(-30.0, 30.0)):
-    plan = coordinate_bundle(
+def plan(tmp_path, bounded=True, do="finish_profile", resolution=None, band=None):
+    """S1 op 20 cutting the arc to Z -2.07825, bounded by a box unless ``bounded`` is
+    False; the mill declares ``resolution`` mm and the arc a thickness ``band``."""
+    bounds = (
+        "stock_removal_bounds = { x = [-30.0, 30.0], y = [-30.0, 30.0], z = [-5.0, 0.0] }\n"
+        if bounded
+        else ""
+    )
+    path = coordinate_bundle(
         tmp_path,
         ARC,
-        "[[setups.ops]]\nop = 20\ndo = 'finish_profile'\nfeature = 'target'\n"
+        f"[[setups.ops]]\nop = 20\ndo = '{do}'\nfeature = 'target'\n"
         "tool = 'cutter'\nto_z = -2.07825\ndirection = 'conventional'\n"
-        "contour = { method = 'arc_table', step_deg = 5.0 }\n"
-        f"stock_removal_bounds = {{ x = [{x[0]}, {x[1]}], y = [{y[0]}, {y[1]}], "
-        "z = [-5.0, 0.0] }\n",
+        "contour = { method = 'arc_table', step_deg = 5.0 }\n" + bounds,
     )
-    return coordinates.evaluate(load_bundle(plan))[0]
+    root = path.parent
+    if band is not None:
+        features = root / "features.toml"
+        text = features.read_text(encoding="utf-8").replace(
+            "requirements = []\n", f"requirements = ['thickness']\nthickness = {list(band)}\n"
+        )
+        features.write_text(text, encoding="utf-8")
+    if resolution is not None:
+        inventory = root / "inventory.toml"
+        text = inventory.read_text(encoding="utf-8").replace(
+            "[machines.mill]\nkind = 'mill'\n",
+            f"[machines.mill]\nkind = 'mill'\nresolution_mm = {resolution}\n",
+        )
+        inventory.write_text(text, encoding="utf-8")
+    return path
+
+
+def finding(path, kernel=None, pre_kernel=False):
+    bundle = load_bundle(path)
+    if kernel is not None:
+        object.__setattr__(bundle, "kernel", kernel)
+    return coordinates.evaluate(bundle, pre_kernel=pre_kernel)[0]
+
+
+def requested(path):
+    """The whole printed arc table the kernel request carries."""
+    (arc,) = finding(path, pre_kernel=True).numbers["arc_table"]
+    assert arc["kernel_clip"] is True
+    return arc
+
+
+def kernel(pieces, rows):
+    """A kernel result whose clip of S1:20's arc table (``rows`` long) is ``pieces``."""
+    path = {"table": f"{TABLE} row 0", "rows": rows, "pieces": pieces}
+    clips = {"clipped_at": CONTACT, "precision_mm": 1e-4, "paths": [path]}
+    return {"status": "ok", "ops": {SUBJECT: {"checkpoint_clips": clips}}}
+
+
+def clip_point(arc, after, t, dro_xy):
+    """A kernel clip point a fraction ``t`` along the chord after row ``after``."""
+    a, b = arc["rows"][after]["setup_xy"], arc["rows"][after + 1]["setup_xy"]
+    exact = [a[i] + t * (b[i] - a[i]) for i in range(2)]
+    return {"after": after, "t": t, "exact_xy": exact, "dro_xy": dro_xy}
+
+
+def row_ids(numbers):
+    return [
+        [row[0] for row in table["rows"]] for table in coordinates.checkpoints(SUBJECT, numbers, 20)
+    ]
 
 
 def wall_distance(xy):
     return 10.0 - math.dist(xy, CENTRE)
 
 
-@pytest.mark.parametrize(("slack", "clipped"), [(EPSILON, False), (-EPSILON, True)])
-def test_an_end_r_inside_its_bound_is_kept_and_one_just_past_it_is_clipped(
-    tmp_path, slack, clipped
-):
-    # The path's +X end stands at setup x -0.8: exactly r inside a bound at x 2.2.
-    row = finding(tmp_path, x=(-30.0, 2.2 + slack))
-    (arc,) = row.numbers["arc_table"]
-    markers = [item["clipped_at"] for item in arc["rows"] if item.get("clipped_at")]
-    xs = [item["setup_xy"][0] for item in arc["rows"]]
-    assert row.status == "pass", row.sentence
-    if clipped:
-        # The inset bound -0.800001 rounds inward to the DRO's -0.81.
-        assert len(markers) == 1 and markers[0].startswith("stock_removal_bounds x ")
-        assert max(xs) == pytest.approx(-0.81)
-        assert arc["dropped_rows"] == 1
-    else:
-        assert markers == [] and "dropped_rows" not in arc
-        assert max(xs) == pytest.approx(-0.8)
-
-
-def test_the_clip_point_is_the_exact_crossing_and_names_its_bound(tmp_path):
-    # x -0.6 - r is setup x -3.6, model x 1.4: the R7 path crosses it at asin(0.2).
-    row = finding(tmp_path, x=(-30.0, -0.6))
-    assert row.status == "pass", row.sentence
-    (arc,) = row.numbers["arc_table"]
-    (clip,) = [item for item in arc["rows"] if item.get("clipped_at")]
-    assert clip["clipped_at"] == "stock_removal_bounds x -0.6 − r"
-    assert clip["angle_deg"] == pytest.approx(math.degrees(math.asin(0.2)))
-    depth = 7.0 * math.sqrt(1 - 0.2**2)
-    assert clip["model_xy"] == pytest.approx([1.4, -depth])
-    assert clip["setup_xy"] == pytest.approx([-3.6, -2.0 - depth])
-    # The rows past the crossing (15..35 deg and the end) are dropped, none kept beyond it.
-    assert arc["dropped_rows"] == 6
-    assert all(item["setup_xy"][0] <= -3.6 + 1e-9 for item in arc["rows"])
-    # Printed: inside the inset box and no nearer the concave wall (toward its centre).
-    assert clip["dro_xy"] == [-3.6, -8.85]
-
-
-def test_printed_values_round_to_the_safe_side(tmp_path):
-    row = finding(tmp_path)
-    (arc,) = row.numbers["arc_table"]
-    for item in arc["rows"]:
-        printed = item["dro_xy"]
-        assert all(round(v, 2) == v for v in printed), item
-        assert math.dist(printed, item["setup_xy"]) < 0.01 * math.sqrt(2) + 1e-9, item
-        assert wall_distance(printed) >= wall_distance(item["setup_xy"]) - 1e-9, item
-    # The tip rounds up: the DRO's -2.07 never cuts below the authored -2.07825.
-    assert arc["dro_tip_z"] == -2.07
-    assert {item["dro_tip_z"] for item in arc["rows"]} == {-2.07}
+@pytest.mark.parametrize(
+    ("result", "why"),
+    [
+        (None, "no kernel result has clipped it"),
+        ({"status": "unknown", "reason": "no FreeCAD"}, "the kernel is unavailable (no FreeCAD)"),
+        ({"status": "ok", "ops": {}}, "the kernel reports no clip of it"),
+        (
+            {"status": "ok", "ops": {SUBJECT: {"checkpoint_clips": {"reason": "OCC failed"}}}},
+            "its kernel clip is unknown (OCC failed)",
+        ),
+    ],
+)
+def test_without_a_kernel_clip_a_bounded_table_prints_nothing_and_is_unknown(tmp_path, result, why):
+    row = finding(plan(tmp_path), kernel=result)
+    assert row.status == "unknown"
+    assert f"op 20 finish: its bounds clip is unknown: {why}" in row.sentence, row.sentence
+    assert row.numbers["arc_table"] == [] and row.numbers["line_table"] == []
+    assert coordinates.checkpoints(SUBJECT, row.numbers, 20) == []
     (profile,) = row.numbers["profiles"]
-    assert profile["dro_to_z"] == -2.07
+    assert profile["cutter_centre"] == "unknown"
 
 
-def test_a_path_the_box_splits_is_fragments_and_debt(tmp_path):
-    # y -11.5 + r is setup y -8.5: the arc's middle (setup y down to -9) leaves the box.
-    row = finding(tmp_path, y=(-11.5, 30.0))
-    debt = "its bounds inset by r split its cutter-centre path into 2 pieces"
+def test_a_clip_that_keeps_every_row_prints_the_whole_table(tmp_path):
+    path = plan(tmp_path)
+    arc = requested(path)
+    count = len(arc["rows"])
+    row = finding(path, kernel(([[{"row": i} for i in range(count)]]), count))
+    assert row.status == "pass", row.sentence
+    (table,) = row.numbers["arc_table"]
+    assert [item["dro_xy"] for item in table["rows"]] == [item["dro_xy"] for item in arc["rows"]]
+    assert not any(item.get("clipped_at") for item in table["rows"])
+    assert "fragment" not in table and "dropped_rows" not in table
+
+
+def test_a_clip_point_ends_the_printed_path_at_the_kernels_dro_value(tmp_path):
+    path = plan(tmp_path)
+    arc = requested(path)
+    count = len(arc["rows"])
+    end = clip_point(arc, 9, 0.5, [-3.5, -8.95])
+    row = finding(path, kernel([[{"row": i} for i in range(10)] + [end]], count))
+    assert row.status == "pass", row.sentence
+    (table,) = row.numbers["arc_table"]
+    *kept, last = table["rows"]
+    assert [item["setup_xy"] for item in kept] == [item["setup_xy"] for item in arc["rows"][:10]]
+    assert last["clipped_at"] == CONTACT
+    assert last["setup_xy"] == end["exact_xy"] and last["dro_xy"] == [-3.5, -8.95]
+    assert table["dropped_rows"] == count - 10
+    # The printed rows are renumbered as the kernel names them; the clip point prints its
+    # DRO value at the op's tip.
+    (checked,) = coordinates.checkpoints(SUBJECT, row.numbers, 20)
+    assert [item[0] for item in checked["rows"]] == [f"{TABLE} row {i}" for i in range(11)]
+    assert checked["rows"][-1][1:3] == ([-3.5, -8.95], -2.078)
+
+
+def test_a_path_the_clip_splits_is_fragments_and_debt_never_reconnected(tmp_path):
+    path = plan(tmp_path)
+    arc = requested(path)
+    count = len(arc["rows"])
+    pieces = [
+        [{"row": i} for i in range(5)] + [clip_point(arc, 4, 0.25, [-7.0, -8.6])],
+        [clip_point(arc, 10, 0.75, [-3.0, -8.9])] + [{"row": i} for i in range(11, count)],
+    ]
+    row = finding(path, kernel(pieces, count))
+    debt = "splits its cutter-centre path into 2 pieces; no credited cut links them"
     assert row.status == "unknown" and debt in row.sentence, row.sentence
     (profile,) = row.numbers["profiles"]
     assert debt in profile["clip_reason"]
-    pieces = row.numbers["arc_table"]
-    assert [piece["fragment"] for piece in pieces] == [[1, 2], [2, 2]]
-    for piece in pieces:
-        ends = [piece["rows"][0], piece["rows"][-1]]
-        (inner,) = [item for item in ends if item.get("clipped_at")]
-        assert inner["clipped_at"] == "stock_removal_bounds y -11.5 + r"
-        assert inner["setup_xy"][1] == pytest.approx(-8.5)
-    # Each piece is its own printed path with its own row ids.
-    paths = coordinates.checkpoints("S1:20", row.numbers, 20)
-    assert [path[0][0] for path in paths] == [
-        "S1:20 finish arc fragment 1 row 0",
-        "S1:20 finish arc fragment 2 row 0",
+    first, second = row.numbers["arc_table"]
+    assert [first["fragment"], second["fragment"]] == [[1, 2], [2, 2]]
+    assert first["rows"][-1]["clipped_at"] == second["rows"][0]["clipped_at"] == CONTACT
+    # Each piece is its own printed path: nothing joins fragment 1's end to fragment 2.
+    assert profile["cutter_centre"] == [first["rows"], second["rows"]]
+    assert row_ids(row.numbers) == [
+        [f"{TABLE} fragment 1 row {i}" for i in range(6)],
+        [f"{TABLE} fragment 2 row {i}" for i in range(count - 10)],
     ]
-    assert all(xy[1] >= -8.5 for path in paths for _, xy, _, _ in path), paths
+    for piece in (first, second):
+        assert (piece["stage"], piece["allowance_mm"], piece["offset_mm"]) == ("finish", 0, 3.0)
 
 
-def test_a_path_wholly_outside_the_box_prints_nothing_and_is_unknown(tmp_path):
-    # x -7 - r is setup x -10: the whole path (x -9.2..-0.8) lies past it.
-    row = finding(tmp_path, x=(-30.0, -7.0))
+def test_a_clip_with_no_legal_part_prints_nothing_and_is_unknown(tmp_path):
+    path = plan(tmp_path)
+    row = finding(path, kernel([], len(requested(path)["rows"])))
     assert row.status == "unknown"
-    assert "its cutter-centre path lies wholly outside its bounds inset by r" in row.sentence
+    assert "no part of its cutter-centre path is clear of stock outside" in row.sentence
     assert row.numbers["arc_table"] == []
-    assert coordinates.checkpoints("S1:20", row.numbers, 20) == []
+
+
+def test_a_clip_that_does_not_match_the_printed_table_is_unknown(tmp_path):
+    path = plan(tmp_path)
+    count = len(requested(path)["rows"])
+    row = finding(path, kernel([[{"row": i} for i in range(count + 1)]], count + 1))
+    assert row.status == "unknown"
+    assert "the kernel's clip does not match its printed table" in row.sentence
+    assert row.numbers["arc_table"] == []
+
+
+@pytest.mark.parametrize(
+    ("resolution", "step", "tip"), [(None, 0.001, -2.078), (0.01, 0.01, -2.07)]
+)
+def test_printed_values_round_to_the_safe_side_of_the_dro_grid(tmp_path, resolution, step, tip):
+    row = finding(plan(tmp_path, bounded=False, resolution=resolution))
+    assert row.numbers["dro_grid"]["step"] == step
+    (arc,) = row.numbers["arc_table"]
+    for item in arc["rows"]:
+        printed = item["dro_xy"]
+        assert all(abs(v / step - round(v / step)) < 1e-6 for v in printed), item
+        assert math.dist(printed, item["setup_xy"]) < 2 * step * math.sqrt(2), item
+        assert wall_distance(printed) >= wall_distance(item["setup_xy"]) - 1e-9, item
+    # The tip rounds up: the DRO never cuts below the authored -2.07825.
+    assert arc["dro_tip_z"] == tip
+    assert {item["dro_tip_z"] for item in arc["rows"]} == {tip}
+    (profile,) = row.numbers["profiles"]
+    (operation,) = row.numbers["operations"]
+    assert profile["dro_to_z"] == operation["dro_to_z"] == tip
+
+
+@pytest.mark.parametrize(
+    ("do", "band", "error"),
+    [
+        ("finish_profile", (1.995, 2.0), True),
+        ("finish_profile", (1.99, 2.0), False),
+        ("rough_profile", (1.995, 2.0), False),
+    ],
+)
+def test_a_finish_depth_the_dro_leaves_above_its_face_past_its_band_is_an_error(
+    tmp_path, do, band, error
+):
+    # A 0.01 mm DRO shows to_z -2.07825 as -2.07: 0.00825 mm of skin stays on the face.
+    row = finding(plan(tmp_path, bounded=False, do=do, resolution=0.01, band=band))
+    residuals = row.numbers.get("dro_z_residual_errors", [])
+    assert (row.status == "error") is error, row.sentence
+    assert bool(residuals) is error
+    if error:
+        assert "op 20 prints Z -2.07 for to_z -2.07825" in residuals[0], residuals
+
+
+def test_rocker_join_records_carry_their_stage_allowance_and_offset():
+    bundle = load_bundle(ROCKER)
+    for row in coordinates.evaluate(bundle, pre_kernel=True):
+        for table in (*row.numbers["arc_table"], *row.numbers["line_table"]):
+            radius = next(
+                p["cutter_radius_mm"]
+                for p in row.numbers["profiles"]
+                if p["op"] == table["op"] and p["stage"] == table["stage"]
+            )
+            assert table["stage"] in ("rough", "finish"), table
+            allowance = table["allowance_mm"]
+            assert isinstance(allowance, float | int) and (table["stage"] == "rough") == (
+                allowance > 0
+            ), table
+            assert table["offset_mm"] == pytest.approx(radius + allowance), table
 
 
 def _to_model(point, setup, model):
@@ -144,20 +270,15 @@ def _to_segment(point, a, b):
     return math.dist(point, [a[i] + t * delta[i] for i in range(2)])
 
 
-@pytest.mark.parametrize("bound", [24.0, 27.0])
-def test_printed_join_points_keep_the_authored_offset_from_every_land_and_taper(bound):
-    # S1:40's join ends clip at y bound - r. At y 27 the clip point sits 0.02 mm off the top
-    # arc's circle past the arc's end: neither that circle nor the nearest wall overall may
-    # let the printed value step into the land's offset.
+def test_printed_join_points_keep_the_authored_offset_from_every_land_and_taper():
     bundle = load_bundle(ROCKER)
     features = bundle.feature_definitions
-    (s1,) = [setup for setup in bundle.plan["setups"] if setup["id"] == "S1"]
-    (op,) = [op for op in s1["ops"] if op["op"] == 40]
-    op["stock_removal_bounds"]["y"][1] = bound
     lines = [
-        line for row in coordinates.evaluate(bundle) for line in row.numbers.get("line_table", [])
+        line
+        for row in coordinates.evaluate(bundle, pre_kernel=True)
+        for line in row.numbers.get("line_table", [])
     ]
-    assert any(any(line.get("clipped_at") or []) for line in lines)
+    assert lines
     for line in lines:
         outer = features[line["feature"]]
         top = features[outer["top_edge_feature"]]

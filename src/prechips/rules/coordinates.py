@@ -17,7 +17,9 @@ import math
 
 from ..findings import Finding
 from ..measurements import angle_fact
+from ..model import tolerance_requirements
 from ._bench import manual_bench, not_applicable
+from .datum_consistency import _cuts
 from .resolution import (
     UNKNOWN,
     _citations,
@@ -196,6 +198,19 @@ def _reversal(a, b, normal, sense):
     return (turn > 0) != (sense > 0)
 
 
+def _side(a, b, normal, reverse):
+    """``left`` or ``right``: the side of the travel the cutter-side wall ``normal`` points
+    to, for travel a->b (setup XY), reversed when ``reverse``; unknown when not determined.
+    The kernel rounds a clipped point no nearer the walls: toward this side."""
+    values = (*a, *b, *normal)
+    if not all(number(v) for v in values):
+        return UNKNOWN
+    turn = _cross(normal, [b[0] - a[0], b[1] - a[1]])
+    if abs(turn) < 1e-12:
+        return UNKNOWN
+    return "left" if (turn < 0) != (reverse is True) else "right"
+
+
 def _ordered(record, reverse, order, keys):
     """Reverse ``keys`` lists for the traverse and stamp the order (unknown if unproven)."""
     if reverse is None:
@@ -284,21 +299,43 @@ def _xy_model(point, feature, frames):
     return model_point([point[0], point[1], 0.0], frames.get(feature.get("frame", "model")))
 
 
-# Plan units within which a cutter centre on an inset bound still counts as inside it.
-_CLIP_TOL = 1e-9
+# Plan units within which a printed point still counts as no nearer a wall than its target.
+_WALL_TOL = 1e-9
 # Plan units within which two table ends are one join of the same cutter path.
 _JOIN_TOL = 1e-6
-# Decimals the DRO shows per feature unit: the sheet prints, and the kernel checks, these.
-DRO_DECIMALS = {"mm": 2, "in": 4}
+# The DRO grid (plan units) of a machine whose inventory declares no ``resolution``: three
+# decimals. The sheet prints, and the kernel checks, it.
+DRO_DEFAULT_STEP = 0.001
 # The operator note on a printed corner miter the kernel proves clear (rule A′).
 OVERSHOOT_NOTE = "corner overshoot into scrap — OK"
 
 
-def _grid(value, decimals, up):
-    """``value`` on the DRO grid of ``decimals``, rounded up (True) or down (False)."""
-    scale = 10**decimals
-    steps = math.ceil(value * scale - 1e-6) if up else math.floor(value * scale + 1e-6)
-    return round(steps / scale, decimals)
+def dro_grid(bundle, setup):
+    """(step, decimals): the setup machine's DRO grid in plan units.
+
+    The step is the inventory machine's declared ``resolution`` when it is a positive
+    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly.
+    """
+    units = bundle.features.get("units")
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    machine = resolve(bundle, "machines", setup.get("machine")) or {}
+    declared = length_mm(machine, "resolution") if scale else UNKNOWN
+    step = declared / scale if number(declared) and declared > 0 else DRO_DEFAULT_STEP
+    decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
+    return step, decimals
+
+
+def _grid(value, step, decimals, up):
+    """``value`` on the DRO grid of ``step`` (printed at ``decimals``), rounded up (True)
+    or down (False)."""
+    steps = math.ceil(value / step - 1e-6) if up else math.floor(value / step + 1e-6)
+    return round(steps * step, decimals)
+
+
+def dro_z(value, grid):
+    """A tip or floor Z as the DRO shows it on ``grid`` (:func:`dro_grid`): rounded up, so
+    never deeper than authored; an unknown stays unknown."""
+    return _grid(value, *grid, True) if number(value) else UNKNOWN
 
 
 def _to_segment(point, a, b):
@@ -324,16 +361,16 @@ def _to_arc(point, centre, radius, a, b, middle):
     return min(math.dist(point, a), math.dist(point, b))
 
 
-def _dro_xy(xy, decimals, walls, box, offset):
-    """``xy`` as the DRO prints it, on the safe side: the nearest grid point no nearer any
-    wall (``walls``: point -> distance) than ``xy`` or than the authored cutter-centre
-    ``offset``, whichever is less, and inside ``box`` (the DRO-rounded clip box) when
-    given; a corner of its grid cell, else up to two steps out, else unknown."""
+def _dro_xy(xy, grid, walls, offset):
+    """``xy`` as the DRO prints it on ``grid`` (:func:`dro_grid`), on the safe side: the
+    nearest grid point no nearer any wall (``walls``: point -> distance) than ``xy`` or
+    than the authored cutter-centre ``offset``, whichever is less; a corner of its grid
+    cell, else up to two steps out, else unknown."""
     if not walls or not all(number(v) for v in xy):
         return [UNKNOWN, UNKNOWN]
-    step = 10.0**-decimals
-    base = [_grid(v, decimals, False) for v in xy]
-    floors = [min(wall(xy), offset) - _CLIP_TOL for wall in walls]
+    step, decimals = grid
+    base = [_grid(v, step, decimals, False) for v in xy]
+    floors = [min(wall(xy), offset) - _WALL_TOL for wall in walls]
     for reach in (1, 3):
         span = range(1 - reach, reach + 1)
         options = [
@@ -342,295 +379,46 @@ def _dro_xy(xy, decimals, walls, box, offset):
             for j in span
         ]
         for point in sorted(options, key=lambda p: math.dist(p, xy)):
-            inside = box is None or _inside(point, box)
-            if inside and all(wall(point) >= low for wall, low in zip(walls, floors, strict=True)):
+            if all(wall(point) >= low for wall, low in zip(walls, floors, strict=True)):
                 return point
     return [UNKNOWN, UNKNOWN]
 
 
-def _printed(arcs, lines, decimals, walls, box, offset):
+def _printed(arcs, lines, grid, walls, offset):
     """Stamp every row and join point with the value the DRO prints: ``dro_xy``
-    (:func:`_dro_xy`) and ``dro_tip_z``, the tip rounded up so it is never deeper than
-    authored. The sheet prints these; the kernel checks them and credits their sweep. Points
-    within _JOIN_TOL of each other (a table end and the join it meets) print one value."""
+    (:func:`_dro_xy`) and ``dro_tip_z`` (:func:`dro_z`). The sheet prints these; the kernel
+    clips, checks and credits them. Points within _JOIN_TOL of each other (a table end and
+    the join it meets) print one value."""
     done = []
-
-    def tip(value):
-        return _grid(value, decimals, True) if number(value) else UNKNOWN
 
     def dro(xy):
         if all(number(v) for v in xy):
             for point, value in done:
                 if math.dist(point, xy) <= _JOIN_TOL:
                     return value
-        value = _dro_xy(xy, decimals, walls, box, offset)
+        value = _dro_xy(xy, grid, walls, offset)
         done.append((xy, value))
         return value
 
     for arc in arcs:
-        arc["dro_tip_z"] = tip(arc.get("tip_z"))
+        arc["dro_tip_z"] = dro_z(arc.get("tip_z"), grid)
         for row in arc["rows"]:
             row["dro_xy"] = dro(row["setup_xy"])
-            row["dro_tip_z"] = tip(row.get("tip_z"))
+            row["dro_tip_z"] = dro_z(row.get("tip_z"), grid)
     for line in lines:
-        line["dro_tip_z"] = tip(line.get("tip_z"))
+        line["dro_tip_z"] = dro_z(line.get("tip_z"), grid)
         line["dro_xy"] = [dro(xy) for xy in line["setup_xy"]]
 
 
-def _centre_box(op, radius, units):
-    """(the cutter-centre box an op's stock_removal_bounds authorise, or None, and why not).
-
-    The bounds are the op's setup-frame clearing box (plan units, docs/plan.md); the stock
-    model credits removal only inside it, so a cutter of ``radius`` mm stays in that removal
-    only while its centre stays r inside each XY bound. Each axis is ``(lo + r, hi - r, lo
-    marker, hi marker)``, both rounded inward to the DRO grid (:data:`DRO_DECIMALS`) so a
-    printed point on a bound stays inside it; an op without bounds gives (None, None).
-    """
-    if "stock_removal_bounds" not in op:
-        return None, None
-    scale = {"mm": 1.0, "in": 25.4}.get(units)
-    if scale is None:
-        return None, f"feature units {units!r} are not mm or in, so its bounds cannot clip"
-    if not (number(radius) and radius > 0):
-        return None, "the cutter radius is unknown, so its stock_removal_bounds cannot clip"
-    bounds, r, box = mapping(op["stock_removal_bounds"]), radius / scale, []
-    decimals = DRO_DECIMALS[units]
-    for axis in ("x", "y"):
-        span = bounds.get(axis)
-        if not (
-            isinstance(span, list)
-            and len(span) == 2
-            and all(number(v) for v in span)
-            and span[0] < span[1]
-        ):
-            return None, f"stock_removal_bounds {axis} is not a numeric [lo, hi] span"
-        lo, hi = (float(v) for v in span)
-        box.append(
-            (
-                _grid(lo + r, decimals, True),
-                _grid(hi - r, decimals, False),
-                f"stock_removal_bounds {axis} {lo} + r",
-                f"stock_removal_bounds {axis} {hi} − r",
-            )
-        )
-    return tuple(box), None
-
-
-def _inside(xy, box):
-    return all(lo - _CLIP_TOL <= xy[i] <= hi + _CLIP_TOL for i, (lo, hi, _, _) in enumerate(box))
-
-
-def _length(points):
-    return sum(math.dist(a, b) for a, b in itertools.pairwise(points))
-
-
-def _arc_crossings(a, b, ellipse, box):
-    """(angle, marker) where the arc between row angles ``a`` and ``b`` meets an inset
-    bound strictly between them, in travel order. ``ellipse`` is (p0, c, s): the setup
-    frame is affine, so the cutter centre at angle t is p0 + cos(t) c + sin(t) s."""
-    p0, c, s = ellipse
-    low, high = sorted((a, b))
-    found = []
-    for axis, bound in enumerate(box):
-        amplitude = math.hypot(c[axis], s[axis])
-        phase = math.degrees(math.atan2(s[axis], c[axis]))
-        for value, marker in ((bound[0], bound[2]), (bound[1], bound[3])):
-            if amplitude == 0 or abs(value - p0[axis]) > amplitude:
-                continue
-            half = math.degrees(math.acos((value - p0[axis]) / amplitude))
-            for angle in {phase + half, phase - half}:
-                angle += 360.0 * math.ceil((low - angle) / 360.0)
-                while angle < high:
-                    if angle > low:
-                        found.append((angle, marker))
-                    angle += 360.0
-    found.sort(reverse=b < a)
-    return found
-
-
-def _clip_rows(rows, box, row_at):
-    """Pieces of an arc's rows (cutting order) inside ``box``. Each crossing is an exact
-    row on the arc marked ``clipped_at`` with the bound it meets; rows past it are dropped.
-    Between checkpoints the inside test follows the arc itself, not its chords."""
-    p = [row_at(angle)["setup_xy"] for angle in (0.0, 90.0, 180.0)]
-    p0 = [(p[0][i] + p[2][i]) / 2 for i in range(2)]
-    ellipse = (p0, [(p[0][i] - p[2][i]) / 2 for i in range(2)], [p[1][i] - p0[i] for i in range(2)])
-    pieces, current = [], None
-    for index, row in enumerate(rows):
-        if index == 0:
-            current = [row] if _inside(row["setup_xy"], box) else None
-            continue
-        a, b = rows[index - 1]["angle_deg"], row["angle_deg"]
-        stops = [(a, None), *_arc_crossings(a, b, ellipse, box), (b, None)]
-        for (start, marker), (stop, _) in itertools.pairwise(stops):
-            inside = _inside(row_at((start + stop) / 2)["setup_xy"], box)
-            if inside and current is None:
-                current = [{**row_at(start), "clipped_at": marker} if marker else rows[index - 1]]
-            elif not inside and current is not None:
-                if marker:
-                    current.append({**row_at(start), "clipped_at": marker})
-                pieces.append(current)
-                current = None
-        if current is not None:
-            current.append(row)
-    if current is not None:
-        pieces.append(current)
-    return [piece for piece in pieces if _length([r["setup_xy"] for r in piece]) > _CLIP_TOL]
-
-
-def _segment_span(a, b, box):
-    """(t in, t out, marker in, marker out) of segment a->b inside ``box``, or None."""
-    enter, leave, entered, left = 0.0, 1.0, None, None
-    for axis, (lo, hi, lo_marker, hi_marker) in enumerate(box):
-        delta = b[axis] - a[axis]
-        if delta == 0:
-            if not lo - _CLIP_TOL <= a[axis] <= hi + _CLIP_TOL:
-                return None
-            continue
-        near, far = ((lo, lo_marker), (hi, hi_marker))[:: 1 if delta > 0 else -1]
-        if (t := (near[0] - a[axis]) / delta) > enter:
-            enter, entered = t, near[1]
-        if (t := (far[0] - a[axis]) / delta) < leave:
-            leave, left = t, far[1]
-    if _inside(a, box):
-        enter, entered = 0.0, None
-    if _inside(b, box):
-        leave, left = 1.0, None
-    return None if enter > leave else (enter, leave, entered, left)
-
-
-def _clip_points(model, setup, box):
-    """Pieces of a join polyline inside ``box`` as (model point, setup point, marker)
-    triples; a clip point carries the bound it meets, the original points None."""
-
-    def at(index, t, marker):
-        a, b = index - 1, index
-        return (
-            [model[a][i] + t * (model[b][i] - model[a][i]) for i in range(2)],
-            [setup[a][i] + t * (setup[b][i] - setup[a][i]) for i in range(2)],
-            marker,
-        )
-
-    pieces, current = [], None
-    for index in range(1, len(setup)):
-        span = _segment_span(setup[index - 1], setup[index], box)
-        if span is None:
-            if current is not None:
-                pieces.append(current)
-                current = None
-            continue
-        enter, leave, entered, left = span
-        if current is None or entered is not None:
-            if current is not None:
-                pieces.append(current)
-            start = (model[index - 1], setup[index - 1], None)
-            current = [at(index, enter, entered) if entered else start]
-        current.append(at(index, leave, left) if left else (model[index], setup[index], None))
-        if left is not None:
-            pieces.append(current)
-            current = None
-    if current is not None:
-        pieces.append(current)
-    return [piece for piece in pieces if _length([p[1] for p in piece]) > _CLIP_TOL]
-
-
-def _authorised(arc, lines, box, row_at):
-    """([arc pieces], [line pieces], debt or None): one stage clipped at ``box``.
-
-    Each table keeps its cutting order; a crossing becomes an exact point marked
-    ``clipped_at`` with the bound it meets and the points past it are dropped. Tables
-    sharing an end are one path where the shared point is kept, and a closed table whose
-    seam is kept runs on through it as one piece. A path left in more than one piece, or
-    none, is debt: no credited cut links the pieces and none is reconnected; a table cut
-    into pieces lists each as ``fragment`` [k, n].
-    """
-    points = [row["setup_xy"] for row in arc["rows"]]
-    points += [point for line in lines for point in line["setup_xy"]]
-    if not all(number(v) for point in points for v in point):
-        return [arc], lines, "cutter-centre setup XY is unknown, so its bounds clip is unknown"
-
-    def end(pieces, first):
-        """The table's own end point if a piece keeps it unclipped, else None."""
-        if not pieces:
-            return None
-        point = pieces[0][0] if first else pieces[-1][-1]
-        return point if isinstance(point, dict) else point[1] if point[2] is None else None
-
-    tables = []  # (record, pieces, original first point, original last point, kept points)
-    rows = arc["rows"]
-    candidates = [(arc, _clip_rows(rows, box, row_at), rows[0], rows[-1])]
-    for line in lines:
-        clipped = _clip_points(line["model_xy"], line["setup_xy"], box)
-        candidates.append((line, clipped, line["setup_xy"][0], line["setup_xy"][-1]))
-    for record, pieces, first, last in candidates:
-        kept = sum(not _clipped(point) for piece in pieces for point in piece)
-        seam = end(pieces, True) is first and end(pieces, False) is last
-        if len(pieces) > 1 and seam and math.dist(_xy(first), _xy(last)) <= _JOIN_TOL:
-            pieces = [pieces[-1] + pieces[0][1:], *pieces[1:-1]]
-        tables.append((record, pieces, first, last, kept))
-    count, ends = 0, []
-    for _, pieces, first, last, _ in tables:
-        count += len(pieces)
-        ends.append((end(pieces, True) is first, first, end(pieces, False) is last, last))
-    for a, b in itertools.combinations(ends, 2):
-        for x, y in ((0, 0), (0, 2), (2, 0), (2, 2)):
-            if a[x] and b[y] and math.dist(_xy(a[x + 1]), _xy(b[y + 1])) <= _JOIN_TOL:
-                count -= 1
-    arcs, joins = [], []
-    for index, (record, pieces, _, _, kept) in enumerate(tables):
-        unchanged = len(pieces) == 1 and ends[index][0] and ends[index][2]
-        unchanged = unchanged and all(not _clipped(point) for point in pieces[0])
-        if unchanged:
-            (arcs if index == 0 else joins).append(record)
-            continue
-        for k, piece in enumerate(pieces, 1):
-            if index == 0:
-                part = {**record, "rows": piece, "dropped_rows": len(rows) - kept}
-            else:
-                part = {
-                    **record,
-                    "model_xy": [point[0] for point in piece],
-                    "setup_xy": [point[1] for point in piece],
-                    "clipped_at": [point[2] for point in piece],
-                    "dropped_points": len(record["setup_xy"]) - kept,
-                }
-            if len(pieces) > 1:
-                part["fragment"] = [k, len(pieces)]
-            (arcs if index == 0 else joins).append(part)
-    if count <= 0:
-        return [], [], "its cutter-centre path lies wholly outside its bounds inset by r"
-    if count > 1:
-        return (
-            arcs,
-            joins,
-            (
-                f"its bounds inset by r split its cutter-centre path into {count} pieces; "
-                "no credited cut links them"
-            ),
-        )
-    return arcs, joins, None
-
-
-def _xy(point):
-    return point["setup_xy"] if isinstance(point, dict) else point
-
-
-def _clipped(point):
-    return point.get("clipped_at") if isinstance(point, dict) else point[2]
-
-
-def _arc(
-    feature_name, feature, op, offset, frame, frames, features, sense, order, box=None, decimals=2
-):
-    """([arc table fragments], join lines, clip debt or None), in cutting order for
-    ``sense`` (see cut_order).
+def _arc(feature_name, feature, op, offset, frame, frames, features, sense, order, grid):
+    """([the arc table], join lines) in cutting order for ``sense`` (see cut_order).
 
     The cutter-side wall normal is radial: outward when the cutter centre runs outside the
     wall radius, inward on a concave wall. A join's normal is its offset land's normal.
-    ``box`` (:func:`_centre_box`) clips the path at the op's stock_removal_bounds
-    (:func:`_authorised`). Every row and join point carries the value the DRO prints at
-    ``decimals``, never nearer the feature's walls (:func:`_printed`); each join's corner
-    miter, the run-out past its land and taper walls, is flagged ``overshoot``.
+    Every row and join point carries the value the DRO prints on ``grid``
+    (:func:`dro_grid`), never nearer the feature's walls (:func:`_printed`); each join's
+    corner miter, the run-out past its land and taper walls, is flagged ``overshoot``. A
+    bounded op's tables are whole here: the kernel clips them (:func:`_kernel_clip`).
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -648,7 +436,7 @@ def _arc(
         and len(centre) == 3
         and all(number(v) for v in centre)
     ):
-        return [], [], None
+        return [], []
     cutter_radius = radius + offset
     start, end = 0.0, 360.0 if full else 180.0
     vertical_angle = False
@@ -660,7 +448,7 @@ def _arc(
             top = mapping(features.get(feature.get("top_edge_feature")))
             joins = _joins(top, feature, offset)
             if joins is None:
-                return [], [], None
+                return [], []
             endpoint = joins[2] if joins else feature.get("bottom_end")
         else:
             cutter_radius = radius - offset
@@ -668,10 +456,10 @@ def _arc(
             endpoints = [_top_join(feature, linked_feature, offset) for linked_feature in linked]
             if linked:
                 if any(point is None for point in endpoints):
-                    return [], [], None
+                    return [], []
                 endpoint = endpoints[0]
                 if any(math.dist(endpoint, point) > 1e-9 for point in endpoints[1:]):
-                    return [], [], None
+                    return [], []
                 # Each land as _top_join takes it, on both halves of the mirrored top arc.
                 lands = [
                     [
@@ -684,13 +472,13 @@ def _arc(
             else:
                 endpoint = feature.get("end")
         if not isinstance(endpoint, list) or not all(number(v) for v in endpoint):
-            return [], [], None
+            return [], []
         half = math.degrees(math.atan2(endpoint[0] - centre[0], centre[1] - endpoint[1]))
         start, end = -half, half
     elif not full and feature.get("arc") != "upper_semicircle":
-        return [], [], None
+        return [], []
     if cutter_radius <= 0:
-        return [], [], None
+        return [], []
     step = mapping(op.get("contour")).get("step_deg", UNKNOWN)
     angles = _samples(start, end, step)
 
@@ -720,13 +508,14 @@ def _arc(
     rows = [row_at(angle) for angle in angles]
     model_centre = model_point(centre, frames.get(feature.get("frame", "model")))
     centre_xy = frame_point(model_centre, frame)[:2]
-    reverse = None
+    reverse, arc_side = None, UNKNOWN
     if len(rows) >= 2 and cutter_radius != radius and all(number(v) for v in centre_xy):
         a, b = rows[len(rows) // 2 - 1]["setup_xy"], rows[len(rows) // 2]["setup_xy"]
         outward = 1 if cutter_radius > radius else -1
         if all(number(v) for v in (*a, *b)):
             normal = [outward * ((a[i] + b[i]) / 2 - centre_xy[i]) for i in range(2)]
             reverse = _reversal(a, b, normal, sense)
+            arc_side = _side(a, b, normal, reverse)
     interpolation = (
         "continuous circle; checkpoints are not straight-chord cuts"
         if full
@@ -750,6 +539,7 @@ def _arc(
         ),
     }
     _ordered(arc, reverse, order, ("rows",))
+    arc["cutter_side"] = arc_side
     if number(step):
         arc["max_chord_sagitta_mm"] = cutter_radius * (
             1 - math.cos(math.radians(min(step, abs(end - start)) / 2))
@@ -819,17 +609,15 @@ def _arc(
             }
             reverse = _reversal(local[0], local[1], normal, sense)
             lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
+            line["cutter_side"] = _side(local[0], local[1], normal, reverse)
     if not rows:
-        return [], [], None
-    arcs, debt = [arc], None
-    if box is not None:
-        arcs, lines, debt = _authorised(arc, lines, box, row_at)
-    _printed(arcs, lines, decimals, walls if known else [], box, offset)
+        return [], []
+    _printed([arc], lines, grid, walls if known else [], offset)
     for line in lines:
         line["overshoot"] = [any(p is m for m in miters) for p in line["model_xy"]]
         if any(line["overshoot"]):
             line["overshoot_note"] = OVERSHOOT_NOTE
-    return arcs, lines, debt
+    return [arc], lines
 
 
 def _boundary(feature, frame, frames):
@@ -1094,22 +882,37 @@ def _edge_facts(bundle, op):
     return {"hand": mapping(item).get("hand", UNKNOWN), **angles}
 
 
-def row_id(subject, kind, table, index):
-    """A printed row's id: ``S1:40 rough arc row 3`` (``arc_table``) or ``S1:40 rough line
-    +X[0]`` (``line_table``); a piece of a clipped table adds ``fragment k``."""
+# A printed row's id (:func:`row_id`) is its table's name, ``FRAGMENT_FORMAT`` for a piece
+# of a clipped table, then ``ROW_FORMAT``: the kernel names the rows of each piece it clips
+# (:func:`checkpoints`) with these same formats.
+ROW_FORMAT = {"arc_table": " row {}", "line_table": "[{}]"}
+FRAGMENT_FORMAT = " fragment {}"
+
+
+def _table_name(subject, kind, table):
     name = f"{subject} {table.get('stage')} " + (
         "arc" if kind == "arc_table" else f"line {table.get('side')}"
     )
     if "fragment" in table:
-        name += f" fragment {table['fragment'][0]}"
-    return f"{name} row {index}" if kind == "arc_table" else f"{name}[{index}]"
+        name += FRAGMENT_FORMAT.format(table["fragment"][0])
+    return name
+
+
+def row_id(subject, kind, table, index):
+    """A printed row's id: ``S1:40 rough arc row 3`` (``arc_table``) or ``S1:40 rough line
+    +X[0]`` (``line_table``); a piece of a clipped table adds ``fragment k``."""
+    return _table_name(subject, kind, table) + ROW_FORMAT[kind].format(index)
 
 
 def checkpoints(subject, numbers, op):
-    """Each printed cutter-centre table of op ``op``'s arc_table output, in cutting order,
-    as its (row id (:func:`row_id`), printed setup XY ``dro_xy``, printed tip Z
-    ``dro_tip_z``, corner overshoot?) checkpoints in plan units: what the DRO shows is
-    what the kernel checks."""
+    """Each printed cutter-centre table of op ``op``'s arc_table output, in cutting order.
+
+    A table is its ``name`` and ``kind`` (:func:`row_id`), its ``rows`` of (row id,
+    printed setup XY ``dro_xy``, printed tip Z ``dro_tip_z``, corner overshoot?) in plan
+    units, whether the kernel must clip it at its op's stock_removal_bounds (``bounded``)
+    and the side of its travel its cutter clears from (``cutter_side``). What the DRO
+    shows is what the kernel clips and checks.
+    """
     result = []
     for kind in ("arc_table", "line_table"):
         for table in numbers.get(kind, []):
@@ -1123,7 +926,7 @@ def checkpoints(subject, numbers, op):
             else:
                 printed, flags = table.get("dro_xy") or [], table.get("overshoot") or []
                 tips = [tip] * len(table.get("setup_xy", []))
-            path = [
+            rows = [
                 (
                     row_id(subject, kind, table, i),
                     printed[i] if i < len(printed) else UNKNOWN,
@@ -1132,11 +935,226 @@ def checkpoints(subject, numbers, op):
                 )
                 for i, z in enumerate(tips)
             ]
-            result.append(path)
+            result.append(
+                {
+                    "name": _table_name(subject, kind, table),
+                    "kind": kind,
+                    "rows": rows,
+                    "bounded": table.get("kernel_clip") is True,
+                    "cutter_side": table.get("cutter_side", UNKNOWN),
+                    "directed": table.get("cut_order") in _CUT_SENSE,
+                }
+            )
     return result
 
 
-def evaluate(bundle):
+def _clip_facts(bundle, subject):
+    """(op ``subject``'s kernel ``checkpoint_clips``, or None, and why its clip is unknown).
+
+    Only the kernel finds where a bounded op's cutter first meets stock outside its
+    stock_removal_bounds; without its result the printed path is never cuttable."""
+    kernel = getattr(bundle, "kernel", None)
+    if not isinstance(kernel, dict):
+        return None, "no kernel result has clipped it"
+    if kernel.get("status") != "ok":
+        return None, f"the kernel is unavailable ({kernel.get('reason', UNKNOWN)})"
+    clips = mapping(mapping(mapping(kernel.get("ops")).get(subject)).get("checkpoint_clips"))
+    if not clips:
+        return None, "the kernel reports no clip of it"
+    if clips.get("reason"):
+        return None, f"its kernel clip is unknown ({clips['reason']})"
+    return clips, None
+
+
+_LINE_COLUMNS = ("model_xy", "setup_xy", "dro_xy", "overshoot")
+
+
+def _line_rows(line):
+    """A join line's point columns as one row per point."""
+    return [
+        {key: line[key][i] for key in _LINE_COLUMNS if i < len(line.get(key) or [])}
+        for i in range(len(line["setup_xy"]))
+    ]
+
+
+def _between(a, b, t):
+    if isinstance(a, list):
+        return [_between(u, v, t) for u, v in zip(a, b, strict=True)]
+    return a + t * (b - a) if number(a) and number(b) else UNKNOWN
+
+
+def _clip_row(rows, point, marker):
+    """A kernel piece point as a printed row, or None when it names no printed row: row
+    ``row`` itself, or the clip point a fraction ``t`` along the printed chord after row
+    ``after`` at its exact setup XY ``exact_xy``, printed at its safe-side ``dro_xy``."""
+    point = mapping(point)
+    clipped = "after" in point
+    index = point.get("after" if clipped else "row")
+    if not isinstance(index, int) or not 0 <= index < len(rows) - clipped:
+        return None
+    if not clipped:
+        return rows[index]
+    a, b, t = rows[index], rows[index + 1], point.get("t")
+    exact, printed = point.get("exact_xy"), point.get("dro_xy")
+    if not (number(t) and _pair(exact) and _pair(printed)):
+        return None
+    row = dict(a)
+    for key in ("angle_deg", "model_xy"):
+        if key in a:
+            row[key] = _between(a[key], b[key], t)
+    row.update(setup_xy=exact, dro_xy=printed, clipped_at=marker)
+    if "overshoot" in a:
+        row["overshoot"] = False
+    if "x" in a:
+        row.update(x=exact[0], y=exact[1])
+    return row
+
+
+def _pair(value):
+    return isinstance(value, list) and len(value) == 2 and all(number(v) for v in value)
+
+
+def _kernel_clip(subject, arcs, lines, clips):
+    """(arc pieces, line pieces, debt or None): one stage's printed tables as the kernel
+    clipped them (``clips``: the op's ``checkpoint_clips``) at the cutter's first contact
+    with stock outside the op's stock_removal_bounds.
+
+    Each piece keeps the printed rows the kernel names and adds its clip points, marked
+    ``clipped_at``. A table cut into pieces lists each as ``fragment`` [k, n]; tables
+    sharing a kept end are one path. A path left in more than one piece is debt: no
+    credited cut links the pieces and none is reconnected. Facts that do not match the
+    printed tables, or no piece at all, leave the stage unprinted with a reason.
+    """
+    paths = {
+        entry.get("table"): entry for entry in clips.get("paths", []) if isinstance(entry, dict)
+    }
+    marker = clips.get("clipped_at", UNKNOWN)
+    result = {"arc_table": [], "line_table": []}
+    count, ends = 0, []
+    tables = [("arc_table", arc) for arc in arcs] + [("line_table", line) for line in lines]
+    for kind, table in tables:
+        arc = kind == "arc_table"
+        rows = table["rows"] if arc else _line_rows(table)
+        entry = mapping(paths.get(row_id(subject, kind, table, 0)))
+        pieces = entry.get("pieces")
+        if entry.get("rows") != len(rows) or not isinstance(pieces, list):
+            return [], [], "the kernel's clip does not match its printed table"
+        built = [[_clip_row(rows, point, marker) for point in piece] for piece in pieces]
+        if any(row is None for piece in built for row in piece):
+            return [], [], "the kernel's clip does not match its printed table"
+        kept = [mapping(point).get("row") for piece in pieces for point in piece]
+        if len(built) == 1 and kept == list(range(len(rows))):
+            built = None
+        count += 1 if built is None else len(built)
+        end = len(rows) - 1
+        first = built is None or bool(pieces) and mapping(pieces[0][0]).get("row") == 0
+        last = built is None or bool(pieces) and mapping(pieces[-1][-1]).get("row") == end
+        ends.append((first, rows[0]["setup_xy"], last, rows[-1]["setup_xy"]))
+        if built is None:
+            result[kind].append(table)
+            continue
+        dropped = len(rows) - len({row for row in kept if row is not None})
+        for k, piece in enumerate(built, start=1):
+            if arc:
+                clipped = {**table, "rows": piece, "dropped_rows": dropped}
+            else:
+                columns = {key: [row.get(key) for row in piece] for key in _LINE_COLUMNS}
+                clipped = {**table, **columns}
+                clipped["overshoot"] = [flag is True for flag in clipped["overshoot"]]
+                clipped["clipped_at"] = [row.get("clipped_at") for row in piece]
+                clipped["dropped_points"] = dropped
+                if not any(clipped["overshoot"]):
+                    clipped.pop("overshoot_note", None)
+            if len(built) > 1:
+                clipped["fragment"] = [k, len(built)]
+            result[kind].append(clipped)
+    for a, b in itertools.combinations(ends, 2):
+        for x, y in ((0, 0), (0, 2), (2, 0), (2, 2)):
+            if a[x] and b[y] and _joined(a[x + 1], b[y + 1]):
+                count -= 1
+    if not result["arc_table"] and not result["line_table"]:
+        return [], [], (
+            "no part of its cutter-centre path is clear of stock outside its "
+            "stock_removal_bounds"
+        )
+    debt = None
+    if count > 1:
+        debt = (
+            f"its first contact with stock outside its stock_removal_bounds splits its "
+            f"cutter-centre path into {count} pieces; no credited cut links them"
+        )
+    return result["arc_table"], result["line_table"], debt
+
+
+def _joined(a, b):
+    return _pair(a) and _pair(b) and math.dist(a, b) <= _JOIN_TOL
+
+
+def _sequence(tables):
+    """Number one op stage's ``tables`` (each in its cutting order) ``sequence`` 0, 1, ...
+    as the cutter runs them: a table follows the one whose last point is its first; chains
+    keep their listed order. None is numbered while any cutting order is unestablished."""
+    if any(table.get("cut_order") not in _CUT_SENSE for table in tables):
+        return
+    ends = [
+        [row["setup_xy"] for row in table["rows"]] if "rows" in table else table["setup_xy"]
+        for table in tables
+    ]
+    after = {}
+    for i, a in enumerate(ends):
+        for j, b in enumerate(ends):
+            if i != j and j not in after.values() and _joined(a[-1], b[0]):
+                after[i] = j
+                break
+    order = []
+    for start in [i for i in range(len(tables)) if i not in after.values()] + list(
+        range(len(tables))
+    ):
+        while start is not None and start not in order:
+            order.append(start)
+            start = after.get(start)
+    for position, index in enumerate(order):
+        tables[index]["sequence"] = position
+
+
+def _z_residuals(bundle, setup, grid, features):
+    """Each finish op whose DRO depth misses its finished face by more than its feature's
+    narrowest numeric tolerance band: a final forming cut (``_cuts``) whose ``to_z`` ends
+    on that face (no ``exit_mm`` run-out past it) stops :func:`dro_z` above it."""
+    errors = []
+    for op in setup["ops"]:
+        to_z = op.get("to_z")
+        if "exit_mm" in op or not number(to_z):
+            continue
+        if not any(cut[2] is op for cut in _cuts(bundle, op.get("feature"))):
+            continue
+        feature = mapping(features.get(op.get("feature")))
+        bands = [
+            feature[name][1] - feature[name][0]
+            for name in tolerance_requirements(feature)
+            if isinstance(feature.get(name), list)
+            and len(feature[name]) == 2
+            and all(number(v) for v in feature[name])
+        ]
+        residual = dro_z(to_z, grid) - to_z
+        if bands and residual > min(bands) + _WALL_TOL:
+            errors.append(
+                f"op {op['op']} prints Z {dro_z(to_z, grid):.{grid[1]}f} for to_z {to_z:g}: "
+                f"{residual:.{grid[1] + 1}g} above its finished face, more than the "
+                f"{min(bands):g} tolerance band of {op.get('feature')}"
+            )
+    return errors
+
+
+def evaluate(bundle, *, pre_kernel=False):
+    """Coordinates findings, one per setup.
+
+    A bounded op's (``stock_removal_bounds``) printed path is clipped only by the kernel,
+    at the cutter's first contact with stock outside that box (:func:`_kernel_clip`). The
+    kernel request (``pre_kernel``, :func:`prechips.kernel.build_job`) carries its whole
+    printed tables marked ``kernel_clip``; the rule pass prints the kernel's clip of them,
+    and without one leaves them unprinted and unknown, never cuttable unclipped.
+    """
     result = []
     features = bundle.feature_definitions
     # Feature source frames are manifest-only; setups resolve exported or plan-owned frames.
@@ -1186,6 +1204,13 @@ def evaluate(bundle):
             }
             for op in setup["ops"]
         ]
+        grid = dro_grid(bundle, setup)
+        numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
+        for entry in numbers["operations"]:
+            if "to_z" in entry:
+                # The depth the DRO shows: rounded up, never deeper than authored.
+                entry["dro_to_z"] = dro_z(entry["to_z"], grid)
+        residuals = _z_residuals(bundle, setup, grid, features)
         unknown = not frame or frame.get("binding") == UNKNOWN
         if lathe:
             numbers["x_display"] = (
@@ -1264,8 +1289,8 @@ def evaluate(bundle):
                 else [("finish", 0)]
             )
             sense, order = cut_order(machine, op)
-            units = bundle.features.get("units")
-            box, clip_why = _centre_box(op, radius, units)
+            bounded = "stock_removal_bounds" in op
+            subject = f"{setup['id']}:{op['op']}"
             for stage, allowance in stages:
                 offset = radius + allowance if number(radius) and number(allowance) else UNKNOWN
                 profile = {
@@ -1280,40 +1305,34 @@ def evaluate(bundle):
                     "rough_allowance_mm": allowance if stage == "rough" else "not_applicable",
                     "entry_z": before["entry_z"].get(name, before["top_z"]),
                     "to_z": op.get("to_z", UNKNOWN),
-                    # The depth the DRO shows: rounded up, never deeper than authored.
-                    "dro_to_z": (
-                        _grid(op["to_z"], DRO_DECIMALS.get(units, 2), True)
-                        if number(op.get("to_z"))
-                        else UNKNOWN
-                    ),
+                    "dro_to_z": dro_z(op.get("to_z", UNKNOWN), grid),
                     "contour": contour,
                     "tool_dia_basis": "selected member nominal, not measured",
                 }
                 generated = False
                 if contour.get("method") == "arc_table":
-                    arcs, lines, debt = _arc(
-                        name,
-                        feature,
-                        op,
-                        offset,
-                        frame,
-                        frames,
-                        features,
-                        sense,
-                        order,
-                        box,
-                        DRO_DECIMALS.get(units, 2),
+                    arcs, lines = _arc(
+                        name, feature, op, offset, frame, frames, features, sense, order, grid
                     )
-                    debt = clip_why if arcs and clip_why else debt
+                    for table in (*arcs, *lines):
+                        table.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
+                    debt = None
+                    if bounded and (arcs or lines) and pre_kernel:
+                        for table in (*arcs, *lines):
+                            table["kernel_clip"] = True
+                    elif bounded and (arcs or lines):
+                        clips, why = _clip_facts(bundle, subject)
+                        if clips is None:
+                            arcs, lines = [], []
+                            debt = f"its bounds clip is unknown: {why}"
+                        else:
+                            arcs, lines, debt = _kernel_clip(subject, arcs, lines, clips)
                     if debt:
                         profile["clip_reason"] = debt
                         clip_debts.append(f"op {op['op']} {stage}: {debt}")
                     if arcs or lines:
-                        for arc in arcs:
-                            arc.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
+                        _sequence([*arcs, *lines])
                         numbers["arc_table"].extend(arcs)
-                        for line in lines:
-                            line["stage"] = stage
                         numbers["line_table"].extend(lines)
                         # Clip pieces stay separate lists: nothing reconnects them.
                         profile["cutter_centre"] = (
@@ -1357,7 +1376,13 @@ def evaluate(bundle):
                 unknown |= not generated or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
-        status = "unknown" if unknown or unordered or clip_debts else "pass"
+        status = (
+            "error"
+            if residuals
+            else "unknown"
+            if unknown or unordered or clip_debts
+            else "pass"
+        )
         sentence = (
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
             "nominal geometry and authored allowance."
@@ -1370,6 +1395,9 @@ def evaluate(bundle):
             sentence += " Cutting order is unknown: " + "; ".join(sorted(unordered)) + "."
         if clip_debts:
             sentence += " Stock-removal clip debt: " + "; ".join(clip_debts) + "."
+        if residuals:
+            numbers["dro_z_residual_errors"] = residuals
+            sentence += " DRO depth rounding error: " + "; ".join(residuals) + "."
         result.append(
             Finding(
                 "coordinates",

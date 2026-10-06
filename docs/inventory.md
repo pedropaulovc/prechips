@@ -483,7 +483,7 @@ on hand.
 | `bed_height_mm` | `MeasuredLength` |
 | `diameter_in` | `float` |
 | `thickness_in` | `float` |
-| `resolution_in` | `MeasuredLength` |
+| `resolution_in` | `MeasuredLength` (on a machine, as `resolution_mm`) |
 | `runout_max_in` | `float` |
 | `grip_mm` | `MeasuredLength` |
 | `max_shank_in` | `float` |
@@ -536,7 +536,7 @@ on hand.
 | `range_in` | `float \| list[Number]` |
 | `range_mm` | `float \| list[Number]` |
 | `ra_range` | `list[Number]` (two items, µm Ra; roughness gauges, read by inspection finish_ra) |
-| `resolution_mm` | `MeasuredLength` (inspection trusts only the fact's own qualifiers: `verify = true`/`"unknown"` or an incomplete `measured` stays unknown, never pass or error) |
+| `resolution_mm` | `MeasuredLength` (inspection trusts only the fact's own qualifiers: `verify = true`/`"unknown"` or an incomplete `measured` stays unknown, never pass or error; on a machine, its nominal value is the DRO grid every printed coordinate and depth rounds to the safe side on, else 0.001 plan units: [rules-coordinates](rules-coordinates.md)) |
 | `size_in` | `str \| list[Number]` |
 | `nominal_dia_mm` | `dict[str, Number]` |
 | `nominal_dia_cite` | `dict[str, Citations]` |
