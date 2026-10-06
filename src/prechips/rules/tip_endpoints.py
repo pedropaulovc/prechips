@@ -38,11 +38,38 @@ def _subtract(*values):
     return values[0] - sum(values[1:]) if all(number(v) for v in values) else UNKNOWN
 
 
-def _feature_depth_mm(feature, field, units):
-    """An upper feature-depth limit uses the model's units, unlike depth_mm."""
+def _operative(row, grid):
+    """Add the endpoint as the DRO shows it, every Z on the setup's grid (``dro_z``):
+    ``dro_entry_z`` is the entry surface (the ``dro_to_z`` of the op that faced it),
+    ``dro_exit_face`` the exit face. The tip keeps its analytical distance below the
+    surface it is worked from (the entry; a through hole's exit face), then rounds up,
+    never deeper than worked. ``dro_depth_mm`` is the depth that leaves below the entry;
+    ``dro_exit_mm`` the break-through it leaves below the nominal exit face, the lower."""
+    from .coordinates import dro_z
+
+    through = row["exit_face"] != "not_applicable"
+    row["dro_entry_z"] = dro_z(row["entry_z"], grid)
+    if through:
+        row["dro_exit_face"] = dro_z(row["exit_face"], grid)
+    surface, worked = ("dro_exit_face", "exit_face") if through else ("dro_entry_z", "entry_z")
+    shift = _subtract(row[surface], row[worked])
+    tip = row["tip_z"] + shift if number(row["tip_z"]) and number(shift) else UNKNOWN
+    row["dro_tip_z"] = dro_z(tip, grid)
+    if through:
+        lead = row.get("lead_mm", row.get("point_mm", UNKNOWN))
+        row["dro_exit_mm"] = _subtract(row["exit_face"], lead, row["dro_tip_z"])
+    elif "depth_mm" in row:
+        row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
+
+
+def _feature_depth_mm(feature, field, units, end=1):
+    """A feature-depth band end (upper by default) uses the model's units, unlike
+    depth_mm; a bare number is an upper limit only, so its lower end is unknown."""
     value = feature.get(field, UNKNOWN)
     if isinstance(value, list):
-        value = value[1] if len(value) == 2 else UNKNOWN
+        value = value[end] if len(value) == 2 else UNKNOWN
+    elif end == 0:
+        value = UNKNOWN
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     return value * scale if number(value) and scale is not None else UNKNOWN
 
@@ -131,12 +158,15 @@ def stock_states(setup, features=None):
 
 
 def evaluate(bundle):
+    from .coordinates import dro_grid
+
     features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
     errors = set()
     negative_exit = set()
     for setup in bundle.plan["setups"]:
+        grid = dro_grid(bundle, setup)
         for op, before, _ in stock_states(setup, features):
             name = op.get("feature")
             if name not in features or op.get("do") not in HOLE_OPS:
@@ -212,11 +242,13 @@ def evaluate(bundle):
                     if action == "drill"
                     else 0
                 )
-                limit = _feature_depth_mm(feature, "depth", bundle.features.get("units"))
+                units = bundle.features.get("units")
+                limit = _feature_depth_mm(feature, "depth", units)
                 total = depth + lead if number(depth) and number(lead) else UNKNOWN
                 row.update(
                     depth_mm=depth,
                     depth_limit_mm=limit,
+                    depth_floor_mm=_feature_depth_mm(feature, "depth", units, 0),
                     total_depth_mm=total,
                     exit_face="not_applicable",
                     tip_z=_subtract(entry, total),
@@ -228,6 +260,7 @@ def evaluate(bundle):
                     errors.add(name)
             if row.get("tip_z") == UNKNOWN or not tool or uncertain(tool):
                 unresolved.add(name)
+            _operative(row, grid)
             endpoints[name].append(row)
     result = []
     for name, feature in features.items():

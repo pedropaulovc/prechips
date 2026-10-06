@@ -201,7 +201,17 @@ two steps out, else unknown); a table end and the join it meets print one
 value. Every table carries `dro_tip_z`, and each profile and operation
 `dro_to_z`: the authored depth rounded up, never deeper (−2.07825 prints −2.078
 on the default grid). The op rows and contour table headers print the same
-value. A final forming cut whose `to_z` ends on its finished face (no `exit_mm`)
+value, and so does every later Z printed for that face: a start Z, a Z zero and
+its Axis Set and jog readings, a hole entry, a tip's height over the jaw tops.
+A face links to the facing or pocketing op of its own or an earlier same-frame
+setup that last cut it to that Z, or to the op that advanced a stock-state top
+or entry; any other surface Z prints on the grid by `dro_z`. Hole endpoints
+carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
+printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
+or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
+STOP, and so does a blind `dro_depth_mm` below the feature's `depth` band (a bare
+`depth` is an upper limit only: a depth the rounding changed is then unknown, a
+STOP). A final forming cut whose `to_z` ends on its finished face (no `exit_mm`)
 and whose rounded-up depth leaves more skin than its feature's narrowest
 numeric tolerance band is an error (`dro_z_residual_errors`). Every join record
 carries its `stage`, `allowance_mm` (the rough leave, 0 for finish) and

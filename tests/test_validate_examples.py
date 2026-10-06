@@ -94,6 +94,113 @@ def test_rejects_unsourced_finished_diameter_in_unbound_profile():
         VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted)
 
 
+def test_accepts_cited_kernel_revolved_bases_without_declared_diameters():
+    documents = {
+        path.resolve(): tomllib.loads(path.read_text(encoding="utf-8"))
+        for path in (ROOT / "examples").rglob("*.toml")
+    }
+    code, missing = VALIDATOR["validate_fixture"]("pivot-shaft", documents)
+    assert code == 0
+    assert missing == []
+
+
+def test_exposed_profile_converts_inch_dia_alias_and_declared_dome_base():
+    setup = {
+        "id": "S1",
+        "stock_state": {"north_end_z": 0.0, "south_end_z": 12.0},
+        "hold": {"stickout_mm": 12.0},
+    }
+    features = {
+        "units": "in",
+        "features": {
+            "neck": {"kind": "shaft", "dia": 0.25},
+            "cap": {"kind": "dome", "base_radius": 0.125},
+        },
+    }
+    row = {
+        "exposed_z_mm": [0.0, 12.0],
+        "segments": [
+            {"z_mm": [0.0, 10.0], "diameter_mm": 6.35, "features": ["neck"]},
+            {
+                "z_mm": [10.0, 12.0],
+                "diameter_mm": 6.35,
+                "base_diameter_mm": 6.35,
+                "features": ["cap"],
+            },
+        ],
+        "unresolved": [],
+        "uncovered_z_mm": [],
+    }
+    citations = ["kernel: setups.S1.revolved.cap (synthetic native span)"]
+    diameter = VALIDATOR["kernel_filled_exposed_diameter"](
+        setup, {}, features, row, 10.0, citations
+    )
+    assert diameter == pytest.approx(6.35)
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        "dome_cap",
+        "dome_cap_with_nominal",
+        "groove_envelope",
+        "non_axial_kind",
+        "unknown_nominal",
+        "uncited_kernel",
+        "unknown_feature",
+        "outside_stock",
+    ],
+)
+def test_rejects_self_consistent_wrong_exposed_profiles(corruption):
+    folder = ROOT / "examples" / "pivot-shaft"
+    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
+    features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
+    policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
+    report = json.loads((folder / "expected" / "report.json").read_bytes())
+    sid = "S3" if corruption in {"dome_cap", "dome_cap_with_nominal"} else "S1"
+    setup = next(item for item in plan["setups"] if item["id"] == sid)
+    finding = next(
+        item for item in report["findings"] if item["rule"] == "stickout" and item["subject"] == sid
+    )
+    feature = {
+        "groove_envelope": "south_relief",
+        "non_axial_kind": "pivot_bearing",
+    }.get(corruption, "south_dome")
+    segment = next(item for item in finding["numbers"]["segments"] if feature in item["features"])
+    definition = features["features"][feature]
+    if corruption in {"dome_cap", "dome_cap_with_nominal"}:
+        segment["diameter_mm"] = segment["base_diameter_mm"] = 6.0
+        if corruption == "dome_cap_with_nominal":
+            definition["dia_nominal"] = 6.0
+    elif corruption == "groove_envelope":
+        for key in ("dia_nominal", "nominal_dia", "dia"):
+            definition.pop(key, None)
+        segment["diameter_mm"] = segment["base_diameter_mm"]
+    elif corruption == "non_axial_kind":
+        definition["kind"] = "hole"
+    elif corruption == "unknown_nominal":
+        definition["dia_nominal"] = "unknown"
+    elif corruption == "uncited_kernel":
+        finding["cite"] = [
+            cite
+            for cite in finding["cite"]
+            if not cite.startswith("kernel: setups.S1.revolved.south_dome (")
+        ]
+    elif corruption == "unknown_feature":
+        segment["features"] = ["undeclared_dome"]
+        finding["cite"].append("kernel: setups.S1.revolved.undeclared_dome (forged witness)")
+    else:
+        definition["base_radius"] = 5.5
+        segment["diameter_mm"] = segment["base_diameter_mm"] = 11.0
+    diameter = min(item["diameter_mm"] for item in finding["numbers"]["segments"])
+    finding["numbers"].update(
+        diameter_mm=diameter,
+        unsupported_limit_mm=diameter * policy["numbers"]["stickout_ld_max"],
+    )
+    with pytest.raises(ValueError, match="finished exposed diameter"):
+        VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
+
+
 @pytest.mark.parametrize("action", ["tap", "ream", "drill"])
 def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(action):
     # Isolated synthetic facts, never a claim about shop inventory.

@@ -401,8 +401,8 @@ def test_turning_a_cylinder_split_by_tolerant_seams_leaves_its_analytic_radius(e
         )
     )
     assert "stock_out_reason" not in result["setups"]["S1"]
-    # 2e-3 mm^3 over the 503 mm^2 turned wall is a 4 nm mean radius error: the meridians'
-    # own 1 nm push into the material passes; a seam's stray of tenths of a micron does not.
+    # 2e-3 mm^3 over the 503 mm^2 turned wall allows a 4 nm mean radius error
+    # from native precision, not a seam's stray of tenths of a micron.
     assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(FINISHED_MM3, abs=2e-3)
 
 

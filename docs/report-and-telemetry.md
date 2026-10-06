@@ -99,6 +99,16 @@ Selected cutters use the traveler's short human tool names. A separate feed
 arrow, when the plan declares its direction, is a direction symbol, not a path.
 An unresolved saw cut plane produces a plain STOP annotation and retains its
 downstream stock debt; it never prevents other geometry facts being returned.
+The final PNG layout checks every normalized bitmap-text line, including axes,
+coordinate badges, inset headings, dimensions, legends and setup notes. Rounded
+line bounds must stay 8 pixels inside the canvas and at least 4 pixels apart;
+any collision or clipping raises a render error. Footer height is reserved
+before fitting the setup view, so dense legends never compress into overlapping
+rows. These checks do not alter geometry or turn unresolved machining facts
+into passes. A checked, posed chuck front not parallel to setup Z is described
+as a tilted plane with no single Z; `scene.jaw_front_oblique` records that
+geometric distinction rather than manufacturing a missing-datum warning.
+
 
 `scene` additionally records `view`, `width_px`, `height_px`, plain-language
 `shows` / `legend`, `render_debts`, `primary_op`, and sparse `waypoints`.
