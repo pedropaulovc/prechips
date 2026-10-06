@@ -100,6 +100,9 @@ operation panels so repeated corners keep every coordinate key legible.
 Numbered custom-clamp badges follow authored `hold.clamp_order`, not an order
 inferred from prose; an explicit empty list means no accessory tightening
 actions. Holding/fit-up-only setups show no invented cutter.
+Fixture construction primitives remain visible as geometry and individually
+named in `scene.components`; printed callouts group body/support hardware so
+bolt and shim details do not force the pad, pin and clamp labels into tiny text.
 
 Exact posed fixture solids remain the only basis for `fixture = "modeled"`.
 Dashed table, vise-body and machine-context outlines are clearly marked
