@@ -55,23 +55,26 @@ retain concrete `measure:` instructions keyed by the exact fact consumed; an
 unresolved holder asks to be added or resolved, not measured.
 
 The shipped reference bundles are under `examples/`, with authored plans and
-shared inventory, policy and cutting data. `rocker-arm` and `pivot-shaft`
-consume verbatim consumer-generated `features.toml` and their exact adjacent
-STEP files; never hand-edit those exports or add local provenance keys.
-`cone-pivot-post/features.toml` is the consumer export with two user-approved
-divergences (built-up construction permitted; `mount_west` `station_nominal`
-sign fixed to 12.98, harmonic-analyzer issue #1214) and is no longer verbatim.
+shared inventory, policy and cutting data. `rocker-arm`, `pivot-shaft` and
+`cone-pivot-post` start from consumer-generated `features.toml` and retain their
+exact adjacent STEP bytes. Approved, documented example corrections are allowed;
+the patched manifests are not verbatim exports. The rocker example permits
+source-backed land-angle limits `[89.0, 91.0]` with whole-degree display
+precision `0`, material thickness `2.5` from drawing note 2, and plan revision
+`v40`; these are source bindings, not measured shop facts or release approval.
+The cone permits built-up construction and fixes `mount_west` `station_nominal`
+to `12.98` (harmonic-analyzer issue #1214). Keep other source facts and citations.
 `pivot-bracket/features.toml` is hand-authored against the copied consumer v39
 `pivot-bracket.STEP` (no `HAF_` labels): its face refs are geometry-matched
 `#<id>/ADVANCED_FACE[<n>]/NONE` references. Record delivery provenance and every
-divergence only in [examples/README.md](examples/README.md).
+divergence in [examples/README.md](examples/README.md).
 Python citations use `file:line` (or line ranges); YAML citations
 use `file:dotted.key.path`, not unstable line numbers. Consumer citations point
 to the read-only harmonic-analyzer tree; they do not cause the checker to read
 that tree or fetch a URL. Runtime must generate reports/sheets from inputs,
 never load `expected/` as an answer. Reconcile expected fixtures only from
 justified actual rule output and source evidence, never by weakening stops,
-rewriting exported facts or certifying unknowns. Keep fixture LF endings,
+dropping requirements or certifying unknowns. Keep fixture LF endings,
 raw STEP bytes and canonical report hashes.
 
 Checks must perform **no network activity except explicitly configured OTel
@@ -123,8 +126,8 @@ The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
 outputs correctly stop with 2 or 4. Current expected M3 CLI exits are
 4 / 2 / 2 / 2 / 2 (shaft / rocker / bracket / cone one-piece / cone built-up).
-The one-piece cone stops on the exported `mount_west` nominal lying outside its
-band; never flip or drop exported facts to recover an exit. Migrate existing
+Approved source-backed example corrections must retain their documented
+provenance, not erase requirements to recover an exit. Migrate existing
 inspection choices to the exact exported feature owners rather than dropping
 checks, inventing methods or changing gauges to force an exit. A check whose
 requirement the export lacks stays visible as an explicit `missing_requirements`
