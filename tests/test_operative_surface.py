@@ -269,6 +269,8 @@ def turned_from(tmp_path, cut, shaft_xy):
     [
         (("finish_face", "target"), [2.0, 8.0], "-2.270"),
         (("finish_pocket", "other"), [2.0, 8.0], "-2.275"),
+        # Half the shaft lies outside the face's x/y 0..20 x 0..10: overlap is not cover.
+        (("finish_face", "target"), [-3.0, 3.0], "-2.275"),
         (("finish_face", "target"), None, "-2.275"),
     ],
 )

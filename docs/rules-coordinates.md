@@ -214,8 +214,10 @@ the same nominal face. The producer is the op that advanced a stock-state top
 or entry, or the facing or pocketing op that last cut the face proven to be the
 one read: for `top`, a facing op on `top_feature`; for a feature (a zero face, an
 op's own feature for its start and end Z, a feature map row), an op on that
-feature or one whose feature's X/Y `bounds` cover it (`_covers`). An equal Z
-alone is never proof, and with no footprint to prove it there is no producer.
+feature or one whose feature's X/Y `bounds` hold its whole footprint (its own
+`bounds`, else a Z-axis round feature's `at` ± half its largest `dia`); overlap
+is not cover. An equal Z alone is never proof, and with no footprint to prove it
+there is no producer.
 It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other

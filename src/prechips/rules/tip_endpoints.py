@@ -91,27 +91,31 @@ def hole_depth_mm(op, feature, units):
     return UNKNOWN
 
 
-def _covers(cut, target):
-    """Only explicit same-frame footprints can advance another entry surface."""
+def _covers(cut, target, whole=False):
+    """Only explicit same-frame footprints can advance another entry surface; ``whole``
+    asks that ``target``'s whole footprint (:func:`_footprint`) lie inside them, not
+    merely overlap them or hold its ``at`` point."""
     bounds = mapping(cut.get("bounds"))
     if not bounds or cut.get("frame", "model") != target.get("frame", "model"):
         return False
     at = target.get("at")
-    other = mapping(target.get("bounds"))
+    other = _footprint(target) if whole else mapping(target.get("bounds"))
     for i, axis in enumerate(("x", "y", "z")):
         if axis not in bounds:
             continue
         band = bounds[axis]
         if not isinstance(band, list) or len(band) != 2 or not all(number(v) for v in band):
             return False
-        if isinstance(at, list) and len(at) == 3:
+        if isinstance(at, list) and len(at) == 3 and not whole:
             if not number(at[i]) or not band[0] <= at[i] <= band[1]:
                 return False
         elif axis in other:
             interval = other[axis]
-            if not all(number(v) for v in interval) or max(band[0], interval[0]) >= min(
-                band[1], interval[1]
-            ):
+            if not all(number(v) for v in interval):
+                return False
+            if whole and not band[0] <= interval[0] <= interval[1] <= band[1]:
+                return False
+            if max(band[0], interval[0]) >= min(band[1], interval[1]):
                 return False
         elif mapping(target.get("plane")).get("axis") == axis:
             value = mapping(target.get("plane")).get("value", UNKNOWN)
@@ -120,6 +124,26 @@ def _covers(cut, target):
         else:
             return False
     return True
+
+
+def _footprint(target):
+    """``target``'s explicit ``bounds``, else the X/Y square holding a round Z-axis
+    feature (its ``at`` plus or minus half its largest ``dia``); empty when unknown."""
+    bounds = mapping(target.get("bounds"))
+    if bounds:
+        return bounds
+    at, dia, axis = target.get("at"), target.get("dia"), target.get("axis", [0.0, 0.0, 1.0])
+    sizes = dia if isinstance(dia, list) else [dia]
+    if not (isinstance(at, list) and len(at) == 3 and all(number(v) for v in at[:2])):
+        return {}
+    if not sizes or not all(number(v) for v in sizes):
+        return {}
+    if not (isinstance(axis, list) and len(axis) == 3 and all(number(v) for v in axis)):
+        return {}
+    if abs(axis[0]) > 1e-9 or abs(axis[1]) > 1e-9:
+        return {}
+    half = max(sizes) / 2
+    return {name: [at[i] - half, at[i] + half] for i, name in enumerate(("x", "y"))}
 
 
 def stock_states(setup, features=None):
@@ -207,10 +231,11 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None):
 
 
 def _covers_xy(cut, target):
-    """``cut``'s explicit footprint, its X/Y bounds, covers ``target`` (:func:`_covers`);
-    a surface it leaves at Z only touches the surfaces that start there."""
+    """``cut``'s explicit footprint, its X/Y bounds, holds all of ``target``
+    (:func:`_covers`, ``whole``): a surface it leaves at Z is only the surface that
+    starts there where it spans that surface's whole footprint."""
     bounds = {k: v for k, v in mapping(cut.get("bounds")).items() if k in ("x", "y")}
-    return _covers({**cut, "bounds": bounds}, target)
+    return _covers({**cut, "bounds": bounds}, target, whole=True)
 
 
 def _producer(bundle, setup, value, face, done, source):
