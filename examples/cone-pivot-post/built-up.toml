@@ -1216,7 +1216,8 @@ doc_mm = 0.5 # AUTHOR'S CHOICE: the 3/4 cutter projects about 3xD from the colle
 approach_mm = 5.0
 direction = "conventional"
 stock_removal_bounds = { x = [-26.2, 26.2], y = [-26.2, 26.2], z = [86.0, 87.0] }
-note = "Before clamping, stand the part foot B down on the surface plate and height-gauge the sawn top at its high spot. In the vise, touch T1 on that high spot and set Z to the reading. Face the saw allowance in 0.5 mm passes."
+contour = { method = "linear_table", step_mm = 12.7, open_side = "+y" } # AUTHOR'S CHOICE: 0.67 x cutter dia stepover, stepping from the rear, away from the crank sleeve over the front jaw
+note = "Before clamping, stand the part foot B down on the surface plate and height-gauge the sawn top at its high spot. In the vise, touch T1 on that high spot and set Z to the reading."
 [setups.ops.checks]
 height = "height-gauge"
 [[setups.ops]]
