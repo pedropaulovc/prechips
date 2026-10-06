@@ -135,7 +135,7 @@ fixture = "chuck-3jaw-6-d1-4"
 # carriage-mounted follow rest riding the freshly turned diameter 8 mm behind the tool on the
 # 26:1 body (author's choice; jaws reset to the rough Ø6.55 for op 10, the finish Ø6.35 for op 30).
 support = "dead_centre_tailstock_mt3"
-supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0 }]
+supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]
 grip_on = "north stub of Ø10 bar, up to the shoulder north face"
 grip_mm = 12.0              # author's choice: 1.2 D grip; the dead centre carries the far end
 fixed_jaw = "not_applicable"            # scroll chuck
