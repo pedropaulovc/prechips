@@ -36,7 +36,7 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
-note = "Synthetic rough preparation clears the top allowance and pocket before S2. Only the preparation cutter diameter is authored; its other dimensions, holder and preparation holding remain measurement debt."
+note = "Synthetic rough preparation clears the top allowance and pocket before S2. The preparation cutter diameter and authored zero leave are declared; its other dimensions, holder and preparation holding remain measurement debt."
 
 hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
 stock_state = { top_z = "unknown", bottom_z = "unknown" }
@@ -44,6 +44,7 @@ stock_state = { top_z = "unknown", bottom_z = "unknown" }
 [[setups.ops]]
 op = 10
 do = "rough_pocket"
+rough_allowance_mm = 0.0 # author's choice: synthetic preparation clears to the finished surfaces
 feature = "pocket"
 tool = "em-preparation"
 holder = "unknown"
