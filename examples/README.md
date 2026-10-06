@@ -29,6 +29,7 @@ unchanged: anything still `unknown` keeps its finding unknown.
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
 | `rocker-arm/features.toml` | `material.thickness` | `"unknown"` → `2.5` | drawing manufacturing note 2 states `STRAP 2.50 THICK`; this is the nominal strap, not the integral hub length or supplied blank thickness |
+| `rocker-arm/plan.toml` | `drawing.revision` | `"unknown"` → `"v40"` | bind the authored illustrative plan to the source manifest's `drawing.revision`; this does not release or approve the plan |
 
 
 ### M3 export delivery provenance

@@ -232,11 +232,11 @@ approach_mm = 5.0
 op = 70
 do = "drill"
 feature = "pivot_bore"
-tool = "drill-index-115/1-4in"
+tool = "drill-index-115/D"
 holder = "drill-chuck-r8"
 exit_mm = 2.0 # author's choice, full drill diameter beyond raw exit face
 approach_mm = 5.0
-note = "6.35 mm pilot leaves 0.15 mm diametral stock for the nominal 6.50 mm machine reamer in S3; indicate this pilot for S2/S3 pickups."
+note = "6.2484 mm letter-D pilot leaves about 0.264 mm diametral stock under the example 6.512 mm reamer in S3. Indicate this pilot for S2/S3 pickups; final bore size and Ra still require inspection."
 
 # ---------------------------------------------------------------- S2
 [[setups]]
@@ -277,8 +277,8 @@ riser_along = "length"
 riser_centres_mm = [[-40.0, -4.5], [40.0, -4.5]] # author's choice, frame B (Y flipped)
 parallels_centres_mm = [[0.0, -34.5], [0.0, 25.5]] # author's choice, wholly under retained rails
 clamps = [
-  { ref = "rocker-s2-support-post", pose = { origin_mm = [40.0, -1.0, -24.22825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "passive ground support on the riser, not a clamp; supports the S1-finished strap underside" },
-  { ref = "rocker-s2-support-post", pose = { origin_mm = [-40.0, -1.0, -24.22825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored passive ground support on the other riser" },
+  { ref = "rocker-s2-support-post", pose = { origin_mm = [40.0, -1.0, -4.77825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, -1.0] }, note = "passive upward-bearing support, not a clamp; runs down from the S1-finished strap underside to the riser" },
+  { ref = "rocker-s2-support-post", pose = { origin_mm = [-40.0, -1.0, -4.77825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, -1.0] }, note = "mirrored passive upward-bearing support on the other riser" },
 ]
 grip_on = "full-thickness rectangular rails and ears"
 grip_mm = 6.0 # author's choice, minimum vertical jaw engagement on the full-thickness retained rails/ears
@@ -447,9 +447,10 @@ tool = "drill-index-115/#47"
 holder = "drill-chuck-r8"
 exit_mm = 1.5 # author's choice, full drill diameter beyond local strap exit
 approach_mm = 5.0
+note = "Gauge before S4: process NO-GO 2.010 must not enter, limiting clearance over the 1.98 mm diamond pin to 0.030 mm on diameter. This is a fixture-clock process limit within the unchanged 1.994..2.094 drawing band; a drawing-acceptable larger hole is not accepted for this fixture."
 
 [setups.ops.checks]
-dia = "pin-gauges" # 1.994 go / 2.094 no-go
+dia = "rocker-rod-limit-gauges" # GO 1.994, process NO-GO 2.010, drawing NO-GO 2.094
 
 # ---------------------------------------------------------------- S3
 [[setups]]
@@ -467,6 +468,7 @@ top_feature = "hub_faces" # Z touches the upper hub face
 top_z = 0.0 # upper hub face (S1 op 10)
 bottom_z = -7.0565 # lower hub face (S2 op 10), nominal hub length
 bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
+retained_rail_bottom_z = -11.52825 # the raw rail frame seats on the fixture's outer rests
 
 [setups.stock_state.local_thickness]
 pivot_bore = 7.0565 # bore runs the full hub length
@@ -484,8 +486,8 @@ rod_hole = -2.27825 # upper strap face
 fixture = "rocker-profile-fixture" # illustrative example fixture (inventory solids)
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # fixture frame = frame A
 clamps = [
-  { ref = "clamping-kit-lms-1144/strap-pad", pose = { origin_mm = [70.0, 3.27, -2.27825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "rod side, on the finished upper strap face" },
-  { ref = "clamping-kit-lms-1144/strap-pad", pose = { origin_mm = [-70.0, 3.27, -2.27825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "opposite side, mirrored" },
+  { ref = "rocker-hub-strap", pose = { origin_mm = [70.0, 3.27, -2.27825], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "rod-side supported toe; bridge clears the raw rail and the stud is outside the blank at Y45" },
+  { ref = "rocker-hub-strap", pose = { origin_mm = [-70.0, 3.27, -2.27825], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored supported toe and remote stud" },
 ]
 locate = "pilot axis indicated for datum A, lower strap face seated on the pads, rod-hole pilot sets clocking; upper datum face B is under the strap toes"
 supports = "not_applicable" # the fixture's own support pads carry the strap
@@ -558,9 +560,10 @@ tool = "reamers-metric/6.5mm"
 holder = "drill-chuck-r8"
 exit_mm = 2.0 # author's choice, past the 1.0 mm reamer lead
 approach_mm = 5.0
+note = "Indicate and record the pilot centre before reaming, re-indicate the reamed bore after op 20, and record the centre shift. The example process limit is 0.020 mm radial shift; stop the batch if exceeded rather than carrying pilot error into datum A and the rod-position check."
 
 [setups.ops.checks]
-dia = "pin-gauges" # 6.500 go / 6.530 no-go minus pins
+dia = "rocker-bore-limit-gauges" # calibrated example GO 6.500 / NO-GO 6.530 plugs
 finish_ra = "roughness-comparator"
 
 # ---------------------------------------------------------------- S4
@@ -572,25 +575,34 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S3"
-note = "Remove the S3 stepped part straps. Seat the part on the same supported fixture, fit the shoulder screw and washer through the reamed pivot, and clock on the rod-hole pin. Clamp the scrap rail frame independently on its rests before the web releases. Finish the full outline with light passes; no loose frame or clamp crosses the cutter."
+note = "Remove the S3 part straps, seat on the same supported fixture and clock on the rod-hole diamond pin. Indicate the open reamed bore before inserting the shoulder screw and washer; lock the ABS setting, then tighten without disturbing the location. Clamp the scrap rail frame independently on its rests before the web releases. Touch Z on an unobstructed upper strap patch, not the washer-covered hub. Finish the full outline with light passes."
 
 [setups.stock_state]
 top_feature = "hub_faces"
 top_z = 0.0
 bottom_z = -7.0565
 bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
+retained_rail_bottom_z = -11.52825 # scrap rails remain seated and independently clamped through outline release
 
 [setups.hold]
 fixture = "rocker-profile-fixture"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
-locate = "reamed bore A on the shoulder screw, lower strap face on support pads, rod hole on the clocking pin"
+clamps = [
+  { ref = "rocker-pivot-screw", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "ground locating shoulder through reamed datum A; bored washer clamps the hub" },
+  { ref = "rocker-rod-diamond-pin", pose = { origin_mm = [133.06740213488345, 8.456064115939025, -4.77825], x = [0.9979869699018047, 0.06341930231573287, 0.0], z = [0.0, 0.0, -1.0] }, note = "upward-bearing diamond locator below the strap; radial flats allow centre-distance variation" },
+  { ref = "rocker-rail-clamp", pose = { origin_mm = [70.0, 34.5, 4.47175], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "upper scrap rail held on its own rest; stud outside the blank" },
+  { ref = "rocker-rail-clamp", pose = { origin_mm = [-70.0, 34.5, 4.47175], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored upper scrap rail hold-down" },
+  { ref = "rocker-rail-clamp", pose = { origin_mm = [70.0, -25.5, 4.47175], x = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "lower scrap rail held on its own rest; stud outside the blank" },
+  { ref = "rocker-rail-clamp", pose = { origin_mm = [-70.0, -25.5, 4.47175], x = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored lower scrap rail hold-down" },
+]
+locate = "reamed bore A on the shoulder screw, lower strap face on support pads, rod hole on the diamond clocking pin"
 supports = "not_applicable"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 grip_mm = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "shoulder screw locates A; rod-hole pin sets clocking before datum-C lands are finished"
+stop = "shoulder screw locates A; diamond pin clocks the rod hole while its radial flats allow centre-distance variation"
 clamp = "washer and shoulder screw clamp the hub; separate toe clamps retain both scrap rails on their rests"
 note = "The part and the scrap rail frame are held independently. Leave all rail-frame clamps tight through the final land cut, then remove scrap away from the finished part."
 
@@ -619,7 +631,9 @@ radius_mm = 0.0
 check_jog_mm = 10.0
 
 [setups.zero.z]
-face = "top"
+face = "strap_datum_b"
+edge_mm = -2.27825 # source-backed upper strap station in frame A; the washer covers the hub touch face
+note = "Paper-touch a clear upper strap patch at X40, away from the hub washer and fixture hardware."
 method = "paper"
 paper_mm = 0.05
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -633,13 +647,13 @@ feature = "top_edge"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.02825 # author's choice, lower strap Z-4.77825 minus 1.25 exit
-exit_mm = 1.25 # author's choice, through the 2.50 mm strap; fixture base top is frame-A Z -10.00
+exit_mm = 1.25 # author's choice, through the 2.50 mm strap; fixture base top is frame-A Z -15.00
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
 
 [setups.ops.checks]
-height_above_pivot = "rocker-profile-template" # template on a 6.5 mm pin in the reamed bore
+height_above_pivot = "rocker-profile-template" # final bench inspection on a 6.5 mm pin after removing the fixture screw
 radius = "rocker-profile-template"
 arc_len = "rocker-profile-template" # scribed arc-end marks on the template
 
@@ -672,6 +686,7 @@ to_z = -6.02825 # same contour depth as op 40
 exit_mm = 1.25
 direction = "conventional" # author's choice
 approach_mm = 5.0
+note = "Light conventional finish passes only. The diamond pin is an orientation locator, not a cutting-force stop; hub screw friction holds torque, while the nearby support pads carry the strap."
 
 [[setups.ops]]
 op = 42
@@ -683,6 +698,7 @@ to_z = -6.02825 # same contour depth as op 40
 exit_mm = 1.25
 direction = "conventional" # author's choice
 approach_mm = 5.0
+note = "Close the outline with a light conventional pass. Keep every scrap-rail clamp tight; do not push tangential cutting load into the diamond pin."
 
 [[setups.ops]]
 op = 43
