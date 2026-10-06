@@ -43,6 +43,15 @@ TURNING_TOOL_KEYS = (
     "projection_mm",
 )
 TURNING_HOLDER_KEYS = ("holder_body_width_mm", "holder_body_depth_mm")
+# Two-cornered grooving/parting blades, by tool ``kind``: the job marks them ``corners = 2``
+# and they also need the front-edge width.
+TURNING_BLADE_KINDS = frozenset({"parting_blade", "grooving_blade"})
+TURNING_BLADE_KEYS = ("blade_width_mm",)
+
+
+def blade_keys(inputs):
+    """A two-cornered blade op's extra turning inputs (job ``corners == 2``), else none."""
+    return TURNING_BLADE_KEYS if inputs.get("corners") == 2 else ()
 
 
 def approach(bundle, setup, op):
@@ -227,7 +236,7 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
         inputs = jobs.get(subject, {})
         approach_reason = approach_model_reason(bundle, setup, op)
         turned = approach(bundle, setup, op) == TURNING
-        keys = turning if turned and turning is not None else required
+        keys = (*turning, *blade_keys(inputs)) if turned and turning is not None else required
         # Raw -Z collision/stock/corner facts never establish lathe results.
         stale = turned and not turning_facts(bundle, facts, setup, op)
         detail = {} if approach_reason or stale else record(record(facts.get("ops")).get(subject))

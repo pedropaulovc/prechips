@@ -645,8 +645,10 @@ envelopes. Turning-model facts, not raw axial direction arrays, establish
 turning coverage. Invalid STEP references still error first; missing/unmapped
 references and unresolved inputs remain unknown. Explicit turning actions off
 a resolved lathe remain unsupported; shared profile/form/groove actions follow
-resolved machine kind. This necessary-condition screen proves no toolpath,
-internal boring, grooving/part-off blade geometry, chip flow or chatter. See
+resolved machine kind. Grooving/part-off blades are two-cornered sections of
+measured `blade_width`, posed on the profile after the op. This
+necessary-condition screen proves no toolpath, internal boring, chip flow,
+chatter or rest-jaw clearance. See
 [geometry rules](docs/rules-geometry.md#approach-models) for the exact boundary.
 
 
@@ -1226,6 +1228,9 @@ sheet.
    endpoint without a second leave.
    Holder obstacles, holding and rendering keep actual setup-entry stock;
    no op borrows another op's removal.
+   OpenCASCADE distance extrema that fail with `StdFail_NotDone` retry with
+   the operands swapped: this measures the same geometric distance rather than
+   suppressing the failed guard. Other native exceptions still propagate.
    Explicit nonempty `op.faces` overrides the feature face set. A far-side
    face errors by reference and never credits coverage/finish; missing
    normals leave the face unknown. Certain observed collisions error even with

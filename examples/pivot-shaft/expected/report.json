@@ -1,5 +1,5 @@
 {
-  "expected_exit": 4,
+  "expected_exit": 2,
   "findings": [
     {
       "cite": [
@@ -5378,7 +5378,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": 0.25,
+        "diameter_in": 0.25000000000000006,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
         "flutes": "unknown",
@@ -5408,7 +5408,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
+        "diameter_in": 0.25000000000000006,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
         "flutes": "unknown",
@@ -5450,7 +5450,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
+        "diameter_in": 0.25000000000000006,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
         "flutes": "unknown",
@@ -5492,7 +5492,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
+        "diameter_in": 0.25000000000000006,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
         "flutes": "unknown",
@@ -5516,7 +5516,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -5536,24 +5536,101 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
         "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "kernel: setups.S1.revolved.north_dome (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.north_relief (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.pivot_bearing (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.pivot_journal (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.shoulder_od (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.south_relief (finished faces of revolution about setup Z; FreeCAD B-rep)",
         "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S1: the finished diameter or geometry in the exposed span is unresolved.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": [
           -168.5,
           22.5
         ],
         "held_diameter_mm": 10.0,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
-        "segments": [],
+        "off_axis": {},
+        "segments": [
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "pivot_bearing"
+            ],
+            "z_mm": [
+              -150.67,
+              -3.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 5.7,
+            "features": [
+              "south_relief"
+            ],
+            "z_mm": [
+              -3.5,
+              -1.5
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 10.0,
+            "features": [
+              "shoulder_od"
+            ],
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 5.7,
+            "features": [
+              "north_relief"
+            ],
+            "z_mm": [
+              0.0,
+              2.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "pivot_journal"
+            ],
+            "z_mm": [
+              2.0,
+              6.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.3500000000000005,
+            "diameter_mm": 6.3500000000000005,
+            "features": [
+              "north_dome"
+            ],
+            "z_mm": [
+              6.0,
+              7.5
+            ]
+          }
+        ],
         "stickout_ld_max": 4.0,
         "stickout_mm": 191.0,
         "support_status": "pass",
@@ -5565,13 +5642,22 @@
             "status": "pass"
           }
         ],
-        "unresolved": [
-          "north_relief",
-          "pivot_bearing",
-          "pivot_journal",
-          "shoulder_od",
-          "south_relief"
+        "uncovered_z_mm": [
+          [
+            -168.5,
+            -150.67
+          ],
+          [
+            7.5,
+            22.5
+          ]
         ],
+        "unresolved": [
+          "south_dome"
+        ],
+        "unresolved_reasons": {
+          "south_dome": "the dome widens away from the chuck (apex toward the chuck)"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -5583,7 +5669,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -5591,40 +5677,125 @@
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
         "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:102-102",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "kernel: setups.S2.revolved.north_dome (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.north_relief (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.pivot_bearing (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.pivot_journal (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.shoulder_od (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.south_relief (finished faces of revolution about setup Z; FreeCAD B-rep)",
         "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
-      "message": "S2: the finished diameter or geometry in the exposed span is unresolved.",
+      "message": "S2: part of the exposed span lies beyond every finished feature, so its diameter is the in-process stock's, which is not modelled.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": [
           -12.0,
           15.0
         ],
         "held_diameter_mm": 6.35,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
-        "segments": [],
+        "off_axis": {},
+        "segments": [
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "pivot_bearing"
+            ],
+            "z_mm": [
+              -12.0,
+              -11.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 5.7,
+            "features": [
+              "south_relief"
+            ],
+            "z_mm": [
+              -11.0,
+              -9.0
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 10.0,
+            "features": [
+              "shoulder_od"
+            ],
+            "z_mm": [
+              -9.0,
+              -7.5
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 5.7,
+            "features": [
+              "north_relief"
+            ],
+            "z_mm": [
+              -7.5,
+              -5.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "pivot_journal"
+            ],
+            "z_mm": [
+              -5.5,
+              -1.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.3500000000000005,
+            "diameter_mm": 6.3500000000000005,
+            "features": [
+              "north_dome"
+            ],
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          }
+        ],
         "stickout_ld_max": 4.0,
         "stickout_mm": 27.0,
         "support_status": "not_applicable",
         "supports": [],
-        "unresolved": [
-          "north_dome",
-          "north_relief",
-          "shoulder_od",
-          "south_relief"
+        "uncovered_z_mm": [
+          [
+            0.0,
+            15.0
+          ]
         ],
+        "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -5636,7 +5807,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -5644,13 +5815,21 @@
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
         "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:102-102",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
@@ -5661,21 +5840,35 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": 6.35,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "not_applicable",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
+          "north_dome",
           "north_relief",
+          "pivot_bearing",
+          "pivot_journal",
           "shoulder_od",
           "south_dome",
           "south_relief"
         ],
+        "unresolved_reasons": {
+          "north_dome": "no declared z_mm; kernel: the setup frame binding is unknown; dome apex direction; kernel: the setup frame binding is unknown",
+          "north_relief": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "pivot_bearing": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "pivot_journal": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "shoulder_od": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "south_dome": "no declared z_mm; kernel: the setup frame binding is unknown; dome apex direction; kernel: the setup frame binding is unknown",
+          "south_relief": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -6243,7 +6436,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -6263,17 +6456,26 @@
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
         "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "kernel: setups.S1.revolved.north_dome (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.north_relief (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.pivot_bearing (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.pivot_journal (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.shoulder_od (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S1.revolved.south_relief (finished faces of revolution about setup Z; FreeCAD B-rep)",
         "plan.frames.T1: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
         "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117"
       ],
-      "message": "S1: axial profile geometry or the selected grooving exception is unresolved.",
+      "message": "S1: an exposed shoulder increases away from the chuck, or a groove lacks a matching grooving operation.",
       "numbers": {
         "direction": "+setup Z toward exposed end",
         "exposed_z_mm": [
@@ -6281,25 +6483,182 @@
           22.5
         ],
         "frame": "T1",
-        "intervals": [],
-        "segments": [],
-        "transitions": [],
+        "intervals": [
+          {
+            "diameter_mm": 6.3500000000000005,
+            "feature": "north_dome",
+            "kind": "dome",
+            "source": "kernel",
+            "z_mm": [
+              6.0,
+              7.5
+            ]
+          },
+          {
+            "diameter_mm": 5.7,
+            "feature": "north_relief",
+            "kind": "groove",
+            "source": "kernel",
+            "z_mm": [
+              0.0,
+              2.0
+            ]
+          },
+          {
+            "diameter_mm": 6.35,
+            "feature": "pivot_bearing",
+            "kind": "shaft",
+            "source": "kernel",
+            "z_mm": [
+              -150.67,
+              -3.5
+            ]
+          },
+          {
+            "diameter_mm": 6.35,
+            "feature": "pivot_journal",
+            "kind": "shaft",
+            "source": "kernel",
+            "z_mm": [
+              2.0,
+              6.0
+            ]
+          },
+          {
+            "diameter_mm": 10.0,
+            "feature": "shoulder_od",
+            "kind": "boss",
+            "source": "kernel",
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          },
+          {
+            "diameter_mm": 5.7,
+            "feature": "south_relief",
+            "kind": "groove",
+            "source": "kernel",
+            "z_mm": [
+              -3.5,
+              -1.5
+            ]
+          }
+        ],
+        "off_axis": {},
+        "segments": [
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "pivot_bearing"
+            ],
+            "z_mm": [
+              -150.67,
+              -3.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 5.7,
+            "features": [
+              "south_relief"
+            ],
+            "z_mm": [
+              -3.5,
+              -1.5
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 10.0,
+            "features": [
+              "shoulder_od"
+            ],
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 5.7,
+            "features": [
+              "north_relief"
+            ],
+            "z_mm": [
+              0.0,
+              2.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "pivot_journal"
+            ],
+            "z_mm": [
+              2.0,
+              6.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.3500000000000005,
+            "diameter_mm": 6.3500000000000005,
+            "features": [
+              "north_dome"
+            ],
+            "z_mm": [
+              6.0,
+              7.5
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "from_diameter_mm": 6.35,
+            "grooving": [],
+            "reason": "base_envelope",
+            "status": "error",
+            "to_diameter_mm": 10.0,
+            "z_mm": -1.5
+          },
+          {
+            "from_diameter_mm": 5.7,
+            "grooving": [
+              {
+                "feature": "north_relief",
+                "ops": [
+                  {
+                    "action": "form_relief",
+                    "op": 80,
+                    "setup": "S1"
+                  }
+                ],
+                "status": "pass"
+              }
+            ],
+            "reason": "groove_recovery",
+            "status": "pass",
+            "to_diameter_mm": 6.35,
+            "z_mm": 2.0
+          }
+        ],
         "unresolved": [
-          "north_relief",
-          "pivot_bearing",
-          "pivot_journal",
-          "shoulder_od",
-          "south_relief"
-        ]
+          "south_dome"
+        ],
+        "unresolved_reasons": {
+          "south_dome": "the dome widens away from the chuck (apex toward the chuck)"
+        }
       },
       "rule": "turned_profile",
-      "status": "unknown",
+      "status": "error",
       "subject": "S1"
     },
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -6307,22 +6666,37 @@
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
         "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:102-102",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "kernel: setups.S2.revolved.north_dome (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.north_relief (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.pivot_bearing (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.pivot_journal (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.shoulder_od (finished faces of revolution about setup Z; FreeCAD B-rep)",
+        "kernel: setups.S2.revolved.south_relief (finished faces of revolution about setup Z; FreeCAD B-rep)",
         "plan.frames.T2: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
         "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431"
       ],
-      "message": "S2: axial profile geometry or the selected grooving exception is unresolved.",
+      "message": "S2: an exposed shoulder increases away from the chuck, or a groove lacks a matching grooving operation.",
       "numbers": {
         "direction": "+setup Z toward exposed end",
         "exposed_z_mm": [
@@ -6330,24 +6704,178 @@
           15.0
         ],
         "frame": "T2",
-        "intervals": [],
-        "segments": [],
-        "transitions": [],
-        "unresolved": [
-          "north_dome",
-          "north_relief",
-          "shoulder_od",
-          "south_relief"
-        ]
+        "intervals": [
+          {
+            "diameter_mm": 6.3500000000000005,
+            "feature": "north_dome",
+            "kind": "dome",
+            "source": "kernel",
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          },
+          {
+            "diameter_mm": 5.7,
+            "feature": "north_relief",
+            "kind": "groove",
+            "source": "kernel",
+            "z_mm": [
+              -7.5,
+              -5.5
+            ]
+          },
+          {
+            "diameter_mm": 6.35,
+            "feature": "pivot_bearing",
+            "kind": "shaft",
+            "source": "kernel",
+            "z_mm": [
+              -12.0,
+              -11.0
+            ]
+          },
+          {
+            "diameter_mm": 6.35,
+            "feature": "pivot_journal",
+            "kind": "shaft",
+            "source": "kernel",
+            "z_mm": [
+              -5.5,
+              -1.5
+            ]
+          },
+          {
+            "diameter_mm": 10.0,
+            "feature": "shoulder_od",
+            "kind": "boss",
+            "source": "kernel",
+            "z_mm": [
+              -9.0,
+              -7.5
+            ]
+          },
+          {
+            "diameter_mm": 5.7,
+            "feature": "south_relief",
+            "kind": "groove",
+            "source": "kernel",
+            "z_mm": [
+              -11.0,
+              -9.0
+            ]
+          }
+        ],
+        "off_axis": {},
+        "segments": [
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "pivot_bearing"
+            ],
+            "z_mm": [
+              -12.0,
+              -11.0
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 5.7,
+            "features": [
+              "south_relief"
+            ],
+            "z_mm": [
+              -11.0,
+              -9.0
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 10.0,
+            "features": [
+              "shoulder_od"
+            ],
+            "z_mm": [
+              -9.0,
+              -7.5
+            ]
+          },
+          {
+            "base_diameter_mm": 10.0,
+            "diameter_mm": 5.7,
+            "features": [
+              "north_relief"
+            ],
+            "z_mm": [
+              -7.5,
+              -5.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.35,
+            "diameter_mm": 6.35,
+            "features": [
+              "pivot_journal"
+            ],
+            "z_mm": [
+              -5.5,
+              -1.5
+            ]
+          },
+          {
+            "base_diameter_mm": 6.3500000000000005,
+            "diameter_mm": 6.3500000000000005,
+            "features": [
+              "north_dome"
+            ],
+            "z_mm": [
+              -1.5,
+              0.0
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "from_diameter_mm": 6.35,
+            "grooving": [],
+            "reason": "base_envelope",
+            "status": "error",
+            "to_diameter_mm": 10.0,
+            "z_mm": -9.0
+          },
+          {
+            "from_diameter_mm": 5.7,
+            "grooving": [
+              {
+                "feature": "north_relief",
+                "ops": [
+                  {
+                    "action": "form_relief",
+                    "op": 80,
+                    "setup": "S1"
+                  }
+                ],
+                "status": "pass"
+              }
+            ],
+            "reason": "groove_recovery",
+            "status": "pass",
+            "to_diameter_mm": 6.35,
+            "z_mm": -5.5
+          }
+        ],
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
-      "status": "unknown",
+      "status": "error",
       "subject": "S2"
     },
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -6355,13 +6883,21 @@
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
         "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
+        "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:101-101",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:102-102",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:111-127",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-44",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:52-52",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:69-69",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
@@ -6378,14 +6914,27 @@
         "exposed_z_mm": "unknown",
         "frame": "T3",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
         "unresolved": [
+          "north_dome",
           "north_relief",
+          "pivot_bearing",
+          "pivot_journal",
           "shoulder_od",
           "south_dome",
           "south_relief"
-        ]
+        ],
+        "unresolved_reasons": {
+          "north_dome": "no declared z_mm; kernel: the setup frame binding is unknown; dome apex direction; kernel: the setup frame binding is unknown",
+          "north_relief": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "pivot_bearing": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "pivot_journal": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "shoulder_od": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "south_dome": "no declared z_mm; kernel: the setup frame binding is unknown; dome apex direction; kernel: the setup frame binding is unknown",
+          "south_relief": "no declared z_mm; kernel: the setup frame binding is unknown"
+        }
       },
       "rule": "turned_profile",
       "status": "unknown",
@@ -6397,18 +6946,29 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
-        "features.features.shoulder_north_face: declared nominal diameter and dia acceptance band",
+        "plan.setups[S1].stock_state.od_mm",
+        "features.features.shoulder_north_face: length acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:10: Static deflection is unknown; needs feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S1:10: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
+        "acceptance_band_mm": [
+          0.99,
+          2.01
+        ],
+        "acceptance_field": "length",
+        "acceptance_threshold_mm": 0.5099999999999999,
         "deflection_mm": "unknown",
         "denominator_coefficient": 48,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "plan.setups[S1].stock_state.od_mm",
+        "diameter_mm": 10.0,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6422,12 +6982,14 @@
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "feature nominal diameter",
           "doc_mm",
-          "feed_mm_rev",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "feed_mm_rev"
         ],
         "operation": "face",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6438,7 +7000,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(length_high_mm - length_low_mm) / 2",
+        "turned_diameter_mm": 10.0
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6450,27 +7013,24 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
-        "features.features.pivot_journal: declared nominal diameter and dia acceptance band",
+        "features.features.pivot_journal: declared nominal diameter",
+        "plan.setups[S1].ops[20].rough_allowance_mm",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
       "message": "S1:20: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 48,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           6.33,
           6.35
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.1,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 48,
+        "diameter_basis": "features.features.pivot_journal: declared nominal diameter",
         "diameter_mm": 6.35,
-        "diameter_tolerance_mm": 0.009999999999999787,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6488,6 +7048,10 @@
           "feed_mm_rev"
         ],
         "operation": "rough_turn",
+        "rests": [],
+        "rough_allowance_mm": 0.2,
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6498,7 +7062,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "rough_allowance_mm / 2",
+        "turned_diameter_mm": 6.55
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6510,7 +7075,8 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
-        "features.features.pivot_journal: declared nominal diameter and dia acceptance band",
+        "features.features.pivot_journal: declared nominal diameter",
+        "features.features.pivot_journal: dia acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
@@ -6523,14 +7089,16 @@
       ],
       "message": "S1:30: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 48,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           6.33,
           6.35
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.009999999999999787,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 48,
+        "diameter_basis": "features.features.pivot_journal: declared nominal diameter",
         "diameter_mm": 6.35,
-        "diameter_tolerance_mm": 0.009999999999999787,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6548,6 +7116,10 @@
           "feed_mm_rev"
         ],
         "operation": "finish_turn",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6558,7 +7130,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2",
+        "turned_diameter_mm": 6.35
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6570,27 +7143,24 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[40].doc_mm/feed_mm_rev",
-        "features.features.pivot_bearing: declared nominal diameter and dia acceptance band",
+        "features.features.pivot_bearing: declared nominal diameter",
+        "plan.setups[S1].ops[40].rough_allowance_mm",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
-        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:38-38",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
       "message": "S1:40: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 48,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           6.33,
           6.35
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.1,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 48,
+        "diameter_basis": "features.features.pivot_bearing: declared nominal diameter",
         "diameter_mm": 6.35,
-        "diameter_tolerance_mm": 0.009999999999999787,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6608,6 +7178,10 @@
           "feed_mm_rev"
         ],
         "operation": "rough_turn",
+        "rests": [],
+        "rough_allowance_mm": 0.2,
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6618,7 +7192,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "rough_allowance_mm / 2",
+        "turned_diameter_mm": 6.55
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6630,7 +7205,8 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[50].doc_mm/feed_mm_rev",
-        "features.features.pivot_bearing: declared nominal diameter and dia acceptance band",
+        "features.features.pivot_bearing: declared nominal diameter",
+        "features.features.pivot_bearing: dia acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:37-37",
@@ -6643,14 +7219,16 @@
       ],
       "message": "S1:50: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 48,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           6.33,
           6.35
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.009999999999999787,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 48,
+        "diameter_basis": "features.features.pivot_bearing: declared nominal diameter",
         "diameter_mm": 6.35,
-        "diameter_tolerance_mm": 0.009999999999999787,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6668,6 +7246,10 @@
           "feed_mm_rev"
         ],
         "operation": "finish_turn",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6678,7 +7260,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2",
+        "turned_diameter_mm": 6.35
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6690,18 +7273,29 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[60].doc_mm/feed_mm_rev",
-        "features.features.shoulder_thrust: declared nominal diameter and dia acceptance band",
+        "plan.setups[S1].stock_state.od_mm",
+        "features.features.shoulder_thrust: length acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-43",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "inventory selected machine accessories"
       ],
-      "message": "S1:60: Static deflection is unknown; needs feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S1:60: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
+        "acceptance_band_mm": [
+          0.99,
+          2.01
+        ],
+        "acceptance_field": "length",
+        "acceptance_threshold_mm": 0.5099999999999999,
         "deflection_mm": "unknown",
         "denominator_coefficient": 48,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "plan.setups[S1].stock_state.od_mm",
+        "diameter_mm": 10.0,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6715,12 +7309,14 @@
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "feature nominal diameter",
           "doc_mm",
-          "feed_mm_rev",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "feed_mm_rev"
         ],
         "operation": "face",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6731,7 +7327,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(length_high_mm - length_low_mm) / 2",
+        "turned_diameter_mm": 10.0
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6743,7 +7340,8 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[70].doc_mm/feed_mm_rev",
-        "features.features.shoulder_od: declared nominal diameter and dia acceptance band",
+        "features.features.shoulder_od: declared nominal diameter",
+        "features.features.shoulder_od: dia acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:42-42",
@@ -6755,14 +7353,16 @@
       ],
       "message": "S1:70: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 48,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           9.49,
           10.51
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.5099999999999998,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 48,
+        "diameter_basis": "features.features.shoulder_od: declared nominal diameter",
         "diameter_mm": 10.0,
-        "diameter_tolerance_mm": 0.5099999999999998,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6780,6 +7380,10 @@
           "feed_mm_rev"
         ],
         "operation": "finish_turn",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6790,7 +7394,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2",
+        "turned_diameter_mm": 10.0
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6828,7 +7433,8 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[80].doc_mm/feed_mm_rev",
-        "features.features.north_relief: declared nominal diameter and dia acceptance band",
+        "features.features.north_relief: declared nominal diameter",
+        "features.features.north_relief: dia acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
@@ -6840,14 +7446,16 @@
       ],
       "message": "S1:80: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 48,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           5.57,
           5.83
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.1299999999999999,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 48,
+        "diameter_basis": "features.features.north_relief: declared nominal diameter",
         "diameter_mm": 5.7,
-        "diameter_tolerance_mm": 0.1299999999999999,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6865,6 +7473,10 @@
           "feed_mm_rev"
         ],
         "operation": "form_relief",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6875,7 +7487,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2",
+        "turned_diameter_mm": 5.7
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6887,7 +7500,8 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[90].doc_mm/feed_mm_rev",
-        "features.features.south_relief: declared nominal diameter and dia acceptance band",
+        "features.features.south_relief: declared nominal diameter",
+        "features.features.south_relief: dia acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed",
         "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:75-80",
@@ -6899,14 +7513,16 @@
       ],
       "message": "S1:90: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 48,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           5.57,
           5.83
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.1299999999999999,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 48,
+        "diameter_basis": "features.features.south_relief: declared nominal diameter",
         "diameter_mm": 5.7,
-        "diameter_tolerance_mm": 0.1299999999999999,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6924,6 +7540,10 @@
           "feed_mm_rev"
         ],
         "operation": "form_relief",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 191.0,
+        "span_model": "stickout",
         "stickout_mm": 191.0,
         "support_status": "pass",
         "supports": [
@@ -6934,7 +7554,8 @@
             "status": "pass"
           }
         ],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2",
+        "turned_diameter_mm": 5.7
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6943,20 +7564,37 @@
     {
       "cite": [
         "PLAN.md:563-568 (§4.4 physics proxies)",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
+        "kernel: setups.S2.revolved.north_dome (finished faces of revolution about setup Z; FreeCAD B-rep)",
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S2].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
-        "features.features.north_dome: declared nominal diameter and dia acceptance band",
+        "turned_profile.feature_span base_diameter_mm",
+        "features.features.north_dome: height acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
       ],
-      "message": "S2:10: Static deflection is unknown; needs feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S2:10: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
+        "acceptance_band_mm": [
+          0.7,
+          2.3
+        ],
+        "acceptance_field": "height",
+        "acceptance_threshold_mm": 0.7999999999999999,
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "turned_profile.feature_span base_diameter_mm",
+        "diameter_mm": 6.3500000000000005,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -6970,16 +7608,19 @@
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "feature nominal diameter",
           "doc_mm",
-          "feed_mm_rev",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "feed_mm_rev"
         ],
         "operation": "face",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 27.0,
+        "span_model": "stickout",
         "stickout_mm": 27.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(height_high_mm - height_low_mm) / 2",
+        "turned_diameter_mm": 6.3500000000000005
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -6988,20 +7629,37 @@
     {
       "cite": [
         "PLAN.md:563-568 (§4.4 physics proxies)",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:1-23",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
+        "kernel: setups.S2.revolved.north_dome (finished faces of revolution about setup Z; FreeCAD B-rep)",
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S2].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
-        "features.features.north_dome: declared nominal diameter and dia acceptance band",
+        "turned_profile.feature_span base_diameter_mm",
+        "features.features.north_dome: height acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
       ],
-      "message": "S2:20: Static deflection is unknown; needs feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S2:20: Static deflection is unknown; needs doc_mm, feed_mm_rev.",
       "numbers": {
+        "acceptance_band_mm": [
+          0.7,
+          2.3
+        ],
+        "acceptance_field": "height",
+        "acceptance_threshold_mm": 0.7999999999999999,
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "turned_profile.feature_span base_diameter_mm",
+        "diameter_mm": 6.3500000000000005,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -7015,16 +7673,19 @@
         "material_class": "low_carbon_steel",
         "material_verified": true,
         "missing_inputs": [
-          "feature nominal diameter",
           "doc_mm",
-          "feed_mm_rev",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "feed_mm_rev"
         ],
         "operation": "form_dome",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 27.0,
+        "span_model": "stickout",
         "stickout_mm": 27.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(height_high_mm - height_low_mm) / 2",
+        "turned_diameter_mm": 6.3500000000000005
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -7046,20 +7707,36 @@
     {
       "cite": [
         "PLAN.md:563-568 (§4.4 physics proxies)",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S3].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
-        "features.features.south_dome: declared nominal diameter and dia acceptance band",
+        "turned_profile.feature_span base_diameter_mm",
+        "features.features.south_dome: height acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
       ],
-      "message": "S3:10: Static deflection is unknown; needs stickout_mm, feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S3:10: Static deflection is unknown; needs stickout_mm, doc_mm, feed_mm_rev.",
       "numbers": {
+        "acceptance_band_mm": [
+          0.7,
+          2.3
+        ],
+        "acceptance_field": "height",
+        "acceptance_threshold_mm": 0.7999999999999999,
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "turned_profile.feature_span base_diameter_mm",
+        "diameter_mm": 6.3500000000000005,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -7074,16 +7751,19 @@
         "material_verified": true,
         "missing_inputs": [
           "stickout_mm",
-          "feature nominal diameter",
           "doc_mm",
-          "feed_mm_rev",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "feed_mm_rev"
         ],
         "operation": "cut_to_fit",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": "unknown",
+        "span_model": "stickout",
         "stickout_mm": "unknown",
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(height_high_mm - height_low_mm) / 2",
+        "turned_diameter_mm": 6.3500000000000005
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -7105,20 +7785,36 @@
     {
       "cite": [
         "PLAN.md:563-568 (§4.4 physics proxies)",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:107-107",
+        "harmonic-analyzer/cad/out/features/pivot_shaft/pivot-shaft.STEP",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:45-45",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:53-53",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:150-161",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:46-46",
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S3].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
-        "features.features.south_dome: declared nominal diameter and dia acceptance band",
+        "turned_profile.feature_span base_diameter_mm",
+        "features.features.south_dome: height acceptance band",
         "cutting-data aliases and unique material row",
         "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
       ],
-      "message": "S3:20: Static deflection is unknown; needs stickout_mm, feature nominal diameter, doc_mm, feed_mm_rev, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S3:20: Static deflection is unknown; needs stickout_mm, doc_mm, feed_mm_rev.",
       "numbers": {
+        "acceptance_band_mm": [
+          0.7,
+          2.3
+        ],
+        "acceptance_field": "height",
+        "acceptance_threshold_mm": 0.7999999999999999,
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "turned_profile.feature_span base_diameter_mm",
+        "diameter_mm": 6.3500000000000005,
         "doc_mm": "unknown",
         "e_gpa": 200.0,
         "e_n_per_mm2": "unknown",
@@ -7133,16 +7829,19 @@
         "material_verified": true,
         "missing_inputs": [
           "stickout_mm",
-          "feature nominal diameter",
           "doc_mm",
-          "feed_mm_rev",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "feed_mm_rev"
         ],
         "operation": "form_dome",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": "unknown",
+        "span_model": "stickout",
         "stickout_mm": "unknown",
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(height_high_mm - height_low_mm) / 2",
+        "turned_diameter_mm": 6.3500000000000005
       },
       "rule": "turning_deflection",
       "status": "unknown",
