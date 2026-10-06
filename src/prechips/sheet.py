@@ -15,6 +15,7 @@ from html import escape
 
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
+from .measurements import record_trusted
 from .model import tolerance_requirements
 from .rules._bench import manual_bench
 from .rules.coordinates import OVERSHOOT_NOTE, dro_grid, dro_z, row_id
@@ -492,43 +493,114 @@ def _supply(solid):
     return solid.get("supply", "made")
 
 
-def _inside(solid, point):
-    """Whether a local point lies in a box or cylinder primitive (owner frame)."""
-    at = solid.get("at_mm")
-    if not (isinstance(at, list) and len(at) == 3 and all(_known(v) for v in at)):
-        return False
-    rel = [point[i] - at[i] for i in range(3)]
-    size, axis = solid.get("size_mm"), solid.get("axis")
-    if solid.get("shape") == "box" and isinstance(size, list) and len(size) == 3:
-        return all(-1e-6 <= rel[i] <= size[i] + 1e-6 for i in range(3) if _known(size[i]))
-    dia, length = solid.get("dia_mm"), solid.get("length_mm")
-    if solid.get("shape") == "cylinder" and isinstance(axis, list) and len(axis) == 3:
-        if not (_known(dia) and _known(length) and all(_known(v) for v in axis)):
-            return False
-        along = sum(rel[i] * axis[i] for i in range(3))
-        radial = math.dist(rel, [along * axis[i] for i in range(3)])
-        return -1e-6 <= along <= length + 1e-6 and radial <= dia / 2 + 1e-6
-    return False
-
-
-def _void_parent(void, solids, made):
-    """The solid a hole is cut in (made, or an existing part machined here): the first
-    such solid its ``cuts`` names, else the first holding its centre, else the first. A
-    hole cut only in bought hardware (a nut's thread) has no parent and is not listed."""
+def _void_parents(void, solids, made):
+    """``(parents, unresolved)``: the solids a hole is cut in (made, or existing parts
+    machined here), as the kernel cuts it: every such solid its ``cuts`` names, else
+    every such solid it overlaps; ``unresolved`` are those an oblique hole may cross,
+    which only ``cuts`` can settle. A hole cut only in bought hardware (a nut's thread)
+    has no parent and is not listed."""
     cuts = void.get("cuts")
     if isinstance(cuts, list) and cuts:
         named = {solid.get("name"): solid for solid in solids}
-        return next((named[n] for n in cuts if n in named and named[n] in made), None)
-    at, size, axis, length = (void.get(k) for k in ("at_mm", "size_mm", "axis", "length_mm"))
-    if not (isinstance(at, list) and len(at) == 3):
+        return [named[n] for n in dict.fromkeys(cuts) if n in named and named[n] in made], []
+    meets = [(solid, _meet(void, solid, contact=False)) for solid in made]
+    return [s for s, m in meets if m is True], [s for s, m in meets if m is None]
+
+
+def _primitive(solid):
+    """``("box", low, high)`` or ``("cylinder", start, unit axis, length, radius)`` in
+    the owner frame; None for a malformed primitive."""
+    at = solid.get("at_mm")
+    if not (isinstance(at, list) and len(at) == 3 and all(_known(v) for v in at)):
         return None
-    if isinstance(size, list) and len(size) == 3:
-        centre = [at[i] + size[i] / 2 for i in range(3)]
-    elif isinstance(axis, list) and len(axis) == 3 and _known(length):
-        centre = [at[i] + axis[i] * length / 2 for i in range(3)]
+    size, axis = solid.get("size_mm"), solid.get("axis")
+    if solid.get("shape") == "box" and isinstance(size, list) and len(size) == 3:
+        if not all(_known(v) for v in size):
+            return None
+        far = [at[i] + size[i] for i in range(3)]
+        return "box", [min(at[i], far[i]) for i in range(3)], [max(at[i], far[i]) for i in range(3)]
+    dia, length = solid.get("dia_mm"), solid.get("length_mm")
+    if solid.get("shape") == "cylinder" and isinstance(axis, list) and len(axis) == 3:
+        norm = math.hypot(*axis) if all(_known(v) for v in axis) else 0.0
+        if not (_known(dia) and _known(length) and dia > 0 and length > 0 and norm > 0):
+            return None
+        return "cylinder", list(at), [v / norm for v in axis], length, dia / 2
+    return None
+
+
+def _overlap(low_a, high_a, low_b, high_b, contact):
+    """Whether two intervals share a length (or, for ``contact``, at least a point)."""
+    if contact:
+        return low_a <= high_b + 1e-6 and low_b <= high_a + 1e-6
+    return low_a < high_b - 1e-6 and low_b < high_a - 1e-6
+
+
+def _meet(a, b, contact):
+    """Whether two box/cylinder primitives share volume (``contact``: touch or share
+    volume). Decided exactly for boxes, parallel cylinders and axis-aligned cylinders
+    against boxes, and for any pair whose bounding boxes are apart; otherwise None."""
+    pa, pb = _primitive(a), _primitive(b)
+    if pa is None or pb is None:
+        return False
+    if pa[0] == "cylinder" and pb[0] == "box":
+        pa, pb = pb, pa
+    if pa[0] == "box" and pb[0] == "box":
+        return all(_overlap(pa[1][k], pa[2][k], pb[1][k], pb[2][k], contact) for k in range(3))
+    edge = (lambda d, r: d <= r + 1e-6) if contact else (lambda d, r: d < r - 1e-6)
+    if pa[0] == "box":
+        _, low, high = pa
+        _, start, axis, length, radius = pb
+        k = next((k for k in range(3) if abs(abs(axis[k]) - 1) <= 1e-9), None)
+        if k is not None:
+            ends = sorted((start[k], start[k] + axis[k] * length))
+            off = [max(low[i] - start[i], 0, start[i] - high[i]) for i in range(3) if i != k]
+            return _overlap(low[k], high[k], *ends, contact) and edge(math.hypot(*off), radius)
     else:
-        return None
-    return next((solid for solid in made if _inside(solid, centre)), made[0] if made else None)
+        _, start_a, axis_a, length_a, radius_a = pa
+        _, start_b, axis_b, length_b, radius_b = pb
+        dot = sum(axis_a[i] * axis_b[i] for i in range(3))
+        if abs(abs(dot) - 1) <= 1e-9:
+            rel = [start_b[i] - start_a[i] for i in range(3)]
+            along = sum(rel[i] * axis_a[i] for i in range(3))
+            ends = sorted((along, along + dot * length_b))
+            radial = math.dist(rel, [along * axis_a[i] for i in range(3)])
+            return _overlap(0, length_a, *ends, contact) and edge(radial, radius_a + radius_b)
+    box_a, box_b = _bounds(pa), _bounds(pb)
+    if not all(
+        _overlap(box_a[0][k], box_a[1][k], box_b[0][k], box_b[1][k], True) for k in range(3)
+    ):
+        return False
+    return None
+
+
+def _bounds(primitive):
+    """Owner-frame ``(low, high)`` box enclosing a :func:`_primitive`."""
+    if primitive[0] == "box":
+        return primitive[1], primitive[2]
+    _, start, axis, length, radius = primitive
+    end = [start[k] + axis[k] * length for k in range(3)]
+    pad = [radius * math.sqrt(max(0.0, 1 - axis[k] ** 2)) for k in range(3)]
+    return (
+        [min(start[k], end[k]) - pad[k] for k in range(3)],
+        [max(start[k], end[k]) + pad[k] for k in range(3)],
+    )
+
+
+def _touching_groups(solids):
+    """How many connected sets the solids form, joining primitives that touch or share
+    volume (a screw's head on its shank); separate or malformed primitives stay apart."""
+    parent = list(range(len(solids)))
+
+    def root(i):
+        while parent[i] != i:
+            i = parent[i]
+        return i
+
+    for i, a in enumerate(solids):
+        for j in range(i):
+            if _meet(a, solids[j], contact=True) is True:
+                parent[root(i)] = root(j)
+    return len({root(i) for i in range(len(solids))})
 
 
 def _status(finding):
@@ -1367,8 +1439,9 @@ class _Traveler:
         return uses
 
     def shop_made_home(self, setup, reference, uses):
-        """The setup whose sheet 2 prints this item's table: its first use at these poses."""
-        key = (reference, repr([pose for _, pose in uses[reference]]))
+        """The setup whose sheet 2 prints this item's table: its first use at these poses
+        under these HOLD labels (a renumbered clamp gets its own table)."""
+        key = (reference, repr(uses[reference]))
         return self.shop_made_homes.setdefault(key, setup["id"])
 
     def shop_made_pointer(self, setup, reference, uses):
@@ -1412,6 +1485,9 @@ class _Traveler:
             and not solid.get("void")
             and _supply(solid) != "bought"
         ]
+        # An unverified base gives no placement numbers.
+        if any(not record_trusted(solid, require_measured=False)[0] for solid, _ in boxes):
+            boxes = []
         boxes = [(solid, extents) for solid, extents in boxes if extents]
         if not boxes:
             return []
@@ -1439,9 +1515,11 @@ class _Traveler:
         return [line + "."]
 
     def shim_steps(self, setup, uses):
-        """Adjustable shim stacks of the shop-made items in use, at their nominal size."""
+        """Adjustable shim stacks of the shop-made items in use, at their nominal size:
+        one stack per shim solid per placement of its item."""
         stacks = {}
-        for reference in uses:
+        for reference, placements in uses.items():
+            tags = [label if len(placements) > 1 else None for label, _ in placements]
             for solid in self.shop_made(reference).get("solids") or []:
                 solid = _mapping(solid)
                 if solid.get("shim") is not True:
@@ -1452,8 +1530,14 @@ class _Traveler:
                     if solid.get("shape") == "box" and isinstance(size, list) and len(size) == 3
                     else solid.get("length_mm")
                 )
-                key = (self.fixture_number(thickness, fit=True), solid.get("locates"))
-                stacks.setdefault(key, []).append(_solid_name(solid.get("name", "?")))
+                nominal = (
+                    self.fixture_number(thickness, fit=True)
+                    if record_trusted(solid, require_measured=False)[0]
+                    else "? (not verified)"
+                )
+                key = (nominal, solid.get("locates"))
+                name = _solid_name(solid.get("name", "?"))
+                stacks.setdefault(key, []).extend(f"{tag} {name}" if tag else name for tag in tags)
         steps = []
         for (thickness, locates), names in stacks.items():
             under = f" under the {self.bench(locates, setup)}" if locates else ""
@@ -1564,21 +1648,38 @@ class _Traveler:
         placed = [(label, _pose_axes(pose)) for label, pose in placements]
         # Made solids, and existing parts (a bought angle plate) only for holes cut here.
         made = [s for s in solids if not s.get("void") and _supply(s) != "bought"]
-        holes = {}
+        # Like the kernel: an unverified primitive gives no numbers, and an unverified
+        # hole withholds the solids it would cut.
+        withheld = {
+            id(s): "unverified" for s in solids if not record_trusted(s, require_measured=False)[0]
+        }
+        holes, drilled = {}, set()
         for void in (s for s in solids if s.get("void") and _supply(s) == "made"):
-            parent = _void_parent(void, solids, made)
-            if parent is not None:
-                holes.setdefault(id(parent), []).append(void)
+            name = void.get("name", "?")
+            parents, unresolved = _void_parents(void, solids, made)
+            for parent in unresolved:
+                drilled.add(id(parent))
+                withheld.setdefault(
+                    id(parent), f"oblique hole {name} may cross it; name it in cuts"
+                )
+            for parent in parents:
+                drilled.add(id(parent))
+                if id(void) in withheld:
+                    withheld.setdefault(id(parent), f"its hole {name} is unverified")
+                else:
+                    holes.setdefault(id(parent), []).append(void)
         # A locating solid's fit is the bore cut in it, else the solid itself.
         fits = set()
         for solid in (s for s in made if s.get("locates")):
             fits.update(id(v) for v in holes.get(id(solid), [solid]))
         groups = {}
         for solid in made:
-            if _supply(solid) == "existing" and id(solid) not in holes:
+            if _supply(solid) == "existing" and id(solid) not in drilled:
                 continue
             key = (
                 solid.get("label"),
+                _supply(solid),
+                id(solid) if id(solid) in withheld else None,
                 solid.get("shape"),
                 repr(solid.get("size_mm")),
                 solid.get("dia_mm"),
@@ -1603,6 +1704,10 @@ class _Traveler:
                 component += " (existing part: make the holes only)"
             first = members[0]
             fit = id(first) in fits
+            if id(first) in withheld:
+                where = f"? not set: {withheld[id(first)]}; verify before making"
+                rows.append([component, "?", [where], "—", "—"])
+                continue
             positions = [
                 prefixed(tag, name, len(members), self.solid_position(solid, axes, fit))
                 for solid, name in zip(members, tags, strict=True)
@@ -1692,28 +1797,31 @@ class _Traveler:
     def hardware(self, solids, uses):
         """Bought solids as ``2 × 3/8-16 stud; 2 × washer Ø20.6 × 1.6``: the declared
         ``fastener`` names a part, else its name and size do. A part drawn as several
-        primitives (an SHCS head and shank) shares one ``fastener`` text and counts as
-        many parts as its most numerous primitive."""
+        touching primitives with one ``fastener`` text (an SHCS head on its shank) counts
+        once; separate primitives are separate parts."""
         groups = {}
         for solid in solids:
-            shape = (
-                solid.get("shape"),
-                repr(solid.get("size_mm")),
-                solid.get("dia_mm"),
-                solid.get("length_mm"),
-            )
             fastener = solid.get("fastener")
-            key = (fastener,) if fastener else (None, *shape)
-            groups.setdefault(key, {}).setdefault(shape, []).append(solid)
+            key = (
+                (fastener,)
+                if fastener
+                else (
+                    None,
+                    solid.get("shape"),
+                    repr(solid.get("size_mm")),
+                    solid.get("dia_mm"),
+                    solid.get("length_mm"),
+                )
+            )
+            groups.setdefault(key, []).append(solid)
         parts = []
-        for (fastener, *_), shapes in groups.items():
-            count = max(len(members) for members in shapes.values())
+        for (fastener, *_), members in groups.items():
             if fastener:
-                what = self.bench(fastener)
+                count, what = _touching_groups(members), self.bench(fastener)
             else:
-                members = next(iter(shapes.values()))
                 names = [_solid_name(solid.get("name", "?")) for solid in members]
                 stem, _ = _name_group(names)
+                count = len(members)
                 what = f"{stem or ' / '.join(dict.fromkeys(names))} {self.solid_size(members[0])}"
             parts.append(f"{count * uses} × {what}")
         return "; ".join(parts)
