@@ -132,18 +132,22 @@ The illustrative rocker plan binds the exported `v40` drawing revision and
 uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
 a clean checker exit is released-plan approval or a measured first article.
 
-The checked-in rocker artifacts are a **stale legacy baseline** from
-`940cb9d`, not verification of the current engine or the revised route below.
-The native distance, setup-entry removal-mask and physical-stop-rendering fixes
-are integrated. A fresh traveler on `e0fe4fc`, before the bounded-facing and
-single-closure revisions, rendered all four fixture scenes exactly without
-debts but stopped on accessibility errors. The revised route still needs
-complete explicit-face ownership and legal cutter-centre/occluder correction.
-Its native S4 cut-state render is also unresolved: the current stock-split guard
-rejects separating the retained scrap frame from the independently clamped part.
-This needs positive-holding-aware stock derivation, not a data workaround or
-permission for uncontrolled loose pieces.
-Fresh exit-0/all-scene output, not either stopped snapshot, is the acceptance proof.
+The checked-in rocker artifacts are regenerated from the actual required-kernel
+CLI with integration `f5c8182` and the revised route below. They honestly retain
+exit **2**: 189 passes, 165 not-applicable findings, eleven accessibility errors
+and one unresolved datum-transfer finding, with no warnings or unsupported
+findings. All four fixtures are modeled with exact components and no fixture
+debts; S1/S2/S3 have no render debts. S4 still explicitly shows arriving stock
+only because the current stock-split guard rejects separating the retained
+scrap frame from the independently clamped part. This needs
+positive-holding-aware stock derivation, not permission for uncontrolled loose
+pieces. Complete explicit-face ownership and legal cutter-centre/occluder
+correction also remain engine-owned. Senior-machinist review of the actual
+traveler additionally caught both side joins printed top-to-bottom as
+"in cutting order": the right-hand join must respect the conventional outside
+path and the CCW pin preload, not direct a climb pass on datum C.
+Fresh exit-0/all-scene output with that direction issue fixed is the acceptance
+proof; these stopped artifacts are not an approved or complete pilot.
 
 The four holding states are explicit, rather than pretending a clamp can move
 halfway through a fixed setup:
