@@ -117,6 +117,10 @@ included = ["chuck_3jaw_5in_inside_outside_jaws", "tailstock_adjustable", "spind
 # Solids hang from the spindle nose (the back of the chuck the plan names):
 # x = up (the plan pose x), z = toward the work, y = z cross x.
 height_mm = { value = 100.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, table to a test bar centre in the chuck" } }
+# Travel reads `length` along table X (the spindle axis, posed along X) and `width`
+# along table Y: the base footprint the solids below draw (160 x 150 mm).
+length_mm = { value = 160.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, base length along the spindle axis" } }
+width_mm = { value = 150.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, base width across the spindle axis" } }
 solids = [
   { name = "housing", shape = "box", at_mm = [-75.0, -55.0, -125.0], size_mm = [130.0, 110.0, 125.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } },
   { name = "base", shape = "box", at_mm = [-100.0, -75.0, -150.0], size_mm = [25.0, 150.0, 160.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } },

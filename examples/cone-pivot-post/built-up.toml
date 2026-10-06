@@ -30,6 +30,7 @@ cutting_data = "../cutting-data.toml"
 form = "built_up"
 material = "1018 low-carbon steel"
 on_hand = false
+as_is_faces = [] # AUTHOR'S CHOICE: every finished face is turned, faced, drilled or reamed; none is left as bar stock
 note = "AUTHOR'S CHOICE: a turned body and head from one round bar, plus two turned sleeves bonded in reamed bores with anaerobic retaining compound. The cone and crank bores are reamed only after the compound has cured. Stock sizes and placements are illustrative purchase/process choices, not on-hand measurements."
 cite = ["AUTHOR'S CHOICE: illustrative bonded-sleeve construction permitted for this example", "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355"]
 [[stock.components]]
@@ -88,7 +89,7 @@ x = [0.9762272058393484, 0.0, -0.21674972336567902]
 y = [0.0, -1.0, 0.0]
 z = [-0.21674972336567902, 0.0, -0.9762272058393484]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: journal axis frame, north cap up (mill) or toward the tailstock (lathe); north cap Z21.0055, south cap Z-21.0055."
+note = "AUTHOR'S CHOICE: journal axis frame for the lathe, north cap toward the tailstock; north cap Z21.0055, south cap Z-21.0055."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67,268-279"]
 
 # Origin = exported crank_bore at Y72.7 and crank_boss_faces station_nominal 21.3753.
@@ -98,7 +99,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: crank axis frame, sleeve north face Z0 up (mill) or toward the tailstock (lathe); the far sleeve end is Z-72.0344."
+note = "AUTHOR'S CHOICE: crank axis frame for the lathe, sleeve north face Z0 toward the tailstock; the far sleeve end is Z-72.0344."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
 
 [frames.R0]
@@ -107,17 +108,49 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: model axes. Post axis horizontal along setup Y with foot B at Y0, the crank socket axis vertical."
+note = "AUTHOR'S CHOICE: model axes for the bonding bench. Post axis along setup Y with foot B at Y0, the crank socket axis vertical."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-57"]
+
+# The dividing head sits at the left end of the PM-30MV table with its spindle along
+# table X (23 in travel); the post points right from the chuck, foot B toward +X.
+# Origin = model origin (foot B on the post axis); setup Z = model +Z (crank socket up).
+[frames.RH]
+origin = [0.0, 0.0, 0.0]
+x = [0.0, -1.0, 0.0]
+y = [1.0, 0.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: dividing head at the left end of the table, post axis along table X; foot B is X0, the head top X-86 and the tail end X-125; the crank socket axis is vertical."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-57"]
 
 # Origin = exported journal_bore at; setup +Z = outward normal of the south cap.
 [frames.JS]
 origin = [0.0, 33.368, 0.0]
-x = [0.9762272058393484, 0.0, -0.21674972336567902]
-y = [0.0, 1.0, 0.0]
+x = [0.0, -1.0, 0.0]
+y = [0.9762272058393484, 0.0, -0.21674972336567902]
 z = [0.21674972336567902, 0.0, 0.9762272058393484]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: R0 turned 12.5182 degrees about the post axis so the cone cross-bore axis is vertical; the south tangent point of the body is Z21.0055."
+note = "AUTHOR'S CHOICE: RH turned 12.5182 degrees about the post axis (table X) so the cone cross-bore axis is vertical; foot B is X33.368 and the south tangent point of the body is Z21.0055."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67"]
+
+# Origin = exported crank_bore at; setup +Z = crank sleeve north face normal, post along table X.
+[frames.CH]
+origin = [0.0, 72.7, -21.3753]
+x = [0.0, -1.0, 0.0]
+y = [-1.0, 0.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: dividing head at the left end of the table, post axis along table X, crank sleeve north face Z0 up; foot B is X72.7 and the far sleeve end Z-72.0344."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
+
+# Origin = exported journal_bore at; setup +Z = outward normal of the north cap, post along table X.
+[frames.JH]
+origin = [0.0, 33.368, 0.0]
+x = [0.0, -1.0, 0.0]
+y = [-0.9762272058393484, 0.0, 0.21674972336567902]
+z = [-0.21674972336567902, 0.0, -0.9762272058393484]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: CH turned 12.5182 degrees about the post axis (table X) so the journal axis is vertical, north cap up at Z21.0055; foot B is X33.368."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67"]
 
 [frames.B6]
@@ -629,7 +662,7 @@ length = "calipers"
 [[setups]]
 id = "S4"
 machine = "PM-30MV"
-frame = "R0"
+frame = "RH"
 stock_in = "S1"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1
@@ -651,7 +684,7 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-pose = { origin_mm = [0.0, 105.0, 0.0], x = [0.0, 0.0, 1.0], z = [0.0, -1.0, 0.0] }
+pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0
 stop = "AUTHOR'S CHOICE: tail end against the chuck body face, jaw faces at model Y105. Indicate the turned head and body to run true within 0.02 mm, then indicate foot B square to the head axis."
 clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating; remove the key and lock the spindle before drilling."
@@ -665,17 +698,17 @@ from = "S1"
 indicate = ["head", "body", "foot_seat"]
 gauge = "dti"
 runout_limit_mm = 0.02
-[setups.zero.x]
+[setups.zero.y]
 feature = "head"
 edge_mm = 0.0
 from = "indicated"
 method = "indicate_axis"
 tool = "dti"
 check_jog_mm = 10.0
-[setups.zero.y]
+[setups.zero.x]
 edge = "foot_seat"
 edge_mm = 0.0
-from = "-y"
+from = "+x"
 tool = "edge-finder"
 check_jog_mm = 10.0
 [setups.zero.z]
@@ -695,7 +728,7 @@ tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
 depth_mm = 2.0
 approach_mm = 5.0
-note = "Spot at X0 Y72.7 on the top of the head."
+note = "Spot at X-72.7 Y0 on the top of the head."
 [[setups.ops]]
 op = 20
 do = "drill"
@@ -752,7 +785,7 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-pose = { origin_mm = [0.0, 71.632, 0.0], x = [0.0, 0.0, 1.0], z = [0.0, -1.0, 0.0] }
+pose = { origin_mm = [-71.632, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S4; do not loosen the jaws."
 clamp = "AUTHOR'S CHOICE: unlock the spindle, index 12.5182 degrees taking up worm backlash in one direction only, then lock the spindle before drilling."
@@ -766,17 +799,17 @@ from = "S4"
 indicate = ["head", "foot_seat"]
 gauge = "dti"
 runout_limit_mm = 0.02
-[setups.zero.x]
+[setups.zero.y]
 feature = "body"
 edge_mm = 0.0
 from = "indicated"
 method = "indicate_axis"
 tool = "dti"
 check_jog_mm = 10.0
-[setups.zero.y]
+[setups.zero.x]
 edge = "foot_seat"
-edge_mm = -33.368
-from = "-y"
+edge_mm = 33.368
+from = "+x"
 tool = "edge-finder"
 check_jog_mm = 10.0
 [setups.zero.z]
@@ -938,7 +971,7 @@ station = "calipers"
 [[setups]]
 id = "S8"
 machine = "PM-30MV"
-frame = "C4"
+frame = "CH"
 stock_in = "S7"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1
@@ -960,7 +993,7 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-pose = { origin_mm = [0.0, -32.3, -21.3753], x = [0.0, 0.0, 1.0], z = [0.0, 1.0, 0.0] }
+pose = { origin_mm = [-32.3, 0.0, -21.3753], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0
 stop = "AUTHOR'S CHOICE: tail end against the chuck body face, jaw faces at model Y105. Indicate the head and body to run true within 0.02 mm and foot B square, then turn the head until the crank sleeve indicates vertical."
 clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating; remove the key and lock the spindle before drilling."
@@ -969,17 +1002,17 @@ from = "S7"
 indicate = ["head", "foot_seat", "crank_boss"]
 gauge = "dti"
 runout_limit_mm = 0.02
-[setups.zero.x]
+[setups.zero.y]
 feature = "crank_boss"
 edge_mm = 0.0
 from = "indicated"
 method = "indicate_axis"
 tool = "dti"
 check_jog_mm = 10.0
-[setups.zero.y]
+[setups.zero.x]
 edge = "foot_seat"
 edge_mm = 72.7
-from = "+y"
+from = "+x"
 tool = "edge-finder"
 check_jog_mm = 10.0
 [setups.zero.z]
@@ -1026,7 +1059,7 @@ finish_ra = "roughness-comparator"
 [[setups]]
 id = "S9"
 machine = "PM-30MV"
-frame = "J3"
+frame = "JH"
 stock_in = "S8"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1
@@ -1048,7 +1081,7 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-pose = { origin_mm = [0.0, -71.632, 0.0], x = [0.0, 0.0, 1.0], z = [0.0, 1.0, 0.0] }
+pose = { origin_mm = [-71.632, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S8; do not loosen the jaws."
 clamp = "AUTHOR'S CHOICE: unlock the spindle, index 12.5182 degrees taking up worm backlash in one direction only, then lock the spindle before drilling."
@@ -1062,17 +1095,17 @@ from = "S8"
 indicate = ["head", "foot_seat", "cone_boss_north_face"]
 gauge = "dti"
 runout_limit_mm = 0.02
-[setups.zero.x]
+[setups.zero.y]
 feature = "cone_boss"
 edge_mm = 0.0
 from = "indicated"
 method = "indicate_axis"
 tool = "dti"
 check_jog_mm = 10.0
-[setups.zero.y]
+[setups.zero.x]
 edge = "foot_seat"
 edge_mm = 33.368
-from = "+y"
+from = "+x"
 tool = "edge-finder"
 check_jog_mm = 10.0
 [setups.zero.z]
