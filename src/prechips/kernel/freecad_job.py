@@ -8172,7 +8172,11 @@ class _Setup:
                 return None, why
             regions.append(region)
         else:
-            regions.extend(self._profile_regions(meridians, window, outer))
+            straight = [
+                isinstance(self.faces[index].Surface, (Part.Cylinder, Part.Cone))
+                for index in valid
+            ]
+            regions.extend(self._profile_regions(meridians, straight, window, outer))
         regions = [
             region
             for region in regions
@@ -8230,9 +8234,9 @@ class _Setup:
                 end = protected_end
         return _band(inner, outer, min(to_z, end), max(to_z, end)), None
 
-    def _profile_regions(self, meridians, window, outer):
+    def _profile_regions(self, meridians, straight, window, outer):
         regions, ends = [], []
-        for meridian in meridians:
+        for meridian, is_straight in zip(meridians, straight, strict=False):
             if not meridian:
                 continue
             zs = [z for (_, z), _ in meridian]
@@ -8253,11 +8257,16 @@ class _Setup:
             # cutting protected material back out keeps the region exact. The region closes
             # through the unshifted end points, so no slab survives under its ends either.
             sag = 0.0
-            for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
-                cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
-                angle = math.acos(cos)
-                sag = max(sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4))
-            sag += 1e-6
+            # Native cylinders and cones have straight meridians: their chords need
+            # no sagitta allowance or artificial inward change to the model radius.
+            if not is_straight:
+                for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
+                    cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
+                    angle = math.acos(cos)
+                    sag = max(
+                        sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4)
+                    )
+                sag += 1e-6
             points = [(r - nr * sag, z - nz * sag) for (r, z), (nr, nz) in chain]
             first, last = chain[0][0], chain[-1][0]
             polygon = []
