@@ -2584,13 +2584,13 @@ class _Setup:
     @staticmethod
     def _remove(original, own, groups):
         """(the stock solid ``original`` less one op's cut, as its kept pieces, or None, and
-        why that is not one valid piece free of the cut's band).
+        why that is not one valid piece free of the claimed cutting volumes).
 
-        Its own clearance goes first, then each connected band group, piece by piece and
-        never fused. A group the cuts before it already cleared (:func:`_cleared`) is not
-        cut again. Only the end is judged, so a fragment one piece splits off may still go
+        Its own clearance goes first, then each cut group, piece by piece and never
+        fused. A group the cuts before it already cleared (:func:`_cleared`) is not cut
+        again. Only the end is judged, so a fragment one piece splits off may still go
         with a later piece: at most one piece above ``STOCK_MM3`` may remain, valid and
-        holding no more than ``STOCK_MM3`` of the band.
+        holding no more than ``STOCK_MM3`` of the grouped cutting volumes.
         """
         rest, applied = original, []
         if own is not None:
@@ -2605,7 +2605,7 @@ class _Setup:
             for piece in group:
                 if rest.Solids:
                     rest = rest.cut(piece)
-                    applied.append((f"lineage band group {number}", piece))
+                    applied.append((f"cut group {number}", piece))
         kept = [piece for piece in rest.Solids if piece.Volume > STOCK_MM3]
         if len(kept) > 1:
             return None, (
@@ -2619,7 +2619,7 @@ class _Setup:
             )
         left = sum(piece.common(cut).Volume for piece in kept for group in groups for cut in group)
         if left > STOCK_MM3:
-            return None, f"{_r(left)} mm^3 of its lineage leave band survived its removal"
+            return None, f"{_r(left)} mm^3 of its claimed cutting volume survived its removal"
         return kept, None
 
     def _cut(self, op, stock):

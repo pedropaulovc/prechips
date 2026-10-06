@@ -29,6 +29,10 @@ near = Part.makeBox(4, 6, 6, V(31, -3, 7))
 tail.fuse(step).fuse(near).removeSplitter().exportStep(out + "/stepped.step")
 round_near = Part.makeCylinder(3, 6, V(34, 0, 7), V(0, 0, 1))
 tail.fuse(step).fuse(round_near).removeSplitter().exportStep(out + "/stepped-boss.step")
+# The stepped band and pad with a cone beyond the R9 step: no rotary removal is derivable
+# for the cone.
+cone = Part.makeCone(9, 7, 10, V(60, 0, 0), X)
+tail.fuse(step).fuse(near).fuse(cone).removeSplitter().exportStep(out + "/stepped-cone.step")
 # A round R4 boss standing proud of the body (top z 13) at x 30: its curved wall fans
 # away from the radial sweep of the holed body face.
 boss = Part.makeCylinder(4, 6, V(30, 0, 7), V(0, 0, 1))
@@ -50,16 +54,14 @@ def parts(tmp_path_factory, freecad_kernel):
     directory = tmp_path_factory.mktemp("rotary")
     script = directory / "author.py"
     script.write_text(_AUTHOR, encoding="utf-8")
-    process = subprocess.run(
+    subprocess.run(
         [freecad_kernel, str(script), "--", str(directory)],
         capture_output=True,
         text=True,
         errors="replace",
         timeout=300,
     )
-    paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 7, process.stdout[-2000:] + process.stderr[-2000:]
-    return paths
+    return {path.stem: path for path in directory.glob("*.step")}
 
 
 @pytest.fixture
@@ -200,6 +202,42 @@ def test_underivable_rotary_removal_stops_the_stock_builder_and_meets_its_entry_
     assert isinstance(stopped["tool_hits"], int) and stopped["tool_hits"] > 0, stopped
     assert stopped["obstacles"]["tool"] == ["part"], stopped
     assert "S1:10" in result["setups"]["S2"]["stock_reason"], result["setups"]["S2"]
+
+
+def test_rotary_op_after_an_underivable_rotary_removal_keeps_only_its_certain_finished_hits(
+    engine, parts
+):
+    # The cone's rotary removal cannot be derived, so the stock the band's flute meets after
+    # it is unknown: only finished material, present in any real stock, stays certain.
+    step = parts["stepped-cone"]
+    band = engine.refs(step, (0, -10, -10), (30, 10, 10), kind="Cylinder")
+    cone = engine.refs(step, (60, -9, -9), (70, 9, 9), kind="Cone")
+    assert len(band) == 1 and len(cone) == 1
+    features = {"band": band, "cone": cone}
+
+    def run(*features_in_order):
+        ops = [
+            {**_op(f"S1:{10 * (i + 1)}", feature, 3.0, 10.0, 30.0), "approach": "rotary"}
+            for i, feature in enumerate(features_in_order)
+        ]
+        result = engine.run(engine.job(step, features, [_setup(ops, _head())]))
+        assert result["status"] == "ok", result
+        return result
+
+    # Positive control: on finished-material stock the band's cutter certainly hits the pad.
+    alone = run("band")["ops"]["S1:10"]
+    assert alone["tool_hits"] > 0 and alone["obstacles"]["tool"] == ["part"], alone
+    result = run("cone", "band")
+    stopped, later = result["ops"]["S1:10"], result["ops"]["S1:20"]
+    # The cone claim resolves, so its removal (not its claim) is what stops the builder,
+    # because a cone is not a surface whose rotary removal is derived (not a boolean failure).
+    assert stopped["claim_errors"] == [], stopped
+    assert stopped["claimed_indices"] == result["features"]["cone"], stopped
+    assert later["tool_hits"] == "unknown", later
+    why = later["reasons"]["tool_hits"]
+    assert "S1:10" in why and "Cone" in why, later
+    assert later["min_hits"]["tool"] == alone["tool_hits"], later
+    assert later["obstacles"]["tool"] == ["part"], later
 
 
 @pytest.mark.parametrize(
