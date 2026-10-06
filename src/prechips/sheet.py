@@ -2658,7 +2658,6 @@ class _Traveler:
         low, high = plunges.get("groove_z_mm", [None, None])
         parts.append(f"groove Z {o(low)} to {o(high)}")
         return parts
-
     def surface_z(self, setup, value, source=None, face=None, done=0):
         """One surface, one printed Z (:func:`operative_z`): the checked depth of the op
         that produced it, on its own setup's grid, as this setup's DRO shows it; else

@@ -160,8 +160,79 @@ def _entry_stock(bundle, setup, frame):
     return result
 
 
+# The tip-near-jaw-top crash zone the traveler boxes (sheet ``_CRASH_ZONE_MM``).
+CRASH_ZONE_MM = 3.0
+
+
+def _jaw_faces(bundle, setup):
+    """(clamp axis index, [low, high] setup coordinates of the vise jaw faces), or None.
+
+    The jaws grip the setup-entry stock across the axis they do not run along, so their
+    faces stand at the kernel's setup-entry stock box along that axis."""
+    axis = {"x": 1, "y": 0}.get(_mapping(setup.get("hold")).get("jaws_along"))
+    kernel = getattr(bundle, "kernel", None)
+    if axis is None or not isinstance(kernel, dict) or kernel.get("status") != "ok":
+        return None
+    bbox = _mapping(_mapping(kernel.get("setups")).get(setup["id"])).get("stock_bbox_mm")
+    if not (isinstance(bbox, list) and len(bbox) == 6 and all(_numeric(v) for v in bbox)):
+        return None
+    return axis, [bbox[axis], bbox[axis + 3]]
+
+
+def _setup_coordinates(bundle, setup, memo):
+    """The coordinates numbers (printed cutter-centre tables) of ``setup``; ``memo`` keeps
+    one coordinates pass per headroom evaluation."""
+    from .coordinates import evaluate as coordinates
+
+    if not memo:
+        memo.update({row.subject: row.numbers for row in coordinates(bundle)})
+    return _mapping(memo.get(setup["id"]))
+
+
+def _printed_xy(coordinates, op):
+    """Every cutter-centre XY the traveler prints for ``op`` (its setup's coordinates
+    numbers: arc rows, join lines and linear_table outlines/raster passes, as the kernel
+    clipped them), or None when it prints none or any is unknown."""
+    points = []
+    for arc in coordinates.get("arc_table", []):
+        if arc.get("op") == op:
+            points += [row.get("dro_xy") for row in arc.get("rows", [])]
+    for line in coordinates.get("line_table", []):
+        if line.get("op") == op:
+            points += list(line.get("dro_xy") or [])
+    for profile in coordinates.get("profiles", []):
+        path = profile.get("cutter_centre")
+        linear = _mapping(profile.get("contour")).get("method") == "linear_table"
+        if profile.get("op") == op and linear and isinstance(path, list):
+            points += [p for item in path for p in (item if isinstance(item[0], list) else [item])]
+    known = all(isinstance(p, list) and len(p) == 2 and all(_numeric(v) for v in p) for p in points)
+    return points if points and known else None
+
+
+def _inside_jaws(bundle, op, faces, coordinates):
+    """Whether ``op``'s cutter stays more than :data:`CRASH_ZONE_MM` inside both jaw faces
+    along the clamp axis: its printed cutter-centre path (:func:`_printed_xy`) plus the
+    cutter radius, else its stock_removal_bounds widened by the radius. An underivable
+    sweep or jaw never is."""
+    if faces is None:
+        return False
+    axis, (low, high) = faces
+    dia = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
+    if not _numeric(dia):
+        return False
+    printed = _printed_xy(coordinates, op["op"])
+    span = (
+        [min(p[axis] for p in printed), max(p[axis] for p in printed)]
+        if printed
+        else _mapping(op.get("stock_removal_bounds")).get("xy"[axis])
+    )
+    if not (isinstance(span, list) and len(span) == 2 and all(_numeric(v) for v in span)):
+        return False
+    return span[0] - dia / 2 > low + CRASH_ZONE_MM and span[1] + dia / 2 < high - CRASH_ZONE_MM
+
+
 def evaluate(bundle):
-    findings = []
+    findings, coordinates = [], {}
     for setup in bundle.plan["setups"]:
         bench = manual_bench(bundle, setup)
         if bench is not None:
@@ -339,10 +410,15 @@ def evaluate(bundle):
             if head
             else _UNKNOWN
         )
+        faces = None if head else _jaw_faces(bundle, setup)
+        printed = _setup_coordinates(bundle, setup, coordinates) if faces else {}
         cuts = {
             str(op["op"]): op["to_z"] - jaw_top_z
             for op in setup["ops"]
-            if op["do"] not in SAW_OPS and _numeric(op.get("to_z")) and _numeric(jaw_top_z)
+            if op["do"] not in SAW_OPS
+            and _numeric(op.get("to_z"))
+            and _numeric(jaw_top_z)
+            and not _inside_jaws(bundle, op, faces, printed)
         }
         numbers.update(
             {

@@ -90,6 +90,46 @@ def test_stack_uses_physical_height_not_coordinate_or_jaw_height():
     assert finding.numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(7.4)
 
 
+def test_tip_above_jaw_top_is_reported_only_for_a_sweep_within_the_crash_zone_of_a_jaw():
+    # Jaws run along X and grip the kernel's setup-entry stock faces at Y -15 / +15.
+    data = bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"]["jaws_along"] = "x"
+    data.inventory["tools"]["cutter"]["dia_mm"] = 6
+    data.kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": [-50, -15, -12, 50, 15, 4]}}}
+    op = setup["ops"][0]
+    # A Ø6 cutter over Y -8..8 keeps its edge 4 mm inside both jaw faces: no bite point.
+    op["stock_removal_bounds"] = {"x": [-50, 50], "y": [-8, 8], "z": [0, 4]}
+    assert "10" not in evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]
+    # Over Y -8..10 its edge comes within 2 mm of the +Y jaw face: still boxed.
+    op["stock_removal_bounds"]["y"] = [-8, 10]
+    assert evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(7.4)
+
+
+def test_a_printed_cutter_path_sets_the_jaw_sweep_not_its_box_widened_by_the_radius():
+    # Jaws grip the kernel's setup-entry stock faces at Y -20 / +20; the op's box widened by
+    # the Ø6 radius reaches Y 22, but the cutter runs only its printed outline.
+    data = bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"]["jaws_along"] = "x"
+    data.inventory["tools"]["cutter"]["dia_mm"] = 6
+    data.kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": [-50, -20, -12, 50, 20, 4]}}}
+    axes = {"x": [1.0, 0.0, 0.0], "y": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0]}
+    frame = {"origin": [0.0, 0.0, 0.0], **axes, "binding": "measured"}
+    slab = {"kind": "plane", "frame": "model", "bounds": {"x": [0, 20], "y": [0, 10], "z": [0, 1]}}
+    data.features = {"units": "mm", "frames": {"A": frame, "model": frame}}
+    data.features["features"] = {"target": slab}
+    data.feature_definitions = data.features["features"]
+    op = setup["ops"][0]
+    op.update(do="finish_profile", feature="target", contour={"method": "linear_table"})
+    op["stock_removal_bounds"] = {"x": [-10, 30], "y": [-8, 19], "z": [0, 4]}
+    # The outline's cutter centres run Y -3..13: its edge stays 4 mm inside the +Y jaw face.
+    assert "10" not in evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]
+    # An outline whose centres reach Y 15 brings the edge within 2 mm of it: still boxed.
+    slab["bounds"]["y"] = [0, 12]
+    assert evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(7.4)
+
+
 def test_coordinate_translation_does_not_change_spindle_stack():
     data = bundle()
     state = data.plan["setups"][0]["stock_state"]
