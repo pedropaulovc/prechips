@@ -13,8 +13,8 @@ quantity_cite = "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:6"
 
 [drawing]
 number = "MHA-123"
-revision = "unknown"             # v39 bundle has no drawing sheet for this part; no certified revision to pair
-cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:2", "harmonic-analyzer/cad/scripts/_drawing_registry.py (no pivot_bracket DrawingSpec)"]
+revision = "example-v39"          # local illustrative contract on v39 STEP, not a certified drawing revision
+cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:2", "harmonic-analyzer/cad/scripts/_drawing_registry.py (no pivot_bracket DrawingSpec)", "example (plausible, no dimensioned drawing): hand-authored contract on v39 STEP"]
 
 [paths]
 inventory = "../inventory/pedro-shop.toml"
@@ -201,7 +201,7 @@ stop = "finished free end at B Y = -21.2 against end stop" # author's choice
 clamp = "hand plus quarter turn" # author's choice
 parallels_along = "y"
 parallels_centres_mm = [[-6.25, -9.1], [6.25, -9.1]]
-note = "Seat down on a single pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the x = 0 drilling line clear. No 1-2-3 blocks: a 2 in block would overlap the jaws closed on this 16 mm foot. Stack 41.275 mm, jaw overlap 3.6703 mm and foot top 2.3297 mm above jaws. Take shallow axial passes through the open free run; relief rough/finish advances only that run to 0.3/0, never the retained ear top."
+note = "Seat down on a single pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the x = 0 drilling line clear. No 1-2-3 blocks: a 2 in block would overlap the jaws closed on this 16 mm foot. Stack 41.275 mm, jaw overlap 3.6703 mm and foot top 2.3297 mm above jaws. Take shallow axial passes through the open free run; relief rough/finish advances that run to 0.3/0.1, then the floor spring pass to 0 clears the raw XY overhang rails. Separate left/right side strips retain a straight rectangular crown for S3, never an arch sculpted from above. The 31.75 mm flute end mill reaches the 26.2 mm inner wall."
 
 [setups.zero.transfer]
 from = "S1"
@@ -232,68 +232,108 @@ check_jog_mm = 10.0              # author's choice
 face = "top"
 method = "paper"
 paper_mm = 0.05                  # author's choice
-tool = "endmills-lms-6784/3-8in-4fl" # author's choice
+tool = "bracket-long-endmill"     # 31.75 mm flutes reach the 26.2 mm inner wall
 check_jog_mm = 10.0              # author's choice
-retouch_after = [30]             # author's choice: same end mill for 10–50; later tools touch finished foot top
+retouch_after = [30]             # author's choice: same end mill for 10–55; later tools touch finished foot top
 
 [[setups.ops]]
 op = 10
 do = "rough_pocket"
 feature = "ear_relief"
-tool = "endmills-lms-6784/3-8in-4fl"
+faces = ["#96/ADVANCED_FACE[7]/NONE", "#28/ADVANCED_FACE[3]/NONE"] # retained ear wall and foot-top floor
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.3                       # author's choice: finished foot Z = 0 plus floor allowance
 direction = "conventional"       # author's choice
 rough_allowance_mm = 0.3         # author's choice: stock on floor and retained ear wall
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, 9.0], y = [6.0, 33.2], z = [3.0, 22.2] }, open_side = "-y" } # author's existing raw blank placement and open free-run sweep, explicit rather than inferred from stock size
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 27.2] } # TB: clear the whole open run, including raw overhang
 
 [[setups.ops]]
 op = 20
 do = "finish_pocket"
 feature = "ear_relief"
-tool = "endmills-lms-6784/3-8in-4fl"
+faces = ["#96/ADVANCED_FACE[7]/NONE", "#28/ADVANCED_FACE[3]/NONE"]
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-to_z = 0.0
+to_z = 0.1                       # leave a floor spring pass for op 30
 direction = "conventional"       # author's choice
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, 9.0], y = [6.0, 33.2], z = [3.0, 22.2] }, open_side = "-y" } # same raw blank sweep; retained ear wall at setup Y -3
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 27.2] }
 
 [[setups.ops]]
 op = 30
 do = "face"
 feature = "foot_top"
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.0
 direction = "conventional"       # author's choice
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 0.3] } # floor spring pass clears the full XY footprint, not only the finished face
 
 [setups.ops.checks]
 height = "calipers"
 
 [[setups.ops]]
 op = 40
-do = "rough_profile"
+do = "rough_pocket"
 feature = "ear_sides"
-tool = "endmills-lms-6784/3-8in-4fl"
+faces = ["#41/ADVANCED_FACE[4]/NONE"] # left ear wall only
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.3                       # author's choice: finished foot Z = 0 plus floor allowance
 direction = "conventional"       # author's choice
 rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
-contour = { method = "linear_table", step_mm = 1.0 } # author's choice
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, -7.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "-x" } # outside-in left-strip rasters, not a closed ear outline
+stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.0, 4.0], z = [0.0, 27.2] } # left strip only; retain the rectangular crown
+note = "Left side only, model X = -7; clear only the narrow TB X = -9..-7 strip. Preserve the straight rectangular crown for S3; do not repeat the right-side feature coordinates in this cut."
+
+[[setups.ops]]
+op = 45
+do = "rough_pocket"
+feature = "ear_sides"
+faces = ["#451/ADVANCED_FACE[14]/NONE"] # right ear wall only
+tool = "bracket-long-endmill"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 5.0                # author's choice: rapid plane above the current stock top
+to_z = 0.3                       # finished foot Z = 0 plus floor allowance
+direction = "conventional"
+rough_allowance_mm = 0.3         # radial ear-side stock
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [7.0, 9.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "+x" } # outside-in right-strip rasters
+stock_removal_bounds = { x = [7.0, 9.0], y = [-3.0, 4.0], z = [0.0, 27.2] } # right strip only; no full-X crown clearance
+note = "Right side only, model X = +7; clear only the narrow TB X = 7..9 strip. Preserve the straight rectangular crown for S3; do not repeat the left-side feature coordinates in this cut."
 
 [[setups.ops]]
 op = 50
-do = "finish_profile"
+do = "finish_pocket"
 feature = "ear_sides"
-tool = "endmills-lms-6784/3-8in-4fl"
+faces = ["#41/ADVANCED_FACE[4]/NONE"]
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.0                       # down to the foot top
 direction = "conventional"       # author's choice
-contour = { method = "linear_table", step_mm = 1.0 } # author's choice
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, -7.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "-x" } # finish only the open left strip
+stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.0, 4.0], z = [0.0, 27.2] }
+note = "Finish left side only, model X = -7; clear only the narrow TB X = -9..-7 strip down to the foot top. Preserve the straight rectangular crown for S3; do not repeat the right-side feature coordinates in this cut."
+
+[[setups.ops]]
+op = 55
+do = "finish_pocket"
+feature = "ear_sides"
+faces = ["#451/ADVANCED_FACE[14]/NONE"]
+tool = "bracket-long-endmill"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 5.0                # author's choice: rapid plane above the current stock top
+to_z = 0.0                       # down to the foot top
+direction = "conventional"
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [7.0, 9.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "+x" } # finish only the open right strip
+stock_removal_bounds = { x = [7.0, 9.0], y = [-3.0, 4.0], z = [0.0, 27.2] }
+note = "Finish right side only, model X = +7; clear only the narrow TB X = 7..9 strip down to the foot top. Preserve the straight rectangular crown for S3; do not repeat the left-side feature coordinates in this cut. Check ear width after both sides are finished."
 
 [setups.ops.checks]
 width = "calipers"
@@ -441,6 +481,7 @@ to_z = -5.7                      # author's choice: ear inner face -6 plus floor
 direction = "conventional"       # author's choice
 rough_allowance_mm = 0.3         # author's choice: radial crown stock
 contour = { method = "arc_table", step_deg = 10.0 } # author's choice: upper semicircle
+stock_removal_bounds = { x = [-7.0, 7.0], y = [-33.2, -25.2], z = [-6.0, 1.0] } # TC: remove crown stock from the rectangular ear retained in S2
 
 [[setups.ops]]
 op = 20
@@ -452,6 +493,7 @@ approach_mm = 5.0                # author's choice
 to_z = -6.0                      # ear inner face
 direction = "conventional"       # author's choice
 contour = { method = "arc_table", step_deg = 10.0 } # author's choice
+stock_removal_bounds = { x = [-7.0, 7.0], y = [-33.2, -25.2], z = [-6.0, 1.0] }
 
 [setups.ops.checks]
 radius = "radius-gauge"

@@ -835,3 +835,17 @@ range_mm = [6.49, 6.54]
 sizes_mm = [6.5, 6.53]
 resolution_mm = 0.005
 note = 'Illustrative paired metric bore-limit pins: 6.500 mm go and 6.530 mm no-go, with 0.005 mm comparison capability. Provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bench micrometer against a gauge block stack" }. Not the shared inch-increment pin set.'
+
+# --- pivot-bracket additions ---
+[tools.bracket-long-endmill]
+kind = "endmill"
+material = "HSS"
+shank_in = "3/8"
+flutes = 4
+dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
+flute_len_mm = { value = 31.75, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+note = 'Illustrative long-flute 3/8 in HSS four-flute end mill for the S2 26.2 mm inner wall; the existing cutter has only 22.2 mm flutes and does not reach it. Shank provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" }; shank_in is the plain fractional identity required by the inventory schema, not a LengthMeasurement field. Paired illustrative installation: 37.0 mm projection exposes 31.75 mm flutes plus 5.25 mm shank, with 26.5 mm insertion from the 63.5 mm OAL, exceeding the nominal 25 mm collet grip; projection/diameter = 3.884, below 4.'
+
+[tools.bracket-long-endmill.projection_mm]
+"r8-collets-lms-4860/3-8in" = { value = 37.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }

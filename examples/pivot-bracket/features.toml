@@ -25,8 +25,8 @@ precision = "example (plausible): no v39 drawing sheet for this part"
 
 [drawing]
 number = "MHA-123"
-revision = "v39"
-cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:2", "harmonic-analyzer-v39/png/pivot-bracket/pivot-bracket_isometric.png"]
+revision = "example-v39"          # local illustrative requirement contract, not a certified drawing
+cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:2", "harmonic-analyzer-v39/png/pivot-bracket/pivot-bracket_isometric.png", "example (plausible, no dimensioned drawing): hand-authored contract on v39 STEP"]
 
 [material]
 spec = "Plain Carbon Steel"
