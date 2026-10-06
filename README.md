@@ -67,9 +67,10 @@ Current expected consumer CLI exits are **shaft 4 / rocker 2 / bracket 2 / cone
 built-up 2**. Existing inspection choices follow the exported
 feature owners without inventing methods or changing gauges. The shaft keeps
 required unknowns. Missing tooling, holding and inspection capability keep
-their stops. The cone example carries explicitly labelled construction and
-signed-station divergences from the upstream export; these are not claims
-that the original drawing or export was corrected.
+their stops. The cone example carries explicitly labelled construction,
+signed-station, step-corner and copied length/height-band divergences from the
+upstream export; these are not claims that the original drawing or export was
+corrected.
 Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
 spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
 Only the consumer side of M3 is done; the HA follow-ups and the combined gate

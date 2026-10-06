@@ -30,6 +30,9 @@ unchanged: anything still `unknown` keeps its finding unknown.
 | `cone-pivot-post/features.toml` | `features.mount_west.station_nominal` | `-12.98` → `12.98` | sign bug, [HA #1214](https://github.com/pedropaulovc/harmonic-analyzer/issues/1214) |
 | `cone-pivot-post/features.toml` | `features.journal_bore.requirements` | `[..., "unknown"]` → `["dia", "thru", "finish_ra", "height"]` | the export's `"unknown"` entry is the RIMS BREAK 0.1 MAX callout (`cone_gear_shaft_spec.py:113`, `draw_cone_pivot_post.py:264`); the plan carries it as `deburr_mm = 0.1` on the journal setups |
 | `cone-pivot-post/features.toml` | `features.crank_bore.angle_tol_deg` | absent → `0.0795` | HA's derived limit `CRANK_BORE_ANGLE_LIMIT_DEG = atan(0.10 / 72.0344)` (`cone_pivot_post_spec.py:373-375`) for the BASIC 12.5182° angle; not an independent ± band, and the validator pins it to the FCF arithmetic |
+| `cone-pivot-post/features.toml` | `features.body.corner_radius_max_design` | absent → `0.25` | the CAD body/head step corner is sharp and the cone spec states no step-corner limit; the example applies the title-block `R0.25 MAX` edge break HA uses for step corners elsewhere (`pivot_shaft_spec.py:73`, `crankshaft_spec.py:110`), so the bonded route's turned shoulder has a limit to check ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
+| `cone-pivot-post/features.toml` | `features.cone_boss_south_face.length`, `length_nominal`, `precision.length` | absent → `[41.5, 42.52]`, `42.011`, `2` | the export attaches the 42.011 cap-to-cap length band only to the north cap; the example copies the same band onto the south cap that terminates it, without adding a requirement ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
+| `cone-pivot-post/features.toml` | `features.foot_seat.height`, `height_nominal`, `precision.height` | absent → `[85.2, 86.8]`, `86.0`, `1` | the export attaches the 86.0 foot-to-top band only to `body`; the example copies the same band onto datum face B that terminates it, without adding a requirement ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
 | `rocker-arm/features.toml` | `material.thickness` | `"unknown"` → `2.5` | drawing manufacturing note 2 states `STRAP 2.50 THICK`; this is the nominal strap, not the integral hub length or supplied blank thickness |
@@ -218,37 +221,49 @@ the sheet. No operative asset lies outside the bundle.
 
 `cone-pivot-post/built-up.toml` is an authored manufacturing alternative, not a
 second consumer export. It uses the same v40 cone STEP and the example-only
-construction permission above. Its twelve stages keep an integral body and
-inclined pads in one 50.8 mm square by 123 mm blank, and turn the separate crank
-sleeve from 25 mm diameter by 110 mm bar. These are illustrative purchase and
+construction permission above. Its eleven setups turn the body and head in one
+piece from 44.45 mm (1-3/4 in) 1018 round bar, turn the cone sleeve
+(Ø17.2 × 42.011) from 19.05 mm bar and the crank sleeve (Ø21.93 × 72.0344) from
+25 mm bar, and bond both sleeves into reamed cross-sockets with retaining
+compound. No saddle, pad or boss is milled. These are illustrative purchase and
 process choices, not stock-on-hand or first-article evidence.
-The sleeve chucking grips 25 mm of the sacrificial end, leaving 85 mm exposed:
-below the 87.72 mm four-diameter limit at the finished 21.930 mm OD. The blade
-and turning tools clear the modeled chuck in the native geometry probe; the
-finished parting plane is 6.9656 mm ahead of the jaw fronts.
 
-The pre-join socket and spigot are plan-owned joint features, not invented STEP
-faces: the 22.000–22.020 mm socket and 21.924–21.936 mm spigot give
-0.064–0.096 mm diametral clearance for the explicitly authored BAg-7 capillary
-silver-braze process. Join only the finished body and separately turned sleeve
-branches, support the sleeve with the modeled ceramic height button, then cool,
-clean and re-indicate datum A/foot B before cutting the final crank bore. This
-example process is not a structural-joint certification.
+| Setup | Machine / holding | Work |
+|---|---|---|
+| S1 | lathe, 3-jaw on the raw tail | face foot B; rough and finish head Ø42.7506 and body Ø42.011; r0.1 parting-blade corner pass leaves the body/head step at R0.25 max |
+| S2 | lathe, 3-jaw on a 25 mm grip | cone sleeve: face the north cap, turn the Ø17.194–17.206 spigot, spring pass, part off |
+| S3 | lathe, 3-jaw on a 25 mm grip | crank sleeve: face, turn the Ø21.924–21.936 spigot, spring pass, part off |
+| S4 | mill, BS-0 dividing head, 4-jaw on the tail | spot, drill and ream the Ø22.000–22.020 crank socket through the head |
+| S5 | same chucking, indexed 12.5182° | spot, drill and ream the Ø17.250–17.270 cone socket through the body |
+| S6 | bench, modeled `cone-bond-cradle` | bond the cone sleeve; 24 h cure |
+| S7 | bench, same cradle | bond the crank sleeve; 24 h cure |
+| S8 | mill, BS-0 | spot, drill and ream crank bore Ø11.413–11.443 through the bonded sleeve |
+| S9 | same chucking, indexed 12.5182° | spot, drill and ream journal bore A through the bonded cone sleeve |
+| S10 | 4 × 6 bandsaw, saw vise on the tail | saw the tail off 1 mm above the head top |
+| S11 | mill, PM 6 in vise on parallels | face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes |
 
-Body rotary milling uses the 3/8 in cutter in the foot and shoulder bands
-(model Y0–19 and Y48–59.4), and a 3/16 in square-end carbide cutter in the
-pad-wall window Y19–48. Its 19.05 mm flute and projection are labelled plausible
-inventory facts; native geometry calculations rejected the shorter 1/8 in
-candidate because its holder entered retained material. The separate `S6cut`
-bandsaw stage cuts at blade centre Y87.75: the 1.5 mm kerf retains Y≤87,
-leaving 1 mm for `S6` to finish-face to Y86 instead of milling away the entire
-34 mm sacrificial tail. Every declared holding item remains part of the setup
-scene, including the saw vise and refractory braze cradle.
+The sleeve chuckings grip 25 mm of sacrificial bar. The crank sleeve leaves
+85 mm exposed, below the 87.72 mm four-diameter limit at its finished 21.930 mm
+OD, and parts off 6.9656 mm ahead of the jaw fronts; the cone sleeve leaves
+50 mm exposed and parts off 6.989 mm ahead of them.
 
-The socket bore gauge retains its fact-local illustrative measurement label;
-its 0.001 mm resolution is not flattened into an unlabeled number to bypass
-the inventory schema. Final crank angularity and separation use the declared
-outsourced CMM method, not a caliper or a dividing-head angle as certification.
+The pre-bond sockets and spigots are plan-owned joint features, not invented
+STEP faces. The cone joint gives 0.044–0.076 mm diametral clearance inside its
+declared 0.04–0.08 mm band, and the crank joint 0.064–0.096 mm inside 0.06–0.10 mm.
+Each joint declares `method = "retaining_compound"`, an example Loctite 638-class
+anaerobic compound, solvent surface preparation and a 1440 min room-temperature
+cure. The sleeves seat on the cradle's locating pins under gravity, with no
+clamping force on a curing joint. Both running bores are reamed only after cure,
+from datum A/foot B re-indicated on the dividing head. The compound, band and
+cure are illustrative process choices, not a product datasheet claim or a
+structural-joint certification.
+
+Every declared holding item remains part of its setup scene, including the
+bonding cradle and the saw vise. The socket bore gauge keeps its fact-local
+illustrative measurement label; its 0.001 mm resolution is not flattened into
+an unlabeled number to get past the inventory schema. Final crank angularity and
+separation use the declared outsourced CMM method, not a caliper or a
+dividing-head angle as certification.
 Generated built-up artifacts live in `cone-pivot-post/expected/built-up/`.
 Generated findings and scene debts, not the authorship of this section,
 determine readiness.
@@ -410,12 +425,10 @@ The consumer's generic nominal-within-band check reports `mount_west:station`
 as an `error`. This is an HA export follow-up.
 Prechips does not flip the sign or drop the field.
 
-The restored milling frames also expose genuine far-side face claims on
-built-up S2:50. These remain errors and need an authored
-route/claim correction, not an HA sign fix. By contrast, the engine's −Z-only
-approach model does not cover radial lathe cuts: their directional geometry
-and dependent finish coverage are `unsupported`, not false failures or passes.
-The radial lathe approach model is a separate prechips follow-up in PLAN §8 M3.
+The far-side cone-boss claim errors on the retired milled-pad route's S2:50
+belonged to that route. The bonded route turns both sleeves on the lathe with
+the radial turning approach (PLAN §8 M3 integration status) and mills no
+cone-boss faces.
 
 These gaps and the missing HA `check:traveler_pivot_shaft` /
 `check:traveler_cone_pivot_post` tasks are listed as open HA items in PLAN §8 M3.
@@ -511,12 +524,12 @@ verbatim export above; the authored stock/route choices below remain distinct.
   `cone_gear_shaft_spec.py:79–97,111–113`: **RIMS BREAK 0.1 MAX**, not the
   title block's otherwise applicable 0.25 edge break.
 
-The built-up candidate declares two **AUTHOR'S CHOICE** leaf blanks:
-46×50×92 rectangular body and Ø25×100 boss. Its lathe declared stick-out is
-80/25; a preliminary foot setup adds the fifth setup. The proposed pressed
-joint's interface, interference, engagement, press/arbor and strength are
-unknown, and no drawing note authorizes it. Current waste is unknown without
-an exported finished volume. Neither blank is on hand (`inventory stock=[]`).
+The historical M1 built-up candidate declared two **AUTHOR'S CHOICE** leaf
+blanks: a 46×50×92 rectangular body and a Ø25×100 boss, joined by a proposed
+pressed fit whose interface, interference, engagement, press/arbor and strength
+were unknown. The current bonded-sleeve route and its three leaf blanks are
+described under "Built-up cone route provenance". No blank is on hand
+(`inventory stock=[]`).
 
 The BS-0 lives under inventory **machines**, with worm 40, direct 24×15° and all
 18 listed worm circles (`inventory/pedro-shop.toml:88–117`). The independent

@@ -115,10 +115,9 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     assert len(set(expected)) == len(expected)
 
 
-@pytest.mark.parametrize("plan", ["plan.toml", "built-up.toml"])
-def test_machine_backed_workholding_prints_without_missing_label(tmp_path, plan):
+def test_machine_backed_workholding_prints_without_missing_label(tmp_path):
     bundle = copy_examples(tmp_path) / "cone-pivot-post"
-    _, _, html = traveler(bundle / plan, tmp_path / "out")
+    _, _, html = traveler(bundle / "built-up.toml", tmp_path / "out")
     route = text(sections(html, "STOCK AND ROUTE")[0])
     assert "BS-0" in route
     assert "BS-0 (not in shop list)" not in route

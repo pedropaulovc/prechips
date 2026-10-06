@@ -1309,6 +1309,24 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "BASIC angle lost four places",
     )
     require(geometry["crank_bore"]["dimension_type"] == "basic", "cone angle lost BASIC identity")
+    # Example divergences (examples/README.md, HA #1215): the R0.25 title-block break on the
+    # CAD-sharp body/head step corner, and the cap-to-cap / foot-to-top bands copied onto the
+    # second face that terminates each dimension. Each copy must equal its exported source band
+    # and must not turn into a new drawing requirement on that face.
+    near(geometry["body"]["corner_radius_max_design"], 0.25, "cone body step-corner divergence")
+    for copy, field, source, band in (
+        ("cone_boss_south_face", "length", "cone_boss_north_face", [41.5, 42.52]),
+        ("foot_seat", "height", "body", [85.2, 86.8]),
+    ):
+        require(
+            geometry[copy][field] == geometry[source][field] == band
+            and geometry[copy][f"{field}_nominal"] == geometry[source][f"{field}_nominal"],
+            f"cone {copy}.{field} divergence no longer equals the exported {source} band",
+        )
+        require(
+            field not in geometry[copy]["requirements"],
+            f"cone {copy}.{field} divergence became a drawing requirement",
+        )
     # Example divergence (examples/README.md): the BASIC angle may carry only the angular
     # limit HA derives from the 0.10 diametral FCF over the 72.0344 crank bore
     # (cone_pivot_post_spec.py:373-375), never an independent +/- band.
@@ -1353,7 +1371,10 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         all("AUTHOR'S CHOICE" in p["cite"] for p in pieces),
         "blank dimensions lack author provenance",
     )
-    require(len(pieces) == 2, "built-up candidate must declare its two real leaf blanks")
+    require(
+        [p.get("id") for p in pieces] == ["body", "cone", "crank"],
+        "built-up candidate must declare its three real leaf blanks: body, cone and crank sleeves",
+    )
     require(plan["stock"]["form"] == "built_up", "built-up blank form lost candidate identity")
 
 

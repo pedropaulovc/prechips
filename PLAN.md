@@ -1108,13 +1108,12 @@ sheet.
    fragmentation is checked per input piece. These are necessary-condition
    screens, not physical setup or toolpath certification; unresolved inputs
    remain unknown. The dated gate evidence below predates this integration.
-   Restored cone milling frames also expose a real directional claim error:
-   built-up S2:50
-   (`cone_boss`) claims an entire cylindrical face set including faces pointing
-   away from the milling approach. These remain directional-claim `error`
-   findings. Resolving the authored milling route/face claims is
-   a separate prechips planning follow-up; fixing HA's station sign alone
-   does not clear these machining stops.
+   The far-side `cone_boss` claim error on the retired milled-pad route's
+   S2:50 is gone with that route: the built-up cone is now a turned body and
+   head with a cone sleeve and a crank sleeve, both turned on the lathe and
+   bonded with retaining compound (`examples/README.md`, "Built-up cone route
+   provenance"), so no cone-boss face is milled. Fixing HA's station sign alone
+   never cleared a machining stop.
 
    **Post-review consumer gate, observed 2026-10-03:** on implementation
    `68aef8f`, `uv run ruff check . && uv run ruff format --check . &&
@@ -1233,8 +1232,8 @@ sheet.
    identities and invalid ancestry are bad input. Exactly two physical component
    lineages are supported; nested joins to a third component remain refused.
    Transient taps/counterbores are named debt, not cylindrical substitutes.
-   The built-up cone's engine-branch migration deliberately keeps unresolved
-   numeric preparation/fit facts; the complete authored example route is separate.
+   The built-up cone example is the bonded-sleeve route: three leaf blanks
+   (body, cone sleeve, crank sleeve) and two retaining-compound cylindrical joints.
    Manual-only bench setups have no zero/DRO/headroom screen, and routed mill
    headroom uses the actual setup-entry stock bbox rather than the raw blank.
    **Scoped joint proof, 2026-10-06:** **449** affected host/native behavior
