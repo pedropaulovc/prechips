@@ -123,9 +123,23 @@ outside that span cannot control D; even an unknown diameter can be excluded
 when its transformed stations prove it hidden. Unknown diameter in an exposed
 segment, unknown location/transform, inconsistent overlapping geometry, or a
 gap anywhere in the exposed span leaves D and the unsupported limit `unknown`.
-Exposed stock beyond every finished feature (a supply end or stub not yet cut
-off) is reported as `uncovered_z_mm`: its diameter is the in-process stock's,
-which this rule does not model.
+Exposed stock beyond every finished feature (a raw collar between the jaw mouth
+and the first finished feature, a supply end or a stub not yet cut off) takes
+its diameter from the kernel's `setups.<id>.stock_profile`: rows
+`[z_lo, z_hi, r_lo, r_hi]` in setup-frame mm. The kernel sections the entering
+stock and the stock after every op that removes material; wherever any of these
+states has material, `r_lo` is the least of their lower bounds on the outer
+radius over the band. A stub turned and then faced off therefore counts at its
+turned diameter, an end sawn off at its diameter before the cut. An op is one
+step: a parting groove part-way through its own cut is not a state. The kernel
+emits the profile only when every state's sections at six meridians agree (a
+solid of revolution about setup Z), else `stock_profile_reason`. Each such span
+must be covered end to end; its pieces join the exposed segments with
+`source = "kernel_stock"` (`stock_segments`) and can set D
+(`diameter_features` names `kernel stock`). A span the profile does not cover,
+or any span without a kernel run, stays in `uncovered_z_mm` with
+`stock_reason`, and D stays `unknown`: the stock state's `od_mm` cannot show
+that no op reduced that span. `turned_profile` ignores stock segments.
 There is no held-bar fallback for missing finished geometry. With an authored,
 verified ratio of 4, Ø20 held with Ø6 finished over a 40 mm overhang therefore
 has a 24 mm limit and is an `error` without the support exception.
