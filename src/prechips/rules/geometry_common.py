@@ -546,6 +546,7 @@ def setup_contexts(bundle, rule):
         inputs = holds[subject]
         detail = record(record(facts.get("setups")).get(subject))
         blocked = unavailable(bundle, rule, subject, facts, cite)
+        unloaded = rule == "thin_wall_under_clamp" and unclamped_noncutting(setup, inputs)
         if blocked is None:
             if detail.get("assembly_error"):
                 blocked = Finding(
@@ -570,6 +571,7 @@ def setup_contexts(bundle, rule):
                         inputs["kind"] in CHUCK_KINDS
                         or (inputs["kind"] == "dividing_head" and head_chuck(setup))
                         or strap_clamped(inputs)
+                        or unloaded
                     )
                 )
             ):
@@ -602,12 +604,37 @@ def setup_contexts(bundle, rule):
                 )
             elif inputs.get("reason"):
                 blocked = Finding(rule, subject, "unknown", {}, cite, inputs["reason"])
+            elif unloaded and detail:
+                blocked = Finding(
+                    rule,
+                    subject,
+                    "not_applicable",
+                    {},
+                    cite,
+                    f"{subject}: every operation is non-cutting and the {inputs['kind']} hold "
+                    "declares no clamp, so no wall is under clamping load.",
+                )
         yield setup, facts, detail, inputs, cite, blocked
 
 
 def strap_clamped(inputs):
     """A posed-solids hold that declares clamps (drawn or with named clamp debts)."""
     return "solids" in inputs and bool(inputs.get("clamps") or inputs.get("clamp_debts"))
+
+
+def unclamped_noncutting(setup, inputs):
+    """Explicitly clamp-free posed support under known non-cutting actions."""
+    hold = record(setup.get("hold"))
+    return (
+        "solids" in inputs
+        and inputs["kind"] not in CHUCK_KINDS
+        and inputs["kind"] not in ("vise", "dividing_head")
+        and not strap_clamped(inputs)
+        and hold.get("clamp") in ("none", "not_applicable")
+        and hold.get("clamps", []) == []
+        and bool(setup["ops"])
+        and all(cutting_action(op) is False for op in setup["ops"])
+    )
 
 
 def head_chuck(setup):

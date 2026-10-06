@@ -39,29 +39,6 @@ axis = [0.0, 0.0, 1.0]
 note = "AUTHOR'S CHOICE: 25 mm diameter by 110 mm round boss stock, 6 mm north facing allowance and 25 mm sacrificial south grip. The finished parting plane is 6.9656 mm ahead of the jaw fronts; coordinates describe final assembly placement, not a physical union before fit-up."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
 
-# AUTHOR'S CHOICE: identify the proposed joint without inventing a detail or cut.
-# Numeric debt intentionally prevents preparation geometry and assembly union.
-[joint_features.crank_socket]
-kind = "cylinder_bore"
-component = "body"
-at = "unknown"
-axis = "unknown"
-dia = "unknown"
-nominal_dia = "unknown"
-depth = "unknown"
-thru = false # AUTHOR'S CHOICE: proposed finite blind socket, not an approved detail
-cite = ["AUTHOR'S CHOICE: proposed pressed-boss socket; dimensions and preparation unresolved", "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7"]
-[joint_features.crank_spigot]
-kind = "cylinder_spigot"
-component = "boss"
-at = "unknown"
-axis = "unknown"
-dia = "unknown"
-nominal_dia = "unknown"
-depth = "unknown"
-thru = false # AUTHOR'S CHOICE: finite male engagement, no through feature claimed
-cite = ["AUTHOR'S CHOICE: proposed pressed-boss spigot; dimensions and preparation unresolved", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
-
 [dro]
 controller = "Electronica EL400"
 manual = "Electronica EL400 Operation Manual"
