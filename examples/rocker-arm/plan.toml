@@ -633,7 +633,7 @@ check_jog_mm = 10.0
 [setups.zero.z]
 face = "strap_datum_b"
 edge_mm = -2.27825 # source-backed upper strap station in frame A; the washer covers the hub touch face
-note = "Paper-touch a clear upper strap patch at X40, away from the hub washer and fixture hardware."
+# Paper-touch a clear upper strap patch at X40, away from the hub washer and fixture hardware.
 method = "paper"
 paper_mm = 0.05
 tool = "endmills-lms-6784/3-8in-4fl"
