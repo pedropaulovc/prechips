@@ -118,7 +118,7 @@ PLAN §8 M3.
 | Part | What it demonstrates | Current exit |
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
-| `rocker-arm` | Four setups: retained rail frame, supported upper-hub/ream stage, then shoulder-screw/diamond-stop profiling with independently held scrap. | **2**: engine-owned accessibility poses and authored stock-clearing guards block downstream stock/rendering; fixture and tool gaps are removed. |
+| `rocker-arm` | Four setups: retained rail frame, supported upper-hub/ream stage, then shoulder-screw/diamond-stop profiling with independently held scrap. | **2 (legacy proof)**: artifacts from `940cb9d` are stale after the `675e208` engine merge; the reported native OCC distance failure remains owned by StockRoutes. No current readiness claim. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. Missing drawing contract stays explicit. | **2**: absent angle plate, R8 chuck and 6.5 mm reamer. |
 | `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
@@ -128,6 +128,14 @@ PLAN §8 M3.
 The illustrative rocker plan binds the exported `v40` drawing revision and
 uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
 a clean checker exit is released-plan approval or a measured first article.
+
+The rocker artifacts currently preserve the actual output from `940cb9d`,
+before integration `675e208`, as a **stale legacy baseline**, not fresh
+verification of the current engine. The integrator reports a native OCC
+distance failure involving `piece.distToShape(face)`; StockRoutes owns its
+narrow fix. The final artifact refresh and exit-0/all-scene proof require
+stable engine output. The physical plan and illustrative fixture facts below
+remain unchanged.
 
 The four holding states are explicit, rather than pretending a clamp can move
 halfway through a fixed setup:
