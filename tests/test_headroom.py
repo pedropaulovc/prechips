@@ -439,7 +439,8 @@ def coordinate_bundle(tmp_path, feature, operations):
         encoding="utf-8",
     )
     (root / "inventory.toml").write_text(
-        "[machines.mill]\nkind = 'mill'\nverify = false\n[machines.mill.spindle]\nrotation = 'cw'\n"
+        "[machines.mill]\nkind = 'mill'\nverify = false\ncontouring = 'mdi'\n"
+        "[machines.mill.spindle]\nrotation = 'cw'\n"
         "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nverify = false\n"
         "[tools.spot]\nkind = 'center_drill'\ndia_mm = 6.0\npoint_angle = 90.0\n"
         "verify = false\n"

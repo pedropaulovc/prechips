@@ -1,10 +1,68 @@
-"""Every manifest tolerance needs its own real, capable inspection method."""
+"""Every manifest tolerance needs its own real, capable inspection method.
+
+An op's ``process_holds`` are shop limits tighter than the drawing, held for a stated
+process reason (a downstream fit, a clocking stop). Each band must lie inside its drawing
+requirement's band, limits included; one reaching outside would pass parts the drawing
+rejects. A scalar geometric zone ``v`` reads as the band [0, v].
+"""
 
 from ..findings import Finding
 from ..joint_features import source_cite
 from ..measurements import length_fact
 from ..model import tolerance_requirements
-from .resolution import length_mm, number, operations, record, resolve, uncertain
+from .resolution import UNKNOWN, length_mm, number, operations, record, resolve, uncertain
+
+PROCESS_HOLD_CITE = ["PLAN.md §4.1 inspection", "plan process_holds", "features requirement band"]
+
+
+def _drawing_band(value):
+    if number(value):
+        return [0, value]
+    if isinstance(value, list) and len(value) == 2 and all(number(v) for v in value):
+        return value
+    return None
+
+
+def process_holds(bundle, setup, op):
+    """One finding per op: each process hold band against its drawing band."""
+    subject = f"{setup['id']}:{op['op']}"
+    rows = []
+    for hold in op["process_holds"]:
+        limits = record(bundle.feature_definitions.get(hold["feature"])).get(
+            hold["requirement"], UNKNOWN
+        )
+        drawing = _drawing_band(limits)
+        low, high = hold["band"]
+        inside = None if drawing is None else drawing[0] <= low and high <= drawing[1]
+        rows.append(
+            {
+                "feature": hold["feature"],
+                "requirement": hold["requirement"],
+                "band": hold["band"],
+                "drawing_band": limits,
+                "gauge": hold["gauge"],
+                "reason": hold["reason"],
+                "inside_drawing_band": UNKNOWN if inside is None else inside,
+            }
+        )
+    outside = [row for row in rows if row["inside_drawing_band"] is False]
+    unresolved = [row for row in rows if row["inside_drawing_band"] == UNKNOWN]
+    label = ", ".join(f"{row['feature']} {row['requirement']}" for row in outside or unresolved)
+    status, message = (
+        ("error", f"process hold band outside the drawing band ({label})")
+        if outside
+        else ("unknown", f"drawing band unresolved for process hold ({label})")
+        if unresolved
+        else ("pass", "every process hold lies inside its drawing band")
+    )
+    return Finding(
+        "inspection",
+        subject,
+        status,
+        {"process_holds": rows},
+        PROCESS_HOLD_CITE,
+        f"{subject}: {message}.",
+    )
 
 
 def _nominal_band_error(feature, requirement):
@@ -284,4 +342,7 @@ def evaluate(bundle):
                     f"{name} {requirement}: {message}.",
                 )
             )
+    for setup, op in operations(bundle):
+        if "process_holds" in op:
+            result.append(process_holds(bundle, setup, op))
     return result

@@ -21,6 +21,10 @@ operation_mode = "manual_with_digital_positioning"
 headstock_tilt_deg = 90
 # The DRO grid the sheet prints and the kernel checks (docs/rules-coordinates.md).
 resolution_mm = { value = 0.005, measured = { by = "example (plausible, not measured)", date = "2026-10-06", instrument = "glass-scale DRO readout, 5 um scales typical of this mill class" } }
+# AUTHOR'S CHOICE (example): the cncjs/grbl-class control above takes typed G1/G2/G3 MDI
+# moves, so arc and diagonal contour rows print one MDI move each (docs/inventory.md).
+# Decision A in the ReviewLoop triage; pending Main's confirmation.
+contouring = "mdi"
 note = "CNC conversion replaces leadscrews/dials; envelope and travel below are illustrative example values (vendor numbers relabelled), not grbl soft limits."
 
 [machines.PM-30MV.envelope]
@@ -182,7 +186,7 @@ flute_len_mm = { value = 22.2, measured = { by = "example (plausible, not measur
 oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 
 [tools.endmills-lms-6784.members."3-8in-4fl".projection_mm]
-"r8-collets-lms-4860/3-8in" = { value = 38.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
+"r8-collets-lms-4860/3-8in" = { value = 38.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip after inserting the tool 0.5 mm deeper, inside 4 x D" } }
 
 # --- cone-pivot-post additions ---
 # 7/16 in two-flute, centre cutting: plunges the cone post's Ø11.51 mounting counterbores.
@@ -677,6 +681,13 @@ shank = "unknown"
 
 [consumables]
 cutting-oil = ["CRC cutting oil", "Tap Magic ProTap"]
+
+# Outside processes the shop sends work to, not shop-owned kit.
+[services.black-oxide-vendor]
+kind = "outside_process"
+coating = "hot black oxide, matte"
+note = "illustrative example outside finisher: hot black oxide, matte, MIL-DTL-13924 class 1, with oil dip; adds about 1 µm or less. Example (plausible, not measured): confirm the vendor before quoting."
+verify = false
 
 [fixtures]
 
@@ -1315,6 +1326,7 @@ height_mm = { value = 25.4, measured = { by = "example (plausible, not measured)
 # before making the plate. The diamond pin is a separate item, permanently fitted in
 # the plate's rod-pin hole and posed at the same pose in both S3 and S4.
 [fixtures.rocker-profile-fixture]
+name = "rocker profile fixture plate"
 kind = "custom"
 note = "illustrative example shop-made fixture: 360 x 145 x 12.7 mm ground plate, twelve strap pads, relieved hub stand, four 3.0 mm rail rests with per-blank shim stacks, shoulder-screw locating bore, rod-pin hole, stud and hold-down holes"
 length_mm = { value = 360.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
@@ -1323,51 +1335,51 @@ height_mm = { value = 22.92175, measured = { by = "example (plausible, not measu
 bed_height_mm = { value = 16.17175, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, table to rail-shim tops at nominal stack (the rail seat)" } }
 solids = [
   { name = "base", shape = "box", at_mm = [-180.0, -70.0, -27.7], size_mm = [360.0, 145.0, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule, ground plate" } },
-  { name = "pad-r1", shape = "box", at_mm = [10.0, -1.45, -15.0], size_mm = [20.0, 3.51, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-l1", shape = "box", at_mm = [-30.0, -1.45, -15.0], size_mm = [20.0, 3.51, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-r2", shape = "box", at_mm = [30.0, -0.47, -15.0], size_mm = [20.0, 3.03, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-l2", shape = "box", at_mm = [-50.0, -0.47, -15.0], size_mm = [20.0, 3.03, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-r3", shape = "box", at_mm = [50.0, 1.01, -15.0], size_mm = [20.0, 2.55, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-l3", shape = "box", at_mm = [-70.0, 1.01, -15.0], size_mm = [20.0, 2.55, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-r4", shape = "box", at_mm = [70.0, 2.98, -15.0], size_mm = [20.0, 2.09, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-l4", shape = "box", at_mm = [-90.0, 2.98, -15.0], size_mm = [20.0, 2.09, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-r5", shape = "box", at_mm = [90.0, 5.45, -15.0], size_mm = [20.0, 1.63, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-l5", shape = "box", at_mm = [-110.0, 5.45, -15.0], size_mm = [20.0, 1.63, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-r6", shape = "box", at_mm = [110.0, 7.17, -15.0], size_mm = [12.0, 2.43, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "pad-l6", shape = "box", at_mm = [-122.0, 7.17, -15.0], size_mm = [12.0, 2.43, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
-  { name = "hub-stand", shape = "cylinder", at_mm = [0.0, 0.0, -15.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.5, length_mm = 7.9435, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD; height gauge, plate top to stand top" } },
+  { name = "pad-r1", locates = "lower strap face", shape = "box", at_mm = [10.0, -1.45, -15.0], size_mm = [20.0, 3.51, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-l1", locates = "lower strap face", shape = "box", at_mm = [-30.0, -1.45, -15.0], size_mm = [20.0, 3.51, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-r2", locates = "lower strap face", shape = "box", at_mm = [30.0, -0.47, -15.0], size_mm = [20.0, 3.03, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-l2", locates = "lower strap face", shape = "box", at_mm = [-50.0, -0.47, -15.0], size_mm = [20.0, 3.03, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-r3", locates = "lower strap face", shape = "box", at_mm = [50.0, 1.01, -15.0], size_mm = [20.0, 2.55, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-l3", locates = "lower strap face", shape = "box", at_mm = [-70.0, 1.01, -15.0], size_mm = [20.0, 2.55, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-r4", locates = "lower strap face", shape = "box", at_mm = [70.0, 2.98, -15.0], size_mm = [20.0, 2.09, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-l4", locates = "lower strap face", shape = "box", at_mm = [-90.0, 2.98, -15.0], size_mm = [20.0, 2.09, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-r5", locates = "lower strap face", shape = "box", at_mm = [90.0, 5.45, -15.0], size_mm = [20.0, 1.63, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-l5", locates = "lower strap face", shape = "box", at_mm = [-110.0, 5.45, -15.0], size_mm = [20.0, 1.63, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-r6", locates = "lower strap face", shape = "box", at_mm = [110.0, 7.17, -15.0], size_mm = [12.0, 2.43, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "pad-l6", locates = "lower strap face", shape = "box", at_mm = [-122.0, 7.17, -15.0], size_mm = [12.0, 2.43, 10.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top" } },
+  { name = "hub-stand", locates = "lower hub face", shape = "cylinder", at_mm = [0.0, 0.0, -15.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.5, length_mm = 7.9435, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD; height gauge, plate top to stand top" } },
   { name = "stand-bore", void = true, cuts = ["hub-stand"], shape = "cylinder", at_mm = [0.0, 0.0, -15.5], axis = [0.0, 0.0, 1.0], dia_mm = 8.0, length_mm = 9.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "inside micrometer, relief bore" } },
   { name = "locating-bore", void = true, cuts = ["base"], shape = "cylinder", at_mm = [0.0, 0.0, -21.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 6.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges, 6.500 go; depth micrometer" } },
-  { name = "pivot-tap", void = true, cuts = ["base"], shape = "cylinder", at_mm = [0.0, 0.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 5.1, length_mm = 7.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M5x0.8 thread plug gauge; drawn at major dia + 0.1" } },
+  { name = "pivot-tap", fastener = "M5x0.8 tapped", void = true, cuts = ["base"], shape = "cylinder", at_mm = [0.0, 0.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 5.1, length_mm = 7.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M5x0.8 thread plug gauge; drawn at major dia + 0.1" } },
   { name = "rod-pin-hole", void = true, cuts = ["base"], shape = "cylinder", at_mm = [133.06740213488345, 8.456064115939025, -21.0], axis = [0.0, 0.0, 1.0], dia_mm = 3.0, length_mm = 6.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "nominal 3.000 H7 fit envelope (design value, not an actual reading); checked with 3.000 go / 3.010 no-go pin gauges; depth micrometer" } },
   { name = "rail-rest-ru", shape = "box", at_mm = [60.0, 32.2, -15.0], size_mm = [20.0, 4.3, 3.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; micrometer, ground rest height" } },
-  { name = "rail-shim-ru", shape = "box", at_mm = [60.0, 32.2, -12.0], size_mm = [20.0, 4.3, 0.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim stack; nominal, re-selected per blank with feeler gauges" } },
+  { name = "rail-shim-ru", shim = true, locates = "raw rail underside", shape = "box", at_mm = [60.0, 32.2, -12.0], size_mm = [20.0, 4.3, 0.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim stack; nominal, re-selected per blank with feeler gauges" } },
   { name = "rail-rest-lu", shape = "box", at_mm = [-80.0, 32.2, -15.0], size_mm = [20.0, 4.3, 3.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; micrometer, ground rest height" } },
-  { name = "rail-shim-lu", shape = "box", at_mm = [-80.0, 32.2, -12.0], size_mm = [20.0, 4.3, 0.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim stack; nominal, re-selected per blank with feeler gauges" } },
+  { name = "rail-shim-lu", shim = true, locates = "raw rail underside", shape = "box", at_mm = [-80.0, 32.2, -12.0], size_mm = [20.0, 4.3, 0.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim stack; nominal, re-selected per blank with feeler gauges" } },
   { name = "rail-rest-rl", shape = "box", at_mm = [60.0, -27.5, -15.0], size_mm = [20.0, 5.0, 3.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; micrometer, ground rest height" } },
-  { name = "rail-shim-rl", shape = "box", at_mm = [60.0, -27.5, -12.0], size_mm = [20.0, 5.0, 0.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim stack; nominal, re-selected per blank with feeler gauges" } },
+  { name = "rail-shim-rl", shim = true, locates = "raw rail underside", shape = "box", at_mm = [60.0, -27.5, -12.0], size_mm = [20.0, 5.0, 0.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim stack; nominal, re-selected per blank with feeler gauges" } },
   { name = "rail-rest-ll", shape = "box", at_mm = [-80.0, -27.5, -15.0], size_mm = [20.0, 5.0, 3.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; micrometer, ground rest height" } },
-  { name = "rail-shim-ll", shape = "box", at_mm = [-80.0, -27.5, -12.0], size_mm = [20.0, 5.0, 0.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim stack; nominal, re-selected per blank with feeler gauges" } },
-  { name = "stud-tap-ru", void = true, cuts = ["base"], shape = "cylinder", at_mm = [70.0, 45.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 13.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
-  { name = "stud-tap-lu", void = true, cuts = ["base"], shape = "cylinder", at_mm = [-70.0, 45.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 13.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
-  { name = "stud-tap-rl", label = "Strap stud holes", void = true, cuts = ["base"], shape = "cylinder", at_mm = [70.0, -36.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 13.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
-  { name = "stud-tap-ll", label = "Strap stud holes", void = true, cuts = ["base"], shape = "cylinder", at_mm = [-70.0, -36.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 13.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
+  { name = "rail-shim-ll", shim = true, locates = "raw rail underside", shape = "box", at_mm = [-80.0, -27.5, -12.0], size_mm = [20.0, 5.0, 0.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim stack; nominal, re-selected per blank with feeler gauges" } },
+  { name = "stud-tap-ru", fastener = "3/8-16 tapped", void = true, cuts = ["base"], shape = "cylinder", at_mm = [70.0, 45.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 13.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
+  { name = "stud-tap-lu", fastener = "3/8-16 tapped", void = true, cuts = ["base"], shape = "cylinder", at_mm = [-70.0, 45.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 13.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
+  { name = "stud-tap-rl", label = "Strap stud holes", fastener = "3/8-16 tapped", void = true, cuts = ["base"], shape = "cylinder", at_mm = [70.0, -36.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 13.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
+  { name = "stud-tap-ll", label = "Strap stud holes", fastener = "3/8-16 tapped", void = true, cuts = ["base"], shape = "cylinder", at_mm = [-70.0, -36.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 13.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
   { name = "holddown-cbore-rl", void = true, cuts = ["base"], shape = "cylinder", at_mm = [165.0, -60.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 15.9, length_mm = 10.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, counterbore dia and depth" } },
   { name = "holddown-hole-rl", void = true, cuts = ["base"], shape = "cylinder", at_mm = [165.0, -60.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 10.3, length_mm = 3.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "holddown-head-rl", shape = "cylinder", at_mm = [165.0, -60.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.29, length_mm = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 socket head cap screw head" } },
-  { name = "holddown-shank-rl", shape = "cylinder", at_mm = [165.0, -60.0, -27.7], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 2.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 screw major dia" } },
+  { name = "holddown-head-rl", supply = "bought", label = "Hold-down screws", fastener = "3/8-16 SHCS into table T-nut", shape = "cylinder", at_mm = [165.0, -60.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.29, length_mm = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 socket head cap screw head" } },
+  { name = "holddown-shank-rl", supply = "bought", fastener = "3/8-16 SHCS into table T-nut", shape = "cylinder", at_mm = [165.0, -60.0, -27.7], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 2.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 screw major dia" } },
   { name = "holddown-cbore-ll", void = true, cuts = ["base"], shape = "cylinder", at_mm = [-165.0, -60.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 15.9, length_mm = 10.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, counterbore dia and depth" } },
   { name = "holddown-hole-ll", void = true, cuts = ["base"], shape = "cylinder", at_mm = [-165.0, -60.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 10.3, length_mm = 3.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "holddown-head-ll", shape = "cylinder", at_mm = [-165.0, -60.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.29, length_mm = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 socket head cap screw head" } },
-  { name = "holddown-shank-ll", shape = "cylinder", at_mm = [-165.0, -60.0, -27.7], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 2.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 screw major dia" } },
+  { name = "holddown-head-ll", supply = "bought", label = "Hold-down screws", fastener = "3/8-16 SHCS into table T-nut", shape = "cylinder", at_mm = [-165.0, -60.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.29, length_mm = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 socket head cap screw head" } },
+  { name = "holddown-shank-ll", supply = "bought", fastener = "3/8-16 SHCS into table T-nut", shape = "cylinder", at_mm = [-165.0, -60.0, -27.7], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 2.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 screw major dia" } },
   { name = "holddown-cbore-ru", void = true, cuts = ["base"], shape = "cylinder", at_mm = [165.0, 65.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 15.9, length_mm = 10.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, counterbore dia and depth" } },
   { name = "holddown-hole-ru", void = true, cuts = ["base"], shape = "cylinder", at_mm = [165.0, 65.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 10.3, length_mm = 3.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "holddown-head-ru", shape = "cylinder", at_mm = [165.0, 65.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.29, length_mm = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 socket head cap screw head" } },
-  { name = "holddown-shank-ru", shape = "cylinder", at_mm = [165.0, 65.0, -27.7], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 2.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 screw major dia" } },
+  { name = "holddown-head-ru", supply = "bought", label = "Hold-down screws", fastener = "3/8-16 SHCS into table T-nut", shape = "cylinder", at_mm = [165.0, 65.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.29, length_mm = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 socket head cap screw head" } },
+  { name = "holddown-shank-ru", supply = "bought", fastener = "3/8-16 SHCS into table T-nut", shape = "cylinder", at_mm = [165.0, 65.0, -27.7], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 2.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 screw major dia" } },
   { name = "holddown-cbore-lu", void = true, cuts = ["base"], shape = "cylinder", at_mm = [-165.0, 65.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 15.9, length_mm = 10.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, counterbore dia and depth" } },
   { name = "holddown-hole-lu", void = true, cuts = ["base"], shape = "cylinder", at_mm = [-165.0, 65.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 10.3, length_mm = 3.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "holddown-head-lu", shape = "cylinder", at_mm = [-165.0, 65.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.29, length_mm = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 socket head cap screw head" } },
-  { name = "holddown-shank-lu", shape = "cylinder", at_mm = [-165.0, 65.0, -27.7], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 2.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 screw major dia" } },
+  { name = "holddown-head-lu", supply = "bought", label = "Hold-down screws", fastener = "3/8-16 SHCS into table T-nut", shape = "cylinder", at_mm = [-165.0, 65.0, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.29, length_mm = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 socket head cap screw head" } },
+  { name = "holddown-shank-lu", supply = "bought", fastener = "3/8-16 SHCS into table T-nut", shape = "cylinder", at_mm = [-165.0, 65.0, -27.7], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 2.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 screw major dia" } },
 ]
 
 # S3 hub strap (illustrative example rocker-only stepped strap clamp, one owner).
@@ -1378,15 +1390,17 @@ solids = [
 # Y60..70 on the plate. The beam's stud hole cuts only the beam, so the stud is
 # continuous. Toe load is ~32% of stud tension (stud 41.73 from toe, 20 from heel).
 [fixtures.rocker-hub-strap]
+name = "hub strap"
 kind = "strap_clamp"
+shop_made = true
 note = "illustrative example shop-made stepped strap: 19.05 mm wide x 12.7 mm beam, 8.28 mm toe, heel, 3/8-16 stud and flange nut"
 solids = [
   { name = "toe", shape = "box", at_mm = [-3.0, -9.525, 0.0], size_mm = [6.0, 19.05, 8.27825], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, toe face to beam underside" } },
   { name = "beam", shape = "box", at_mm = [-3.0, -9.525, 8.27825], size_mm = [69.73, 19.05, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule" } },
   { name = "stud-hole", void = true, cuts = ["beam"], shape = "cylinder", at_mm = [41.73, 0.0, 8.0], axis = [0.0, 0.0, 1.0], dia_mm = 11.1, length_mm = 13.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
   { name = "heel", shape = "box", at_mm = [56.73, -9.525, -12.72175], size_mm = [10.0, 19.05, 21.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, heel foot to beam underside" } },
-  { name = "stud", shape = "cylinder", at_mm = [41.73, 0.0, -24.92175], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 x 2-1/2 in stud" } },
-  { name = "nut", shape = "cylinder", at_mm = [41.73, 0.0, 20.97825], axis = [0.0, 0.0, 1.0], dia_mm = 22.2, length_mm = 11.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 flange nut flange OD and height" } },
+  { name = "stud", supply = "bought", fastener = "3/8-16 x 2-1/2 in stud into plate tap", shape = "cylinder", at_mm = [41.73, 0.0, -24.92175], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 x 2-1/2 in stud" } },
+  { name = "nut", supply = "bought", fastener = "3/8-16 flange nut", shape = "cylinder", at_mm = [41.73, 0.0, 20.97825], axis = [0.0, 0.0, 1.0], dia_mm = 22.2, length_mm = 11.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 flange nut flange OD and height" } },
 ]
 
 # S4 rail clamp (illustrative example rocker-only flat strap, one owner). Frame:
@@ -1397,13 +1411,15 @@ solids = [
 # >17 mm outside the finished outline; studs clear the stock by >3.2 mm.
 [fixtures.rocker-rail-clamp]
 kind = "strap_clamp"
+shop_made = true
+name = "rail clamp"
 note = "illustrative example shop-made flat strap: 19.05 x 12.7 x 33 mm beam, heel, 3/8-16 stud and flange nut; holds a scrap rail through release"
 solids = [
   { name = "beam", shape = "box", at_mm = [-2.5, -9.525, 0.0], size_mm = [33.0, 19.05, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule" } },
   { name = "stud-hole", void = true, cuts = ["beam"], shape = "cylinder", at_mm = [10.5, 0.0, -0.3], axis = [0.0, 0.0, 1.0], dia_mm = 11.1, length_mm = 13.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
   { name = "heel", shape = "box", at_mm = [20.5, -9.525, -19.47175], size_mm = [10.0, 19.05, 19.47175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, heel foot to beam underside" } },
-  { name = "stud", shape = "cylinder", at_mm = [10.5, 0.0, -31.67175], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 57.15, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 x 2-1/4 in stud" } },
-  { name = "nut", shape = "cylinder", at_mm = [10.5, 0.0, 12.7], axis = [0.0, 0.0, 1.0], dia_mm = 22.2, length_mm = 11.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 flange nut flange OD and height" } },
+  { name = "stud", supply = "bought", fastener = "3/8-16 x 2-1/4 in stud into plate tap", shape = "cylinder", at_mm = [10.5, 0.0, -31.67175], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 57.15, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 x 2-1/4 in stud" } },
+  { name = "nut", supply = "bought", fastener = "3/8-16 flange nut", shape = "cylinder", at_mm = [10.5, 0.0, 12.7], axis = [0.0, 0.0, 1.0], dia_mm = 22.2, length_mm = 11.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 flange nut flange OD and height" } },
 ]
 
 # S4 pivot shoulder screw with its bored washer (illustrative example rocker-only
@@ -1416,14 +1432,16 @@ solids = [
 # (illustrative example capability, not measured), so S4 zero can be indicated on
 # the head after the screw is tightened. Hex socket not drawn.
 [fixtures.rocker-pivot-screw]
+name = "pivot shoulder screw and bored washer"
 kind = "shoulder_screw"
+shop_made = true
 note = "illustrative example shop-made shoulder screw: 6.49 ground shoulder x 21.5, M5x0.8 x 7.2 thread, 8 OD x 4 head ground coaxial with the shoulder (TIR <= 0.003 mm), 9.0/6.6 x 1.5 hardened washer"
 solids = [
-  { name = "washer", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.0, length_mm = 1.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
+  { name = "washer", locates = "upper hub face (clamps)", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.0, length_mm = 1.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "washer-bore", void = true, cuts = ["washer"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.6, length_mm = 2.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
   { name = "head", shape = "cylinder", at_mm = [0.0, 0.0, 1.5], axis = [0.0, 0.0, 1.0], dia_mm = 8.0, length_mm = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD ground with the shoulder; test indicator, head-to-shoulder TIR <= 0.003 between centres; calipers, head height" } },
-  { name = "shoulder", shape = "cylinder", at_mm = [0.0, 0.0, -20.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 21.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground shoulder; calipers, head underside to shoulder end" } },
-  { name = "thread", shape = "cylinder", at_mm = [0.0, 0.0, -27.2], axis = [0.0, 0.0, 1.0], dia_mm = 5.0, length_mm = 7.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M5x0.8 thread ring gauge; calipers, thread length" } },
+  { name = "shoulder", locates = "reamed bore A", shape = "cylinder", at_mm = [0.0, 0.0, -20.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 21.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground shoulder; calipers, head underside to shoulder end" } },
+  { name = "thread", fastener = "M5x0.8 into plate tap", shape = "cylinder", at_mm = [0.0, 0.0, -27.2], axis = [0.0, 0.0, 1.0], dia_mm = 5.0, length_mm = 7.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M5x0.8 thread ring gauge; calipers, thread length" } },
 ]
 
 # S3/S4 rod-hole diamond locating pin (illustrative example rocker-only item, one
@@ -1443,14 +1461,16 @@ solids = [
 # straps react the loads. Before tightening, the part is preloaded CCW (viewed from
 # above, looking down -Z) against it. It is never a clamp or lift.
 [fixtures.rocker-rod-diamond-pin]
+name = "rod-hole diamond pin"
 kind = "locating_pin"
+shop_made = true
 note = "illustrative example shop-made diamond pin: custom-ground 1.9875 working tip (1.76 across flats) on a 4.5 mm collar seated on the plate, 3.0 m6 shank in a 3.0 H7 plate hole; positive clock stop for the closing profile pass only, not a clamp"
 solids = [
   { name = "collar", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 4.5, length_mm = 10.22175, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD; height gauge, plate top to collar face" } },
-  { name = "rodlocator", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, -1.0], dia_mm = 1.9875, length_mm = 2.37825, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the custom-ground round lands; calipers, length above collar" } },
+  { name = "rodlocator", locates = "rod hole (clocks datum C)", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, -1.0], dia_mm = 1.9875, length_mm = 2.37825, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the custom-ground round lands; calipers, length above collar" } },
   { name = "flat-pos", void = true, cuts = ["rodlocator"], shape = "box", at_mm = [0.88, -1.5, -2.6], size_mm = [1.0, 3.0, 2.8], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across the flats (1.76)" } },
   { name = "flat-neg", void = true, cuts = ["rodlocator"], shape = "box", at_mm = [-1.88, -1.5, -2.6], size_mm = [1.0, 3.0, 2.8], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across the flats (1.76)" } },
-  { name = "shank", shape = "cylinder", at_mm = [0.0, 0.0, 10.22175], axis = [0.0, 0.0, 1.0], dia_mm = 3.0, length_mm = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "nominal 3.000 m6 fit envelope (design value, not an actual reading); micrometer over the shank; calipers, collar to shank end" } },
+  { name = "shank", fastener = "3.0 m6 press fit in plate", shape = "cylinder", at_mm = [0.0, 0.0, 10.22175], axis = [0.0, 0.0, 1.0], dia_mm = 3.0, length_mm = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "nominal 3.000 m6 fit envelope (design value, not an actual reading); micrometer over the shank; calipers, collar to shank end" } },
 ]
 
 # S2 adjustable support jacks (illustrative example matched pair; passive supports,
@@ -1464,15 +1484,17 @@ solids = [
 # -12.03), under the raw blank bottom at -11.52825. About 4 mm of exposed thread
 # between head and lock nut gives roughly +-2 mm of adjustment about nominal.
 [fixtures.rocker-s2-support-jack]
+name = "lower-side support jack"
 kind = "screw_jack"
+shop_made = true
 note = "illustrative example matched pair of shop-made M6 screw jacks: 10 mm head on an M6 screw, 10 AF lock nut, 16 mm dia x 9 mm tapped base; 19.45 mm nominal working height"
 solids = [
-  { name = "head", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.0, length_mm = 3.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD; calipers, head height" } },
-  { name = "screw", shape = "cylinder", at_mm = [0.0, 0.0, 3.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 13.45, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 thread ring gauge; calipers, head underside to screw end" } },
-  { name = "locknut", shape = "cylinder", at_mm = [0.0, 0.0, 7.25], axis = [0.0, 0.0, 1.0], dia_mm = 11.55, length_mm = 3.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 thin nut across corners and thickness" } },
+  { name = "head", locates = "S1-finished strap face (support only)", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.0, length_mm = 3.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD; calipers, head height" } },
+  { name = "screw", fastener = "M6x1", shape = "cylinder", at_mm = [0.0, 0.0, 3.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 13.45, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 thread ring gauge; calipers, head underside to screw end" } },
+  { name = "locknut", supply = "bought", fastener = "M6x1 thin lock nut", shape = "cylinder", at_mm = [0.0, 0.0, 7.25], axis = [0.0, 0.0, 1.0], dia_mm = 11.55, length_mm = 3.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 thin nut across corners and thickness" } },
   { name = "locknut-thread", void = true, cuts = ["locknut"], shape = "cylinder", at_mm = [0.0, 0.0, 7.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.1, length_mm = 3.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 thread plug gauge; drawn at major dia + 0.1" } },
   { name = "body", shape = "cylinder", at_mm = [0.0, 0.0, 10.45], axis = [0.0, 0.0, 1.0], dia_mm = 16.0, length_mm = 9.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, base OD; height gauge, ground base height" } },
-  { name = "body-thread", void = true, cuts = ["body"], shape = "cylinder", at_mm = [0.0, 0.0, 10.2], axis = [0.0, 0.0, 1.0], dia_mm = 6.1, length_mm = 9.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 thread plug gauge; drawn at major dia + 0.1" } },
+  { name = "body-thread", fastener = "M6x1 tapped", void = true, cuts = ["body"], shape = "cylinder", at_mm = [0.0, 0.0, 10.2], axis = [0.0, 0.0, 1.0], dia_mm = 6.1, length_mm = 9.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 thread plug gauge; drawn at major dia + 0.1" } },
 ]
 
 # S1/S2 blank-end position stop (illustrative example rocker-only assembly, one
@@ -1493,14 +1515,16 @@ solids = [
 # (X >= -160 inside the rails). The base clears the risers by 1.59 mm and the
 # parallels by 3.44 mm.
 [fixtures.rocker-vise-stop]
+name = "magnetic blank-end stop"
 kind = "work_stop"
+shop_made = true
 note = "illustrative example shop-made magnetic end stop: 30 x 17 x 24 mm switchable rare-earth magnetic base on the fixed jaw's left end face, 11 x 10 mm steel arm, 8 x 14 mm finger, 6 mm hardened nose; gentle positioning contact only, no cutting or clamping load"
 solids = [
-  { name = "base", shape = "box", at_mm = [-30.0, 0.5, -25.0], size_mm = [30.0, 17.0, 24.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, magnetic base body" } },
-  { name = "switch", shape = "cylinder", at_mm = [-15.0, 17.5, -13.0], axis = [0.0, 1.0, 0.0], dia_mm = 12.0, length_mm = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, on/off knob dia and projection" } },
+  { name = "base", supply = "bought", fastener = "switchable magnetic base, 30 x 17 x 24", shape = "box", at_mm = [-30.0, 0.5, -25.0], size_mm = [30.0, 17.0, 24.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, magnetic base body" } },
+  { name = "switch", supply = "bought", fastener = "switchable magnetic base, 30 x 17 x 24", shape = "cylinder", at_mm = [-15.0, 17.5, -13.0], axis = [0.0, 1.0, 0.0], dia_mm = 12.0, length_mm = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, on/off knob dia and projection" } },
   { name = "arm", shape = "box", at_mm = [-94.6631, 3.5, -11.0], size_mm = [64.6631, 11.0, 10.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule, arm section and length" } },
   { name = "finger", shape = "box", at_mm = [-102.6631, -36.5, -11.0], size_mm = [8.0, 51.0, 14.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule, finger section and reach" } },
-  { name = "nose", shape = "cylinder", at_mm = [-94.6631, -32.5, -0.31705], axis = [1.0, 0.0, 0.0], dia_mm = 6.0, length_mm = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, nose dia; calipers, base mating face to nose face (90.6631)" } },
+  { name = "nose", locates = "blank left end", shape = "cylinder", at_mm = [-94.6631, -32.5, -0.31705], axis = [1.0, 0.0, 0.0], dia_mm = 6.0, length_mm = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, nose dia; calipers, base mating face to nose face (90.6631)" } },
 ]
 
 # Hub coaxiality inspection: a precision 6.5 mm pin in the reamed bore rolled in

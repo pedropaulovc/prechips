@@ -25,7 +25,7 @@ from prechips.findings import ALWAYS_REQUIRED
 from prechips.joint_features import LABEL_PREFIX, feature_definitions, fit, label
 from prechips.model import Plan, tolerance_requirements
 from prechips.rules._bench import manual_bench
-from prechips.rules.resolution import MANUAL, SAW_OPS, saw_setup
+from prechips.rules.resolution import MANUAL, SAW_OPS, op_features, saw_setup
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
@@ -601,7 +601,7 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
                 op
                 for setup in plan["setups"]
                 for op in setup["ops"]
-                if op.get("feature") == name and requirement in op.get("checks", {})
+                if name in op_features(op) and requirement in op.get("checks", {})
             ]
             require(
                 finishing or findings["inspection", subject]["status"] == "error",
@@ -654,7 +654,8 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
         require(len(ops) == len(set(ops)), f"{sid}: duplicate operation number")
         for op in setup["ops"]:
             if op["do"] not in SAW_OPS or "feature" in op:
-                require(op.get("feature") in definitions, f"{sid}: undeclared feature")
+                names = op_features(op)
+                require(names and set(names) <= definitions.keys(), f"{sid}: undeclared feature")
             has("speeds_feeds", f"{sid}:{op['op']}")
             has("turning_deflection", f"{sid}:{op['op']}")
             has("engagement", f"{sid}:{op['op']}")
@@ -674,26 +675,31 @@ def check_inspection_declarations(plan: dict, features: dict, findings: dict) ->
         for op in setup["ops"]:
             if op.get("do") in SAW_OPS and "feature" not in op:
                 continue  # a stock cut-off names no feature and exports no requirement
-            name = op["feature"]
-            requirements = definitions[name].get("requirements", "unknown")
-            exported = set(requirements) if isinstance(requirements, list) else set()
+            # A multi-feature inspect op checks a requirement any named feature exports.
+            names = op_features(op)
+            exported = set()
+            for name in names:
+                requirements = definitions[name].get("requirements", "unknown")
+                exported |= set(requirements) if isinstance(requirements, list) else set()
+            label = "/".join(names)
             for requirement in op.get("checks", {}):
                 require(
                     requirement in exported,
-                    f"{setup['id']}:{op['op']}: {name} has no requirement {requirement}",
+                    f"{setup['id']}:{op['op']}: {label} has no requirement {requirement}",
                 )
             for requirement in op.get("missing_requirements", {}):
                 require(
                     requirement not in exported,
-                    f"{setup['id']}:{op['op']}: {name}.{requirement} is an exported requirement",
+                    f"{setup['id']}:{op['op']}: {label}.{requirement} is an exported requirement",
                 )
-                subject = f"{name}:{requirement}"
-                row = findings.get(("inspection", subject), {})
-                require(
-                    row.get("status") == "unknown"
-                    and row.get("numbers", {}).get("missing_requirement") is True,
-                    f"{subject}: missing requirement inspection must remain explicitly unknown",
-                )
+                for name in names:
+                    subject = f"{name}:{requirement}"
+                    row = findings.get(("inspection", subject), {})
+                    require(
+                        row.get("status") == "unknown"
+                        and row.get("numbers", {}).get("missing_requirement") is True,
+                        f"{subject}: missing requirement inspection must remain explicitly unknown",
+                    )
 
 
 def check_joint_declarations(plan: dict, features: dict, findings: dict) -> None:
@@ -780,6 +786,26 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
         sign = row.get("sign", "unknown")
         require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
         scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
+        if recipe.get("method") == "measure_then_set":
+            # A measured edge is a bench reading M: with a ready gauge, a stated
+            # measurement and numeric offset/paper/jog, Axis Set M + offset + paper.
+            gauge, base = recipe.get("gauge", "unknown"), recipe.get("offset_mm", "unknown")
+            paper = recipe.get("paper_mm", "unknown")
+            ready = (
+                axis == "z"
+                and isinstance(gauge, str)
+                and resolves(gauge, entries)
+                and not uncertain(gauge, entries)
+                and bool(str(recipe.get("measure", "")).strip())
+                and all(numeric(v) for v in (base, paper, jog))
+            )
+            for field, step in (("axis_set", 0), ("check_reading", 1), ("mirrored_reading", -1)):
+                text = "unknown"
+                if ready:
+                    value = round(base + paper + step * sign * jog, 6) + 0.0
+                    text = "M " + f"{value:+.6f}".rstrip("0").rstrip(".")
+                require(row.get(field) == text, f"{setup['id']}.{axis}: measured-edge {field}")
+            continue
         if axis == "z":
             if recipe.get("face") == "top":
                 edge = setup["stock_state"].get("top_z", "unknown")

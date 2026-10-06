@@ -1,9 +1,13 @@
 # Shop inventory — `inventory.toml`
 
 The root groups are `machines`, `tools`, `holders`, `fixtures`, `gauges`,
-`consumables`, and `stock`; there are no legacy `workholding` or `measuring`
+`services`, `consumables`, and `stock`; there are no legacy `workholding` or `measuring`
 aliases. Category maps use authored identity keys. `members` is a recursively
 modeled InventoryItem map. `source` may be a source string or Source record.
+`services` are outside processes the shop sends work to (a coating vendor), not
+shop-owned kit; a plan `coating` op's `process` names a `services` item or a
+`consumables` entry. A `consumables` entry is an id mapping to the in-house
+product names; an explicitly unknown product list leaves that process unresolved.
 Named set members/coverage may resolve without pretending an unlisted member
 was measured or purchased. Explicit `present = false` means missing;
 an item-level `verify = true`, an unverified `source`, or explicitly unknown
@@ -14,6 +18,13 @@ own record (see
 nominal dimension enters M4 kernel geometry is decided the same fact-local
 way (see [kernel geometry facts](#kernel-geometry-facts-m4)); neither reads
 the item, set root, member container or source flags around the fact.
+
+`name` is an optional display name an item or a set member may carry; the
+traveler prints it whole in place of the name it would derive from the item's
+kind or identity key (`name = "4x6 bandsaw"`, a kit member `name = "cap bridge
+clamp"`). A member's name is its own: a named set does not name its members,
+and an unnamed member still prints as its key words and its own kind
+(`bracket bridge strap clamp`). No rule reads `name`.
 
 A consumed single-length fact is authored once per stem: an explicit `_mm`
 key, an `_in` key converted with exactly 25.4 mm/in, or a bare key with explicit
@@ -155,6 +166,29 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   centre after applying `hold.pose`, and records the label and posed centre in
   `scene.fixture_detail_labels`. The caption neither creates geometry nor
   overrides the void's measurement or verification debt.
+- A shop-made item (`kind = "custom"`, or any item / member flagged
+  `shop_made = true`) gets one SHOP-MADE FIXTURE table on sheet 2 of the first
+  setup using it at those poses; later setups at the same poses point back to it.
+  Each row is one made primitive (identical primitives group into one row,
+  named by their shared `label` or the words their names share) with its size and
+  setup-frame position (box X / Y / Z extents, cylinder axis), placed by
+  `hold.pose`, the clamp entry's `pose` or `stop_pose`. A void is listed in the
+  row of the made primitive it cuts (the first made name in `cuts`, else the one
+  holding its centre) as "with N × <fastener or size>: positions"; a void that
+  cuts only bought hardware is not listed. Per-primitive `supply` is `made`
+  (default), `bought` (hardware: one "Bought hardware (not made)" line under the
+  table, named by its `fastener` or its name and size) or `existing` (already in
+  the shop, such as a machine's vise jaws drawn for clearance: not listed).
+  Sizes and positions print at shop policy `numbers.fixture_make_decimals`; the
+  fit of a primitive with `locates` (the bore cut in it, else the primitive
+  itself) and shim nominals print at the drawing precision. Optional texts
+  `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
+  Locates and Fastener columns; `shim = true` marks an adjustable shim stack
+  whose drawn thickness HOLD prints as the nominal to fit with feeler gauges.
+  An angle plate's (or posed shop-made fixture's) lowest made box is its base:
+  HOLD prints its underside Z, an angle plate's working face (local y = 0,
+  facing local -y) and the base's `fastener` as the hold-down. None of these
+  texts creates geometry or trust.
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
@@ -370,6 +404,7 @@ not proof of geometric validity; rules perform the applicable checks.
 | `holders` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `fixtures` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `gauges` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
+| `services` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `consumables` | `dict[str, list[str] \| Unknown] \| Unknown` | Optional |
 | `stock` | `list[Stock] \| Unknown` | Optional |
 
@@ -418,6 +453,7 @@ on hand.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
+| `name` | `str` |
 | `kind` | `str` |
 | `make` | `str` |
 | `control` | `str` |
@@ -545,6 +581,7 @@ on hand.
 | `standard_accessories` | `list[str]` |
 | `included` | `list[str]` |
 | `spindle` | `Spindle` |
+| `contouring` | `"mdi"` / `"jog"` / `{value, measured, verify}` (a machine's way of cutting an arc or diagonal contour row: `mdi` types one coordinated `G1`/`G2`/`G3` MDI move per row at the op's feed; `jog` moves one handwheel axis at a time, so the sheet prints single-axis stair rows and a finish stair must leave no more than the feature's band. Absent, `"unknown"` or `verify = true` leaves every arc and diagonal row unproven, never pass: [rules-coordinates](rules-coordinates.md)) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |

@@ -162,9 +162,15 @@ type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
 # A fixture-local frame placed in the setup frame (mm): origin plus unit x and z axes.
 Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
 # ``restraint``: press holds stock down onto the fixture; locate only positions it.
+# ``torque_nm``: the declared tightening torque the traveler prints in the clamp order.
 ClampPlacement = record(
     "ClampPlacement",
-    {**texts("ref note"), "pose": Pose, "restraint": Literal["press", "locate", "none"]},
+    {
+        **texts("ref note"),
+        "pose": Pose,
+        "restraint": Literal["press", "locate", "none"],
+        "torque_nm": Number,
+    },
 )
 type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
 Hold = record(
@@ -193,15 +199,18 @@ Hold = record(
         "clamp_order": list[Annotated[int, Field(gt=0)]],
         "preload_direction": Literal["clockwise", "counterclockwise"] | Unknown,
         "stop_fixture": str,
+        # The face the work is set against: a feature already on the arriving stock, or
+        # the stock's own end. Checked against the arriving stock by hold_fields.
+        "stop_face": str,
         "stop_pose": Pose,
     },
 )
 AxisZero = record(
     "AxisZero",
     {
-        **texts("edge feature face method tool holder gauge"),
+        **texts("edge feature face method tool holder gauge measure"),
         "from": str,
-        **numbers("edge_mm radius_mm paper_mm check_jog_mm"),
+        **numbers("edge_mm radius_mm paper_mm check_jog_mm offset_mm"),
         "retouch_after": list[int],
         "after_op": int,
     },
@@ -220,8 +229,8 @@ Transfer = record(
 ToolTouch = record(
     "ToolTouch",
     {
-        **texts("tool x_method gauge z_face method"),
-        **numbers("edge_mm paper_mm"),
+        **texts("tool x_method gauge z_face method z_gauge z_measure"),
+        **numbers("edge_mm paper_mm z_offset_mm"),
         "before_ops": list[int],
         "after_op": int,
     },
@@ -249,11 +258,43 @@ SawPlane = record(
     "SawPlane",
     {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
 )
+
+
+class ProcessHold(InputModel):
+    """A shop limit inside one drawing requirement band, held for a stated process reason
+    (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit."""
+
+    feature: str
+    requirement: str
+    band: Annotated[list[float], Field(min_length=2, max_length=2)]
+    gauge: str
+    reason: str
+
+    @model_validator(mode="after")
+    def stated(self) -> ProcessHold:
+        for value, what in (
+            (self.feature, "feature"),
+            (self.requirement, "requirement"),
+            (self.reason, "reason"),
+        ):
+            _known_text(value, f"A process hold {what}")
+        if not self.band[0] < self.band[1]:
+            raise ValueError("A process hold band must be an ordered [lo, hi] band, lo < hi.")
+        return self
+
+
 Operation = record(
     "Operation",
     {
         "op": int,
-        **texts("do feature tool holder direction note inspection_note"),
+        "do": str,
+        # One manifest feature; an inspect op may name several (one drawing dimension
+        # split across features is read once).
+        "feature": str | Annotated[list[str], Field(min_length=2)],
+        **texts("tool holder direction note inspection_note"),
+        # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
+        "process": str | Annotated[list[str], Field(min_length=1)],
+        "process_holds": Annotated[list[ProcessHold], Field(min_length=1)],
         **numbers(
             "to_z depth_mm exit_mm rough_allowance_mm stock_to_leave_mm z_from z_to "
             "to_dia rpm feed_mm_min doc_mm feed_mm_rev approach_mm"
@@ -492,6 +533,21 @@ class Plan(InputModel):
             not name.strip() or name == UNKNOWN for name in self.frames
         ):
             raise ValueError("Plan frame names must be known, non-empty names.")
+        return self
+
+    @model_validator(mode="after")
+    def operation_fields(self) -> Plan:
+        """A feature list is an inspect op's; a process is a coating op's."""
+        for setup in self.setups:
+            for op in setup.ops if isinstance(setup.ops, list) else ():
+                where = f"Setup {setup.id} op {op.op}"
+                if isinstance(op.feature, list):
+                    if op.do != "inspect":
+                        raise ValueError(f"{where}: only an inspect op may name a feature list.")
+                    if len(set(op.feature)) != len(op.feature) or UNKNOWN in op.feature:
+                        raise ValueError(f"{where}: a feature list names distinct known features.")
+                if "process" in op.model_fields_set and op.do != "coating":
+                    raise ValueError(f"{where}: only a coating op names a coating process.")
         return self
 
     @model_validator(mode="after")
@@ -852,6 +908,14 @@ class SpindleRotation(InputModel):
     verify: bool | Unknown = UNKNOWN
 
 
+class Contouring(InputModel):
+    """A labelled contouring capability: only its own measured/verify qualify it."""
+
+    value: Literal["mdi", "jog"]
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+
 Spindle = record(
     "Spindle",
     {
@@ -886,16 +950,22 @@ Bars = record(
 # One primitive of a fixture body, in its owner's local frame (plain mm). Its own
 # measured/verify qualify it, like a LengthMeasurement; nothing above it does. A ``void``
 # primitive (bore, tapped hole, slot) is not drawn: it is cut from the owner's other
-# primitives, or only from those named in ``cuts``.
+# primitives, or only from those named in ``cuts``. ``locates`` names the part face it
+# locates or carries, ``fastener`` its thread / fastener, and ``shim`` marks an
+# adjustable shim stack whose drawn thickness is the nominal (traveler fixture table).
+# ``supply``: made with its owner (default), ``bought`` hardware, or ``existing`` in the
+# shop (a machine's vise jaw drawn for clearance); only made solids are make-table rows.
 FixtureSolid = record(
     "FixtureSolid",
     {
-        **texts("name shape note label"),
+        **texts("name shape note label locates fastener"),
         "at_mm": Point3,
         "size_mm": Point3,
         "axis": Point3,
         **numbers("dia_mm length_mm"),
         "void": bool,
+        "shim": bool,
+        "supply": Literal["made", "bought", "existing"],
         "cuts": list[str],
         "measured": Measurement,
         "verify": bool,
@@ -905,12 +975,12 @@ InventoryItem = record(
     "InventoryItem",
     {
         **texts(
-            "kind make control operation_mode note coating material coverage by standards "
+            "name kind make control operation_mode note coating material coverage by standards "
             "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in hand "
             "standard series chart units taper"
         ),
         "sku": str | int,
-        **flags("verify present center_cutting swivel_base scroll independent"),
+        **flags("verify present center_cutting swivel_base scroll independent shop_made"),
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
@@ -1013,6 +1083,9 @@ InventoryItem = record(
         "standard_accessories": list[str],
         "included": list[str],
         "spindle": Spindle,
+        # How a mill moves off a single axis: ``mdi`` types each arc or diagonal row as one
+        # coordinated move; ``jog`` steps it one handwheel axis at a time.
+        "contouring": Literal["mdi", "jog"] | Contouring | Unknown,
         "leadscrew": LeadScrew,
         "capacity_in": float | list[Number] | Capacity,
         "tailstock": Tailstock,
@@ -1112,6 +1185,8 @@ class Inventory(InputModel):
     holders: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     fixtures: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     gauges: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
+    # Outside processes the shop sends work to (a coating vendor): not shop-owned kit.
+    services: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     consumables: dict[str, list[str] | Unknown] | Unknown = UNKNOWN
     stock: list[Stock] | Unknown = UNKNOWN
 
@@ -1119,7 +1194,7 @@ class Inventory(InputModel):
     @classmethod
     def unambiguous_lengths(cls, values: Any) -> Any:
         if isinstance(values, dict):
-            for category in ("machines", "tools", "holders", "fixtures", "gauges"):
+            for category in ("machines", "tools", "holders", "fixtures", "gauges", "services"):
                 items = values.get(category)
                 if isinstance(items, dict):
                     for identity, item in items.items():
