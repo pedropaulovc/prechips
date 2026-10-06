@@ -179,24 +179,60 @@ def _jaw_faces(bundle, setup):
     return axis, [bbox[axis], bbox[axis + 3]]
 
 
-def _inside_jaws(bundle, op, faces):
-    """Whether ``op``'s cutter, swept over its stock_removal_bounds, stays more than
-    :data:`CRASH_ZONE_MM` inside both jaw faces along the clamp axis; an underivable sweep
-    or jaw never is."""
+def _setup_coordinates(bundle, setup, memo):
+    """The coordinates numbers (printed cutter-centre tables) of ``setup``; ``memo`` keeps
+    one coordinates pass per headroom evaluation."""
+    from .coordinates import evaluate as coordinates
+
+    if not memo:
+        memo.update({row.subject: row.numbers for row in coordinates(bundle)})
+    return _mapping(memo.get(setup["id"]))
+
+
+def _printed_xy(coordinates, op):
+    """Every cutter-centre XY the traveler prints for ``op`` (its setup's coordinates
+    numbers: arc rows, join lines and linear_table outlines/raster passes, as the kernel
+    clipped them), or None when it prints none or any is unknown."""
+    points = []
+    for arc in coordinates.get("arc_table", []):
+        if arc.get("op") == op:
+            points += [row.get("dro_xy") for row in arc.get("rows", [])]
+    for line in coordinates.get("line_table", []):
+        if line.get("op") == op:
+            points += list(line.get("dro_xy") or [])
+    for profile in coordinates.get("profiles", []):
+        path = profile.get("cutter_centre")
+        linear = _mapping(profile.get("contour")).get("method") == "linear_table"
+        if profile.get("op") == op and linear and isinstance(path, list):
+            points += [p for item in path for p in (item if isinstance(item[0], list) else [item])]
+    known = all(isinstance(p, list) and len(p) == 2 and all(_numeric(v) for v in p) for p in points)
+    return points if points and known else None
+
+
+def _inside_jaws(bundle, op, faces, coordinates):
+    """Whether ``op``'s cutter stays more than :data:`CRASH_ZONE_MM` inside both jaw faces
+    along the clamp axis: its printed cutter-centre path (:func:`_printed_xy`) plus the
+    cutter radius, else its stock_removal_bounds widened by the radius. An underivable
+    sweep or jaw never is."""
     if faces is None:
         return False
     axis, (low, high) = faces
-    span = _mapping(op.get("stock_removal_bounds")).get("xy"[axis])
     dia = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
-    if not (isinstance(span, list) and len(span) == 2 and all(_numeric(v) for v in span)):
-        return False
     if not _numeric(dia):
+        return False
+    printed = _printed_xy(coordinates, op["op"])
+    span = (
+        [min(p[axis] for p in printed), max(p[axis] for p in printed)]
+        if printed
+        else _mapping(op.get("stock_removal_bounds")).get("xy"[axis])
+    )
+    if not (isinstance(span, list) and len(span) == 2 and all(_numeric(v) for v in span)):
         return False
     return span[0] - dia / 2 > low + CRASH_ZONE_MM and span[1] + dia / 2 < high - CRASH_ZONE_MM
 
 
 def evaluate(bundle):
-    findings = []
+    findings, coordinates = [], {}
     for setup in bundle.plan["setups"]:
         bench = manual_bench(bundle, setup)
         if bench is not None:
@@ -375,13 +411,14 @@ def evaluate(bundle):
             else _UNKNOWN
         )
         faces = None if head else _jaw_faces(bundle, setup)
+        printed = _setup_coordinates(bundle, setup, coordinates) if faces else {}
         cuts = {
             str(op["op"]): op["to_z"] - jaw_top_z
             for op in setup["ops"]
             if op["do"] not in SAW_OPS
             and _numeric(op.get("to_z"))
             and _numeric(jaw_top_z)
-            and not _inside_jaws(bundle, op, faces)
+            and not _inside_jaws(bundle, op, faces, printed)
         }
         numbers.update(
             {
