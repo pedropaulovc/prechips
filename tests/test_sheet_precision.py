@@ -203,7 +203,7 @@ def test_front_sheet_pointers_lead_to_attached_sheets_of_the_same_setup(tmp_path
     # exist, belong to the same setup and carry the op's table.
     _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
     pages = {}
-    for page in html.split('<section class="page">')[1:]:
+    for page in html.split('<section class="page"')[1:]:
         heading = re.search(r"<h2>SETUP (\S+) — (?:[^<]*?· )?sheet (\d+) of (\d+)", page)
         if heading:
             pages[(heading[1], heading[2])] = (int(heading[3]), page)

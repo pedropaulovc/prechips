@@ -235,10 +235,19 @@ least 8 pt.
 The front sheet is one physical sheet. When the op table does not fit on the
 front page it continues on the back under the repeated heading `SETUP S2 —
 sheet 1, back: operations continued` and the op column headings; a setup with
-few ops has a single-page front sheet. Print the front sheet double-sided so
-the back lands behind its front; the browser cannot force each front sheet to
-start on a right-hand page, so print setups separately (or single-sided and
-keep the two pages together) when duplexing the whole file.
+few ops has a single-page front sheet.
+
+Print the whole file double-sided. A small inline script in `traveler.html`
+(the same bytes every run; it changes only the page in the browser) lays out
+every sheet on load and again just before printing. It measures the sheet at the
+printed width, places each page break itself (headings stay with what follows,
+the sign-off stays with the last op row, table headings repeat), and adds a
+`This side intentionally blank — SETUP S2 sheet 1 back` page after any sheet
+with an odd page count, the job page included. Every sheet therefore starts on a
+front side, and a single-page front sheet has a blank back. Contour blocks print
+in rows of three under the script and in three newspaper columns without it.
+With scripts disabled the same content prints without padding (sheets may then
+start on a back side, so print single-sided).
 
 Front sheet (sheet 1), in this order:
 
