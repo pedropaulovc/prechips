@@ -59,9 +59,9 @@ def cone_inputs(plan_filename="plan.toml"):
 @pytest.mark.parametrize("corruption", ["nearest", "spaces", "basic_band", "closure"])
 def test_rejects_cone_indexing_arithmetic_even_when_unverified(corruption):
     plan, features, inventory, _, report = cone_inputs()
-    setup = next(s for s in plan["setups"] if s["id"] == "S3")
+    setup = next(s for s in plan["setups"] if s["id"] == "S4")
     finding = next(
-        f for f in report["findings"] if f["rule"] == "indexing" and f["subject"] == "S3"
+        f for f in report["findings"] if f["rule"] == "indexing" and f["subject"] == "S4"
     )
     entries = VALIDATOR["entries_for"](inventory)
     VALIDATOR["check_indexing"](setup, features, entries, finding)
@@ -153,7 +153,7 @@ def test_blind_counterbore_uses_authored_depth_without_through_allowance(corrupt
         row["tip_z"] -= 0.5
     elif corruption == "depth":
         # Still under the printed guard, and self-consistent internally, but
-        # not the cutting depth authored in S2 op80.
+        # not the cutting depth authored in S8 op60.
         row["depth_mm"] += 0.5
         row["total_depth_mm"] += 0.5
         row["tip_z"] -= 0.5
@@ -171,13 +171,13 @@ def test_blind_counterbore_uses_authored_depth_without_through_allowance(corrupt
 @pytest.mark.parametrize("corruption", ["tip", "cone"])
 def test_through_bore_endpoint_has_zero_drill_cone(corruption):
     plan, features, inventory, _, report = cone_inputs()
-    # The authored final bore is S3 op40, with unknown cutter identity. Its
-    # endpoint still has a known flat-end axial lead rather than a drill cone.
+    # The authored final bore is the S4 op50 reamer. Its endpoint has a known
+    # flat-end axial lead rather than a drill cone.
     findings = {(f["rule"], f["subject"]): copy.deepcopy(f) for f in report["findings"]}
     row = next(
         row
         for row in findings["blind_depth", "journal_bore"]["numbers"]["endpoints"]
-        if row["setup"] == "S3" and row["op"] == 40
+        if row["setup"] == "S4" and row["op"] == 50
     )
     entries = VALIDATOR["entries_for"](inventory)
     VALIDATOR["check_endpoints"](plan, features, findings, entries)
