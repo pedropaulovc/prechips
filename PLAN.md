@@ -585,8 +585,20 @@ shifted axis comes within a radius of, or crosses as its nearest edge, joins
 the bounds once (a finite constraint closure). A cutter wider than its
 gap or circle keeps the sample's own axis and reports the real hit. Convex
 edges and farther interior samples are unchanged; convex wall/wall island
-vertices add no bound and no corner pose. This is per sample, not a
-whole-face or centroid pose.
+vertices add no bound and no corner pose. This is per sample for floors that
+keep their samples. **Whole-face floor pose (literal face-inside-cutter):** a
++Z planar floor whose entire face fits inside the actual cutter disc gets
+exactly one pose and no samples or corners: the area centroid of the convex
+set of covering axes (exact for line and Z-circle outer edges, emptiness
+proved over finitely many analytic candidates, no `STOCK_TOL` widening), the
+certified minimal enclosing centre when that set is one point, or a concave
+rising Z-circle wall's centre that meets every such wall's own tangent-circle
+floor bound and covers the face. A rough leave or any other rising wall keeps
+the samples, as does a face larger than the cutter: reverse containment (the
+Rocker OD10.2 annulus against D9.525) is not this rule. Other outer curves
+are decided only by an exact-point no-fit; otherwise, like a failed native
+locus, the floor's own poses drop and the op's measured facts are unknown
+while other faces' certain hits stay.
 Tangency is not corner-radius certification. Floor-only claims do not certify
 a wall/wall corner: `internal_corner_radius` retains its existing scope and
 checks a sharp wall/wall corner when the op claims both walls. No adjacent
@@ -1230,7 +1242,11 @@ sheet.
    for concave circles at least the cutter's radius); a cutter wider than its
    gap keeps its own axis and reports the real hit. Convex edges and farther
    interior samples are unchanged; convex wall/wall island
-   vertices add no corner pose. Tangency does not
+   vertices add no corner pose. A +Z planar floor that fits wholly inside the
+   cutter disc instead stands on one derived pose (centroid of the covering
+   axes, a certified single axis, or its R-arc walls' shared centre); an
+   undecidable one drops only its own poses and leaves the op's facts unknown.
+   Tangency does not
    certify corner radii, and floor-only claims do not certify wall/wall corners.
    `internal_corner_radius` retains its existing claimed-face scope:
    a sharp wall/wall corner is checked when the op claims both walls.

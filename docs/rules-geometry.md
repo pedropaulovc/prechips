@@ -601,13 +601,53 @@ pose debt. On a non-circular concave curve, or a circle smaller than the
 cutter, the nearest-point half-plane may still leave the pose crossing the
 wall, which is reported as a hit, never cleared. Convex floor edges, samples
 farther than a radius from every concave edge and wall samples are
-unchanged. This is a per-sample rule, not a whole-face or centroid pose.
+unchanged. This is a per-sample rule for floors that keep their samples.
 Tangency selects a pose, not a corner-radius certification. Floor-only
 claims do not certify wall/wall
 corner radii: `internal_corner_radius` still checks a sharp wall/wall corner
 only when the op claims both walls, with its existing scope unchanged.
 Adjacent finished walls are not removed to manufacture clearance, and
 undercut or leaning walls remain obstacles.
+
+**Whole-face floor pose (literal face-inside-cutter):** a claimed +Z planar
+floor of a milling (non-hole) op whose entire face fits inside the actual
+cutter disc `D(c, r)` gets exactly one pose and no surface or corner samples;
+its reach, holder, flute and hit references all use that pose. The axis is
+derived, never searched: the covering axes are the intersection of `D(p, r)`
+over the face's points, a convex set fixed by the outer wire (inner wires
+never change it). A straight edge contributes its end discs; a Z-axis circular
+edge its end discs and, across the cone opposite its span, `|c - o| <= r -
+rho`. Finitely many analytic candidates (boundary-circle meets, arc centres,
+cone-ray crossings) prove the set empty when none of them covers the face
+under the exact farthest-distance test, which has no `STOCK_TOL` widening. A
+single covering axis is certified as the unique minimal enclosing centre (its
+farthest supports surround it, no angular gap above pi) and is the pose, so
+an exact rectangle, triangle or circle of the cutter's size is one point, not
+a thin face. Otherwise the pose is the area centroid over every face of the
+native locus (every distinct outer vertex kept as a constraint), accepted only
+when those faces merge without overlap into one face whose single boundary
+turns one way and lies on the cover circles, and the centroid and every
+covering candidate pass the exact test; else, like a failed native boolean or
+Extrema, it is pose debt. Legality comes from the face's own concave rising edges, islands
+included, not from the centroid: a cutter covering such an edge and standing
+`r + a` clear of its wall stands on its centre of curvature, so with a rough
+leave `a > 0` any rising wall, and otherwise any rising wall that is not a
+concave Z circle (lines, island feet, splines), leaves the face on its
+samples. With only concave Z-circle walls the pose is a wall centre `o`, taken
+in sorted order, that meets every such wall's own floor bound `|c - o_i| <=
+rho_i - r` (the tangent-circle bound of the per-sample rule, within its
+1e-7 mm) and covers the face; equal-radius walls about distinct centres, or a
+wall smaller than the cutter, meet no such centre and keep the samples. The tip is
+unchanged: the higher of `to_z` and the floor plus its leave, plus lift. A
+face larger than the cutter, an annulus wider than it included, keeps its
+samples: reverse containment (the cutter inside the face) is not this rule.
+An outer contour with other curves is decided only when discs about its exact
+points (vertices and Extrema extremes) share no point, which keeps its
+samples; otherwise, like any unclassifiable floor edge or failed tangent axis,
+that floor's pose is undefined: its own poses drop, certain hits on the op's
+other faces stay in `min_hits`, `hit_refs` and `obstacles`, and the op's
+measured facts become `unknown` with
+`<face>: floor tool pose is undefined (...)`.
 
 The holder cylinder (gauge diameter, gauge length) starts `projection_mm`
 above the tip. Both cylinders are intersected with material minus a thin

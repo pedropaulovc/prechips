@@ -346,7 +346,17 @@ wall/wall island vertices add no bound and no corner pose. An edge the shifted
 axis comes within a radius of, or crosses into its material from the floor
 (its nearest edge, straight behind the edge), joins the bounds once (a finite
 constraint closure, not a search). This is a
-per-sample rule, not a whole-face pose. Tangency does not certify
+per-sample rule for floors that keep their samples. A +Z planar floor whose
+entire face fits inside the actual cutter disc instead gets one pose, no
+samples or corners: the area centroid of the axes covering its outer wire
+(exact for lines and Z circles, no `STOCK_TOL` widening), a certified unique
+centre when only one axis covers it, or a concave rising Z-circle wall's centre
+meeting every such wall's tangent-circle bound; a rough leave or any other rising wall
+keeps the samples, and so does a face larger than the cutter (reverse
+containment is not this rule). An undecidable floor (other outer curves, a
+failed native locus or unclassifiable edge) drops only its own poses: other
+faces' certain hits stay while the op's measured facts are `unknown`.
+Tangency does not certify
 corner radii. Floor-only claims do not certify wall/wall corners;
 `internal_corner_radius` retains its existing scope and checks a sharp
 wall/wall corner when the operation claims both walls.
