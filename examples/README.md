@@ -79,6 +79,12 @@ exported face sets enable evaluation, not automatic passes. Current M3
 regeneration, repeatability and gate evidence belongs in PLAN §8 M3; historical
 available-kernel goldens are not proof of the new export-consumption results.
 
+The reference validator accepts a nominal-less dome only when its diameter
+matches the base fixed by declared `base_radius` or `sphere_radius` and scalar
+height, its kernel span is cited, coverage is complete and it fits held stock.
+Other missing, explicitly unknown or contradictory diameter nominals stay
+unresolved; a repeated numeric report field is not independent geometry evidence.
+
 ## Files and expected exits
 
 Shared inputs:
