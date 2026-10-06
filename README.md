@@ -319,8 +319,9 @@ and a concave circle at least the cutter's radius bounds it exactly. A cutter
 wider than its gap or circle keeps the sample's own axis and reports the real
 hit. Convex edges and farther interior samples are unchanged; convex
 wall/wall island vertices add no bound and no corner pose. An edge the shifted
-axis comes within a radius of joins the bounds once (a finite constraint
-closure, not a search). This is a
+axis comes within a radius of, or crosses into its material from the floor
+(its nearest edge, straight behind the edge), joins the bounds once (a finite
+constraint closure, not a search). This is a
 per-sample rule, not a whole-face pose. Tangency does not certify
 corner radii. Floor-only claims do not certify wall/wall corners;
 `internal_corner_radius` retains its existing scope and checks a sharp

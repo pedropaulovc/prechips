@@ -15,6 +15,7 @@ import pytest
 from test_kernel_geometry import Engine, _op, _setup, _vise
 
 _AUTHOR = r"""
+import math
 import sys
 import FreeCAD, Part
 V = FreeCAD.Vector
@@ -38,8 +39,23 @@ lens = Part.makeCylinder(10, 7, V(24, 19, 14)).common(Part.makeCylinder(10, 7, V
 save("lens", block.cut(lens))
 # Through groove 6 wide (y 17..23), floor z=12.
 save("groove", block.cut(Part.makeBox(62, 6, 9, V(-1, 17, 12))))
+# V pocket 6 deep, 40 degrees, tip (10, 20), with an r0.5 boss 6 tall on its bisector
+# 4.086 from the tip, both turned 7 degrees about the tip. For R1.5 the two-wall tangent
+# axis (R/sin 20 = 4.386 from the tip) lies inside the boss; axes past it clear.
+half = math.radians(20.0)
+wedge = Part.Face(Part.makePolygon([
+    V(10, 20, 14), V(40, 20 - 30 * math.tan(half), 14), V(40, 20 + 30 * math.tan(half), 14),
+    V(10, 20, 14),
+])).extrude(V(0, 0, 7))
+boss = Part.makeCylinder(0.5, 6, V(14.086, 20, 14))
+for shape in (wedge, boss):
+    shape.rotate(V(10, 20, 14), V(0, 0, 1), 7.0)
+save("v-boss", block.cut(wedge).fuse(boss).removeSplitter())
+# Plate 10 thick with a 1 mm rib 6 tall (y 19.5..20.5, x 10..50) standing on it.
+plate = Part.makeBox(60, 40, 10)
+save("rib", plate.fuse(Part.makeBox(40, 1, 6, V(10, 19.5, 10))).removeSplitter())
 """
-_AUTHORED = 6
+_AUTHORED = 8
 
 
 @pytest.fixture(scope="module")
@@ -113,3 +129,20 @@ def test_tool_wider_than_its_circle_or_gap_reports_the_real_wall_hit(
     assert isinstance(hits, int) and hits > 0, detail
     assert "tool_hits" not in detail["reasons"]
     assert walls <= set(detail["hit_refs"]["tool"]), detail
+
+
+def test_axis_shifted_across_an_island_wall_is_bounded_by_it(engine, solids):
+    # The samples at and beside the V tip shift onto the two-wall tangent axis inside the
+    # boss; the boss wall they crossed joins the closure, which moves them past it. The
+    # two samples within R of the boss's tip-facing side and both V walls have no axis
+    # clear of all three tangent bounds, so they keep their own axis and report the hit.
+    _, detail = _floor_op(engine, solids["v-boss"], (5, 2, 14), (45, 38, 14), 1.5)
+    assert detail["tool_hits"] == 2 and "tool_hits" not in detail["reasons"], detail
+
+
+def test_plate_samples_beside_a_thin_rib_stand_clear_of_its_near_face_only(engine, solids):
+    # A sample at one face's foot lies behind the rib's other face 1 mm away: it is not
+    # inside material, so that far face does not bound it and the near face alone does.
+    _, detail = _floor_op(engine, solids["rib"], (0, 0, 10), (60, 40, 10), 3.0)
+    assert detail["sample_count"] > 0
+    assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail

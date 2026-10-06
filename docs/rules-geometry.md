@@ -414,9 +414,14 @@ circular wall concave toward the floor whose radius is at least the cutter's
 bounds it by its exact tangent circle, any other edge by its tangent
 half-plane at the nearest point, and the move is one of finitely many analytic
 candidates (no search). A shifted axis may come within a radius of a concave
-edge the sample was not near (the far wall of an acute cusp); that edge then
-joins the bounds and the axis is solved again. This finite constraint closure
-only adds walls not yet bounding, at most once each, and is not a pose search.
+edge the sample was not near (the far wall of an acute cusp), or be carried
+across a wall into its material (an island inside a narrow V); that edge then
+joins the bounds and the axis is solved again. An axis has crossed a wall when
+that wall's floor edge is its nearest and it stands straight behind the edge's
+interior; a sample's own position never counts as crossing, so a floor sample
+beside a thin rib is not bounded by the rib's far face. This finite constraint
+closure only adds walls not yet bounding, at most once each, and is not a pose
+search.
 A sample beyond an edge's end counts that edge only at
 a concave wall/wall corner there, so convex wall/wall island vertices add no
 bound and no corner pose. When no axis clears every bounding wall (a cutter
@@ -509,7 +514,10 @@ The kernel tests pin the discriminations: a plate-top sample within a cutter
 radius of a boss stands tangent to it and clears, as do samples near an R10 or
 exactly cutter-sized circular pocket wall, an arc/chord corner and the walls
 of a groove exactly two radii wide, while a cutter wider than its circle or
-groove reports the real wall hit; an offset cutter tangent to
+groove reports the real wall hit; samples near a 40° V tip whose two-wall axis
+lands inside an r0.5 island stand past the island (only the two samples whose
+island and V-wall bounds conflict report the hit), and plate samples beside a
+1 mm rib clear it; an offset cutter tangent to
 its claimed side wall clears while the sample-centred mutant intersects the
 wall; a Ø10 cutter
 in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the

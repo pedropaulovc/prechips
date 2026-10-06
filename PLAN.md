@@ -580,8 +580,8 @@ tangent; every such edge bounds the axis at once, so a two-wall concave floor
 corner and samples near it stand tangent to both walls. A concave circle at
 least the cutter's radius bounds it exactly; the smallest move is one of
 finitely many analytic candidates, never a search, and a concave edge the
-shifted axis comes within a radius of joins the bounds once (a finite
-constraint closure). A cutter wider than its
+shifted axis comes within a radius of, or crosses as its nearest edge, joins
+the bounds once (a finite constraint closure). A cutter wider than its
 gap or circle keeps the sample's own axis and reports the real hit. Convex
 edges and farther interior samples are unchanged; convex wall/wall island
 vertices add no bound and no corner pose. This is per sample, not a
