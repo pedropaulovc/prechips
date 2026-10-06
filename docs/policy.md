@@ -59,10 +59,14 @@ threshold. The shipped numbers remain `"unknown"`
 rather than copying unsourced shop folklore. Required M2 physics warnings promote
 readiness to exit 4 using the existing gate; proxy warnings never invent a
 hard physical limit. Other number names are not read by any rule.
-The eight geometry rule names (`accessibility`, `reach`,
+The nine geometry rule names (`accessibility`, `reach`,
 `internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,
-`thin_wall_under_clamp`, `fixture_interference`) may be required; a missing FreeCAD kernel yields exit
-4 whether or not they are, because its `?` rows carry `kernel_unavailable`.
+`thin_wall_under_clamp`, `fixture_interference`, `saw_cut`) may be required.
+Use explicit `setup:op` subjects for a route's saw cuts. Saw cylinder checks are
+not applicable, but a required `saw_cut` remains unresolved when its kerf,
+plane or stock cannot be derived. A missing FreeCAD kernel yields exit 4
+whether or not geometry rules are required, because its `?` rows carry
+`kernel_unavailable`; exemptions never convert missing geometry into approval.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled

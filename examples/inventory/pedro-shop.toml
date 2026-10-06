@@ -60,6 +60,9 @@ cross_slide_travel_in = 6
 compound_travel_in = 3
 weight_lb = 575
 standard_accessories = ["chuck-3jaw-6-d1-4", "chuck-4jaw-6-d1-4", "faceplate-d1-4", "steady_rest", "follow_rest", "thread_dial", "dead_centre_headstock", "dead_centre_tailstock_mt3"]
+# --- pivot-shaft additions ---
+control = "manual; illustrative example item (plausible, not on hand): Electronica EL400 two-axis lathe DRO, X scale on the cross slide, Z scale on the bed"
+# --- end pivot-shaft additions ---
 
 [machines.PM-1127VF-LB.spindle]
 ranges_rpm = [[70, 380], [380, 2200]]
@@ -71,6 +74,9 @@ drive = "vfd"
 [machines.PM-1127VF-LB.tailstock]
 taper = "MT3"
 quill_travel_in = 4
+# --- pivot-shaft additions ---
+quill_dia_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, quill OD" } }
+# --- end pivot-shaft additions ---
 
 [machines.PM-1127VF-LB.leadscrew]
 tpi = 8
@@ -86,6 +92,14 @@ type = "wedge"
 holders = 5
 included = true
 note = "a second AXA QCTP (250-111) came off the JET"
+
+# --- pivot-shaft additions ---
+# Lathe envelope read by the lathe headroom screen (swing values are diameters).
+[machines.PM-1127VF-LB.envelope]
+swing_over_bed_in = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle axis to bed way doubled" } }
+swing_over_cross_slide_in = { value = 6.69, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle axis to cross-slide top doubled" } }
+between_centres_in = { value = 27.55, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "tape measure, spindle nose to tailstock quill face, tailstock at bed end" } }
+# --- end pivot-shaft additions ---
 
 [machines.BS-0]
 kind = "dividing_head"
@@ -383,6 +397,52 @@ vendor = "LittleMachineShop"
 sku = 4132
 by = "photo+lms-package"
 
+# --- pivot-shaft additions ---
+# Turning-model geometry per holder style (docs/rules-geometry.md "Approach models").
+# TCMT 21.51: 60° triangle, 1/4 in IC (11 mm edge), 1/64 in (0.4 mm) nose radius.
+# AR/AL: 93° entering (-3° lead) right/left-hand turning-facing holders.
+# E: 60° entering (30° lead) right-hand profiling holder; it cannot square a shoulder.
+# functional_width: nose centre to the shank back face, against the feed.
+[tools.turning-tools-warner-lms-4132.members.AR]
+hand = "right"
+nose_radius_mm = { value = 0.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge" } }
+insert_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor" } }
+entering_angle_deg = { value = 93.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, cutting edge to holder side" } }
+edge_len_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+head_len_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank start" } }
+shank_width_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+functional_width_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank back face" } }
+
+[tools.turning-tools-warner-lms-4132.members.AR.projection_mm]
+"qctp-axa-lms-2280/1-turning-facing" = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to insert nose" } }
+
+[tools.turning-tools-warner-lms-4132.members.AL]
+hand = "left"
+nose_radius_mm = { value = 0.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge" } }
+insert_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor" } }
+entering_angle_deg = { value = 93.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, cutting edge to holder side" } }
+edge_len_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+head_len_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank start" } }
+shank_width_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+functional_width_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank back face" } }
+
+[tools.turning-tools-warner-lms-4132.members.AL.projection_mm]
+"qctp-axa-lms-2280/1-turning-facing" = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to insert nose" } }
+
+[tools.turning-tools-warner-lms-4132.members.E]
+hand = "right"
+nose_radius_mm = { value = 0.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge" } }
+insert_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor" } }
+entering_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, cutting edge to holder side" } }
+edge_len_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+head_len_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank start" } }
+shank_width_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+functional_width_mm = { value = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to shank back face" } }
+
+[tools.turning-tools-warner-lms-4132.members.E.projection_mm]
+"qctp-axa-lms-2280/2-boring-turning-facing" = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to insert nose" } }
+# --- end pivot-shaft additions ---
+
 [tools.boring-bar-warner-lms-1721]
 kind = "boring_bar"
 shank_in = 0.5
@@ -407,14 +467,22 @@ by = "lms-package"
 kind = "parting_blade"
 size_in = "1/16 x 1/2 x 4-1/2"
 material = "M2"
-present = "unknown"
-verify = true
-point_angle = "unknown"
-flute_len = "unknown"
-oal = "unknown"
-flutes = "unknown"
-dia = "unknown"
-shank = "unknown"
+# --- pivot-shaft additions (lathe owner; used by the cone built-up part_off) ---
+present = true               # example: on hand, mounted in the AXA #7 parting holder
+hand = "right"
+nose_radius_mm = { value = 0.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge, ground corner" } }
+insert_angle_deg = { value = 87.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, front edge to side clearance" } }
+entering_angle_deg = { value = 90.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, square-ground front edge" } }
+edge_len_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
+head_len_mm = { value = 12.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, blade height" } }
+shank_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
+functional_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
+projection_mm = { "qctp-axa-lms-2280/7-parting" = { value = 18.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to blade tip" } } }
+shank_in = "1/2"             # blade height clamped by the #7 holder (size_in 1/16 x 1/2 x 4-1/2)
+reach_mm = { value = 18.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to blade tip (usable plunge depth)" } }
+blade_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground front edge" } }
+# Drill-only point_angle/flute_len/oal/flutes/dia fields removed: a parting blade has none.
+# --- end pivot-shaft additions ---
 
 [tools.parting-blade-lms-1728.source]
 vendor = "LittleMachineShop"
@@ -513,6 +581,14 @@ scroll = true
 fits = "PM-1127VF-LB"
 source = "pm-1127 standard accessories"
 range_mm = [3.0, 140.0]   # illustrative example gripping range, outside jaws (exterior diameter is not capacity)
+# --- pivot-shaft additions ---
+body_dia_mm = { value = 158.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule across the chuck body" } }
+body_length_mm = { value = 72.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle nose to body face" } }
+bore_dia_mm = { value = 40.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, inside jaws" } }
+jaw_width_mm = { value = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+jaw_height_mm = { value = 45.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, grip step to jaw outer end" } }
+jaw_depth_mm = { value = 25.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw face to body face" } }
+# --- end pivot-shaft additions ---
 
 [fixtures.chuck-4jaw-6-d1-4]
 kind = "chuck_4jaw"
@@ -522,6 +598,14 @@ independent = true
 fits = "PM-1127VF-LB"
 source = "pm-1127 standard accessories"
 range_mm = [6.0, 150.0]   # illustrative example gripping range, jaws reversed for the largest work
+# --- pivot-shaft additions ---
+body_dia_mm = { value = 158.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule across the chuck body" } }
+body_length_mm = { value = 70.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle nose to body face" } }
+bore_dia_mm = { value = 40.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, inside jaws" } }
+jaw_width_mm = { value = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+jaw_height_mm = { value = 45.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, grip step to jaw outer end" } }
+jaw_depth_mm = { value = 25.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw face to body face" } }
+# --- end pivot-shaft additions ---
 
 [fixtures.faceplate-d1-4]
 kind = "faceplate"
@@ -541,7 +625,23 @@ verify = true
 kind = "follow_rest"
 fits = "PM-1127VF-LB"
 source = "pm-1127 standard accessories"
-verify = true
+# --- pivot-shaft additions ---
+present = true               # example: standard accessory on hand
+capacity_min_mm = { value = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, bronze jaw tips fully closed" } }
+capacity_max_mm = { value = 50.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, bronze jaw tips fully open" } }
+# --- end pivot-shaft additions ---
+
+# --- pivot-shaft additions ---
+# The PM-1127VF-LB standard-accessory MT3 dead centre, as a fixture with its solid facts.
+[fixtures.dead_centre_tailstock_mt3]
+kind = "dead_centre"
+fits = "PM-1127VF-LB"
+source = "pm-1127 standard accessories"
+taper = "MT3"
+dia_mm = { value = 23.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, shank at the quill face" } }
+length_mm = { value = 45.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, point to quill face" } }
+point_angle = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "centre gauge" } }
+# --- end pivot-shaft additions ---
 
 [fixtures.parallels-lms-6745]
 kind = "parallels_set"
@@ -603,13 +703,50 @@ solids = [
   { name = "strap", shape = "box", at_mm = [-20.0, -4.0, 0.0], size_mm = [40.0, 8.0, 8.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
 ]
 
-# Example purchase: a plain cast-iron angle plate for the bracket's cross-bore setup.
+# --- pivot-bracket additions ---
+# Shop-made bridge in the strap frame: S3 origin TC [0,-6,-16], local X = TC +X,
+# local Z = TC -Y; tightening presses toward TC +Y into the finished foot.
+# Illustrative dimensions only: 3/8-16 studs and conservative cylindrical hex-nut
+# envelopes, not a purchased bridge or a claim of actual measurements.
+[fixtures.clamping-kit-lms-1144.members.bracket-bridge]
+kind = "strap_clamp"
+note = "illustrative shop-made two-stud bridge bar on 3/8-16 studs; cylindrical nut envelopes are conservative, not actual hex geometry or purchase/measurement evidence"
+solids = [
+  { name = "beam", shape = "box", at_mm = [-31.75, -6.35, 0.0], size_mm = [63.5, 12.7, 9.525], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "left-stud", shape = "cylinder", at_mm = [-20.0, 0.0, -31.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 54.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "left-front-washer", shape = "cylinder", at_mm = [-20.0, 0.0, 9.525], axis = [0.0, 0.0, 1.0], dia_mm = 20.64, length_mm = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "left-front-nut", shape = "cylinder", at_mm = [-20.0, 0.0, 11.125], axis = [0.0, 0.0, 1.0], dia_mm = 16.5, length_mm = 8.33, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "left-rear-washer", shape = "cylinder", at_mm = [-20.0, 0.0, -20.3], axis = [0.0, 0.0, 1.0], dia_mm = 20.64, length_mm = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "left-rear-nut", shape = "cylinder", at_mm = [-20.0, 0.0, -28.63], axis = [0.0, 0.0, 1.0], dia_mm = 16.5, length_mm = 8.33, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "right-stud", shape = "cylinder", at_mm = [20.0, 0.0, -31.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 54.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "right-front-washer", shape = "cylinder", at_mm = [20.0, 0.0, 9.525], axis = [0.0, 0.0, 1.0], dia_mm = 20.64, length_mm = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "right-front-nut", shape = "cylinder", at_mm = [20.0, 0.0, 11.125], axis = [0.0, 0.0, 1.0], dia_mm = 16.5, length_mm = 8.33, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "right-rear-washer", shape = "cylinder", at_mm = [20.0, 0.0, -20.3], axis = [0.0, 0.0, 1.0], dia_mm = 20.64, length_mm = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "right-rear-nut", shape = "cylinder", at_mm = [20.0, 0.0, -28.63], axis = [0.0, 0.0, 1.0], dia_mm = 16.5, length_mm = 8.33, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "left-clearance", shape = "cylinder", at_mm = [-20.0, 0.0, -31.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.5, length_mm = 54.0, void = true, cuts = ["beam", "left-front-washer", "left-rear-washer"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bore gauge" } },
+  { name = "right-clearance", shape = "cylinder", at_mm = [20.0, 0.0, -31.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.5, length_mm = 54.0, void = true, cuts = ["beam", "right-front-washer", "right-rear-washer"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bore gauge" } },
+  { name = "left-nut-bore", shape = "cylinder", at_mm = [-20.0, 0.0, -31.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 54.0, void = true, cuts = ["left-front-nut", "left-rear-nut"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bore gauge" } },
+  { name = "right-nut-bore", shape = "cylinder", at_mm = [20.0, 0.0, -31.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 54.0, void = true, cuts = ["right-front-nut", "right-rear-nut"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bore gauge" } },
+]
+
+# --- pivot-bracket additions ---
+# Illustrative angle plate. Local XY is the table plane; the front upright face
+# is Y=0. TC outer-face Z0 sits 2 mm above its top, so the table is TC Z=-90.9.
 [fixtures.angle-plate]
 kind = "angle_plate"
 note = "illustrative example item: 4 x 5 x 3-1/2 in machined cast-iron angle plate, slotted faces"
 length_in = { value = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 width_in = { value = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 height_in = { value = 3.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge" } }
+# Bracket mounting location: table to the held foot's bottom (TC Z=-24.2).
+bed_height_mm = { value = 66.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, table to held foot bottom" } }
+solids = [
+  { name = "base", shape = "box", at_mm = [-63.5, 0.0, -90.9], size_mm = [127.0, 101.6, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge" } },
+  { name = "upright", shape = "box", at_mm = [-63.5, 0.0, -78.2], size_mm = [127.0, 12.7, 76.2], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge" } },
+  { name = "bolted foot-end ledge", shape = "box", at_mm = [-8.0, -6.0, -30.2], size_mm = [16.0, 6.0, 6.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge, ledge top at TC Z=-24.2" } },
+  { name = "left-bridge-stud-hole", shape = "cylinder", at_mm = [-20.0, -0.1, -16.0], axis = [0.0, 1.0, 0.0], dia_mm = 10.5, length_mm = 12.9, void = true, cuts = ["upright"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bore gauge" } },
+  { name = "right-bridge-stud-hole", shape = "cylinder", at_mm = [20.0, -0.1, -16.0], axis = [0.0, 1.0, 0.0], dia_mm = 10.5, length_mm = 12.9, void = true, cuts = ["upright"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bore gauge" } },
+]
 
 [fixtures.drill-press-vise]
 kind = "vise"
@@ -733,12 +870,29 @@ vendor = "LittleMachineShop"
 sku = 2280
 by = "lms-package"
 
+# --- pivot-shaft additions ---
+# AXA holder bodies for the turning model: body_width along the spindle (Z) from the
+# shank's leading face, body_depth radially behind the shank.
+[holders.qctp-axa-lms-2280.members."1-turning-facing"]
+body_width_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[holders.qctp-axa-lms-2280.members."2-boring-turning-facing"]
+body_width_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[holders.qctp-axa-lms-2280.members."7-parting"]
+body_width_mm = { value = 50.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+# --- end pivot-shaft additions ---
+
 # Preserved original inventory comments (rev-3 status vocabulary is superseded above):
 # rev-3 inventory line 1: Sample shop inventory (Pedro's shop). prechips ships no default inventory; each user supplies their own file in this schema.
 # rev-3 inventory line 2: `verify: true` marks a value taken from a vendor page, a forum, a photo or
 # rev-3 inventory line 3: memory rather than measured/confirmed on the machine. Rules that depend on a
 # rev-3 inventory line 4: `verify: true` value report at `warn`, never `block`, until it is cleared.
 # rev-3 inventory line 5: Photo citations refer to C:/src/dt-logs/shop-photos/INVENTORY-DRAFT.md.
+
 # rev-3 inventory line 11: read 2026-10-02
 # rev-3 inventory line 13: positions exact, feeds by hand
 # rev-3 inventory line 19: irrelevant under cncjs; kept for hand-crank fallback
@@ -1055,3 +1209,56 @@ oal_mm = { value = 49.0, measured = { by = "example (plausible, not measured)", 
 
 [tools.rocker-rod-reamer.members."2.0mm".projection_mm]
 "drill-chuck-r8" = { value = 34.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } }
+# --- pivot-bracket additions ---
+[gauges.radius-gauge]
+kind = "radius_gauge"
+range_mm = [1.0, 7.5]
+resolution_mm = 0.1
+note = 'Illustrative metric leaf radius gauge, including R7.0; compare the upper ear crown against the 7 mm leaf under backlight. Capability provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator against a calibrated radius master" }. Range/resolution are plain scalars under the gauge schema, not measured LengthMeasurement fields.'
+
+# --- pivot-bracket additions ---
+[fixtures.bracket-high-parallels]
+kind = "parallels_set"
+note = "Illustrative purchase: one tall narrow ground parallel pair for holding the 6 mm foot clear of the PM vise jaws; not a 1-2-3-block stack."
+length_mm = { value = 152.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+width_mm = { value = 3.175, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
+
+[fixtures.bracket-high-parallels.members."1-5-8in"]
+height_mm = { value = 41.275, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge on a surface plate" } }
+
+# --- pivot-bracket additions ---
+[tools.bracket-spot-drill]
+kind = "spot_drill"
+material = "M42"
+shank_in = "3/8"
+flutes = 2
+dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
+point_angle = { value = 120, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator" } }
+flute_len_mm = { value = 15.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 50.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+note = "Illustrative stiff 3/8 in cobalt 120-degree spotting drill; 31 mm projection keeps the R8 chuck above the 27.2 mm ear. At 0.6 mm tip depth the conical spot is only 2.08 mm in diameter."
+
+[tools.bracket-spot-drill.projection_mm]
+"drill-chuck-r8" = { value = 31.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to tool tip" } }
+
+# --- pivot-bracket additions ---
+[gauges.bracket-cross-bore-pins]
+kind = "pin_gauge_set"
+range_mm = [6.49, 6.54]
+sizes_mm = [6.5, 6.53]
+resolution_mm = 0.005
+note = 'Illustrative paired metric bore-limit pins: 6.500 mm go and 6.530 mm no-go, with 0.005 mm comparison capability. Provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bench micrometer against a gauge block stack" }. Not the shared inch-increment pin set.'
+
+# --- pivot-bracket additions ---
+[tools.bracket-long-endmill]
+kind = "endmill"
+material = "HSS"
+shank_in = "3/8"
+flutes = 4
+dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
+flute_len_mm = { value = 31.75, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+note = 'Illustrative long-flute 3/8 in HSS four-flute end mill for the S2 26.2 mm inner wall; the existing cutter has only 22.2 mm flutes and does not reach it. Shank provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" }; shank_in is the plain fractional identity required by the inventory schema, not a LengthMeasurement field. Paired illustrative installation: 37.0 mm projection exposes 31.75 mm flutes plus 5.25 mm shank, with 26.5 mm insertion from the 63.5 mm OAL, exceeding the nominal 25 mm collet grip; projection/diameter = 3.884, below 4.'
+
+[tools.bracket-long-endmill.projection_mm]
+"r8-collets-lms-4860/3-8in" = { value = 37.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }

@@ -145,7 +145,10 @@ if solid.Volume < 0:
 save("split-top", solid)
 # Same step, but its wall leans 5 mm into the floor opening as it rises.
 p = [V(30, 0, 10), V(35, 0, 20), V(61, 0, 20), V(61, 0, 10), V(30, 0, 10)]
-save("undercut-step", Part.makeBox(60, 40, 20).cut(Part.Face(Part.makePolygon(p)).extrude(V(0, 40, 0))))
+save(
+    "undercut-step",
+    Part.makeBox(60, 40, 20).cut(Part.Face(Part.makePolygon(p)).extrude(V(0, 40, 0))),
+)
 # A planned 6.5 mm through hole, before drilling the supplied rectangular blank.
 save("hole", Part.makeBox(60, 40, 20).cut(Part.makeCylinder(3.25, 22, V(30, 20, -1))))
 # A blind cylindrical opening with an unclaimed neighbouring boss inside it.

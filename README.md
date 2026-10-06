@@ -182,6 +182,14 @@ warn once and disable exporters without changing the report or checker exit.
   [geometry and workholding on the kernel](docs/rules-geometry.md).
 - [Reports, approval, renders and telemetry](docs/report-and-telemetry.md).
 
+Native [saw cut-off](docs/plan.md#saw-cut-off) supports `saw_cut` / `cut_off` on
+mill, bench and bandsaw setups: an explicit blade-centre plane plus inventory
+kerf removes only the discarded stock side. The traveler shows cited blade sfm
+and descent feed, not spindle RPM; cylinder-based accessibility explicitly does
+not apply. Dividing-head headroom uses centre height and the posed axis offset,
+and child hole operations inherit a missing travel centre from their named
+parent/hole while explicit unknown locations remain debt.
+
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:
 on an item it leaves that identity unresolved for the declared-input rules,

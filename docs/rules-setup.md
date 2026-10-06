@@ -7,13 +7,15 @@ rules are in [geometry rules](rules-geometry.md). Unknown measurement debt stays
 ## `hold_fields`
 
 One subject per setup. Requires fixture, stop, grip, clamp, coolant, deburr,
-and holders for nonmanual ops. A vise/nonlathe setup needs fixed-jaw declaration
+and holders for nonmanual machining ops (saw cut-off needs none). A vise/nonlathe
+setup needs fixed-jaw declaration
 unless explicitly not applicable. Lathe setups need OD, support, grip-on and a
 known end station; mill setups need top/bottom Z. Authored supports, orientation,
 parallels, jaws direction and locator are checked when supplied. Every nonmanual
 cut needs `direction` (face, profile, pocket, turn, form and parting actions
 included) except point/hole actions (`spot`, `drill`, `ream`, `tap`,
-`counterbore`, `center`); an explicitly supplied direction is also checked, and
+`counterbore`, `center`) and saw cut-off (its `cut_plane` defines the setting);
+an explicitly supplied point/hole direction is also checked, and
 an explicitly unknown action without one is unknown. Missing/empty
 fields are errors; explicit unknown values are unknown. It does not compare
 all holding dimensions or certify the fixture was physically installed.
@@ -45,6 +47,17 @@ fact-local trust: a limit without its own `measured` record (a vendor nominal
 with `verify = true`, say) is evidence in `numbers`, adds a
 `numbers.measurements` entry and keeps the row `?`. There is no top-level
 `spindle_to_table_max_in`/`travel_in` copy to fall back on.
+
+For a `dividing_head`, the work top above the table is the head's declared
+centre height plus `stock_state.top_z - hold.pose.origin_mm[2]`, plus any declared
+parallel/support lift: the pose origin locates the chuck axis in setup
+coordinates. Headroom adds the installed tool projection, holder gauge and
+25 mm insertion allowance to this work top,
+instead of treating the head's bed/body height plus full stock height as a
+vise stack. Translating stock and axis Z together leaves the result unchanged.
+Missing centre/axis facts or verification debt remain unknown; tilting the
+declared head axis does not by itself replace a known axis-origin Z with debt.
+The report/traveler expose centre height, axis Z and work-top height separately.
 
 Jaw height is not a stack layer: `jaw_top_z = bottom + jaw_height -
 (parallels + supports)`; cut clearance is `to_z - jaw_top_z`. Below-jaw cuts
@@ -100,6 +113,17 @@ lathe operation is never asked for a fictitious toolpost gauge length.
 |---|---|---|
 | `envelope` / setup | M5: authored stock and setup stock-state/frame; already-present successful kernel bbox only; fixture bed height plus parallels/supports; measured holder gauge and tool/holder projection; each operation's authored `approach_mm` and commanded Z band; measured spindle-to-table min/max | `S1: op 10 … exceeds spindle-to-table maximum … mm by … mm.` or `? S1: spindle envelope remains unmeasured or unresolved. measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm.` |
 | `travel` / setup | M5: transformed operation feature extents/centres or conservative authored stock span; selected cutter radius for profile extents only; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; per-op holder gauge and projection; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent, holder/tool length or safe approach to measure and author. |
+
+Child `counterbore` and other point operations with no `at` inherit the named
+`parent` (or `hole`) location in that source frame. An explicit child `at` wins,
+including explicit `"unknown"` debt; a missing parent/point stays unknown.
+The inheritance changes the cutter centre only, not child bounds/dimensions.
+
+Dedicated all-saw setups (manual inspection/deburring allowed) have no spindle
+headroom, envelope or XYZ tool travel, and those rows state `not_applicable`.
+In mixed setups saw ops contribute no fictitious holder/spindle stack while
+the other machine cuts still receive their normal checks. Holding and the
+native `saw_cut` stock-preservation check are not exempted.
 
 `envelope` stacks, for each **individual** operation,
 `fixture bed height + parallels/supports + physical stock height + mounted holder gauge + tool projection`

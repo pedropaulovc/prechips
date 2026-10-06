@@ -330,7 +330,8 @@ contract:
 - An omitted *feature* is impossible to detect from the manifest alone,
   which is why the generator, not a hand, writes it (M3). The historical M1
   hand-written manifests were cross-checked against drawing dimension counts;
-  the undrawn pivot-bracket remains authored with unknown drawing requirements.
+  the pivot-bracket remains hand-authored on the v39 STEP without a dimensioned
+  drawing, so its example bands are illustrative rather than sourced limits.
 
 **Historical design sketch, not the current manifest.** The excerpt below
 predates M3: placeholder face names, inch-derived bands and material/profile
@@ -968,8 +969,11 @@ sheet.
    hand-authored substitutes. Export delivery provenance and exact digests are
    recorded only in [examples/README.md](examples/README.md#m3-export-delivery-provenance).
    Python citations remain `file:line`; YAML citations are `file:dotted.key.path`.
-   All plans remain authored and PLANNED. The undrawn pivot-bracket remains
-   hand-authored with no STEP or invented drawing contract.
+   All plans remain authored and PLANNED. The pivot-bracket keeps hand-authored
+   `features.toml` on the consumer v39 STEP
+   (`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
+   No dimensioned bracket drawing is supplied, so its bands are illustrative
+   example design intent rather than measured or exported drawing limits.
 
    The exported contracts include expanded rocker datum/tip features, shaft
    face splits, the cone journal's unknown requirement identity, and rendered
@@ -1142,6 +1146,14 @@ sheet.
    kernel yields one console `?` line and unknown geometry, not fabricated
    passes; named mapping and directional-claim errors remain errors.
 
+   **Saw cut-off shipped (2026-10-06, `m5-rev9`):** `saw_cut` / `cut_off`
+   on mill, bench or bandsaw removes a setup-plane slab including the selected
+   blade's kerf, preserving the finished target and routing the retained stock.
+   Cited canonical `saw_cut` rows supply linear blade sfm and descent feed,
+   never spindle RPM. Axial/turning-cylinder accessibility is explicitly
+   not applicable; saw cuts earn no finished-face coverage. Fixture modeling
+   and input debt semantics remain operative.
+
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
    built-up component, any earlier setup id (not just the previous setup), or a
@@ -1265,7 +1277,7 @@ sheet.
    never a developer's hard-coded home. The cache hashes only engine inputs,
    not host-only finishing, resolved-projection OAL, wording or grip policy.
 
-   The combined catalogue is `m5-rev8`. Geometry reuses M5 fact-local length
+   The combined catalogue is `m5-rev9`. Geometry reuses M5 fact-local length
    lookup with nominal facts allowed: only that dimension's own verification
    or incomplete measurement record withholds it. Item/source/container
    flags never taint other dimensions. Projection maps use the full selected
@@ -1339,6 +1351,13 @@ sheet.
    `headroom`, `envelope` and `travel`; the mill's top-level
    `spindle_to_table_max_in`/`travel_in`/`table_in` copies and the unread
    table size, T-slot pitch, spindle taper and spindle-stack fields are gone.
+
+   **Rule gaps closed (2026-10-06):** dividing-head headroom uses centre height
+   plus the stock-top/posed-axis offset; child point-feature travel inherits
+   a missing `at` from its named parent/hole without shadowing explicit input.
+   Boundary regressions cover exact-limit pass, exceeded-limit error and
+   missing/unverified facts as debt. Shared example goldens/full validation
+   remain the integration owner's gate after all programme branches land.
    Trust is fact-local `{ value, measured = { by, date, instrument }, verify }`,
    with no block/root/source inheritance, coverage heuristics or legacy-field
    redirect; a vendor nominal is evidence, never a certificate. The vise

@@ -1,6 +1,8 @@
 """Physical mill stack arithmetic, independent of authored reference outputs."""
 
+import math
 import re
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -230,18 +232,122 @@ def test_below_jaw_target_is_separate_unresolved_path_check():
     assert finding.numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(-2.6)
 
 
-def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_travel():
+LEVEL_HEAD_POSE = {"origin_mm": [0, 0, 0], "x": [0, 1, 0], "z": [1, 0, 0]}
+
+
+def head_bundle():
+    """S1 held in a dividing head whose axis origin lies on setup z = 0."""
     data = bundle()
-    data.plan["setups"][0]["hold"] = {"fixture": "head"}
+    data.plan["setups"][0]["hold"] = {"fixture": "head", "pose": deepcopy(LEVEL_HEAD_POSE)}
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(250)
     data.inventory["machines"]["head"] = {
         "kind": "dividing_head",
+        "centre_height_mm": 100,
+        # Neither is the work's height on a head: bed 20 + supported stock 16 would
+        # give 36, jaw 40 would give 40, against the true 104 mm work top.
         "bed_height_mm": 20,
-        "length_mm": 450,
+        "jaw_height_mm": 40,
+        "length_mm": 150,
         "width_mm": 80,
     }
+    return data
+
+
+def test_dividing_head_work_top_is_centre_height_plus_top_above_axis():
+    finding = evaluate(head_bundle())[0]
+    assert finding.status == "pass"
+    # 100 centre height + (top 4 - axis 0) + projection 55 + gauge 30 + insertion 25.
+    assert finding.numbers["work_top_above_table_mm"] == 104
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+    assert finding.numbers["bed_height_mm"] == "not_applicable"
+    assert finding.numbers["jaw_obstruction"]["jaw_top_z"] == "not_applicable"
+    assert finding.numbers["cut_tip_above_jaws_mm"] == {}
+
+
+def test_dividing_head_exact_clearance_passes_and_excess_errors():
+    data = head_bundle()
+    envelope = data.inventory["machines"]["mill"]["envelope"]
+    envelope["spindle_to_table_max_mm"] = measured(214)
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["stacks"][0]["margin_mm"] == 0
+    envelope["spindle_to_table_max_mm"] = measured(213)
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.sentence == "S1: op 10 exceeds spindle clearance by 1 mm."
+
+
+def test_dividing_head_translated_pose_and_stock_keep_the_same_stack():
+    data = head_bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"]["pose"]["origin_mm"] = [7, -3, 50]
+    setup["stock_state"].update(top_z=54, bottom_z=38)
+    setup["ops"][0]["to_z"] = 50
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["head_axis_z"] == 50
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+
+
+def test_dividing_head_needs_no_supported_stock_bottom():
+    data = head_bundle()
+    del data.plan["setups"][0]["stock_state"]["bottom_z"]
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+
+
+def test_inclined_head_keeps_centre_plus_pose_offset_and_blocks_lift_it():
+    data = head_bundle()
+    tilt = math.radians(3.33)
+    hold = data.plan["setups"][0]["hold"]
+    cos, sin = math.cos(tilt), math.sin(tilt)
+    hold["pose"].update(z=[cos, 0, sin], x=[-sin, 0, cos])
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["work_top_above_table_mm"] == 104
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+    hold.update(supports="blocks", support_orientation="1 in height")
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["work_top_above_table_mm"] == pytest.approx(129.4)
+    assert finding.numbers["sum_mm"] == pytest.approx(239.4)
+
+
+@pytest.mark.parametrize(
+    "gap",
+    ["no pose", "pose origin unknown", "no centre height", "head verify", "support verify"],
+)
+@pytest.mark.parametrize("limit", [1000, 100])
+def test_dividing_head_unresolved_work_top_neither_passes_nor_errors(gap, limit):
+    data = head_bundle()
+    hold = data.plan["setups"][0]["hold"]
+    head = data.inventory["machines"]["head"]
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(limit)
+    if gap == "no pose":
+        del hold["pose"]
+    elif gap == "pose origin unknown":
+        hold["pose"]["origin_mm"] = "unknown"
+    elif gap == "no centre height":
+        del head["centre_height_mm"]
+    elif gap == "head verify":
+        head["verify"] = True
+    else:
+        hold.update(supports="blocks", support_orientation="1 in height")
+        data.inventory["fixtures"]["blocks"]["verify"] = True
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    if gap not in {"head verify", "support verify"}:
+        assert finding.numbers["work_top_above_table_mm"] == "unknown"
+        assert finding.numbers["sum_mm"] == "unknown"
+
+
+def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_travel():
+    data = head_bundle()
+    data.inventory["machines"]["head"]["length_mm"] = 450
     finding = evaluate(data)[0]
     assert finding.numbers["fixture_verify"] is False
-    assert finding.numbers["sum_mm"] == pytest.approx(146)
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
     assert finding.numbers["travel_checks"]["x"]["fixture_mm"] == 450
     assert finding.status == "error"
     assert finding.sentence == "S1: part/fixture envelope exceeds X travel."

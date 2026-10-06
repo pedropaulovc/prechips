@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket", "cone-pivot-post")
 EXPECTED_EXIT = {
-    "pivot-shaft": 2,
+    "pivot-shaft": 4,
     "rocker-arm": 2,
     "pivot-bracket": 2,
     "cone-pivot-post": 2,
@@ -485,7 +485,7 @@ def read_report(path: Path) -> dict:
         == ("checked" if report.get("expected_exit") == 0 else "planned"),
         f"{path}: unearned readiness",
     )
-    require(report.get("rules_version") == "m5-rev8", f"{path}: stale rule catalogue")
+    require(report.get("rules_version") == "m5-rev9", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]
@@ -889,9 +889,14 @@ def check_speeds(
         near(row["rpm"], rpm, f"{setup['id']}:{op['op']}: RPM")
     else:
         require(row.get("rpm") == "unknown", "uncited cutting speed became RPM")
-    values = row.get("rpm"), row.get("flutes"), row.get("chip_load_mm_per_tooth")
+    if numeric(row.get("feed_mm_rev")):  # lathe rows feed per spindle revolution
+        values = row.get("rpm"), row.get("feed_mm_rev")
+        label = "feed per revolution"
+    else:
+        values = row.get("rpm"), row.get("flutes"), row.get("chip_load_mm_per_tooth")
+        label = "feed per tooth"
     feed = math.prod(values) if all(numeric(v) for v in values) else "unknown"
-    near(row.get("feed_mm_min", "unknown"), feed, "feed per tooth")
+    near(row.get("feed_mm_min", "unknown"), feed, label)
 
 
 def check_coordinates(setup: dict, features: dict, finding: dict, plan: dict) -> None:

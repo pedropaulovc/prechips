@@ -135,6 +135,7 @@ MERIDIAN_AZIMUTH = 0.5  # rad: the pose-selection meridian plane through Z (off 
 MERIDIAN_DEFLECTION = 1e-4  # mm: chord deflection of that section (well below LIFT)
 POSE_SEARCH = (24, 16, 10)  # corner-offset search: directions, radial steps, bisections
 TURNING = "turning"
+SAW_ACTIONS = {"saw_cut", "cut_off"}
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
 WIDTH, HEIGHT = 640, 480
@@ -164,6 +165,10 @@ class _Unknown(Exception):
 
 def _turned(op):
     return op.get("approach") == TURNING
+
+
+def _sawn(op):
+    return op.get("do") in SAW_ACTIONS
 
 
 def _internal_reason(labels, internal):
@@ -830,7 +835,7 @@ def _clearing_box(bounds, within=None):
     if within is not None:
         lo = [max(v, within[axis] - 1.0) for axis, v in enumerate(lo)]
         hi = [min(v, within[axis + 3] + 1.0) for axis, v in enumerate(hi)]
-        if any(a >= b for a, b in zip(lo, hi)):
+        if any(a >= b for a, b in zip(lo, hi, strict=True)):
             return None, "stock_removal_bounds lie wholly outside the stock"
     return _box_shape((*lo, *hi)), None
 
@@ -1461,7 +1466,7 @@ class _Setup:
         for op in self.ops:
             with _timed(op_clocks, self._subject(op)):
                 result = self._op(op)
-                if self.stock_reason is not None:
+                if self.stock_reason is not None and not _sawn(op):
                     self._unproven(result, self.stock_reason)
                 ops[self._subject(op)] = result
         if self.stock_reason is None:
@@ -1473,7 +1478,14 @@ class _Setup:
                 self.fixture_ready and bool(scene["components"]) and not scene["debts"]
             )
             with _timed(phases, "stock_output"):
-                self.stock_out, self.stock_out_reason = self._output()
+                self.stock_out, self.stock_out_reason = self._output(ops)
+            saws = [
+                {"subject": self._subject(op), **ops[self._subject(op)]}
+                for op in self.ops
+                if _sawn(op)
+            ]
+            if saws:
+                scene["saw_cuts"] = saws
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -1497,25 +1509,34 @@ class _Setup:
         self.culled_part = None
         self.regions = {}
 
-    def _output(self):
+    def _output(self, facts):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
 
         A hole op (``hole`` metadata) removes its geometry-located bore cylinder (see
         :meth:`_hole_cut`). Other ops remove only stock outside their guard: the finished
         solid offset by their own rough leave (:meth:`_guard`). An authored clearing box
         removes that within the box above ``to_z``, leaving unclaimed hole columns to
-        their own ops. Other ops sweep direction-valid claims along +Z, keeping unclaimed
-        rails, ears, webs and overstock. A lower-leave op also cuts the lineage leave off
-        its claimed lateral faces (:meth:`_band`). Every profile-claimed face with a
-        horizontal normal component must be clear of overstock beyond its op's guard at
-        its interior after the setup's removals; merely sweeping a sliver from a drafted
-        wall does not prove it cleared.
+        their own ops; its pieces must border a claim on the stock entering the setup, as
+        its flute mask does, so an earlier op clearing the bridge between a claim and the
+        rest of its box never strands that box. Other ops sweep direction-valid claims
+        along +Z, keeping unclaimed rails, ears, webs and overstock. A lower-leave op also
+        cuts the lineage leave off its claimed lateral faces (:meth:`_band`). Every
+        profile-claimed face with a horizontal normal component must be clear of overstock
+        beyond its op's guard at its interior after the setup's removals; merely sweeping a
+        sliver from a drafted wall does not prove it cleared.
         """
         where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
         stock, walls = self.part, []
         try:
             for op in self.ops:
                 subject = self._subject(op)
+                if _sawn(op):
+                    stock, detail = self._saw_stock(op, stock)
+                    facts[subject] = detail
+                    why = detail.get("saw_error") or detail.get("saw_reason")
+                    if why is not None:
+                        return None, f"{subject}: {why}; {where}"
+                    continue
                 valid, away, why = self._claims(op)
                 if not isinstance(valid, list):
                     return None, f"{subject} claimed faces are unresolved ({why}); {where}"
@@ -1538,9 +1559,10 @@ class _Setup:
                         return None, f"{subject} {why}; {where}"
                     carried = self._carried(op)
                     if "stock_removal_bounds" in op:
+                        # Removing the entry-stock pieces from the current stock only cuts.
                         removal, why = self._bounded(
                             op["stock_removal_bounds"],
-                            stock,
+                            self.part,
                             valid,
                             away,
                             to_z,
@@ -1588,6 +1610,141 @@ class _Setup:
         except Exception as exc:
             return None, f"in-process stock boolean failed ({exc}); {where}"
         return model, None
+
+    # ------------------------------------------------------------------ planar sawing
+
+    _SAW_VOLUMES = (
+        "kerf_volume_mm3",
+        "offcut_volume_mm3",
+        "removed_volume_mm3",
+        "stock_volume_before_mm3",
+        "stock_volume_after_mm3",
+    )
+
+    def _saw_facts(self, op, stock_reason=None):
+        """Saw inputs and debts, without a spindle/holder model or finished-face claims."""
+        facts = {
+            "claimed_indices": [],
+            "kerf_mm": UNKNOWN,
+            "cut_plane": UNKNOWN,
+            "retained_boundary_mm": UNKNOWN,
+            **{key: UNKNOWN for key in self._SAW_VOLUMES},
+            "reasons": {},
+        }
+        missing = []
+        kerf = op.get("kerf_mm")
+        if not _number(kerf):
+            missing.append("kerf_mm is missing or unverified")
+        else:
+            facts["kerf_mm"] = float(kerf)
+            if kerf <= 0:
+                facts["saw_error"] = "saw kerf_mm must be positive"
+        plane = op.get("cut_plane")
+        if (
+            not isinstance(plane, dict)
+            or plane.get("axis") not in ("x", "y", "z")
+            or plane.get("keep") not in ("below", "above")
+            or not _number(plane.get("value"))
+        ):
+            missing.append(
+                str(plane["reason"])
+                if isinstance(plane, dict) and plane.get("reason")
+                else "cut_plane needs axis x/y/z, numeric value and keep below/above"
+            )
+        else:
+            facts["cut_plane"] = {
+                "axis": plane["axis"],
+                "value": float(plane["value"]),
+                "keep": plane["keep"],
+            }
+            if _number(kerf) and kerf > 0:
+                sign = -1 if plane["keep"] == "below" else 1
+                facts["retained_boundary_mm"] = _r(plane["value"] + sign * kerf / 2)
+        machine = self.setup.get("machine_kind")
+        if machine in (None, UNKNOWN):
+            missing.append("saw machine kind is unknown")
+        elif machine not in ("mill", "bench", "bandsaw"):
+            facts["saw_error"] = f"saw action is unsupported on machine kind {machine!r}"
+        if stock_reason is not None:
+            missing.append(str(stock_reason))
+        if missing:
+            facts["saw_reason"] = "; ".join(missing)
+            facts["reason"] = facts["saw_reason"]
+            for key, value in facts.items():
+                if value == UNKNOWN:
+                    facts["reasons"][key] = facts["saw_reason"]
+        return facts
+
+    def _saw_stock(self, op, stock):
+        """Keep one side of the blade slab; the kerf and offcut never enter later setups."""
+        facts = self._saw_facts(op)
+        facts["stock_volume_before_mm3"] = _r(stock.Volume)
+        facts["reasons"].pop("stock_volume_before_mm3", None)
+        if facts.get("saw_error") or facts.get("saw_reason"):
+            return None, facts
+        try:
+            plane, kerf = facts["cut_plane"], facts["kerf_mm"]
+            axis = "xyz".index(plane["axis"])
+            low, high = plane["value"] - kerf / 2, plane["value"] + kerf / 2
+            box = _bbox(stock)
+            # Every halfspace/slab encloses the native stock on its other two axes.
+            bounds = [value - 1.0 for value in box[:3]] + [
+                value + 1.0 for value in box[3:]
+            ]
+            slab = list(bounds)
+            slab[axis], slab[axis + 3] = low, high
+            kerf_volume = stock.common(_box_shape(slab)).Volume
+            facts["kerf_volume_mm3"] = _r(kerf_volume)
+            if kerf_volume <= HIT_MM3:
+                facts["saw_error"] = "off-stock blade slab removes no stock (saw no-op)"
+                return None, facts
+            boundary = low if plane["keep"] == "below" else high
+            empty = boundary <= box[axis] if plane["keep"] == "below" else boundary >= box[axis + 3]
+            if empty:
+                facts["stock_volume_after_mm3"] = 0.0
+                facts["removed_volume_mm3"] = _r(stock.Volume)
+                facts["offcut_volume_mm3"] = _r(max(0.0, stock.Volume - kerf_volume))
+                facts["saw_error"] = "saw leaves no retained stock"
+                return None, facts
+            bounds[axis + (3 if plane["keep"] == "below" else 0)] = boundary
+            keep = _box_shape(bounds)
+            retained = stock.common(keep)
+            after = retained.Volume
+            removed_volume = stock.Volume - after
+            facts.update(
+                stock_volume_after_mm3=_r(after),
+                removed_volume_mm3=_r(removed_volume),
+                offcut_volume_mm3=_r(max(0.0, removed_volume - kerf_volume)),
+            )
+            if not retained.Solids or after <= HIT_MM3:
+                facts["saw_error"] = "saw leaves no retained stock"
+            elif not retained.isValid():
+                facts["saw_reason"] = "saw retained-stock boolean is invalid"
+            else:
+                removed = stock.cut(keep)
+                target_loss = self.finished.common(removed).Volume
+                if target_loss > HIT_MM3:
+                    facts["saw_error"] = (
+                        f"saw removes {_r(target_loss)} mm^3 of finished target material"
+                    )
+                elif len(retained.Solids) > 1:
+                    # Existing separate supplies may remain separate. A cut must not
+                    # create loose pieces from one connected input solid, even slivers;
+                    # do not filter away native material or change the volume facts.
+                    for original in stock.Solids:
+                        count = len(original.common(keep).Solids)
+                        if count > 1:
+                            facts["saw_error"] = (
+                                f"saw splits an input stock piece into {count} retained pieces"
+                            )
+                            break
+            if facts.get("saw_error") or facts.get("saw_reason"):
+                return None, facts
+            return retained, facts
+        except Exception as exc:
+            reason = f"saw stock boolean failed ({exc})"
+            facts["saw_reason"] = facts["reason"] = reason
+            return None, facts
 
     def _bounded(self, bounds, stock, valid, away, to_z, radius, leave):
         """(stock outside the op's guard inside the declared box or None, or why not).
@@ -1941,6 +2098,8 @@ class _Setup:
 
     def _claims(self, op):
         """(direction-valid indices or unknown, labels facing away, reason) for an op."""
+        if _sawn(op):
+            return [], [], None
         indices = self._indices(op)
         if indices == UNKNOWN:
             return UNKNOWN, [], "claimed face references are unknown or unmapped"
@@ -2755,6 +2914,8 @@ class _Setup:
     )
 
     def _op_unknown(self, op, reason):
+        if _sawn(op):
+            return self._saw_facts(op, reason)
         facts = {"reason": reason, "reasons": {}}
         if _turned(op):
             facts["approach"] = TURNING
@@ -2764,6 +2925,10 @@ class _Setup:
         return facts
 
     def _op(self, op):
+        if _sawn(op):
+            return self._saw_facts(
+                op, self.stock_reason or "in-process stock before this saw operation cannot be derived"
+            )
         owner = self.owner
         refs, what = self._claim_refs(op)
         if refs is None:
@@ -3060,11 +3225,11 @@ class _Setup:
             through = True
         else:
             return debt("hole thru is unknown and the op has no to_z; its bottom is unknown", axes)
-        centres = [V(x, y, level) for (x, y, _), level in zip(axes, bottoms)]
+        centres = [V(x, y, level) for (x, y, _), level in zip(axes, bottoms, strict=True)]
         bottom = min(bottoms)
         top = self.box[5] + 1.0
         tools = []
-        for (x, y, _), level in zip(axes, bottoms):
+        for (x, y, _), level in zip(axes, bottoms, strict=True):
             # A through cut starts LIFT past its exit so no face is coincident with it.
             low = level - LIFT if through else level
             if top - low <= LIFT:

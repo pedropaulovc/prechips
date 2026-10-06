@@ -116,6 +116,14 @@ def op_inputs(bundle, setup, op, finishing=None):
     from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
+    if op.get("do") in {"saw_cut", "cut_off"}:
+        tool = measurement_item(bundle, "tools", op.get("tool"))
+        return {
+            "subject": subject,
+            "do": op["do"],
+            "kerf_mm": _accepted_length(tool, "kerf"),
+            "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
+        }
     turned = approach(bundle, setup, op) == TURNING
     if turned:
         values, missing = _turning_values(bundle, op)
@@ -209,6 +217,21 @@ def op_inputs(bundle, setup, op, finishing=None):
             "Selected tool/holder dimensions unmeasured or unavailable: " + ", ".join(missing)
         )
     return result
+
+
+def saw_plane(plane, units):
+    """A blade centre plane in setup axes, normalized from feature units to mm."""
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    if scale is None:
+        return {"reason": f"cut_plane units {units!r} are not mm or in"}
+    plane = record(plane)
+    if (
+        plane.get("axis") not in ("x", "y", "z")
+        or plane.get("keep") not in ("below", "above")
+        or not number(plane.get("value"))
+    ):
+        return {"reason": "cut_plane needs axis x/y/z, numeric value and keep below/above"}
+    return {"axis": plane["axis"], "value": plane["value"] * scale, "keep": plane["keep"]}
 
 
 def removal_bounds(bounds, units):
@@ -686,9 +709,11 @@ def _stock_envelope(stock):
 
 _ENGINE_OP = (
     "subject",
+    "do",
+    "cut_plane",
+    "kerf_mm",
     "feature",
     "faces",
-    "do",
     "hole",
     "radius_mm",
     "flute_len_mm",
