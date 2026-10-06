@@ -1,7 +1,8 @@
 """Resolve selected identities once, then check each cutting assembly.
 
 A saw cut has no spindle, collet or holder: its assembly is a ``bandsaw`` blade on
-a mill, bench or bandsaw machine, and the cut is located by ``cut_plane``.
+a mill, bench or bandsaw machine, and the cut is located by ``cut_plane``. A coating
+op has no tool: it names its process, an outside service or in-house consumables.
 """
 
 from ..findings import Finding
@@ -9,6 +10,7 @@ from .resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    coating_process,
     length_mm,
     number,
     operations,
@@ -66,6 +68,40 @@ def _saw_assembly(subject, op, tool, machine, machine_ref):
     )
 
 
+def _coating(subject, op, bundle):
+    """A coating op's named process must resolve to a service or in-house consumables."""
+    process = op.get("process", UNKNOWN)
+    refs = process if isinstance(process, list) else [process]
+    sources = {}
+    for ref in refs:
+        category, item = coating_process(bundle, ref)
+        sources[ref] = "unlisted" if item is None else UNKNOWN if uncertain(item) else category
+    unlisted = [ref for ref in refs if ref != UNKNOWN and sources[ref] == "unlisted"]
+    unresolved = UNKNOWN in refs or any(source == UNKNOWN for source in sources.values())
+    status = "error" if unlisted else "unknown" if unresolved else "pass"
+    message = (
+        f"coating process {', '.join(unlisted)} is not an inventory service or consumable"
+        if unlisted
+        else "coating names no process (outside service or in-house consumables)"
+        if UNKNOWN in refs
+        else "coating process is listed; presence or identity needs verification"
+        if unresolved
+        else "coating process resolves to "
+        + ", ".join(
+            f"{'outside service' if sources[ref] == 'services' else 'in-house consumables'} {ref}"
+            for ref in refs
+        )
+    )
+    return Finding(
+        "tool_resolves",
+        subject,
+        status,
+        {"process": refs, "sources": sources},
+        ["inventory services/consumables", "PLAN.md §4.1 finishing route"],
+        f"{subject}: {message}.",
+    )
+
+
 def evaluate(bundle):
     findings = []
     for ref in sorted(selected_references(bundle.plan)):
@@ -99,9 +135,12 @@ def evaluate(bundle):
             )
         )
     for setup, op in operations(bundle):
+        subject = f"{setup['id']}:{op['op']}"
+        if op["do"] == "coating":
+            findings.append(_coating(subject, op, bundle))
+            continue
         if op["do"] in MANUAL:
             continue
-        subject = f"{setup['id']}:{op['op']}"
         if op["do"] in SAW_OPS:
             findings.append(
                 _saw_assembly(
