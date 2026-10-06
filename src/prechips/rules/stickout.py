@@ -121,7 +121,8 @@ def evaluate(bundle):
         kind = record(machine).get("kind", UNKNOWN)
         held = held_diameter(bundle, setup)
         geometry = exposed_profile(bundle, setup)
-        segments = geometry["segments"]
+        # Exposed stock beyond every finished feature counts at the kernel's stock radius.
+        segments = geometry["segments"] + geometry["stock_segments"]
         diameter = (
             min(segment["diameter_mm"] for segment in segments) if geometry["complete"] else UNKNOWN
         )
@@ -130,7 +131,7 @@ def evaluate(bundle):
                 name
                 for segment in segments
                 if number(diameter) and same_length(segment["diameter_mm"], diameter)
-                for name in segment["features"]
+                for name in segment["features"] or ["kernel stock"]
             }
         )
         length = record(setup.get("hold")).get("stickout_mm", UNKNOWN)
@@ -144,7 +145,8 @@ def evaluate(bundle):
         numbers = {
             "diameter_mm": diameter,
             "diameter_source": "features declared finished profile in exposed setup Z, "
-            "else the kernel's finished faces of revolution",
+            "else the kernel's finished faces of revolution; exposed stock beyond every "
+            "finished feature from the kernel's stock profile",
             "diameter_features": diameter_features,
             "held_diameter_mm": held,
             "held_diameter_source": held_diameter_source(setup),
@@ -153,6 +155,7 @@ def evaluate(bundle):
             "unresolved": sorted(set(geometry["unresolved"])),
             "unresolved_reasons": geometry["unresolved_reasons"],
             "uncovered_z_mm": geometry["uncovered_z_mm"],
+            "stock_reason": geometry["stock_reason"],
             "off_axis": geometry["off_axis"],
             "stickout_mm": length,
             "stickout_ld_max": ratio,
@@ -172,8 +175,8 @@ def evaluate(bundle):
                 "unknown",
                 "the finished diameter or geometry in the exposed span is unresolved"
                 if not geometry["uncovered_z_mm"] or geometry["unresolved"]
-                else "part of the exposed span lies beyond every finished feature, so its "
-                "diameter is the in-process stock's, which is not modelled",
+                else "part of the exposed span lies beyond every finished feature, and the "
+                f"in-process stock diameter there is unresolved ({geometry['stock_reason']})",
             )
         elif support == "pass":
             status, message = (
@@ -216,6 +219,7 @@ def evaluate(bundle):
                     *[
                         f"features.features.{name}: defines exposed minimum diameter"
                         for name in diameter_features
+                        if name != "kernel stock"
                     ],
                     *geometry["cite"],
                     *citations,

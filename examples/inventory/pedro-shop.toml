@@ -816,6 +816,10 @@ source = "pm-1127 standard accessories"
 present = true               # example: standard accessory on hand
 capacity_min_mm = { value = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, bronze jaw tips fully closed" } }
 capacity_max_mm = { value = 50.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, bronze jaw tips fully open" } }
+jaw_width_mm = { value = 12.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, bronze jaw tip across its face" } }
+jaw_height_mm = { value = 40.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, contact face to the frame at half capacity" } }
+jaw_depth_mm = { value = 10.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw thickness along the bed" } }
+jaw_angles_deg = [90.0, 180.0]   # example: top jaw and the jaw opposite the tool, as on the PM follow rest
 # --- end pivot-shaft additions ---
 
 # --- pivot-shaft additions ---

@@ -109,7 +109,7 @@ Shared inputs:
   The generic `Plain Carbon Steel` alias is a candidate classification, not a
   sourced grade or measured carbon content; no material-property claim follows.
 
-Current expected consumer CLI exits are **4 / 2 / 2 / 2 / 2** for shaft,
+Current expected consumer CLI exits are **0 / 2 / 2 / 2 / 2** for shaft,
 rocker, bracket, cone one-piece and cone built-up respectively. The one-piece cone
 moved from 4 to 2 because the export's `mount_west` station nominal conflicts
 with its band and restored milling frames expose far-side boss claims.
@@ -122,7 +122,7 @@ PLAN §8 M3.
 
 | Part | What it demonstrates | Current exit |
 |---|---|---|
-| `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
+| `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
 | `rocker-arm` | Four setups: retained rail frame with a modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (legacy proof)**: `940cb9d` artifacts are stale. Legal cutter-centre/occluder handling and physical-stop rendering await current-source exit-0/all-scene proof. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: physical inventory and authored setup data are complete; all three native fixture scenes are modeled without debts. Legal planar cutter poses, the finish-floor cut plane and preceding-operation stock clearance remain engine-owned accessibility stops. |
 | `cone-pivot-post/plan.toml` | Eight setups from one 76.2 × 50.8 × 140 mm bar with a sacrificial chucking tail: vise facing, BS-0 four-jaw indexed boss/land/pad milling and crank boring, continuous-rotary head and body milling, bandsaw cut-off, then the foot-up mounting pattern. | **2**: the finish-profile walls that end on the convex body (S2:30, S3:20, S4:20, S5:20) are posed at the sample height rather than at their `to_z`, and the S2:20 rough-leave guard cannot offset the whole finished part; required unknowns also remain. |
@@ -408,7 +408,8 @@ north-end stations and stick-out are numeric.
 
 The shaft route (example plan) is: S1 grips the north stub in the three-jaw
 chuck, with the MT3 dead centre in the centre-drilled plain end and the follow rest
-riding the 26:1 body. It roughs and finishes the bearing toward the chuck,
+riding the 26:1 body on the turned side, 8 mm behind the tool (example jaw
+sizes 12 × 40 × 10 mm at 90° and 180°). It roughs and finishes the bearing toward the chuck,
 faces the thrust shoulder, mics the Ø10 shoulder left as cold-finished bar and
 plunges the south DIN 509 relief with the 1/16 in HSS parting blade. S2 reverses
 onto the finished body with the thrust face seated on the jaw fronts to turn the

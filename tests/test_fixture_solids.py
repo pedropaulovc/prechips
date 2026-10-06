@@ -455,3 +455,79 @@ def test_unresolved_void_withholds_the_solids_it_cuts(cuts, drawn):
     hold = _hold({"base": base}, {"fixture": "base", "pose": {"origin_mm": [0, 0, 0], **UP}})
     assert [solid["name"] for solid in hold.get("solids", [])] == drawn
     assert "base solid plate: not drawn, its void bore is unresolved" in hold["gaps"]
+
+
+def _measured(value):
+    return {"value": value, "measured": MEASURED}
+
+
+_FOLLOW = {
+    "kind": "follow_rest",
+    "jaw_width_mm": _measured(12.0),
+    "jaw_height_mm": _measured(40.0),
+    "jaw_depth_mm": _measured(10.0),
+    "jaw_angles_deg": [90.0, 180.0],
+}
+
+
+def _rested(reference, item, entry):
+    """Host hold inputs of a chucked S1 with one rest table in ``hold.supports``."""
+    bundle = _Inventory(
+        {
+            "fixtures": {"chuck": _CHUCK_ITEM, reference: item},
+            "machines": {"lathe": {"kind": "lathe"}},
+        }
+    )
+    hold = {**_CHUCK_HOLD, "supports": [{"ref": reference, **entry}]}
+    return hold_inputs(bundle, {"id": "S1", "machine": "lathe", "hold": hold})
+
+
+def test_follow_rest_jaws_reach_the_engine_only_when_every_jaw_fact_is_measured():
+    entry = {"ops": [10], "jaw_lead_mm": 8.0}
+    (ready,) = _rested("fr", _FOLLOW, entry)["follow_rests"]
+    assert ready == {
+        "name": "fr",
+        "subjects": ["S1:10"],
+        "side": "turned",
+        "lead_mm": 8.0,
+        "jaw_width_mm": 12.0,
+        "jaw_height_mm": 40.0,
+        "jaw_depth_mm": 10.0,
+        "jaw_angles_deg": [90.0, 180.0],
+    }
+    # A bare number is no measurement, and the jaw directions are not defaulted.
+    item = {key: value for key, value in _FOLLOW.items() if key != "jaw_angles_deg"}
+    item["jaw_width_mm"] = 12.0
+    hold = _rested("fr", item, {**entry, "jaw_side": "leading"})
+    (rest,) = hold["follow_rests"]
+    missing = [
+        "plan hold.supports[fr].jaw_side (turned or uncut)",
+        "fixtures.fr.jaw_width_mm (measured)",
+        "fixtures.fr.jaw_angles_deg",
+    ]
+    assert rest["missing"] == missing and "jaw_width_mm" not in rest
+    assert f"follow rest 'fr' not drawn: {', '.join(missing)} unresolved" in hold["debts"]
+
+
+def test_steady_rest_without_measured_body_is_a_gap_naming_both_dimensions():
+    item = {
+        "kind": "steady_rest",
+        "body_dia_mm": _measured(200.0),
+        "body_length_mm": _measured(40.0),
+    }
+    ready = _rested("sr", item, {"at_z_mm": 30.0})
+    assert ready["steady_rests"] == [
+        {
+            "name": "sr",
+            "subjects": "all",
+            "at_z_mm": 30.0,
+            "body_dia_mm": 200.0,
+            "body_length_mm": 40.0,
+        }
+    ]
+    gapped = _rested("sr", {"kind": "steady_rest", "body_dia_mm": 200.0}, {"at_z_mm": 30.0})
+    assert "steady_rests" not in gapped
+    assert gapped["gaps"] == [
+        "steady rest 'sr' not drawn: fixtures.sr.body_dia_mm (measured), "
+        "fixtures.sr.body_length_mm (measured) unresolved"
+    ]
