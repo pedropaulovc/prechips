@@ -468,21 +468,6 @@ note = "Finish to the bonding size. Mic both ends and the middle."
 [setups.ops.checks]
 dia = "micrometers/0-1in"
 [[setups.ops]]
-op = 35
-do = "finish_turn"
-feature = "cone_boss"
-tool = "turning-tools-warner-lms-4132/AR"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 21.0055
-z_to = -23.0
-direction = "toward_chuck"
-doc_mm = 0.01
-feed_mm_rev = 0.03
-approach_mm = 3.0
-note = "Second pass without moving the cross-slide: it removes only what tool spring left from op 30 (up to 0.01 mm). Mic again for taper before parting."
-[setups.ops.checks]
-dia = "micrometers/0-1in"
-[[setups.ops]]
 op = 40
 do = "part_off"
 feature = "cone_boss_south_face"
@@ -600,21 +585,6 @@ doc_mm = 0.1
 feed_mm_rev = 0.03
 approach_mm = 3.0
 note = "Finish to the bonding size. Mic both ends and the middle."
-[setups.ops.checks]
-dia = "micrometers/0-1in"
-[[setups.ops]]
-op = 35
-do = "finish_turn"
-feature = "crank_boss"
-tool = "turning-tools-warner-lms-4132/AR"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 0.0
-z_to = -73.0
-direction = "toward_chuck"
-doc_mm = 0.01
-feed_mm_rev = 0.03
-approach_mm = 3.0
-note = "Second pass without moving the cross-slide: it removes only what tool spring left from op 30 (up to 0.01 mm). Mic again for taper before parting."
 [setups.ops.checks]
 dia = "micrometers/0-1in"
 [[setups.ops]]
