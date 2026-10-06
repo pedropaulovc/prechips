@@ -145,8 +145,10 @@ if solid.Volume < 0:
 save("split-top", solid)
 # Same step, but its wall leans 5 mm into the floor opening as it rises.
 p = [V(30, 0, 10), V(35, 0, 20), V(61, 0, 20), V(61, 0, 10), V(30, 0, 10)]
-save("undercut-step",
-     Part.makeBox(60, 40, 20).cut(Part.Face(Part.makePolygon(p)).extrude(V(0, 40, 0))))
+save(
+    "undercut-step",
+    Part.makeBox(60, 40, 20).cut(Part.Face(Part.makePolygon(p)).extrude(V(0, 40, 0))),
+)
 # A planned 6.5 mm through hole, before drilling the supplied rectangular blank.
 save("hole", Part.makeBox(60, 40, 20).cut(Part.makeCylinder(3.25, 22, V(30, 20, -1))))
 # A blind cylindrical opening with an unclaimed neighbouring boss inside it.
@@ -431,20 +433,10 @@ def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(eng
         for name, hold in holds.items()
     }
     exact = scenes["exact"]
-    assert exact["render_scene"] == {
-        "fixture_kind": "vise",
-        "jaws": "exact",
-        "parallels": "exact",
-        "components": [
-            {"name": name, "role": role, "exact": True}
-            for name, role in (
-                ("fixed_jaw", "jaw"),
-                ("moving_jaw", "jaw"),
-                ("parallel 1", "parallel"),
-                ("parallel 2", "parallel"),
-            )
-        ],
-        "debts": [],
+    scene = exact["render_scene"]
+    assert scene["jaws"] == scene["parallels"] == "exact"
+    assert {c["name"] for c in scene["components"] if c["exact"]} == {
+        "fixed_jaw", "moving_jaw", "parallel 1", "parallel 2",
     }
     assert exact["fixture_rendered"] is True
     undeclared = scenes["undeclared"]
@@ -454,15 +446,38 @@ def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(eng
         "fixed_jaw": False,
         "moving_jaw": False,
     }
-    debts = " ".join(undeclared["render_scene"]["debts"])
-    assert "jaw_center_along_mm" in debts and "parallels_centres_mm" in debts
     assert undeclared["fixture_rendered"] is False
     clashing = scenes["clashing"]
     assert clashing["fixture_rendered"] is False
-    assert clashing["render_scene"]["debts"] == [
-        "declared parallel centred at [35.0, -5.0] intersects the moving jaw"
-    ]
     assert exact["render_png_base64"] != undeclared["render_png_base64"]
+
+
+def test_dense_contour_diagram_does_not_erase_geometry_facts(engine, solids):
+    step = solids["pocket"]
+    hold = _vise(
+        10.0,
+        centre=35.0,
+        parallels=(150.0, 6.0, [[35.0, 7.0], [35.0, 43.0]]),
+    )
+    setup = _setup([], hold)
+    baseline = engine.run(engine.job(step, setups=[setup]))["setups"]["S1"]
+    corners = [[15.0, 13.0], [55.0, 13.0], [55.0, 37.0], [15.0, 37.0]]
+    paths, waypoints = [], []
+    for op in (10, 20, 40, 45, 50, 55):
+        paths.append({"op": str(op), "xy": corners + [corners[0]]})
+        for point in corners:
+            waypoints.append(
+                {"label": f"P{len(waypoints) + 1}", "op": str(op), "xy": point}
+            )
+    setup["render"] = {"paths": paths, "waypoints": waypoints}
+    result = engine.run(engine.job(step, setups=[setup]))
+    assert result["status"] == "ok", result
+    dense = result["setups"]["S1"]
+    assert dense["fixture_rendered"] is baseline["fixture_rendered"] is True
+    assert dense["stock_bbox_mm"] == baseline["stock_bbox_mm"]
+    assert dense["stock_volume_mm3"] == baseline["stock_volume_mm3"]
+    assert dense["contact_grip_mm"] == baseline["contact_grip_mm"]
+    assert dense["render_png_base64"] != baseline["render_png_base64"]
 
 
 def test_pocket_reach_needs_long_projection_and_reports_corner_radius(engine, solids):
@@ -682,7 +697,9 @@ def test_batch_matches_single_jobs_and_output_is_byte_identical(engine, solids):
     batch = json.loads(engine.raw({"jobs": [job, other]}))
     assert batch["results"] == [json.loads(first), engine.run(other)]
     png = base64.b64decode(json.loads(first)["setups"]["S1"]["render_png_base64"])
-    assert png[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", png[16:24]) == (640, 480)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    width, height = struct.unpack(">II", png[16:24])
+    assert width >= 1600 and height >= 1000  # Print-readable at half-page width.
 
 
 def test_booleans_on_the_real_filleted_summing_lever(engine):

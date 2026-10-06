@@ -156,8 +156,11 @@ def _rest(bundle, setup, op, turned, debts, cite):
         if kind == "follow_rest":
             lead = entry.get("jaw_lead_mm", UNKNOWN)
             span = lead if _positive(lead) else UNKNOWN
-            ridden = [turned] if _positive(turned) else UNKNOWN
-            row.update(jaw_lead_mm=lead)
+            # Trailing jaws (the default) ride the diameter this op turns; leading jaws ride
+            # the uncut one, which this rule does not derive.
+            trailing = entry.get("jaw_side", "turned") == "turned"
+            ridden = [turned] if trailing and _positive(turned) else UNKNOWN
+            row.update(jaw_lead_mm=lead, jaw_side=entry.get("jaw_side", "turned"))
         else:
             at_z, cut_z = entry.get("at_z_mm", UNKNOWN), _cut_z(op)
             known = number(at_z) and cut_z != UNKNOWN

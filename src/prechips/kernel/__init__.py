@@ -28,6 +28,7 @@ from prechips.rules.resolution import (
     resolve,
     setup_frame,
 )
+from .render_inputs import setup_annotations
 
 UNKNOWN = "unknown"
 
@@ -60,6 +61,13 @@ def _accepted_length(item, field):
 def _accepted_angle(item, field):
     fact = angle_fact(item, field, require_measured=False)
     return fact["value"] if fact["verified"] else UNKNOWN
+
+
+def _measured_length(item, field):
+    """A positive measured length fact, else unknown (rest jaws and bodies)."""
+    fact = length_fact(item, field, require_measured=True)
+    value = fact["value"] if fact["verified"] else UNKNOWN
+    return value if number(value) and value > 0 else UNKNOWN
 
 
 def _turning_values(bundle, op):
@@ -111,8 +119,14 @@ def _turning_values(bundle, op):
     return values, sorted(set(missing))
 
 
-def op_inputs(bundle, setup, op, finishing=None):
-    from prechips.rules.geometry_common import ROTARY, TURNING, approach, finishing_subjects
+def op_inputs(bundle, setup, op, finishing=None, complete=None):
+    from prechips.rules.geometry_common import (
+        ROTARY,
+        TURNING,
+        approach,
+        complete_form_subjects,
+        finishing_subjects,
+    )
     from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
@@ -189,6 +203,10 @@ def op_inputs(bundle, setup, op, finishing=None):
             "thru": thru if isinstance(thru, bool) else UNKNOWN,
             "depth_mm": depth if number(depth) else UNKNOWN,
             "entry_z_mm": entry if number(entry) else UNKNOWN,
+            # Only the feature's last drill/ream/bore/counterbore must leave its claimed
+            # caps formed; a pilot's partial cone or a spot/tap is never checked.
+            "complete_form": subject
+            in (complete_form_subjects(bundle) if complete is None else complete),
         }
         if op.get("do") in {"spot", "drill"}:
             point = angle_fact(tool, "point_angle", require_measured=False)
@@ -385,12 +403,16 @@ def _vise_inputs(bundle, hold, fixture, result):
             result[key + "_mm"] = value
         else:
             missing.append(key + "_mm")
-    parallels = measurement_item(bundle, "fixtures", hold.get("parallels"))
-    height = _accepted_length(parallels, "height")
-    if number(height) and height > 0:
-        result["parallels_height_mm"] = height
+    reference = hold.get("parallels")
+    if reference in ("none", "not_applicable"):
+        # Declared absence (not a missing key): the stock seats on the vise bed, zero lift.
+        result["parallels_height_mm"] = 0.0
     else:
-        missing.append("parallels_height_mm")
+        height = _accepted_length(measurement_item(bundle, "fixtures", reference), "height")
+        if number(height) and height > 0:
+            result["parallels_height_mm"] = height
+        else:
+            missing.append("parallels_height_mm")
     if missing:
         result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
             missing
@@ -551,15 +573,110 @@ def _clamp_inputs(bundle, hold, result, gaps):
         result["clamp_debts"] = debts
 
 
-def _supports_gaps(hold, result, gaps):
+# Follow rest jaw sides: trailing the cutting point on the diameter just turned (the
+# default, the diameter turning_deflection rides), or leading it on the uncut one.
+_JAW_SIDES = ("turned", "uncut")
+
+
+def _rest_subjects(setup, entry):
+    """Op subjects a rest serves; omitted ``ops`` serves every op (as turning_deflection)."""
+    ops = entry.get("ops", UNKNOWN)
+    return [f"{setup['id']}:{op}" for op in ops] if isinstance(ops, list) else "all"
+
+
+def _follow_rest(setup, entry, item, reference):
+    """Engine follow-rest record: carriage-relative jaws, or the fields it still needs."""
+    rest = {
+        "name": reference,
+        "subjects": _rest_subjects(setup, entry),
+        "side": entry.get("jaw_side", "turned"),
+    }
+    missing = []
+    lead = entry.get("jaw_lead_mm", UNKNOWN)
+    if number(lead) and lead > 0:
+        rest["lead_mm"] = lead
+    else:
+        missing.append(f"plan hold.supports[{reference}].jaw_lead_mm (positive)")
+    if rest["side"] not in _JAW_SIDES:
+        missing.append(f"plan hold.supports[{reference}].jaw_side (turned or uncut)")
+    if record(item).get("kind") != "follow_rest":
+        missing.append(f"fixtures.{reference} kind follow_rest")
+    for dimension in ("jaw_width", "jaw_height", "jaw_depth"):
+        value = _measured_length(item, dimension)
+        if value == UNKNOWN:
+            missing.append(f"fixtures.{reference}.{dimension}_mm (measured)")
+        else:
+            rest[dimension + "_mm"] = value
+    angles = record(item).get("jaw_angles_deg", UNKNOWN)
+    if isinstance(angles, list) and angles and all(number(a) for a in angles):
+        rest["jaw_angles_deg"] = angles
+    else:
+        missing.append(f"fixtures.{reference}.jaw_angles_deg")
+    if missing:
+        rest["missing"] = missing
+    return rest
+
+
+def _steady_rest(setup, entry, item, reference):
+    """Engine steady-rest record: a static band at ``at_z_mm``, or why it is not drawn."""
+    missing = []
+    at_z = entry.get("at_z_mm", UNKNOWN)
+    if not number(at_z):
+        missing.append(f"plan hold.supports[{reference}].at_z_mm")
+    if record(item).get("kind") != "steady_rest":
+        missing.append(f"fixtures.{reference} kind steady_rest")
+    values = {}
+    for dimension in ("body_dia", "body_length"):
+        value = _measured_length(item, dimension)
+        if value == UNKNOWN:
+            missing.append(f"fixtures.{reference}.{dimension}_mm (measured)")
+        values[dimension + "_mm"] = value
+    if missing:
+        return None, f"steady rest {reference!r} not drawn: " + ", ".join(missing) + " unresolved"
+    record_ = {"name": reference, "subjects": _rest_subjects(setup, entry), "at_z_mm": at_z}
+    return {**record_, **values}, None
+
+
+def _supports_inputs(bundle, setup, hold, result, debts, gaps):
+    """Rests become engine records; any other undrawn support is a gap (or a vise debt).
+
+    A follow rest rides the carriage, so it is no static solid: the engine poses its jaws
+    with the tool of every op it serves. While it lacks a measured field it is a scene and
+    interference debt, and the ops it serves stay unknown in the engine; ops it does not
+    serve see it parked off the work.
+    """
     supports = hold.get("supports")
     values = supports if isinstance(supports, list) else [supports]
     drawn = record(result.get("riser")).get("name")
+    follow, steady = [], []
     for value in values:
         reference = record(value).get("ref", UNKNOWN) if isinstance(value, dict) else value
         if reference in _ABSENT or reference == drawn:
             continue
+        if isinstance(value, dict) and ("jaw_lead_mm" in value or "at_z_mm" in value):
+            item = measurement_item(bundle, "fixtures", reference) if reference != UNKNOWN else {}
+            if "jaw_lead_mm" in value and "at_z_mm" not in value:
+                rest = _follow_rest(setup, value, item, reference)
+                follow.append(rest)
+                if rest.get("missing"):
+                    debts.append(
+                        f"follow rest {reference!r} not drawn: "
+                        + ", ".join(rest["missing"])
+                        + " unresolved"
+                    )
+                continue
+            if "at_z_mm" in value and "jaw_lead_mm" not in value:
+                rest, gap = _steady_rest(setup, value, item, reference)
+                if rest is None:
+                    gaps.append(gap)
+                else:
+                    steady.append(rest)
+                continue
         gaps.append(f"supports {reference!r} has no fixture solid model")
+    if follow:
+        result["follow_rests"] = follow
+    if steady:
+        result["steady_rests"] = steady
 
 
 def hold_inputs(bundle, setup):
@@ -596,20 +713,42 @@ def hold_inputs(bundle, setup):
         gaps.extend(missing)
     else:
         result["reason"] = "Fixture solids are not declared for this holding kind."
+    stop_ref = hold.get("stop_fixture")
+    if stop_ref not in _ABSENT:
+        stop_item = measurement_item(bundle, "fixtures", stop_ref)
+        stop_pose = _pose(hold.get("stop_pose"))
+        if stop_pose is None:
+            gaps.append("stop not drawn: declare its position and orientation")
+        elif not stop_item:
+            gaps.append("stop not drawn: selected stop fixture is not in the inventory")
+        else:
+            stop_solids, missing = _solids(stop_item, f"stop {stop_ref}")
+            gaps.extend(missing)
+            if stop_solids:
+                result["stop"] = {"pose": stop_pose, "solids": stop_solids}
     _parallels_inputs(bundle, hold, result)
     _clamp_inputs(bundle, hold, result, gaps)
     # Vise supports sit below the seat (render-only); elsewhere an undrawn support may collide.
-    _supports_gaps(hold, result, debts if kind == "vise" else gaps)
+    support_gaps = []
+    _supports_inputs(bundle, setup, hold, result, debts, support_gaps)
+    (debts if kind == "vise" else gaps).extend(support_gaps)
     result["debts"], result["gaps"] = debts, gaps
     return result
 
 
 def build_job(bundle):
-    from prechips.rules.geometry_common import cutting_action, finishing_subjects
+    from prechips.rules.coordinates import evaluate as coordinate_findings
+    from prechips.rules.geometry_common import (
+        complete_form_subjects,
+        cutting_action,
+        finishing_subjects,
+    )
 
     units = bundle.features.get("units", UNKNOWN)
     setups = []
+    coordinates = {finding.subject: finding.numbers for finding in coordinate_findings(bundle)}
     finishing = finishing_subjects(bundle)
+    complete = complete_form_subjects(bundle)
     for setup in bundle.plan["setups"]:
         frame = setup_frame(bundle, setup)
         transformed = {key: frame.get(key, UNKNOWN) for key in ("origin", "x", "y", "z")}
@@ -626,11 +765,12 @@ def build_job(bundle):
                 "frame": transformed,
                 "hold": hold_inputs(bundle, setup),
                 "ops": [
-                    op_inputs(bundle, setup, op, finishing)
+                    op_inputs(bundle, setup, op, finishing, complete)
                     for op in setup["ops"]
                     if cutting_action(op) is not False
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
+                "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
                 # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
                 "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
                     "kind", UNKNOWN
@@ -783,8 +923,11 @@ _ENGINE_COMMON = (
     "parallels_along",
     "clamps",
     "clamp_debts",
+    "stop",
     "debts",
     "gaps",
+    "follow_rests",
+    "steady_rests",
 )
 
 
@@ -833,6 +976,7 @@ def engine_job(job):
                 "ops": [{key: op[key] for key in _ENGINE_OP if key in op} for op in setup["ops"]],
                 "stock_in": setup["stock_in"],
                 "machine_kind": setup["machine_kind"],
+                "render": setup.get("render", {}),
             }
             for setup in job["setups"]
         ],

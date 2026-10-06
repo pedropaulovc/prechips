@@ -119,11 +119,9 @@ import hashlib
 import json
 import math
 import os
-import struct
 import sys
 import tempfile
 import time
-import zlib
 from contextlib import contextmanager
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -131,6 +129,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
 from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
+from render_diagram import render_diagram  # noqa: E402
 
 UNKNOWN = "unknown"
 LIFT = 1e-3  # mm: cylinders shrink radially and lift off the sample by this clearance
@@ -158,6 +157,12 @@ NOSE_ARC = 12  # chords approximating the insert nose arc (inscribed: never enla
 MERIDIAN_AZIMUTH = 0.5  # rad: the pose-selection meridian plane through Z (off revolved seams)
 MERIDIAN_DEFLECTION = 1e-4  # mm: chord deflection of that section (well below LIFT)
 POSE_SEARCH = (24, 16, 10)  # corner-offset search: directions, radial steps, bisections
+# mm: how far a turning tool's section reaches below centre height (and its toolpost body
+# either side of it) when posed against carriage-mounted follow rest jaws. No tool face
+# height is modelled, so the tool is taken as unbounded there.
+TOOL_DROP_MM = 1000.0
+STOCK_AZIMUTHS = 6  # meridian sections (0..150 deg) that must agree for a stock profile
+STOCK_ROUND_MM = 2e-3  # mm: radius disagreement between them that still counts as round
 TURNING = "turning"
 ROTARY = "rotary"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
@@ -168,7 +173,6 @@ AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
 HEAD_ROTATING = frozenset(("chuck_jaw", "chuck_body"))
 HEAD_TILT = 1e-6  # |head axis . setup Z| above which a rotary head axis is not horizontal
 ANGLE_TOL = 1e-6  # degrees: a sample on a rotary angle-window end lies inside it
-WIDTH, HEIGHT = 640, 480
 V = FreeCAD.Vector
 Z = V(0, 0, 1)
 
@@ -400,6 +404,118 @@ def _max_radius(shape):
         (math.hypot(p.x, p.y) for edge in shape.Edges for p in edge.discretize(16)),
         default=0.0,
     )
+
+
+def _outer_radius(segments, z0, z1):
+    """Greatest distance from Z of a section's chords within z0..z1 (clipped), or None
+    when no chord reaches that band."""
+    best = None
+    for s0, za, s1, zb in segments:
+        if max(za, zb) < z0 - PLANE_TOL or min(za, zb) > z1 + PLANE_TOL:
+            continue
+        if abs(zb - za) <= PLANE_TOL:
+            values = (abs(s0), abs(s1))
+        else:
+            values = [
+                abs(s0 + (z - za) / (zb - za) * (s1 - s0))
+                for z in (max(min(za, zb), z0), min(max(za, zb), z1))
+            ]
+        best = max(values) if best is None else max(best, *values)
+    return best
+
+
+def _profile_rows(segments):
+    """[z_lo, z_hi, r_lo, r_hi] bands of one meridian section's outer radius.
+
+    Bands run between chord end stations; a band no chord spans (a gap in the material)
+    is omitted. Within a band each spanning chord is linear: ``r_hi`` is the greatest
+    radius any reaches, ``r_lo`` the greatest of their least radii, a lower bound on the
+    outer radius anywhere in the band. Neighbouring bands with equal radii merge.
+    """
+    stations = sorted({round(z, 6) for c in segments for z in (c[1], c[3])})
+    rows = []
+    for z0, z1 in zip(stations, stations[1:], strict=False):
+        spans = [
+            [abs(s0 + (z - za) / (zb - za) * (s1 - s0)) for z in (z0, z1)]
+            for s0, za, s1, zb in segments
+            if abs(zb - za) > 1e-9 and min(za, zb) <= z0 + 1e-6 and max(za, zb) >= z1 - 1e-6
+        ]
+        if not spans:
+            continue
+        low, high = max(min(v) for v in spans), max(max(v) for v in spans)
+        last = rows[-1] if rows else None
+        if (
+            last is not None
+            and abs(last[1] - z0) <= 1e-6
+            and abs(last[2] - low) <= 1e-6
+            and abs(last[3] - high) <= 1e-6
+        ):
+            last[1] = z1
+        else:
+            rows.append([z0, z1, low, high])
+    return rows
+
+
+def _least_rows(states):
+    """[z_lo, z_hi, r_lo, r_hi] bands over several ``_profile_rows`` states: wherever any
+    state has material, ``r_lo`` is the least of the states' lower bounds there and
+    ``r_hi`` the greatest of their upper bounds. Neighbouring equal bands merge."""
+    stations = sorted({z for rows in states for row in rows for z in row[:2]})
+    merged = []
+    for z0, z1 in zip(stations, stations[1:], strict=False):
+        if z1 - z0 <= 1e-9:
+            continue
+        middle = (z0 + z1) / 2
+        present = [row for rows in states for row in rows if row[0] <= middle <= row[1]]
+        if not present:
+            continue
+        low, high = min(row[2] for row in present), max(row[3] for row in present)
+        last = merged[-1] if merged else None
+        if (
+            last is not None
+            and abs(last[1] - z0) <= 1e-6
+            and abs(last[2] - low) <= 1e-6
+            and abs(last[3] - high) <= 1e-6
+        ):
+            last[1] = z1
+        else:
+            merged.append([z0, z1, low, high])
+    return merged
+
+
+def _revolved_rows(stock):
+    """(``_profile_rows`` of a setup-frame solid, None), or (None, why) unless sections at
+    STOCK_AZIMUTHS meridians cover the same length and agree on the outer radius at each
+    band's ends and middle (a solid of revolution about setup Z)."""
+    try:
+        sections = []
+        for k in range(STOCK_AZIMUTHS):
+            turned = stock.copy()
+            turned.rotate(V(0, 0, 0), V(0, 0, 1), 180.0 * k / STOCK_AZIMUTHS)
+            sections.append(_meridian_segments(turned))
+    except Exception as exc:
+        return None, f"has no meridian section ({exc})"
+    rows = _profile_rows(sections[0])
+    length = sum(z1 - z0 for z0, z1, _, _ in rows)
+    for section in sections[1:]:
+        other = sum(z1 - z0 for z0, z1, _, _ in _profile_rows(section))
+        if abs(other - length) > STOCK_ROUND_MM:
+            return None, "is not a solid of revolution about setup Z"
+        for z0, z1, _, _ in rows:
+            for z in (z0 + (z1 - z0) / 8, (z0 + z1) / 2, z1 - (z1 - z0) / 8):
+                here, base = _outer_radius(section, z, z), _outer_radius(sections[0], z, z)
+                if here is None or base is None or abs(here - base) > STOCK_ROUND_MM:
+                    return None, "is not a solid of revolution about setup Z"
+    return rows, None
+
+
+def _prism(polygon, y0, y1):
+    """An (x, z) polygon at heights y0..y1 as a solid (x = the polygon's r), or None."""
+    points = [V(r, y0, z) for r, z in polygon]
+    try:
+        return Part.Face(Part.makePolygon([*points, points[0]])).extrude(V(0, y1 - y0, 0))
+    except Exception:
+        return None
 
 
 def _r(value, digits=6):
@@ -1132,13 +1248,9 @@ def _owner_primitives(specs):
 # --------------------------------------------------------------------------- PNG
 
 
-_TOWARD = V(1, -1, 1).normalize()  # camera at front (-Y), right (+X), above (+Z)
-_RIGHT = V(1, 1, 0).normalize()
-_UP = _RIGHT.cross(-_TOWARD).normalize()
-_LIGHT = V(0.4, -0.6, 1.0).normalize()
 _COLOURS = {
-    "part": (186, 186, 186),
-    "claimed": (92, 142, 212),
+    "part": (164, 177, 189),
+    "removed": (226, 166, 66),
     "fixed_jaw": (112, 92, 72),
     "moving_jaw": (150, 122, 92),
     "fixed_jaw_possible": (214, 204, 194),  # where the undeclared rest of the jaw may lie
@@ -1151,97 +1263,8 @@ _COLOURS = {
     "centre": (150, 122, 92),
     "fixture": (120, 104, 136),
     "clamp": (164, 132, 64),
+    "rest": (176, 96, 72),
 }
-
-
-def _png(width, height, rgb):
-    stride = width * 3
-    raw = b"".join(b"\x00" + bytes(rgb[row * stride : (row + 1) * stride]) for row in range(height))
-
-    def chunk(tag, data):
-        return (
-            struct.pack(">I", len(data))
-            + tag
-            + data
-            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-        )
-
-    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", header)
-        + chunk(b"IDAT", zlib.compress(raw, 9))
-        + chunk(b"IEND", b"")
-    )
-
-
-def _render(meshes):
-    """Orthographic z-buffered flat-shaded PNG of (points, triangles, colour) meshes."""
-    projected = []
-    for points, triangles, colour in meshes:
-        screen = [(p.dot(_RIGHT), p.dot(_UP), p.dot(_TOWARD)) for p in points]
-        projected.append((points, screen, triangles, colour))
-    xs = [s[0] for _, screen, _, _ in projected for s in screen]
-    ys = [s[1] for _, screen, _, _ in projected for s in screen]
-    rgb = bytearray(b"\xff" * (WIDTH * HEIGHT * 3))
-    if not xs:
-        return _png(WIDTH, HEIGHT, rgb)
-    span = max(max(xs) - min(xs), 1e-9), max(max(ys) - min(ys), 1e-9)
-    scale = min(0.92 * WIDTH / span[0], 0.92 * HEIGHT / span[1])
-    cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
-    depth = [-math.inf] * (WIDTH * HEIGHT)
-    for points, screen, triangles, colour in projected:
-        pix = [
-            (WIDTH / 2 + (x - cx) * scale, HEIGHT / 2 - (y - cy) * scale, d) for x, y, d in screen
-        ]
-        for a, b, c in triangles:
-            normal = (points[b] - points[a]).cross(points[c] - points[a])
-            if normal.Length < 1e-15:
-                continue
-            shade = 0.3 + 0.7 * abs(normal.normalize().dot(_LIGHT))
-            pixel = bytes(min(255, int(channel * shade + 0.5)) for channel in colour)
-            _raster(pix[a], pix[b], pix[c], pixel, rgb, depth)
-    return _png(WIDTH, HEIGHT, rgb)
-
-
-def _raster(p0, p1, p2, pixel, rgb, depth):
-    (x0, y0, d0), (x1, y1, d1), (x2, y2, d2) = p0, p1, p2
-    area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
-    if abs(area) < 1e-12:
-        return
-    if area < 0:
-        x1, y1, d1, x2, y2, d2 = x2, y2, d2, x1, y1, d1
-        area = -area
-    # depth plane d = gx*x + gy*y + g0
-    gx = ((d1 - d0) * (y2 - y0) - (d2 - d0) * (y1 - y0)) / area
-    gy = ((d2 - d0) * (x1 - x0) - (d1 - d0) * (x2 - x0)) / area
-    g0 = d0 - gx * x0 - gy * y0
-    edges = ((x0, y0, x1, y1), (x1, y1, x2, y2), (x2, y2, x0, y0))
-    row_lo = max(0, math.ceil(min(y0, y1, y2) - 0.5))
-    row_hi = min(HEIGHT - 1, math.floor(max(y0, y1, y2) - 0.5))
-    left_bound, right_bound = min(x0, x1, x2), max(x0, x1, x2)
-    for row in range(row_lo, row_hi + 1):
-        yc = row + 0.5
-        lo, hi = left_bound, right_bound
-        for ax, ay, bx, by in edges:
-            # inside when (bx-ax)*(yc-ay) - (by-ay)*(x-ax) >= 0
-            slope = -(by - ay)
-            offset = (bx - ax) * (yc - ay) + (by - ay) * ax
-            if slope > 0:
-                lo = max(lo, -offset / slope)
-            elif slope < 0:
-                hi = min(hi, -offset / slope)
-            elif offset < 0:
-                lo, hi = 1.0, 0.0
-        first = max(0, math.ceil(lo - 0.5))
-        last = min(WIDTH - 1, math.floor(hi - 0.5))
-        base = row * WIDTH
-        for column in range(first, last + 1):
-            value = gx * (column + 0.5) + gy * yc + g0
-            slot = base + column
-            if value > depth[slot]:
-                depth[slot] = value
-                rgb[slot * 3 : slot * 3 + 3] = pixel
 
 
 # --------------------------------------------------------------------------- job
@@ -1689,6 +1712,8 @@ class _Setup:
         self.held, self.stock_reason = (None, stock_reason) if held is None else (held, None)
         # Model-frame stock this setup leaves for the next one, or why it is unknown.
         self.stock_out, self.stock_out_reason = None, self.stock_reason
+        # Setup-frame stock entering the setup and after each op that changes it.
+        self.stock_states = []
         self.matrix = None
         self.finished = None  # the finished solid in the setup frame
         self.faces = []  # its faces: every face index/label refers to these
@@ -1707,6 +1732,8 @@ class _Setup:
         self.fixture_debts = []  # scene-only debts (supports below the seat, poses to check)
         self.fixture_gaps = []  # undrawn components that could be obstacles
         self.undrawn = []  # declared components that are not drawn (interference debts)
+        # (follow rest name, op subject) -> its carriage-relative jaw poses for that op
+        self.rest_poses = {}
         self.chuck = None  # placed chuck geometry for the turning model, else None
         self.regions = {}
         self.culled_part = None
@@ -1815,7 +1842,10 @@ class _Setup:
                 if self.stock_reason is not None and not _sawn(op):
                     self._unproven(result, self.stock_reason)
                 ops[self._subject(op)] = result
+        self._rest_interference(facts, ops)
         if self.stock_reason is None:
+            with _timed(phases, "stock_output"):
+                self.stock_out, self.stock_out_reason = self._output(ops)
             with _timed(phases, "render"):
                 png, scene = self._render()
             facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
@@ -1823,8 +1853,8 @@ class _Setup:
             facts["fixture_rendered"] = (
                 self.fixture_ready and bool(scene["components"]) and not scene["debts"]
             )
-            with _timed(phases, "stock_output"):
-                self.stock_out, self.stock_out_reason = self._output(ops)
+            if any(_turned(op) for op in self.ops):
+                self._stock_profile(facts)
             saws = [
                 {"subject": self._subject(op), **ops[self._subject(op)]}
                 for op in self.ops
@@ -1832,6 +1862,10 @@ class _Setup:
             ]
             if saws:
                 scene["saw_cuts"] = saws
+        for result in ops.values():
+            completion = result.get("cap_completion")
+            if completion is not None and completion["unformed"] == UNKNOWN:
+                completion["reason"] = self.stock_out_reason
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -1840,6 +1874,31 @@ class _Setup:
         elif unknown:
             facts["reason"] = unknown[0]
         return facts, ops
+
+    def _stock_profile(self, facts):
+        """stock_profile: [z_lo, z_hi, r_lo, r_hi] setup-frame bands of the least outer
+        radius the setup's stock presents while material is there (``_least_rows``).
+
+        Each in-process state (entering, then after every op that removes material) is
+        sectioned; a band the setup later cuts away still counts at its thinnest before
+        removal, so a raw collar, a stub turned then faced off and an end sawn off are all
+        covered. An op is atomic: a parting groove part-way through its own cut is not a
+        state. Every state must be a solid of revolution about setup Z: sections at
+        STOCK_AZIMUTHS meridians must cover the same length and agree on the outer radius
+        at each band's ends and middle; otherwise ``stock_profile_reason`` says why not.
+        """
+        if self.stock_out is None:
+            facts["stock_profile_reason"] = self.stock_out_reason
+            return
+        states = []
+        for index, stock in enumerate(self.stock_states):
+            rows, why = _revolved_rows(stock)
+            if why is not None:
+                state = "entering" if index == 0 else f"after removal {index}"
+                facts["stock_profile_reason"] = f"the stock {state} {why}"
+                return
+            states.append(rows)
+        facts["stock_profile"] = [[_r(value) for value in row] for row in _least_rows(states)]
 
     # ------------------------------------------------------------------ in-process stock
 
@@ -1855,7 +1914,7 @@ class _Setup:
         self.culled_part = None
         self.regions = {}
 
-    def _output(self, facts):
+    def _output(self, ops):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
 
         Turning and rotary ops remove their own sweeps (:meth:`_turn_removal`,
@@ -1863,22 +1922,30 @@ class _Setup:
         geometry-located bore cylinder (see :meth:`_hole_cut`). Other ops remove only
         stock outside their guard: the finished solid offset by their own rough leave
         (:meth:`_guard`). An authored clearing box removes that within the box above
-        ``to_z``, leaving unclaimed hole columns to their own ops. Other ops sweep
-        direction-valid claims along +Z, keeping unclaimed rails, ears, webs and
-        overstock. A lower-leave op also cuts the lineage leave off its claimed lateral
-        faces (:meth:`_band`). Every profile-claimed face with a horizontal normal
-        component must be clear of overstock beyond its op's guard at its interior
-        after the setup's removals; merely sweeping a sliver from a drafted
-        wall does not prove it cleared.
+        ``to_z``, leaving unclaimed hole columns to their own ops; its pieces must
+        border a claim on the stock entering the setup, as its flute mask does, so an
+        earlier op clearing the bridge between a claim and the rest of its box never
+        strands that box. Other ops sweep direction-valid claims along +Z, keeping
+        unclaimed rails, ears, webs and overstock. A lower-leave op also cuts the
+        lineage leave off its claimed lateral faces (:meth:`_band`). Every
+        profile-claimed face with a horizontal normal component must be clear of
+        overstock beyond its op's guard at its interior after the setup's removals;
+        merely sweeping a sliver from a drafted wall does not prove it cleared.
+        Each complete-form hole op's own claimed caps (``cap_completion`` in its
+        ``ops`` facts) must likewise be clear of the setup's final stock; touched caps
+        are named there and make the output stock debt.
         """
         where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
-        stock, walls = self.part, []
+        stock, walls, forms = self.part, [], []
+        self.stock_states = [stock]
         try:
             for op in self.ops:
                 subject = self._subject(op)
                 if _sawn(op):
                     stock, detail = self._saw_stock(op, stock)
-                    facts[subject] = detail
+                    if stock is not None:
+                        self.stock_states.append(stock)
+                    ops[subject] = detail
                     why = detail.get("saw_error") or detail.get("saw_reason")
                     if why is not None:
                         return None, f"{subject}: {why}; {where}"
@@ -1903,15 +1970,19 @@ class _Setup:
                     if cut["reason"] is not None:
                         return None, f"{subject} {cut['reason']}; {where}"
                     removal = cut["removal"]
+                    # Judged on the final stock even when this cut removes nothing new.
+                    if "cap_completion" in ops[subject]:
+                        forms.append((subject, ops[subject]["cap_completion"]))
                 else:
                     leave, why = self._guarded(op)
                     if why is not None:
                         return None, f"{subject} {why}; {where}"
                     carried = self._carried(op)
                     if "stock_removal_bounds" in op:
+                        # Removing the entry-stock pieces from the current stock only cuts.
                         removal, why = self._bounded(
                             op["stock_removal_bounds"],
-                            stock,
+                            self.part,
                             valid,
                             away,
                             to_z,
@@ -1947,6 +2018,7 @@ class _Setup:
                 if not pieces:
                     return None, f"{subject}: claimed clearance leaves no stock; {where}"
                 stock = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
+                self.stock_states.append(stock)
             for subject, claimed, to_z, leave, carried in walls:
                 # Raw stock beyond the larger of its own and the lineage leave is uncleared.
                 overstock = stock.cut(self._guard(leave)[0])
@@ -1959,6 +2031,20 @@ class _Setup:
                         "stock_removal_bounds (cleared XY footprint, retained rail/ear volume "
                         f"of an interrupted profile) for it; {where}"
                     )
+            # The exact wall contact test without a to_z clip or leave: a complete-form
+            # cut is never rough, and stock left below its floor still leaves a cap unformed.
+            residue = stock.cut(self.finished) if forms else None
+            labels, unformed = self.owner.labels, []
+            for subject, completion in forms:
+                touched = self._covered(residue, completion["caps"], None)
+                completion["unformed"] = [i for i in completion["caps"] if labels[i] in touched]
+                if touched:
+                    unformed.append(f"{subject} {', '.join(touched)}")
+            if unformed:
+                return None, (
+                    "stock still touches claimed hole cap(s) after the setup's cuts, so their "
+                    f"final cut does not form them: {'; '.join(unformed)}; {where}"
+                )
             model = stock.copy()
             model.transformShape(self.matrix.inverse())
         except Exception as exc:
@@ -2741,6 +2827,9 @@ class _Setup:
             for index, (x, y) in enumerate(riser["centres_mm"], start=1):
                 box = (x - dx / 2, y - dy / 2, top - up, x + dx / 2, y + dy / 2, top)
                 self._add(f"riser {index} {riser['name']}", "riser", _box_shape(box), box)
+        stop = hold.get("stop")
+        if stop:
+            self._add_owned(stop["solids"], "fixture", _pose_matrix(stop["pose"]), "stop")
         clamps = self._place_clamps(hold)
         self.clamp_parts = [
             (name, V(*clamp["pose"]["z"]) * -1, parts)
@@ -2748,6 +2837,7 @@ class _Setup:
         ]
         self.fixture_debts.extend(str(debt) for debt in hold.get("debts", []))
         self.fixture_gaps.extend(str(gap) for gap in hold.get("gaps", []))
+        self._place_steady_rests(hold)
         if hold.get("kind") == "vise":
             return
         for component in self.fixture:
@@ -2762,6 +2852,27 @@ class _Setup:
         for name, parts in clamps:
             if all(part.distToShape(self.part)[0] > STOCK_TOL for part in parts):
                 self.fixture_debts.append(f"{name} does not bear on the stock at its pose")
+
+    def _place_steady_rests(self, hold):
+        """A steady rest is a static ring at ``at_z_mm``, ``body_length_mm`` long: from the
+        entry stock's outer radius under it (its jaws ride there) out to half its measured
+        ``body_dia_mm``. It obstructs only the ops it serves."""
+        for rest in hold.get("steady_rests", []):
+            name = f"steady rest {rest['name']}"
+            z0 = rest["at_z_mm"] - rest["body_length_mm"] / 2
+            z1 = z0 + rest["body_length_mm"]
+            under = _band(0.0, self._outer(), z0, z1)
+            common = under.common(self.part) if under is not None else None
+            if common is None or common.Volume <= STOCK_MM3:
+                self.fixture_gaps.append(
+                    f"{name} at z {_r(rest['at_z_mm'])} mm has no work to ride"
+                )
+                continue
+            ring = _band(_max_radius(common), rest["body_dia_mm"] / 2, z0, z1)
+            if ring is None:
+                self.fixture_gaps.append(f"{name} body_dia_mm does not clear the work it rides")
+                continue
+            self._add(name, "rest", ring)["subjects"] = rest["subjects"]
 
     def _interference(self, facts):
         """Drawn fixture components that interpenetrate the entry stock or each other, and
@@ -2821,11 +2932,18 @@ class _Setup:
                     f"outside the jaw opening {name} {_r(lo)}..{_r(hi)} mm closed on the stock"
                 )
 
-    def _fixture_hits(self, solid):
-        """Names of placed fixture components (revolved on a lathe) that ``solid`` meets."""
+    def _fixture_hits(self, solid, subject=None):
+        """Names of placed fixture components (revolved on a lathe) that ``solid`` meets.
+
+        A rest component serving only listed ops is parked off the work for any other
+        ``subject``; without a subject every component counts.
+        """
         box = _bbox(solid)
         names = set()
         for component in self.fixture:
+            subjects = component.get("subjects", "all")
+            if subject is not None and subjects != "all" and subject not in subjects:
+                continue
             if not _boxes_overlap(box, component["envelope_bbox"]):
                 continue
             if solid.common(component["envelope"]).Volume > HIT_MM3:
@@ -3150,19 +3268,28 @@ class _Setup:
         return merged[0][1] - max(merged[0][0], 0.0)
 
     def _render(self):
-        """PNG of the stock entering the setup (claimed surfaces tinted) and the fixture."""
-        claimed = set()
-        for op in self.ops:
-            valid = self._claims(op)[0]
-            if isinstance(valid, list):
-                claimed.update(valid)
+        """Arriving stock, exact fixture, and this setup's derived removal, in setup axes."""
         size = max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
         tolerance = max(0.01, size / 400)
-        meshes = []
-        for face in self.part.Faces:
-            points, triangles = face.tessellate(tolerance)
-            colour = "claimed" if self._source(face) in claimed else "part"
-            meshes.append((points, triangles, _COLOURS[colour]))
+        meshes, render_debts = [], []
+        output, removal = None, None
+        if self.stock_out is not None:
+            try:
+                output = self._placed(self.stock_out)
+                removal = self.part.cut(output)
+            except Exception:
+                render_debts.append("NOT SHOWN: material removed could not be drawn.")
+                output = None
+        else:
+            render_debts.append("NOT SHOWN: cuts are unresolved; this is the arriving stock only.")
+
+        def mesh(shape, colour, hatch=False):
+            points, triangles = shape.tessellate(tolerance)
+            meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch))
+
+        mesh(output if output is not None else self.part, _COLOURS["part"])
+        if removal is not None and removal.Volume > STOCK_MM3:
+            mesh(removal, _COLOURS["removed"], True)
         debts, solids, possible = [], [], []
         vise = self.hold is not None and self.hold.get("kind") == "vise"
         if not self.fixture_ready:
@@ -3194,15 +3321,16 @@ class _Setup:
             if component["name"] == "moving_jaw":
                 solids += possible
                 possible = []
+        rests = self._rest_render(debts)
+        solids += [(name, jaw, _COLOURS["rest"]) for name, jaws, _ in rests for jaw in jaws]
         for _, shape, colour in solids + possible:
-            points, triangles = shape.tessellate(tolerance)
-            meshes.append((points, triangles, colour))
+            mesh(shape, colour)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
         scene = {
             "fixture_kind": _fixture_kind(self.setup.get("hold")),
             "jaws": jaws,
             "parallels": "absent"
-            if self.hold is None or (not vise and "parallels_ref" not in self.hold)
+            if not self._expects_parallels()
             else "exact"
             if parallels
             else "not_modelled",
@@ -3213,17 +3341,281 @@ class _Setup:
                     "exact": jaws == "exact" or c["role"] != "jaw",
                 }
                 for c in self.fixture
+            ]
+            + [
+                {"name": name, "role": "follow_rest", "exact": True, "pose": pose}
+                for name, _, pose in rests
             ],
             "debts": debts,
         }
-        return _render(meshes), scene
+        annotation = self.setup.get("render", {})
+        lathe = self.setup.get("machine_kind") == "lathe"
+        view = "lathe" if lathe else "plan" if scene["fixture_kind"] == "custom" else "isometric"
+        tool, tool_debt = self._render_tool(annotation, lathe)
+        if tool_debt:
+            render_debts.append(tool_debt)
+        jaw_z = (
+            self.hold["pose"]["origin_mm"][2]
+            if lathe and self.hold and isinstance(self.hold.get("pose"), dict)
+            else max(self.jaws[side][5] for side in ("fixed", "moving"))
+            if self.jaws is not None
+            else None
+        )
+        datums = [{"label": end["label"], "point_mm": [0.0, 0.0, end["z_mm"]]}
+                  for end in annotation.get("ends", [])]
+        for datum in annotation.get("datums", []):
+            indices = self.owner.features.get(datum["feature"])
+            if isinstance(indices, list) and indices:
+                boxes = [self.face_boxes[i] for i in indices]
+                box = [min(b[i] for b in boxes) for i in range(3)] + [
+                    max(b[i] for b in boxes) for i in range(3, 6)
+                ]
+                datums.append({
+                    "label": datum["label"],
+                    "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                })
+        notes = []
+        if not self.ops:
+            notes.append("Holding/fit-up only: no cutting operation in this setup.")
+        if removal is not None and removal.Volume <= STOCK_MM3:
+            notes.append("No material removed in this setup.")
+        if lathe and self.hold and _number(jaw_z):
+            back = jaw_z - self.hold.get("jaw_depth_mm", 0) - self.hold.get("body_length_mm", 0)
+            if self.box[2] < back - STOCK_TOL:
+                notes.append("Bar passes through the spindle bore.")
+        if (
+            view == "plan"
+            and self.hold
+            and self.hold.get("clamps")
+            and not annotation.get("clamp_order_declared")
+        ):
+            render_debts.append("NOT SHOWN: tightening order is not declared; follow the hold instructions.")
+        shows = ["holding", "setup axes and zero"]
+        if tool is not None:
+            shows.append("selected tool approach")
+        if removal is not None:
+            shows.append("material removed this setup (amber hatch)")
+        if annotation.get("paths") or annotation.get("axial_paths"):
+            shows.append("profile sketch keyed to the coordinate rows")
+        legend = [
+            "Blue-grey: material retained after this setup.",
+            "Amber hatch: material removed in this setup.",
+            "Brown/purple: holding. Green: selected tool and approach.",
+            "Dashed machine outlines: context only, not measured solids.",
+        ]
+        if removal is None:
+            legend[0] = "Blue-grey: arriving stock; cuts not confirmed."
+            legend.pop(1)
+        components = self._render_components(annotation)
+        for name, jaws, _ in rests:
+            boxes = [_bbox(jaw) for jaw in jaws]
+            box = [min(b[i] for b in boxes) for i in range(3)] + [
+                max(b[i] for b in boxes) for i in range(3, 6)
+            ]
+            centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
+            components.append(
+                {"name": name, "label": name.upper(), "role": "rest", "box_mm": box,
+                 "center_mm": centre}
+            )
+        clamp_labels = {
+            component["label"].split(": ", 1)[0]: component["label"]
+            for component in components if component["label"].startswith("C") and ": " in component["label"]
+        }
+        spec = {
+            "setup_id": self.setup.get("id"),
+            "view": view,
+            "stock_box": list(self.box),
+            "components": components,
+            "zero_mm": [0.0, 0.0, 0.0],
+            "jaw_front_z_mm": jaw_z,
+            "stickout_mm": annotation.get("stickout_mm"),
+            "datums": datums,
+            "primary_tool": tool,
+            "paths": annotation.get("paths", []),
+            "axial_paths": annotation.get("axial_paths", []),
+            "waypoints": annotation.get("waypoints", []),
+            "fixed_jaw_label": annotation.get("fixed_jaw_label"),
+            "custom_clamp_order": [
+                clamp_labels[key]
+                for key in sorted(
+                    (key for key in clamp_labels if key[1:].isdigit()),
+                    key=lambda key: int(key[1:]),
+                )
+            ],
+            "preload": annotation.get("preload"),
+            "legend": legend,
+            "notes": notes + render_debts,
+        }
+        if lathe:
+            spec["lathe_profiles"] = self._render_profiles(output, jaw_z)
+        scene.update({
+            "view": view, "width_px": 1600, "height_px": 1000,
+            "shows": shows, "legend": legend, "render_debts": render_debts,
+            "waypoints": spec["waypoints"], "primary_op": tool.get("op") if tool else None,
+        })
+        return render_diagram(meshes, spec), scene
+
+    def _render_components(self, annotation):
+        """Callout assemblies, keeping every exact solid in the actual drawing."""
+        grouped = {}
+        order = annotation.get("clamp_order", [])
+        for component in self.fixture:
+            name, owner, role = component["name"], component["owner"], component["role"]
+            local = name.rsplit(":", 1)[-1]
+            key = owner if role == "clamp" or owner == "stop" else local
+            if role == "clamp":
+                index = next((c["index"] for c in annotation.get("clamps", [])
+                              if c["owner"] == owner), None)
+                label = next((c["label"] for c in annotation.get("clamps", [])
+                              if c["owner"] == owner), owner.replace("_", " "))
+                if index in order:
+                    label = f"C{order.index(index) + 1}: {label}"
+            elif owner == "stop":
+                key, label, role = owner, "STOP", "stop"
+            else:
+                label = local.replace("_", " ").replace("-", " ").upper()
+                if name == "fixed_jaw":
+                    label, role = annotation.get("fixed_jaw_label", "FIXED JAW"), "fixed_jaw"
+                elif name == "moving_jaw":
+                    label, role = "MOVING JAW", "moving_jaw"
+                elif local.startswith("pad"):
+                    role = "pad"
+                elif local.startswith("base"):
+                    label, role = "FIXTURE PLATE", "plate"
+            box = component["bbox"]
+            if key in grouped:
+                previous = grouped[key]["box_mm"]
+                box = [min(previous[i], box[i]) for i in range(3)] + [
+                    max(previous[i], box[i]) for i in range(3, 6)
+                ]
+            grouped[key] = {"name": key, "label": label, "role": role, "box_mm": list(box)}
+        for component in grouped.values():
+            box = component["box_mm"]
+            component["center_mm"] = [(box[i] + box[i + 3]) / 2 for i in range(3)]
+        return list(grouped.values())
+
+    def _render_tool(self, annotation, lathe):
+        """Selected primary cutter's actual silhouette at an illustrative approach pose."""
+        if not self.ops:
+            return None, None
+        op = self.ops[0]
+        label = annotation.get("tools", {}).get(str(op.get("subject", "").rsplit(":", 1)[-1]))
+        op_number = str(op.get("subject", "")).rsplit(":", 1)[-1]
+        label = label or "selected tool"
+        if lathe and _turned(op):
+            tool, missing, holder_missing = self._turn_tool(op)
+            if missing:
+                return None, "STOP: selected turning tool dimensions are unresolved; do not run."
+            if _number(op.get("to_z")):
+                z = op["to_z"]
+            elif _number(op.get("z_from")) and _number(op.get("z_to")):
+                z = (op["z_from"] + op["z_to"]) / 2
+            else:
+                indices = self._indices(op)
+                z = max(self.faces[index].CenterOfMass.z for index in indices) if isinstance(indices, list) and indices else self.box[5]
+            r = max(abs(self.box[0]), abs(self.box[3])) + tool["radius_mm"] + 3
+            section, holders = self._turn_sections(tool, (r, z), not holder_missing)
+            outlines = [[[x, 0.0, station] for x, station in polygon]
+                        for polygon in [section] + (holders or [])]
+            tip = [r, 0.0, z]
+            approach = [[r + 15, 0.0, z], tip]
+        elif _sawn(op) and _positive(op, "kerf_mm") is not None:
+            plane = op.get("cut_plane", {})
+            axis = {"x": 0, "y": 1, "z": 2}.get(plane.get("axis"))
+            if axis is None or not _number(plane.get("value")):
+                return None, "STOP: saw cut plane is unresolved; do not run."
+            transverse = (axis + 1) % 3
+            tip = [(self.box[i] + self.box[i + 3]) / 2 for i in range(3)]
+            tip[axis] = plane["value"]
+            kerf = op["kerf_mm"]
+            outline = []
+            for side, end in ((-1, 0), (1, 0), (1, 3), (-1, 3)):
+                point = list(tip)
+                point[axis] += side * kerf / 2
+                point[transverse] = self.box[transverse + end]
+                outline.append(point)
+            outlines = [outline]
+            start = list(tip)
+            start[transverse] = self.box[transverse + 3] + 15
+            approach = [start, tip]
+            label += " (blade symbol; width = kerf)"
+        else:
+            radius, length = _positive(op, "radius_mm"), _positive(op, "flute_len_mm")
+            if radius is None or length is None:
+                return None, "STOP: selected cutter dimensions are unresolved; do not run."
+            indices = self._indices(op)
+            point = self.faces[indices[0]].CenterOfMass if isinstance(indices, list) and indices else V(0, 0, self.box[5])
+            x, y, z = point.x, point.y, self.box[5] + 5
+            tip = [x, y, z]
+            outlines = [[[x - radius, y, z], [x + radius, y, z],
+                         [x + radius, y, z + length], [x - radius, y, z + length]]]
+            approach = [[x, y, z + length + 12], [x, y, self.box[5]]]
+        return {
+            "label": label, "op": op_number, "tip_mm": tip,
+            "outline_mm": outlines[0], "outlines_mm": outlines, "approach_mm": approach,
+        }, None
+
+    def _render_profiles(self, output, jaw_z):
+        """Clipped real meridian chords for the enlarged exposed-end detail."""
+        lower = jaw_z if _number(jaw_z) else self.box[2]
+        upper = self.box[5]
+        profiles = []
+        for label, shape, colour in (
+            ("arriving stock", self.part, _COLOURS["removed"]),
+            ("after this setup", output, _COLOURS["part"]),
+        ):
+            if shape is None:
+                continue
+            lines = []
+            for r0, z0, r1, z1 in _meridian_segments(shape):
+                if max(z0, z1) < lower or min(z0, z1) > upper:
+                    continue
+                if z1 != z0:
+                    t0, t1 = sorted(((lower - z0) / (z1 - z0), (upper - z0) / (z1 - z0)))
+                    lo, hi = max(0.0, t0), min(1.0, t1)
+                    if hi < lo:
+                        continue
+                    lines.append([[r0 + (r1 - r0) * lo, z0 + (z1 - z0) * lo],
+                                  [r0 + (r1 - r0) * hi, z0 + (z1 - z0) * hi]])
+                else:
+                    lines.append([[r0, z0], [r1, z1]])
+            profiles.append({"label": label, "colour": colour, "lines": lines})
+        return profiles
+
+    def _rest_render(self, debts):
+        """[(name, jaw solids, pose)] of each posed follow rest at its first served op's
+        first cutting point; an unposed complete rest is a scene debt."""
+        drawn = []
+        for rest in (self.hold or {}).get("follow_rests", []):
+            if rest.get("missing"):
+                continue  # its host debt is already a scene debt
+            name = f"follow rest {rest['name']}"
+            for op in self.ops:
+                record = self.rest_poses.get((rest["name"], self._subject(op)))
+                if record is not None and record["render"] is not None:
+                    jaws, z = record["render"]
+                    pose = f"jaws for {self._subject(op)} cutting at z {z} mm"
+                    drawn.append((name, jaws, pose))
+                    break
+            else:
+                debts.append(f"{name} not drawn: no served op posed its jaws")
+        return drawn
+
+    def _expects_parallels(self):
+        """Named parallels, or a vise not declared seated on its bed (zero parallels height)."""
+        hold = self.hold
+        if hold is None:
+            return False
+        if "parallels_ref" in hold:
+            return True
+        return hold.get("kind") == "vise" and hold.get("parallels_height_mm") != 0
 
     def _parallels(self):
         """Parallel boxes from declared dimensions and centres, or the debt that prevents them."""
-        hold = self.hold
-        vise = hold is not None and hold.get("kind") == "vise"
-        if hold is None or not (vise or "parallels_ref" in hold):
+        if not self._expects_parallels():
             return None, None
+        hold = self.hold
+        vise = hold.get("kind") == "vise"
         dims = {
             key: _positive(hold, key)
             for key in ("parallels_height_mm", "parallels_length_mm", "parallels_width_mm")
@@ -3332,6 +3724,13 @@ class _Setup:
             reasons["claimed_indices"] = self._undefined(undefined)
         else:
             facts["claimed_indices"] = sorted(valid)
+            hole_meta = op.get("hole")
+            if isinstance(hole_meta, dict) and hole_meta.get("complete_form") is True:
+                caps = sorted(self._own_caps(valid))
+                if caps:
+                    # Its claimed caps must be formed by the setup's final stock: run()
+                    # fills ``unformed`` from :meth:`_output`, or why it stays unknown.
+                    facts["cap_completion"] = {"caps": caps, "unformed": UNKNOWN}
         # Faces whose normals are only partly evaluable are still sampled: a hit on them
         # is a definite hit (``min_hits``), but no measured fact may pass on them while
         # the claim verdict itself stays unknown.
@@ -4584,11 +4983,11 @@ class _Setup:
         moved = _nearest_free(free, start, 2 * nose) if exposed else None
         return (moved, extent(moved)) if moved is not None else (start, extent(start))
 
-    def _turn_fixture(self, solid):
+    def _turn_fixture(self, solid, subject):
         """Names of placed fixture solids a revolved tool meets; None while none are placed."""
         if not self.fixture_ready:
             return None
-        return self._fixture_hits(solid)
+        return self._fixture_hits(solid, subject)
 
     def _turn_op(self, op, indices):
         """Revolved turning-tool facts for an op (module docstring: Turning)."""
@@ -4674,6 +5073,10 @@ class _Setup:
         part_box = _bbox(part)
         placed = self.fixture_ready
         outer = self._outer()
+        subject = self._subject(op)
+        # Served rests that cannot be posed leave every clear sample uncertain.
+        posed, blocked = self._rest_setup(op, obstacle, segments, obstacle_reason)
+        rest_gaps = list(blocked)
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
         reach, wall_hits = 0.0, 0
@@ -4685,22 +5088,28 @@ class _Setup:
             if pieces is not None:
                 parts = [solid for solid in map(_revolved, pieces) if solid is not None]
                 solids["holder"] = parts[0].fuse(parts[1:]) if len(parts) > 1 else parts[0]
+            rest_hits, rest_gap = self._rest_hits(posed, tool, point, section, pieces, subject)
+            if rest_gap is not None and rest_gap not in rest_gaps:
+                rest_gaps.append(rest_gap)
             for kind, solid in solids.items():
                 if solid is None:
                     continue
-                labels = set()
+                labels = set(rest_hits[kind])
                 if _boxes_overlap(_bbox(solid), part_box):
                     common = solid.common(part)
                     if common.Volume > HIT_MM3:
                         labels.add("part")
                         counters[kind][2].update(self._turn_hit_refs(common, solid, index))
                         wall_hits += kind == "holder"
-                labels.update(self._turn_fixture(solid) or ())
+                labels.update(self._turn_fixture(solid, subject) or ())
                 if labels:
                     counters[kind][0] += 1
                     counters[kind][1].update(labels)
-                elif self.fixture_gaps or any(
-                    _boxes_overlap(_bbox(solid), box) for _, box in self.fixture_possible
+                elif (
+                    self.fixture_gaps
+                    or rest_gap is not None
+                    or blocked
+                    or any(_boxes_overlap(_bbox(solid), box) for _, box in self.fixture_possible)
                 ):
                     uncertain[kind] += 1
             # Reach: material radius beside the nose/blade (within its axial extent) beyond
@@ -4734,10 +5143,10 @@ class _Setup:
                     f"fixture solids unresolved ({self.fixture_reason}); "
                     f"{certain} sample(s) hit part material"
                 )
-            elif uncertain[kind] and self.fixture_gaps:
+            elif uncertain[kind] and (self.fixture_gaps or rest_gaps):
                 facts[key] = UNKNOWN
                 reasons[key] = (
-                    f"undrawn fixture components ({'; '.join(self.fixture_gaps)}); "
+                    f"undrawn fixture components ({'; '.join([*self.fixture_gaps, *rest_gaps])}); "
                     f"{certain} sample(s) certainly hit"
                 )
             elif uncertain[kind]:
@@ -4748,6 +5157,141 @@ class _Setup:
                 )
             else:
                 facts[key] = certain
+
+    # ------------------------------------------------------------------ follow rests
+
+    def _follow_rests(self, op):
+        """Declared follow rests serving this turning op; any other op sees them parked
+        off the work (docs/rules-geometry.md "Follow and steady rests")."""
+        subject = self._subject(op)
+        rests = (self.hold or {}).get("follow_rests", [])
+        return [rest for rest in rests if rest["subjects"] == "all" or subject in rest["subjects"]]
+
+    def _turn_before(self, op):
+        """(the profile a turning op meets, or None, and why not)."""
+        previous = None
+        for other in self.ops:
+            if other is op:
+                break
+            if _turned(other):
+                previous = other
+        return (self.part, None) if previous is None else self._turn_obstacle(previous)
+
+    def _rest_setup(self, op, obstacle, segments, obstacle_reason):
+        """([(rest, profile under its jaws, its meridian section, pose record)], why each
+        other serving rest cannot be posed).
+
+        Jaws trailing the tool (``turned``) ride the profile after the op; jaws leading it
+        (``uncut``) the profile before it.
+        """
+        if not self.fixture_ready:
+            return [], []
+        posed, blocked = [], []
+        for rest in self._follow_rests(op):
+            label = f"follow rest {rest['name']!r}"
+            if rest.get("missing"):
+                blocked.append(f"{label} not drawn: " + ", ".join(rest["missing"]) + " unresolved")
+                continue
+            if rest["side"] == "turned":
+                profile, why, section = obstacle, obstacle_reason, segments
+            else:
+                profile, why = self._turn_before(op)
+                section = None
+                if profile is not None:
+                    try:
+                        section = _meridian_segments(profile)
+                    except Exception as exc:
+                        profile, why = None, f"meridian section failed ({exc})"
+            if profile is None or why is not None:
+                blocked.append(f"{label} jaws cannot be posed: {why}")
+                continue
+            record = {"poses": 0, "clashes": {}, "gaps": [], "render": None}
+            self.rest_poses[(rest["name"], self._subject(op))] = record
+            posed.append((rest, profile, section, record))
+        return posed, blocked
+
+    def _rest_hits(self, posed, tool, point, section, pieces, subject):
+        """({tool kind: follow rest names its jaws meet}, why a rest could not be posed or
+        None) for one cutting point; jaw clashes with the work and the fixture are recorded.
+
+        The tool is no longer revolved here: rest and tool both ride the carriage. Its
+        insert, head and shank lie on and below centre height (the rake face on centre,
+        +Y toward the jaws' positive angles), the toolpost body on both sides of it.
+        """
+        hits = {"tool": set(), "holder": set()}
+        if not posed:
+            return hits, None
+        prisms = {"tool": _prism(section, -TOOL_DROP_MM, 0.0)}
+        if pieces is not None:
+            shank = _prism(pieces[0], -TOOL_DROP_MM, 0.0)
+            body = _prism(pieces[1], -TOOL_DROP_MM, TOOL_DROP_MM)
+            prisms["holder"] = shank.fuse(body) if shank is not None and body is not None else None
+        if any(prism is None for prism in prisms.values()):
+            return hits, "a tool section could not be built against the follow rest jaws"
+        gap = None
+        for rest, profile, rest_section, record in posed:
+            label = f"follow rest {rest['name']}"
+            # The jaws are set to the diameter at the cutting point: the one just turned
+            # (trailing) or the one about to be cut (leading).
+            radius = _outer_radius(rest_section, point[1], point[1])
+            if radius is None or radius <= PLANE_TOL:
+                why = f"{label} has no work diameter at the cut z {_r(point[1])} mm to ride"
+                if why not in record["gaps"]:
+                    record["gaps"].append(why)
+                gap = gap or why
+                continue
+            ahead = tool["feed_z"] if rest["side"] == "uncut" else -tool["feed_z"]
+            middle = point[1] + ahead * rest["lead_mm"]
+            z0, depth = middle - rest["jaw_depth_mm"] / 2, rest["jaw_depth_mm"]
+            width = rest["jaw_width_mm"]
+            jaws = []
+            for angle in rest["jaw_angles_deg"]:
+                jaw = Part.makeBox(rest["jaw_height_mm"], width, depth, V(radius, -width / 2, z0))
+                jaw.rotate(V(0, 0, 0), V(0, 0, 1), angle)
+                jaws.append(jaw)
+                for other in self._fixture_hits(jaw, subject):
+                    key = f"{label} jaw at {_r(angle)} deg meets {other}"
+                    record["clashes"][key] = record["clashes"].get(key, 0) + 1
+            record["poses"] += 1
+            if record["render"] is None:
+                record["render"] = (jaws, _r(point[1]))
+            # Riding the set diameter is contact; work beyond it under the jaws is a clash.
+            band = _band(radius + STOCK_TOL, self._outer(), z0, z0 + depth)
+            if band is not None and band.common(profile).Volume > STOCK_MM3:
+                key = (
+                    f"{label} jaws set to the {_r(2 * radius)} mm diameter meet larger work "
+                    "under them"
+                )
+                record["clashes"][key] = record["clashes"].get(key, 0) + 1
+            for kind, prism in prisms.items():
+                if any(prism.common(jaw).Volume > HIT_MM3 for jaw in jaws):
+                    hits[kind].add(label)
+        return hits, gap
+
+    def _rest_interference(self, facts, ops):
+        """Fold each served op's follow-rest poses into the setup's fixture clashes/debts."""
+        if self.hold is None or "fixture_clashes" not in facts:
+            return
+        clashes, debts = [], []
+        for rest in self.hold.get("follow_rests", []):
+            if rest.get("missing"):
+                continue  # its host debt is already a fixture_clash debt
+            for op in self.ops:
+                subject = self._subject(op)
+                if not _turned(op) or rest not in self._follow_rests(op):
+                    continue
+                record = self.rest_poses.get((rest["name"], subject))
+                if record is None:
+                    why = ops.get(subject, {}).get("reason", "the op's tool poses are unresolved")
+                    debts.append(f"follow rest {rest['name']!r} not posed for {subject}: {why}")
+                    continue
+                clashes += [
+                    f"{text} at {count} of {record['poses']} pose(s) of {subject}"
+                    for text, count in sorted(record["clashes"].items())
+                ]
+                debts += record["gaps"]
+        facts["fixture_clashes"] = facts["fixture_clashes"] + clashes
+        facts["fixture_clash_debts"] = list(dict.fromkeys(facts["fixture_clash_debts"] + debts))
 
     def _turn_hit_refs(self, common, solid, own):
         """Finished face refs bounding a turning-tool hit, excluding the sampled face."""

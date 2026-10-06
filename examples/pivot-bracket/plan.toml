@@ -1,10 +1,9 @@
-# pivot-bracket process plan — PLAN.md rev 6 §3.1. Three PM-30MV setups, carried from the
-# rev-3 route: S1 seat up (seat + foot boundary), S2 foot top up (L relief, ear width,
-# hold-down holes), S3 inner ear face up on an angle plate (arch + reamed cross-bore).
-# Blank placement, holding and cutting choices belong to the plan author; the rev-3
-# prepared blank is restored below. New process choices are marked explicitly.
-# *_verify = true retains unmeasured inventory arithmetic. Nothing here is executable
-# or attested: the shop lacks the S3 angle plate, R8 drill chuck and 6.5 mm reamer.
+# Illustrative pivot-bracket process plan. No dimensioned v39 drawing exists; the
+# adjacent hand-authored manifest's bands are plausible example design intent.
+# Three PM-30MV setups: S1 seat up (seat + foot boundary), S2 foot top up
+# (L relief, ear width, hold-down holes), S3 outer ear face up on an angle plate
+# (outer face, arch + reamed cross-bore). All sheets remain PLANNED, not executable
+# machining instructions or a first-article attestation.
 
 part = "pivot-bracket"
 features = "features.toml"
@@ -14,8 +13,8 @@ quantity_cite = "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:6"
 
 [drawing]
 number = "MHA-123"
-revision = "unknown"             # v39 bundle has no drawing sheet for this part; no certified revision to pair
-cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:2", "harmonic-analyzer/cad/scripts/_drawing_registry.py (no pivot_bracket DrawingSpec)"]
+revision = "example-v39"          # local illustrative contract on v39 STEP, not a certified drawing revision
+cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:2", "harmonic-analyzer/cad/scripts/_drawing_registry.py (no pivot_bracket DrawingSpec)", "example (plausible, no dimensioned drawing): hand-authored contract on v39 STEP"]
 
 [paths]
 inventory = "../inventory/pedro-shop.toml"
@@ -53,7 +52,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 0.0, 1.0]
 z = [0.0, -1.0, 0.0]
 binding = "nominal"              # S1: Z0 is the faced seat (op 10)
-note = "AUTHOR'S CHOICE: S1 seat up; model (X,Y,Z) -> (X, Z, -Y). Seat z = 0, foot top z = -6."
+note = "AUTHOR'S CHOICE: S1 seat up. In this Setup, the faced seat is Z0 and the foot top is Z -6."
 cite = ["AUTHOR'S CHOICE", "pivot-bracket.STEP"]
 
 [frames.TB]
@@ -62,7 +61,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 0.0, -1.0]
 z = [0.0, 1.0, 0.0]
 binding = "nominal"              # S2: X/Y picked up on the raw overhang, Z0 the faced foot top
-note = "AUTHOR'S CHOICE: S2 foot top up; model -> (X, -Z, Y - 6). Foot top z = 0, seat z = -6."
+note = "AUTHOR'S CHOICE: S2 foot top up. In this Setup, the faced foot top is Z0 and the finished seat is Z -6."
 cite = ["AUTHOR'S CHOICE", "pivot-bracket.STEP"]
 
 [frames.TC]
@@ -71,7 +70,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal"              # S3: Z0 the outer face faced by op 10
-note = "AUTHOR'S CHOICE: S3 outer face up, seat against the angle-plate upright (frame y = 0 plane, plate on +y); model -> (X, -Y, -3 - Z). Outer face z = 0, ear inner face z = -6, foot free end z = -24.2."
+note = "AUTHOR'S CHOICE: S3 outer face up, finished seat against the angle-plate upright at Y0, plate behind the part on +Y. In this Setup, the faced outer face is Z0, ear inner face Z -6 and foot free end Z -24.2."
 cite = ["AUTHOR'S CHOICE", "pivot-bracket.STEP"]
 
 # ======================================================================= S1
@@ -94,13 +93,14 @@ fixture = "vise-pm-6"
 jaws_along = "y"                 # rev 3: jaws normal to X, gripping the unmachined body across X
 fixed_jaw = "left"               # author's choice: fixed jaw on -X, jaws run along Y
 parallels = "parallels-lms-6745/1in"
-stop = "blank outer end at A Y = -4 against end stop" # author's choice
+jaw_center_along_mm = 9.1         # author's choice: centre the 26.2 mm raw blank run in the jaws
+stop = "No end stop: clamp the blank centrally over the parallels, then edge-find its left face and outer end for this Setup's X/Y zeros." # author's choice
 grip_mm = 19.5453                # rev-3 derivation, measured jaw: jaw height 1.7695 in - 1 in parallels, x 25.4
-grip_mm_verify = true            # vise and parallels are verify = true
 jaw_above_parallels_mm = 19.5453
-jaw_above_parallels_mm_verify = true
 clamp = "hand plus quarter turn" # author's choice; verify actual grip before cutting
-note = "Seat side up on 1 in parallels; centred X stock -9..9, model Z -4..22.2. Raw seat is A Z = 1, finished seat 0; finish only the foot boundary down to -6. Nominal jaw engagement 19.5453 and finished-seat height 58.6 above the bed give 7.6547 clearance from the cut bottom to jaw top; inventory dimensions remain verify-only. Leave stock below for S2/S3."
+parallels_along = "y"
+parallels_centres_mm = [[-6.5, 9.1], [6.5, 9.1]] # author's choice: under the blank edges
+note = "Seat side up on 1 in parallels; blank X -9..9 and Y -4..22.2 in this Setup. Raw seat is Z +1, finished seat Z0. Finish the foot boundary only down to Z -6, leaving the ear-side stock below for S2/S3. Jaw engagement is 19.5453 mm; the foot-profile cut bottom is 7.6547 mm above the jaws."
 
 [setups.zero.x]
 edge = "blank_left"
@@ -145,6 +145,9 @@ to_z = -6.0                      # -FOOT_H
 direction = "conventional"       # author's choice
 rough_allowance_mm = 0.3         # author's choice: radial stock on the outline
 contour = { method = "linear_table", step_mm = 1.0 } # author's choice: straight sides
+# Clear only the top six millimetres around the foot. Preserve the stock below
+# A Z = -6 for the upright ear and the subsequent opposite-side setup.
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-4.0, 22.2], z = [-6.0, 1.0] }
 
 [[setups.ops]]
 op = 30
@@ -156,6 +159,7 @@ approach_mm = 5.0                # author\'s choice: rapid plane above the curre
 to_z = -6.0
 direction = "conventional"       # author's choice
 contour = { method = "linear_table", step_mm = 1.0 } # author's choice
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-4.0, 22.2], z = [-6.0, 1.0] }
 
 [setups.ops.checks]
 width = "calipers"
@@ -188,28 +192,29 @@ hold_down_b = 27.2
 [setups.hold]
 fixture = "vise-pm-6"
 jaws_along = "y"                 # grips the finished foot sides across X
+jaw_center_along_mm = -9.1        # author's choice: centre the 24.2 mm finished foot run
 fixed_jaw = "left"               # author's choice: fixed jaw on -X
-parallels = "parallels-lms-6745/5-8in"
-riser = "blocks-123-lms-2881"    # rev-3 authored packing: block on its 1 in face under the 5/8 parallels
-support_orientation = "1 in height" # author's existing 1 in block orientation, made operative
-grip_mm = 3.6703                 # rev-3 derivation, measured jaw: 1.7695 in jaw - (1 + 5/8) in stack, x 25.4
-grip_mm_verify = true
+parallels = "bracket-high-parallels/1-5-8in" # tall narrow pair fits between the closed jaws
+grip_mm = 3.6703                 # jaw height 1.7695 in minus 1-5/8 in parallels, x 25.4
 jaw_above_parallels_mm = 3.6703
-jaw_above_parallels_mm_verify = true
-stop = "finished free end at B Y = -21.2 against end stop" # author's choice
+stop = "No end stop: seat the finished foot on the parallels and against the fixed jaw, clamp, then edge-find the raw upper overhang for this Setup's X/Y zeros." # author's choice
 clamp = "hand plus quarter turn" # author's choice
-note = "Seat down; support both foot edges on the 1 in block plus 5/8 in parallels, keeping x = 0 drilling line clear. Nominal stack 41.275, jaw overlap 3.6703 and foot top 2.3297 above jaws remain verify-only arithmetic. Raw ear/free-run top is B Z = 27.2; relief rough/finish advances only the free run to 0.3/0, never the retained ear top."
+parallels_along = "y"
+parallels_centres_mm = [[-6.25, -9.1], [6.25, -9.1]]
+note = "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the X0 drilling line clear. Do not use 1-2-3 blocks between the jaws closed on this 16 mm foot. Stack 41.275 mm, jaw engagement 3.6703 mm and foot top 2.3297 mm above jaws. Take shallow axial passes through the open free run; relief rough/finish leaves its floor at Z +0.3/+0.1, then the floor spring pass to Z0 clears the raw overhang rails. Mill the left and right side strips separately; retain a straight rectangular crown for S3, not an arch sculpted from above. The 31.75 mm flute end mill reaches the 26.2 mm inner wall."
 
 [setups.zero.transfer]
 from = "S1"
 indicate = ["foot_profile"]
+tool = "dti"
+runout_limit_mm = 0.0254          # author's choice: max 0.001 in TIR, two 0.0005 in DTI divisions; not a measured alignment
 
 # Pickup option 2: touch the unfinished upper-stock overhang, not the foot.
 # S1 profiles only model Y 0..6: remaining model X -9..9 / Z -4..22.2
 # becomes B X -9..9 / Y -22.2..4 / Z 0..27.2. It masks the finished
-# foot's 2.3297 mm exposed band; the stop also blocks its finished free end.
-# Flat, accessible jaw/stop reference faces are not established by inventory.
-# Touch the raw faces above the jaw/stop; verify their nominal blank placement
+# foot's 2.3297 mm exposed band. No end stop is used; each blank is edge-found.
+# Flat jaw reference faces are not established by inventory.
+# Touch the raw faces above the jaws; verify their nominal blank placement
 # before using these offsets. Finished foot/frame-B cut coordinates stay unchanged.
 [setups.zero.x]
 edge = "raw_overhang_left"
@@ -229,71 +234,108 @@ check_jog_mm = 10.0              # author's choice
 face = "top"
 method = "paper"
 paper_mm = 0.05                  # author's choice
-tool = "endmills-lms-6784/3-8in-4fl" # author's choice
+tool = "bracket-long-endmill"     # 31.75 mm flutes reach the 26.2 mm inner wall
 check_jog_mm = 10.0              # author's choice
-retouch_after = [30]             # author's choice: same end mill for 10–50; later tools touch finished foot top
+retouch_after = [30]             # author's choice: same end mill for 10–55; later tools touch finished foot top
 
 [[setups.ops]]
 op = 10
 do = "rough_pocket"
 feature = "ear_relief"
-tool = "endmills-lms-6784/3-8in-4fl"
+faces = ["#96/ADVANCED_FACE[7]/NONE", "#28/ADVANCED_FACE[3]/NONE"] # retained ear wall and foot-top floor
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.3                       # author's choice: finished foot Z = 0 plus floor allowance
 direction = "conventional"       # author's choice
 rough_allowance_mm = 0.3         # author's choice: stock on floor and retained ear wall
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, 9.0], y = [6.0, 33.2], z = [3.0, 22.2] }, open_side = "-y" } # author's existing raw blank placement and open free-run sweep, explicit rather than inferred from stock size
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 27.2] } # TB: clear the whole open run, including raw overhang
 
 [[setups.ops]]
 op = 20
 do = "finish_pocket"
 feature = "ear_relief"
-tool = "endmills-lms-6784/3-8in-4fl"
+faces = ["#96/ADVANCED_FACE[7]/NONE", "#28/ADVANCED_FACE[3]/NONE"]
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-to_z = 0.0
+to_z = 0.1                       # leave a floor spring pass for op 30
 direction = "conventional"       # author's choice
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, 9.0], y = [6.0, 33.2], z = [3.0, 22.2] }, open_side = "-y" } # same raw blank sweep; retained ear wall at setup Y -3
-
-[setups.ops.checks]
-thickness = "calipers"
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 27.2] }
 
 [[setups.ops]]
 op = 30
 do = "face"
 feature = "foot_top"
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.0
 direction = "conventional"       # author's choice
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 0.3] } # floor spring pass clears the full XY footprint, not only the finished face
 
 [setups.ops.checks]
 height = "calipers"
 
 [[setups.ops]]
 op = 40
-do = "rough_profile"
+do = "rough_pocket"
 feature = "ear_sides"
-tool = "endmills-lms-6784/3-8in-4fl"
+faces = ["#41/ADVANCED_FACE[4]/NONE"] # left ear wall only
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.3                       # author's choice: finished foot Z = 0 plus floor allowance
 direction = "conventional"       # author's choice
 rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
-contour = { method = "linear_table", step_mm = 1.0 } # author's choice
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, -7.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "-x" } # outside-in left-strip rasters, not a closed ear outline
+stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.0, 4.0], z = [0.0, 27.2] } # left strip only; retain the rectangular crown
+note = "Left ear side only, X -7 in this Setup; clear the narrow X -9..-7 strip. Preserve the straight rectangular crown for S3; do not repeat the right-side coordinates in this cut."
+
+[[setups.ops]]
+op = 45
+do = "rough_pocket"
+feature = "ear_sides"
+faces = ["#451/ADVANCED_FACE[14]/NONE"] # right ear wall only
+tool = "bracket-long-endmill"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 5.0                # author's choice: rapid plane above the current stock top
+to_z = 0.3                       # finished foot Z = 0 plus floor allowance
+direction = "conventional"
+rough_allowance_mm = 0.3         # radial ear-side stock
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [7.0, 9.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "+x" } # outside-in right-strip rasters
+stock_removal_bounds = { x = [7.0, 9.0], y = [-3.0, 4.0], z = [0.0, 27.2] } # right strip only; no full-X crown clearance
+note = "Right ear side only, X +7 in this Setup; clear the narrow X +7..+9 strip. Preserve the straight rectangular crown for S3; do not repeat the left-side coordinates in this cut."
 
 [[setups.ops]]
 op = 50
-do = "finish_profile"
+do = "finish_pocket"
 feature = "ear_sides"
-tool = "endmills-lms-6784/3-8in-4fl"
+faces = ["#41/ADVANCED_FACE[4]/NONE"]
+tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.0                       # down to the foot top
 direction = "conventional"       # author's choice
-contour = { method = "linear_table", step_mm = 1.0 } # author's choice
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, -7.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "-x" } # finish only the open left strip
+stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.0, 4.0], z = [0.0, 27.2] }
+note = "Finish the left ear side only, X -7 in this Setup; clear the narrow X -9..-7 strip down to the foot top at Z0. Preserve the straight rectangular crown for S3; do not repeat the right-side coordinates in this cut."
+
+[[setups.ops]]
+op = 55
+do = "finish_pocket"
+feature = "ear_sides"
+faces = ["#451/ADVANCED_FACE[14]/NONE"]
+tool = "bracket-long-endmill"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 5.0                # author's choice: rapid plane above the current stock top
+to_z = 0.0                       # down to the foot top
+direction = "conventional"
+contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [7.0, 9.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "+x" } # finish only the open right strip
+stock_removal_bounds = { x = [7.0, 9.0], y = [-3.0, 4.0], z = [0.0, 27.2] }
+note = "Finish the right ear side only, X +7 in this Setup; clear the narrow X +7..+9 strip down to the foot top at Z0. Preserve the straight rectangular crown for S3; do not repeat the left-side coordinates in this cut. Check ear width after both sides are finished."
 
 [setups.ops.checks]
 width = "calipers"
@@ -302,10 +344,10 @@ width = "calipers"
 op = 60
 do = "spot"
 feature = "hold_down_a"
-tool = "center-drills-lms-4859/2"
+tool = "bracket-spot-drill"       # long 120-degree spotter keeps the chuck above the ear
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-depth_mm = 2.0                   # author's choice: spot from the finished foot top
+depth_mm = 0.6                   # 2.08 mm spot diameter, smaller than the following #15 drill
 
 [[setups.ops]]
 op = 70
@@ -324,10 +366,10 @@ station = "calipers"
 op = 80
 do = "spot"
 feature = "hold_down_b"
-tool = "center-drills-lms-4859/2"
+tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-depth_mm = 2.0                   # author's choice
+depth_mm = 0.6
 
 [[setups.ops]]
 op = 90
@@ -373,17 +415,22 @@ pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
-supports = "not_applicable"      # the plate itself locates the seat
-clamp = "clamping-kit-lms-1144"
-grip_mm = "not_applicable"       # strap contact, not vise jaws
+supports = "not_applicable"      # the plate assembly includes the load-bearing foot-end ledge
+clamps = [
+  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, note = "bridge underside on the finished foot top; force +Y toward the seat/angle plate, two studs at Setup X +/-20 through the upright, rear nuts behind it; bar maximum Setup Z -9.65" },
+]
+method = "strap_clamps"
+clamp = "shop-made two-stud bridge tightened on the free foot, reacting through rear washers and nuts against the angle plate"
+grip_mm = "not_applicable"       # bridge contact, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
-stop = "finished left foot edge at TC X = -8 against a plate stop" # author's choice
-note = "Seat (model Y = 0) against the angle-plate upright, outer face up and 2 mm proud of the plate top; strap the free foot top toward the plate, studs outside the part, never through the 4.572 hold-down holes."
+stop = "Rest the foot free end on the bolted plate ledge at Setup Z -24.2; align the finished left foot edge at Setup X -8 before clamping."
+note = "Seat the finished seat face against the angle-plate upright, outer face up and 2 mm proud of the plate top. Coordinates below are relative to this Setup's zero. Rest the foot free end on the bolted ledge at Z -24.2 to take the downward facing/drilling load. The bridge underside bears on the finished foot top at Y -6, centred at Z -16, and presses the foot toward the plate (+Y); two studs at X +/-20 pass through the upright, with rear washers touching the plate back and rear nuts behind it. Indicate the exposed 2 mm seat lip with a small-ball DTI above the plate, then tighten and recheck. Establish a preliminary paper-Z reference with the stationary edge-finder on the raw outer face (Z +1) before the side pickups. Pick up the left foot face at Y -3, Z -4, above the bridge; pick up the common plate front from -Y at X +45, Z -5, clear of the bridge hardware. Retract above Z +5 before traversing between pickups, then paper-zero the cutting tool as specified. The bridge bar reaches maximum Z -9.65; studs, washers and nuts stay outside the foot width, clear of the foot-end ledge/base, arch and cross-bore."
 
 [setups.zero.transfer]
 from = "S2"
-indicate = ["foot_profile", "foot_top"]
+indicate = ["foot_profile", "foot_top", "seat_face"] # transfer the actual height datum, not only its adjacent faces
 tool = "dti"
+runout_limit_mm = 0.0254          # author's choice: max 0.001 in TIR, two 0.0005 in DTI divisions; not a measured alignment
 
 [setups.zero.x]
 edge = "foot_left"
@@ -393,9 +440,9 @@ tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
 [setups.zero.y]
-edge = "seat_against_plate"
-edge_mm = 0.0                    # the seat plane is the plate face
-from = "+y"
+edge = "plate_front_beside_part"  # exposed plate face at TC X = 45, Z = -5, clear of the bridge hardware
+edge_mm = 0.0                    # plate face and seated datum A share Y0
+from = "-y"
 tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
@@ -418,6 +465,15 @@ to_z = 0.0                       # outer face, model Z = -3
 direction = "conventional"       # author's choice
 
 [[setups.ops]]
+op = 11
+do = "inspect"
+feature = "ear_relief"
+note = "Check 6 mm ear thickness only after both faces are finished; it was still 7 mm in S2."
+
+[setups.ops.checks]
+thickness = "calipers"
+
+[[setups.ops]]
 op = 15
 do = "rough_profile"
 feature = "ear_arch"
@@ -428,6 +484,7 @@ to_z = -5.7                      # author's choice: ear inner face -6 plus floor
 direction = "conventional"       # author's choice
 rough_allowance_mm = 0.3         # author's choice: radial crown stock
 contour = { method = "arc_table", step_deg = 10.0 } # author's choice: upper semicircle
+stock_removal_bounds = { x = [-7.0, 7.0], y = [-33.2, -25.2], z = [-6.0, 1.0] } # TC: remove crown stock from the rectangular ear retained in S2
 
 [[setups.ops]]
 op = 20
@@ -439,18 +496,19 @@ approach_mm = 5.0                # author's choice
 to_z = -6.0                      # ear inner face
 direction = "conventional"       # author's choice
 contour = { method = "arc_table", step_deg = 10.0 } # author's choice
+stock_removal_bounds = { x = [-7.0, 7.0], y = [-33.2, -25.2], z = [-6.0, 1.0] }
 
 [setups.ops.checks]
-radius = "unknown"               # no radius gauge in the inventory; reported, not assumed
+radius = "radius-gauge"
 
 [[setups.ops]]
 op = 30
 do = "spot"
 feature = "cross_bore"
-tool = "center-drills-lms-4859/2"
+tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author's choice
-depth_mm = 2.0                   # author's choice: spot from the faced outer face
+depth_mm = 0.6                   # 2.08 mm spot diameter, below the 1/4 in predrill diameter
 
 [[setups.ops]]
 op = 40
@@ -471,5 +529,8 @@ approach_mm = 5.0                # author's choice
 exit_mm = 2.0                    # author's choice
 
 [setups.ops.checks]
-dia = "pin-gauges"               # 6.50 go / 6.53 no-go
-height = "calipers"              # seat to lower bore edge plus half the gauged diameter
+dia = "bracket-cross-bore-pins"   # metric 6.500 go / 6.530 no-go, not inch-step pins
+height = "height-gauge"
+
+[setups.ops.inspection_methods]
+height = "After release, seat datum A on the surface plate with the 6.500 mm go pin in the bore. Measure the pin top and subtract half the pin diameter; accept the 25.1-25.3 mm centre height."

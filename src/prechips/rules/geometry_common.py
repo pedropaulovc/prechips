@@ -19,6 +19,8 @@ from prechips.rules.turned_profile import PROFILE_OPS
 
 UNKNOWN = "unknown"
 _NONCUTTING = MANUAL | {"fit_up", "transfer"}
+# The hole actions whose cut can form a hole's claimed point cap.
+_COMPLETE_FORM = {"drill", "ream", "bore", "counterbore"}
 LATHE_APPROACH_REASON = (
     "turning action has no approach model off a lathe "
     "(the turning model needs a lathe spindle on setup Z)"
@@ -106,6 +108,20 @@ def finishing_subjects(bundle):
         for _, setup, op in _cuts(bundle.plan["setups"], name)
         if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
     }
+
+
+def complete_form_subjects(bundle):
+    """Each feature's last drill/ream/bore/counterbore in setup then op order.
+
+    That one cut's setup output must leave its claimed hole caps formed. A pilot, a
+    counterbore's drill, a spot and a tap never own them; a thread's last drill does.
+    """
+    owners = {}
+    for setup in bundle.plan["setups"]:
+        for op in setup["ops"]:
+            if op.get("do") in _COMPLETE_FORM:
+                owners[op.get("feature")] = f"{setup['id']}:{op['op']}"
+    return set(owners.values())
 
 
 def provenance(bundle, rule, setup=None, op=None, feature=None):

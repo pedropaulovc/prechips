@@ -336,7 +336,8 @@ contract:
 - An omitted *feature* is impossible to detect from the manifest alone,
   which is why the generator, not a hand, writes it (M3). The historical M1
   hand-written manifests were cross-checked against drawing dimension counts;
-  the undrawn pivot-bracket remains authored with unknown drawing requirements.
+  the pivot-bracket remains hand-authored on the v39 STEP without a dimensioned
+  drawing, so its example bands are illustrative rather than sourced limits.
 
 **Historical design sketch, not the current manifest.** The excerpt below
 predates M3: placeholder face names, inch-derived bands and material/profile
@@ -575,7 +576,7 @@ not exist.
 | reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default; a rotary-claimed face counts only when the exact union of its rotary window portions covers it (a named-span gap errors, an undecided union is `?`) | features.faces, plan.ops.faces, plan.stock.as_is_faces, kernel rotary_coverage.cut | M4 | "Face 23 (the ear's back) is machined by no valid op." |
-| finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
+| finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes; a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
 
 **Accessibility pose decision — user, 2026-10-05.** Ordinary wall samples
 keep the cutter-radius offset along the horizontal outward normal. At a
@@ -635,6 +636,14 @@ cannot be built at a cone apex, and is not an internal corner. Its actual
 collision is still checked (wrong angle, deeper point or flat tool hits);
 wider countersinks and tilted or unrelated caps keep their unknowns and hits,
 and no other op borrows the exemption.
+Exactly one op per feature is `complete_form`: its last drill, ream, bore or
+counterbore in setup then op order (a thread's last drill; never a pilot,
+spot or tap). After all of that setup's cuts, its own matched claimed caps
+must be clear of the cumulative stock, using the same interior-contact test as
+walls and no `to_z` clip, leave or tolerance. A touched cap is named in the
+op's `cap_completion`, is output-stock debt rather than a collision, and is
+uncredited by `finish_coverage` even when no setup consumes the output. An
+unmeasurable completion leaves that credit unknown.
 `stock_state.top_z` and `entry_z` are machine-frame millimetres; `depth_mm`
 is millimetres even for inch-unit features, and tap fallback feature-depth
 bands are converted to millimetres.
@@ -1006,8 +1015,11 @@ sheet.
    hand-authored substitutes. Export delivery provenance and exact digests are
    recorded only in [examples/README.md](examples/README.md#m3-export-delivery-provenance).
    Python citations remain `file:line`; YAML citations are `file:dotted.key.path`.
-   All plans remain authored and PLANNED. The undrawn pivot-bracket remains
-   hand-authored with no STEP or invented drawing contract.
+   All plans remain authored and PLANNED. The pivot-bracket keeps hand-authored
+   `features.toml` on the consumer v39 STEP
+   (`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
+   No dimensioned bracket drawing is supplied, so its bands are illustrative
+   example design intent rather than measured or exported drawing limits.
 
    The exported contracts include expanded rocker datum/tip features, shaft
    face splits, the cone journal's unknown requirement identity, and rendered
@@ -1263,7 +1275,10 @@ sheet.
    An own hole bore radius is diameter-sizing, not `internal_corner_radius`;
    an own known matched point cap is its tool shape, checked against
    unmodified entry stock without an offset shell. Other claimed caps are not
-   blanket-exempt.
+   blanket-exempt. Each feature's last drill/ream/bore/counterbore (a thread's
+   last drill) must leave its own claimed caps clear of its setup's final
+   stock; otherwise they are output-stock debt and uncredited finish faces,
+   never collisions.
    Stock-state `top_z`/`entry_z` and op `depth_mm` are millimetres even for
    inch-unit features; tap fallback feature-depth bands convert to millimetres.
    No full-feature union, cutter-radius slab or sharp-edge air wedge removes

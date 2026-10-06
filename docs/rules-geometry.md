@@ -296,6 +296,44 @@ or `angle_deg`); `indexing` then passes on a verified dividing head with no
 landings to check, errors on any other fixture kind or when positions/angles
 are also declared, and is `unknown` while the head is unverified.
 
+### Follow and steady rests
+
+A plan `hold.supports` rest table ([plan](plan.md#reference)) puts the rest
+into the turning model when its inventory fixture declares measured solid
+fields ([inventory](inventory.md)). Both are posed in the setup frame with the
+spindle on setup Z.
+
+**Follow rest.** Its jaws ride the carriage, so they are posed with the tool
+at every cutting sample of each op the rest serves (`ops`; omitted = every
+turning op), never as a static solid. Each jaw is a box `jaw_height` radially
+outward from the work diameter it rides, `jaw_width` tangentially and
+`jaw_depth` axially, centred `jaw_lead_mm` from the cutting point along Z and
+turned `jaw_angles_deg` about Z from the tool (0° = the tool's side, +90° = above
+the rake face). With `jaw_side = "turned"` (default) the jaws trail the tool on
+the diameter just turned, at the profile after the op; with `"uncut"` they lead
+it on the profile before the op. The rest and tool ride together, so the tool
+is not revolved against the jaws: the insert, head and shank are prisms from
+centre height down to `TOOL_DROP_MM` (1000 mm) below it, and the toolpost body
+spans that distance on both sides of centre height. A jaw sharing more than
+0.001 mm³ with one of them is a `follow rest <name>` tool or holder obstacle;
+flush contact is allowed. A jaw riding its set diameter is contact; larger
+work under the jaws, or a jaw meeting a placed fixture component, is a
+`fixture_interference` clash. A rest missing a measured jaw dimension, its
+angles, a positive `jaw_lead_mm` or a valid `jaw_side` is not drawn: the ops it
+serves stay `unknown` with the missing fields named, and it is a scene and
+interference debt. An op the rest does not serve sees it parked off the work.
+
+**Steady rest.** A static ring at `at_z_mm`, `body_length` long, from the
+entry stock's largest radius under it (where its jaws ride) out to
+`body_dia`/2. It obstructs the tool and holder only for the ops it serves and
+is drawn and interference-checked like any fixture component (role `rest`).
+Missing `body_dia`/`body_length`, an unresolved `at_z_mm`, no work under the
+ring or a `body_dia` inside the work leaves it an undrawn gap naming why.
+
+Rests are a necessary-condition screen at the sampled cutting points: no jaw
+adjustment travel, jaw wear, carriage stroke or arm/bracket outside the jaws
+is modelled.
+
 ## Inputs the job accepts
 
 Numeric fields reach the kernel only when they resolve to a positive
@@ -327,12 +365,18 @@ fields are listed in the job's reason text and the dependent rules are `?`.
   the same `tool_projection` convention the engagement rule and the M5
   screens share. There is no scalar tool-wide projection. OAL stays host-side
   for `reach`, and finishing-cut decisions stay host-side for `finish_coverage`;
-  neither is an engine input. Accessibility does not require OAL when the
+  neither is an engine input (the per-feature `complete_form` hole owner below
+  is). Accessibility does not require OAL when the
   selected projection is known.
 - Per spot or drill op on a hole feature: `point_angle_deg`, the selected
   tool's included `point_angle`, always sent. A plain nominal or accepted
   fact passes its number; a missing, `"unknown"` or debt-carrying angle is
   sent as `unknown`, never omitted or defaulted.
+- Per hole op on a hole feature: `complete_form` inside `hole`, true only for
+  the feature's last drill, ream, bore or counterbore in setup then op order
+  (a thread's last drill), false for every other hole op (pilots, a
+  counterbore's drill, spots, taps). It is an engine input and keys the cache;
+  the public plan schema is unchanged.
 - Per setup: the numeric frame from the manifest (`origin` converted from
   inches when `units = "in"`; an unknown frame keeps every op row `unknown`
   with `numeric setup frame is unknown`), and for a `kind = "vise"` fixture
@@ -446,6 +490,9 @@ remaining overstock above `to_z`,
 including drafted walls whose +Z sweep is nonzero. Exact face contact catches
 small retained ears; nearest-contact probes inset from the face boundary
 distinguish a drafted sliver from legitimately retained neighbours.
+A `complete_form` hole op's own claimed caps are then checked against the
+setup's final stock with the same contact test, without the `to_z` clip (see
+[accessibility](#accessibility)); a touched cap is named output-stock debt.
 An operation can declare numeric `stock_removal_bounds` (one setup-frame box)
 to clear only outside-finished material inside that volume. The box is the
 explicit cleared footprint the author declares, for example the envelope of
@@ -455,8 +502,11 @@ exists or clears. The remaining guards all hold: the cutter radius must be
 known (an unknown radius leaves the bounds `?` with a reason naming the
 missing cutter radius, never a zero-radius result, and later stock stays
 unresolved); the bounds are finite numbers; removal is the box's intersection
-with the selected stock, never finished material or a protected rough leave;
-each claim must touch the box and every removed piece must border a claim;
+with the setup-entry stock, never finished material or a protected rough leave;
+each claim must touch the box and every removed piece must border a claim on
+that setup-entry stock (an earlier op clearing the bridge between a claim and
+the rest of its box never strands it), and the pieces are then cut from the
+current stock, so removal never restores material an earlier op cleared;
 known future planned-hole columns, with their finite caps, stay stock; and
 the removal must not split an original input solid. A violation is not an
 error verdict: it is named stock debt (the stock reason names the failed
@@ -537,7 +587,13 @@ down, tops at the part seat. They lie below every tool and holder cylinder,
 so they never enter hit counts; they exist for the picture, for the
 `declared parallel centred at [x, y] intersects the <side> jaw` debt and for
 the jaw-opening check of [`fixture_interference`](#fixture_interference). With
-any of those inputs missing the scene records `parallels not drawn: … undeclared`.
+any of those inputs missing for selected parallels, the scene records
+`parallels not drawn: … undeclared`. A vise hold with explicit
+`parallels = "none"` or `"not_applicable"` instead uses known zero parallel lift:
+no parallel boxes are drawn and their absent dimensions/centres do not create
+fixture debt. Without another lifting support the stock seats on the bed.
+Missing/unknown selections and
+unresolved named parallels remain debt, as do nonpositive/unverified named heights.
 
 ## `accessibility`
 
@@ -615,6 +671,20 @@ tool against a matched cone or sphere hits. A wider countersink and tilted or
 unrelated caps keep their offset shell, unknowns and real hits, and no other
 op borrows this exemption.
 
+A `complete_form` op must also form its own matched claimed caps. After the
+setup's cuts and the profile-wall check, the cumulative stock minus the
+finished solid must not touch any of those caps, under the same exact and
+inset interior-contact test as walls. The test has no `to_z` clip, leave or
+tolerance. Stock below a flat finishing floor therefore still leaves a cone
+unformed, as does a flatter or smaller point. A cut that removes nothing is
+judged too. The op's `cap_completion` fact names `caps` and `unformed`
+(finished-face indices). A touched cap makes the setup's output stock debt,
+which it names; it is not a collision, and accessibility facts are unchanged.
+When the completion cannot be measured (unknown stock, a hole-cut debt or a
+failed boolean), `unformed` is `unknown` with a `reason`. Only matched caps
+are judged: no other cone or sphere is waived or added. A counterbore op whose
+explicit `faces` omit the small bore does not judge that bore's cone.
+
 For drill, spot, ream, bore, tap and counterbore operations, the flute stock
 obstacles exclude only the op's own actual cutter volume, to its declared
 depth or explicit through extent. Hole centres and axes derive
@@ -651,6 +721,12 @@ Spot and tap operations honor an explicit depth even when the feature declares
 authored endpoint. `stock_state.top_z` and `entry_z` are machine-frame
 millimetres, and operation `depth_mm` is millimetres even when feature units
 are inches. Tap fallback feature-depth bands are converted to millimetres.
+For a spot, the sampled cutter tips and holder poses likewise stay above that
+authored endpoint: a 2 mm spot at the mouth of a 74 or 86 mm through bore has
+2 mm reach, not the full bore depth. This is action semantics (`do = "spot"`),
+including a centre-drill selected as its tool; the tool's name or kind does
+not turn the operation into a through drill. A following through drill
+retains its actual deep poses and any genuine deep chuck/fixture collision.
 
 When the op radius exceeds a matched bore's radius, every hole action except
 a spot also removes that bore's own wall out to the op radius. No fixed radial
@@ -809,14 +885,24 @@ One row per feature. A feature with a known `requirements` list that neither
 lists nor declares `finish_ra` is `not_applicable` (`drawing declares no finish
 requirement`); an unknown/omitted requirement list or an unknown `finish_ra`
 value is `unknown`. Otherwise every face of the feature must be claimed by a
-finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`, and
-`rotary_gaps` / `rotary_unresolved` as in `coverage`.
+finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`,
+`rotary_gaps` / `rotary_unresolved` as in `coverage`, and `unformed_caps` when
+present.
+
+A claimed hole cap is credited only when its `complete_form` op's
+`cap_completion` measured it clear (see [accessibility](#accessibility)). This
+holds for the last setup and for any output no setup consumes. A cap that
+still touches stock stays uncovered and is listed in `unformed_caps`. An
+unmeasured cap makes the row `unknown` unless another face already errors.
+A tap's claim never credits a cap its thread's drill left unformed.
 
 - `finish-required faces lack a finishing cut.` (error)
 - `rotary finishing windows leave part of a finish-required face unfinished: <face> (<area> mm² at <setup> z <lo>..<hi> mm, angle <lo>..<hi>°); …` (error; joined to the previous error with `; ` when both apply)
+- `finish-required hole cap(s) still touch stock after their complete-form cut's setup.` (error)
 - `every finish-required face is claimed by a finishing cut.` (pass)
 - `finish face references or finishing operation claims are unresolved.` (unknown)
 - `rotary finishing window coverage is unresolved for <face> (<reason>); …` (unknown)
+- `hole cap completion is unknown: {reason}.` (unknown)
 - `turning action has no approach model off a lathe (the turning model needs a lathe spindle on setup Z)` (unsupported)
 
 Unsupported turning finish cuts name possible coverage only: their raw engine
@@ -944,19 +1030,35 @@ torque, or that the shop's real fixture matches its record.
 ## Renders
 
 For each setup with a numeric frame and derivable incoming stock the kernel
-returns a 640×480 PNG: an orthographic, z-buffered, flat-shaded software
-rasterization of that stock (grey, exposed claimed surfaces blue), the certain
-fixed and moving jaw boxes (two browns), the possible-jaw strips when the
-lateral centre is undeclared (two pale tints), the parallels when drawn
-(grey-green) and every other drawn fixture solid in its role colour (risers,
-chuck jaws and body, dividing head, centre and quill, authored fixture
-solids, clamps). It is written by the engine's own PNG encoder with no
-timestamp, text, font or machine-specific metadata, so the bytes are
-reproducible across runs and cache hits. Alongside the image the engine
-returns `render_scene = {fixture_kind, jaws, parallels, components, debts}`.
+returns a 1600×1000 PNG suitable for a wide printed setup figure. The camera
+uses setup axes: a lathe elevation has +Z to the right, radial +X up and +Y
+away, with headstock/chuck left and tailstock right; a mill uses a front-right
+isometric view; a custom plate uses a plan view down setup -Z. The engine's
+own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
+use no installed fonts, timestamps or machine-specific metadata. Fresh runs
+and cache hits give identical bytes.
+
+Blue-grey is material retained after the setup; amber hatch is the Boolean
+difference between actual entry and derived exit stock. When exit stock is
+unresolved, only the arriving stock is drawn and the missing cuts are named
+plainly. Fixture role colours, labels, setup X/Y/Z, Z0, named datum ends,
+jaw-front Z, stickout and a selected-tool approach illustration accompany the
+geometry. Steady rest rings are drawn as fixture solids; each follow rest's
+jaws are drawn and labelled posed for the first cutting sample of the first
+op it serves. An exposed-end detail makes short lathe stickouts legible; contour
+sketches show both sides and share `P` waypoint keys with the coordinate
+tables. Custom plates show pads, locators and authored clamp-action order.
+Table/vise-body/headstock/tailstock context outlines are marked schematic;
+they never add fabricated solids or authorize a cut. Inventory stop solids
+require `hold.stop_fixture` and a numeric `hold.stop_pose`.
+
+Alongside the image the engine returns `render_scene` with `fixture_kind`,
+`jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language
+`shows` / `legend`, annotation-only `render_debts` and shared `waypoints`.
 `fixture_kind` is the inventory holding kind; `components` lists every drawn
 solid as `{name, role, exact}` (`exact = false` only for the vise's
-lateral-undeclared jaw extents). For a vise, `jaws` is `absent`
+lateral-undeclared jaw extents; a follow rest adds role `follow_rest` and the
+`pose` it is drawn at, and a rest no served op posed is a debt). For a vise, `jaws` is `absent`
 (unplaced; debt `jaws not drawn: <fixture reason>`), `exact` or
 `lateral_undeclared` (debt `jaw position along <axis> is undeclared (no
 jaw_center_along_mm): dark jaws span only the part's <e> mm grip-zone
@@ -1013,6 +1115,12 @@ report and captioned is in
   grid, not full swept toolpath simulation; a feature narrower than the
   sampling can be missed between samples. Chatter, clamp deformation and the
   PLAN §4.6 residue remain outside every rule.
+- Cap completion compares the modelled final hole cutter with the CAD cap
+  exactly. A final tool radius smaller than the CAD bore, an inch/metric
+  nominal mismatch, or CAD modelled at a thread's major diameter leaves a rim
+  or apex residue, and that residue is named stock debt and uncredited finish.
+  This is symmetric with the existing oversize-point collision; there is no
+  tolerance band.
 - A length fact carrying its own `verify = true` / `"unknown"` or an
   incomplete `measured` record, a missing dimension, an unknown frame, or an
   unknown `thin_wall_floor_mm` keeps the corresponding rows `?`; an

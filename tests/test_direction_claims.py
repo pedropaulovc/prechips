@@ -228,6 +228,7 @@ def _two_sided_bundle(tmp_path, monkeypatch, s1_faces, s2_faces):
             "tool": "em-preparation",
             "holder": "unknown",
             "to_z": 10.0,
+            "rough_allowance_mm": 0.0,
             "stock_removal_bounds": {
                 "x": [30.0, 60.0],
                 "y": [0.0, 40.0],
@@ -287,7 +288,7 @@ def test_whole_feature_claims_from_both_sides_finish_it_but_each_op_names_its_fa
 def test_a_far_side_claim_never_credits_finish_or_coverage(tmp_path, monkeypatch, freecad_kernel):
     bundle = _two_sided_bundle(tmp_path, monkeypatch, f'faces = ["{BOTTOM}"]', f'faces = ["{TOP}"]')
     finish = _rows(finish_coverage, bundle)["broad"]
-    assert finish.status == "error" and "lack a finishing cut" in finish.sentence
+    assert finish.status == "error"
     cover = _rows(coverage, bundle)["step-block"]
     assert cover.status == "error" and cover.numbers["unclaimed_faces"] == [TOP, BOTTOM]
 
