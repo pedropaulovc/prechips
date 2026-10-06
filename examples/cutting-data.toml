@@ -154,10 +154,10 @@ cite = "illustrative example value (plausible hobby-lathe HSS parting starting p
 material_class = "low_carbon_steel"
 tool_material = "carbide"
 operation = "profile"
-diameter_range = [0.0, 3.2]
+diameter_range = [0.0, 4.8]
 sfm = 90
 chip_load_mm_per_tooth = 0.01
-cite = "illustrative example value: short 1/8 in carbide cutter with light radial passes beside the cone-pad walls in 1018; conservative hobby-mill starting point, not handbook data"
+cite = "illustrative example value: short-projection 3/16 in carbide cutter with light radial passes beside the cone-pad walls in 1018; conservative hobby-mill starting point, not handbook data"
 
 [[cut]]
 material_class = "low_carbon_steel"

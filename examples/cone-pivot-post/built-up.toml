@@ -485,8 +485,8 @@ do = "profile"
 feature = "body"
 faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BODY__P01"]
 approach = "rotary"
-tool = "cone-pad-endmill-1-8in"
-holder = "r8-collets-lms-4860/1-8in"
+tool = "cone-pad-endmill-3-16in"
+holder = "r8-collets-lms-4860/3-16in"
 z_from = 52.0
 z_to = 81.0
 angle_window_deg = [0.0, 360.0]
@@ -494,7 +494,7 @@ stock_to_leave_mm = 0.0
 doc_mm = 0.15
 approach_mm = 5.0
 direction = "conventional"
-note = "AUTHOR'S CHOICE: change to the short 1/8 in square-end carbide cutter for Y19..48, spanning both pad-wall ends plus the full larger-cutter exclusion window. Finish the body lands while preserving both inclined pad islands; the 3/8 in cutter physically hits those islands at Y23.8994 and Y43.0059. Re-establish tool Z after changing cutters and use shallow 0.15 mm radial traverses."
+note = "AUTHOR'S CHOICE: change to the short-projection 3/16 in square-end carbide cutter for Y19..48, spanning both pad-wall ends plus the full larger-cutter exclusion window. Its 19.05 mm flute/projection clears the calculated native stock reach; the shorter 1/8 in candidate did not clear the holder. Finish the body lands while preserving both inclined pad islands. Re-establish tool Z after changing cutters and use shallow 0.15 mm radial traverses."
 [setups.ops.checks]
 dia = "calipers"
 
