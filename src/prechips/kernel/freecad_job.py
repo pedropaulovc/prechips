@@ -139,6 +139,7 @@ TUBE_REL = 1e-3  # pipe volume vs pi r^2 L: a lineage-skin edge tube must be who
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
 REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
 FACING_ACTIONS = {"face", "rough_face", "finish_face"}  # sweeps that span planar inner loops
+PROFILE_ACTIONS = {"profile", "rough_profile", "finish_profile"}  # walls clear a corridor
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
@@ -1372,6 +1373,55 @@ def _depth_window(span, to_z):
     return None if z0 >= span[5] else (span[0], span[1], z0, *span[3:])
 
 
+def _flat(edge):
+    """A level ``edge`` exactly on z = 0: lines and circles moved down, any other curve
+    rebuilt from its B-spline poles at z = 0 (a section's spline carries z noise)."""
+    curve = edge.Curve
+    if isinstance(curve, (Part.Line, Part.Circle)):
+        flat = edge.copy()
+        flat.translate(V(0, 0, -edge.Vertexes[0].Point.z))
+        return flat
+    spline = curve.toBSpline(edge.FirstParameter, edge.LastParameter)
+    for number, pole in enumerate(spline.getPoles(), start=1):
+        spline.setPole(number, V(pole.x, pole.y, 0))
+    return spline.toShape()
+
+
+def _straight(wire):
+    """(start, end) of a level ``wire`` that is one straight run, else None."""
+    if wire.isClosed() or any(type(edge.Curve).__name__ != "Line" for edge in wire.Edges):
+        return None
+    points = [vertex.Point for vertex in wire.OrderedVertexes]
+    run = points[-1] - points[0]
+    if run.Length <= PLANE_TOL:
+        return None
+    side = V(-run.y, run.x, 0).normalize()
+    if any(abs((point - points[0]).dot(side)) > PLANE_TOL for point in points):
+        return None
+    return points[0], points[-1]
+
+
+def _level_offset(wire, distance):
+    """A level ``wire`` offset by ``distance`` in its plane (a straight run to its left)."""
+    ends = _straight(wire)
+    if ends is None:
+        return wire.makeOffset2D(distance, 0, False, not wire.isClosed(), False)
+    run = ends[1] - ends[0]
+    moved = wire.copy()
+    moved.translate(V(-run.y, run.x, 0).normalize() * distance)
+    return moved
+
+
+def _stadium(start, end, radius):
+    """The level region within ``radius`` of the segment ``start``-``end``."""
+    run = end - start
+    side = V(-run.y, run.x, 0).normalize() * radius
+    corners = [start + side, end + side, end - side, start - side, start + side]
+    band = Part.Face(Part.makePolygon(corners))
+    discs = [Part.Face(Part.Wire(Part.makeCircle(radius, point))) for point in (start, end)]
+    return band.fuse(discs)
+
+
 def _sweep_window(sweep):
     """A box holding a whole +Z claim sweep."""
     box = _bbox(sweep)
@@ -2557,6 +2607,7 @@ class _Setup:
         self.slabs = {}  # (face index, thickness) -> (face thickened outward, or None, why)
         self.skins = {}  # (claimed indices, leave) -> (their offset skin primitives, or None, why)
         self.sweeps = {}  # (claimed indices, facing?) -> (swept faces, +Z sweep or None)
+        self.corridors = {}  # (profile walls, radius, to_z) -> (cutter corridor or None, why)
         self.neighbours = None  # finished face index -> indices sharing an edge with it
         self.timing = None
 
@@ -3065,9 +3116,11 @@ class _Setup:
         (:meth:`_protect`). An authored clearing box removes that within the box above
         ``to_z``, leaving unclaimed hole columns to their own ops; its pieces must border a
         claim on the stock entering the setup, so an earlier op clearing the bridge between a
-        claim and the rest of its box never strands that box. Other ops sweep direction-valid
-        claims along +Z, keeping unclaimed rails, ears, webs and overstock. A lower-leave op
-        also cuts the lineage leave off its claimed lateral faces of ``stock`` (:meth:`_band`).
+        claim and the rest of its box never strands that box. A profile op clears only its
+        cutter corridor beside its vertical claims (:meth:`_corridor`); other claims sweep
+        along +Z. Either way unclaimed rails, ears, webs and overstock past them stay. A
+        lower-leave op also cuts the lineage leave off its claimed lateral faces of ``stock``
+        (:meth:`_band`).
         """
         valid, away, why = self._claims(op)
         if not isinstance(valid, list):
@@ -3102,7 +3155,7 @@ class _Setup:
                 leave,
             )
         else:
-            removal, why = self._removal(valid, to_z, op.get("do"), leave)
+            removal, why = self._removal(op, valid, to_z, leave)
         if why is not None:
             return None, why
         band, why = self._band(
@@ -3383,16 +3436,18 @@ class _Setup:
             return None, None
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
-    def _removal(self, valid, to_z, action, leave):
-        """(stock outside the op's guard swept by direction-valid claims along +Z, or None,
-        and why not).
+    def _removal(self, op, valid, to_z, leave):
+        """(stock outside the op's guard its claims sweep (:meth:`_op_sweep`), or None, and
+        why not).
 
-        A facing ``action`` sweeps each planar claim's outer loop, so raw pins over hole
+        A facing action sweeps each planar claim's outer loop, so raw pins over hole
         mouths go too; subtracting the guard still keeps islands, bosses and the leave. The
         whole sweep is guarded and its pieces judged by claim contact before ``to_z``
         clips them.
         """
-        faces, sweep = self._sweep(valid, action)
+        faces, sweep, why = self._op_sweep(op, valid, to_z)
+        if why is not None:
+            return None, why
         if sweep is None:
             return None, None
         cut, why = self._protect(sweep, leave, _sweep_window(sweep))
@@ -3412,6 +3467,112 @@ class _Setup:
             if removal.Volume <= HIT_MM3:
                 return None, None
         return removal, None
+
+    def _op_sweep(self, op, valid, to_z):
+        """(swept claims, the volume an op without a clearing box may clear or None, and
+        why that is unknown).
+
+        Claims sweep along +Z (:meth:`_sweep`), except a profile op's vertical walls: its
+        cutter only clears its own corridor beside them (:meth:`_corridor`), never the
+        stock past it, so an unclaimed web or clamped rail beyond the corridor stays.
+        """
+        action = op.get("do")
+        if action not in PROFILE_ACTIONS:
+            return (*self._sweep(valid, action), None)
+        walls = [index for index in valid if _vertical(self.faces[index], Z)]
+        rest = [index for index in valid if index not in walls]
+        faces, sweep = self._sweep(rest, action) if rest else ([], None)
+        if not walls:
+            return faces, sweep, None
+        radius = _positive(op, "radius_mm")
+        if radius is None:
+            return [], None, "the cutter radius is unknown, so its profile corridor is unknown"
+        corridor, why = self._corridor(walls, radius, to_z)
+        if why is not None:
+            return [], None, why
+        faces = faces + [self.faces[index] for index in walls]
+        return faces, corridor if sweep is None else sweep.fuse(corridor), None
+
+    def _corridor(self, walls, radius, to_z):
+        """(the solid a cutter of ``radius`` sweeps beside vertical claimed ``walls``, or
+        None, and why not), cached per walls, radius and ``to_z``.
+
+        Each wall's horizontal section is chained with the others; the cutter centre path
+        is that chain offset outward by the radius (arcs around convex joins, trimmed at
+        concave ones) and the corridor is every point within the radius of the path: 2r
+        beside each wall, a 2r tube about each convex join, an r disc at each path end.
+        It stands from ``to_z`` (else the walls' foot) to above the setup-entry stock.
+        """
+        key = (tuple(walls), radius, to_z)
+        if key in self.corridors:
+            return self.corridors[key]
+        edges, levels = [], []
+        for index in walls:
+            box = _bbox(self.faces[index])
+            middle = (box[2] + box[5]) / 2
+            section = [
+                _flat(edge)
+                for wire in self.faces[index].slice(Z, middle)
+                for edge in wire.Edges
+                if edge.Length > PLANE_TOL
+            ]
+            if not section:
+                self.corridors[key] = (None, f"{self.owner.labels[index]} has no level section")
+                return self.corridors[key]
+            levels.append((Part.makeCompound(section), middle))
+            edges.extend(section)
+        z0 = min(_bbox(self.faces[index])[2] for index in walls) if to_z is None else to_z
+        top = _bbox(self.part)[5] + COVER_MM
+        pieces = []
+        try:
+            for chain in Part.sortEdges(edges):
+                wire = Part.Wire(chain)
+                centre = self._centre_path(wire, radius, levels)
+                if centre is None:
+                    self.corridors[key] = (
+                        None,
+                        "a profile wall's outward side is ambiguous, so its corridor is unknown",
+                    )
+                    return self.corridors[key]
+                ends = _straight(centre)
+                if ends is not None:  # OCC finds no plane for a straight path
+                    area = _stadium(*ends, radius)
+                elif centre.isClosed():
+                    area = centre.makeOffset2D(radius, 0, True, False, False).fuse(
+                        centre.makeOffset2D(-radius, 0, True, False, False)
+                    )
+                else:  # a closed sausage: r discs round both path ends
+                    area = centre.makeOffset2D(radius, 0, True, False, False)
+                area.translate(V(0, 0, z0))
+                # Each face as its own solid, fused and merged below: an extruded shell
+                # would leave the two sides of a closed path as separate solids.
+                pieces.extend(face.extrude(V(0, 0, top - z0)) for face in area.Faces)
+            corridor = pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
+            corridor = corridor.removeSplitter()
+        except Exception as exc:  # OCC and FreeCAD offset failures alike
+            self.corridors[key] = (None, f"the profile corridor could not be built ({exc})")
+            return self.corridors[key]
+        self.corridors[key] = (corridor, None)
+        return self.corridors[key]
+
+    def _centre_path(self, wire, radius, levels):
+        """``wire`` (level wall sections at z=0) offset by ``radius`` to the side away from
+        the finished part, or None when neither side or both are.
+
+        The side is probed ``CONCAVE_PROBE`` off the wire, at the height of the wall whose
+        section lies nearest, so a wall thinner than the cutter still has one free side.
+        """
+        sides = []
+        for sign in (1, -1):
+            probe = _level_offset(wire, sign * CONCAVE_PROBE)
+            edge = probe.Edges[len(probe.Edges) // 2]
+            point = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
+            height = min(levels, key=lambda level: level[0].distToShape(Part.Vertex(point))[0])
+            if not self.finished.isInside(V(point.x, point.y, height[1]), PLANE_TOL, True):
+                sides.append(sign)
+        if len(sides) != 1:
+            return None
+        return _level_offset(wire, sides[0] * radius)
 
     def _sweep(self, valid, action):
         """(swept claimed faces, their +Z sweep or None), cached per claims and action."""
@@ -3567,7 +3728,9 @@ class _Setup:
             if window is not None:
                 windows.append(window)
         else:
-            sweep = self._sweep(valid, op.get("do"))[1]
+            _, sweep, why = self._op_sweep(op, valid, to_z)
+            if why is not None:
+                return [], why
             if sweep is not None:
                 windows.append(_sweep_window(sweep))
         return windows, None
