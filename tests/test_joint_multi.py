@@ -118,7 +118,8 @@ def test_unknown_compound_fact_is_debt_and_withholds_join(tmp_path, field):
     assert row.status == "unknown"
     assert f"setups[J].joint.{field}" in row.numbers["missing"]
     normalized = setup_joint(bundle, bundle.plan["setups"][-1])
-    assert field in normalized["reason"]
+    debt = normalized["reason"] if field == "clearance_mm" else normalized["process_reason"]
+    assert field in debt
     assert normalized["fit_error"] is None
 
 
@@ -160,4 +161,5 @@ def test_unknown_cure_does_not_hide_known_incompatible_fit(tmp_path):
     assert row.numbers["violations"] == ["clearance_below_band"]
     normalized = setup_joint(bundle, bundle.plan["setups"][-1])
     assert normalized["fit_error"]
-    assert "cure_time_min" in normalized["reason"]
+    assert normalized["reason"] is None
+    assert "cure_time_min" in normalized["process_reason"]

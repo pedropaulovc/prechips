@@ -248,6 +248,8 @@ def fit(bundle, setup: dict) -> dict:
         "guaranteed_mm": UNKNOWN,
         "engagement": None,
         "missing": missing + process_missing,
+        "geometry_missing": missing,
+        "process_missing": process_missing,
         "violations": [],
     }
     if missing:
@@ -355,8 +357,13 @@ def setup_joint(bundle, setup: dict) -> dict | None:
         }
     ancestry = setup_ancestry(bundle.plan)
     result = fit(bundle, setup)
+    if joint["method"] == "retaining_compound":
+        common["process_reason"] = (
+            f"joint process facts unknown: {', '.join(result['process_missing'])}"
+            if result["process_missing"]
+            else None
+        )
     features = bundle.plan["joint_features"]
-    facts = "facts" if joint["method"] == "retaining_compound" else "geometry"
     return {
         **common,
         "socket": joint["socket"],
@@ -369,7 +376,9 @@ def setup_joint(bundle, setup: dict) -> dict | None:
         "engagement": result["engagement"],
         "fit_error": describe(result["violations"]) or None,
         "reason": (
-            f"joint {facts} unknown: {', '.join(result['missing'])}" if result["missing"] else None
+            f"joint geometry unknown: {', '.join(result['geometry_missing'])}"
+            if result["geometry_missing"]
+            else None
         ),
     }
 

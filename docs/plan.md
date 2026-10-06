@@ -361,8 +361,12 @@ minutes, or literal `"unknown"`) and `surface_prep` (nonempty instructions, or
 literal `"unknown"`). `process` identifies the selected compound/application
 process; `clearance_mm` remains the diametral clearance band in millimetres.
 Missing process fields are bad input; explicitly unknown clearance, cure time
-or prep remains debt and cannot produce assembled stock or a render. The
-traveler prints the prep, cure time and **do not disturb until cured** before
+or prep remains debt and cannot produce assembled stock or a render.
+`process` itself must be known text: the literal `"unknown"` is malformed,
+not an alternative bond process. Known physical refusals remain errors even
+when prep or cure is unknown; a later invalid join does not invalidate an
+earlier independent, valid assembly.
+The traveler prints the prep, cure time and **do not disturb until cured** before
 later machining. The process does not model cure kinetics or certify a product:
 cite the author's source/choice for the declared band and cure conditions.
 These fields do not apply to `silver_braze` or `press`; their behavior is unchanged.
@@ -409,7 +413,7 @@ direction. `at` uses manifest units. These are author-declared internal butt int
 not STEP face references. `stock_in[0]` owns the negative-normal side;
 `stock_in[1]` owns the positive-normal side. Both received pieces must contact
 essentially the whole rectangle inside the final solid, with no overlapping bulk. Multiple
-patches may describe the same two-piece interface, not a multi-piece graph.
+patches describe one two-input join, not additional component inputs in that step.
 Separated material is not joined merely because a process was named.
 
 The kernel protects component-owned finished material during preparation and

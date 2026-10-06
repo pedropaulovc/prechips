@@ -512,6 +512,11 @@ debt and withholds union/render; absent or malformed required process facts are
 bad input. These are authored process facts, not a chemical cure simulation or
 manufacturer certification. Travelers print **do not disturb until cured**.
 Existing silver-braze and press behavior is unchanged.
+A known geometric refusal (missing preparation, blocked insertion, overlap or
+lost required material) remains an error even when cure or surface prep is
+unknown. Only a geometrically derivable join becomes process debt; it still
+produces no stock output. An unused or unrelated spigot declaration cannot
+exclude required material from the assembly backstop.
 
 Surface joints use finite analytic rectangle `interfaces`, not finished STEP
 face references. Both authored sizes are full independent side lengths. Each
@@ -519,9 +524,8 @@ must lie inside the final solid, with essentially full rectangle contact from
 both pieces and no bulk overlap. Plane-side ownership
 protects each component's final share during preparation: the first `stock_in`
 reference owns the negative-normal side, the second the positive-normal side.
-Several contact
-patches may describe the same two pieces; they do not support a multi-piece
-graph. Weld or silver-braze process text alone cannot connect separated pieces,
+Several contact patches describe one two-input join, not permission to consume
+more component inputs at that step. Weld or silver-braze process text alone cannot connect separated pieces,
 and surface joining adds no filler solid.
 
 At assembly a final-material backstop checks the portion of finished geometry

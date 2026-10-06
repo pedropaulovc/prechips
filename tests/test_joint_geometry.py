@@ -696,7 +696,9 @@ def test_unknown_boss_stock_does_not_report_other_component_as_certain_obstacle(
     assert detail["holder_hits"] == "unknown"
 
 
-def test_overlapping_spigot_ownership_refuses_only_involved_branches(engine, joint_solids):
+def test_later_overlapping_ownership_refuses_its_join_without_poisoning_prior_branches(
+    engine, joint_solids
+):
     job = _joint_job(engine, joint_solids["joined"])
     job["stock"]["components"].update(
         other_body=_bar(20, 10), other_boss=_bar(12, 20), independent=_bar(20, 20)
@@ -730,8 +732,15 @@ def test_overlapping_spigot_ownership_refuses_only_involved_branches(engine, joi
     )
     facts = engine.run(job)
     assert facts["status"] == "ok"
-    assert "assembly_error" in facts["setups"]["socket-cut"]
-    assert "stock_out_volume_mm3" not in facts["setups"]["socket-cut"]
+    assert facts["setups"]["socket-cut"]["stock_out_volume_mm3"] == pytest.approx(
+        math.pi * 750, abs=1e-3
+    )
+    assert facts["setups"]["join"]["stock_out_volume_mm3"] == pytest.approx(
+        math.pi * (100 * 10 + 4.9**2 * 10), abs=2e-3
+    )
+    assert "assembly_error" not in facts["setups"]["join"]
+    assert "assembly_error" in facts["setups"]["other-join"]
+    assert "stock_out_volume_mm3" not in facts["setups"]["other-join"]
     assert facts["setups"]["independent"]["stock_out_volume_mm3"] == pytest.approx(
         math.pi * 2000, abs=1e-3
     )
