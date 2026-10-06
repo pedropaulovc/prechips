@@ -182,7 +182,7 @@ def cylinder(name, x, z, dia, length, **extra):
     }
 
 
-def bridge_page(**policy_numbers):
+def bridge_page(*extra, **policy_numbers):
     """A shop-made two-stud bridge: a made beam and locating pad, bought studs, washers
     and nuts, clearance holes through beam and washers, nut threads, and the machine's
     vise jaw drawn for clearance."""
@@ -228,6 +228,7 @@ def bridge_page(**policy_numbers):
                 "size_mm": [80, 10, 30],
                 "supply": "existing",
             },
+            *extra,
         ],
     }
     page = sheets(data)[0]
@@ -256,6 +257,21 @@ def test_holes_print_in_the_row_of_the_part_they_are_cut_in():
 
 def test_existing_shop_parts_drawn_for_clearance_are_not_made():
     assert "vise" not in bridge_page()
+
+
+def test_existing_part_drilled_here_lists_only_its_holes():
+    plate = {
+        "name": "plate",
+        "shape": "box",
+        "at_mm": [-50, -50, -20],
+        "size_mm": [100, 100, 10],
+        "supply": "existing",
+    }
+    hole = cylinder("tap", 40, -20, 8.5, 10, void=True, cuts=["plate"], fastener="M10 tapped")
+    table = bridge_page(plate, hole)
+    assert "plate (existing part: make the holes only)" in table
+    assert "with 1 × M10 tapped: axis at X 40, Y 0; Z -20…-10" in table
+    assert "100 × 100 × 10" not in table and "vise" not in table
 
 
 def test_fixture_numbers_print_at_policy_make_precision_and_fits_at_drawing_precision():

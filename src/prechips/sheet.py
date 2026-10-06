@@ -402,9 +402,9 @@ def _inside(solid, point):
 
 
 def _void_parent(void, solids, made):
-    """The made solid a hole is cut in: the first made solid its ``cuts`` names, else the
-    first holding its centre, else the first made solid. A hole cut only in bought
-    hardware (a nut's thread) has no parent and is not listed."""
+    """The solid a hole is cut in (made, or an existing part machined here): the first
+    such solid its ``cuts`` names, else the first holding its centre, else the first. A
+    hole cut only in bought hardware (a nut's thread) has no parent and is not listed."""
     cuts = void.get("cuts")
     if isinstance(cuts, list) and cuts:
         named = {solid.get("name"): solid for solid in solids}
@@ -1190,7 +1190,7 @@ class _Traveler:
             if isinstance(solid, dict)
             and solid.get("shape") == "box"
             and not solid.get("void")
-            and _supply(solid) == "made"
+            and _supply(solid) != "bought"
         ]
         boxes = [(solid, extents) for solid, extents in boxes if extents]
         if not boxes:
@@ -1342,7 +1342,8 @@ class _Traveler:
         item = self.shop_made(reference)
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
         placed = [(label, _pose_axes(pose)) for label, pose in placements]
-        made = [s for s in solids if not s.get("void") and _supply(s) == "made"]
+        # Made solids, and existing parts (a bought angle plate) only for holes cut here.
+        made = [s for s in solids if not s.get("void") and _supply(s) != "bought"]
         holes = {}
         for void in (s for s in solids if s.get("void") and _supply(s) == "made"):
             parent = _void_parent(void, solids, made)
@@ -1354,6 +1355,8 @@ class _Traveler:
             fits.update(id(v) for v in holes.get(id(solid), [solid]))
         groups = {}
         for solid in made:
+            if _supply(solid) == "existing" and id(solid) not in holes:
+                continue
             key = (
                 solid.get("label"),
                 solid.get("shape"),
@@ -1375,6 +1378,9 @@ class _Traveler:
             names = [_solid_name(solid.get("name", "?")) for solid in members]
             stem, tags = _name_group(names)
             component = f"{stem} ×{len(members)}" if stem else " / ".join(names)
+            component = self.bench(label) if label else component
+            if _supply(members[0]) == "existing":
+                component += " (existing part: make the holes only)"
             first = members[0]
             fit = id(first) in fits
             positions = [
@@ -1408,8 +1414,8 @@ class _Traveler:
                 positions.append(f"with {count} × {what}: {spots}")
             rows.append(
                 [
-                    self.bench(label) if label else component,
-                    self.solid_size(first, fit),
+                    component,
+                    self.solid_size(first, fit) if _supply(first) == "made" else "—",
                     positions,
                     self.bench(first["locates"]) if first.get("locates") else "—",
                     self.bench(first["fastener"]) if first.get("fastener") else "—",
