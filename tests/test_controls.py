@@ -1,6 +1,8 @@
 """Each negative control asserts the prescribed stop and its named cause."""
 
 import json
+import re
+import tomllib
 
 import pytest
 from test_cli import copy_examples, traveler
@@ -12,15 +14,28 @@ def finding(report, rule, subject):
     )
 
 
+def swap(text, old, new):
+    """Apply one explicit scratch mutation; an absent target is a broken control, not a no-op."""
+    assert old in text, old
+    return text.replace(old, new)
+
+
 def test_removed_reamer_is_named_inventory_error(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     inventory = examples / "inventory" / "pedro-shop.toml"
     original = inventory.read_text(encoding="utf-8")
-    plan.write_text(
-        plan.read_text(encoding="utf-8").replace("reamers-metric/6.5-H7", "control-reamer-6.5"),
-        encoding="utf-8",
-    )
+    text = plan.read_text(encoding="utf-8")
+    reamers = {
+        op["tool"]
+        for setup in tomllib.loads(text)["setups"]
+        for op in setup.get("ops", [])
+        if op.get("do") == "ream"
+    }
+    assert reamers, "the control needs a planned ream op"
+    for reamer in reamers:
+        text = swap(text, f'tool = "{reamer}"', 'tool = "control-reamer-6.5"')
+    plan.write_text(text, encoding="utf-8")
     known = (
         '\n[tools."control-reamer-6.5"]\nkind = "reamer"\nverify = false\n'
         'dia_mm = 6.5\nshank_mm = 6.5\nlead_mm = 1.0\nunits = "mm"\n'
@@ -254,13 +269,20 @@ def test_missing_retouch_schedule_is_unknown_after_facing(
         request.getfixturevalue("freecad_kernel")
     plan = clean_inspection_bundle(tmp_path)
     prefix = plan.read_text(encoding="utf-8").split("[[setups.ops]]", 1)[0]
-    prefix = (
-        prefix.replace("top_z = 4.47175", "top_z = 0.5")
-        .replace('tool = "edge-finder"', 'tool = "control-finder"')
-        .replace('tool = "endmills-lms-6784/3-8in-4fl"', 'tool = "control-face"')
-        .replace("[setups.zero.x]", "[setups.zero]\ntool_touches = []\n\n[setups.zero.x]")
-        .replace("retouch_after = []", declaration.rstrip("\n"))
+    # The copied S1 already owns [setups.zero]; pin its tool_touches there, never add a table.
+    prefix, tables = re.subn(
+        r"(?m)^\[setups\.zero\]\n(?:tool_touches = .*\n)?",
+        "[setups.zero]\ntool_touches = []\n",
+        prefix,
     )
+    assert tables == 1, "the control needs the copied S1 [setups.zero] table"
+    for old, new in [
+        ("top_z = 4.47175", "top_z = 0.5"),
+        ('tool = "edge-finder"', 'tool = "control-finder"'),
+        ('tool = "endmills-lms-6784/3-8in-4fl"', 'tool = "control-face"'),
+        ("retouch_after = []", declaration.rstrip("\n")),
+    ]:
+        prefix = swap(prefix, old, new)
     ops = "".join(
         f'\n[[setups.ops]]\nop = {op}\ndo = "face"\nfeature = "hub_faces"\n'
         f'tool = "{tool}"\nholder = "r8-collets-lms-4860/3-8in"\n'
