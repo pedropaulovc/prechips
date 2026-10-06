@@ -104,6 +104,15 @@ binding = "nominal"
 note = "AUTHOR'S CHOICE: BS-0 index 12.5182 deg, south cone pad up; origin on the journal axis at the south pad. Foot x = 33.368, head axis z = -21.0055."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67"]
 
+[frames.R6]
+origin = [0.0, 0.0, 0.0]
+x = [0.0, -1.0, 0.0]
+y = [1.0, 0.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"          # X from the foot (B), Y and Z on the head axis
+note = "AUTHOR'S CHOICE: S6 BS-0 at head angle 0 (crank boss up), head turned continuously; origin on the head axis at datum B. Chuck jaw mouth at x = -100."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33"]
+
 [frames.B7]
 origin = [0.0, 86.0, 0.0]
 x = [0.0, -1.0, 0.0]
@@ -642,6 +651,106 @@ note = "Pad to pad across the journal with calipers after both pads are faced."
 [setups.ops.checks]
 length = "calipers"
 
+# ======================================================================= S6
+[[setups]]
+id = "S6"
+machine = "PM-30MV"
+frame = "R6"
+coolant = "CRC cutting oil brushed on"
+deburr_mm = 0.25
+deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
+stock_in = "S5"
+
+[setups.stock_state]
+top_z = 52.2                 # raw bar face, model Z 52.2, at head angle 0
+bottom_z = -24.0             # raw bar face, model Z -24
+
+[setups.stock_state.local_thickness]   # S6 drills nothing
+
+[setups.hold]
+fixture = "BS-0"
+chuck = "chuck-4jaw-5-bs0"
+pose = { origin_mm = [-100.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+jaw_clock_deg = 0.0
+grip_mm = 20.0
+support = "none"
+grip_on = "raw rectangular tail, model Y100..120 (unchanged chucking)"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stickout_mm = 100.0
+stop = "unchanged chucking"
+clamp = "unlock the spindle and disengage the index plunger; turn the head by the crank for each traverse, taking up worm backlash in one direction"
+note = "Same chucking as S2-S5, head turned by the crank: rotary-mill the head and body cylinders between the finished bosses and pads."
+
+[setups.hold.index]
+fixture = "BS-0"
+rotation = "continuous"
+
+[setups.zero.x]
+edge = "foot_seat"
+edge_mm = 0.0                # datum B, model Y0
+from = "+x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+feature = "head_axis"
+edge_mm = 0.0
+from = "indicated"
+method = "indicate_axis"
+tool = "dti"
+check_jog_mm = 10.0
+
+[setups.zero.z]
+feature = "head_axis"
+edge_mm = 0.0
+from = "indicated"
+method = "indicate_axis"
+tool = "dti"
+check_jog_mm = 10.0
+
+[[setups.ops]]
+op = 10
+do = "profile"
+feature = "head"
+faces = ["#738/ADVANCED_FACE[22]/HAF_HEAD__P01", "#1096/ADVANCED_FACE[29]/HAF_HEAD__P01"]
+approach = "rotary"
+tool = "endmills-cone/1-2in-4fl"
+holder = "r8-collets-lms-4860/1-2in"
+z_from = 6.0                 # model Y94: past the cutter radius beyond the Y86 head top
+z_to = 51.0                  # model Y49: past the cutter radius below the Y59.4 shoulder
+angle_window_deg = [0.0, 360.0]
+stock_to_leave_mm = 0.0
+doc_mm = 0.5
+approach_mm = 5.0
+direction = "conventional"
+note = "Rotary-mill the head OD 42.7506 from Y94 down to Y49 around the finished crank boss, before the smaller body. Leaves a 42.75 neck from the head top to Y94 for the S7 saw cut."
+
+[setups.ops.checks]
+dia = "calipers"
+
+[[setups.ops]]
+op = 20
+do = "profile"
+feature = "body"
+faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BODY__P01", "#395/ADVANCED_FACE[11]/NONE"]
+approach = "rotary"
+tool = "endmills-cone/1-2in-4fl"
+holder = "r8-collets-lms-4860/1-2in"
+z_from = 40.6                # model Y59.4, the head shoulder
+z_to = 100.0                 # model Y0, datum B
+angle_window_deg = [0.0, 360.0]
+stock_to_leave_mm = 0.0
+doc_mm = 0.5
+approach_mm = 5.0
+direction = "conventional"
+note = "Rotary-mill the body OD 42.011 from the shoulder to the foot between the finished cone pads, and skim the Y59.4 shoulder annulus (#395) with the cutter flank."
+
+[setups.ops.checks]
+dia = "calipers"
+
 # ======================================================================= S7
 [[setups]]
 id = "S7"
@@ -650,7 +759,7 @@ frame = "B7"
 coolant = "none: dry cut"    # author's choice
 deburr_mm = 0.25
 deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
-stock_in = "S5"
+stock_in = "S6"
 
 [setups.stock_state]
 top_z = 25.4                 # raw tail face, model X 25.4
@@ -663,7 +772,7 @@ fixture = "vise-bandsaw-4x6"
 jaws_along = "x"             # jaws close across the 76.2 tail faces (model Z)
 fixed_jaw = "rear"           # author's choice
 parallels = "none"
-jaw_center_along_mm = -58.0  # jaw end 3 mm short of the blade: model Y89..120 of the tail in the jaws
+jaw_center_along_mm = -60.0  # 110 mm jaws end 2.5 mm short of the kerf: model Y91..120 of the neck and tail in the jaws
 grip_mm = 50.8               # full tail thickness in the 60 mm jaws
 jaw_above_parallels_mm = 60.0
 stop = "none: set the blade to the scribed line 1.75 mm above the head top"
