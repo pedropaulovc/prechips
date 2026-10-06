@@ -358,14 +358,21 @@ M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 frame: `jaws_along` is the jaw length axis (`x` / `y`), `fixed_jaw` picks the
 jaw on the negative or positive side of the other axis, `grip_mm` is the depth
 of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
-above the parallels. A `grip_mm_verify = true` or
+above the stock seat (support tops, or the bed without a lifting support).
+An explicit `parallels = "none"` or `"not_applicable"` means known zero parallel
+lift and no parallel solids or parallel-position debt. Without another lifting
+support the work seats on the bed. Omitted,
+`"unknown"` or unresolved named parallels still need an accepted positive
+height; a named zero-height parallel is not equivalent to explicit absence.
+A `grip_mm_verify = true` or
 `jaw_above_parallels_mm_verify = true` flag makes that number unknown to the
 kernel; `jaw_above_parallels_mm = 0` is a known zero, any other nonpositive or
 unknown value is debt. Together with the vise's explicit `jaw_height`,
-`jaw_width`, `jaw_depth` and `opening` and the parallels' `height`, these are
-the facts behind the jaw solids and the setup findings. When any is
-missing, the setup's `vise` and `thin_wall_under_clamp` findings stay `?`
-and the render, if any, is a part-only view labelled as unresolved.
+`jaw_width`, `jaw_depth` and `opening` and the selected parallels' `height`
+(or explicitly declared zero lift), these are the facts behind the jaw solids
+and setup findings. When a required fact is missing, the setup's `vise` and
+`thin_wall_under_clamp` findings stay `?` and the render, if any, is a part-only
+view labelled as unresolved.
 
 Two optional authored pose fields complete the picture. `jaw_center_along_mm`
 is the centre of the jaw plates along `jaws_along` in setup-frame
@@ -378,13 +385,13 @@ parallels row's fact-local `height`, `length` (along the jaws) and `width`
 seat. Nominal numbers are usable for geometry, not evidence of a measured
 shop setup. Both poses are declarations the author must measure at the bench; the
 kernel never infers a jaw centre or a parallel position, and only a setup
-with both exact jaws and exact parallels is captioned as a modeled fixture.
+with exact jaws and, when selected, exact parallels is captioned as modeled.
 Either field may be `"unknown"` (any unknown coordinate is a render debt, not
 a guessed pose) and neither has a `_verify` flag: they are author coordinate
 choices, while each parallel dimension has its own fact-local trust; the
 inventory item's `verify` does not taint other numeric facts. Omitting the
 optional poses does not block independent `vise` / `thin_wall_under_clamp`
-facts. Missing parallel height still leaves the fixture dimensions unknown.
+facts. A selected parallel's missing height still leaves fixture dimensions unknown.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with
@@ -438,16 +445,23 @@ with angles at the drawing's declared angular precision.
 | `height_mm` | `float` |
 | `jaw_lead_mm` | `float` |
 | `at_z_mm` | `float` |
+| `jaw_side` | `str` (`turned` or `uncut`; follow rests only) |
 | `ops` | `list[int]` |
 
 A `hold.supports` table with `jaw_lead_mm` declares a follow rest riding that
-far behind the tool; one with `at_z_mm` declares a steady rest at that
+far from the tool along Z; one with `at_z_mm` declares a steady rest at that
 setup-frame Z. `ops` lists the operation ids it serves (omitted = every turning
-op of the setup). `ref` names an inventory `follow_rest`/`steady_rest` fixture
-with measured `capacity_min`/`capacity_max`. `turning_deflection` then uses the
-rest span instead of `stickout_mm` (docs/rules-physics.md "Follow and steady
-rests"). Example:
-`supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0 }]`.
+op of the setup). A follow rest's `jaw_side` says which diameter its jaws ride:
+`turned` (the default; trailing the tool on the diameter just cut) or `uncut`
+(leading it on the diameter about to be cut). `ref` names an inventory
+`follow_rest`/`steady_rest` fixture with measured `capacity_min`/`capacity_max`.
+`turning_deflection` then uses the rest span instead of `stickout_mm`
+(docs/rules-physics.md "Follow and steady rests"). The kernel also draws and
+collision-checks the rest from that fixture's measured solid fields: a follow
+rest's `jaw_width`, `jaw_height`, `jaw_depth` and `jaw_angles_deg`, a steady
+rest's `body_dia` and `body_length` ([inventory](inventory.md),
+[rules-geometry](rules-geometry.md#follow-and-steady-rests)). Example:
+`supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]`.
 
 ## Zero
 

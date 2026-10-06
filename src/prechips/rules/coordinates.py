@@ -430,6 +430,34 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
     return rows
 
 
+def _spindle_rows(bundle, setup, name, feature, frame, dro):
+    """(rows, citation) locating a lathe feature on the spindle axis at both ends of its
+    kernel-measured axial span, or ([], None) when the kernel did not measure every face
+    revolved about setup Z (``turned_profile.spindle_span``)."""
+    from .turned_profile import spindle_span
+
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    span, cite = spindle_span(bundle, setup, name)
+    if span is None or scale is None:
+        return [], None
+    diameter = _nominal(feature, "dia")
+    radius_mode = dro.get("radius_mode") is True
+    rows = []
+    for end, z in zip(("start", "end"), span, strict=True):
+        local = [0.0, 0.0, z / scale]
+        rows.append(
+            {
+                "feature": name,
+                "point": f"spindle axis, kernel span {end}",
+                "model": model_point(local, frame),
+                "setup": local,
+                "dia_nominal": diameter,
+                "x_target_mm": diameter / 2 if radius_mode and number(diameter) else diameter,
+            }
+        )
+    return rows, cite
+
+
 def _dome(name, feature, op, radius_mode):
     sphere = feature.get("sphere_radius", UNKNOWN)
     apex, base = op.get("z_from", UNKNOWN), op.get("z_to", UNKNOWN)
@@ -525,12 +553,22 @@ def evaluate(bundle):
             )
         names = list(dict.fromkeys(op.get("feature") for op in setup["ops"]))
         centre_features = {op.get("feature") for op in setup["ops"] if op.get("do") in CENTRE_OPS}
+        spindle_cites = []
         for name in names:
             feature = mapping(features.get(name))
             at = feature.get("at")
             located = feature.get("kind") in LOCATED_KINDS or name in centre_features
             vector = isinstance(at, list) and len(at) == 3
-            unknown |= located and not (vector and all(number(value) for value in at))
+            placed = vector and all(number(value) for value in at)
+            if located and lathe and not placed:
+                # On a lathe a feature the kernel measured revolved about setup Z is located
+                # by the spindle axis; off-axis or unmeasured ones still need ``at``.
+                rows, cite = _spindle_rows(bundle, setup, name, feature, frame, dro)
+                if rows:
+                    numbers["rows"].extend(rows)
+                    spindle_cites.append(cite)
+                    located = vector = False
+            unknown |= located and not placed
             if located or vector:
                 model = model_point(at, frames.get(feature.get("frame", "model")))
                 local = frame_point(model, frame)
@@ -625,6 +663,7 @@ def evaluate(bundle):
                     "plan contour steps, operation targets and stock allowances",
                     "inventory selected cutter nominal diameter",
                     *plan_frame_cite(bundle, setup),
+                    *spindle_cites,
                 ],
                 sentence,
             )

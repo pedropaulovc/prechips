@@ -218,6 +218,44 @@ remain `unknown`. Raw −Z facts never establish a lathe result: kernel facts
 without `approach = "turning"` leave a lathe row `unknown` (`kernel facts for
 this lathe op are not turning-model facts.`) and credit no coverage.
 
+### Follow and steady rests
+
+A plan `hold.supports` rest table ([plan](plan.md#reference)) puts the rest
+into the turning model when its inventory fixture declares measured solid
+fields ([inventory](inventory.md)). Both are posed in the setup frame with the
+spindle on setup Z.
+
+**Follow rest.** Its jaws ride the carriage, so they are posed with the tool
+at every cutting sample of each op the rest serves (`ops`; omitted = every
+turning op), never as a static solid. Each jaw is a box `jaw_height` radially
+outward from the work diameter it rides, `jaw_width` tangentially and
+`jaw_depth` axially, centred `jaw_lead_mm` from the cutting point along Z and
+turned `jaw_angles_deg` about Z from the tool (0° = the tool's side, +90° = above
+the rake face). With `jaw_side = "turned"` (default) the jaws trail the tool on
+the diameter just turned, at the profile after the op; with `"uncut"` they lead
+it on the profile before the op. The rest and tool ride together, so the tool
+is not revolved against the jaws: the insert, head and shank are prisms from
+centre height down to `TOOL_DROP_MM` (1000 mm) below it, and the toolpost body
+spans that distance on both sides of centre height. A jaw sharing more than
+0.001 mm³ with one of them is a `follow rest <name>` tool or holder obstacle;
+flush contact is allowed. A jaw riding its set diameter is contact; larger
+work under the jaws, or a jaw meeting a placed fixture component, is a
+`fixture_interference` clash. A rest missing a measured jaw dimension, its
+angles, a positive `jaw_lead_mm` or a valid `jaw_side` is not drawn: the ops it
+serves stay `unknown` with the missing fields named, and it is a scene and
+interference debt. An op the rest does not serve sees it parked off the work.
+
+**Steady rest.** A static ring at `at_z_mm`, `body_length` long, from the
+entry stock's largest radius under it (where its jaws ride) out to
+`body_dia`/2. It obstructs the tool and holder only for the ops it serves and
+is drawn and interference-checked like any fixture component (role `rest`).
+Missing `body_dia`/`body_length`, an unresolved `at_z_mm`, no work under the
+ring or a `body_dia` inside the work leaves it an undrawn gap naming why.
+
+Rests are a necessary-condition screen at the sampled cutting points: no jaw
+adjustment travel, jaw wear, carriage stroke or arm/bracket outside the jaws
+is modelled.
+
 ## Inputs the job accepts
 
 Numeric fields reach the kernel only when they resolve to a positive
@@ -471,7 +509,13 @@ down, tops at the part seat. They lie below every tool and holder cylinder,
 so they never enter hit counts; they exist for the picture, for the
 `declared parallel centred at [x, y] intersects the <side> jaw` debt and for
 the jaw-opening check of [`fixture_interference`](#fixture_interference). With
-any of those inputs missing the scene records `parallels not drawn: … undeclared`.
+any of those inputs missing for selected parallels, the scene records
+`parallels not drawn: … undeclared`. A vise hold with explicit
+`parallels = "none"` or `"not_applicable"` instead uses known zero parallel lift:
+no parallel boxes are drawn and their absent dimensions/centres do not create
+fixture debt. Without another lifting support the stock seats on the bed.
+Missing/unknown selections and
+unresolved named parallels remain debt, as do nonpositive/unverified named heights.
 
 ## `accessibility`
 
@@ -888,7 +932,9 @@ difference between actual entry and derived exit stock. When exit stock is
 unresolved, only the arriving stock is drawn and the missing cuts are named
 plainly. Fixture role colours, labels, setup X/Y/Z, Z0, named datum ends,
 jaw-front Z, stickout and a selected-tool approach illustration accompany the
-geometry. An exposed-end detail makes short lathe stickouts legible; contour
+geometry. Steady rest rings are drawn as fixture solids; each follow rest's
+jaws are drawn and labelled posed for the first cutting sample of the first
+op it serves. An exposed-end detail makes short lathe stickouts legible; contour
 sketches show both sides and share `P` waypoint keys with the coordinate
 tables. Custom plates show pads, locators and authored clamp-action order.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
@@ -900,7 +946,8 @@ Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `shows` / `legend`, annotation-only `render_debts` and shared `waypoints`.
 `fixture_kind` is the inventory holding kind; `components` lists every drawn
 solid as `{name, role, exact}` (`exact = false` only for the vise's
-lateral-undeclared jaw extents). For a vise, `jaws` is `absent`
+lateral-undeclared jaw extents; a follow rest adds role `follow_rest` and the
+`pose` it is drawn at, and a rest no served op posed is a debt). For a vise, `jaws` is `absent`
 (unplaced; debt `jaws not drawn: <fixture reason>`), `exact` or
 `lateral_undeclared` (debt `jaw position along <axis> is undeclared (no
 jaw_center_along_mm): dark jaws span only the part's <e> mm grip-zone

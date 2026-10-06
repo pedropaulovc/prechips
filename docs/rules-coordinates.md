@@ -34,6 +34,16 @@ imply Z = 0. A known point still needs a usable model-to-setup frame transform.
 Bounds-only face, rectangular profile and pocket features do not acquire an
 invented centre requirement.
 
+On a resolved lathe, such a feature without a numeric `at` is located by the
+spindle axis when the kernel measured every one of its faces as an external
+surface of revolution about setup Z through x = y = 0
+([turned profile](rules-lathe.md), kernel `revolved` facts): the rows
+`spindle axis, kernel span start` / `end` place it at setup `[0, 0, z]` for
+both ends of its kernel axial span, with its nominal diameter and X display,
+and the finding cites `kernel: setups.<id>.revolved.<feature>`. A feature the
+kernel reports revolved about another axis (a cross boss or hole), one it did
+not measure, or any feature off a lathe still needs `at`.
+
 Feature reference centres are distinct from hole tool-tip endpoints (those
 belong to `blind_depth`). Lathe rows carry drawing stations, authored operation
 endpoints, nominal diameter and radius/diameter X display. An authored local Z

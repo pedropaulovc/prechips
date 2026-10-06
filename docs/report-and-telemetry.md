@@ -204,10 +204,13 @@ No verb reads expected fixtures as runtime answers.
 The traveler is the shop-floor product: Letter portrait, written for a machinist
 at the machine. A job page opens with the part, drawing number, revision (or
 `REV NOT CONFIRMED`, which is also a STOP line) and the `PLANNED` banner, then
-**JOB STATUS** (STOP / CAUTION / not-verified boxes), the drawing material and
-finish, a one-line speeds/feeds source, the DRO manual named once, **STOCK AND
-ROUTE** (stock size, supply notes and a setup → machine → holding table) and
-**DRAWING REQUIREMENTS** (feature → limits).
+**JOB STATUS** (STOP / CAUTION / not-verified boxes; a setup with its own STOP
+items is named here too, so the job page never says "no stops" over a stopped
+setup), the drawing material and finish, a one-line speeds/feeds source, the
+DRO manual named once, **STOCK AND ROUTE** (stock size, supply notes and a
+setup → machine → holding table) and **DRAWING REQUIREMENTS** (feature →
+limits). Authored values keep their digits (a 1.9875 mm pin, a 0.0254 mm
+runout limit); only computed numbers are cut to DRO resolution.
 
 Each setup then starts on a new page, in this order:
 
@@ -222,7 +225,8 @@ Each setup then starts on a new page, in this order:
    Pose vectors and planner field names are not printed.
 3. The holding picture with a caption of the form `Setup S2 — part as it
    arrives from Setup S1, held in the 6 in 3-jaw chuck. Picture shows the
-   holding only, not the cuts.` (or the render's own `scene.shows` / `legend`),
+   holding only, not the cuts.` (or the render's own `scene.shows`; the key is
+   drawn in the picture, not repeated in the caption),
    followed by bold `NOT SHOWN:` lines for each scene debt. Without a render the
    setup prints `NO PICTURE — the holding is not modelled; set up from the HOLD
    steps above.` The image is referenced by relative filename.
@@ -230,9 +234,11 @@ Each setup then starts on a new page, in this order:
 5. **CLEARANCE**, machine specific. A lathe shows chuck Ø against swing,
    work Ø against swing over the cross-slide, length against between-centres,
    quill extension and the jaw-front distance to the closest tool stop. A mill
-   shows the spindle-to-table stack, per-op tool stickout and spare travel, jaw
-   top Z and table travel. Uncomputed items are grouped into one `Not computed —
-   check at the machine` line.
+   shows the spindle-to-table stack for the tallest op (holding, work, tool
+   stickout, holder and the 25 mm tool-change room, adding up to the total),
+   per-op tool stickout and spare travel, jaw top Z and table travel.
+   Uncomputed items are grouped into one `Not computed — check at the machine`
+   line.
 6. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
    QCTP station and the ops that use it. Op rows refer to tools by `T#`.
 7. **DRO ZERO**: positive directions, then one row per axis — what to touch
