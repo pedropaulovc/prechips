@@ -522,8 +522,9 @@ Under M4 each setup page carries a kernel figure or the explicit
 `? Kernel fixture render unavailable; holding geometry is not confirmed.`
 paragraph when a kernel render cannot be produced. The bracket now carries
 the digest-bound v39 STEP and explicit setup-entry stock routing. Its S1/S2
-vises include posed parallel pairs; S3 includes the angle plate and a padded
-strap pressing the foot toward the seat datum. Historical rocker pictures and
+vises include posed parallel pairs; S3 includes the angle plate, a load-bearing
+foot-end ledge and a two-stud bridge strap pressing the foot toward the seat datum.
+Historical rocker pictures and
 repeatability observations do not establish current outputs; see PLAN
 §8 M3 for the parent gate. A browser-rendered Letter PDF is a layout smoke
 proof, **not** the physical printed paper rehearsal or a first article.
@@ -864,7 +865,11 @@ A stiff 3/8 in 120-degree spotter projects 31 mm from the chuck, keeping its nos
 above the uncut ear; a 0.6 mm tip depth makes a 2.08 mm spot.
 
 S3 uses the angle plate's bolted foot-end ledge to resist downward cutting loads,
-with the strap's underside on the free foot top and force toward the seat.
+with a 63.5 × 12.7 × 9.525 mm bridge strap bearing on the free foot top.
+Its two 3/8-16 studs, front/rear washers and nuts are modeled; scoped bores
+keep the studs clear of the beam and pass through the angle-plate upright.
+The strap force points toward the seat, and the foot-end ledge takes the
+downward tool load rather than relying only on clamp friction.
 The indicated transfer includes the actual `seat_face` height datum; the Y
 edge-finder pickup uses the plate front beside the part, not the thin seat lip.
 After the shared outer face is finished, S3:11 checks the final 6 mm ear thickness
