@@ -736,11 +736,13 @@ between a claim and the rest of its box never strands it; the pieces are then
 cut from the current stock, which only removes material and never restores what
 an earlier op cleared. Known future planned-hole columns, with their finite caps,
 stay stock; and the removal must not split an original input solid. A violation is named stock
-debt, not an error: later stock that depends on it stays unresolved, while
-genuine collisions with finished material remain independent errors.
-It shapes stock passed to later setups and excludes only this operation's own
-derivable allowance from its flute obstacles; holder, reach and holding facts
-still use setup-entry stock. This is an authored process/fixture volume, not a
+debt, not an error: later stock that depends on it stays unresolved (later ops
+of the same setup keep only certain finished-material flute hits, with tool hits
+unknown), while genuine collisions with finished material remain independent
+errors. It shapes the stock later flutes of this setup and later setups meet,
+and excludes this operation's own derivable allowance from its flute obstacles;
+holder, reach and holding facts still use setup-entry stock. This is an
+authored process/fixture volume, not a
 measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
 needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
