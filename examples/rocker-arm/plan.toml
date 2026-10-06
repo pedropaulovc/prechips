@@ -34,6 +34,7 @@ origin_mm = [-155.0, -8.0, -8.0] # author's model-frame blank corner, made expli
 axis = [1.0, 0.0, 0.0] # length direction
 section_axis = [0.0, 1.0, 0.0] # 45 mm section direction; axis × section_axis is 16 mm Z
 note = "Author's prepared blank: model X -155..155, Y -8..37, Z -8..8 (16 mm centred on model Z0). No stock on hand or measured surface is asserted. Retain rectangular rails and end ears through S1/S2; leave a 0.40 mm connecting web between opposed rough-profile depths. Integral hub from the bar: no brazed boss, loose bushing, rod tap or counterbore."
+as_is_faces = [] # every finished face is cut
 
 [dro]
 controller = "el400"
@@ -93,6 +94,10 @@ fixed_jaw = "rear" # author's choice
 parallels = "parallels-lms-6745/1-2in"
 supports = "blocks-123-lms-2881"
 support_orientation = "1 in height"
+riser_up = "height" # 1-2-3 blocks on their 1 in face
+riser_along = "length" # 3 in edge along the jaws
+riser_centres_mm = [[-40.0, 6.5], [40.0, 6.5]] # author's choice, under both parallels inside the 6 in jaws
+parallels_centres_mm = [[0.0, -13.0], [0.0, 26.0]] # author's choice, under the retained rails
 grip_on = "full-thickness rectangular rails"
 grip_mm = 6.0 # author's choice, horizontal engagement into each retained rectangular rail
 jaw_above_parallels_mm = 6.8453 # author's choice nominal target: 44.9453 measured jaw (1.7695 in) - 25.4 block - 12.7 parallel; measure
@@ -191,12 +196,12 @@ rough_allowance_mm = 0.20 # author's choice, normal allowance restored from rev 
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
-note = "Bottom arc, radial lands and tapered ends below frame-A Y8; rails and ears stay continuous. The 5.59 lands are profile lines, not chamfers."
-# Interrupted cut: clears the bottom arc and the lower ends of the tapers up to
-# frame-A Y8 (the top edge's lowest point); the lower rail (frame-A Y -16..-10)
-# and the ears beyond X ±150 stay on. Runs before op 50 so op 50's clearing
-# wraps around the tips in one piece.
-stock_removal_bounds = { x = [-150.0, 150.0], y = [-10.0, 8.0], z = [-3.32825, 5.0] }
+note = "Bottom arc, radial lands and tapered ends; rails and ears stay continuous. The 5.59 lands are profile lines, not chamfers."
+# Interrupted cut: clears the bottom arc, tapers and lands round both tips up to
+# frame-A Y22 (just above the tips; the clearing wraps round each tip in one
+# piece); the lower rail (frame-A Y -16..-10) and the ears beyond X ±150 stay on.
+# Op 50 then clears the rest above the top edge.
+stock_removal_bounds = { x = [-150.0, 150.0], y = [-10.0, 22.0], z = [-3.32825, 5.0] }
 
 [[setups.ops]]
 op = 50
@@ -258,6 +263,10 @@ fixed_jaw = "rear" # author's choice
 parallels = "parallels-lms-6745/1-2in"
 supports = "blocks-123-lms-2881"
 support_orientation = "1 in height"
+riser_up = "height"
+riser_along = "length"
+riser_centres_mm = [[-40.0, -6.5], [40.0, -6.5]] # author's choice, frame B (Y flipped)
+parallels_centres_mm = [[0.0, -26.0], [0.0, 13.0]] # author's choice, under the retained rails
 grip_on = "full-thickness rectangular rails and ears"
 grip_mm = 6.0 # author's choice, horizontal engagement into retained rails/ears
 jaw_above_parallels_mm = 6.8453 # author's choice nominal target: 44.9453 measured jaw (1.7695 in) - 25.4 block - 12.7 parallel; verify actual seating
@@ -364,10 +373,10 @@ rough_allowance_mm = 0.20 # author's choice, restored rev-3 allowance
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
-# Interrupted cut (frame B, Y flipped): bottom arc and lower taper ends up to
-# frame-B Y10 (model Y-2); the lower rail (frame-B Y 10..16) and ears beyond
-# X ±150 stay on. Runs before op 50, as in S1.
-stock_removal_bounds = { x = [-150.0, 150.0], y = [-8.0, 10.0], z = [-3.32825, 5.0] }
+# Interrupted cut (frame B, Y flipped): bottom arc, tapers and lands round both
+# tips from frame-B Y10 (model Y-2) to Y-22 (just past the tips); the lower rail
+# (frame-B Y 10..16) and ears beyond X ±150 stay on. Runs before op 50, as in S1.
+stock_removal_bounds = { x = [-150.0, 150.0], y = [-22.0, 10.0], z = [-3.32825, 5.0] }
 
 [[setups.ops]]
 op = 50
@@ -388,7 +397,7 @@ stock_removal_bounds = { x = [-150.0, 150.0], y = [-26.05, -3.24], z = [-3.32825
 [[setups]]
 id = "S3"
 machine = "PM-30MV"
-frame = "A"
+frame = "TA"
 coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
@@ -414,17 +423,25 @@ pivot_bore = 0.0
 rod_hole = -2.27825 # upper strap face
 
 [setups.hold]
-fixture = "rocker-profile-fixture" # not in the shop: no design exists
-locate = "datum A on the pivot pilot, broad face B seated, rod-side radial land C clocked"
-supports = "unknown"
+fixture = "rocker-profile-fixture" # illustrative example fixture (inventory solids)
+pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # fixture frame = frame A
+clamps = [
+  { ref = "clamping-kit-lms-1144/strap-pad", pose = { origin_mm = [70.0, 3.27, -2.27825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "rod side, on the finished upper strap face" },
+  { ref = "clamping-kit-lms-1144/strap-pad", pose = { origin_mm = [-70.0, 3.27, -2.27825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "opposite side, mirrored" },
+]
+locate = "datum A indicated on the pivot pilot, broad face B seated on the support pads, rod-side radial land C clocked"
+supports = "not_applicable" # the fixture's own support pads carry the strap
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 grip_mm = "not_applicable" # author's choice, supported plate/strap contacts, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
-stop = "locate pivot pilot axis A, seat broad face B, clock rod-side radial land C" # author's choice
-clamp = "padded strap clamps; relocate clamps onto supported finished strap before rail/ear release" # author's choice
-note = "Proposed supported-fixture hold only: fixture is absent, support/contact geometry and clamp positions/clearances await design and verification. Do not execute S3 or release any rail/ear before that design is qualified; clamp loads must not distort the strap."
+stop = "indicate pivot pilot axis A, seat broad face B, clock rod-side radial land C" # author's choice
+clamp = "two padded strap clamps on the finished upper strap face, snug before the rails and ears release" # author's choice
+note = "Illustrative example fixture: twelve pads 6 mm inside the outline support the lower strap face; the clamps press over pads so clamp load cannot bow the strap."
+
+[setups.zero]
+tool_touches = [] # one Z touch per tool change, listed in retouch_after
 
 [setups.zero.transfer]
 from = "S2"
@@ -454,7 +471,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-4fl"
 check_jog_mm = 10.0 # author's choice
-retouch_after = [10, 20, 40, 50] # each listed op is followed by a tool change
+retouch_after = [10, 20, 42, 50] # each listed op is followed by a tool change
 
 [[setups.ops]]
 op = 10
@@ -465,24 +482,29 @@ tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -2.27825 # upper hub OD runs down to the upper strap face
 direction = "conventional" # author's choice
+approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 10.0 } # author's choice, continuous circle
 note = "Upper hub OD; no relocation before the ream (note 7: turn hub and ream bore in one setup)."
 
 [setups.ops.checks]
-dia = "calipers" # author's choice; inventory verification remains required
+dia = "calipers" # author's choice
 coaxiality_dia = "dial-indicator"
+
+[setups.ops.inspection_methods]
+coaxiality_dia = "indicate the hub OD with the dial indicator in the spindle while the reamed bore stays on the indicated axis; half the total reading is the axis offset"
 
 [[setups.ops]]
 op = 20
 do = "ream"
 feature = "pivot_bore"
-tool = "reamers-metric/6.5-H7"
+tool = "reamers-metric/6.5mm"
 holder = "drill-chuck-r8"
-exit_mm = 2.0 # author's choice; reamer lead remains unknown
+exit_mm = 2.0 # author's choice, past the 1.0 mm reamer lead
+approach_mm = 5.0
 
 [setups.ops.checks]
-dia = "unknown" # no qualified bore-size gauge in inventory for the 0.03 mm band
-finish_ra = "unknown" # no roughness gauge in inventory
+dia = "pin-gauges" # 6.500 go / 6.530 no-go minus pins
+finish_ra = "roughness-comparator"
 
 [[setups.ops]]
 op = 30
@@ -493,48 +515,72 @@ holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.02825 # author's choice, lower strap Z-4.77825 minus 1.25 exit
 exit_mm = 1.25 # author's choice; fixture/cutter clearance is not established
 direction = "conventional" # author's choice
+approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
 
 [setups.ops.checks]
-height_above_pivot = "unknown" # no qualified bore-axis/height inspection method in listed gauges
-radius = "unknown" # no R800 profile/template gauge in inventory
-arc_len = "unknown" # 6 in caliper cannot span the 292.10 mm arc
+height_above_pivot = "rocker-profile-template" # template on a 6.5 mm pin in the reamed bore
+radius = "rocker-profile-template"
+arc_len = "rocker-profile-template" # scribed arc-end marks on the template
 
 [[setups.ops]]
 op = 40
 do = "finish_profile"
 feature = "profile_outer"
 # Same whole outline; the export names both radial lands separately.
-faces = ["#225/ADVANCED_FACE[7]/HAF_PROFILE_OUTER__P01", "#84/ADVANCED_FACE[4]/HAF_PROFILE_OUTER__P02", "#475/ADVANCED_FACE[11]/HAF_PROFILE_OUTER__P03", "#495/ADVANCED_FACE[13]/HAF_TIP_LAND_POS_X__P01", "#483/ADVANCED_FACE[12]/HAF_TIP_LAND_NEG_X__P01"]
+faces = ["#225/ADVANCED_FACE[7]/HAF_PROFILE_OUTER__P01", "#84/ADVANCED_FACE[4]/HAF_PROFILE_OUTER__P02", "#475/ADVANCED_FACE[11]/HAF_PROFILE_OUTER__P03"]
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.02825 # author's choice, lower strap Z-4.77825 minus 1.25 exit
 exit_mm = 1.25 # author's choice; no fixture-clearance claim
 direction = "conventional" # author's choice
+approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
-note = "Bottom arc, both radial lands, tapered ends; the rails and ears come off here, only under the fixture's support."
+note = "Bottom arc and tapered ends in one contour with ops 41/42; the rails and ears come off when op 42 closes the outline, only under the fixture's support."
 
 [setups.ops.checks]
-bottom_radius = "unknown" # no R816 profile/template gauge in inventory
-bottom_arc_len = "unknown" # 6 in caliper cannot span the 266.70 mm arc
+bottom_radius = "rocker-profile-template"
+bottom_arc_len = "rocker-profile-template"
 
 [[setups.ops]]
 op = 41
-do = "inspect"
-feature = "tip_land_pos_x"
-note = "Existing each-end land checks from op 40, keyed to the exported rod-side land."
-[setups.ops.checks]
-tip_land = "calipers" # author's choice; inventory verification remains required
-land_angle_deg = "unknown" # no qualified angular/profile method; consumer limit stays unknown
+do = "finish_profile"
+feature = "tip_land_pos_x" # rod-side radial land, datum C
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -6.02825 # same contour depth as op 40
+exit_mm = 1.25
+direction = "conventional" # author's choice
+approach_mm = 5.0
 
 [[setups.ops]]
 op = 42
+do = "finish_profile"
+feature = "tip_land_neg_x"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -6.02825 # same contour depth as op 40
+exit_mm = 1.25
+direction = "conventional" # author's choice
+approach_mm = 5.0
+
+[[setups.ops]]
+op = 43
+do = "inspect"
+feature = "tip_land_pos_x"
+note = "Each-end land checks after ops 41/42, keyed to the exported rod-side land."
+[setups.ops.checks]
+tip_land = "calipers" # author's choice
+land_angle_deg = "rocker-profile-template" # the export leaves the limit unknown
+
+[[setups.ops]]
+op = 44
 do = "inspect"
 feature = "tip_land_neg_x"
 note = "Same each-end land checks, keyed to the separately exported opposite land."
 [setups.ops.checks]
 tip_land = "calipers"
-land_angle_deg = "unknown"
+land_angle_deg = "rocker-profile-template"
 
 [[setups.ops]]
 op = 50
@@ -543,6 +589,7 @@ feature = "rod_hole"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
 depth_mm = 0.50 # author's choice, shallow spot from upper strap face
+approach_mm = 5.0
 
 [[setups.ops]]
 op = 60
@@ -551,10 +598,14 @@ feature = "rod_hole"
 tool = "drill-index-115/#47"
 holder = "drill-chuck-r8"
 exit_mm = 1.5 # author's choice, full drill diameter beyond local strap exit
+approach_mm = 5.0
 
 [setups.ops.checks]
-dia = "unknown" # no qualified small-hole gauge for the #47 bore in inventory
-position_dia = "unknown" # no qualified pin/height gauge or CMM inspection method in inventory
+dia = "pin-gauges" # 1.994 go / 2.094 no-go
+position_dia = "height-gauge"
+
+[setups.ops.inspection_methods]
+position_dia = "6.5 mm pin in the pivot bore and 1.99 mm pin in the rod hole; rocker on parallels on the surface plate with the pivot pin levelled, height gauge over both pins and a 90° re-check gives the X/Y offset"
 
 [[setups.ops]]
 op = 70
