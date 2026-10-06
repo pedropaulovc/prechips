@@ -70,20 +70,20 @@ def bundle(tmp_path, features, operations, coarse=False):
     return path
 
 
-def plan(tmp_path, exit_mm=1.0, depth=None, do="drill", drilled=BLIND, coarse=False, detour=False):
+def plan(tmp_path, exit_mm=1.0, depth=None, do="drill", drilled=BLIND, coarse=False, detour=None):
     """S1 finishes ``target`` to Z -2.27825; S2, same frame, receives S1's stock, starts on
     it, zeroes Z on it and ``do``-s ``hole`` from it: through the 7.72175 mm below it,
     ``exit_mm`` past the exit face, or, given a ``depth`` band (or bare upper limit),
-    blind and ``drilled`` deep. With ``detour`` an S2 that also receives S1's stock faces
-    ``target`` deeper first, and the consumer is S3, which never receives that cut."""
+    blind and ``drilled`` deep. Given a ``detour`` Z, an S2 that also receives S1's stock
+    refaces ``target`` to it first, and the consumer is S3, which never receives that cut."""
     features = FEATURES
     if depth is not None:
         features = FEATURES.replace("thru = true\n", f"thru = false\ndepth = {depth}\n")
     operations = (
         ZERO.format("top", "")
         + face(10, NOMINAL)
-        + (setup("S2") + face(10, NOMINAL - 1.0) if detour else "")
-        + setup("S3" if detour else "S2")
+        + (setup("S2") + face(10, detour) if detour is not None else "")
+        + setup("S2" if detour is None else "S3")
         + f"[[setups.ops]]\nop = 10\ndo = '{do}'\nfeature = 'hole'\ntool = 'drill'\n"
         + (f"exit_mm = {exit_mm}\n" if depth is None else f"depth_mm = {drilled}\n")
     )
@@ -151,13 +151,18 @@ def test_top_zero_after_an_op_is_the_top_that_op_left(tmp_path):
     )
 
 
-def test_pickup_follows_the_stock_it_received(tmp_path):
-    """S3 receives S1's stock, not the deeper face S2 cut in its own branch: its zero,
-    arrival and entry are S1's checked face on S1's 0.010 grid."""
-    path = plan(tmp_path, coarse=True, detour=True)
+@pytest.mark.parametrize("detour", [NOMINAL - 1.0, NOMINAL])
+def test_pickup_follows_the_stock_it_received(tmp_path, detour):
+    """S3 receives S1's stock, not S2's refaced one: S2's cut, deeper or to the same
+    nominal on its finer grid, is in another branch. S3's arrival, zero and entry are
+    S1's checked face on S1's 0.010 grid, whatever S2 checked."""
+    path = plan(tmp_path, coarse=True, detour=detour)
     _, report, html = traveler(path, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     text = printed(html)
-    assert zero(text, "target")[0] == -2.27
+    arrivals = re.findall(r"arrives from Setup (\S+) — top at Z (-?\d+\.\d+)", text)
+    assert arrivals == [("S1", "-2.270"), ("S1", "-2.270")]
+    zeros = re.findall(r"\|target; [^|]*surface at ([^;|]+);", text)
+    assert [float(z) for z in zeros] == [-2.27, -2.27]
     endpoints = {
         row["setup"]: row
         for finding in report["findings"]
@@ -165,7 +170,6 @@ def test_pickup_follows_the_stock_it_received(tmp_path):
         for row in finding["numbers"]["endpoints"]
     }
     assert endpoints["S3"]["dro_entry_z"] == -2.27
-    assert "-2.275" not in text
 
 
 @pytest.mark.parametrize("exit_mm,stopped", [(0.0, True), (STEP, False)])
