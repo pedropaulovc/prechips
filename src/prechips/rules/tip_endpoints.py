@@ -38,6 +38,26 @@ def _subtract(*values):
     return values[0] - sum(values[1:]) if all(number(v) for v in values) else UNKNOWN
 
 
+def _feature_depth_mm(feature, field, units):
+    """An upper feature-depth limit uses the model's units, unlike depth_mm."""
+    value = feature.get(field, UNKNOWN)
+    if isinstance(value, list):
+        value = value[1] if len(value) == 2 else UNKNOWN
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    return value * scale if number(value) and scale is not None else UNKNOWN
+
+
+def hole_depth_mm(op, feature, units):
+    """Operation depth in machine mm; taps may use their feature's upper depth."""
+    if "depth_mm" in op:
+        value = op["depth_mm"]
+        return value if number(value) else UNKNOWN
+    if op.get("do") == "tap":
+        field = "thread_depth" if "thread_depth" in feature else "depth"
+        return _feature_depth_mm(feature, field, units)
+    return UNKNOWN
+
+
 def _covers(cut, target):
     """Only explicit same-frame footprints can advance another entry surface."""
     bounds = mapping(cut.get("bounds"))
@@ -139,18 +159,15 @@ def evaluate(bundle):
                 nominal_angle_deg(tool, "point_angle"),
             )
             if action == "spot":
+                depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 row.update(
-                    depth_mm=op.get("depth_mm", UNKNOWN),
+                    depth_mm=depth,
                     point_mm=point,
                     exit_face="not_applicable",
-                    tip_z=_subtract(entry, op.get("depth_mm", UNKNOWN)),
+                    tip_z=_subtract(entry, depth),
                 )
             elif action == "tap":
-                depth = op.get(
-                    "depth_mm", feature.get("thread_depth", feature.get("depth", UNKNOWN))
-                )
-                if isinstance(depth, list):
-                    depth = depth[1]
+                depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 flute = length_mm(tool, "flute_len")
                 row.update(
                     depth_mm=depth,
@@ -187,7 +204,7 @@ def evaluate(bundle):
                 )
                 row["lead_mm" if action == "ream" else "point_mm"] = lead
             else:
-                depth = op.get("depth_mm", UNKNOWN)
+                depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 lead = (
                     length_mm(tool, "lead")
                     if action == "ream"
@@ -195,9 +212,7 @@ def evaluate(bundle):
                     if action == "drill"
                     else 0
                 )
-                limit = feature.get("depth", UNKNOWN)
-                if isinstance(limit, list):
-                    limit = limit[1]
+                limit = _feature_depth_mm(feature, "depth", bundle.features.get("units"))
                 total = depth + lead if number(depth) and number(lead) else UNKNOWN
                 row.update(
                     depth_mm=depth,

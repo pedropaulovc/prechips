@@ -421,6 +421,18 @@ with angles at the drawing's declared angular precision.
 | `orientation` | `str` |
 | `note` | `str` |
 | `height_mm` | `float` |
+| `jaw_lead_mm` | `float` |
+| `at_z_mm` | `float` |
+| `ops` | `list[int]` |
+
+A `hold.supports` table with `jaw_lead_mm` declares a follow rest riding that
+far behind the tool; one with `at_z_mm` declares a steady rest at that
+setup-frame Z. `ops` lists the operation ids it serves (omitted = every turning
+op of the setup). `ref` names an inventory `follow_rest`/`steady_rest` fixture
+with measured `capacity_min`/`capacity_max`. `turning_deflection` then uses the
+rest span instead of `stickout_mm` (docs/rules-physics.md "Follow and steady
+rests"). Example:
+`supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0 }]`.
 
 ## Zero
 
@@ -528,16 +540,21 @@ credits each face only to the direction-valid finishing cuts that claim it.
 and strictly increasing. It declares the material outside the finished part
 that this cutting operation clears inside that volume, leaving everything
 outside it unchanged. Its faces still need valid cutting claims from this
-setup. If the cutter radius is known, the box's XY extent cannot exceed the union
-XY bounding box of its direction-valid claimed faces dilated by that radius;
-an excess is a named geometry error and leaves later stock unresolved. If the
-radius is unknown, the extent check is `?` with a reason naming the missing cutter
-radius, and later stock stays unresolved. Every claim must touch the box and
-every removed piece must border a claim.
+setup. The box is the explicit cleared footprint, for example the envelope of
+several roughing passes; it is not capped to the claimed faces' XY bounding box
+dilated by the cutter radius. The cutter radius must still be known: if it is
+unknown, the bounds are `?` with a reason naming the missing cutter radius, and
+later stock stays unresolved. Removal is the box's intersection with the
+selected stock and never takes finished material or a protected rough leave.
+Every claim must touch the box and every removed piece must border a claim;
+known future planned-hole columns, with their finite caps, stay stock; and the
+removal must not split an original input solid. A violation is named stock
+debt, not an error: later stock that depends on it stays unresolved, while
+genuine collisions with finished material remain independent errors.
 It shapes stock passed to later setups and excludes only this operation's own
 derivable allowance from its flute obstacles; holder, reach and holding facts
 still use setup-entry stock. This is an authored process/fixture volume, not a
-measured toolpath or proof that roughing is safe. Without it, any claimed wall
+measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
 needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
 

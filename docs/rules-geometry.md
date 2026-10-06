@@ -160,16 +160,35 @@ major edge at `entering_angle_deg`, minor edge closing `insert_angle_deg`, both
 `edge_len` long, feed direction from `hand`: right → −Z, left → +Z), the head
 (hull of the insert to `head_len`), the radial shank (`shank_width`, back face
 `functional_width` from the nose centre, out to the tool projection) and the
-toolpost body (holder `body_depth` radially, `body_width` along Z). Claimed
+toolpost body (holder `body_depth` radially, `body_width` along Z). A tool
+whose kind is `parting_blade` or `grooving_blade` is a blade instead: two
+`nose_radius` corners on a square front edge `blade_width` wide (inventory
+`blade_width_mm`/`blade_width_in`; job op `corners = 2`, `blade_width_mm`),
+entering angle 90°, sides running straight back to `head_len`; an unmeasured
+`blade_width` leaves the row `unknown`. Claimed
 faces must be surfaces of revolution about setup Z on the outside; other faces
 are claim errors; internal (bore) claims stay `unknown`. Samples on the
-claimed meridians are checked against the held stock minus this op's own
-turned removal plus modeled fixture obstacles, including the rotating
-envelopes of placed chuck jaws.
-Reach is the material radius within the nose's axial band; corners are concave toroid or
+claimed meridians (a dome's pole included; a `to_z` op's samples moved onto
+the `to_z` plane it leaves) are checked against the profile after the op —
+the held stock minus the turned removals of the setup's turning ops up to and
+including this one — plus modeled fixture obstacles, including the rotating
+envelopes of placed chuck jaws. Each pose is chosen on that profile's
+meridian section: an insert's nose is tangent at the sample; a blade's front
+edge lies on a floor sample anywhere along it that keeps the blade clear, so
+it sits inside its groove and floor spans narrower than the blade are swept by
+that plunge, and a wall sample is cut by the nearest corner. Where that nose or
+blade meets the profile at an exposed sample it moves to the nearest clear
+pose within twice the corner radius — tangent to both segments of a concave
+corner, offset from the wall by the nose radius (the milling floor-edge rule)
+— so a corner sharper than the nose is the corner-radius fact below, not a
+collision. Flank, head and holder hits stay hits.
+Reach is the material radius within the nose's or blade's axial extent; corners are concave toroid or
 sphere profile radii (a sharp shoulder is 0) compared with the nose radius.
 Removal is revolved: `to_z` faces a band from the innermost claimed radius to
-the stock OD; profile ops close each claimed meridian to the OD within the
+the stock OD; a facing op, `part_off` or `cut_to_fit` given `to_dia` sweeps
+from `to_dia`/2 — the axis when a `part_off` omits it — to the stock OD and the
+stock end, never leaving a core for a bore the finished part only receives
+later; profile ops close each claimed meridian to the OD within the
 declared `z_from`/`z_to` span, then cut the finished part back out. That
 in-process stock is inverse-transformed back into model coordinates and can
 feed any later setup that explicitly selects it through `stock_in`, not only
@@ -177,10 +196,12 @@ the immediately following setup. Removal checks each input solid separately:
 an existing multi-piece input is permitted, but splitting any one input piece
 into multiple retained pieces leaves the output unresolved.
 
-The turning model is a deterministic radial sampled necessary-condition screen.
-It does not prove tool paths, chip flow, insert clearance angles below centre height, boring bars or
-internal features, grooving/part-off blade geometry, or chatter. Every turning
-input must be measured and accepted; otherwise the row is `unknown`.
+The turning model is a deterministic radial sampled necessary-condition screen:
+it poses the tool at sampled meridian points only, one final-pass profile per
+op. It does not prove tool paths or roughing passes, chip flow, insert or blade
+clearance below centre height, blade side clearance or thickness, boring bars
+or internal features, cutting load, or chatter. Every turning input must be
+measured and accepted; otherwise the row is `unknown`.
 
 An explicit turning action (`turn`, `rough_turn`, `finish_turn`,
 `profile_turn`, `form_dome`, `form_relief`, `part_off`, `cut_to_fit`) off a
@@ -230,6 +251,10 @@ fields are listed in the job's reason text and the dependent rules are `?`.
   for `reach`, and finishing-cut decisions stay host-side for `finish_coverage`;
   neither is an engine input. Accessibility does not require OAL when the
   selected projection is known.
+- Per spot or drill op on a hole feature: `point_angle_deg`, the selected
+  tool's included `point_angle`, always sent. A plain nominal or accepted
+  fact passes its number; a missing, `"unknown"` or debt-carrying angle is
+  sent as `unknown`, never omitted or defaulted.
 - Per setup: the numeric frame from the manifest (`origin` converted from
   inches when `units = "in"`; an unknown frame keeps every op row `unknown`
   with `numeric setup frame is unknown`), and for a `kind = "vise"` fixture
@@ -324,19 +349,42 @@ dependency. Removal fragmentation is checked per input solid: deleting one
 assembly piece cannot mask splitting another.
 
 For a derivable face footprint, removal is clipped to the authored `to_z`
-endpoint and to material outside the finished solid. Every claimed face with
-a horizontal normal component is checked for remaining overstock above `to_z`,
+endpoint and to material outside the finished solid.
+Facing uses the planar face's outer-wire sweep to clear raw caps over hole
+mouths while preserving finished islands. Generic bounded clearing preserves
+known, unclaimed planned-hole columns for their own future hole operations;
+this is not a blanket reservation of every concave cylindrical face.
+Each reserved column has the bore's radius and spans the matched bore's
+exact axial extent plus any adjacent cap, with numerical lift at either end,
+not the full entry-stock height. A cap is a concave cone or sphere that shares
+an edge with the bore, lies coaxial on its axis line, and whose largest
+radial reach is no more than the bore radius; its exact axial span (including
+a contained cone apex or sphere pole) extends the column. A wider back
+countersink is therefore not reserved, and a blind hole's column stops at its
+actual cap rather than running on as an unbounded rod; pins or rods outside
+that span are not reserved hole stock.
+Every claimed face with a horizontal normal component is checked for
+remaining overstock above `to_z`,
 including drafted walls whose +Z sweep is nonzero. Exact face contact catches
 small retained ears; nearest-contact probes inset from the face boundary
 distinguish a drafted sliver from legitimately retained neighbours.
 An operation can declare numeric `stock_removal_bounds` (one setup-frame box)
-to clear only outside-finished material inside that volume. With a known cutter
-radius, its XY extent must fit the union XY bounding box of its direction-valid
-claimed faces dilated by that radius. Excess is a named `stock_removal_error`,
-not clearance for a later setup. An unknown radius leaves the extent check `?`
-with a reason naming the missing cutter radius, never a zero-radius error;
-later stock stays unresolved. Each claim must touch the box and every removed
-piece must border a claim. Synthetic geometry fixtures
+to clear only outside-finished material inside that volume. The box is the
+explicit cleared footprint the author declares, for example the envelope of
+several roughing passes; it is not capped to the claimed faces' XY bounding
+box dilated by the cutter radius, and it is not a proof that a whole toolpath
+exists or clears. The remaining guards all hold: the cutter radius must be
+known (an unknown radius leaves the bounds `?` with a reason naming the
+missing cutter radius, never a zero-radius result, and later stock stays
+unresolved); the bounds are finite numbers; removal is the box's intersection
+with the selected stock, never finished material or a protected rough leave;
+each claim must touch the box and every removed piece must border a claim;
+known future planned-hole columns, with their finite caps, stay stock; and
+the removal must not split an original input solid. A violation is not an
+error verdict: it is named stock debt (the stock reason names the failed
+guard), so stock-dependent results for that setup and later setups selecting
+its output stay `unknown`, never clearance. Genuine collisions with finished
+material remain independent errors. Synthetic geometry fixtures
 author these preparation volumes and numeric supply allowances; their target
 setup checks the derived material. Preparation tool/fixture debt stays visible,
 and the fixture policy explicitly requires the target, not fabricated roughing
@@ -419,35 +467,130 @@ Needs the five tool/holder dimensions (radius, flute length, projection,
 holder radius, holder gauge length) and a vise without input debt for a pass.
 Within the supported milling domain, missing inputs normally yield `unknown`,
 but positive observed minimum tool or holder hits still error despite unknown
-stock, fixture or dimensions. Invalid face claims and rejected clearing bounds
-remain errors first.
+stock, fixture or dimensions. Invalid face claims remain errors first; an
+invalid clearing removal is named stock debt, not an error.
 On the claimed face set the kernel samples a cell-centred
 5×5 UV grid per face plus 2–12 points along every boundary edge and gives
-each sample one prescribed tool pose (the PLAN §4.2 convention, confirmed
-with the user): the cutter cylinder (radius, flute length) stands with its
-tip at the sample's Z and its axis offset from the sample by the cutter
-radius along the in-plane (XY) component of the outward normal, so a wall
-sample gets a cylinder touching the wall and a horizontal floor sample gets
-no XY offset (a cutter stands on a floor; shifting it along the full 3-D
-normal would float it a radius above the floor). The holder cylinder (gauge
-diameter, gauge length) starts `projection_mm` above the tip. Both are
-intersected with the setup's material minus a thin inward offset shell of
-**that sampled face only**, plus the jaw boxes. The flute also excludes only
-this op's derivable outside-finished allowance; the holder still sees it.
-The shell removes numerical self-contact, not a cutter-radius slab and not
-another finished face of the same feature. A cutter wider than a claimed
-groove therefore still intersects the opposite claimed wall. For milling, a
-far-side face (outward normal opposing setup +Z by more than 90°) is an invalid
-cutting claim, reported as an error naming the face before tool-dimension debt
-can hide it.
+each sample one prescribed tool pose (PLAN §4.2). Ordinary wall samples use
+the cutter-radius offset along the in-plane (XY) outward normal; ordinary
+interior floor samples have no XY offset. The tip is at the sample's Z,
+except as the rough leave below moves it.
+
+A rough milling op's scalar `rough_allowance_mm` (a) is consumed by the
+engine as a leave in millimetres normal to the finished surface. Each rough
+sample point first moves `a` along the face's unit outward normal, then takes
+the ordinary cutter-radius `r` shift along the in-plane (XY) normal; the
+concave floor-edge and corner constraints below use radius `r + a`. The
+derived output stock protects the finished solid offset outward by `a`, which
+retains the radial and axial leave, drafted faces included, and a later
+finishing op that claims those faces removes the leave as its own derivable
+allowance. An explicit `to_z` caps the endpoint rather than adding to the
+leave: the tip is the higher of `to_z` and the floor plus its leave, so a
+`to_z` already at the rough floor plus a 0.2 mm leave is that endpoint, not
+0.4 mm above the floor. The tip never goes below the retained leave, and
+numerical lift still separates it from the finished face. An unknown
+authored leave makes the op's accessibility `unknown` and later stock that
+depends on it debt. The protected solid is built by offsetting the finished
+solid outward by the leave. Where that offset's arc join cannot be built (a
+blind cone can make it fail), an intersection-join offset may be used
+instead, but only if it is valid, contains the finished solid and keeps the
+same solid count. It is conservative and leaves extra material at convex
+corners, never less than the leave, and there is never a fallback to the
+nominal finished solid or a zero leave. If both constructions fail, the
+result is named offset debt.
+
+**User decision, 2026-10-05:** at a concave edge shared by a floor and a
+rising wall, the floor-sample cutter axis shifts one cutter radius into the
+floor, away from the wall. At a two-wall concave floor corner the pose is
+tangent to both walls; nearby concave-corner edge samples also use both-wall
+tangency when the second wall lies within a cutter radius. This replaces the
+former boundary-centred floor pose; convex edges and ordinary interior
+samples are unchanged. Convex wall/wall island vertices retain their legacy
+samples without an added corner pose. Tangency selects a pose, not a
+corner-radius certification. Floor-only claims do not certify wall/wall
+corner radii: `internal_corner_radius` still checks a sharp wall/wall corner
+only when the op claims both walls, with its existing scope unchanged.
+Adjacent finished walls are not removed to manufacture clearance, and
+undercut or leaning walls remain obstacles.
+
+The holder cylinder (gauge diameter, gauge length) starts `projection_mm`
+above the tip. Both cylinders are intersected with actual setup-entry
+material minus a thin inward offset shell of **that sampled face only**,
+plus the jaw boxes. The flute also excludes only this op's derivable
+outside-finished allowance; the holder still sees it. The shell removes
+numerical self-contact, not a cutter-radius slab and not another finished
+face of the same feature. A cutter wider than a claimed groove therefore
+still intersects the opposite claimed wall. Holding, rendering and holder
+obstacles use actual setup-entry stock; no pose borrows another op's removal.
+
+Claimed concave cone or sphere point caps are not blanket-exempt. Only a hole
+op's own known matched cap is: a cap (as defined for planned-hole columns)
+that shares a real edge with a claimed concave cylindrical bore parallel to
+setup Z and lies wholly below that bore, closing the end away from the tool.
+An upward-facing cap is not matched. For an op whose hole cut resolves, a
+sample on that cap uses the unmodified actual setup-entry stock instead of the
+own-face offset shell, which cannot be built at a cone apex; the on-axis
+cutter's numerical-lift shrink already removes self-contact, and the holder
+also sees the full entry stock. The cap's actual collision is still checked:
+a wrong point angle, a point deeper than the finished cap, or a flat-bottomed
+tool against a matched cone or sphere hits. A wider countersink and tilted or
+unrelated caps keep their offset shell, unknowns and real hits, and no other
+op borrows this exemption.
+
+For drill, spot, ream, bore, tap and counterbore operations, the flute stock
+obstacles exclude only the op's own actual cutter volume, to its declared
+depth or explicit through extent. Hole centres and axes derive
+from geometry-matched concave cylindrical faces aligned to setup Z, not a
+guessed face centre. Unrelated finished material remains an obstacle, and
+this exclusion does not clear holder obstacles: the holder cylinder is
+unchanged and meets the full actual setup-entry stock. Missing depth or entry
+facts and explicitly unknown through facts remain debt; an omitted `thru`
+uses the existing blind-hole default, not an assumption of through
+clearance. No removal extent is invented.
+
+A spot or drill cuts with its actual point: a cone with its apex at the tip,
+widening by tan(`point_angle_deg` / 2) per millimetre of rise to the tool
+radius, then a full-radius body. The numeric included angle is mandatory for
+both. An `unknown` angle, or one not strictly between 0 and 180 degrees, is
+named debt (`<action> point_angle_deg is unknown; its point cone is unknown`):
+the op's accessibility is `unknown`, and its removal is not derivable, so a
+later setup selecting that output carries stock debt. No flat-bottomed
+cylinder or default angle substitutes. The flute check uses the same cone and
+body, shrunk by numerical lift, against part and modeled fixture solids; the gross
+cylinder only culls. Ream, bore, tap and counterbore remain flat-bottomed
+operation-diameter cylinders.
+
+Depths follow [tip endpoints](rules-operations.md#blind_depth-tip-endpoints).
+A spot's `depth_mm` is its apex tip depth below the entry. A drill's
+`depth_mm` is its full-diameter depth; its tip lies a further point length
+`r / tan(point_angle_deg / 2)` deeper. An op `to_z` is the absolute actual tip,
+with nothing added. A through drill's full diameter exits each matched bore's
+actual axial bottom, so its tip is one point length (plus numerical lift)
+below that; other through actions end at the bore bottom plus numerical lift,
+not the raw-stock bounding-box bottom.
+Spot and tap operations honor an explicit depth even when the feature declares
+`thru = true`; that feature fact does not extend their local removal past the
+authored endpoint. `stock_state.top_z` and `entry_z` are machine-frame
+millimetres, and operation `depth_mm` is millimetres even when feature units
+are inches. Tap fallback feature-depth bands are converted to millimetres.
+
+When the op radius exceeds a matched bore's radius, every hole action except
+a spot also removes that bore's own wall out to the op radius. No fixed radial
+cap limits that excess; the sizing rule owns the drill or reamer diameter. A
+failed own-wall offset is named debt. A spot never widens its own bore, so a
+spot cone reaching past the finished bore mouth still meets finished material.
+
+For milling, a far-side face (outward normal opposing setup +Z by more than
+90°) is an invalid cutting claim, reported as an error naming the face before
+tool-dimension debt can hide it.
 
 The kernel tests pin the discriminations: a boss beside a claimed plate top
 is a hit naming the boss face; an offset cutter tangent to its claimed side
 wall clears while the sample-centred mutant intersects the wall; a Ø10 cutter
 in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the
-holder only when they stand high enough. Floor poses remain centred on their
-samples, including boundary samples: a wall can block such a prescribed pose
-even when some other cutter centre could cut that point. There is no pose search.
+holder only when they stand high enough. The concave floor-edge convention
+above changes the prescribed pose, not the obstacle solid. There is no pose
+search, and unresolved pose or exclusion facts remain debt rather than clearance.
 Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
 `certain_tool_hits` / `certain_holder_hits` when observed hits are definite
 despite unresolved stock, inputs, poses or undeclared jaw overhang.
@@ -457,7 +600,7 @@ despite unresolved stock, inputs, poses or undeclared jaw overhang.
 - `{subject}: offset-cylinder sampling is unresolved.` or the kernel's per-fact reason (unknown; includes samples in the undeclared jaw overhang with no certain hit, an own-region boolean that failed, or a sample without a defined normal)
 
 Both verdicts are about the prescribed poses only: the rule stands one
-cylinder per sample at the normal-offset position and asks whether that pose
+cylinder per sample at the prescribed position and asks whether that pose
 is blocked. An error says those poses are blocked, not that the face is
 unreachable by any approach; a pass says those poses clear, not that a
 toolpath exists or that every pose along it clears. Neither is a swept-volume
@@ -497,10 +640,19 @@ a concave cylindrical claimed face whose axis is parallel to +Z contributes
 its radius, and a sharp concave edge between two claimed faces that runs
 parallel to +Z contributes 0. Horizontal concave edges (a pocket floor
 meeting its wall) are not corners for this rule: a flat endmill cuts them.
+For a hole operation, its own bore radius is a diameter-sizing question,
+not an `internal_corner_radius` limit. Likewise its own known matched point
+cap (see accessibility) is its actual tool shape, not an internal corner;
+any other claimed concave cone or sphere, including a wider countersink or an
+unrelated cap, remains the unreduced curved surface below.
+Floor-only claims do not certify a wall/wall corner radius. A sharp wall/wall
+corner is checked when the op claims both walls; tangent floor poses do not
+expand this rule's claimed-face scope.
 A concave cylinder with an off-axis axis, an oblique concave edge, or any
 other concave curved claimed surface cannot be reduced to one radius and
 makes the row `unknown` with that face/edge named. Numbers:
-`corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`.
+`corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`,
+`cad_sharp_corners` and `corner_radius_max_design_mm`.
 These are finished-solid facts, independent of unknown in-process stock;
 a known sharp corner remains an error even when reach cannot be measured.
 The comparison uses a 0.005 mm numeric tolerance: a concave radius admits the
@@ -509,6 +661,16 @@ write only 5–6 significant digits, so sub-tolerance import/kernel rounding
 must not turn a nominally equal radius into an error. This is numeric tolerance,
 not a machining allowance: a 0.004 mm deficit passes; a 0.006 mm deficit errors,
 and a genuinely sharp corner still fails.
+
+A CAD-sharp corner (modelled radius below 0.005 mm) is drawn sharp, but the
+drawing may permit a radius there. Only the operation feature's own
+`corner_radius_max_design` (explicit feature `units`; inch × 25.4) states that
+permission: the cutter is admitted when `tool_radius_mm ≤
+corner_radius_max_design` (equality passes; 0.25 admits a 0.25 mm nose, not
+0.26). A modelled non-sharp corner smaller than the cutter is never rescued by
+the allowance, and a title-block `edge_break`/`general_tolerances.edge_break_r`
+is never borrowed. Without the feature field the sharp-corner error stays, and
+the sentence names the missing `corner_radius_max_design`.
 
 - no such corners: `claimed faces have no concave edges perpendicular to the tool axis.` (not_applicable)
 - `concave corner radii admit the selected cutter.` (pass)

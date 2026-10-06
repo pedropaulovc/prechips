@@ -145,7 +145,7 @@ def _bundle(tmp_path):
 def _host_only(bundle):
     """Edits that change only host-rule inputs, never a field the engine reads."""
     setup = bundle.plan["setups"][0]
-    op = setup["ops"][0]
+
     yield "hold method", lambda: setup["hold"].update(method="soft_jaws")
     yield "hold grip_mm", lambda: setup["hold"].update(grip_mm=5.5)
     yield "fixture opening_mm", lambda: bundle.inventory["fixtures"]["vise"].update(opening_mm=90.0)
@@ -169,7 +169,8 @@ def _host_only(bundle):
 
 def _consumed(bundle):
     setup = bundle.plan["setups"][0]
-    yield "op do / finishing", lambda: setup["ops"][0].update(do="rough_profile")
+    yield "operation action", lambda: setup["ops"][0].update(do="rough_profile")
+    yield "rough allowance", lambda: setup["ops"][0].update(rough_allowance_mm=0.2)
     yield "jaw width", lambda: bundle.inventory["fixtures"]["vise"].update(jaw_width_mm=60.0)
     yield (
         "selected projection",
@@ -454,10 +455,6 @@ def _refused(engine, step):
     yield _clearing(CLEAR, faces=wall + bottom), ALLOWED, away
     outside = f"outside its stock_removal_bounds: {wall[0]}"
     yield _clearing({**CLEAR, "x": [40.0, 60.0]}), ALLOWED, outside
-    # End overstock outside the wall's cutter-dilated footprint cannot be claimed cleared.
-    end = {**BOX, "origin_mm": [-5.0, 0.0, 0.0], "length_mm": 65.0}
-    box = {"x": [-5.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 20.0]}
-    yield _clearing(box), end, "stock_removal_bounds extends"
 
 
 def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, solids):
@@ -509,14 +506,11 @@ def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids)
         assert op["tool_hits"] == "unknown" and reason in op["stock_reason"]
 
 
-@pytest.mark.parametrize("radius", [3.0, None])
-def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearance(
-    engine, solids, radius
-):
+def test_authored_clearing_without_cutter_radius_keeps_later_stock_unknown(engine, solids):
     step = solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
     wide = {"x": [0.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 22.0]}
-    op = {**_clearing(wide), "radius_mm": radius}
+    op = {**_clearing(wide), "radius_mm": None}
     target = _op("S2:10", "wall", 3.0, 10.0, 10.5, holder_radius=6.0, gauge=10.0)
     result = engine.run(
         engine.job(
@@ -527,14 +521,10 @@ def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearan
         )
     )
     first = result["ops"]["S1:10"]
-    if radius is None:
-        assert "stock_removal_error" not in first
-        reason = first["reasons"]["stock_removal_bounds"]
-        assert "cutter radius" in reason
-        assert first["tool_hits"] == "unknown"
-    else:
-        reason = first["stock_removal_error"]
-        assert "stock_removal_bounds extends" in reason and "claimed faces" in reason
+    assert "stock_removal_error" not in first
+    reason = first["reasons"]["stock_removal_bounds"]
+    assert "cutter radius" in reason
+    assert first["tool_hits"] == "unknown"
     second = result["setups"]["S2"]
     assert reason in second["stock_reason"]
     assert "stock_volume_mm3" not in second and "render_png_base64" not in second

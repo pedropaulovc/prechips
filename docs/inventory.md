@@ -41,6 +41,13 @@ M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
 must resolve to actual inventory or a named machine accessory; an unconfirmed
 accessory does not certify support.
+A `follow_rest` / `steady_rest` fixture that a plan `hold.supports` table
+selects (`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`) declares its jaw
+capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or
+`_in`): the work diameters the rest can ride on, inclusive. `turning_deflection`
+uses the rest span only for an op whose ridden diameter is inside that capacity;
+an unmeasured or unverified capacity leaves deflection unknown and is listed in
+the measurement checklist. Rests have no kernel solid.
 Hold identities resolve through `fixtures`, `holders`, then `machines`, so a
 machine-mounted dividing head is not an unresolved fixture. Its declared
 `centre_height_in` locates the spindle axis above its mounting base for the
@@ -152,6 +159,15 @@ identity debt elsewhere, not a geometry veto. The shipped parallels declare
 no `width` and no shipped plan declares `parallels_centres_mm`, so no shipped
 setup draws parallel solids. See
 [geometry rules](rules-geometry.md).
+
+For a spot or drill operation the kernel also consumes the selected tool's
+existing `point_angle` (`MeasuredAngle`, degrees; no new schema field) as its
+point profile. The fact is accepted the same fact-local way, nominal included;
+a missing, `"unknown"` or debt-carrying angle reaches the job as unknown and is
+never defaulted. It is required for a spot too, even though a spot's tip
+endpoint formula uses only its depth: the kernel cuts with the real point cone
+and body, so an unknown angle leaves that op's accessibility `?` and later
+stock unresolved. See [geometry rules](rules-geometry.md#accessibility).
 
 ## Measured envelopes and installed tool stacks (M5)
 
@@ -452,6 +468,9 @@ on hand.
 | `width_mm` | `MeasuredLength` |
 | `width_in` | `MeasuredLength` |
 | `capacity_mm` | `float` |
+| `capacity_min_mm` / `capacity_min_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `capacity_max_mm` / `capacity_max_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `blade_width_mm` / `blade_width_in` | `MeasuredLength` (grooving/parting blade front-edge width) |
 | `bed_height_in` | `MeasuredLength` |
 | `nose_radius_mm` | `float` |
 | `reach_mm` | `float` |
