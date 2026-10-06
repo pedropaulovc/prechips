@@ -186,7 +186,7 @@ flute_len_mm = { value = 22.2, measured = { by = "example (plausible, not measur
 oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 
 [tools.endmills-lms-6784.members."3-8in-4fl".projection_mm]
-"r8-collets-lms-4860/3-8in" = { value = 38.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
+"r8-collets-lms-4860/3-8in" = { value = 38.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip after inserting the tool 0.5 mm deeper, inside 4 x D" } }
 
 # --- cone-pivot-post additions ---
 # 7/16 in two-flute, centre cutting: plunges the cone post's Ø11.51 mounting counterbores.
@@ -1326,6 +1326,7 @@ height_mm = { value = 25.4, measured = { by = "example (plausible, not measured)
 # before making the plate. The diamond pin is a separate item, permanently fitted in
 # the plate's rod-pin hole and posed at the same pose in both S3 and S4.
 [fixtures.rocker-profile-fixture]
+name = "rocker profile fixture plate"
 kind = "custom"
 note = "illustrative example shop-made fixture: 360 x 145 x 12.7 mm ground plate, twelve strap pads, relieved hub stand, four 3.0 mm rail rests with per-blank shim stacks, shoulder-screw locating bore, rod-pin hole, stud and hold-down holes"
 length_mm = { value = 360.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
@@ -1389,6 +1390,7 @@ solids = [
 # Y60..70 on the plate. The beam's stud hole cuts only the beam, so the stud is
 # continuous. Toe load is ~32% of stud tension (stud 41.73 from toe, 20 from heel).
 [fixtures.rocker-hub-strap]
+name = "hub strap"
 kind = "strap_clamp"
 shop_made = true
 note = "illustrative example shop-made stepped strap: 19.05 mm wide x 12.7 mm beam, 8.28 mm toe, heel, 3/8-16 stud and flange nut"
@@ -1410,6 +1412,7 @@ solids = [
 [fixtures.rocker-rail-clamp]
 kind = "strap_clamp"
 shop_made = true
+name = "rail clamp"
 note = "illustrative example shop-made flat strap: 19.05 x 12.7 x 33 mm beam, heel, 3/8-16 stud and flange nut; holds a scrap rail through release"
 solids = [
   { name = "beam", shape = "box", at_mm = [-2.5, -9.525, 0.0], size_mm = [33.0, 19.05, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule" } },
@@ -1429,6 +1432,7 @@ solids = [
 # (illustrative example capability, not measured), so S4 zero can be indicated on
 # the head after the screw is tightened. Hex socket not drawn.
 [fixtures.rocker-pivot-screw]
+name = "pivot shoulder screw and bored washer"
 kind = "shoulder_screw"
 shop_made = true
 note = "illustrative example shop-made shoulder screw: 6.49 ground shoulder x 21.5, M5x0.8 x 7.2 thread, 8 OD x 4 head ground coaxial with the shoulder (TIR <= 0.003 mm), 9.0/6.6 x 1.5 hardened washer"
@@ -1457,6 +1461,7 @@ solids = [
 # straps react the loads. Before tightening, the part is preloaded CCW (viewed from
 # above, looking down -Z) against it. It is never a clamp or lift.
 [fixtures.rocker-rod-diamond-pin]
+name = "rod-hole diamond pin"
 kind = "locating_pin"
 shop_made = true
 note = "illustrative example shop-made diamond pin: custom-ground 1.9875 working tip (1.76 across flats) on a 4.5 mm collar seated on the plate, 3.0 m6 shank in a 3.0 H7 plate hole; positive clock stop for the closing profile pass only, not a clamp"
@@ -1479,6 +1484,7 @@ solids = [
 # -12.03), under the raw blank bottom at -11.52825. About 4 mm of exposed thread
 # between head and lock nut gives roughly +-2 mm of adjustment about nominal.
 [fixtures.rocker-s2-support-jack]
+name = "lower-side support jack"
 kind = "screw_jack"
 shop_made = true
 note = "illustrative example matched pair of shop-made M6 screw jacks: 10 mm head on an M6 screw, 10 AF lock nut, 16 mm dia x 9 mm tapped base; 19.45 mm nominal working height"
@@ -1509,6 +1515,7 @@ solids = [
 # (X >= -160 inside the rails). The base clears the risers by 1.59 mm and the
 # parallels by 3.44 mm.
 [fixtures.rocker-vise-stop]
+name = "magnetic blank-end stop"
 kind = "work_stop"
 shop_made = true
 note = "illustrative example shop-made magnetic end stop: 30 x 17 x 24 mm switchable rare-earth magnetic base on the fixed jaw's left end face, 11 x 10 mm steel arm, 8 x 14 mm finger, 6 mm hardened nose; gentle positioning contact only, no cutting or clamping load"
