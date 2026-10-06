@@ -4,6 +4,7 @@ gaps filled by the kernel's measured faces of revolution about setup Z."""
 import math
 
 from ..findings import Finding
+from ..joint_features import joint_of, present, setup_span_mm
 from .coordinates import frame_point, model_point
 from .resolution import (
     UNKNOWN,
@@ -170,9 +171,14 @@ def _geometry(bundle, name, context):
     replaced); kernel faces of revolution fill what is not declared; the rest stays unknown.
     """
     frame, frames, scale = context[:3]
-    feature = record(bundle.features["features"].get(name))
+    feature = record(bundle.feature_definitions.get(name))
     kind = feature.get("kind", UNKNOWN)
-    fact, why = _kernel_fact(context, name)
+    transient = joint_of(feature) is not None
+    fact, why = (
+        (None, "transient joint features have no finished-face facts")
+        if transient
+        else _kernel_fact(context, name)
+    )
     result = {"sources": {}, "reasons": []}
 
     def take(field, value, source):
@@ -183,7 +189,15 @@ def _geometry(bundle, name, context):
         result["reasons"].append(f"{declared}; kernel: {why}")
 
     result["z_mm"] = UNKNOWN
-    if feature.get("z_mm", UNKNOWN) != UNKNOWN:
+    if transient:
+        span = setup_span_mm(bundle, name, frame)
+        if span is None:
+            result["reasons"].append(
+                "declared joint cylinder does not resolve on the setup spindle"
+            )
+        else:
+            take("z_mm", list(span), "declared")
+    elif "z_mm" in feature:
         span = _axial_span(feature, frame, frames, scale)
         if span is None:
             result["reasons"].append("declared z_mm does not resolve along setup Z")
@@ -269,7 +283,7 @@ def feature_span(bundle, setup, name):
     when none resolves; ``unresolved`` names the debt of each unknown. Reads only an
     already-present kernel result.
     """
-    feature = record(bundle.features["features"].get(name))
+    feature = record(bundle.feature_definitions.get(name))
     geometry = _geometry(bundle, name, _context(bundle, setup))
     fields = ("z_mm", "diameter_mm", "base_diameter_mm", "height_mm")
     sources = {key: value for key, value in geometry["sources"].items() if key in fields}
@@ -421,11 +435,14 @@ def _stock_fill(bundle, setup, uncovered):
 
 def exposed_profile(bundle, setup):
     """Setup-Z profile (declared, kernel-filled) for profile and unsupported-diameter checks."""
-    features = bundle.features["features"]
+    features = bundle.feature_definitions
     context = _context(bundle, setup)
     claimed = {op.get("feature", UNKNOWN) for op in setup["ops"] if op["do"] in PROFILE_OPS}
+    # A transient joint feature belongs only to its own in-process branch (joint_features).
     names = {
-        name for name, feature in features.items() if feature.get("kind") in AXIAL_KINDS
+        name
+        for name, feature in features.items()
+        if feature.get("kind") in AXIAL_KINDS and present(bundle, setup, name)
     } | claimed
     state, hold = record(setup.get("stock_state")), record(setup.get("hold"))
     north, south, length = (
@@ -450,9 +467,14 @@ def exposed_profile(bundle, setup):
         kind = feature.get("kind", UNKNOWN)
         geometry = _geometry(bundle, name, context)
         span = geometry["z_mm"]
-        if not isinstance(span, list) and name in measured_off_axis and name not in claimed:
+        if (
+            not isinstance(span, list)
+            and name in measured_off_axis
+            and name not in claimed
+            and not joint_of(feature)
+        ):
             # Revolved about another direction and not turned here: not on this spindle's
-            # profile. Any exposed span it alone would cover stays uncovered, not passed.
+            # profile. Transient cylinders retain their authored spindle debt instead.
             off_axis[name] = measured_off_axis[name]
             continue
         if not isinstance(span, list) or span[0] >= span[1]:
