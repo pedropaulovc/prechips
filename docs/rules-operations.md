@@ -62,7 +62,11 @@ same-frame entry surfaces. Profiles never move the touched top; `top_feature`
 restricts which facing operation moves that top. Each record preserves entry
 origin, setup/op, point/lead, thickness, allowance and tip endpoint.
 
-Arithmetic in mm:
+Arithmetic in mm: stock-state top/entry coordinates and operation `depth_mm`
+are machine millimetres even when the feature manifest uses inches. Feature
+depth limits are converted from the manifest's units. A tap without an
+operation depth uses the upper `thread_depth`, or `depth` if no thread-depth
+field is present; an explicitly unknown operation depth does not fall back.
 
 - Drill point `P = D / (2*tan(included_point_angle/2))`, requiring D > 0 and
   0 < angle < 180 degrees. Centre-seat angle is not drill point geometry.
@@ -79,6 +83,20 @@ Arithmetic in mm:
   `tip_z = entry_z - total_depth`; total must not exceed the feature's upper
   depth limit. Unknown thru/depth/tool geometry stays unknown.
 - Tap: `tip_z = entry_z - depth`; verified flute length must cover thread depth.
+
+The geometry kernel's spot and drill cutters use the same depth semantics:
+spot depth is the apex tip depth, and drill depth is the full-diameter depth
+with the tip one point length (`r / tan(angle/2)`) deeper. A spot's endpoint
+here does not add its point, but its included `point_angle` is still mandatory
+for the kernel's point cone; an unknown angle is accessibility and later-stock
+debt there (see [geometry](rules-geometry.md#accessibility)). Endpoints
+here do not prove a cap is formed. The kernel separately requires each
+feature's last drill, ream, bore or counterbore to leave its claimed caps clear
+of that setup's stock, so a flatter point, a smaller pilot or a flat finishing
+floor above a modelled cone is named stock debt.
+A spot on a through feature still uses its authored mouth depth; it does not
+inherit the through bore's exit. This also bounds the kernel's reach and
+cutter/holder poses, not just the traveler endpoint column.
 
 Exact sentence alternatives:
 
@@ -97,17 +115,35 @@ an unknown status is not a verified cut instruction.
 ## `speeds_feeds`
 
 One subject per `setup:op`, including explicit not-applicable manual operations
-(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`). Tool chart citation
-wins over table rows; otherwise match material alias, tool material, normalized
-action and inclusive mm diameter range. Exactly one cited row is needed.
-Ambiguous overlap or unknown range stays unresolved. No chart URL is fetched.
+(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`). For spindle cuts,
+tool chart citation wins over table rows; otherwise match material alias, tool
+material, normalized action and inclusive mm diameter range. Exactly one cited
+row is needed. Ambiguous overlap or unknown range stays unresolved. No chart
+URL is fetched.
 
 `D_in = D_mm/25.4`; `raw_RPM = 12*sfm/(pi*D_in)`. Round the raw RPM to nearest
 50 with ties-to-even, then clamp to the actual machine limits (which need not
-be multiples of 50). Mill feed in mm/min is
-`RPM * flute_count * chip_load_mm_per_tooth`. Lathe nominal RPM can be computed
-from explicit work diameter, but lathe feed remains unknown, so this rule does
-not certify lathe starts. Verified material, tool and machine facts are needed.
+be multiples of 50; a lathe's `ranges_rpm` bands give its overall limits).
+Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
+feed in mm/min is `RPM * feed_mm_rev`, where `feed_mm_rev` comes from the same
+cited `[[cut]]` row (or the tool's cited `chart`) as `sfm`, under the same
+citation/verify rules as the mill chip load; the lathe diameter is the turned
+feature's `dia_nominal` (plus `rough_allowance_mm` for `rough_turn`). A dome
+uses its widest (base) diameter: `2 * base_radius`, else `2 * sqrt(h (2R - h))`
+from its declared `sphere_radius` R and nominal height h (2R once h exceeds R),
+else the kernel-measured base from `turned_profile.feature_span`. A face, cut to
+fit or part off without a feature diameter uses the setup's `stock_state.od_mm`;
+otherwise the diameter stays unknown. There is no op-level feed override on
+either machine. Lathe rows report `feed_mm_rev`. Verified material, tool and
+machine facts are needed.
+
+Saw cut-off uses only a cited canonical `operation = "saw_cut"` row (for either
+`saw_cut` or `cut_off`), keyed by material class and blade material without a
+diameter filter. Positive row `sfm` is linear blade speed, clamped to the
+machine's `blade_speed_sfm`; row `feed_mm_min` is descent feed. It has no
+spindle RPM, tooth-count calculation, tool-chart precedence or op override.
+Missing/ambiguous/uncited data and machine/blade/material debt remain unknown.
+See [cutting data](cutting-data.md) and [native saw geometry](rules-geometry.md#saw-cut-off).
 
 Exact templates:
 

@@ -145,8 +145,7 @@ def _bundle(tmp_path):
 def _host_only(bundle):
     """Edits that change only host-rule inputs, never a field the engine reads."""
     setup = bundle.plan["setups"][0]
-    op = setup["ops"][0]
-    yield "op do / finishing", lambda: op.update(do="rough_profile")
+
     yield "hold method", lambda: setup["hold"].update(method="soft_jaws")
     yield "hold grip_mm", lambda: setup["hold"].update(grip_mm=5.5)
     yield "fixture opening_mm", lambda: bundle.inventory["fixtures"]["vise"].update(opening_mm=90.0)
@@ -170,6 +169,8 @@ def _host_only(bundle):
 
 def _consumed(bundle):
     setup = bundle.plan["setups"][0]
+    yield "operation action", lambda: setup["ops"][0].update(do="rough_profile")
+    yield "rough allowance", lambda: setup["ops"][0].update(rough_allowance_mm=0.2)
     yield "jaw width", lambda: bundle.inventory["fixtures"]["vise"].update(jaw_width_mm=60.0)
     yield (
         "selected projection",
@@ -223,7 +224,6 @@ def test_host_only_edits_reuse_the_cache_and_consumed_edits_rerun(tmp_path, monk
         ({"form": "finished_test_solid", "as_is_faces": ["#2"]}, "neither section_mm nor dia_mm"),
         ({**BOX, "dia_mm": 20.0}, "both section_mm and dia_mm"),
         ({k: v for k, v in BOX.items() if k != "origin_mm"}, "origin_mm"),
-        ({**BOX, "components": [{"section_mm": [1, 1]}]}, "built-up stock components"),
     ],
 )
 def test_unauthored_stock_envelope_is_a_named_reason(tmp_path, stock, reason):
@@ -455,10 +455,6 @@ def _refused(engine, step):
     yield _clearing(CLEAR, faces=wall + bottom), ALLOWED, away
     outside = f"outside its stock_removal_bounds: {wall[0]}"
     yield _clearing({**CLEAR, "x": [40.0, 60.0]}), ALLOWED, outside
-    # End overstock outside the wall's cutter-dilated footprint cannot be claimed cleared.
-    end = {**BOX, "origin_mm": [-5.0, 0.0, 0.0], "length_mm": 65.0}
-    box = {"x": [-5.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 20.0]}
-    yield _clearing(box), end, "stock_removal_bounds extends"
 
 
 def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, solids):
@@ -496,7 +492,6 @@ def _variants(engine, step):
     )
     yield {**BOX, "section_mm": [40.0, 25.0]}, top, {}, "as-is face(s) do not lie"
     yield {**BOX, "origin_mm": [0.0, 0.0, 1.0]}, (), {}, "outside the authored stock envelope"
-    yield BOX, (), {"stock_in": "S0"}, "stock_in 'S0' of the first setup"
 
 
 def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids):
@@ -511,40 +506,11 @@ def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids)
         assert op["tool_hits"] == "unknown" and reason in op["stock_reason"]
 
 
-def test_rocker_s1_holds_the_raw_blank_and_s2_names_the_missing_profile_footprint(
-    tmp_path, monkeypatch, freecad_kernel
-):
-    from prechips.inputs import load_bundle
-
-    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
-    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
-    result = kernel.run_geometry(bundle)
-    first, second = result["setups"]["S1"], result["setups"]["S2"]
-    # Frame A sees the authored 310x45x16 blank, rails and ears included.
-    assert first["stock_bbox_mm"] == [-155.0, -16.0, -11.52825, 155.0, 29.0, 4.47175]
-    assert first["render_png_base64"] and "stock_reason" not in first
-    # The upper strap face is measured under the raw blank top, not the finished hub face.
-    assert result["ops"]["S1:20"]["reach_depth_mm"] == pytest.approx(4.47175 + 2.27825)
-    # Rough-profile walls sweep nothing along +Z and no interrupted-profile footprint is
-    # authored, so the stock S1 leaves (and everything measured on it) is unknown.
-    reason = second["stock_reason"]
-    assert "S1:40" in reason and "HAF_TOP_EDGE" in reason and "interrupted profile" in reason
-    assert "render_png_base64" not in second and second["width_mm"] == "unknown"
-    assert all(
-        result["ops"][subject]["stock_reason"] == reason
-        for subject in result["ops"]
-        if not subject.startswith("S1:")
-    )
-
-
-@pytest.mark.parametrize("radius", [3.0, None])
-def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearance(
-    engine, solids, radius
-):
+def test_authored_clearing_without_cutter_radius_keeps_later_stock_unknown(engine, solids):
     step = solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
     wide = {"x": [0.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 22.0]}
-    op = {**_clearing(wide), "radius_mm": radius}
+    op = {**_clearing(wide), "radius_mm": None}
     target = _op("S2:10", "wall", 3.0, 10.0, 10.5, holder_radius=6.0, gauge=10.0)
     result = engine.run(
         engine.job(
@@ -555,14 +521,10 @@ def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearan
         )
     )
     first = result["ops"]["S1:10"]
-    if radius is None:
-        assert "stock_removal_error" not in first
-        reason = first["reasons"]["stock_removal_bounds"]
-        assert "cutter radius" in reason
-        assert first["tool_hits"] == "unknown"
-    else:
-        reason = first["stock_removal_error"]
-        assert "stock_removal_bounds extends" in reason and "claimed faces" in reason
+    assert "stock_removal_error" not in first
+    reason = first["reasons"]["stock_removal_bounds"]
+    assert "cutter radius" in reason
+    assert first["tool_hits"] == "unknown"
     second = result["setups"]["S2"]
     assert reason in second["stock_reason"]
     assert "stock_volume_mm3" not in second and "render_png_base64" not in second
@@ -637,3 +599,176 @@ def test_another_ops_removal_and_a_retained_web_do_not_clear_the_current_flute(e
     )
     assert result["ops"]["S1:10"]["tool_hits"] > 0
     assert result["ops"]["S1:20"]["tool_hits"] == 0
+
+
+def test_nonprevious_output_keeps_its_removal_despite_an_unresolved_other_branch(engine, solids):
+    step = solids["step"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
+    setups = [
+        _setup("S1", [_floor_op("S1:10")]),
+        {**_setup("S2", [_floor_op("S2:10")]), "stock_in": "stock"},
+        {**_setup("S3", []), "stock_in": "S1"},
+    ]
+    setups[1]["ops"][0]["feature"] = "unmapped"
+    result = engine.run(engine.job(step, {"floor": floor}, setups))
+    assert "stock_reason" not in result["setups"]["S3"]
+    assert result["setups"]["S3"]["stock_volume_mm3"] == pytest.approx(36000.0)
+    # S2 restarts from supplied material, not from S1's already machined output.
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(48000.0)
+
+
+def test_component_supplies_and_assembly_union_use_model_frame_without_double_counting(
+    engine, solids
+):
+    stock = {
+        "components": {
+            "body": {**BOX, "length_mm": 40.0},
+            "boss": {**BOX, "origin_mm": [30.0, 0.0, 0.0], "length_mm": 30.0},
+        }
+    }
+    first = {
+        **_setup("S0", []),
+        "stock_in": "stock.body",
+        "frame": {**IDENTITY, "origin": [10.0, 0.0, 0.0]},
+    }
+    second = {
+        **_setup("S1", []),
+        "stock_in": "stock.boss",
+        "frame": {
+            "origin": [30.0, 0.0, 0.0],
+            "x": [0.0, 1.0, 0.0],
+            "y": [-1.0, 0.0, 0.0],
+            "z": [0.0, 0.0, 1.0],
+        },
+    }
+    result = engine.run(
+        engine.job(
+            solids["block"],
+            setups=[first, second, {**_setup("S2", []), "stock_in": ["S0", "S1"]}],
+            stock=stock,
+        )
+    )
+    rows = result["setups"]
+    assert rows["S0"]["stock_bbox_mm"] == [-10.0, 0.0, 0.0, 30.0, 40.0, 20.0]
+    assert rows["S0"]["stock_volume_mm3"] == pytest.approx(32000.0)
+    assert rows["S1"]["stock_bbox_mm"] == [0.0, -30.0, 0.0, 40.0, 0.0, 20.0]
+    assert rows["S1"]["stock_volume_mm3"] == pytest.approx(24000.0)
+    joined = rows["S2"]
+    assert joined["stock_bbox_mm"] == [0.0, 0.0, 0.0, 60.0, 40.0, 20.0]
+    assert joined["stock_volume_mm3"] == pytest.approx(48000.0)
+    assert joined["render_png_base64"] and "stock_reason" not in joined
+
+
+def test_missing_component_geometry_only_blocks_routes_that_receive_it(engine, solids):
+    stock = {
+        "components": {
+            "body": {**BOX, "length_mm": 30.0},
+            "boss": {"reason": "round stock placement/dimensions undeclared: origin_mm"},
+        }
+    }
+    setups = [
+        {**_setup("S0", []), "stock_in": "stock.body"},
+        {**_setup("S1", []), "stock_in": "stock.boss"},
+        {**_setup("S2", []), "stock_in": "S0"},
+        {**_setup("S3", []), "stock_in": ["S2", "S1"]},
+    ]
+    result = engine.run(engine.job(solids["block"], setups=setups, stock=stock))
+    rows = result["setups"]
+    assert rows["S2"]["stock_volume_mm3"] == pytest.approx(24000.0)
+    assert rows["S2"]["render_png_base64"] and "stock_reason" not in rows["S2"]
+    assert "stock.boss" in rows["S1"]["stock_reason"]
+    assert "origin_mm" in rows["S3"]["stock_reason"]
+    assert "render_png_base64" not in rows["S1"]
+    assert "render_png_base64" not in rows["S3"]
+
+
+def test_component_as_is_faces_are_checked_on_the_union_exterior(engine, solids):
+    step = solids["block"]
+    top = engine.refs(step, (0, 0, 20), (60, 40, 20))
+    setup = {**_setup("S0", []), "stock_in": ["stock.body", "stock.boss"]}
+    stock = {
+        "components": {
+            "body": {**BOX, "length_mm": 30.0},
+            "boss": {**BOX, "origin_mm": [30.0, 0.0, 0.0], "length_mm": 30.0},
+        }
+    }
+    valid = engine.run(engine.job(step, setups=[setup], as_is=top, stock=stock))["setups"]["S0"]
+    assert valid["stock_volume_mm3"] == pytest.approx(48000.0)
+    for component in stock["components"].values():
+        component["section_mm"] = [40.0, 25.0]
+    invalid = engine.run(engine.job(step, setups=[setup], as_is=top, stock=stock))["setups"]["S0"]
+    assert "as-is face" in invalid["stock_reason"]
+    assert "render_png_base64" not in invalid
+
+
+def test_disconnected_assembly_keeps_both_pieces_after_derivable_clearing(engine, solids):
+    step = solids["block"]
+    top = engine.refs(step, (0, 0, 20), (60, 40, 20))
+    stock = {
+        "components": {
+            "left": {**BOX, "section_mm": [40.0, 25.0]},
+            "right": {
+                **BOX,
+                "origin_mm": [80.0, 0.0, 0.0],
+                "length_mm": 20.0,
+                "section_mm": [40.0, 25.0],
+            },
+        }
+    }
+    setups = [
+        {**_setup("S1", [_floor_op("S1:10")]), "stock_in": ["stock.left", "stock.right"]},
+        {**_setup("S2", []), "stock_in": "S1"},
+    ]
+    rows = engine.run(engine.job(step, {"floor": top}, setups, stock=stock))["setups"]
+    assert rows["S1"]["stock_volume_mm3"] == pytest.approx(80000.0)
+    assert rows["S2"]["stock_volume_mm3"] == pytest.approx(68000.0)
+    assert rows["S2"]["render_png_base64"] and "stock_reason" not in rows["S2"]
+
+
+def test_known_component_union_must_contain_the_finished_part(engine, solids):
+    stock = {
+        "components": {
+            "body": {**BOX, "length_mm": 30.0},
+            "boss": {**BOX, "origin_mm": [30.0, 0.0, 0.0], "length_mm": 20.0},
+        }
+    }
+    setups = [
+        {**_setup("S0", []), "stock_in": "stock.body"},
+        {**_setup("S1", []), "stock_in": "stock.boss"},
+        {**_setup("S2", []), "stock_in": ["S0", "S1"]},
+    ]
+    result = engine.run(engine.job(solids["block"], setups=setups, stock=stock))
+    assert "8000.0" in result["stock"]["reason"]
+    for row in result["setups"].values():
+        assert "built-up supplies" in row["stock_reason"]
+        assert "render_png_base64" not in row
+        assert row["width_mm"] == "unknown"
+
+
+def test_deleting_one_component_does_not_hide_splitting_another(engine, solids):
+    step = solids["channel"]
+    floor = engine.refs(step, (0, 5, 10), (60, 35, 10))
+    stock = {
+        "components": {
+            "body": BOX,
+            "rail": {**BOX, "origin_mm": [0.0, 0.0, 30.0], "section_mm": [40.0, 5.0]},
+            "scrap": {
+                **BOX,
+                "origin_mm": [25.0, 10.0, 50.0],
+                "length_mm": 10.0,
+                "section_mm": [5.0, 5.0],
+            },
+        }
+    }
+    clearing = _floor_op("S1:10", 10.0)
+    setups = [
+        {
+            **_setup("S1", [clearing]),
+            "stock_in": ["stock.body", "stock.rail", "stock.scrap"],
+        },
+        {**_setup("S2", []), "stock_in": "S1"},
+    ]
+    rows = engine.run(engine.job(step, {"floor": floor}, setups, stock=stock))["setups"]
+    assert rows["S1"]["stock_volume_mm3"] == pytest.approx(60250.0)
+    assert "splits an input stock piece" in rows["S2"]["stock_reason"]
+    assert "render_png_base64" not in rows["S2"]

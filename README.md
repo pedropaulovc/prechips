@@ -3,8 +3,10 @@
 Checks before chips: a deterministic, offline checker and printable traveler for
 an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
 plan, workholding, indexing and physics rule families, write a canonical findings
-report, and render Letter-portrait HTML with setup pages and contour continuations.
-M4 adds seven geometry and workholding rules measured on the bundle's STEP by a
+report, and render a Letter-portrait shop traveler: one setup per page with
+holding steps, DRO zero, tools, operations, speeds/feeds and inspection, plus
+contour tables (see docs/report-and-telemetry.md, "Generated traveler").
+M4 adds eight geometry and workholding rules measured on the bundle's STEP by a
 local FreeCAD kernel, plus a deterministic setup render on the sheet. M5 adds
 measured machine/holder inventory, envelope/travel screens and a machine
 measurement checklist. It checks declared facts and sampled B-rep measurements,
@@ -71,8 +73,8 @@ their stops. The one-piece cone stops on an exported inconsistency:
 [12.47, 13.49]. That is an HA export follow-up, not a sign the consumer may fix.
 Restored milling frames also expose far-side boss-face claims (one-piece S2:40/50,
 built-up S2:50); those remain errors requiring an authored route/claim correction.
-Lathe approach-dependent geometry is explicitly unsupported until a radial
-lathe approach model exists; the engine's −Z-only milling model is not a lathe test.
+Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
+spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
 Only the consumer side of M3 is done; the HA follow-ups and the combined gate
 evidence are in PLAN §8 M3. Outputs are still written for exits 2 and 4.
 All example plans remain **authored** and their sheets **PLANNED**. The shaft,
@@ -182,6 +184,14 @@ warn once and disable exporters without changing the report or checker exit.
   [geometry and workholding on the kernel](docs/rules-geometry.md).
 - [Reports, approval, renders and telemetry](docs/report-and-telemetry.md).
 
+Native [saw cut-off](docs/plan.md#saw-cut-off) supports `saw_cut` / `cut_off` on
+mill, bench and bandsaw setups: an explicit blade-centre plane plus inventory
+kerf removes only the discarded stock side. The traveler shows cited blade sfm
+and descent feed, not spindle RPM; cylinder-based accessibility explicitly does
+not apply. Dividing-head headroom uses centre height and the posed axis offset,
+and child hole operations inherit a missing travel centre from their named
+parent/hole while explicit unknown locations remain debt.
+
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:
 on an item it leaves that identity unresolved for the declared-input rules,
@@ -189,9 +199,8 @@ on one length fact it leaves only that fact unresolved.
 No invented tool dimension, Handbook page, measurement or drawing tolerance
 fills a gap. Sources are citations, never network fetches at check time. The
 only optional network activity is explicitly configured OpenTelemetry export.
-An unknown cutter radius leaves the `stock_removal_bounds` XY-extent check `?`
-with a missing-radius reason and later stock unresolved; it never substitutes
-zero or manufactures a definite extent error.
+An unknown cutter radius leaves `stock_removal_bounds` `?` with a
+missing-radius reason and later stock unresolved; it never substitutes zero.
 An existing policy without `[required]`, a feature without `requirements`, or a
 Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
 Explicit empty tables/lists remain known empty; no policy file still selects the
@@ -255,20 +264,27 @@ length, not held bar OD; unknown exposed geometry remains unresolved.
 ## Geometry on the FreeCAD kernel
 
 `accessibility`, `reach`, `internal_corner_radius`, `coverage`,
-`finish_coverage`, `vise` and `thin_wall_under_clamp` run one
-`freecadcmd.exe` job per check/traveler run on the bundle's STEP, found through
-`FREECAD_CMD`, the installed FreeCAD 1.1, then `PATH`. No kernel means all seven
+`finish_coverage`, `vise`, `thin_wall_under_clamp` and `fixture_interference`
+run one `freecadcmd.exe` job per check/traveler run on the bundle's STEP, found
+through `FREECAD_CMD`, the installed FreeCAD 1.1, then `PATH`. No kernel means all eight
 rows are `?` with one kernel-naming sentence on the console and exit 4; a
 kernel failure is `✗`. Successful facts are cached locally under
 `PRECHIPS_KERNEL_CACHE` (default `%LOCALAPPDATA%\prechips\geometry`) keyed by
 the STEP digest, consumed geometry inputs, engine source and kernel binary.
 Feature and explicit per-op `faces` are matched by each STEP `ADVANCED_FACE`'s
 own geometry, never import order; invalid or far-side cutting claims are `✗`.
-Fixture solids come only from a vise's explicit `jaw_height` / `jaw_width` /
-`jaw_depth` / `opening`, the parallels' `height` (plus `length` / `width` for
-their solids) and the plan's `fixed_jaw` / `jaws_along` / `grip_mm` /
-`jaw_above_parallels_mm`, with optional authored `jaw_center_along_mm` and
-`parallels_centres_mm` for the exact pose. Those fixture dimensions, the
+Fixture solids come only from explicit inventory dimensions and plan poses:
+a vise's `jaw_height` / `jaw_width` / `jaw_depth` / `opening`, the parallels'
+`height` (plus `length` / `width` for their solids) and riser blocks, with the
+plan's `fixed_jaw` / `jaws_along` / `grip_mm` / `jaw_above_parallels_mm` and
+optional authored `jaw_center_along_mm` and `parallels_centres_mm`; a 3- or
+4-jaw chuck's body/bore/jaw dimensions with `hold.pose` and `jaw_clock_deg`
+(a dividing head adds its own authored `solids` and the chuck `hold.chuck`
+names); a dead centre with its tailstock quill; and authored `solids` boxes
+and cylinders for angle plates, custom fixtures and clamping-kit straps placed
+by `hold.pose` / `hold.clamps`. Every drawn solid is an accessibility and
+holder obstacle, and the report's scene lists each component and its
+`fixture_kind`. Those fixture dimensions, the
 tool `dia` / `flute_len` / `oal`, the holder `gauge_dia` / `gauge_len` /
 `grip` and the tool/holder projection are read as M5 fact-local length
 facts with measurement not required: a plain nominal number is accepted
@@ -282,14 +298,144 @@ geometrically checked op can still be M5 measurement debt. A
 missing `jaw_depth` or a debt-carrying jaw fact is debt and the setup picture
 is a labelled part-only view; an
 undeclared jaw centre draws only the certain jaw material plus a pale
-possible-jaw envelope and keeps samples inside it `?`. The render is a
-deterministic rasterization of the kernel tessellation, hashed into
-`report.json` with its scene record so an approval binds to it.
-Each setup is checked and drawn on its authored stock envelope after earlier
-setups' claimed removals, not silently on the finished solid. Non-derivable
-stock is named `?` and produces no misleading setup image. Cutter exclusion is
-only a thin shell of the sampled face; another claimed groove wall remains an
-obstacle. Missing surface normals never become clearance or reach passes.
+possible-jaw envelope and keeps samples inside it `?`. Setup diagrams are
+1600×1000 deterministic PNGs with an engine-bundled bitmap font: lathe side
+elevations, mill isometric views and custom-plate plan views, with labelled
+axes, Z0, datums, holding, stickout and the selected tool's approach. Amber
+hatching shows this setup's derived material removal (entry minus exit stock);
+profile sketches share waypoint keys with the traveler tables. Authored clamp
+order and posed inventory stops are shown explicitly. Dashed machine-context
+outlines are schematic, not measured fixture geometry, and unresolved drawing
+items remain plain-language warnings. The image is hashed into `report.json`
+with its scene record so an approval binds to it; it is not a toolpath.
+Each setup is checked and drawn on the input explicitly selected by `stock_in`:
+`"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
+setup id, not only the previous one. A nonempty reference array joins solids by
+Boolean union in model coordinates. All supplies and outputs remain model-frame;
+assembly adds no implicit transform. Components require known, nonempty, unique
+ids matched exactly, with no ASCII character whitelist, and their own
+`origin_mm`, `axis` and `section_axis` pose facts, with root-stock semantics. Each contains
+only its own piece, not the whole finished STEP; missing component geometry
+remains individual debt. Setup outputs subtract their own derivable removals.
+Known branches remain usable while another component's geometry is missing.
+When all component envelopes are known, their union must contain the finished
+STEP; otherwise all component references carry geometry debt.
+A nonempty root `as_is_faces` declaration needs the full joined supply exterior
+and every component envelope known, so it can withhold otherwise-known branches.
+Empty or omitted declarations add no cross-component dependency. Removal
+fragmentation is checked per input solid; deleting one piece cannot mask
+splitting another.
+Unknown or forward authored references, including `"unknown"`, are bad input
+(exit 3); omitted `stock_in` remains debt, never auto-linear. Non-derivable stock is named
+`?` and produces no misleading setup image.
+Joined references must have disjoint supply ancestry: duplicate entries and
+joining a supply with its descendant are bad input (exit 3), naming the shared
+ancestor. Independent route alternatives may restart from the same supply but
+cannot join that material lineage twice.
+Cutter self-contact exclusion is only a thin shell of the sampled face;
+another claimed groove wall remains an obstacle. Under the user's
+2026-10-05 pose decision, a floor sample on or within one cutter radius of
+any concave floor/rising-wall edge, straight or curved (pocket walls and boss
+feet alike), moves its axis along the wall's in-plane normal at the nearest
+edge point until the cutter is tangent; every such edge bounds it at once, so
+two-wall concave corners and samples near them stand tangent to both walls,
+and a concave circle at least the cutter's radius bounds it exactly. A cutter
+wider than its gap or circle keeps the sample's own axis and reports the real
+hit. Convex edges and farther interior samples are unchanged. A sample past
+both walls of a sharp convex island corner (classified by the wall/wall edge
+rising there) moves straight away from that corner, its nearest boundary
+point, until tangent; one in front of or behind a wall's interior is bounded
+by that wall alone, and convex vertices get no corner pose. An edge the shifted
+axis comes within a radius of, or crosses into its material from the floor
+(its nearest edge, straight behind the edge), joins the bounds once (a finite
+constraint closure, not a search). This is a
+per-sample rule for floors that keep their samples. A +Z planar floor whose
+entire face fits inside the actual cutter disc instead gets one pose, no
+samples or corners: the area centroid of the axes covering its outer wire
+(exact for lines and Z circles, no `STOCK_TOL` widening), a certified unique
+centre when only one axis covers it, or a concave rising Z-circle wall's centre
+meeting every such wall's tangent-circle bound; a rough leave or any other rising wall
+keeps the samples, and so does a face larger than the cutter (reverse
+containment is not this rule). An undecidable floor (other outer curves, a
+failed native locus or unclassifiable edge) drops only its own poses: other
+faces' certain hits stay while the op's measured facts are `unknown`.
+Tangency does not certify
+corner radii. Floor-only claims do not certify wall/wall corners;
+`internal_corner_radius` retains its existing scope and checks a sharp
+wall/wall corner when the operation claims both walls.
+Adjacent finished walls, including undercut/leaning walls, are not removed
+to manufacture clearance.
+
+A milling or hole flute meets the stock its setup's earlier derived cuts
+leave (one pass in op order before measuring; a later cut is never credited)
+and alone excludes its op's own derivable outside-finished allowance or, for
+drill/spot/ream/bore/tap/counterbore, its own actual cutter volume to
+declared depth or explicit through extent. After an underivable earlier cut,
+later flutes keep only certain finished-material hits and their tool hits are
+unknown, deliberately, even where entry stock would read clear. Final wall
+and cap debts never change a before-op stock. Turning keeps its own
+turned-profile obstacle model.
+Hole axes/centres derive from geometry-matched concave cylindrical faces
+aligned to setup Z. Missing depth/entry and explicitly unknown through facts
+remain debt; absent `thru` keeps the existing blind-hole default.
+Spot and drill cut with a point cone (apex at the tip) and full-radius body;
+the tool's numeric included `point_angle` is mandatory, and an unknown angle
+is named accessibility debt and leaves later stock unresolved, never a flat
+cylinder or default angle. The flute check uses that cone and body against
+part and all modeled fixture solids; holders retain full setup-entry stock. Spot
+`depth_mm` is the apex tip depth; drill `depth_mm` is full-diameter depth, its
+tip a point length `r / tan(angle/2)` deeper; an op `to_z` is the absolute
+actual tip. A through drill exits each matched bore's actual axial bottom plus
+its point; other through actions end at that bore bottom, never the raw-stock
+bounding-box bottom. Ream, bore, tap and counterbore remain flat-bottomed
+cylinders. A hole op wider than its matched bore removes its own bore wall to
+the op radius with no fixed radial cap; the sizing rule owns drill/reamer
+diameter. A spot never widens its own bore.
+Spot and tap honor explicit depth even on a through feature. A hole
+operation's own bore radius is diameter-sizing, not an `internal_corner_radius` limit.
+Claimed point caps are not blanket-exempt: only an op's own known matched
+cone/sphere cap, below and sharing an edge with its claimed Z-parallel bore,
+is checked against unmodified stock instead of an impossible
+offset shell, and is not an internal corner. Its actual collision still
+counts; wider countersinks and unrelated caps keep their unknowns and hits.
+Each feature's last drill, ream, bore or counterbore (setup then op order; a
+thread's last drill, never a pilot, spot or tap) must also form its own
+claimed caps: they must be clear of that setup's final stock, judged without
+a `to_z` clip, leave or tolerance. A touched cap is not a collision; it is
+output-stock debt and a `finish_coverage` error, even when no later setup
+consumes that stock. An unmeasurable completion makes that credit unknown.
+Stock-state `top_z`/`entry_z` and op `depth_mm` are millimetres even for
+inch-unit features; tap fallback feature-depth bands convert to millimetres.
+Unrelated finished material and holder obstacles remain. A rough milling op's
+scalar `rough_allowance_mm` (a) is an engine-consumed leave normal to the
+finished surface: each sample moves `a` along the unit normal before the
+cutter-radius XY shift, floor-edge/corner constraints use `r + a`, derived
+stock protects the finished solid offset outward by `a` (drafted faces
+included), and later finishing ops remove it. An explicit `to_z` caps the endpoint rather
+than adding a second leave; a finishing op's numeric `to_z` above its face is
+likewise its actual tip (a 0.1 mm spring pass samples there, not at the
+floor). An unknown leave is accessibility and later-stock
+debt. A failed arc-join offset may use a validated, conservative
+intersection-join offset (extra leave at convex corners), never the nominal
+solid; if both fail, the result is named offset debt. Holding, rendering,
+reach and holder obstacles still use actual setup-entry stock; a flute is
+never credited with a later op's removal. Missing surface normals or
+unresolved pose facts never become
+clearance or reach passes.
+Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
+while preserving finished islands. `stock_removal_bounds` is an authored
+cleared footprint (possibly several passes), not capped to the claims' XY
+bounding box plus cutter radius and not a toolpath proof; known radius,
+finite bounds, stock intersection, finished protection, exact claim/piece
+contact, future hole columns and no split of an original solid still apply.
+Generic bounded clearing preserves known
+unclaimed planned-hole columns for their own future hole operations, not all
+concave cylindrical faces.
+Those reserved columns span the actual matched bore plus any adjacent coaxial
+concave cone/sphere cap no wider than the bore, using exact axial spans and
+numerical lift at either end, not the entry-stock height. Wider back
+countersinks are not reserved, blind columns stop at their caps, and
+pins/rods outside that span remain.
 Kernel-absent runs remove stale setup PNGs in the same output transaction.
 Nothing here is a toolpath or a certification of the physical setup. See
 [docs/rules-geometry.md](docs/rules-geometry.md).
@@ -297,15 +443,18 @@ Nothing here is a toolpath or a certification of the physical setup. See
 ## Limits
 
 M2 checks declared profile, stock holding, indexing and physics arithmetic;
-they do not confirm a measured setup. Lathe headroom remains `unsupported`,
-trial-cut measurements and example cutting data remain unknown. The
+they do not confirm a measured setup. Lathe headroom checks stock/chuck swing
+and between-centres length; trial-cut measurements and example cutting data remain unknown. The
 consumer's labelled manifests and adjacent STEP exports are consumed for all
 three drawn pilot parts (M3); pivot-bracket remains authored. Export delivery
 does not establish live prechips farm/trace acceptance or physical readiness.
 M4 geometry is sampled B-rep measurement
-with a vise as the only modeled fixture: lathe setups have no chuck/collet
-solid (`vise` not applicable, `thin_wall_under_clamp` unsupported,
-accessibility unresolved). Only the authored bracket lacks STEP bytes.
+with vise, chuck, dividing-head, centre, angle-plate, clamp and custom
+fixture solids drawn only from explicit dimensions and poses; collets have no
+solid. Lathe setups keep `vise` not applicable; `thin_wall_under_clamp` samples
+material under modeled chuck jaws. Turning accessibility is a radial sampled
+necessary-condition screen, not a toolpath, carriage-stroke or chatter proof;
+undrawn obstacles and unresolved inputs retain unknowns. Only the authored bracket lacks STEP bytes.
 Shaft, rocker and cone preserve their consumer-exported face sets and exact
 adjacent STEP files; exported face identities do not establish operation
 coverage. The rocker's S1 upper strap operations explicitly claim the exported

@@ -1,7 +1,15 @@
 """Declared exposed finished diameter and selected support; no inferred shop limit."""
 
 from ..findings import Finding
-from .resolution import UNKNOWN, _citations, number, record, resolve, uncertain
+from .resolution import (
+    UNKNOWN,
+    _citations,
+    number,
+    record,
+    resolve,
+    same_length,
+    uncertain,
+)
 from .turned_profile import exposed_profile
 
 SUPPORT_KINDS = {
@@ -113,7 +121,8 @@ def evaluate(bundle):
         kind = record(machine).get("kind", UNKNOWN)
         held = held_diameter(bundle, setup)
         geometry = exposed_profile(bundle, setup)
-        segments = geometry["segments"]
+        # Exposed stock beyond every finished feature counts at the kernel's stock radius.
+        segments = geometry["segments"] + geometry["stock_segments"]
         diameter = (
             min(segment["diameter_mm"] for segment in segments) if geometry["complete"] else UNKNOWN
         )
@@ -121,8 +130,8 @@ def evaluate(bundle):
             {
                 name
                 for segment in segments
-                if number(diameter) and segment["diameter_mm"] == diameter
-                for name in segment["features"]
+                if number(diameter) and same_length(segment["diameter_mm"], diameter)
+                for name in segment["features"] or ["kernel stock"]
             }
         )
         length = record(setup.get("hold")).get("stickout_mm", UNKNOWN)
@@ -135,13 +144,19 @@ def evaluate(bundle):
         support, support_evidence = support_state(bundle, setup)
         numbers = {
             "diameter_mm": diameter,
-            "diameter_source": "features declared finished profile in exposed setup Z",
+            "diameter_source": "features declared finished profile in exposed setup Z, "
+            "else the kernel's finished faces of revolution; exposed stock beyond every "
+            "finished feature from the kernel's stock profile",
             "diameter_features": diameter_features,
             "held_diameter_mm": held,
             "held_diameter_source": held_diameter_source(setup),
             "exposed_z_mm": geometry["exposed_z_mm"],
             "segments": segments,
             "unresolved": sorted(set(geometry["unresolved"])),
+            "unresolved_reasons": geometry["unresolved_reasons"],
+            "uncovered_z_mm": geometry["uncovered_z_mm"],
+            "stock_reason": geometry["stock_reason"],
+            "off_axis": geometry["off_axis"],
             "stickout_mm": length,
             "stickout_ld_max": ratio,
             "unsupported_limit_mm": limit,
@@ -158,7 +173,10 @@ def evaluate(bundle):
         elif not number(diameter):
             status, message = (
                 "unknown",
-                "the finished diameter or geometry in the exposed span is unresolved",
+                "the finished diameter or geometry in the exposed span is unresolved"
+                if not geometry["uncovered_z_mm"] or geometry["unresolved"]
+                else "part of the exposed span lies beyond every finished feature, and the "
+                f"in-process stock diameter there is unresolved ({geometry['stock_reason']})",
             )
         elif support == "pass":
             status, message = (
@@ -194,12 +212,14 @@ def evaluate(bundle):
                     held_diameter_source(setup),
                     "plan.setups.hold.stickout_mm; "
                     "inventory selected support identity/verification",
-                    "features declared finished diameters/z_mm/frame; "
+                    "features declared finished diameters/z_mm/frame, else the kernel's "
+                    "finished faces of revolution about setup Z; "
                     "plan.setups.frame and stock_state.north_end_z/south_end_z "
                     "define the exposed span; 25.4 mm/in",
                     *[
                         f"features.features.{name}: defines exposed minimum diameter"
                         for name in diameter_features
+                        if name != "kernel stock"
                     ],
                     *geometry["cite"],
                     *citations,
