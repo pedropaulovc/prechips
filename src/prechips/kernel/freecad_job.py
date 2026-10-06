@@ -3656,7 +3656,7 @@ class _Setup:
                 solid = Part.makeCylinder(radius, z1 - z0, V(ax, ay, z0))
             # Most AABB candidates miss the face itself. Reject those before measuring
             # distance to the much more complex stock/tool intersection.
-            if face.common(solid).Area > CONTACT_MM2 and common.distToShape(face)[0] < 1e-6:
+            if face.common(solid).Area > CONTACT_MM2 and _distance(common, face)[0] < 1e-6:
                 refs.add(self.owner.labels[index])
         return refs
 
@@ -4199,7 +4199,7 @@ class _Setup:
                 continue
             if _distant_box(common_box, self.face_boxes[index]):
                 continue
-            if face.common(solid).Area > CONTACT_MM2 and common.distToShape(face)[0] < 1e-6:
+            if face.common(solid).Area > CONTACT_MM2 and _distance(common, face)[0] < 1e-6:
                 refs.add(self.owner.labels[index])
         return refs
 
