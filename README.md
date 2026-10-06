@@ -489,6 +489,47 @@ Kernel-absent runs remove stale setup PNGs in the same output transaction.
 Nothing here is a toolpath or a certification of the physical setup. See
 [docs/rules-geometry.md](docs/rules-geometry.md).
 
+## Machinist review of a traveler (dev tool)
+
+`scripts/machinist_review.py` gives a printed traveler to a blind senior
+machinist: `codex exec` or `claude -p` in a neutral temp directory, with no repo
+context, reading only the page images, under the calibrated prompt in
+`scripts/prompts/machinist_review_traveler.md`. It is ported from
+harmonic-analyzer's drawing review and its drawing simplicity policy. Missing
+and unneeded content both count as defects. The two tests are **no questions**
+and **nothing the operator doesn't need to run the job**. This is a developer
+tool that calls a hosted model. It is not part of `prechips check`, so the
+offline, no-network rule for checks is unchanged.
+
+```sh
+uv run scripts/machinist_review.py --reviewer codex --traveler out/pivot-shaft
+uv run scripts/machinist_review.py --reviewer claude --bundle examples/rocker-arm/plan.toml
+uv run scripts/machinist_review.py --reviewer codex --pdf printed-traveler.pdf
+uv run scripts/machinist_review.py --reviewer codex --png page-1.png --png page-2.png
+```
+
+`--reviewer` is required. It must be the other model family from whoever wrote
+or last edited the traveler code or plan: Claude-authored work gets `codex`,
+Codex/GPT-authored work gets `claude`. Defaults are `gpt-6-astra` at low effort
+and `claude-fable-5-1` at medium (`--model`, `--effort`). `--traveler DIR_OR_HTML`
+prints `traveler.html` to a Letter PDF with headless Chrome or Edge, giving the
+duplex-padding script time to run, then renders every page at 300 dpi with
+pypdfium2. The browser comes from `PRECHIPS_CHROME`, then the standard Windows
+Chrome/Edge installs, then `PATH`. An invalid `PRECHIPS_CHROME` is an error.
+`--bundle PLAN` runs `uv run prechips traveler` into a temp directory first, with
+the caller's `FREECAD_CMD` and `PRECHIPS_KERNEL_CACHE`. Options repeat, and
+`--jobs` reviews travelers in parallel.
+
+Each traveler's report goes to `out/machinist-review/<part>/`: `review.json`,
+`review.md`, the reviewer event stream, per-attempt output with a
+`codex resume` / `claude --resume` command, the printed PDF and the page PNGs.
+`out/machinist-review/index.md` lists every traveler. The JSON records the
+SHA-256 of `traveler.html`, the PDF and every page, plus the `report.json` hash
+from the traveler's `prechips-report` meta tag. Exit is 0 only when every
+traveler passes: the review stayed blind (any tool use beyond reading the copied
+pages fails it), the verdict is `CLEAR`, and there is no blocker, clutter or
+clarity finding. Minor findings are recorded but do not gate.
+
 ## Limits
 
 M2 checks declared profile, stock holding, indexing and physics arithmetic;

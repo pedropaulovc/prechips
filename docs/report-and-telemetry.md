@@ -342,6 +342,15 @@ inventory slugs, frame names and hashes are dropped, and frame `T1` reads as
 stay in `report.json` (and the page's machine-readable meta tags). Print CSS is
 not a physical dry run, and presentation never changes PLANNED readiness.
 
+The printed result can be given a blind senior-machinist review with
+`scripts/machinist_review.py` (see README, "Machinist review of a traveler").
+That script prints this HTML to Letter pages with headless Chrome, so the
+duplex padding above runs, and asks a reviewer from the other model family to
+judge every page against two tests: no questions, and nothing the operator
+doesn't need. It is a developer tool that calls a hosted model. It is not part
+of `prechips check` or `traveler`, and it does not change their offline
+contract.
+
 
 ## Telemetry and console
 
