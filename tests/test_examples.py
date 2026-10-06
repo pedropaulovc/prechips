@@ -30,7 +30,7 @@ _GEOMETRY_RULES = {
 )
 def test_examples_match_reference_bytes_and_repeat(
     tmp_path,
-    freecad_kernel,
+    pilot_kernel_cache,
     part,
     plan_filename,
     expected_subdir,
@@ -38,6 +38,7 @@ def test_examples_match_reference_bytes_and_repeat(
 ):
     examples = copy_examples(tmp_path)
     bundle = examples / part
+    pilot_kernel_cache(bundle / plan_filename)
     outputs = []
     for run in range(2):
         out = tmp_path / f"run-{run}"
@@ -62,8 +63,11 @@ def test_cone_comparison_keeps_candidate_identity_volume_and_approved_constructi
     if without_kernel:
         monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "no-such-freecadcmd"))
     else:
-        request.getfixturevalue("freecad_kernel")
+        prepare = request.getfixturevalue("pilot_kernel_cache")
     bundle = copy_examples(tmp_path) / "cone-pivot-post"
+    if not without_kernel:
+        prepare(bundle / "plan.toml")
+        prepare(bundle / "built-up.toml")
     outputs = []
     for run in range(2):
         out = tmp_path / f"compare-{run}"

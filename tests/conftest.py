@@ -1,7 +1,6 @@
 """Optional real-kernel tests, with a fail-closed kernel-required session gate."""
 
 import os
-from pathlib import Path
 
 import pytest
 
@@ -13,36 +12,35 @@ def pytest_sessionstart(session):
         raise pytest.UsageError("FreeCAD kernel not found")
 
 
+@pytest.fixture(scope="session", autouse=True)
+def session_kernel_cache(tmp_path_factory):
+    # Establish the default before any function-scoped overrides, including tests
+    # that discover FreeCAD lazily through request.getfixturevalue().
+    cache = tmp_path_factory.mktemp("session-kernel-cache")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("PRECHIPS_KERNEL_CACHE", str(cache))
+        yield cache
+
+
 @pytest.fixture(scope="session")
-def freecad_kernel(tmp_path_factory):
+def freecad_kernel(session_kernel_cache):
     executable = kernel.discover_kernel()
     if executable is None:
         pytest.skip("FreeCAD kernel not found")
-    # The CLI's host-only deadline must not include cold pilot geometry. Populate
-    # one session cache with the kernel's own job deadline, then let all CLI
-    # subprocesses reuse these content-addressed results.
+    return str(executable)
+
+
+@pytest.fixture(scope="session")
+def pilot_kernel_cache(freecad_kernel):
+    """Prepare only the selected CLI pilot's cold job, using the kernel deadline."""
     from prechips.inputs import load_bundle
 
-    cache = tmp_path_factory.mktemp("session-kernel-cache")
-    previous = os.environ.get("PRECHIPS_KERNEL_CACHE")
-    os.environ["PRECHIPS_KERNEL_CACHE"] = str(cache)
-    root = Path(__file__).resolve().parents[1] / "examples"
-    try:
-        for part, plan in (
-            ("pivot-shaft", "plan.toml"),
-            ("rocker-arm", "plan.toml"),
-            ("pivot-bracket", "plan.toml"),
-            ("cone-pivot-post", "plan.toml"),
-            ("cone-pivot-post", "built-up.toml"),
-        ):
-            facts = kernel.run_geometry(load_bundle(root / part / plan))
-            assert facts["status"] == "ok", facts
-        yield str(executable)
-    finally:
-        if previous is None:
-            os.environ.pop("PRECHIPS_KERNEL_CACHE", None)
-        else:
-            os.environ["PRECHIPS_KERNEL_CACHE"] = previous
+    def prepare(plan):
+        facts = kernel.run_geometry(load_bundle(plan))
+        assert facts["status"] == "ok", (plan, facts)
+        return facts
+
+    return prepare
 
 
 @pytest.fixture

@@ -280,10 +280,11 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
 
 
 def test_reference_rocker_arm_binds_the_labelled_export_and_keeps_unresolved_setups_unknown(
-    tmp_path, freecad_kernel
+    tmp_path, pilot_kernel_cache
 ):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
+    pilot_kernel_cache(plan)
     result, report, _ = traveler(plan, tmp_path / "ref")
     assert result.returncode == 2, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
