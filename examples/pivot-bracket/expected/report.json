@@ -4187,6 +4187,55 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29"
+      ],
+      "message": "STEP bytes and their manifest SHA-256 are required for FreeCAD geometry.",
+      "numbers": {
+        "kernel_status": "unknown"
+      },
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
@@ -9565,7 +9614,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "f76cc51f5607ca849fb89053ad16d8268c8afcce5994e9c530eb9afa804973cd",
+  "hash": "13f5182d82d0bf6531b0eba7443852b31cf23c08434f3b03d0bb5e8bd7d06346",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

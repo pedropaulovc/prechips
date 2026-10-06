@@ -248,7 +248,7 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
+            "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
           },
           "plan": {
             "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
@@ -1033,6 +1033,50 @@
       "rule": "finish_coverage",
       "status": "not_applicable",
       "subject": "top_edge"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold"
+      ],
+      "message": "S1: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold"
+      ],
+      "message": "S2: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.test-vise-wide: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117",
+        "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-429"
+      ],
+      "message": "S3: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S3"
     },
     {
       "cite": [
@@ -3246,7 +3290,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "6ea81916424a236012ea569723d17e501ca526c34d67f5d019e6e5809812707e",
+  "hash": "dcb46ff396480fb3ebddb9afe1d64c33276bac3502a8215fc8e8e2f2d44628e5",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3258,7 +3302,7 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
+      "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
     },
     "plan": {
       "path": "examples/geometry/rocker-jaw-occluded/plan.toml",

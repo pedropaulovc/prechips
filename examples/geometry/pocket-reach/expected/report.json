@@ -80,7 +80,7 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
+            "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
           },
           "plan": {
             "path": "examples/geometry/pocket-reach/plan.toml",
@@ -465,6 +465,35 @@
       "rule": "finish_coverage",
       "status": "not_applicable",
       "subject": "pocket"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold"
+      ],
+      "message": "S1: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions"
+      ],
+      "message": "S2: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S2"
     },
     {
       "cite": [
@@ -1672,7 +1701,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "c2a48934b165b6eb71c15e30a3cc98b4693e33c40cffd48ce0ad55f48b8f391c",
+  "hash": "499b6498a32405e4bb2fcce81c7f926c42842a09c054bd3bf73844fcfb1cdedd",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -1684,7 +1713,7 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
+      "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
     },
     "plan": {
       "path": "examples/geometry/pocket-reach/plan.toml",

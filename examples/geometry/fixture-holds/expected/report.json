@@ -209,7 +209,7 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
+            "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
           },
           "plan": {
             "path": "examples/geometry/fixture-holds/plan.toml",
@@ -1270,6 +1270,103 @@
       "rule": "finish_coverage",
       "status": "not_applicable",
       "subject": "top"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions"
+      ],
+      "message": "S1: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.test-angle-plate: declared dimensions"
+      ],
+      "message": "S2: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.test-nest: declared dimensions"
+      ],
+      "message": "S3: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
+        "plan.setups.S4: frame and hold",
+        "inventory.machines.test-head: declared dimensions"
+      ],
+      "message": "S4: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
+        "plan.setups.S5: frame and hold",
+        "inventory.fixtures.test-chuck-4jaw: declared dimensions"
+      ],
+      "message": "S5: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S5"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
+        "plan.setups.S6: frame and hold",
+        "inventory.fixtures.test-chuck-3jaw: declared dimensions"
+      ],
+      "message": "S6: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S6"
     },
     {
       "cite": [
@@ -4876,7 +4973,7 @@
       "subject": "S6"
     }
   ],
-  "hash": "c4c66f60eb7861f3409c9be2ec35d75b64e332665b76f706eb87a79a7254d387",
+  "hash": "cfd1561429b46d0593e552b02901891b36b2ea123a18a45e27dca091e72adc5f",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -4888,7 +4985,7 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
+      "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
     },
     "plan": {
       "path": "examples/geometry/fixture-holds/plan.toml",
