@@ -862,6 +862,7 @@ approach_mm = 5.0
 to_z = 0.0                   # head top, model Y86
 doc_mm = 0.5                 # author's choice: two passes off the 1 mm saw allowance
 direction = "conventional"
+stock_removal_bounds = { x = [-27.725, 27.725], y = [-27.725, 27.725], z = [0.0, 1.0] }   # sawn head disc r21.375 + cutter r6.35
 note = "Face the sawn end down to the head top in two 0.5 mm passes."
 
 [setups.ops.checks]
