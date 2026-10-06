@@ -25,6 +25,7 @@ from .resolution import (
     _citations,
     length_mm,
     number,
+    op_features,
     plan_frame_cite,
     resolve,
     setup_frame,
@@ -61,12 +62,17 @@ def located_by(features, name, feature):
     return owner, owner.get("frame", "model"), parent
 
 
+def _op_names(setup):
+    """Every feature the setup's ops name, in op order; an absent feature stays ``None``."""
+    return dict.fromkeys(name for op in setup["ops"] for name in op_features(op) or [None])
+
+
 def _located_names(setup, features):
     """This setup's located features (a located kind or a centre-op target), in op order."""
     centre = {op.get("feature") for op in setup["ops"] if op.get("do") in CENTRE_OPS}
     return [
         name
-        for name in dict.fromkeys(op.get("feature") for op in setup["ops"])
+        for name in _op_names(setup)
         if mapping(features.get(name)).get("kind") in LOCATED_KINDS or name in centre
     ]
 
@@ -1229,7 +1235,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 for op in setup["ops"]
                 if "tool" in op
             )
-        names = list(dict.fromkeys(op.get("feature") for op in setup["ops"]))
+        names = list(_op_names(setup))
         located_names = set(_located_names(setup, features))
         revolved_names = set(revolved_located(setup, features))
         axis_cites, locator_cites = [], []
