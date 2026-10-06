@@ -174,6 +174,20 @@ _DUPLEX_JS = """(() => {
           rest.insertBefore(t.tBodies[t.tBodies.length - 1], rest.tBodies[0]);
           pointer("on reverse");
         }
+        if (!fits(box(more).bottom)) {
+          // One row and the pointer overflow: undo the split and start the table, with
+          // its heading, on the next page; at a page top already, drop the pointer.
+          t.append(...[...rest.tBodies]);
+          rest.remove();
+          more.remove();
+          if (move(t)) {
+            table(t);
+            return;
+          }
+          t.after(rest);
+          rest.append(...[...t.tBodies].slice(1));
+          more = null;
+        }
       }
       breakAt(rest);
       if (more) pointer(pages % 2 === 0 ? "on reverse" : "on the next sheet");
