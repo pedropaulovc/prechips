@@ -503,7 +503,7 @@ exit_mm = 1.5 # clears the 0.4 mm lead beyond the 2.5 mm strap
 approach_mm = 5.0
 note = "Ream through the strap while the full-thickness outside stock still supports it."
 inspection_note = "Gauge before op 40. If the hole fails a drawing plug or the process hold, stop; do not open the outer pockets until the hole is resolved."
-process_holds = [{ feature = "rod_hole", requirement = "dia", band = [2.000, 2.010], gauge = "rocker-rod-limit-gauges", reason = "AUTHOR'S CHOICE: the S3/S4 1.9875 diamond pin clocks the part in this hole; a looser hole spends the S4 position budget" }]
+process_holds = [{ feature = "rod_hole", requirement = "dia", band = [2.000, 2.010], gauge = "rocker-rod-limit-gauges", reason = "AUTHOR'S CHOICE: the S3/S4 diamond pin clocks the part in this hole; a looser hole spends the S4 position budget" }]
 
 [setups.ops.checks]
 dia = "rocker-rod-limit-gauges" # four plugs: drawing GO 1.994 / NO-GO 2.094, process GO 2.000 / NO-GO 2.010
@@ -681,6 +681,12 @@ bottom_z = -7.0565
 bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
 retained_rail_bottom_z = -11.52825 # scrap rails remain seated and independently clamped through outline release
 
+[setups.stock_state.entry_z]
+# Along the outline the stock top is the upper strap face: the hub island is inside it
+# and the retained rails and ears are clear of the whole cutter sweep.
+top_edge = -2.27825
+profile_outer = -2.27825
+
 [setups.hold]
 fixture = "rocker-profile-fixture"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
@@ -748,6 +754,7 @@ tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.02825 # author's choice, lower strap Z-4.77825 minus 1.25 exit
 exit_mm = 1.25 # author's choice, through the 2.50 mm strap; fixture base top is frame-A Z -15.00
+doc_mm = 3.75 # author's choice: one full-depth finish level from the strap face (0.20 radial)
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
@@ -768,6 +775,7 @@ tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.02825 # author's choice, lower strap Z-4.77825 minus 1.25 exit
 exit_mm = 1.25 # author's choice, same through-profile depth as op 30
+doc_mm = 3.75 # author's choice: one full-depth finish level, same as op 30
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
