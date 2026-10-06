@@ -678,6 +678,13 @@ shank = "unknown"
 [consumables]
 cutting-oil = ["CRC cutting oil", "Tap Magic ProTap"]
 
+# Outside processes the shop sends work to, not shop-owned kit.
+[services.black-oxide-vendor]
+kind = "outside_process"
+coating = "hot black oxide, matte"
+note = "illustrative example outside finisher: hot black oxide, matte, MIL-DTL-13924 class 1, with oil dip; adds about 1 µm or less. Example (plausible, not measured): confirm the vendor before quoting."
+verify = false
+
 [fixtures]
 
 [fixtures.vise-pm-6]

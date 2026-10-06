@@ -492,6 +492,7 @@ exit_mm = 1.5 # clears the 0.4 mm lead beyond the 2.5 mm strap
 approach_mm = 5.0
 note = "Ream through the strap while the full-thickness outside stock still supports it."
 inspection_note = "Gauge before op 40. If the hole fails a drawing plug or the process hold, stop; do not open the outer pockets until the hole is resolved."
+process_holds = [{ feature = "rod_hole", requirement = "dia", band = [2.000, 2.010], gauge = "rocker-rod-limit-gauges", reason = "AUTHOR'S CHOICE: the S3/S4 1.9875 diamond pin clocks the part in this hole; a looser hole spends the S4 position budget" }]
 
 [setups.ops.checks]
 dia = "rocker-rod-limit-gauges" # four plugs: drawing GO 1.994 / NO-GO 2.094, process GO 2.000 / NO-GO 2.010
@@ -822,7 +823,7 @@ note = "Final verification of both upper and lower hub patches against reamed da
 dia = "calipers"
 coaxiality_dia = "dial-indicator"
 [setups.ops.inspection_methods]
-coaxiality_dia = "After removing the part, support a close-fitting calibrated pin through the reamed bore in the inspection V-block. Rotate the pin and indicate both hub patches; each patch must remain within 0.50 mm TIR, accounting for pin clearance and indicator resolution, corresponding to the drawing's Ø0.50 coaxial zone."
+coaxiality_dia = "After removing the part, support a close-fitting calibrated pin through the reamed bore in the inspection V-block. Rotate the pin and indicate both hub patches. Record upper TIR ______ and lower TIR ______, allow for pin clearance and indicator resolution, and compare each with the coaxiality limit on the op row."
 
 
 [[setups.ops]]
@@ -835,5 +836,26 @@ note = "Author's choice: hand-file and stone burrs, visually check edges and hol
 op = 80
 do = "coating"
 feature = "profile_outer"
-note = "Matte black oxide after machining, as the drawing calls for; no bath or vendor in the shop list. Protect or re-measure the bore."
+process = "black-oxide-vendor"
+note = "Matte black oxide after machining, as the drawing calls for. Send the deburred batch out after op 70 with the bores and rod hole left open; on return, ops 90 and 95 re-gauge them before release."
 note_cite = "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:4"
+
+[[setups.ops]]
+op = 90
+do = "inspect"
+feature = "pivot_bore"
+note = "After black oxide: re-gauge datum bore A before release."
+[setups.ops.checks]
+dia = "rocker-bore-limit-gauges"
+[setups.ops.inspection_methods]
+dia = "Clean the bore of oxide residue and oil. The 6.500 GO plug enters through the hub and the 6.530 NO-GO plug does not."
+
+[[setups.ops]]
+op = 95
+do = "inspect"
+feature = "rod_hole"
+note = "After black oxide: re-gauge the rod hole before release."
+[setups.ops.checks]
+dia = "rocker-rod-limit-gauges"
+[setups.ops.inspection_methods]
+dia = "Clean the hole of oxide residue and oil. The 1.994 GO plug enters through the strap and the 2.094 NO-GO plug does not."
