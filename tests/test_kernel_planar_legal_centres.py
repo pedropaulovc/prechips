@@ -72,6 +72,18 @@ for name, radius in (("far-bsp", 5.1), ("near-bsp", 2.5)):
         Part.makeCylinder(radius, 6, V(15, 15, 14)))
     save(name, base.fuse([ring, pad]).removeSplitter())
 
+# Two separate section obstacles share a base: the outward wall projection is
+# blocked by the spline pad, although a farther supported axis is genuinely clear.
+base = Part.makeBox(60, 40, 10)
+wall = Part.makeBox(2, 20, 6, V(30, 10, 10))
+spline = Part.BSplineCurve()
+spline.interpolate([V(37.5, 19.9, 10), V(37.2, 20, 10), V(37.5, 20.1, 10)])
+loop = [V(37.5, 20.1, 10), V(37.5, 20.5, 10), V(38.5, 20.5, 10),
+    V(38.5, 19.9, 10), V(37.5, 19.9, 10)]
+pad = Part.Face(Part.Wire([spline.toShape()] +
+    [Part.LineSegment(a, b).toShape() for a, b in zip(loop, loop[1:])])).extrude(V(0, 0, 6))
+save("blocked-supported", base.fuse([wall, pad]).removeSplitter())
+
 # A horizontal future bore spans z7..11, genuinely CROSSING the z10 floor.
 # Its top opening is an inner wire of that floor, not an unrelated enclosed void.
 core = Part.makeCylinder(2, 20, V(20, 20, 9), V(1, 0, 0))
@@ -165,10 +177,72 @@ bb = job._bbox(read("near-centre"))
 result["near-centre"] = axis("near-centre", (bb[0], bb[1], 10, bb[3], bb[4], 10),
     (9e-8*math.cos(math.radians(60)), 9e-8*math.sin(math.radians(60)), 10), 1)
 result["far-bsp"] = axis("far-bsp", (9.9, 9.9, 14, 20.1, 20.1, 14), (20.1, 15, 14), 4.7625)
-try:
-    result["near-bsp"] = axis("near-bsp", (0, 0, 14, 60, 40, 14), (44, 20, 14), 3)
-except ValueError as exc:
-    result["near-bsp"] = {"undefined": str(exc)}
+
+def certificate_case(name, bounds, point, witnesses=()):
+    runner = setup(name)
+    index = floor(runner, bounds)
+    p = V(point[0], point[1], point[2] + job.LIFT)
+    section = runner._planar_section(p.z)
+    distance, pairs, infos = job._distance(section["shape"], Part.Vertex(p))
+    row = {"distance": distance,
+        "inside": any(s.isInside(p, 1e-9, True) for s in runner.certain.Solids),
+        "strict_inside": any(s.isInside(p, 1e-9, False) for s in runner.certain.Solids),
+        "closest": []}
+    for pair, info in zip(pairs, infos):
+        q = pair[0]
+        kind, slot, parameter = info[:3]
+        closest = {"q": list(q), "kind": kind,
+            "coordinate_distance": math.hypot(p.x-q.x, p.y-q.y),
+            "in_material": any(s.isInside(q, 1e-9, True) for s in runner.certain.Solids)}
+        if kind == "Edge":
+            edge = section["shape"].Edges[slot]
+            closest.update(spline=isinstance(edge.Curve, Part.BSplineCurve),
+                interior=min(edge.FirstParameter, edge.LastParameter) < parameter <
+                    max(edge.FirstParameter, edge.LastParameter),
+                tolerance=edge.getTolerance(1))
+        row["closest"].append(closest)
+
+    def measure(xy):
+        tip = V(xy[0], xy[1], p.z)
+        return {"axis": list(xy), "displacement": math.hypot(tip.x-p.x, tip.y-p.y),
+            "inside": any(s.isInside(tip, 1e-9, True) for s in runner.certain.Solids),
+            "legal": runner._planar_legal(section, tip.x, tip.y, tip.z, 3),
+            "clearance": job._distance(section["shape"], Part.Vertex(tip))[0],
+            "collision_mm3": Part.makeCylinder(3, 10, tip).common(runner.certain).Volume}
+
+    row["witnesses"] = [measure(xy) for xy in witnesses]
+    row["sample"] = measure((p.x, p.y))
+    if len(pairs) == 1 and row["closest"][0]["coordinate_distance"] > job.PLANAR_EQUAL_MM:
+        q = pairs[0][0]
+        d = row["closest"][0]["coordinate_distance"]
+        row["bound"] = 3-d
+        row["projection"] = measure((q.x+3*(p.x-q.x)/d, q.y+3*(p.y-q.y)/d))
+    try:
+        xy = runner._planar_axis(index, V(*point), 3, 0, p.z)
+        row["selected"] = measure(xy)
+    except ValueError as exc:
+        row["undefined"] = str(exc)
+    return row
+
+for label, point, witnesses in (
+    ("near-bsp", (44, 20, 14), ()),
+    ("bsp-line-boundary", (39.25, 20, 14), ((39.25, 17), (39.25, 23))),
+    ("bsp-boundary", (40, 20.8, 14), ()),
+    ("bsp-interior", (40, 20.4, 14), ()),
+    ("bsp-vertex", (41.5, 20, 14), ()),
+    ("bsp-precision", (40, 21.8, 14), ((40, 23.8),)),
+):
+    result[label] = certificate_case("near-bsp", (0, 0, 14, 60, 40, 14), point, witnesses)
+result["blocked-supported"] = certificate_case("blocked-supported",
+    (0, 0, 10, 60, 40, 10), (34, 20, 10), ((35, 22.1583123951777),))
+# The farther witness meets the wall's supported offset line x35 and a native
+# endpoint circle; it is not merely an arbitrary point outside the material.
+blocked_section = setup("blocked-supported")._planar_section(10 + job.LIFT)
+endpoint = min(blocked_section["shape"].Vertexes,
+    key=lambda vertex: (vertex.Point-V(37.5, 20.5, 10+job.LIFT)).Length)
+result["blocked-supported"]["supported_endpoint"] = list(endpoint.Point)
+result["blocked-supported"]["witness_endpoint_distance"] = job._distance(
+    endpoint, Part.Vertex(V(35, 22.1583123951777, 10+job.LIFT)))[0]
 
 # Exercise real bounded removal, with actual future bores discovered from features.
 # No stand-in column or mocked _hole_columns result is installed.
@@ -271,6 +345,7 @@ FLOORS = {
     "tie": ((0, 0, 10), (60, 40, 10)),
     "near-centre": ((-100, -100, 10), (100, 100, 10)),
     "far-bsp": ((9.9, 9.9, 14), (20.1, 20.1, 14)),
+    "blocked-supported": ((0, 0, 10), (60, 40, 10)),
     "cross-core": ((0, 0, 10), (60, 40, 10)),
     "blind-core": ((27, 17, 10), (33, 23, 10)),
     "tilted-blind-core": ((27, 17, 9.99), (33, 23, 10.01)),
@@ -520,10 +595,103 @@ def test_far_unsupported_section_curve_adds_no_floor_debt(native, engine, solids
     assert detail["tool_hits"] == 0 and "tool_hits" not in detail["reasons"], detail
 
 
+@pytest.mark.parametrize(
+    "name, expected, bound",
+    [("near-bsp", [44.5, 20], 0.5), ("bsp-line-boundary", [39.25, 17], 3)],
+)
+def test_near_spline_certified_axis_attains_the_native_displacement_bound(
+    native, name, expected, bound
+):
+    row = native[name]
+    selected = row["selected"]
+    assert selected["axis"] == pytest.approx(expected, rel=0, abs=1e-7)
+    assert selected["displacement"] <= bound + 1e-7 + 1e-12
+    assert selected["legal"] and not selected["inside"], row
+    assert selected["clearance"] >= 3 - 1e-7
+    assert selected["collision_mm3"] == pytest.approx(0, abs=1e-8)
+    assert not row["strict_inside"], row
+    if name == "near-bsp":
+        assert not row["inside"], row
+        assert row["distance"] == pytest.approx(2.5, rel=0, abs=1e-7)
+        assert row["closest"][0]["q"] == pytest.approx([41.5, 20, 14.001], rel=0, abs=1e-7)
+        assert row["closest"][0]["kind"] == "Vertex"
+        assert row["closest"][0]["in_material"], row
+        assert row["bound"] == pytest.approx(0.5, rel=0, abs=1e-7)
+    else:
+        assert row["distance"] <= 1e-7
+        assert row["closest"][0]["kind"] == "Edge"
+        assert row["closest"][0]["interior"] and not row["closest"][0]["spline"], row
+        outward, inward = row["witnesses"]
+        assert outward["legal"] and not inward["legal"], row
+        assert inward["clearance"] < 3 - 1e-7
+
+
+@pytest.mark.parametrize("name", ["bsp-boundary", "bsp-interior", "bsp-vertex"])
+def test_uncertified_spline_boundary_interior_and_vertex_remain_named_unknown(native, name):
+    row = native[name]
+    assert "no exact legal-centre offset" in row["undefined"], row
+    assert not row["sample"]["legal"], row
+    assert row["sample"]["collision_mm3"] > 0, row
+    if name == "bsp-interior":
+        assert row["strict_inside"], row
+    else:
+        assert row["distance"] <= 1e-7 and not row["strict_inside"], row
+        closest = row["closest"][0]
+        assert closest["in_material"], row
+        if name == "bsp-boundary":
+            assert closest["kind"] == "Edge" and closest["spline"] and closest["interior"], row
+        else:
+            assert closest["kind"] == "Vertex", row
+            assert closest["q"] == pytest.approx([41.5, 20, 14.001], rel=0, abs=1e-7)
+
+
+def test_unsupported_interior_native_precision_refuses_even_a_legal_nominal_projection(native):
+    row = native["bsp-precision"]
+    assert not row["inside"] and not row["strict_inside"], row
+    assert row["distance"] == pytest.approx(1, rel=0, abs=1e-7)
+    (closest,) = row["closest"]
+    assert closest["kind"] == "Edge" and closest["spline"] and closest["interior"], row
+    assert closest["in_material"] and closest["tolerance"] > 1e-7, row
+    assert closest["q"] == pytest.approx([40, 20.8, 14.001], rel=0, abs=1e-7)
+    projection = row["projection"]
+    assert projection["axis"] == pytest.approx([40, 23.8], rel=0, abs=1e-7)
+    (witness,) = row["witnesses"]
+    for candidate in (projection, witness):
+        assert candidate["legal"] and not candidate["inside"], row
+        assert candidate["clearance"] >= 3 - 1e-7
+        assert candidate["collision_mm3"] == pytest.approx(0, abs=1e-8)
+        assert candidate["displacement"] <= 2 + 1e-7 + 1e-12
+    assert "no exact legal-centre offset" in row["undefined"], row
+
+
+def test_blocked_native_bound_cannot_fall_back_to_a_farther_clear_supported_axis(native):
+    row = native["blocked-supported"]
+    assert not row["inside"] and not row["strict_inside"], row
+    (closest,) = row["closest"]
+    assert closest["in_material"] and closest["kind"] == "Edge", row
+    assert not closest["spline"] and closest["interior"], row
+    assert closest["q"] == pytest.approx([32, 20, 10.001], rel=0, abs=1e-7)
+    assert row["distance"] == pytest.approx(2, rel=0, abs=1e-7)
+    assert row["bound"] == pytest.approx(1, rel=0, abs=1e-7)
+    projection = row["projection"]
+    assert projection["axis"] == pytest.approx([35, 20], rel=0, abs=1e-7)
+    assert not projection["legal"] and not projection["inside"], row
+    assert projection["clearance"] == pytest.approx(2.2, rel=0, abs=1e-7)
+    assert projection["collision_mm3"] > 1, row
+    (witness,) = row["witnesses"]
+    assert witness["legal"] and not witness["inside"], row
+    assert witness["clearance"] == pytest.approx(3, rel=0, abs=1e-7)
+    assert witness["collision_mm3"] == pytest.approx(0, abs=1e-8)
+    assert witness["displacement"] == pytest.approx(2.3787207476241714, rel=0, abs=1e-7)
+    assert row["bound"] + 1e-7 < witness["displacement"] <= 3
+    assert row["supported_endpoint"] == pytest.approx([37.5, 20.5, 10.001], rel=0, abs=1e-7)
+    assert row["witness_endpoint_distance"] == pytest.approx(3, rel=0, abs=1e-7)
+    assert "no exact legal-centre offset" in row["undefined"], row
+
+
 def test_near_unsupported_curve_is_unknown_without_losing_another_faces_certain_hits(
     native, engine, solids
 ):
-    assert "undefined" in native["near-bsp"], native["near-bsp"]
     step = solids["near-bsp"]
     floors = engine.refs(step, (0, 0, 14), (60, 40, 14), kind="Plane")
     pocket = engine.refs(step, (12.5, 12.5, 14), (17.5, 17.5, 14), kind="Plane")

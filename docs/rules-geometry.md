@@ -989,15 +989,56 @@ solids (containment, then `distToShape >= rho - 1e-7`), never an area offset
 or a bounding box. Only the section at `z` steers the axis: overhangs above,
 leave below `z`, future hole cores and unclaimed raw stock do not, but the
 full flute against the accepted after-op stock and the holder against
-setup-entry stock still meet them at the chosen axis. Another curve within
-`2 rho` of a sample (a B-spline or ellipse wall), an ambiguous section (a
-certain face starting or ending within 1e-7 mm of `z`, an open or invalid
-section wire), missing raw supply or a failed native construction leaves that
-floor's pose undefined: its own poses drop, certain hits on the op's other
-faces stay in `min_hits`, `hit_refs` and `obstacles`, and the op's measured
-facts become `unknown` with `<face>: floor tool pose is undefined (...)`.
-Farther curves never make a pose undefined. Concave floor corners add their
-own samples; convex island corners get none.
+setup-entry stock still meet them at the chosen axis.
+
+Another curve within `2 rho` of an illegal sample (a B-spline or ellipse wall)
+has no exact offset, so that sample needs a native nearest-bound certificate.
+Its domain is the whole native section at `z`, every edge included (the
+approximating B-splines `slice` returns among them), and every certain solid:
+nothing new is approximated or ignored, and nothing beyond the native model's
+precision is claimed about the physical surface. Let `q` be the section's
+native closest point (exactly one pair, or bit-identical duplicates; never a
+tolerance cluster or an average) and `d = |p - q|`, from the coordinates.
+Every axis at least `rho` from the material point `q` is at least `rho - d`
+from `p` (triangle inequality), and `c = q + rho (p - q) / d` attains that
+bound, so a `c` with exact clearance `rho` is the unique nominal nearest axis.
+Native acceptance is the fixed 1e-7 mm comparison above, so a legal `c` proves
+only that no accepted axis is more than 1e-7 mm nearer; no uniqueness among
+accepted axes is claimed. `c` therefore joins the supported candidates in the
+unchanged ranking: the nearest enumerated distance `best` lies in
+`[d_c - 1e-7, d_c]`, where `d_c = |c - p|`; the selected distance is at most
+`best + 1e-7`, hence at most `d_c + 1e-7`. Centroid and least-`(x, y)` ties
+apply as before. Two cases certify. Outside: the sample is outside every certain solid (boundary
+counts as inside), `1e-7 < d < rho`, and every native Edge reported at `q`
+resolves to exactly one section edge. On a straight line: `d <= 1e-7`, the
+sample is strictly inside no certain solid, the only section edge within
+1e-7 mm of it is one native line whose foot `q` lies more than 1e-7 mm inside
+both ends, and exactly one of `q ± rho n` (`n` the line's unit normal) is
+legal. The precision policy is conservative and fixed: a closest point reported
+on an unsupported curve (even at its end parameter) refuses when that edge's
+native `getTolerance(1)` exceeds 1e-7 mm, which in practice refuses every
+projection inside a sliced B-spline (they carry about 4e-5 mm), while lines,
+circles and vertices count at the native model's precision; neither `rho` nor
+1e-7 mm ever grows. The boundary case is line-only scope, not a claim that a
+smooth spline normal is wrong: a spline, circle, seam, corner or vertex
+boundary stays uncertified.
+For context only, an accepted axis within `d_c + eps` of the sample (`eps` =
+1e-7 mm) lies within `R(d) = sqrt(eps^2 + 4 rho eps (rho - d) / d)` of `c`
+(about 0.0015 mm at `rho = 3`, `d = 1`, growing as `d` nears `eps`); on a line
+the analogue is `R_B = sqrt(eps^2 + 4 rho eps)` (about 0.0011 mm) while the
+foot stays at least that far from the ends, though the fixed end margin is only
+1e-7 mm and band competitors keep the ordinary ranking. These describe the
+numeric tie band, never a radius allowance or an eligibility gate.
+
+An uncertified sample (a contradictory classification, an illegal `c`, two or
+no legal normals, or any refusal above; a farther legal supported axis never
+stands in for it), an ambiguous section (a certain face starting or ending
+within 1e-7 mm of `z`, an open or invalid section wire), missing raw supply or
+a failed native construction leaves that floor's pose undefined: its own poses
+drop, certain hits on the op's other faces stay in `min_hits`, `hit_refs` and
+`obstacles`, and the op's measured facts become `unknown` with `<face>: floor
+tool pose is undefined (...)`. Farther curves never make a pose undefined.
+Concave floor corners add their own samples; convex island corners get none.
 A legal centre selects a pose, not a corner-radius certification. Floor-only
 claims do not certify wall/wall
 corner radii: `internal_corner_radius` still checks a sharp wall/wall corner
@@ -1128,8 +1169,13 @@ radii wide, while a cutter wider than its circle or groove, or a sharp
 concave corner sample with no legal centre within `rho`, reports the real wall
 hit; a plate sample past both walls of a square island's convex corner moves
 straight away from the corner and clears; equal candidates break to the face
-centroid; a nearby ellipse wall makes only that floor's pose undefined; an
-offset cutter tangent to
+centroid; beside a B-spline wall, an outside sample whose native closest point
+is a vertex and a sample on a straight edge take their certified bounds, while
+a spline boundary, a strictly interior sample, a vertex boundary, a projection
+inside a spline whose native tolerance exceeds 1e-7 mm and a bound blocked by
+a second obstacle (a farther clear supported axis notwithstanding) leave only
+that floor's pose undefined and keep another face's certain hits; an offset
+cutter tangent to
 its claimed side wall clears while the sample-centred mutant intersects the
 wall; a Ø10 cutter
 in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the
