@@ -96,6 +96,22 @@ def test_saw_row_speed_is_clamped_inclusively_and_feed_is_the_rows_descent_feed(
     assert not SPINDLE_KEYS & set(row.numbers)
 
 
+@pytest.mark.parametrize("cite", [" ", ["", "  ", "unknown"]], ids=["blank", "all-blank-list"])
+def test_blank_row_citation_is_not_a_source(cite):
+    row = speeds(saw_bundle(rows=[{**ROW, "cite": cite}]))
+    assert row.status == "unknown"
+    assert row.numbers["cutting_data_row"] == "unknown"
+    assert row.numbers["blade_speed_sfm"] == "unknown"
+
+
+def test_mixed_citation_list_keeps_only_its_real_citations():
+    row = speeds(saw_bundle(rows=[{**ROW, "cite": [" ", "saw chart p3 (test)", "unknown"]}]))
+    assert row.status == "pass"
+    assert row.numbers["cutting_data_row"] == ["saw chart p3 (test)"]
+    assert "saw chart p3 (test)" in row.cite
+    assert " " not in row.cite and "unknown" not in row.cite
+
+
 @pytest.mark.parametrize(
     "rows",
     [

@@ -25,6 +25,8 @@ to RPM or rounded to 50. Tool charts and op-level overrides do not supply saw
 numbers. Missing/ambiguous/uncited rows, unknown speeds/feed, identity debt and
 material verification stay `?`. These are starting recommendations, not blade
 capacity, tooth selection, tension or physical feed-control certification.
+Blank and `"unknown"` citation entries are discarded. A row with no remaining
+source cannot certify a saw speed/feed; a mixed list keeps its real citations.
 
 `[[material]]` carries material class, `kc_n_per_mm2`, `e_gpa`, and citations for
 M2 [turning deflection](rules-physics.md). Exactly one sourced material row is
