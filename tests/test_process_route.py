@@ -251,14 +251,14 @@ def test_a_stop_face_that_names_nothing_is_bad_input(tmp_path):
 REASON = "test hold: a later setup clocks on a pin in this hole"
 
 
-def hold_ream(plan, band, requirement="dia"):
+def hold_ream(plan, band, requirement="dia", gauge="rocker-rod-limit-gauges"):
     sid, op = find_op(plan, lambda op: op["do"] == "ream" and op.get("feature") == "rod_hole")
     rewrite(
         plan,
         ("op", sid, op),
         "process_holds",
         f'[{{ feature = "rod_hole", requirement = "{requirement}", band = {band}, '
-        f'gauge = "rocker-rod-limit-gauges", reason = "{REASON}" }}]',
+        f'gauge = "{gauge}", reason = "{REASON}" }}]',
     )
     return sid, op
 
@@ -294,3 +294,112 @@ def test_a_process_hold_names_an_exported_requirement(tmp_path):
     hold_ream(plan, "[2.000, 2.010]", requirement="depth")
     with pytest.raises(BadInput, match="process hold rod_hole depth"):
         load_bundle(plan)
+
+
+# ------------------------------------------------- review regressions (PR #90, round 1)
+
+
+def test_a_nominal_scalar_gives_a_process_hold_no_band_but_a_zone_reads_from_zero(tmp_path):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    # Inside the gauge's span and inside the invented [0, 2.0]: only the band is in question.
+    sid, op = hold_ream(plan, "[1.995, 1.999]")
+    bundle = load_bundle(plan)
+    bundle.feature_definitions["rod_hole"]["dia"] = 2.0  # a nominal, not a band
+    row = evaluate("inspection", bundle)[f"{sid}:{op}"]
+    assert row.status == "unknown"
+    assert row.numbers["process_holds"][0]["inside_drawing_band"] == "unknown"
+    # A scalar geometric zone is a maximum: [0, v].
+    (hold,) = next(
+        candidate["process_holds"]
+        for setup in bundle.plan["setups"]
+        if setup["id"] == sid
+        for candidate in setup["ops"]
+        if candidate["op"] == op
+    )
+    hold.update(requirement="position_dia", band=[0.0, 0.05])
+    bundle.feature_definitions["rod_hole"]["position_dia"] = 0.1
+    inside = evaluate("inspection", bundle)[f"{sid}:{op}"].numbers["process_holds"][0]
+    assert inside["inside_drawing_band"] is True
+    hold.update(band=[0.0, 0.2])
+    outside = evaluate("inspection", bundle)[f"{sid}:{op}"]
+    assert outside.numbers["process_holds"][0]["inside_drawing_band"] is False
+    assert outside.status == "error"
+
+
+def test_a_process_hold_with_an_unknown_gauge_is_not_a_pass(tmp_path):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = hold_ream(plan, "[2.000, 2.010]", gauge="unknown")
+    assert evaluate("inspection", load_bundle(plan))[f"{sid}:{op}"].status == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("band", "status"),
+    [
+        ("[2.000, 2.002]", "pass"),  # wider than the 0.001 gauge resolution
+        ("[2.0000, 2.0009]", "error"),  # narrower than the gauge can read
+    ],
+)
+def test_a_process_hold_gauge_must_read_the_hold_band(tmp_path, band, status):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = hold_ream(plan, band)
+    row = evaluate("inspection", load_bundle(plan))[f"{sid}:{op}"]
+    assert row.status == status
+    if status == "error":
+        assert "gauge resolution exceeds the requirement band" in row.sentence
+
+
+@pytest.mark.parametrize(
+    ("after", "status"),
+    [
+        (None, "pass"),
+        ('do = "face"\nfeature = "pivot_bearing"\n', "warn"),  # the cut removes the coating
+        ('do = "unknown"\nfeature = "pivot_bearing"\n', "unknown"),
+        ('do = "inspect"\nfeature = "pivot_bearing"\n', "pass"),
+    ],
+)
+def test_a_coating_applies_the_finish_only_after_the_last_cut(tmp_path, after, status):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    without_coating(plan)
+    append_op(plan, 'do = "coating"\nfeature = "pivot_bearing"\nprocess = "cutting-oil"\n')
+    if after:
+        append_op(plan, after)
+    assert evaluate("finish_route", load_bundle(plan))["pivot-shaft"].status == status
+
+
+@pytest.mark.parametrize("products", ['["unknown"]', '[""]', '["oxide salts", " "]'])
+def test_a_consumable_without_known_products_does_not_resolve(tmp_path, products):
+    examples = copy_examples(tmp_path)
+    plan = examples / "pivot-shaft" / "plan.toml"
+    without_coating(plan)
+    subject = append_op(plan, 'do = "coating"\nfeature = "pivot_bearing"\nprocess = "oxide-kit"\n')
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    text = inventory.read_text(encoding="utf-8")
+    assert text.count("[consumables]\n") == 1
+    inventory.write_text(
+        text.replace("[consumables]\n", f"[consumables]\noxide-kit = {products}\n"),
+        encoding="utf-8",
+    )
+    assert evaluate("tool_resolves", load_bundle(plan))[subject].status == "unknown"
+
+
+def drop_setup_key(path, sid, key):
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    index = [setup["id"] for setup in setups(path)].index(sid)
+    start = [n for n, line in enumerate(lines) if line.startswith("[[setups]]")][index]
+    end = next(n for n in range(start + 1, len(lines)) if HEADER.fullmatch(lines[n]))
+    lines[start + 1 : end] = drop_key(lines[start + 1 : end], key)
+    path.write_text("".join(lines), encoding="utf-8")
+
+
+def test_undeclared_routing_leaves_a_stop_face_unknown_not_missing(tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    stop_on(plan, "S2", "shoulder_thrust")
+    assert evaluate("hold_fields", load_bundle(plan))["S2"].status == "pass"
+    drop_setup_key(plan, "S2", "stock_in")
+    assert "stock_in" not in setups(plan)[1]
+    row = evaluate("hold_fields", load_bundle(plan))["S2"]
+    assert row.status == "unknown"
+    assert row.numbers["stop_face"]["cut_later"] == []
+    # Undeclared routing does not excuse a face this setup cuts itself.
+    stop_on(plan, "S2", "shoulder_north_face")
+    assert evaluate("hold_fields", load_bundle(plan))["S2"].status == "error"
