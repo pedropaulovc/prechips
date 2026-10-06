@@ -1,4 +1,9 @@
-"""Every finish requirement's face set must be touched by finishing cuts."""
+"""Every finish requirement's face set must be touched by finishing cuts.
+
+A claimed hole cap is credited only once its complete-form cut's setup output is
+measured clear of it (the engine's ``cap_completion``): a touched cap is an error and
+an unmeasured one is unknown, whether or not a later setup consumes that stock.
+"""
 
 from prechips.findings import Finding
 from prechips.rules.geometry_common import (
@@ -23,14 +28,24 @@ def evaluate(bundle):
     finishers = finishing_subjects(bundle)
     claimed, invalid_refs, debt = set(), [], False
     unsupported = set()
-    mapping = record(facts.get("mapping"))
+    unformed, pending = set(), {}  # cap index -> why its formation is unknown
+    mapping, op_facts = record(facts.get("mapping")), record(facts.get("ops"))
     for setup, op in operations(bundle):
         if op.get("do") in SAW_OPS:
             # A saw cut is never a finishing claim on a target face.
             continue
+        subject = f"{setup['id']}:{op['op']}"
         if cutting_action(op) is None:
             debt = True
-        if f"{setup['id']}:{op['op']}" not in finishers:
+        # A thread's tap drill owns its caps but is no finisher once the tap follows.
+        completion = record(record(op_facts.get(subject)).get("cap_completion"))
+        caps = completion.get("caps")
+        if isinstance(caps, list):
+            if isinstance(completion.get("unformed"), list):
+                unformed.update(completion["unformed"])
+            else:
+                pending.update(dict.fromkeys(caps, str(completion.get("reason", "unknown"))))
+        if subject not in finishers:
             continue
         # Milling finish cuts credit reachable faces; lathe claims name only candidates.
         indices, _, invalid = op_claims(bundle, facts, setup, op)
@@ -76,7 +91,8 @@ def evaluate(bundle):
                     "finish face references or finishing operation claims are unresolved",
                 )
             else:
-                missing = sorted(indices - claimed)
+                credited = claimed - unformed - pending.keys()
+                missing = sorted(indices - credited)
                 values.update(required_faces=sorted(indices), uncovered_faces=missing)
                 if missing and set(missing) <= unsupported:
                     status, message = "unsupported", LATHE_APPROACH_REASON
@@ -86,11 +102,25 @@ def evaluate(bundle):
                     if candidates:
                         missing = sorted(set(missing) - unsupported)
                         values.update(uncovered_faces=missing, unsupported_faces=sorted(candidates))
-                    status = "error" if missing else "pass"
-                    message = (
-                        "finish-required faces lack a finishing cut"
-                        if missing
-                        else "every finish-required face is claimed by a finishing cut"
-                    )
+                    formless = sorted(set(missing) & unformed)
+                    if formless:
+                        values["unformed_caps"] = formless
+                    waiting = sorted(set(missing) & pending.keys() - unformed)
+                    if set(missing) - set(waiting):
+                        status = "error"
+                        message = (
+                            "finish-required hole cap(s) still touch stock after their "
+                            "complete-form cut's setup"
+                            if formless
+                            else "finish-required faces lack a finishing cut"
+                        )
+                    elif waiting:
+                        status = "unknown"
+                        message = "hole cap completion is unknown: " + "; ".join(
+                            sorted({pending[index] for index in waiting})
+                        )
+                    else:
+                        status = "pass"
+                        message = "every finish-required face is claimed by a finishing cut"
         rows.append(Finding("finish_coverage", name, status, values, cite, f"{name}: {message}."))
     return rows
