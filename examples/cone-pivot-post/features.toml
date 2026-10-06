@@ -152,7 +152,7 @@
 ["features"."journal_bore"]
 "kind" = "hole"
 "frame" = "model"
-"requirements" = ["dia", "thru", "finish_ra", "height", "unknown"]
+"requirements" = ["dia", "thru", "finish_ra", "height"] # example divergence: the export's "unknown" entry is the RIMS BREAK 0.1 MAX callout (cone_gear_shaft_spec.py:113), an edge break carried as plan deburr_mm = 0.1, not a toleranced dimension
 "at" = [0.0, 33.368, 0.0]
 "axis" = [0.21674972336567902, 0.0, 0.9762272058393484]
 "dia" = [12.2558, 12.2858]
@@ -186,6 +186,7 @@
 "angularity_datums" = ["A", "B"]
 "dimension_type" = "basic"
 "land_angle_nominal_deg" = 12.5182
+"angle_tol_deg" = 0.0795 # example divergence: HA computes CRANK_BORE_ANGLE_LIMIT_DEG = atan(0.10 / 72.0344) = 0.0795 deg (cone_pivot_post_spec.py:373-375) but does not export it
 "faces" = ["#675/ADVANCED_FACE[20]/HAF_CRANK_BORE__P01", "#867/ADVANCED_FACE[25]/HAF_CRANK_BORE__P01"]
 
 ["features"."mount_west"]

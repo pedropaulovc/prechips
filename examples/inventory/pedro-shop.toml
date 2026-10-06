@@ -108,6 +108,16 @@ centre_height_in = 3.9375
 swing_in = 7.875
 plates = 3
 included = ["chuck_3jaw_5in_inside_outside_jaws", "tailstock_adjustable", "spindle_centre", "dog_driver"]
+# --- cone-pivot-post additions ---
+# Headroom reads `height` as table to spindle axis (centre height, 3-15/16 in).
+# Solids hang from the spindle nose (the back of the chuck the plan names):
+# x = up (the plan pose x), z = toward the work, y = z cross x.
+height_mm = { value = 100.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, table to a test bar centre in the chuck" } }
+solids = [
+  { name = "housing", shape = "box", at_mm = [-75.0, -55.0, -125.0], size_mm = [130.0, 110.0, 125.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } },
+  { name = "base", shape = "box", at_mm = [-100.0, -75.0, -150.0], size_mm = [25.0, 150.0, 160.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } },
+]
+# --- end cone-pivot-post additions ---
 
 [machines.BS-0.spindle]
 bore_in = 0.708
@@ -173,6 +183,37 @@ oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", 
 
 [tools.endmills-lms-6784.members."3-8in-2fl".projection_mm]
 "r8-collets-lms-4860/3-8in" = { value = 38.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
+
+# --- cone-pivot-post additions ---
+# 7/16 in two-flute, centre cutting: plunges the cone post's Ø11.51 mounting counterbores.
+[tools.endmills-lms-6784.members."7-16in-2fl"]
+dia_mm = { value = 11.1125, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
+shank_in = "3/8"
+flutes = 2
+flute_len_mm = { value = 25.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 66.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.endmills-lms-6784.members."7-16in-2fl".projection_mm]
+"r8-collets-lms-4860/3-8in" = { value = 41.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
+
+# Example purchase: long-length 3/8 in end mill for the 32 mm crank-boss wall.
+[tools.endmills-long]
+kind = "endmill_set"
+material = "HSS"
+coating = "TiN"
+center_cutting = true
+note = "illustrative example item: 3/8 in four-flute long-length HSS end mill, 1-1/2 in flute"
+
+[tools.endmills-long.members."3-8in-4fl-long"]
+dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
+shank_in = "3/8"
+flutes = 4
+flute_len_mm = { value = 38.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 88.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.endmills-long.members."3-8in-4fl-long".projection_mm]
+"r8-collets-lms-4860/3-8in" = { value = 64.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
+# --- end cone-pivot-post additions ---
 
 [tools.endmills-tin-10pc]
 kind = "endmill_set"
@@ -262,6 +303,48 @@ oal_mm = { value = 101.6, measured = { by = "example (plausible, not measured)",
 [tools.drill-index-115.members."1-4in".projection_mm]
 "drill-chuck-r8" = { value = 81.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
 
+# --- cone-pivot-post additions ---
+[tools.drill-index-115.members."7-16in"]
+dia_mm = { value = 11.1125, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_in = "7/16"
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 84.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 139.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."7-16in".projection_mm]
+"drill-chuck-r8" = { value = 119.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."15-32in"]
+dia_mm = { value = 11.906, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_in = "15/32"
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 92.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 146.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."15-32in".projection_mm]
+"drill-chuck-r8" = { value = 125.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+# Example purchase: 9/32 in taper-length drill for the cone post's 80 mm mounting holes
+# (a jobber 9/32 has only 73 mm of flute).
+[tools.drills-taper-length]
+kind = "drill_set"
+material = "HSS"
+note = "illustrative example item: 9/32 in HSS taper-length drill, 118° point"
+
+[tools.drills-taper-length.members."9-32in"]
+dia_mm = { value = 7.1438, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_in = "9/32"
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 108.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 158.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drills-taper-length.members."9-32in".projection_mm]
+"r8-collets-cone/9-32in" = { value = 133.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to drill point" } }
+# --- end cone-pivot-post additions ---
+
 [tools.drills-metric]
 kind = "drill_set"
 present = "unknown"
@@ -332,6 +415,37 @@ oal_mm = { value = 93.0, measured = { by = "example (plausible, not measured)", 
 
 [tools.reamers-metric.members."6.5mm".projection_mm]
 "drill-chuck-r8" = { value = 72.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } }
+
+# --- cone-pivot-post additions ---
+# Example purchase: decimal-size HSS chucking reamers for the cone post's running bores
+# (crank Ø11.413-11.443, journal Ø12.2558-12.2858).
+[tools.reamers-decimal]
+kind = "reamers"
+material = "HSS"
+note = "illustrative example item: 0.4500 in and 0.4835 in straight-flute HSS chucking reamers, 45° bevel lead"
+
+[tools.reamers-decimal.members."0.4500in"]
+dia_mm = { value = 11.430, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
+shank_mm = 10.05
+flutes = 6
+lead_mm = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, 45° bevel lead" } }
+flute_len_mm = { value = 44.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 177.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.reamers-decimal.members."0.4500in".projection_mm]
+"drill-chuck-r8" = { value = 150.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } }
+
+[tools.reamers-decimal.members."0.4835in"]
+dia_mm = { value = 12.281, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
+shank_mm = 11.06
+flutes = 6
+lead_mm = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, 45° bevel lead" } }
+flute_len_mm = { value = 44.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 177.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.reamers-decimal.members."0.4835in".projection_mm]
+"drill-chuck-r8" = { value = 150.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } }
+# --- end cone-pivot-post additions ---
 
 [tools.countersinks]
 kind = "countersink_set"
@@ -604,6 +718,25 @@ jaw_height_mm = { value = 45.0, measured = { by = "example (plausible, not measu
 jaw_depth_mm = { value = 25.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw face to body face" } }
 # --- end pivot-shaft additions ---
 
+# --- cone-pivot-post additions ---
+# Example purchase: 5 in independent four-jaw chuck on a 1-1/2 x 8 TPI back plate for the
+# BS-0 (the head ships with a 5 in three-jaw); it grips raw rectangular bar off centre.
+[fixtures.chuck-4jaw-5-bs0]
+kind = "chuck_4jaw"
+diameter_in = 5
+mount = "1-1/2 x 8 TPI back plate"
+independent = true
+fits = "BS-0"
+note = "illustrative example item: 5 in independent four-jaw chuck with back plate for the BS-0 spindle nose"
+range_mm = [4.0, 110.0]   # illustrative example gripping range, jaws reversed for the largest work
+body_dia_mm = { value = 127.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule across the chuck body" } }
+body_length_mm = { value = 62.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle nose to body face, back plate included" } }
+bore_dia_mm = { value = 30.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+jaw_width_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+jaw_height_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, grip step to jaw outer end" } }
+jaw_depth_mm = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw face to body face" } }
+# --- end cone-pivot-post additions ---
+
 [fixtures.faceplate-d1-4]
 kind = "faceplate"
 mount = "D1-4"
@@ -789,6 +922,20 @@ kind = "roughness_comparator"
 note = "illustrative example item: machinist's surface roughness comparator plate (ground, milled, turned, Ra 0.1-12.5 µm)"
 ra_range = [0.1, 12.5]
 
+# --- cone-pivot-post additions ---
+[gauges.bore-gauge-small]
+kind = "bore_gauge"
+note = "illustrative example item: 10-18 mm two-point dial bore gauge with a 0.001 mm indicator, zeroed in a setting ring or against the 0-1 in micrometer; reads the cone post's Ø11.4 crank and Ø12.3 journal bores"
+range_mm = [10.0, 18.0]
+resolution_mm = 0.001
+
+[gauges.cmm-service]
+kind = "cmm"
+note = "illustrative example item: outsourced tactile CMM inspection at a local metrology lab (not shop-owned); one-off report for the cone post's datum A/B angularity and bore separation"
+range_mm = [0.0, 300.0]
+resolution_mm = 0.001
+# --- end cone-pivot-post additions ---
+
 [gauges.mag-base]
 kind = "magnetic_base"
 present = true
@@ -820,6 +967,20 @@ max_shank_in = 0.5
 gauge_len_mm = { value = 95.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle nose to chuck nose, jaws closed" } }
 gauge_dia_mm = { value = 50.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, chuck body" } }
 grip_mm = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, jaw engagement" } }
+
+# --- cone-pivot-post additions ---
+# Example purchase: single R8 collet for the 9/32 in taper-length drill; a collet
+# instead of the drill chuck gives back about 90 mm of headroom over the 86 mm post.
+[holders.r8-collets-cone]
+kind = "collet_set"
+standard = "R8"
+drawbar = "7/16-20"
+sizes_in = ["9/32"]
+note = "illustrative example item: one 9/32 in R8 collet"
+gauge_len_mm = { value = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle nose to collet nose" } }
+gauge_dia_mm = { value = 31.75, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, collet nose" } }
+grip_mm = { value = 25.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, shank insertion" } }
+# --- end cone-pivot-post additions ---
 
 [holders.er-collets]
 kind = "collet_set"
