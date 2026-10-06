@@ -452,6 +452,34 @@ def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(eng
     assert exact["render_png_base64"] != undeclared["render_png_base64"]
 
 
+def test_dense_contour_diagram_does_not_erase_geometry_facts(engine, solids):
+    step = solids["pocket"]
+    hold = _vise(
+        10.0,
+        centre=35.0,
+        parallels=(150.0, 6.0, [[35.0, 7.0], [35.0, 43.0]]),
+    )
+    setup = _setup([], hold)
+    baseline = engine.run(engine.job(step, setups=[setup]))["setups"]["S1"]
+    corners = [[15.0, 13.0], [55.0, 13.0], [55.0, 37.0], [15.0, 37.0]]
+    paths, waypoints = [], []
+    for op in (10, 20, 40, 45, 50, 55):
+        paths.append({"op": str(op), "xy": corners + [corners[0]]})
+        for point in corners:
+            waypoints.append(
+                {"label": f"P{len(waypoints) + 1}", "op": str(op), "xy": point}
+            )
+    setup["render"] = {"paths": paths, "waypoints": waypoints}
+    result = engine.run(engine.job(step, setups=[setup]))
+    assert result["status"] == "ok", result
+    dense = result["setups"]["S1"]
+    assert dense["fixture_rendered"] is baseline["fixture_rendered"] is True
+    assert dense["stock_bbox_mm"] == baseline["stock_bbox_mm"]
+    assert dense["stock_volume_mm3"] == baseline["stock_volume_mm3"]
+    assert dense["contact_grip_mm"] == baseline["contact_grip_mm"]
+    assert dense["render_png_base64"] != baseline["render_png_base64"]
+
+
 def test_pocket_reach_needs_long_projection_and_reports_corner_radius(engine, solids):
     step = solids["pocket"]
     pocket = engine.refs(step, (15, 13, 15), (55, 37, 60))

@@ -2800,11 +2800,20 @@ class _Setup:
                     "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
                 })
         notes = []
+        if not self.ops:
+            notes.append("Holding/fit-up only: no cutting operation in this setup.")
+        if removal is not None and removal.Volume <= STOCK_MM3:
+            notes.append("No material removed in this setup.")
         if lathe and self.hold and _number(jaw_z):
             back = jaw_z - self.hold.get("jaw_depth_mm", 0) - self.hold.get("body_length_mm", 0)
             if self.box[2] < back - STOCK_TOL:
                 notes.append("Bar passes through the spindle bore.")
-        if view == "plan" and not annotation.get("clamp_order"):
+        if (
+            view == "plan"
+            and self.hold
+            and self.hold.get("clamps")
+            and not annotation.get("clamp_order_declared")
+        ):
             render_debts.append("NOT SHOWN: tightening order is not declared; follow the hold instructions.")
         shows = ["holding", "setup axes and zero"]
         if tool is not None:
@@ -2903,7 +2912,7 @@ class _Setup:
     def _render_tool(self, annotation, lathe):
         """Selected primary cutter's actual silhouette at an illustrative approach pose."""
         if not self.ops:
-            return None, "NOT SHOWN: no cutting operation is declared."
+            return None, None
         op = self.ops[0]
         label = annotation.get("tools", {}).get(str(op.get("subject", "").rsplit(":", 1)[-1]))
         op_number = str(op.get("subject", "")).rsplit(":", 1)[-1]
@@ -2912,9 +2921,13 @@ class _Setup:
             tool, missing, holder_missing = self._turn_tool(op)
             if missing:
                 return None, "STOP: selected turning tool dimensions are unresolved; do not run."
-            z0 = op.get("z_from", self.box[2])
-            z1 = op.get("z_to", self.box[5])
-            z = (z0 + z1) / 2 if _number(z0) and _number(z1) else self.box[5]
+            if _number(op.get("to_z")):
+                z = op["to_z"]
+            elif _number(op.get("z_from")) and _number(op.get("z_to")):
+                z = (op["z_from"] + op["z_to"]) / 2
+            else:
+                indices = self._indices(op)
+                z = max(self.faces[index].CenterOfMass.z for index in indices) if isinstance(indices, list) and indices else self.box[5]
             r = max(abs(self.box[0]), abs(self.box[3])) + tool["radius_mm"] + 3
             section, holders = self._turn_sections(tool, (r, z), not holder_missing)
             outlines = [[[x, 0.0, station] for x, station in polygon]

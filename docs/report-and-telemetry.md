@@ -95,8 +95,11 @@ what is not shown; that display debt never changes a rule verdict.
 Mill keys are `{label, op, xy}` in setup mm; axial lathe keys use `xz`, whose
 X is the declared radius/diameter DRO target and whose Z is the table station.
 The same `P1`, `P2`, … keys annotate the profile inset and traveler coordinate
-rows. Both mirrored sides remain explicit. Numbered custom-clamp badges
-follow authored `hold.clamp_order`, not an order inferred from prose.
+rows. Both mirrored sides remain explicit. Dense mill sketches use separate
+operation panels so repeated corners keep every coordinate key legible.
+Numbered custom-clamp badges follow authored `hold.clamp_order`, not an order
+inferred from prose; an explicit empty list means no accessory tightening
+actions. Holding/fit-up-only setups show no invented cutter.
 
 Exact posed fixture solids remain the only basis for `fixture = "modeled"`.
 Dashed table, vise-body and machine-context outlines are clearly marked

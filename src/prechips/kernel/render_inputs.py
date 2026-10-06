@@ -112,6 +112,7 @@ def setup_annotations(bundle, setup, numbers):
         "clamp_order": hold.get("clamp_order")
         if isinstance(hold.get("clamp_order"), list)
         else [],
+        "clamp_order_declared": isinstance(hold.get("clamp_order"), list),
         "preload": hold.get("preload_direction")
         if hold.get("preload_direction") in ("clockwise", "counterclockwise")
         else None,

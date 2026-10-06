@@ -123,12 +123,13 @@ def _outline(canvas, points, colour=_MUTED, width=2, dashed=False):
         canvas.line(first, second, colour, width=width, dashed=dashed)
 
 
-def _badge(canvas, point, label, colour=_BLUE):
-    width = max(32, canvas.text_width(label, scale=3) + 12)
-    x, y = point[0] - width / 2, point[1] - 16
-    canvas.rect(x, y, width, 33, _WHITE)
-    _outline(canvas, [(x, y), (x + width, y), (x + width, y + 33), (x, y + 33)], colour)
-    _text(canvas, point[0], y + 5, label, colour, align="centre")
+def _badge(canvas, point, label, colour=_BLUE, scale=3):
+    width = max(24, canvas.text_width(label, scale=scale) + 12)
+    height = 7 * scale + 12
+    x, y = point[0] - width / 2, point[1] - height / 2
+    canvas.rect(x, y, width, height, _WHITE)
+    _outline(canvas, [(x, y), (x + width, y), (x + width, y + height), (x, y + height)], colour)
+    _text(canvas, point[0], y + 6, label, colour, scale=scale, align="centre")
 
 
 def _dimension(canvas, first, second, label, colour=_INK):
@@ -283,9 +284,9 @@ class _Diagram:
                 _outline(c, [(x, y), (x + 94, y), (x + 94, y + 110), (x, y + 110)], dashed=True)
                 _outline(c, [(x - 8, y + 110), (x + 98, y + 110),
                              (x + 98, y + 128), (x - 8, y + 128)], dashed=True)
-                self.obstacles.append((x - 10, y - 28, x + 100, y + 130))
+                self.obstacles.append((x - 36, y - 30, x + 130, y + 130))
                 _text(c, x + 47, y - 26, "HEADSTOCK", _MUTED, align="centre", backing=True)
-                _text(c, x + 47, y + 138, "SYMBOL ONLY", _MUTED, align="centre", backing=True)
+                _text(c, x + 47, y + 87, "SYMBOL", _MUTED, scale=2, align="centre", backing=True)
             centres = [item for item in self.components if _role(item) in ("centre", "center")]
             if centres:
                 _, top, right, bottom = _bounds(self._component_pixels(centres))
@@ -294,9 +295,9 @@ class _Diagram:
                              (x + 82, y + 88), (x, y + 88)], dashed=True)
                 _outline(c, [(x - 4, y + 88), (x + 88, y + 88),
                              (x + 88, y + 106), (x - 4, y + 106)], dashed=True)
-                self.obstacles.append((x - 10, y - 28, x + 95, y + 130))
+                self.obstacles.append((x - 40, y - 30, x + 125, y + 110))
                 _text(c, x + 41, y - 26, "TAILSTOCK", _MUTED, align="centre", backing=True)
-                _text(c, x + 41, y + 116, "SYMBOL ONLY", _MUTED, align="centre", backing=True)
+                _text(c, x + 41, y + 66, "SYMBOL", _MUTED, scale=2, align="centre", backing=True)
         elif self.is_vise:
             jaws = [item for item in self.components
                     if _role(item) in ("fixed_jaw", "moving_jaw", "jaw")]
@@ -308,8 +309,8 @@ class _Diagram:
                      (right + 45, bottom + 45), (left - 45, bottom + 45)]
             _outline(c, table, dashed=True)
             _outline(c, vise, dashed=True)
-            _text(c, (left + right) / 2, bottom + 54,
-                  "TABLE + VISE BODY: SYMBOLS ONLY", _MUTED, align="centre", backing=True)
+            _text(c, (left + right) / 2, 194,
+                  "TABLE / VISE: SYMBOLS ONLY", _MUTED, align="centre", backing=True)
 
     def _components(self):
         c = self.canvas
@@ -323,8 +324,8 @@ class _Diagram:
             role = _role(component)
             label = _plain(component.get("label") or component["name"])
             if role == "fixed_jaw":
-                label = "FIXED JAW" + (" / " + _plain(self.spec["fixed_jaw_label"])
-                                      if self.spec.get("fixed_jaw_label") else "")
+                fixed = _plain(self.spec.get("fixed_jaw_label") or "FIXED JAW")
+                label = fixed if fixed.upper().startswith("FIXED JAW") else "FIXED JAW / " + fixed
             elif role == "moving_jaw":
                 label = "MOVING JAW"
             elif role in role_groups:
@@ -379,7 +380,9 @@ class _Diagram:
             point = c.project(datum["point_mm"])
             c.circle(*point, 5, fill=_WHITE, outline=_INK)
             c.circle(*point, 2, fill=_INK)
-            self.callouts.append(_Callout("DATUM " + _plain(datum["label"]).upper(), [point]))
+            label = _plain(datum["label"]).upper()
+            self.callouts.append(_Callout(label if label.startswith("DATUM ") else "DATUM " + label,
+                                         [point]))
         if self.tool:
             outlines = self.tool.get("outlines_mm") or [self.tool.get("outline_mm", [])]
             for polygon in outlines:
@@ -595,6 +598,11 @@ class _Diagram:
         _text(c, left, top + 30, "NO PATH SIMULATION", _MUTED)
         paths = self.spec.get("paths", [])
         waypoints = [p for p in self.spec.get("waypoints", []) if "xy" in p]
+        ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
+        if len(ops) > 1:
+            self._operation_panels(left, right, top + 68, bottom - 34, ops, paths, waypoints)
+            _text(c, left, bottom - 21, "ARROWS: POINT ORDER", _MUTED)
+            return
         points = [point for path in paths for point in path["xy"]]
         points.extend(item["xy"] for item in waypoints)
         if not points:
@@ -623,54 +631,98 @@ class _Diagram:
             c.line((left, row + 10), (left + 23, row + 10), colours[op], width=3)
             _text(c, left + 32, row, line, colours[op])
             row += 30
-        _text(c, left, bottom - 1, "ARROWS: POINT ORDER", _MUTED)
+        _text(c, left, bottom - 22, "ARROWS: POINT ORDER", _MUTED)
 
-    def _ordered_path(self, pixels, colour):
+    def _operation_panels(self, left, right, top, bottom, ops, paths, waypoints):
+        """Separate authored operations, not every raster pass or curve record."""
+        c = self.canvas
+        columns = 2 if len(ops) > 1 else 1
+        rows = math.ceil(len(ops) / columns)
+        width = (right - left - 12 * (columns - 1)) / columns
+        height = (bottom - top - 12 * (rows - 1)) / rows
+        palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
+        for index, op in enumerate(ops):
+            x = left + (index % columns) * (width + 12)
+            y = top + (index // columns) * (height + 12)
+            colour = palette[index % len(palette)]
+            _outline(c, [(x, y), (x + width, y), (x + width, y + height), (x, y + height)],
+                     _RULE, width=1)
+            _text(c, x + 8, y + 5, f"OP {op}", colour)
+            op_paths = [p for p in paths if str(p.get("op", "")) == op]
+            op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
+            points = [p for path in op_paths for p in path["xy"]]
+            points.extend(p["xy"] for p in op_waypoints)
+            if not points:
+                continue
+            xmin, ymin, xmax, ymax = _bounds(points)
+            plot_top, plot_bottom = y + 66, y + height - 44
+            factor = min((width - 72) / max(xmax - xmin, 1e-9),
+                         max(12, plot_bottom - plot_top) / max(ymax - ymin, 1e-9))
+            cx, cy = x + width / 2, (plot_top + plot_bottom) / 2
+
+            def project(point):
+                return (cx + (point[0] - (xmin + xmax) / 2) * factor,
+                        cy - (point[1] - (ymin + ymax) / 2) * factor)
+
+            direction_keys = {0, len(op_paths) // 2, len(op_paths) - 1}
+            for path_index, path in enumerate(op_paths):
+                self._ordered_path([project(p) for p in path["xy"]], colour, width=2,
+                                   arrows=path_index in direction_keys)
+            self._waypoint_badges(op_waypoints, project,
+                                  (x + 6, y + 31, x + width - 6, y + height - 6),
+                                  colour=colour, perimeter=True)
+
+    def _ordered_path(self, pixels, colour, width=3, arrows=True):
         c = self.canvas
         segments = [(a, b) for a, b in zip(pixels, pixels[1:]) if math.dist(a, b) >= 1]
         for a, b in segments:
-            c.line(a, b, colour, width=3)
-        if segments:
+            c.line(a, b, colour, width=width)
+        if segments and arrows:
             for index in sorted({0, len(segments) // 2, len(segments) - 1}):
                 a, b = segments[index]
                 if math.dist(a, b) >= 14:
                     tail = (a[0] * .6 + b[0] * .4, a[1] * .6 + b[1] * .4)
                     tip = (a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75)
-                    c.arrow(tail, tip, colour, width=3)
+                    c.arrow(tail, tip, colour, width=width)
 
-    def _waypoint_badges(self, waypoints, project, plot, prefix="P", colour=_BLUE):
+    def _waypoint_badges(self, waypoints, project, plot, prefix="P", colour=_BLUE, perimeter=False):
+        """Use disjoint cells so coincident keys cannot fragment or exhaust free space."""
+        if not waypoints:
+            return
         c = self.canvas
         left, top, right, bottom = plot
-        occupied = []
-        for item in waypoints:
+        labels = [_plain(item["label"]) for item in waypoints]
+        labels = [prefix + label if prefix and not label.upper().startswith(prefix) else label
+                  for label in labels]
+        span_x, span_y = right - left, bottom - top
+        for scale in (3, 2, 1):
+            cell_width = max(24, max(c.text_width(label, scale=scale) for label in labels) + 12)
+            cell_height = 7 * scale + 12
+            columns = max(1, int((span_x + 8) / (cell_width + 8)))
+            if perimeter:
+                columns = min(columns, math.ceil(math.sqrt(len(labels))))
+            required_rows = math.ceil(len(labels) / columns)
+            if cell_height * required_rows + 8 * (required_rows - 1) <= span_y:
+                break
+        rows = required_rows if perimeter else max(required_rows, int((span_y + 8) / (cell_height + 8)))
+        # With a minimal two-row perimeter, the plot remains unobscured between
+        # the key bands. Larger scenes use the full cell lattice near each point.
+        xs = [left + cell_width / 2 + i * (span_x - cell_width) / (columns - 1)
+              for i in range(columns)] if columns > 1 else [(left + right) / 2]
+        ys = [top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1)
+              for i in range(rows)] if rows > 1 else [(top + bottom) / 2]
+        available = [(x, y) for y in ys for x in xs]
+        placed = []
+        for item, label in zip(waypoints, labels):
             point = project(item["xy"])
-            label = _plain(item["label"])
-            if prefix and not label.upper().startswith(prefix):
-                label = prefix + label
-            width = max(32, c.text_width(label, scale=3) + 12)
-            candidates = [(point[0] + dx, point[1] + dy)
-                          for dx, dy in ((0, -29), (0, 30), (width / 2 + 8, 0),
-                                         (-width / 2 - 8, 0), (0, -65), (0, 66))]
-            candidates.extend((x, y) for y in range(int(top + 17), int(bottom - 16), 43)
-                              for x in range(int(left + width / 2 + 3),
-                                             int(right - width / 2 - 2), int(width + 10)))
-            badge = None
-            for candidate in candidates:
-                box = (candidate[0] - width / 2, candidate[1] - 16,
-                       candidate[0] + width / 2, candidate[1] + 17)
-                if box[0] < left or box[2] > right or box[1] < top or box[3] > bottom:
-                    continue
-                if not any(box[0] < b[2] + 5 and box[2] > b[0] - 5
-                           and box[1] < b[3] + 5 and box[3] > b[1] - 5 for b in occupied):
-                    badge = candidate
-                    break
-            if badge is None:
-                raise ValueError("Position badge identities exceed the reserved diagram lanes")
+            target = (point[0], point[1] - cell_height / 2 - 12)
+            badge = min(available, key=lambda p: math.dist(p, target))
+            available.remove(badge)
             c.line(point, badge, colour, width=2)
             c.circle(*point, 4, fill=colour)
-            _badge(c, badge, label, colour)
-            occupied.append((badge[0] - width / 2, badge[1] - 16,
-                             badge[0] + width / 2, badge[1] + 17))
+            placed.append((badge, label))
+        for badge, label in placed:
+            _badge(c, badge, label, colour, scale=scale)
 
     def _footer(self):
         c = self.canvas
