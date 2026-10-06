@@ -708,6 +708,9 @@
         "endpoints": [
           {
             "depth_mm": 0.6,
+            "dro_depth_mm": 0.6,
+            "dro_entry_z": 0.0,
+            "dro_tip_z": -0.6,
             "entry_from": "S3 stock_state.entry_z.cross_bore",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
@@ -718,6 +721,10 @@
             "tip_z": -0.6
           },
           {
+            "dro_entry_z": 0.0,
+            "dro_exit_face": -6.0,
+            "dro_exit_mm": 1.997267534587495,
+            "dro_tip_z": -9.905,
             "entry_from": "S3 stock_state.entry_z.cross_bore",
             "entry_z": 0.0,
             "exit_face": -6.0,
@@ -730,6 +737,10 @@
             "tip_z": -9.907732465412504
           },
           {
+            "dro_entry_z": 0.0,
+            "dro_exit_face": -6.0,
+            "dro_exit_mm": 2.0,
+            "dro_tip_z": -9.0,
             "entry_from": "S3 stock_state.entry_z.cross_bore",
             "entry_z": 0.0,
             "exit_face": -6.0,
@@ -840,6 +851,9 @@
         "endpoints": [
           {
             "depth_mm": 0.6,
+            "dro_depth_mm": 0.6,
+            "dro_entry_z": 0.0,
+            "dro_tip_z": -0.6,
             "entry_from": "S2 op 56 to_z",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
@@ -850,6 +864,10 @@
             "tip_z": -0.6
           },
           {
+            "dro_entry_z": 0.0,
+            "dro_exit_face": -6.0,
+            "dro_exit_mm": 1.9964326249029964,
+            "dro_tip_z": -9.37,
             "entry_from": "S2 op 56 to_z",
             "entry_z": 0.0,
             "exit_face": -6.0,
@@ -880,6 +898,9 @@
         "endpoints": [
           {
             "depth_mm": 0.6,
+            "dro_depth_mm": 0.6,
+            "dro_entry_z": 0.0,
+            "dro_tip_z": -0.6,
             "entry_from": "S2 op 56 to_z",
             "entry_z": 0.0,
             "exit_face": "not_applicable",
@@ -890,6 +911,10 @@
             "tip_z": -0.6
           },
           {
+            "dro_entry_z": 0.0,
+            "dro_exit_face": -6.0,
+            "dro_exit_mm": 1.9964326249029964,
+            "dro_tip_z": -9.37,
             "entry_from": "S2 op 56 to_z",
             "entry_z": 0.0,
             "exit_face": -6.0,
@@ -9810,6 +9835,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 0.6,
+              "dro_depth_mm": 0.6,
+              "dro_entry_z": 0.0,
+              "dro_tip_z": -0.6,
               "entry_from": "S2 op 56 to_z",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
@@ -9867,6 +9895,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 0.0,
+              "dro_exit_face": -6.0,
+              "dro_exit_mm": 1.9964326249029964,
+              "dro_tip_z": -9.37,
               "entry_from": "S2 op 56 to_z",
               "entry_z": 0.0,
               "exit_face": -6.0,
@@ -9927,6 +9959,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 0.6,
+              "dro_depth_mm": 0.6,
+              "dro_entry_z": 0.0,
+              "dro_tip_z": -0.6,
               "entry_from": "S2 op 56 to_z",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
@@ -9984,6 +10019,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 0.0,
+              "dro_exit_face": -6.0,
+              "dro_exit_mm": 1.9964326249029964,
+              "dro_tip_z": -9.37,
               "entry_from": "S2 op 56 to_z",
               "entry_z": 0.0,
               "exit_face": -6.0,
@@ -10246,6 +10285,9 @@
             "do": "spot",
             "endpoint": {
               "depth_mm": 0.6,
+              "dro_depth_mm": 0.6,
+              "dro_entry_z": 0.0,
+              "dro_tip_z": -0.6,
               "entry_from": "S3 stock_state.entry_z.cross_bore",
               "entry_z": 0.0,
               "exit_face": "not_applicable",
@@ -10303,6 +10345,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
+              "dro_entry_z": 0.0,
+              "dro_exit_face": -6.0,
+              "dro_exit_mm": 1.997267534587495,
+              "dro_tip_z": -9.905,
               "entry_from": "S3 stock_state.entry_z.cross_bore",
               "entry_z": 0.0,
               "exit_face": -6.0,
@@ -10362,6 +10408,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "ream",
             "endpoint": {
+              "dro_entry_z": 0.0,
+              "dro_exit_face": -6.0,
+              "dro_exit_mm": 2.0,
+              "dro_tip_z": -9.0,
               "entry_from": "S3 stock_state.entry_z.cross_bore",
               "entry_z": 0.0,
               "exit_face": -6.0,
@@ -11147,7 +11197,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "739b466baa55001a2238aff4e7e3309c3bffbaac06e8365436aa2dbf8160d638",
+  "hash": "2ad53fbfedcf41c9f081062c0a5f5515a59ac08b7605967c6ef9eabc6475e6aa",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

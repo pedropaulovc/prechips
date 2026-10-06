@@ -206,11 +206,16 @@ which is its largest edge or vertex tolerance. An exporter's approximated
 (spline) split edges may stray tenths of a micron off a cylinder. Snapping
 them keeps every face of one analytic surface on the same radius, so the faces'
 revolved regions and a later spring pass over them stay coincident instead of
-leaving jagged slivers or invalid booleans. The revolved chords of one surface
-are unified into a single face before any boolean, and a removal piece whose
-mean thickness is within the claimed faces' or protected material's BRep
-precision is a coincidence remnant of an earlier pass, not removal. That in-process stock is
-inverse-transformed back into model coordinates and can
+leaving jagged slivers or invalid booleans. Analytic cylinder and cone meridians
+are straight: they need no chord-sag compensation, so their revolved profiles
+meet the nominal end-radius extensions without an artificial inward step.
+Genuinely curved meridians retain conservative sag compensation. Revolved
+regions are unified before the window, stock and component-protection booleans,
+and exact component-owned protection still clips the sweep. A removal piece
+whose mean thickness is within the claimed faces' or protected material's BRep
+precision is a coincidence remnant of an earlier pass, not removal; every
+surviving solid must remain valid. That in-process stock is inverse-transformed
+back into model coordinates and can
 feed any later setup that explicitly selects it through `stock_in`, not only
 the immediately following setup. Removal checks each input solid separately:
 splitting any one input piece into multiple retained pieces leaves the output
