@@ -537,6 +537,14 @@ on hand.
 | `runout_in` | `float` |
 | `two_ranges` | `bool` |
 | `ranges_rpm` | `list[list[Number]]` |
+| `rotation` | `"cw"` / `"ccw"` / `{value, measured, verify}` |
+
+`rotation` is the spindle's cutting rotation viewed from above, looking down
+setup -Z (a right-hand cutter runs `cw`, M03). It may be bare or a labelled
+fact `{ value = "cw", measured = {by, date, instrument} }`; a labelled value
+flagged `verify = true` counts as undeclared. With an op's `direction`
+(`conventional`/`climb`) it fixes the cutting order of contour tables
+(see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
 
 ## Length and angle facts
 

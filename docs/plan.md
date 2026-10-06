@@ -444,9 +444,13 @@ for collet/chuck capacity, not the unsupported-section diameter.
 
 `Pose` is `{origin_mm, x, z}`, each `[Number, Number, Number]` in setup-frame
 mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
-`ClampPlacement` is `{ref, note, pose}`: `ref` names a fixture or a
+`ClampPlacement` is `{ref, note, pose, restraint}`: `ref` names a fixture or a
 `kit/member` such as a clamping-kit strap, and its authored `solids` are
-placed by `pose` (origin at the strap underside on the work).
+placed by `pose` (origin at the strap underside on the work). `restraint` is
+`press` (it holds the work down along pose -z), `locate` (it only positions
+the work) or `none`; undeclared is `none`. Only a press clamp can hold a stock
+piece an op splits off, and only when the kernel proves the load path onto an
+anchored support (rules-geometry, held split).
 
 `clamp_order` is the declared tightening-action sequence for drawing badges,
 not an automatic interpretation of the `clamps` array. A locating pin may
@@ -672,6 +676,19 @@ credits each face only to the direction-valid finishing cuts that claim it.
 A claimed hole cap also needs its feature's last drill/ream/bore/counterbore
 setup to leave it clear of stock; a tap or pilot claim never stands in for that
 (see [geometry](rules-geometry.md#finish_coverage)). No plan field selects that op.
+
+**Complete explicit-face ownership.** An op owns a feature it does not name when
+its explicit `faces` list is known and nonempty and contains every face of that
+feature's known, nonempty declared `faces`. Ownership is per op: a partial
+claim, an empty or `"unknown"` list (or one with an `"unknown"` member), a
+feature whose own faces are unknown, and an op without explicit `faces` never
+own; a label alone never owns another feature. A hole-family feature (`hole`,
+`counterbore`, `thread`, `threaded_hole`) is owned only by a complete-form
+action (`drill`, `ream`, `bore`, `counterbore`). Ownership adds the op to the
+feature's finishing cuts for datum consistency and finishing coverage, under the
+same final-cut filters as a named op (no rough, manual or nonfinishing action);
+label-scoped facts (hole chains, sizing, inspection checks) still follow the
+op's own `feature`.
 
 `stock_removal_bounds` is an explicit setup-frame clearing box:
 `{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric

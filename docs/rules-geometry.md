@@ -722,11 +722,24 @@ coincident-face artefacts. A tiny group still whole, or one whose remainder
 is not valid topology, is cut. Only the end of the op's cuts is judged, so a
 fragment one piece splits off may still go with a later piece. No more than
 1e-3 mm³ of the band may survive in each input stock piece the op leaves, and
-that piece must stay one valid solid; otherwise the stock reason names the
-removal that broke it ("its own clearance" or "lineage band group N"), and the
-op that stopped the stock pass is credited none of its clearance. If any
-construction fails, the result
-is named offset debt.
+each piece it leaves must be valid. One input piece may leave several pieces
+above 1e-3 mm³ only as a **held split**: every piece must be pressed onto an
+anchored support, or the whole split is refused and no piece is dropped. A
+piece is held when a clamp declared `restraint = "press"` has a flat face
+whose outward normal is its force (pose -z, within 1e-6) within 1e-3 mm of
+the piece, and from one cell-centred sample of that face (the strap-wall grid)
+the first material run through the piece along the force starts within 1e-3
+mm of the sample and ends where the point 0.01 mm beyond lies inside an
+anchored fixture component: a fixture body, jaw, parallel, riser, chuck jaw or
+body, dividing head or centre, never a clamp, rest or other stock piece. The
+holding must be placed. `locate`, `none` and an undeclared restraint never
+hold. The op's `split_hold` lists each piece (number, volume, bbox, `held`,
+and the clamp, sample, exit point and support that hold it). Otherwise the
+stock reason names the removal that broke the stock ("its own clearance" or
+"lineage band group N"), or the split and each piece with "no press-clamp
+load path to an anchored support", and the op that stopped the stock pass is
+credited none of its clearance. If any construction fails, the result is
+named offset debt.
 Every offset and pipe is built on a deep copy of the solid, face or edge it
 starts from. OCC's offset rewrites the edge tolerances and pcurves of the
 shape it runs on, so offsetting a face shared with the finished part would

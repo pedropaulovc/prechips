@@ -9,16 +9,14 @@ from prechips.findings import Finding
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
     approach_model_reason,
-    claim_refs,
     cutting_action,
     finishing_subjects,
-    known_refs,
     mapped_feature,
     op_claims,
     provenance,
     unavailable,
 )
-from prechips.rules.resolution import SAW_OPS, operations, record
+from prechips.rules.resolution import SAW_OPS, claim_refs, known_refs, operations, record
 
 
 def evaluate(bundle):

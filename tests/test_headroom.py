@@ -439,7 +439,7 @@ def coordinate_bundle(tmp_path, feature, operations):
         encoding="utf-8",
     )
     (root / "inventory.toml").write_text(
-        "[machines.mill]\nkind = 'mill'\nverify = false\n"
+        "[machines.mill]\nkind = 'mill'\nverify = false\n[machines.mill.spindle]\nrotation = 'cw'\n"
         "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nverify = false\n"
         "[tools.spot]\nkind = 'center_drill'\ndia_mm = 6.0\npoint_angle = 90.0\n"
         "verify = false\n"
@@ -562,9 +562,10 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
     }
     for stage, allowance in (("rough", 0.3), ("finish", 0.0)):
         table = displayed[stage]
+        headings = re.findall(r"<th(?:\s[^>]*)?>(.*?)</th>", table)
         first_row = re.search(r"<tbody><tr>(.*?)</tr>", table, re.DOTALL).group(1)
-        cells = re.findall(r"<td[^>]*>(.*?)</td>", first_row)
-        assert [float(cell) for cell in cells[1:3]] == pytest.approx(
+        cells = dict(zip(headings, re.findall(r"<td[^>]*>(.*?)</td>", first_row), strict=True))
+        assert [float(cells["X"]), float(cells["Y"])] == pytest.approx(
             [28.0 + allowance, 8.0]
             if method == "arc_table"
             else [-8.0 - allowance, -5.0 - allowance]
@@ -605,9 +606,11 @@ radial_tip_end = [-10.0, -8.0, 0.0]
     (arc,) = known.numbers["arc_table"]
     # The 6 mm cutter offsets the R10 arc to R7 and the horizontal lands to Y-5.
     assert arc["cutter_centre_radius_mm"] == pytest.approx(7.0)
-    assert arc["rows"][0]["model_xy"] == pytest.approx([-(24.0**0.5), -5.0])
-    assert arc["rows"][-1]["model_xy"] == pytest.approx([24.0**0.5, -5.0])
-    assert arc["rows"][0]["setup_xy"] == pytest.approx([-(24.0**0.5) - 5.0, -7.0])
+    # Endpoints are the land intersections; which comes first is the cutting order.
+    ends = sorted([arc["rows"][0], arc["rows"][-1]], key=lambda row: row["model_xy"][0])
+    assert ends[0]["model_xy"] == pytest.approx([-(24.0**0.5), -5.0])
+    assert ends[1]["model_xy"] == pytest.approx([24.0**0.5, -5.0])
+    assert ends[0]["setup_xy"] == pytest.approx([-(24.0**0.5) - 5.0, -7.0])
     linked = data.features["features"][linked_feature]
     if corruption == "missing":
         linked["radial_tip_end"] = "unknown"

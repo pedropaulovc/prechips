@@ -152,6 +152,7 @@ CONCAVE_PROBE = 1e-2  # mm step used to classify an edge as concave
 WALL_LEVELS = 6  # z levels of the thin-wall map
 WALL_COLUMNS = (8, 64)  # along-jaw columns of the thin-wall map (1 mm pitch, clamped)
 STRAP_GRID = (4, 16)  # samples per side of a strap's bearing footprint (1 mm pitch, clamped)
+HELD_PROBE_MM = 0.01  # past a pressed run's far end, a held piece's support must be material
 REVOLVED_TOL = 1e-5  # tangential normal component above which a face is not revolved about Z
 AXIS_TOL = 1e-6  # mm: sample radius treated as on the spindle axis
 NOSE_ARC = 12  # chords approximating the insert nose arc (inscribed: never enlarges it)
@@ -1547,6 +1548,10 @@ _PLACERS = {"vise": "_place", "chuck": "_place_chuck", "solids": "_place_solids"
 _VISE_FACTS = ("parallel_pair", "width_mm", "contact_grip_mm", "claimed_in_jaws", "min_wall_mm")
 # Components whose interpenetration with the entering stock is a declaration error.
 _SOLID_ROLES = frozenset(("chuck_jaw", "chuck_body", "head", "centre", "fixture", "clamp", "riser"))
+# Components a held stock piece may be pressed onto: never a clamp, a rest or other stock.
+_ANCHOR_ROLES = frozenset(
+    ("fixture", "jaw", "parallel", "riser", "chuck_jaw", "chuck_body", "head", "centre")
+)
 # Vise accessories that stand between the jaws, below the seat.
 _VISE_ACCESSORIES = frozenset(("parallel", "riser"))
 
@@ -2253,6 +2258,9 @@ class _Setup:
         # None, why that stock is unknown); the facts of each saw it reached; and (end
         # stock, None) or (None, why it stopped).
         self.cuts = {}
+        self.clamp_parts = []
+        self.clamp_restraints = {}  # clamp name -> declared restraint (press/locate/none)
+        self.split_holds = {}  # op subject -> per-piece held-split witnesses
         self.saws = {}
         self.built = None
         self.matrix = None
@@ -2409,6 +2417,8 @@ class _Setup:
                 result = self._op(op)
                 if self.stock_reason is not None and not _sawn(op):
                     self._unproven(result, self.stock_reason)
+                if self._subject(op) in self.split_holds:
+                    result["split_hold"] = self.split_holds[self._subject(op)]
                 ops[self._subject(op)] = result
         self._rest_interference(facts, ops)
         if self.stock_reason is None:
@@ -2724,7 +2734,9 @@ class _Setup:
                 if own is not None or groups:
                     pieces = []
                     for original in stock.Solids:
-                        kept, why = self._remove(original, own, groups)
+                        kept, why = self._remove(
+                            original, own, groups, lambda pieces, op=op: self._held(op, pieces)
+                        )
                         if why is not None:
                             stopped = f"{subject}: {why}; {where}"
                             break
@@ -2750,15 +2762,16 @@ class _Setup:
         return (None, stopped) if stopped is not None else (stock, None)
 
     @staticmethod
-    def _remove(original, own, groups):
+    def _remove(original, own, groups, held=None):
         """(the stock solid ``original`` less one op's cut, as its kept pieces, or None, and
         why that is not one valid piece free of the cut's band).
 
         Its own clearance goes first, then each connected band group, piece by piece and
         never fused. A group the cuts before it already cleared (:func:`_cleared`) is not
         cut again. Only the end is judged, so a fragment one piece splits off may still go
-        with a later piece: at most one piece above ``STOCK_MM3`` may remain, valid and
-        holding no more than ``STOCK_MM3`` of the band.
+        with a later piece. More than one piece above ``STOCK_MM3`` is refused unless
+        ``held`` (given the pieces, None when every one is held, else why not) keeps them
+        all; every kept piece must be valid and hold no more than ``STOCK_MM3`` of the band.
         """
         rest, applied = original, []
         if own is not None:
@@ -2776,10 +2789,13 @@ class _Setup:
                     applied.append((f"lineage band group {number}", piece))
         kept = [piece for piece in rest.Solids if piece.Volume > STOCK_MM3]
         if len(kept) > 1:
-            return None, (
+            split = (
                 f"removing its claimed clearance splits an input stock piece into "
                 f"{len(kept)} pieces"
             )
+            unheld = split if held is None else held(kept)
+            if unheld is not None:
+                return None, split if held is None else f"{split}; {unheld}"
         if not all(piece.isValid() for piece in kept):
             return None, (
                 "removing its claimed clearance leaves an invalid stock piece "
@@ -3993,6 +4009,10 @@ class _Setup:
             (name, V(*clamp["pose"]["z"]) * -1, parts)
             for (name, parts), clamp in zip(clamps, hold.get("clamps", []), strict=True)
         ]
+        self.clamp_restraints = {
+            name: clamp.get("restraint", "none")
+            for (name, _), clamp in zip(clamps, hold.get("clamps", []), strict=True)
+        }
         self.fixture_debts.extend(str(debt) for debt in hold.get("debts", []))
         self.fixture_gaps.extend(str(gap) for gap in hold.get("gaps", []))
         self._place_steady_rests(hold)
@@ -4366,38 +4386,19 @@ class _Setup:
         rows, thinnest = [], None
         for name, force, parts in self.clamp_parts:
             loaded = 0
-            for part in parts:
-                for face in part.Faces:
-                    if not isinstance(face.Surface, Part.Plane):
-                        continue
-                    u0, u1, v0, v1 = face.ParameterRange
-                    if face.normalAt((u0 + u1) / 2, (v0 + v1) / 2).dot(force) < 1 - 1e-6:
-                        continue
-                    if face.distToShape(self.part)[0] > STOCK_TOL:
-                        continue
-                    nu, nv = (
-                        min(STRAP_GRID[1], max(STRAP_GRID[0], math.ceil(hi - lo)))
-                        for lo, hi in ((u0, u1), (v0, v1))
-                    )
-                    for i in range(nu):
-                        for j in range(nv):
-                            point = face.valueAt(
-                                u0 + (i + 0.5) * (u1 - u0) / nu, v0 + (j + 0.5) * (v1 - v0) / nv
-                            )
-                            if not face.isInside(point, PLANE_TOL, True):
-                                continue
-                            run = self._strap_run(point, force, span)
-                            rows.append(
-                                {
-                                    "clamp": name,
-                                    "point_mm": [_r(c) for c in point],
-                                    "loaded": run is not None,
-                                    "run_mm": UNKNOWN if run is None else _r(run),
-                                }
-                            )
-                            if run is not None:
-                                loaded += 1
-                                thinnest = run if thinnest is None else min(thinnest, run)
+            for point in self._footprint(parts, force, self.part):
+                run = self._strap_run(point, force, span)
+                rows.append(
+                    {
+                        "clamp": name,
+                        "point_mm": [_r(c) for c in point],
+                        "loaded": run is not None,
+                        "run_mm": UNKNOWN if run is None else _r(run),
+                    }
+                )
+                if run is not None:
+                    loaded += 1
+                    thinnest = run if thinnest is None else min(thinnest, run)
             if not loaded:
                 debts.append(f"{name} has no sampled footprint point bearing on the stock")
         facts["strap_wall_map"] = rows
@@ -4407,13 +4408,38 @@ class _Setup:
         else:
             facts["reasons"]["min_wall_mm"] = "strap walls unresolved: " + "; ".join(debts)
 
-    def _strap_run(self, point, force, span):
-        """Material length from ``point`` along ``force`` until the first air, or None."""
+    @staticmethod
+    def _footprint(parts, force, shape):
+        """Cell-centred samples on each flat clamp face facing ``force`` and touching ``shape``."""
+        for part in parts:
+            for face in part.Faces:
+                if not isinstance(face.Surface, Part.Plane):
+                    continue
+                u0, u1, v0, v1 = face.ParameterRange
+                if face.normalAt((u0 + u1) / 2, (v0 + v1) / 2).dot(force) < 1 - 1e-6:
+                    continue
+                if face.distToShape(shape)[0] > STOCK_TOL:
+                    continue
+                nu, nv = (
+                    min(STRAP_GRID[1], max(STRAP_GRID[0], math.ceil(hi - lo)))
+                    for lo, hi in ((u0, u1), (v0, v1))
+                )
+                for i in range(nu):
+                    for j in range(nv):
+                        point = face.valueAt(
+                            u0 + (i + 0.5) * (u1 - u0) / nu, v0 + (j + 0.5) * (v1 - v0) / nv
+                        )
+                        if face.isInside(point, PLANE_TOL, True):
+                            yield point
+
+    def _strap_run(self, point, force, span, shape=None):
+        """Material length of ``shape`` (default: the stock) from ``point`` along ``force``
+        until the first air, or None when the point is not on material."""
         start = point - force * 0.01
         line = Part.LineSegment(start, point + force * span).toShape()
         intervals = sorted(
             sorted((vertex.Point - point).dot(force) for vertex in edge.Vertexes)
-            for edge in line.common(self.part).Edges
+            for edge in line.common(self.part if shape is None else shape).Edges
         )
         merged = []
         for lo, hi in intervals:
@@ -4424,6 +4450,64 @@ class _Setup:
         if not merged or merged[0][0] > STOCK_TOL:
             return None
         return merged[0][1] - max(merged[0][0], 0.0)
+
+    def _held(self, op, pieces):
+        """None when every piece one op's removal leaves is held, else why not (one reason
+        per unheld piece). Facts go to ``split_holds`` under the op's subject.
+
+        A piece is held when a clamp declared ``restraint = "press"`` bears on it and
+        presses it onto an anchored support (:meth:`_pressed`). A locating or undeclared
+        clamp, another stock piece, an unplaced holding or an unloaded footprint proves
+        nothing; every piece is kept or the split is refused.
+        """
+        rows, unheld = [], []
+        anchors = [c for c in self.fixture if c["role"] in _ANCHOR_ROLES]
+        for number, piece in enumerate(pieces, start=1):
+            row = {
+                "piece": number,
+                "volume_mm3": _r(piece.Volume),
+                "bbox_mm": [_r(v) for v in _bbox(piece)],
+            }
+            witness = self._pressed(piece, anchors) if self.fixture_ready else None
+            row["held"] = witness is not None
+            row.update(witness or {})
+            rows.append(row)
+            if witness is None:
+                unheld.append(
+                    f"piece {number} ({row['volume_mm3']} mm^3, bbox {row['bbox_mm']}) has no "
+                    "press-clamp load path to an anchored support"
+                )
+        if not self.fixture_ready:
+            unheld.insert(0, f"the holding is not placed ({self.fixture_reason})")
+        self.split_holds.setdefault(self._subject(op), []).extend(rows)
+        return "; ".join(unheld) or None
+
+    def _pressed(self, piece, anchors):
+        """The first press-clamp footprint sample whose run through ``piece`` along the
+        clamp force ends on an anchored support, as a witness, or None.
+
+        The run is the first material interval from the sample (:meth:`_strap_run` on the
+        piece); the support must contain the point ``HELD_PROBE_MM`` past its far end.
+        """
+        span = piece.BoundBox.DiagonalLength + 1.0
+        for name, force, parts in self.clamp_parts:
+            if self.clamp_restraints.get(name) != "press":
+                continue
+            for point in self._footprint(parts, force, piece):
+                run = self._strap_run(point, force, span, piece)
+                if run is None:
+                    continue
+                end = point + force * run
+                probe = end + force * HELD_PROBE_MM
+                for anchor in anchors:
+                    if anchor["solid"].isInside(probe, PLANE_TOL, True):
+                        return {
+                            "clamp": name,
+                            "point_mm": [_r(c) for c in point],
+                            "exit_mm": [_r(c) for c in end],
+                            "anchor": anchor["name"],
+                        }
+        return None
 
     def _render(self):
         """Arriving stock, exact fixture, and this setup's derived removal, in setup axes."""
