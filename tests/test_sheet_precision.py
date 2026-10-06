@@ -214,3 +214,32 @@ def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
     box = box[: box.index("</div>")]
     for setup in stopped:
         assert re.search(rf"\b{setup}\b", text(box))
+
+
+def test_front_sheet_pointers_lead_to_attached_sheets_of_the_same_setup(tmp_path):
+    # The machinist follows "contour table on S2 sheet 3" from an op row; that page must
+    # exist, belong to the same setup and carry the op's table.
+    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    pages = {}
+    for page in html.split('<section class="page">')[1:]:
+        heading = re.search(r"<h2>SETUP (\S+) — (?:[^<]*?· )?sheet (\d+) of (\d+)", page)
+        if heading:
+            pages[(heading[1], heading[2])] = (int(heading[3]), page)
+    assert pages
+    for (setup, number), (count, page) in pages.items():
+        assert set(range(1, count + 1)) == {int(n) for s, n in pages if s == setup}
+        if number != "1":
+            continue
+        followed = 0
+        for op, cells in re.findall(r"<tbody[^>]*><tr><td>(\d+)</td>(.*?)</tbody>", page, re.S):
+            for kind, target, sheet in re.findall(
+                r"(note|contour table) on (\S+) sheet (\d+)", text(cells)
+            ):
+                assert target == setup
+                attached = pages[(setup, sheet)][1]
+                if kind == "contour table":
+                    assert f"{setup} op {op} —" in text(attached)
+                    followed += 1
+        if setup in ("S2", "S3"):
+            # Both shaft turning setups profile a contour.
+            assert followed

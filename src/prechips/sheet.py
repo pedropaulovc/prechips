@@ -47,21 +47,27 @@ table { width: 100%; border-collapse: collapse; margin: 2pt 0; table-layout: fix
 th, td { border: 1px solid #555; padding: 1pt 2pt; text-align: left; vertical-align: top; \
 overflow-wrap: anywhere; }
 th { background: #eee; } thead { display: table-header-group; }
-tr, tbody { break-inside: avoid; page-break-inside: avoid; } .operations { font-size: 7.5pt; }
+tr, tbody { break-inside: avoid; page-break-inside: avoid; }
 tr.warn td { border-top: 0; padding-left: 8pt; }
 tr.warn .box { display: inline-block; margin: 0 4pt 1pt 0; }
 td .box { display: block; border: 1.5px solid #000; font-weight: bold; padding: 0 2pt; \
 margin-top: 1pt; }
 .keep { break-inside: avoid; page-break-inside: avoid; }
-.contours { columns: 3; column-gap: 8pt; font-size: 7pt; }
+.contours { columns: 3; column-gap: 8pt; }
 .contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4pt; }
-.contour h3 { font-size: 7.5pt; }
+.hold-row { display: flex; gap: 8pt; align-items: flex-start; }
+.hold-steps { flex: 1 1 70%; min-width: 0; }
 .fixture-render { margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
-.fixture-render img { display: block; width: 100%; max-height: 4.2in; object-fit: contain; \
-border: 1px solid #999; }
-.fixture-render figcaption { font-size: 7.5pt; }
+.hold-row > .fixture-render, .hold-row > .stop { flex: 0 0 30%; margin: 4pt 0 0; }
+.fixture-render img { display: block; width: 100%; object-fit: contain; border: 1px solid #999; }
+.see { font-style: italic; }
+table.operations { margin-top: 0; }
+tr.continued th { height: 14pt; padding: 0 0 1pt; font-size: 9pt; background: #fff; \
+border: 0; border-bottom: 1px solid #000; vertical-align: bottom; }
+h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; \
+margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
 .signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
-.foot { text-align: right; font-size: 6pt; margin-top: 3pt; color: #444; }
+.report-id { color: #444; }
 @media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } }
 """
 # Operative targets print at DRO display resolution; report.json keeps every digit.
@@ -218,6 +224,10 @@ class _Box(str):
     """A table-cell line printed as a bold boxed warning."""
 
 
+class _Plain(str):
+    """A full-width line under a table row printed as plain text, not a warning box."""
+
+
 class _Row(tuple):
     """Table cells plus full-width warnings printed beneath the row."""
 
@@ -238,14 +248,21 @@ def _cell_line(line):
     return escape(str(line))
 
 
-def _table(headings, rows, css="", widths=None):
+def _table(headings, rows, css="", widths=None, continued=None):
+    """``continued`` is a heading row repeated with the column headings on every page the
+    table runs onto; on its first page the section heading is drawn over it."""
     columns = ""
     if widths:
         columns = (
             "<colgroup>" + "".join(f'<col style="width:{w}%">' for w in widths) + "</colgroup>"
         )
     attribute = f' class="{css}"' if css else ""
-    result = [f"<table{attribute}>", columns, "<thead><tr>"]
+    result = [f"<table{attribute}>", columns, "<thead>"]
+    if continued:
+        result.append(
+            f'<tr class="continued"><th colspan="{len(headings)}">{escape(continued)}</th></tr>'
+        )
+    result.append("<tr>")
     result.extend(f"<th>{escape(h)}</th>" for h in headings)
     result.append("</tr></thead>")
     for row in rows:
@@ -264,7 +281,12 @@ def _table(headings, rows, css="", widths=None):
         if warnings:
             result.append(
                 f'<tr class="warn"><td colspan="{len(headings)}">'
-                + "".join(_cell_line(_Box(w)) for w in warnings)
+                + "".join(
+                    f'<span class="see">{escape(w)}</span>'
+                    if isinstance(w, _Plain)
+                    else _cell_line(_Box(w))
+                    for w in warnings
+                )
                 + "</td></tr>"
             )
         result.append("</tbody>")
@@ -332,6 +354,8 @@ class _Traveler:
                 self.frames.setdefault(frame, []).append(setup["id"])
         self.setup = None
         self.setup_stops = {}
+        # Ops of the current setup with a block on its contour sheet; set by contours().
+        self.contour_ops = set()
 
     # ------------------------------------------------------------------ numbers
     def precision(self, feature=None, dimension=None):
@@ -699,11 +723,12 @@ class _Traveler:
             if stated(key):
                 steps.append(f"{label}: {self.bench(hold[key], setup)}.")
         steps = [re.sub(r"\.{2,}$", ".", step) for step in steps]
-        html = "<h2>HOLD</h2>" + _list(steps)
         facts = self.hold_facts(setup, hold, lathe)
-        if facts:
-            html += _table([name for name, _ in facts], [[value for _, value in facts]])
-        return html + self.indexing(setup)
+        # The steps sit beside the picture; the facts table and indexing run full width.
+        below = (
+            _table([name for name, _ in facts], [[value for _, value in facts]]) if facts else ""
+        )
+        return "<h2>HOLD</h2>" + _list(steps), below + self.indexing(setup)
 
     def hold_facts(self, setup, hold, lathe):
         o = self.operative
@@ -1049,9 +1074,9 @@ class _Traveler:
                         for k, v in directions.items()
                         if not self.metadata(k)
                     )
-                    + ". Set each axis with Axis Set (never Preset). Then jog the stated "
-                    "distance without touching: the display must show 'must read'. If it shows "
-                    "the 'if reversed' value, STOP: fix the axis direction and redo the zero."
+                    + ". Axis Set each axis (never Preset), then jog without touching: the "
+                    "display must show 'must read'; 'if reversed' means STOP, fix the axis "
+                    "direction and redo the zero."
                 )
             )
         axes = numbers.get("axes", {})
@@ -1352,7 +1377,7 @@ class _Traveler:
         tip, exit_mm = o(endpoint.get("tip_z")), o(endpoint.get("exit_mm"))
         return f"tip Z {tip} = {through} − break-through {exit_mm}."
 
-    def inspection(self, op, notes):
+    def inspection(self, op, notes, sheet):
         rows = ["? inspection checks not set"] if op.get("checks") == "unknown" else []
         feature = op.get("feature")
         definition = self.features.get(feature, {})
@@ -1393,12 +1418,12 @@ class _Traveler:
                 line += " to " + "|".join(map(_text, datums))
             method = methods.get(requirement)
             if method and method != "unknown":
-                notes.append(f"op {op['op']} {name}: {self.bench(method)}")
-                line += f" [note {len(notes)}]"
+                notes.append(f"{self.setup['id']} op {op['op']} {name}: {self.bench(method)}")
+                line += f" [{sheet} note {len(notes)}]"
             rows.append(line)
         if op.get("inspection_note"):
-            notes.append(f"op {op['op']}: {self.bench(op['inspection_note'])}")
-            rows.append(f"see note {len(notes)}")
+            notes.append(f"{self.setup['id']} op {op['op']}: {self.bench(op['inspection_note'])}")
+            rows.append(f"see {sheet} note {len(notes)}")
         return rows or ["—"]
 
     def speeds(self, setup, op, saw_table):
@@ -1430,9 +1455,15 @@ class _Traveler:
             feed = _number(per_min, 0) + " mm/min" if _known(per_min) else "STOP"
         return speed, feed, not (_known(rpm) and (_known(per_rev) or _known(per_min)))
 
-    def operations(self, setup, tool_numbers):
+    def operations(self, setup, tool_numbers, sheets):
+        """The op table for the front sheet and the op/inspection notes for sheet 2.
+
+        ``sheets`` maps "notes" and "contours" to the attached sheet numbers that carry
+        them; an op row names the sheet so the front sheet never hides a note.
+        """
         ops = setup.get("ops", [])
         rows, notes, inspection_notes, stops = [], [], [], {}
+        where = {kind: f"{setup['id']} sheet {number}" for kind, number in sheets.items() if number}
         saw_table = any(op.get("do") in SAW_OPS for op in ops)
         lathe = self.lathe(setup)
         op_findings = {}
@@ -1468,9 +1499,8 @@ class _Traveler:
                 stops.setdefault("tool not selected", []).append(str(op["op"]))
             else:
                 number = tool_numbers.get((reference, op.get("holder")))
-                tool = (
-                    f"{number} {self.tool_name(reference)}" if number else self.tool_name(reference)
-                )
+                # The TOOLS table above names the tool; the op row carries its T number.
+                tool = number or self.tool_name(reference)
                 if resolve(self.bundle, "tools", reference) is None:
                     tool = [tool, _Box("STOP: tool not in the shop list")]
                     stops.setdefault("tool not in the shop list", []).append(str(op["op"]))
@@ -1505,7 +1535,7 @@ class _Traveler:
                 and not _known(c.get("tool_nose_compensation_mm"))
                 for c in (contours if isinstance(contours, list) else [])
             ):
-                boxes.append(_Box("STOP: tool-nose offset not computed — see CONTOURS"))
+                boxes.append(_Box(f"STOP: tool-nose offset not computed — see {where['contours']}"))
                 stops.setdefault("tool-nose offset for the profile not computed", []).append(
                     str(op["op"])
                 )
@@ -1527,16 +1557,23 @@ class _Traveler:
             derivation = self.tip_note(setup, op)
             if note or derivation:
                 notes.append(
-                    f"Op {op['op']}: "
+                    f"{setup['id']} op {op['op']}: "
                     + " ".join(
                         filter(None, [self.bench(note, setup) if note else None, derivation])
                     )
                 )
+            pointers = []
+            if note or derivation:
+                pointers.append(f"note on {where['notes']}")
+            if str(op["op"]) in self.contour_ops:
+                pointers.append(f"contour table on {where['contours']}")
+            if pointers:
+                boxes.append(_Plain("See " + " · ".join(pointers)))
             rows.append(
                 _Row(
                     (
                         _text(op["op"]),
-                        action,
+                        ", ".join(action),
                         self.feature_label(feature)
                         if feature is not None
                         else "stock"
@@ -1547,7 +1584,7 @@ class _Traveler:
                         feed,
                         target,
                         direction,
-                        self.inspection(op, inspection_notes),
+                        self.inspection(op, inspection_notes, where["notes"]),
                     ),
                     boxes,
                 )
@@ -1556,7 +1593,7 @@ class _Traveler:
             "op",
             "do",
             "feature",
-            "tool (T#)",
+            "tool",
             "speed" if saw_table else "rpm",
             "feed",
             "cut target" if saw_table else ("Z from → to" if lathe else "Z tip"),
@@ -1568,14 +1605,19 @@ class _Traveler:
             tail += "<h3>Op notes</h3>" + _list(notes, ordered=False)
         if inspection_notes:
             tail += "<h3>Inspection notes</h3>" + _list(inspection_notes)
-        # The table and its notes print as one block so a page never starts on notes.
-        html = (
-            '<div class="keep"><h2>OPERATIONS</h2>'
-            + _table(headings, rows, "operations", [4, 17, 10, 12, 6, 9, 12, 9, 21])
-            + tail
-            + "</div>"
+        # A long table runs onto the back of the front sheet; the repeated heading row
+        # names it there, and on the front the OPERATIONS heading is drawn over it.
+        table = "<h2>OPERATIONS</h2>" + _table(
+            headings,
+            rows,
+            "operations",
+            [4, 16, 12, 7, 6, 9, 11, 9, 26],
+            continued=f"SETUP {setup['id']} — sheet 1, back: operations continued",
         )
-        return html, stops
+        notes_html = (
+            f'<div class="keep"><h2>OP AND INSPECTION NOTES</h2>{tail}</div>' if tail else ""
+        )
+        return table, notes_html, stops
 
     # -------------------------------------------------------------- contours
     def waypoints(self, setup):
@@ -1752,13 +1794,17 @@ class _Traveler:
                 )
                 headings = ["P", "X (Ø)", "Z"]
             entry["parts"].append((description, headings, rows))
+        # The op rows on the front sheet point at these blocks.
+        self.contour_ops = set(blocks)
         if not blocks:
             return ""
         html = []
         for op_id in sorted(blocks, key=lambda k: (not k.isdigit(), int(k) if k.isdigit() else 0)):
             entry = blocks[op_id]
             op = operations.get(op_id, {})
-            title = f"Op {op_id} — {self.feature_name(op.get('feature'))}"
+            # Each block names its setup: a contour sheet that runs onto a second page
+            # still says which setup it belongs to.
+            title = f"{setup['id']} op {op_id} — {self.feature_name(op.get('feature'))}"
             tool = tools.get(op.get("tool"))
             if tool:
                 title += f" · {tool}"
@@ -1815,22 +1861,35 @@ class _Traveler:
         name = names[0] if names else "? unknown stock"
         return name if not name.startswith("Setup") else f"part as it arrives from {name}"
 
-    def fixture_render(self, setup):
+    def fixture_render(self, setup, full_size_on=None):
+        """The holding picture with its caption and NOT SHOWN lines.
+
+        ``full_size_on`` names the attached sheet with the full-width copy: the front
+        sheet's half-width overview is too small to read the picture's labels and key.
+        """
         render = self.report.get("renders", {}).get(setup["id"])
         if not render:
-            return _p(
-                "NO PICTURE — the holding is not modelled; set up from the HOLD steps above.",
-                "stop",
-            )
+            if full_size_on:
+                return _p(
+                    "NO PICTURE — the holding is not modelled; set up from the HOLD steps.",
+                    "stop",
+                )
+            return ""
         scene = _mapping(render.get("scene"))
         fixture = self.reference(_mapping(setup.get("hold")).get("fixture"), "fixtures")
         caption = [f"Setup {setup['id']} — {self.arrival(setup)}, held in the {fixture}."]
+        if full_size_on:
+            caption = [
+                f"Setup {setup['id']} overview — labels and key are readable on the "
+                f"full-size picture, {full_size_on}."
+            ]
         shows = scene.get("shows")
-        caption.append(
-            "Picture shows: " + ", ".join(map(str, shows)) + "."
-            if isinstance(shows, list) and shows
-            else "Picture shows the holding only, not the cuts."
-        )
+        if not full_size_on:
+            caption.append(
+                "Picture shows: " + ", ".join(map(str, shows)) + "."
+                if isinstance(shows, list) and shows
+                else "Picture shows the holding only, not the cuts."
+            )
         lines = []
         for debt in scene.get("debts") or []:
             text = re.sub(r"^(?:fixture )?not drawn:\s*", "", str(debt))
@@ -1846,7 +1905,7 @@ class _Traveler:
         if render.get("fixture") != "modeled" and not lines:
             lines.append("NOT SHOWN: part of the holding is not modelled.")
         return (
-            '<figure class="fixture-render">'
+            f'<figure class="fixture-render{" overview" if full_size_on else ""}">'
             f'<img src="{escape(render["path"], quote=True)}" '
             f'alt="Setup {escape(setup["id"], quote=True)} holding picture">'
             f"<figcaption>{escape(' '.join(caption))}"
@@ -2101,11 +2160,19 @@ class _Traveler:
 
     # ------------------------------------------------------------------ setup
     def setup_section(self, setup):
+        """One front sheet to run the setup from, then attached sheets it points to.
+
+        Front: status, HOLD beside the picture, tools, DRO zero and the op table.
+        Sheet 2: clearance, feature map, op and inspection notes. Sheet 3: contours.
+        """
         self.setup = setup
+        sid = setup["id"]
         machine = self.reference(setup.get("machine"), "machines")
         kind = self.machine(setup).get("kind")
         tool_numbers, tools, tool_html = self.tool_table(setup)
-        ops_html, op_stops = self.operations(setup, tool_numbers)
+        contours = self.contours(setup, tools)
+        sheets = {"notes": 2, "contours": 3 if contours else None}
+        ops_html, notes_html, op_stops = self.operations(setup, tool_numbers, sheets)
         stops, cautions, topics = self.status_lines(
             self.setup_findings(setup), setup, skip_ops=True
         )
@@ -2113,35 +2180,61 @@ class _Traveler:
         for text, ops in op_stops.items():
             label = _ops_label(ops, every)
             stops.append(f"{label[:1].upper() + label[1:]} — {text}")
-        title = f"SETUP {setup['id']} — {machine}" + (f" ({_text(kind)})" if kind else "")
-        self.setup_stops[setup["id"]] = len(stops)
-        blocks = [f"<h2>{escape(title)}</h2>" + self.status_boxes(stops, cautions, topics)]
-        if setup.get("note"):
-            blocks[0] += _p(self.bench(setup["note"], setup))
-        blocks[0] += self.stock_state(setup)
-        blocks.append(self.hold(setup))
-        blocks.append(self.fixture_render(setup))
-        deburr = setup.get("deburr_mm")
-        blocks.append(
-            _p(
-                f"Coolant: {self.bench(setup.get('coolant'))}. Break edges "
-                + (f"{self.operative(deburr)} mm max." if _known(deburr) else "? limit not set.")
-            )
+        count = 3 if contours else 2
+        title = (
+            f"SETUP {sid} — {machine}"
+            + (f" ({_text(kind)})" if kind else "")
+            + f" · sheet 1 of {count}"
         )
-        blocks.append(self.clearance(setup))
-        blocks.append(tool_html)
-        blocks.append(self.dro(setup, tools))
-        blocks.append(self.feature_map(setup))
-        blocks.append(ops_html)
-        blocks.append(self.contours(setup, tools))
+        self.setup_stops[sid] = len(stops)
+        status = f"<h2>{escape(title)}</h2>" + self.status_boxes(stops, cautions, topics)
+        if setup.get("note"):
+            status += _p(self.bench(setup["note"], setup))
+        status += self.stock_state(setup)
+        steps, hold_below = self.hold(setup)
+        deburr = setup.get("deburr_mm")
+        coolant = _p(
+            f"Coolant: {self.bench(setup.get('coolant'))}. Break edges "
+            + (f"{self.operative(deburr)} mm max." if _known(deburr) else "? limit not set.")
+        )
+        front = [
+            status,
+            f'<div class="hold-row"><div class="hold-steps">{steps}</div>'
+            f"{self.fixture_render(setup, f'{sid} sheet 2')}</div>{hold_below}{coolant}",
+            tool_html,
+            self.dro(setup, tools),
+            ops_html,
+        ]
+
+        def attached(number, subject, blocks):
+            heading = f"<h2>SETUP {escape(sid)} — sheet {number} of {count}: {subject}</h2>"
+            return [heading + blocks[0], *blocks[1:]]
+
+        details = [
+            self.fixture_render(setup),
+            self.clearance(setup),
+            self.feature_map(setup),
+            notes_html,
+        ]
+        result = [
+            [block for block in front if block],
+            attached(
+                2, "full-size picture, clearance, feature map and notes", [b for b in details if b]
+            ),
+        ]
+        if contours:
+            result.append(attached(3, "contours", [contours]))
         self.setup = None
-        return [block for block in blocks if block]
+        return result
 
     def render(self):
         setups = self.plan.get("setups", [])
         # Setup pages are built first so the job status can name every stopped setup.
-        pages = [(f"Setup {s['id']}", self.setup_section(s)) for s in setups]
-        sections = [("Job", [self.header(setups)]), *pages]
+        sheets = [self.setup_section(s) for s in setups]
+        # (blocks, takes sign-off): the job page and each setup's front sheet are signed.
+        pages = [([self.header(setups)], True)]
+        for setup_sheets in sheets:
+            pages.extend((blocks, index == 0) for index, blocks in enumerate(setup_sheets))
         drawing = self.plan.get("drawing", {})
         part = _text(self.plan.get("part"))
         revision = self.drawing_revision()
@@ -2155,7 +2248,9 @@ class _Traveler:
             f"<title>{escape(part)} traveler"
             f"</title><style>{_CSS}</style></head><body>"
         ]
-        footer = (
+        # The report id rides in the header line: a footer pushed alone onto a page by a
+        # few points would print a blank sheet.
+        report_id = (
             f"prechips {self.report.get('prechips_version', '?')} · report "
             f"{str(self.report.get('hash', '?'))[:8]}"
         )
@@ -2163,19 +2258,19 @@ class _Traveler:
             "Sign off: __________  First article / measured results: ____________________",
             "signoff",
         )
-        for _, blocks in sections:
+        for blocks, signed in pages:
             result.append('<section class="page">')
             result.append(
                 f'<div class="meta"><h1>{escape(part.upper())} · '
                 f"{escape(_text(drawing.get('number')))} · "
                 + (f"rev {escape(revision)}" if revision else "REV NOT CONFIRMED")
-                + f"</h1><div>qty {escape(_text(self.plan.get('quantity')))}</div></div>"
+                + f"</h1><div>qty {escape(_text(self.plan.get('quantity')))}"
+                f' <span class="report-id">· {escape(report_id)}</span></div></div>'
             )
             result.append(f'<div class="banner">{banner}</div>')
-            result.extend(blocks[:-1])
-            # The sign-off travels with the section's last block: never alone on a page.
-            result.append(f'<div class="keep">{blocks[-1]}{signoff}</div>')
-            result.append(_p(footer, "foot"))
+            result.extend(blocks)
+            if signed:
+                result.append(signoff)
             result.append("</section>")
         result.append("</body></html>\n")
         return "\n".join(result)
