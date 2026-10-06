@@ -7,13 +7,15 @@ rules are in [geometry rules](rules-geometry.md). Unknown measurement debt stays
 ## `hold_fields`
 
 One subject per setup. Requires fixture, stop, grip, clamp, coolant, deburr,
-and holders for nonmanual ops. A vise/nonlathe setup needs fixed-jaw declaration
+and holders for nonmanual machining ops (saw cut-off needs none). A vise/nonlathe
+setup needs fixed-jaw declaration
 unless explicitly not applicable. Lathe setups need OD, support, grip-on and a
 known end station; mill setups need top/bottom Z. Authored supports, orientation,
 parallels, jaws direction and locator are checked when supplied. Every nonmanual
 cut needs `direction` (face, profile, pocket, turn, form and parting actions
 included) except point/hole actions (`spot`, `drill`, `ream`, `tap`,
-`counterbore`, `center`); an explicitly supplied direction is also checked, and
+`counterbore`, `center`) and saw cut-off (its `cut_plane` defines the setting);
+an explicitly supplied point/hole direction is also checked, and
 an explicitly unknown action without one is unknown. Missing/empty
 fields are errors; explicit unknown values are unknown. It does not compare
 all holding dimensions or certify the fixture was physically installed.
@@ -29,7 +31,7 @@ limit appears as a fallback.
 
 ## `headroom`
 
-One subject per setup. Lathe is explicitly unsupported. Mill stack in mm is
+One subject per setup. Mill stack in mm is
 `fixture bed + parallels + support blocks + physical stock height + tool
 projection + holder gauge length + 25 mm insertion`. Physical stock height
 (`stock_height_mm`) is `top_z - retained_rail_bottom_z` if authored, otherwise
@@ -46,6 +48,17 @@ with `verify = true`, say) is evidence in `numbers`, adds a
 `numbers.measurements` entry and keeps the row `?`. There is no top-level
 `spindle_to_table_max_in`/`travel_in` copy to fall back on.
 
+For a `dividing_head`, the work top above the table is the head's declared
+centre height plus `stock_state.top_z - hold.pose.origin_mm[2]`, plus any declared
+parallel/support lift: the pose origin locates the chuck axis in setup
+coordinates. Headroom adds the installed tool projection, holder gauge and
+25 mm insertion allowance to this work top,
+instead of treating the head's bed/body height plus full stock height as a
+vise stack. Translating stock and axis Z together leaves the result unchanged.
+Missing centre/axis facts or verification debt remain unknown; tilting the
+declared head axis does not by itself replace a known axis-origin Z with debt.
+The report/traveler expose centre height, axis Z and work-top height separately.
+
 Jaw height is not a stack layer: `jaw_top_z = bottom + jaw_height -
 (parallels + supports)`; cut clearance is `to_z - jaw_top_z`. Below-jaw cuts
 require geometric path checks and therefore remain unknown rather than being
@@ -57,9 +70,22 @@ envelope is computed. Inch inventory lengths
 convert explicitly by 25.4; no STEP bbox is extracted. Unverified dimensions
 cannot establish a verified stack/travel pass or measured clearance violation.
 
+For a lathe, `headroom` instead compares stock OD and chuck `body_dia` with
+`envelope.swing_over_bed`, stock OD with `envelope.swing_over_cross_slide`,
+and `hold.stickout_mm + body_length` with `envelope.between_centres`.
+When stick-out is not numeric, the declared stock length from
+`stock_state.north_end_z - south_end_z` (converted from manifest units) is used.
+All three machine limits require their own accepted measurement records;
+missing or unverified inputs remain unknown, while established overruns error.
+Evidence includes stock OD/length, stick-out, chuck body diameter/length,
+the three limits, required length and measurement debt. This is only a
+necessary-condition screen: it checks no tool path, carriage stroke or
+tailstock quill extension and adds no mill table/toolpost-gauge requirement.
+
 Templates:
 
-- `Lathe headroom is outside the mill-only M1 envelope rule.`
+- `{setup}: lathe swing, chuck body or between-centres length remains unmeasured or unresolved.`
+- `{setup}: stock and chuck fit the measured swing and between-centres length.`
 - `{setup}: headroom, travel or jaw-path geometry remains unmeasured or unresolved.`
 - `{setup}: measured spindle stack and part/fixture travels fit.`
 - `{setup}: {violations}.`, joining `supported stock height is not positive`,
@@ -87,6 +113,17 @@ lathe operation is never asked for a fictitious toolpost gauge length.
 |---|---|---|
 | `envelope` / setup | M5: authored stock and setup stock-state/frame; already-present successful kernel bbox only; fixture bed height plus parallels/supports; measured holder gauge and tool/holder projection; each operation's authored `approach_mm` and commanded Z band; measured spindle-to-table min/max | `S1: op 10 … exceeds spindle-to-table maximum … mm by … mm.` or `? S1: spindle envelope remains unmeasured or unresolved. measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm.` |
 | `travel` / setup | M5: transformed operation feature extents/centres or conservative authored stock span; selected cutter radius for profile extents only; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; per-op holder gauge and projection; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent, holder/tool length or safe approach to measure and author. |
+
+Child `counterbore` and other point operations with no `at` inherit the named
+`parent` (or `hole`) location in that source frame. An explicit child `at` wins,
+including explicit `"unknown"` debt; a missing parent/point stays unknown.
+The inheritance changes the cutter centre only, not child bounds/dimensions.
+
+Dedicated all-saw setups (manual inspection/deburring allowed) have no spindle
+headroom, envelope or XYZ tool travel, and those rows state `not_applicable`.
+In mixed setups saw ops contribute no fictitious holder/spindle stack while
+the other machine cuts still receive their normal checks. Holding and the
+native `saw_cut` stock-preservation check are not exempted.
 
 `envelope` stacks, for each **individual** operation,
 `fixture bed height + parallels/supports + physical stock height + mounted holder gauge + tool projection`
@@ -146,15 +183,25 @@ the entries behind the current reports, sorted and deduplicated by id.
 ## `datum_consistency`
 
 One subject per feature. Drawing datum names map to actual feature finishing
-cuts, not setup-frame labels. Relationships include position and angularity
-datums, coaxial feature and height-from feature. Reamed/bored/tapped datum finishing cuts replace
-pilots; rough/nonfinishing actions do not establish a final datum. Every feature
+cuts, not setup-frame labels. A feature's cuts are the ops that name it plus
+every op that owns it by complete explicit-face ownership (see
+[plan operations](plan.md#operation)): an op whose known, nonempty explicit
+`faces` contain all of the feature's known, nonempty declared faces, e.g. a
+finish profile whose end joins cut an exported tip land. Relationships include
+position and angularity datums, coaxial feature and height-from feature.
+Reamed/bored/tapped datum finishing cuts replace pilots, including across that
+merged label/owner set; rough, manual (`inspect`, `deburr`, `coating`, `release`,
+`fit`, `scribe`) and other nonfinishing actions (`spot`, `transfer`, saw) never
+establish a final datum, whether named or owning. A datum name that
+maps to no feature has no cuts. Every feature
 finishing-cut/datum-cut pair is evaluated. Same setup passes; an indicated
 transfer passes only when it names that feature/datum and originates at or
 after the datum finishing setup and before the current setup. Otherwise compare
 tolerance to measured `refixture_budget_mm`; tolerance below budget is error,
 unknown/unverified budget or unresolved cuts are unknown. Height-band tolerance
-is high minus low. Policy citation travels with a known budget.
+is high minus low of the band measured from `height_from`: the first of
+`height_above_pivot`, `height` or `separation` the feature declares (none =
+unknown). Policy citation travels with a known budget.
 
 Exact templates:
 

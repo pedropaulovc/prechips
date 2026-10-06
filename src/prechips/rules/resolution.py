@@ -27,6 +27,10 @@ SET_KINDS = {
     "lathe_tool_bits",
 }
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"}
+SAW_OPS = frozenset({"saw_cut", "cut_off"})
+HOLE_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
+# The hole actions whose cut can form a hole's claimed point cap.
+COMPLETE_FORM = frozenset({"drill", "ream", "bore", "counterbore"})
 _INVENTORY_CATEGORIES = ("machines", "tools", "holders", "fixtures", "gauges")
 WORKHOLDING_CATEGORIES = ("fixtures", "holders", "machines")
 
@@ -38,6 +42,16 @@ def number(value):
 def same_length(a, b):
     """Physical length equality in mm: absolute 1 nm, no relative slack."""
     return math.isclose(a, b, rel_tol=0.0, abs_tol=LENGTH_TOLERANCE_MM)
+
+
+def manifest_mm(bundle, value):
+    """A manifest-unit feature length (scalar or band) in mm; unknown units stay unknown."""
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units", UNKNOWN))
+    if scale is None:
+        return UNKNOWN
+    if isinstance(value, list):
+        return [v * scale if number(v) else UNKNOWN for v in value]
+    return value * scale if number(value) else UNKNOWN
 
 
 def fraction(value):
@@ -61,6 +75,37 @@ def uncertain(item):
 
 def record(value):
     return value if isinstance(value, dict) else {}
+
+
+def claim_refs(bundle, op):
+    """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``."""
+    if "faces" in op:
+        return op["faces"]
+    feature = record(bundle.feature_definitions.get(op.get("feature")))
+    joint = record(feature.get("joint"))
+    return [joint["label"]] if joint else feature.get("faces", UNKNOWN)
+
+
+def known_refs(refs):
+    return isinstance(refs, list) and bool(refs) and UNKNOWN not in refs
+
+
+def owns_feature(bundle, op, name):
+    """Whether an op's explicit ``faces`` claim every declared face of feature ``name``.
+
+    Ownership needs a known, nonempty feature face list and a known, nonempty explicit
+    claim that contains all of it; empty, unknown, malformed or partial claims never
+    establish it, and a label alone never does. A hole-family feature is owned only by a
+    complete-form action (drill/ream/bore/counterbore): a spot, tap, pilot or profile op
+    never becomes a hole's owner through its claim.
+    """
+    if "faces" not in op:
+        return False
+    feature = record(bundle.feature_definitions.get(name))
+    if feature.get("kind") in HOLE_KINDS and op.get("do") not in COMPLETE_FORM:
+        return False
+    claimed, declared = op["faces"], feature.get("faces", UNKNOWN)
+    return known_refs(claimed) and known_refs(declared) and set(declared) <= set(claimed)
 
 
 EXPORTED_FRAMES = "features.frames"
@@ -157,6 +202,12 @@ def inventory_category(bundle_or_inventory, reference, categories=_INVENTORY_CAT
         if root in record(inventory.get(category)):
             return category
     return None
+
+
+def workholding_category(bundle_or_inventory, reference):
+    """Category holding a ``hold.fixture`` identity: a fixture, holder or machine (a
+    machine-hosted dividing head); ``fixtures`` when no category declares it."""
+    return inventory_category(bundle_or_inventory, reference, WORKHOLDING_CATEGORIES) or "fixtures"
 
 
 def resolve(bundle_or_inventory, category, reference):
@@ -303,6 +354,7 @@ def selected_references(plan):
         "clamps",
         "riser",
         "support_blocks",
+        "chuck",
         "ref",
     }
 
@@ -340,13 +392,31 @@ def selected_references(plan):
     return result
 
 
-def operations(bundle, feature=None):
+def operations(bundle, feature=None, owned=False):
+    """Every (setup, op), or those naming ``feature``; ``owned`` adds complete claimers.
+
+    With ``owned`` an op also selects a feature it does not name when its explicit faces
+    claim the whole feature (``owns_feature``). Labels keep describing the op's own
+    feature, so label-scoped callers (chains, sizing, inspection) keep the default.
+    """
     return [
         (setup, op)
         for setup in bundle.plan["setups"]
         for op in setup["ops"]
-        if feature is None or op.get("feature") == feature
+        if feature is None
+        or op.get("feature") == feature
+        or (owned and owns_feature(bundle, op, feature))
     ]
+
+
+def saw_setup(setup):
+    """A dedicated saw setup: at least one saw op and every non-manual op is a saw op.
+
+    An explicitly unknown action is not a saw op, so it keeps the setup assessed.
+    """
+    actions = [op.get("do", UNKNOWN) for op in setup.get("ops", [])]
+    cutting = [action for action in actions if action not in MANUAL]
+    return bool(cutting) and all(action in SAW_OPS for action in cutting)
 
 
 def candidate_refs(inventory):

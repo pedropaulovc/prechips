@@ -1,7 +1,8 @@
 """Physical mill stack arithmetic, independent of authored reference outputs."""
 
+import math
 import re
-from pathlib import Path
+from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
@@ -19,7 +20,7 @@ def measured(value):
 
 
 def bundle():
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"length_mm": 100, "section_mm": [30, 16]},
             "setups": [
@@ -74,6 +75,8 @@ def bundle():
         features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": {}},
         policy={},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def test_stack_uses_physical_height_not_coordinate_or_jaw_height():
@@ -230,6 +233,126 @@ def test_below_jaw_target_is_separate_unresolved_path_check():
     assert finding.numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(-2.6)
 
 
+LEVEL_HEAD_POSE = {"origin_mm": [0, 0, 0], "x": [0, 1, 0], "z": [1, 0, 0]}
+
+
+def head_bundle():
+    """S1 held in a dividing head whose axis origin lies on setup z = 0."""
+    data = bundle()
+    data.plan["setups"][0]["hold"] = {"fixture": "head", "pose": deepcopy(LEVEL_HEAD_POSE)}
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(250)
+    data.inventory["machines"]["head"] = {
+        "kind": "dividing_head",
+        "centre_height_mm": 100,
+        # Neither is the work's height on a head: bed 20 + supported stock 16 would
+        # give 36, jaw 40 would give 40, against the true 104 mm work top.
+        "bed_height_mm": 20,
+        "jaw_height_mm": 40,
+        "length_mm": 150,
+        "width_mm": 80,
+    }
+    return data
+
+
+def test_dividing_head_work_top_is_centre_height_plus_top_above_axis():
+    finding = evaluate(head_bundle())[0]
+    assert finding.status == "pass"
+    # 100 centre height + (top 4 - axis 0) + projection 55 + gauge 30 + insertion 25.
+    assert finding.numbers["work_top_above_table_mm"] == 104
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+    assert finding.numbers["bed_height_mm"] == "not_applicable"
+    assert finding.numbers["jaw_obstruction"]["jaw_top_z"] == "not_applicable"
+    assert finding.numbers["cut_tip_above_jaws_mm"] == {}
+
+
+def test_dividing_head_exact_clearance_passes_and_excess_errors():
+    data = head_bundle()
+    envelope = data.inventory["machines"]["mill"]["envelope"]
+    envelope["spindle_to_table_max_mm"] = measured(214)
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["stacks"][0]["margin_mm"] == 0
+    envelope["spindle_to_table_max_mm"] = measured(213)
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["stacks"][0]["margin_mm"] == -1
+
+
+def test_dividing_head_translated_pose_and_stock_keep_the_same_stack():
+    data = head_bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"]["pose"]["origin_mm"] = [7, -3, 50]
+    setup["stock_state"].update(top_z=54, bottom_z=38)
+    setup["ops"][0]["to_z"] = 50
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["head_axis_z"] == 50
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+
+
+def test_dividing_head_needs_no_supported_stock_bottom():
+    data = head_bundle()
+    del data.plan["setups"][0]["stock_state"]["bottom_z"]
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+
+
+def test_inclined_head_keeps_centre_plus_pose_offset_and_blocks_lift_it():
+    data = head_bundle()
+    tilt = math.radians(3.33)
+    hold = data.plan["setups"][0]["hold"]
+    cos, sin = math.cos(tilt), math.sin(tilt)
+    hold["pose"].update(z=[cos, 0, sin], x=[-sin, 0, cos])
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["work_top_above_table_mm"] == 104
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+    hold.update(supports="blocks", support_orientation="1 in height")
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["work_top_above_table_mm"] == pytest.approx(129.4)
+    assert finding.numbers["sum_mm"] == pytest.approx(239.4)
+
+
+@pytest.mark.parametrize(
+    "gap",
+    ["no pose", "pose origin unknown", "no centre height", "head verify", "support verify"],
+)
+@pytest.mark.parametrize("limit", [1000, 100])
+def test_dividing_head_unresolved_work_top_neither_passes_nor_errors(gap, limit):
+    data = head_bundle()
+    hold = data.plan["setups"][0]["hold"]
+    head = data.inventory["machines"]["head"]
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(limit)
+    if gap == "no pose":
+        del hold["pose"]
+    elif gap == "pose origin unknown":
+        hold["pose"]["origin_mm"] = "unknown"
+    elif gap == "no centre height":
+        del head["centre_height_mm"]
+    elif gap == "head verify":
+        head["verify"] = True
+    else:
+        hold.update(supports="blocks", support_orientation="1 in height")
+        data.inventory["fixtures"]["blocks"]["verify"] = True
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    if gap not in {"head verify", "support verify"}:
+        assert finding.numbers["work_top_above_table_mm"] == "unknown"
+        assert finding.numbers["sum_mm"] == "unknown"
+
+
+def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_travel():
+    data = head_bundle()
+    data.inventory["machines"]["head"]["length_mm"] = 450
+    finding = evaluate(data)[0]
+    assert finding.numbers["fixture_verify"] is False
+    assert finding.numbers["sum_mm"] == pytest.approx(214)
+    assert finding.numbers["travel_checks"]["x"]["fixture_mm"] == 450
+    assert finding.status == "error"
+
+
 def test_part_and_fixture_envelope_must_fit_travel():
     data = bundle()
     data.inventory["machines"]["mill"]["envelope"]["travel_mm"]["x"] = measured(140)
@@ -316,7 +439,7 @@ def coordinate_bundle(tmp_path, feature, operations):
         encoding="utf-8",
     )
     (root / "inventory.toml").write_text(
-        "[machines.mill]\nkind = 'mill'\nverify = false\n"
+        "[machines.mill]\nkind = 'mill'\nverify = false\n[machines.mill.spindle]\nrotation = 'cw'\n"
         "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nverify = false\n"
         "[tools.spot]\nkind = 'center_drill'\ndia_mm = 6.0\npoint_angle = 90.0\n"
         "verify = false\n"
@@ -439,54 +562,63 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
     }
     for stage, allowance in (("rough", 0.3), ("finish", 0.0)):
         table = displayed[stage]
+        headings = re.findall(r"<th(?:\s[^>]*)?>(.*?)</th>", table)
         first_row = re.search(r"<tbody><tr>(.*?)</tr>", table, re.DOTALL).group(1)
-        cells = re.findall(r"<td[^>]*>(.*?)</td>", first_row)
-        assert [float(cell) for cell in cells[1:3]] == pytest.approx(
+        cells = dict(zip(headings, re.findall(r"<td[^>]*>(.*?)</td>", first_row), strict=True))
+        assert [float(cells["X"]), float(cells["Y"])] == pytest.approx(
             [28.0 + allowance, 8.0]
             if method == "arc_table"
             else [-8.0 - allowance, -5.0 - allowance]
         )
 
 
-@pytest.mark.parametrize(("setup_id", "op_id"), [("S1", 40), ("S2", 40), ("S3", 30)])
-def test_exported_rocker_top_edge_keeps_cutter_table_with_all_linked_features(setup_id, op_id):
-    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
-    finding = next(row for row in coordinates.evaluate(data) if row.subject == setup_id)
-    arc = next(
-        (
-            arc
-            for arc in finding.numbers["arc_table"]
-            if arc["feature"] == "top_edge" and arc["op"] == op_id
-        ),
-        None,
-    )
-    assert arc is not None
-    top = next(
-        profile
-        for profile in finding.numbers["profiles"]
-        if profile["feature"] == "top_edge" and profile["op"] == op_id
-    )
-    assert arc["cutter_centre_radius_mm"] == pytest.approx(800.0 - top["offset_mm"])
-    assert arc["rows"][0]["model_xy"][0] == pytest.approx(-arc["rows"][-1]["model_xy"][0])
-    assert arc["rows"][0]["model_xy"][1] == pytest.approx(arc["rows"][-1]["model_xy"][1])
-
-
 @pytest.mark.parametrize("corruption", ["missing", "inconsistent"])
-@pytest.mark.parametrize("linked_feature", ["profile_outer", "tip_land_pos_x", "tip_land_neg_x"])
+@pytest.mark.parametrize("linked_feature", ["outer", "right_land", "left_land"])
 def test_top_edge_does_not_ignore_missing_or_conflicting_linked_geometry(
-    linked_feature, corruption
+    tmp_path, linked_feature, corruption
 ):
-    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
+    plan = coordinate_bundle(
+        tmp_path,
+        """kind = "profile"
+radius = 10.0
+arc_centre = [0.0, 0.0, 0.0]
+end = [6.0, -8.0, 0.0]
+[features.outer]
+kind = "profile"
+top_edge_feature = "target"
+radial_tip_end = [10.0, -8.0, 0.0]
+[features.right_land]
+kind = "profile"
+top_edge_feature = "target"
+radial_tip_end = [10.0, -8.0, 0.0]
+[features.left_land]
+kind = "profile"
+top_edge_feature = "target"
+radial_tip_end = [-10.0, -8.0, 0.0]
+""",
+        "[[setups.ops]]\nop = 20\ndo = 'finish_profile'\nfeature = 'target'\n"
+        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+        "contour = { method = 'arc_table', step_deg = 5.0 }\n",
+    )
+    data = load_bundle(plan)
+    known = coordinates.evaluate(data)[0]
+    assert known.status == "pass"
+    (arc,) = known.numbers["arc_table"]
+    # The 6 mm cutter offsets the R10 arc to R7 and the horizontal lands to Y-5.
+    assert arc["cutter_centre_radius_mm"] == pytest.approx(7.0)
+    # Endpoints are the land intersections; which comes first is the cutting order.
+    ends = sorted([arc["rows"][0], arc["rows"][-1]], key=lambda row: row["model_xy"][0])
+    assert ends[0]["model_xy"] == pytest.approx([-(24.0**0.5), -5.0])
+    assert ends[1]["model_xy"] == pytest.approx([24.0**0.5, -5.0])
+    assert ends[0]["setup_xy"] == pytest.approx([-(24.0**0.5) - 5.0, -7.0])
     linked = data.features["features"][linked_feature]
     if corruption == "missing":
         linked["radial_tip_end"] = "unknown"
     else:
         linked["radial_tip_end"][1] += 1.0
     finding = coordinates.evaluate(data)[0]
-    assert not any(arc["feature"] == "top_edge" for arc in finding.numbers["arc_table"])
-    top = next(
-        profile
-        for profile in finding.numbers["profiles"]
-        if profile["feature"] == "top_edge" and profile["op"] == 40
-    )
+    assert finding.status == "unknown"
+    assert finding.numbers["arc_table"] == []
+    (top,) = finding.numbers["profiles"]
+    assert top["offset_mm"] == pytest.approx(3.0)
     assert top["cutter_centre"] == "unknown"

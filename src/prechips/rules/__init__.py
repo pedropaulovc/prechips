@@ -16,14 +16,17 @@ from prechips.rules import (
     engagement,
     envelope,
     finish_coverage,
+    fixture_interference,
     headroom,
     hold_fields,
     indexing,
     inspection,
     internal_corner_radius,
+    joints,
     op_chain,
     op_order,
     reach,
+    saw_cut,
     sizing,
     speeds_feeds,
     stickout,
@@ -45,6 +48,12 @@ class Rule:
     evaluate: Callable[[Bundle], list[Finding]]
 
 
+MEASUREMENT_RULES = [
+    Rule("headroom", headroom.evaluate),
+    Rule("envelope", envelope.evaluate),
+    Rule("travel", travel.evaluate),
+]
+
 RULES: list[Rule] = [
     Rule("tool_resolves", tool_resolves.evaluate),
     Rule("sizing", sizing.evaluate),
@@ -56,9 +65,7 @@ RULES: list[Rule] = [
     Rule("coordinates", coordinates.evaluate),
     Rule("inspection", inspection.evaluate),
     Rule("hold_fields", hold_fields.evaluate),
-    Rule("headroom", headroom.evaluate),
-    Rule("envelope", envelope.evaluate),
-    Rule("travel", travel.evaluate),
+    *MEASUREMENT_RULES,
     Rule("datum_consistency", datum_consistency.evaluate),
     Rule("turned_profile", turned_profile.evaluate),
     Rule("stickout", stickout.evaluate),
@@ -67,6 +74,7 @@ RULES: list[Rule] = [
     Rule("turning_deflection", turning_deflection.evaluate),
     Rule("engagement", engagement.evaluate),
     Rule("construction", construction.evaluate),
+    Rule("joint_fit", joints.evaluate_fit),
 ]
 
 GEOMETRY_RULES = [
@@ -77,6 +85,9 @@ GEOMETRY_RULES = [
     Rule("finish_coverage", finish_coverage.evaluate),
     Rule("vise", vise.evaluate),
     Rule("thin_wall_under_clamp", thin_wall_under_clamp.evaluate),
+    Rule("saw_cut", saw_cut.evaluate),
+    Rule("fixture_interference", fixture_interference.evaluate),
+    Rule("joint_assembly", joints.evaluate_assembly),
 ]
 RULES.extend(GEOMETRY_RULES)
 
@@ -98,7 +109,7 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
         elif selector in {"holes", "toleranced_features"}:
             subjects = [
                 feature
-                for feature, item in bundle.features["features"].items()
+                for feature, item in bundle.feature_definitions.items()
                 if (
                     item.get("kind") in {"hole", "counterbore", "thread"}
                     if selector == "holes"

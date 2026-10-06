@@ -62,10 +62,11 @@ For a `[low, high]` mm band, gauge range must cover both ends and resolution mus
 not exceed `high-low`. A scalar geometric tolerance needs resolution
 at most the tolerance and a known declared method. Non-mm/unknown limits stay unknown.
 Unverified gauge range/resolution cannot prove a dimensional error or pass.
-Roughness capability is unresolved without explicit range evidence; the current
-inventory schema does not expose the rule's `ra_range`/`range_ra` lookup, so do
-not add those extra keys to an M1 input or claim a shipped roughness capability
-pass. Scalar dimensions without an implemented capability branch stay unknown.
+Roughness capability is unresolved without explicit range evidence. A gauge of a
+roughness kind (e.g. `roughness_comparator`) declares it with the inventory field
+`ra_range = [low_um, high_um]`; the Ra limit must lie inside that range. Without
+`ra_range` (or with an unverified item) finish_ra stays unknown. Scalar dimensions
+without an implemented capability branch stay unknown.
 
 A numeric requirement band must contain any explicitly exported numeric
 `<requirement>_nominal` or `nominal_<requirement>`, inclusively. A contradiction is

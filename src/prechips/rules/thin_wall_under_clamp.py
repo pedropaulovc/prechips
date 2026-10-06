@@ -1,7 +1,7 @@
 """Measured grip-zone wall below the shop floor needs a named protective method."""
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import fact_reason, setup_contexts
+from prechips.rules.geometry_common import fact_reason, setup_contexts, strap_clamped
 from prechips.rules.resolution import number, record, same_length
 
 _PROTECTED = {"soft_jaws", "soft jaws", "mandrel", "tape", "wax"}
@@ -29,6 +29,12 @@ def evaluate(bundle):
         subject = setup["id"]
         wall, method = detail.get("min_wall_mm", "unknown"), inputs.get("method", "unknown")
         values = {"min_wall_mm": wall, "thin_wall_floor_mm": floor, "method": method}
+        # Strap holds: the run under each posed strap footprint along its clamp force.
+        straps = strap_clamped(inputs) and inputs["kind"] != "vise"
+        zone = "under the strap footprints" if straps else "inside the grip zone"
+        debts = detail.get("strap_wall_debts", []) if straps else []
+        if debts:
+            values["strap_wall_debts"] = debts
         status, message = (
             "unknown",
             fact_reason(
@@ -39,7 +45,14 @@ def evaluate(bundle):
         )
         if number(wall) and wall > 0 and number(floor) and floor > 0:
             if wall >= floor or same_length(wall, floor):
-                status, message = "pass", "minimum wall inside the grip zone meets the shop floor"
+                status, message = "pass", f"minimum wall {zone} meets the shop floor"
+                if debts:
+                    # An undrawn or non-bearing clamp may load a thinner wall.
+                    status = "unknown"
+                    message = (
+                        "drawn straps meet the shop floor but other clamps are unresolved: "
+                        + "; ".join(debts)
+                    )
             elif method == "unknown":
                 message = "wall is below the shop floor and protective holding method is unknown"
             elif str(method).strip().lower() in _PROTECTED:

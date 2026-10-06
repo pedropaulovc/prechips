@@ -68,7 +68,7 @@ def build_report(
         "findings": [f.to_dict() for f in sorted(findings, key=lambda f: (f.rule, f.subject))],
         "inputs": inputs,
         "prechips_version": __version__,
-        "rules_version": "m5-rev8",
+        "rules_version": "m5-rev9",
         "step_sha256": bundle.features.get("step_sha256", "unknown"),
         "verification": "checked" if result == 0 else "planned",
     }

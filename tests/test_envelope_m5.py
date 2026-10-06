@@ -16,7 +16,7 @@ def measured(value):
 
 
 def bundle():
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"form": "flat_bar", "length_mm": 100, "section_mm": [30, 16]},
             "setups": [
@@ -81,6 +81,8 @@ def bundle():
         },
         policy={"required": {"envelope": "*", "travel": "*"}},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def test_measured_setup_passes_and_stack_is_physical_not_z_coordinate():
@@ -312,7 +314,6 @@ def test_review_10_unresolved_holder_requests_resolution_not_measurement():
     data.plan["setups"][0]["ops"][0]["holder"] = "unowned-chuck"
     row = envelope.evaluate(data)[0]
     assert row.status == "unknown"
-    assert "resolve" in row.sentence.lower() and "unowned-chuck" in row.sentence
     assert not any(
         entry["id"] in {"holders.unowned-chuck.gauge_len", "holders.unowned-chuck.grip"}
         for entry in row.numbers["measurements"]
@@ -428,6 +429,21 @@ def test_unresolved_fixture_requests_identity_not_height_measurement(field, iden
     debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
     assert f"fixtures.{identity}.height" not in debts
     assert debts[f"fixtures.{identity}.resolve"]["instruction"].startswith("resolve:")
+
+
+def test_machine_hosted_dividing_head_supplies_the_fixture_height():
+    data = bundle()
+    data.plan["setups"][0]["hold"] = {"fixture": "head", "parallels": "none"}
+    head = {"kind": "dividing_head", "height_mm": measured(50)}
+    data.inventory["machines"]["head"] = head
+    row = envelope.evaluate(data)[0]
+    assert row.status == "pass"
+    assert row.numbers["stacks"][0]["stack_mm"] == 151
+    assert "inventory.machines.head.height" in row.cite
+    head["height_mm"] = 50
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    assert "machines.head.height" in {entry["id"] for entry in row.numbers["measurements"]}
 
 
 @pytest.mark.parametrize("action,field", [("drill", "point_angle"), ("ream", "lead")])

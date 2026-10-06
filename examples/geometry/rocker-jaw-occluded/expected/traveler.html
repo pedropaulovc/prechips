@@ -1,50 +1,209 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>rocker-arm traveler</title><style>@page { size: Letter portrait; margin: .4in; }
+<html lang="en"><head><meta charset="utf-8"><meta name="prechips-version" content="0.1"><meta name="prechips-report" content="dd7513d3cf4bea823bca9d8e471e4fbb8f56c1f7091589341ea54811b711e0a4"><title>rocker-arm traveler</title><style>@page { size: Letter portrait; margin: .4in; }
 * { box-sizing: border-box; }
-body { margin: 0; color: #000; background: #fff; font: 8pt/1.2 Arial, sans-serif; }
+body { margin: 0; color: #000; background: #fff; font: 8pt/1.25 Arial, sans-serif; }
 .page { break-after: page; page-break-after: always; }
 .page:last-child { break-after: auto; page-break-after: auto; }
-h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 4pt 0 2pt; border-bottom: 1px solid #000; break-after: avoid; }
+h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 5pt 0 2pt; border-bottom: 1px solid #000; break-after: avoid; page-break-after: avoid; }
+h3 { font-size: 8pt; margin: 4pt 0 1pt; break-after: avoid; page-break-after: avoid; }
 p { margin: 2pt 0; } .meta { display: flex; justify-content: space-between; gap: 8pt; }
 .banner { border: 2px solid #000; text-align: center; font-weight: bold; padding: 1pt; margin: 3pt 0; }
-.byst p { margin: 1pt 0 1pt 1.3em; text-indent: -1.3em; }
+.stop { border: 2.5px solid #000; padding: 2pt 4pt; margin: 3pt 0; font-weight: bold; break-inside: avoid; }
+.unverified, .caution { border: 1px dashed #000; padding: 2pt 4pt; margin: 3pt 0; break-inside: avoid; }
+.caution { border-style: solid; }
+.stop p, .unverified p, .caution p { margin: 1pt 0; }
+ol, ul { margin: 2pt 0 2pt 1.6em; padding: 0; } li { margin: 0 0 1pt; }
 table { width: 100%; border-collapse: collapse; margin: 2pt 0; table-layout: fixed; }
 th, td { border: 1px solid #555; padding: 1pt 2pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
 th { background: #eee; } thead { display: table-header-group; }
-tr { break-inside: avoid; page-break-inside: avoid; } .operations { font-size: 7.5pt; }
-.fixture-render { margin: 4pt 0; break-inside: avoid; }
-.fixture-render img { display: block; width: 100%; max-height: 1.7in; object-fit: contain; }
-.fixture-render figcaption { font-size: 7pt; }
-.foot { text-align: right; font-size: 7pt; margin-top: 5pt; break-inside: avoid; }
-@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } }
-</style></head><body>
-<section class="page">
-<div class="meta"><h1>ROCKER-ARM · ? · rev ?</h1><div>qty ?</div></div>
-<p>Header / route</p>
+tr, tbody { break-inside: avoid; page-break-inside: avoid; }
+tr.warn td { border-top: 0; padding-left: 8pt; }
+tr.warn .box { display: inline-block; margin: 0 4pt 1pt 0; }
+td .box { display: block; border: 1.5px solid #000; font-weight: bold; padding: 0 2pt; margin-top: 1pt; }
+.keep { break-inside: avoid; page-break-inside: avoid; }
+.contours { columns: 3; column-gap: 8pt; }
+.contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4pt; }
+.hold-row { display: flex; gap: 8pt; align-items: flex-start; }
+.hold-steps { flex: 1 1 70%; min-width: 0; }
+.fixture-render { margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
+.hold-row > .fixture-render, .hold-row > .stop { flex: 0 0 30%; margin: 4pt 0 0; }
+.fixture-render img { display: block; width: 100%; object-fit: contain; border: 1px solid #999; }
+.see { font-style: italic; }
+table.operations { margin-top: 0; }
+tr.continued th { height: 14pt; padding: 0 0 1pt; font-size: 9pt; background: #fff; border: 0; border-bottom: 1px solid #000; vertical-align: bottom; }
+h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
+.signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
+.contour-row { display: flex; gap: 8pt; align-items: flex-start; }
+.contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
+.contour-row.tall { display: block; }
+.blank-side { padding-top: 4in; text-align: center; font-weight: bold; }
+@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } .blank-side { display: none; } }
+</style><script>(() => {
+  // Letter 11 in less .4 in margins = 979 px at 96 px/in. The sheet is measured by the
+  // same engine at the printed width, so a small band covers rounding only.
+  const CAP = 975;
+  const MARK = "data-duplex";
+  const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
+  function box(el) {
+    const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
+  }
+  function paginate(section) {
+    let pageTop = box(section).top, pages = 1;
+    const fits = (bottom) => bottom - pageTop <= CAP;
+    const breakAt = (el, top) => {
+      el.style.breakBefore = "page";
+      el.setAttribute(MARK, "");
+      pageTop = top;
+      pages += 1;
+    };
+    const headOf = (table) => (table.tHead ? table.tHead.getBoundingClientRect().height : 0);
+    // Move `el` to a new page, taking a heading right above it along.
+    function move(el) {
+      const prev = el.previousElementSibling;
+      const start = heading(prev) && box(prev).top > pageTop ? prev : el;
+      if (box(start).top > pageTop) breakAt(start, box(start).top);
+    }
+    function table(t) {
+      const bodies = [...t.tBodies];
+      bodies.forEach((tb, j) => {
+        const b = box(tb);
+        if (fits(b.bottom)) return;
+        if (j === 0) {
+          move(t);
+          if (fits(b.bottom)) return;
+        }
+        breakAt(tb, b.top - headOf(t));
+      });
+    }
+    function walk(parent) {
+      for (const el of [...parent.children]) {
+        const b = box(el);
+        if (fits(b.bottom)) continue;
+        if (el.tagName === "TABLE") {
+          table(el);
+        } else if (el.classList.contains("signoff")) {
+          // The sign-off never stands alone: take the last op row with it.
+          const prev = el.previousElementSibling;
+          const last = prev && prev.tagName === "TABLE" ? prev.tBodies[prev.tBodies.length - 1]
+            : null;
+          if (last) breakAt(last, box(last).top - headOf(prev));
+          else move(el);
+        } else if (b.bottom - b.top <= CAP) {
+          move(el);
+        } else if (el.children.length) {
+          walk(el);
+        } else {
+          // One unbreakable block taller than a page: the browser splits it.
+          const over = b.bottom - pageTop;
+          pages += Math.floor(over / CAP);
+          pageTop = b.bottom - (over % CAP);
+        }
+      }
+    }
+    walk(section);
+    return pages;
+  }
+  function run() {
+    const body = document.body, saved = body.getAttribute("style");
+    try {
+      document.querySelectorAll(".blank-side").forEach((el) => el.remove());
+      document.querySelectorAll("[" + MARK + "]").forEach((el) => {
+        el.style.breakBefore = "";
+        el.removeAttribute(MARK);
+      });
+      // Contour blocks go in rows of three so each row is one measurable block.
+      document.querySelectorAll(".contours:not([data-rows])").forEach((c) => {
+        c.setAttribute("data-rows", "");
+        c.style.columns = "auto";
+        const blocks = [...c.children];
+        for (let i = 0; i < blocks.length; i += 3) {
+          const row = document.createElement("div");
+          row.className = "contour-row";
+          row.append(...blocks.slice(i, i + 3));
+          c.append(row);
+        }
+      });
+      // Measure at the printed width whatever the window size.
+      body.style.cssText = "max-width:none;width:7.7in;margin:0";
+      document.querySelectorAll(".contour-row").forEach((row) => {
+        row.classList.toggle("tall", row.getBoundingClientRect().height > CAP);
+      });
+      for (const section of [...document.querySelectorAll("section.page[data-sheet]")]) {
+        if (paginate(section) % 2 === 0) continue;
+        const blank = document.createElement("section");
+        blank.className = "page blank-side";
+        blank.textContent =
+          "This side intentionally blank \u2014 " + section.getAttribute("data-sheet") + " back";
+        section.after(blank);
+      }
+    } catch (error) {
+      document.querySelectorAll(".blank-side").forEach((el) => el.remove());
+      document.querySelectorAll("[" + MARK + "]").forEach((el) => (el.style.breakBefore = ""));
+    } finally {
+      if (saved === null) body.removeAttribute("style");
+      else body.setAttribute("style", saved);
+    }
+  }
+  addEventListener("load", run);
+  addEventListener("beforeprint", run);
+})();
+</script></head><body>
+<section class="page" data-sheet="job page">
+<div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
-<h2>BEFORE YOU START</h2><div class="byst"><p>No reported errors, warnings or unresolved checks for this section.</p></div><p>? Drawing revision is not confirmed.</p><p>Drawing material / finish: </p><h2>STOCK AND ROUTE</h2><p>form: rectangular bar; note: Authored synthetic rectangular supply at the STEP&#x27;s measured global XY bbox, x +/-146.254568, y 0..29.29464 mm, with 1 mm allowance beyond each hub end in Z (+/-4.52825 mm). The preparation cutter&#x27;s authored 4 mm radius bounds clearance declarations; this supply adds no XY allowance. This is a fixture choice, not measured shop stock; curved and inset source faces are not declared as-is.; length mm: 9.0565; section mm: 292.509 / 29.2946; origin mm: -146.255 / 0 / -4.52825; axis: 0 / 0 / 1; section axis: 1 / 0 / 0; as is faces: —</p><table class=""><colgroup><col style="width:10%"><col style="width:20%"><col style="width:70%"></colgroup><thead><tr><th>setup</th><th>starts from</th><th>machine / fixture</th></tr></thead><tbody><tr><td>S1</td><td>stock</td><td>test-mill / ?</td></tr><tr><td>S2</td><td>S1</td><td>test-mill / ?</td></tr><tr><td>S3</td><td>S2</td><td>test-mill / vise</td></tr></tbody></table><h2>DRAWING REQUIREMENTS</h2><table class=""><thead><tr><th>feature</th><th>requirement / acceptance band</th></tr></thead><tbody><tr><td>strap datum b</td><td>No drawing requirements declared.</td></tr><tr><td>strap faces</td><td>No drawing requirements declared.</td></tr><tr><td>hub faces</td><td>No drawing requirements declared.</td></tr><tr><td>hub od</td><td>No drawing requirements declared.</td></tr><tr><td>pivot bore</td><td>No drawing requirements declared.</td></tr><tr><td>rod hole</td><td>No drawing requirements declared.</td></tr><tr><td>top edge</td><td>No drawing requirements declared.</td></tr><tr><td>profile outer</td><td>No drawing requirements declared.</td></tr><tr><td>tip land pos x</td><td>No drawing requirements declared.</td></tr><tr><td>tip land neg x</td><td>No drawing requirements declared.</td></tr></tbody></table><p>Kernel geometry findings use sampled tool / holder solids, not CAM toolpaths. An unresolved fixture is not a rendered holding proof. ? = unresolved. EM = endmill; CD = centre drill; DTI = test indicator; mic = micrometer. Keep the drawing at the bench.</p>
-<p>Sign off: __________  First article / measured results: ____________________</p>
-<p class="foot">prechips 0.1 · report bd63c41d</p>
+<h2>JOB STATUS</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Drawing revision not confirmed — match the print revision first.</p><p>Setups S1, S2, S3: STOP items on the setup page — do not run a setup until its STOPs are cleared.</p></div><p>Drawing material: ? not stated.</p><p>Speeds / feeds: no cited source — every op without a speed is a STOP.</p><h2>STOCK AND ROUTE</h2><p>Stock: rectangular bar 292.509 × 29.295 × 9.056 long. Authored synthetic rectangular supply at the STEP&#x27;s measured global XY bbox, x +/-146.255, y 0..29.29464 mm, with 1 mm allowance beyond each hub end in Z (+/-4.528 mm). The preparation cutter&#x27;s authored 4 mm radius bounds clearance declarations; this supply adds no XY allowance. This is a fixture choice, not measured shop stock; curved and inset source faces are not declared as-is.</p><table><colgroup><col style="width:8%"><col style="width:32%"><col style="width:25%"><col style="width:35%"></colgroup><thead><tr><th>setup</th><th>starts from</th><th>machine</th><th>holding</th></tr></thead><tbody><tr><td>S1</td><td>the stock blank</td><td>test-mill</td><td>STOP: not chosen</td></tr></tbody><tbody><tr><td>S2</td><td>part as it arrives from Setup S1</td><td>test-mill</td><td>STOP: not chosen</td></tr></tbody><tbody><tr><td>S3</td><td>part as it arrives from Setup S2</td><td>test-mill</td><td>vise</td></tr></tbody></table><h2>DRAWING REQUIREMENTS</h2><table><colgroup><col style="width:30%"><col style="width:70%"></colgroup><thead><tr><th>feature</th><th>limits</th></tr></thead><tbody><tr><td>strap (datum B)</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>strap faces</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>hub faces</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>hub od</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>pivot bore</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>rod hole</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>top edge</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>profile outer</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>tip land (+X side)</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>tip land (−X side)</td><td>no toleranced requirement</td></tr></tbody></table><p>T# = tool number in that setup&#x27;s TOOLS table. EM = endmill; CD = centre drill; DTI = test indicator; mic = micrometer. Keep the drawing at the bench.</p>
+<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
 </section>
-<section class="page">
-<div class="meta"><h1>ROCKER-ARM · ? · rev ?</h1><div>qty ?</div></div>
+<section class="page" data-sheet="SETUP S1 sheet 1">
+<div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
-<h2>SETUP S1 — test-mill</h2><h2>BEFORE YOU START</h2><div class="byst"><p>✗ S1:10: a claimed internal corner is smaller than the selected cutter radius.</p><p>? Fixture solids are not declared for this holding kind.</p><p>? S1: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm.</p><p>? S1: holding declarations need hold.fixture, hold.stop, hold.grip mm, hold.clamp, hold.fixed jaw, stock state.top z, stock state.bottom z, ops.10.holder, ops.10.direction.</p><p>? op 10: selected tool/holder dimensions are unmeasured or unavailable.</p><p>? S1: selected collet/chuck identity is unresolved.</p><p>? S1: holding identity is unknown.</p><p>? S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough allowance mm &gt;= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length mm and section mm/dia mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm; measure: 8 mm endmill selected cutter diameter, micrometer, mm.</p><p>? S1: holding identity is unknown.</p><p>? Geometry unresolved: coordinates / frame binding; headroom / clearance. Close ? checks below.</p><p>? Tooling unresolved: RPM / feed; tool / holder / shank fit (all cutting ops). Close ? checks below.</p><p>? DRO / inspection unresolved: DRO / tool / trial-cut checks. Close ? checks below.</p></div><p>Starts from: stock; stock state: top z: ?; bottom z: ?</p><p>Hold: fixture: ?; fixed jaw: ?; stop: ?; clamp: ?; grip mm: ?</p><figure class="fixture-render"><img src="setup-S1.png" alt="S1 kernel setup view"><figcaption>? Kernel stock view only; fixture dimensions or jaw pose remain unresolved. jaws not drawn: Fixture solids are not declared for this holding kind.</figcaption></figure><p>Coolant: none; deburr maximum: 0 mm</p><p>Headroom / clearance — nominal, subject to verification. Stack (mm): bed ?; blocks 0; parallels —; supported stock ?; insertion 25; required ? / spindle capacity ?. Tools: projection ?, OAL ?, holder length ?, headroom ? mm. Jaw top Z ?; stock top ? mm above jaws. Envelope (mm): X stock 9.0565, fixture ?, required ? / travel ?; Y stock 292.509, fixture ?, required ? / travel ?.</p><p>Authored +Z half preparation. Only the preparation cutter diameter is authored; its other dimensions, holder and holding remain measurement debt. The numeric clearance derives material for the next setup.</p><h2>DRO ZERO — frame A, mm, ?, linear mode</h2><p>Direction (§6.2): . ABS Axis Set (§7.4), never Preset (§8.1). Jog without retouch; mirrored = STOP, correct Direction and redo touch / set / check.</p><table class=""><colgroup><col style="width:5%"><col style="width:43%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / compensation</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>mirrored: STOP</th></tr></thead><tbody></tbody></table><h2>COORDINATES — frame A, mm; feature reference points</h2><p>? No resolved feature coordinates; use the explicit operation targets only where their local provenance is stated.</p><p>Feature points, not cutting tips; use Z tips in operations. → = towards. Measured binding: ?.</p><h2>OPERATIONS — RPM / feed are starting points, not limits</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:10%"><col style="width:10%"><col style="width:18%"><col style="width:5%"><col style="width:7%"><col style="width:16%"><col style="width:5%"><col style="width:25%"></colgroup><thead><tr><th>op</th><th>do</th><th>feature</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z tip</th><th>dir</th><th>inspection</th></tr></thead><tbody><tr><td>10</td><td>rough profile</td><td>profile outer</td><td>8 mm EM / ?</td><td>?</td><td>?</td><td>? tip endpoint</td><td>?</td><td>—</td></tr></tbody></table><p>10: Claim only +Z-facing planes and vertical faces touching this half. Separate bore/rod-hole removal pieces explicitly touch their own claims.</p><p>RPM / feed source: approved plan starting-speed model; machine range; cutting-data source row</p>
-<p>Sign off: __________  First article / measured results: ____________________</p>
-<p class="foot">prechips 0.1 · report bd63c41d</p>
+<h2>SETUP S1 — test-mill (mill) · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op 10 — a claimed internal corner is smaller than the selected cutter radius.</p><p>Op 10 — no starting speed / feed</p><p>Op 10 — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>tool access (op 10); coordinates; machine envelope; holding clearance; headroom and clearance; holding details; tool reach (op 10); starting speeds / feeds (op 10); chuck / collet size; thin walls under clamping; tool / holder fit (op 10); axis travel; vise grip; DRO zero check.</p></div><p>Authored +Z half preparation. The preparation cutter diameter and authored zero leave are declared; its other dimensions, holder and holding remain measurement debt. The numeric clearance derives material for the next setup.</p><p>Starts from: the stock blank — top Z ? not set, bottom Z ? not set.</p>
+<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>STOP: holding not chosen — do not run.</li><li>Stop: ?.</li><li>?.</li></ol></div><figure class="fixture-render overview"><img src="setup-S1.png" alt="Setup S1 holding picture"><figcaption>Setup S1 overview — labels and key are readable on the full-size picture, S1 sheet 2.<br><b>NOT SHOWN: Fixture solids are not declared for this holding kind.</b><br><b>STOP: selected cutter dimensions are unresolved; do not run.</b></figcaption></figure></div><table><thead><tr><th>grip length mm</th></tr></thead><tbody><tr><td>? not set</td></tr></tbody></table><p>Coolant: none. Break edges 0.000 mm max.</p>
+<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:5%"><col style="width:22%"><col style="width:35%"><col style="width:26%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td>8 mm EM</td><td>Ø8.000</td><td>—</td><td>10</td></tr></tbody></table>
+<h2>DRO ZERO — Setup S1 zero, mm, linear mode</h2><table><colgroup><col style="width:5%"><col style="width:45%"><col style="width:13%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>if reversed</th></tr></thead></table>
+<h2>OPERATIONS</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:16%"><col style="width:12%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:26%"></colgroup><thead><tr class="continued"><th colspan="9">SETUP S1 — sheet 1, back: operations continued</th></tr><tr><th>op</th><th>do</th><th>feature</th><th>tool</th><th>rpm</th><th>feed</th><th>Z tip</th><th>direction</th><th>inspection: limit, gauge</th></tr></thead><tbody class="op"><tr><td>10</td><td>rough profile, leave 0.000 mm</td><td>profile outer</td><td>T1</td><td>STOP</td><td>STOP</td><td><span class="box">STOP: Z target not set</span></td><td>?</td><td>—</td></tr><tr class="warn"><td colspan="9"><span class="box">STOP: a claimed internal corner is smaller than the selected cutter radius.</span><span class="see">See note on S1 sheet 2</span></td></tr></tbody></table>
+<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
 </section>
-<section class="page">
-<div class="meta"><h1>ROCKER-ARM · ? · rev ?</h1><div>qty ?</div></div>
+<section class="page" data-sheet="SETUP S1 sheet 2">
+<div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
-<h2>SETUP S2 — test-mill</h2><h2>BEFORE YOU START</h2><div class="byst"><p>✗ S2:10: a claimed internal corner is smaller than the selected cutter radius.</p><p>? Fixture solids are not declared for this holding kind.</p><p>? S2: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S2.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm.</p><p>? S2: holding declarations need hold.fixture, hold.stop, hold.grip mm, hold.clamp, hold.fixed jaw, stock state.top z, stock state.bottom z, ops.10.holder, ops.10.direction.</p><p>? op 10: selected tool/holder dimensions are unmeasured or unavailable.</p><p>? S2: selected collet/chuck identity is unresolved.</p><p>? S2: holding identity is unknown.</p><p>? S2: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S2.ops.10.rough allowance mm &gt;= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S2.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length mm and section mm/dia mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S2.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.10 commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm; measure: 8 mm endmill selected cutter diameter, micrometer, mm.</p><p>? S2: holding identity is unknown.</p><p>? Geometry unresolved: coordinates / frame binding; headroom / clearance. Close ? checks below.</p><p>? Tooling unresolved: RPM / feed; tool / holder / shank fit (all cutting ops). Close ? checks below.</p><p>? DRO / inspection unresolved: DRO / tool / trial-cut checks. Close ? checks below.</p></div><p>Starts from: S1; stock state: top z: ?; bottom z: ?</p><p>Hold: fixture: ?; fixed jaw: ?; stop: ?; clamp: ?; grip mm: ?</p><figure class="fixture-render"><img src="setup-S2.png" alt="S2 kernel setup view"><figcaption>? Kernel stock view only; fixture dimensions or jaw pose remain unresolved. jaws not drawn: Fixture solids are not declared for this holding kind.</figcaption></figure><p>Coolant: none; deburr maximum: 0 mm</p><p>Headroom / clearance — nominal, subject to verification. Stack (mm): bed ?; blocks 0; parallels —; supported stock ?; insertion 25; required ? / spindle capacity ?. Tools: projection ?, OAL ?, holder length ?, headroom ? mm. Jaw top Z ?; stock top ? mm above jaws. Envelope (mm): X stock 9.0565, fixture ?, required ? / travel ?; Y stock 292.509, fixture ?, required ? / travel ?.</p><p>Opposed -Z half preparation, in authored frame B, with the same diameter-only cutter. Other preparation dimensions, holder and holding remain measurement debt; S3 uses the actual resulting material.</p><h2>DRO ZERO — frame B, mm, ?, linear mode</h2><p>Direction (§6.2): . ABS Axis Set (§7.4), never Preset (§8.1). Jog without retouch; mirrored = STOP, correct Direction and redo touch / set / check.</p><table class=""><colgroup><col style="width:5%"><col style="width:43%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / compensation</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>mirrored: STOP</th></tr></thead><tbody></tbody></table><h2>COORDINATES — frame B, mm; feature reference points</h2><p>? No resolved feature coordinates; use the explicit operation targets only where their local provenance is stated.</p><p>Feature points, not cutting tips; use Z tips in operations. → = towards. Measured binding: ?.</p><h2>OPERATIONS — RPM / feed are starting points, not limits</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:10%"><col style="width:10%"><col style="width:18%"><col style="width:5%"><col style="width:7%"><col style="width:16%"><col style="width:5%"><col style="width:25%"></colgroup><thead><tr><th>op</th><th>do</th><th>feature</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z tip</th><th>dir</th><th>inspection</th></tr></thead><tbody><tr><td>10</td><td>rough profile</td><td>profile outer</td><td>8 mm EM / ?</td><td>?</td><td>?</td><td>? tip endpoint</td><td>?</td><td>—</td></tr></tbody></table><p>10: Frame B flips model Y/Z. Clear only outside-finished material in the remaining half, with -Z planes and vertical faces valid for this approach.</p><p>RPM / feed source: approved plan starting-speed model; machine range; cutting-data source row</p>
-<p>Sign off: __________  First article / measured results: ____________________</p>
-<p class="foot">prechips 0.1 · report bd63c41d</p>
+<h2>SETUP S1 — sheet 2 of 2: full-size picture, clearance, feature map and notes</h2><figure class="fixture-render"><img src="setup-S1.png" alt="Setup S1 holding picture"><figcaption>Setup S1 — the stock blank, held in the ?. Picture shows: holding, setup axes and zero, material removed this setup (amber hatch).<br><b>NOT SHOWN: Fixture solids are not declared for this holding kind.</b><br><b>STOP: selected cutter dimensions are unresolved; do not run.</b></figcaption></figure>
+<h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); tool stickout and headroom (op 10); X travel; Y travel.</p>
+<div class="keep"><h2>OP AND INSPECTION NOTES</h2><h3>Op notes</h3><ul><li>S1 op 10: Claim only +Z-facing planes and vertical faces touching this half. Separate bore/rod-hole removal pieces explicitly touch their own claims.</li></ul></div>
 </section>
-<section class="page">
-<div class="meta"><h1>ROCKER-ARM · ? · rev ?</h1><div>qty ?</div></div>
+<section class="page" data-sheet="SETUP S2 sheet 1">
+<div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
-<h2>SETUP S3 — test-mill</h2><h2>BEFORE YOU START</h2><div class="byst"><p>✗ S3:10: selected cutter or holder is certainly occluded by part/fixture material.</p><p>? S3: spindle envelope remains unmeasured or unresolved. measure: parallels record height, steel rule or calipers, mm; measure: vise table to vise bed supporting the parallels or part, height gauge, mm; measure: R8 collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: R8 collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S3.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S3.ops.10 commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm; measure: 8 mm endmill selected tool overall length, steel rule or calipers, mm.</p><p>? S3: declared operation travel remains unmeasured or unresolved. measure: R8 collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: R8 collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S3.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S3.ops.10 commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm; measure: 8 mm endmill selected tool overall length, steel rule or calipers, mm.</p><p>? Geometry unresolved: coordinates / frame binding; headroom / clearance. Close ? checks below.</p><p>? Tooling unresolved: RPM / feed. Close ? checks below.</p><p>? DRO / inspection unresolved: DRO / tool / trial-cut checks. Close ? checks below.</p></div><p>Starts from: S2; stock state: top feature: profile outer; top z: 8; bottom z: -21.2946</p><p>Hold: fixture: vise; jaws along: x; fixed jaw: rear; parallels: parallels; grip on: hub faces; stop: rod-end tip against the fixed-jaw stop; clamp: hand snug, then quarter turn; grip mm: 6; jaw above supports mm: 26; jaw center along mm: 0; parallels centres mm: -75 / 0 / 75 / 0</p><figure class="fixture-render"><img src="setup-S3.png" alt="S3 kernel setup view"><figcaption>Kernel view: setup-entry stock and declared jaws / parallels; sampled checks are not a toolpath.</figcaption></figure><p>Coolant: none; deburr maximum: 0 mm</p><p>Headroom / clearance — nominal, subject to verification. Stack (mm): bed ?; blocks 0; parallels 20; supported stock 29.2946; insertion 25; required ? / spindle capacity ?. Tools: projection 38, OAL 63, holder length 60, headroom ? mm. Jaw top Z -1.29464; stock top 9.29464 mm above jaws. Envelope (mm): X stock 9.0565, fixture ?, required ? / travel ?; Y stock 29.2946, fixture ?, required ? / travel ?.</p><p>Arm on its tips on 20 mm parallels, pivot axis horizontal across the jaws; jaws along X close across frame Y onto the hub faces (width 7.0565). Jaw tops 26 mm above the parallels: z = 4.705, 3.295 mm below the outer-arc apex. The parallel pair lies end to end along the jaws under both tips.</p><h2>DRO ZERO — frame V, mm, ?, linear mode</h2><p>Direction (§6.2): . ABS Axis Set (§7.4), never Preset (§8.1). Jog without retouch; mirrored = STOP, correct Direction and redo touch / set / check.</p><table class=""><colgroup><col style="width:5%"><col style="width:43%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / compensation</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>mirrored: STOP</th></tr></thead><tbody></tbody></table><h2>COORDINATES — frame V, mm; feature reference points</h2><p>? No resolved feature coordinates; use the explicit operation targets only where their local provenance is stated.</p><p>Feature points, not cutting tips; use Z tips in operations. → = towards. Measured binding: ?.</p><h2>OPERATIONS — RPM / feed are starting points, not limits</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:10%"><col style="width:10%"><col style="width:18%"><col style="width:5%"><col style="width:7%"><col style="width:16%"><col style="width:5%"><col style="width:25%"></colgroup><thead><tr><th>op</th><th>do</th><th>feature</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z tip</th><th>dir</th><th>inspection</th></tr></thead><tbody><tr><td>10</td><td>finish face</td><td>strap datum b</td><td>8 mm EM / R8 collet</td><td>?</td><td>?</td><td>? tip endpoint</td><td>conv</td><td>—</td></tr></tbody></table><p>10: Side-mill the +Z strap face (datum B, frame +Y side, the rear-jaw side) with the cutter axis vertical.</p><p>RPM / feed source: approved plan starting-speed model; machine range; cutting-data source row</p>
-<p>Sign off: __________  First article / measured results: ____________________</p>
-<p class="foot">prechips 0.1 · report bd63c41d</p>
+<h2>SETUP S2 — test-mill (mill) · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op 10 — a claimed internal corner is smaller than the selected cutter radius.</p><p>Op 10 — no starting speed / feed</p><p>Op 10 — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>tool access (op 10); coordinates; machine envelope; holding clearance; headroom and clearance; holding details; tool reach (op 10); starting speeds / feeds (op 10); chuck / collet size; thin walls under clamping; tool / holder fit (op 10); axis travel; vise grip; DRO zero check.</p></div><p>Opposed -Z half preparation, in authored Setup S2 zero, with the same cutter diameter and authored zero leave. Other preparation dimensions, holder and holding remain measurement debt; S3 uses the actual resulting material.</p><p>Starts from: part as it arrives from Setup S1 — top Z ? not set, bottom Z ? not set.</p>
+<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>STOP: holding not chosen — do not run.</li><li>Stop: ?.</li><li>?.</li></ol></div><figure class="fixture-render overview"><img src="setup-S2.png" alt="Setup S2 holding picture"><figcaption>Setup S2 overview — labels and key are readable on the full-size picture, S2 sheet 2.<br><b>NOT SHOWN: Fixture solids are not declared for this holding kind.</b><br><b>STOP: selected cutter dimensions are unresolved; do not run.</b></figcaption></figure></div><table><thead><tr><th>grip length mm</th></tr></thead><tbody><tr><td>? not set</td></tr></tbody></table><p>Coolant: none. Break edges 0.000 mm max.</p>
+<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:5%"><col style="width:22%"><col style="width:35%"><col style="width:26%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td>8 mm EM</td><td>Ø8.000</td><td>—</td><td>10</td></tr></tbody></table>
+<h2>DRO ZERO — Setup S2 zero, mm, linear mode</h2><table><colgroup><col style="width:5%"><col style="width:45%"><col style="width:13%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>if reversed</th></tr></thead></table>
+<h2>OPERATIONS</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:16%"><col style="width:12%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:26%"></colgroup><thead><tr class="continued"><th colspan="9">SETUP S2 — sheet 1, back: operations continued</th></tr><tr><th>op</th><th>do</th><th>feature</th><th>tool</th><th>rpm</th><th>feed</th><th>Z tip</th><th>direction</th><th>inspection: limit, gauge</th></tr></thead><tbody class="op"><tr><td>10</td><td>rough profile, leave 0.000 mm</td><td>profile outer</td><td>T1</td><td>STOP</td><td>STOP</td><td><span class="box">STOP: Z target not set</span></td><td>?</td><td>—</td></tr><tr class="warn"><td colspan="9"><span class="box">STOP: a claimed internal corner is smaller than the selected cutter radius.</span><span class="see">See note on S2 sheet 2</span></td></tr></tbody></table>
+<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
+</section>
+<section class="page" data-sheet="SETUP S2 sheet 2">
+<div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
+<h2>SETUP S2 — sheet 2 of 2: full-size picture, clearance, feature map and notes</h2><figure class="fixture-render"><img src="setup-S2.png" alt="Setup S2 holding picture"><figcaption>Setup S2 — part as it arrives from Setup S1, held in the ?. Picture shows: holding, setup axes and zero, material removed this setup (amber hatch).<br><b>NOT SHOWN: Fixture solids are not declared for this holding kind.</b><br><b>STOP: selected cutter dimensions are unresolved; do not run.</b></figcaption></figure>
+<h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); tool stickout and headroom (op 10); X travel; Y travel.</p>
+<div class="keep"><h2>OP AND INSPECTION NOTES</h2><h3>Op notes</h3><ul><li>S2 op 10: Frame B flips model Y/Z. Clear only outside-finished material in the remaining half, with -Z planes and vertical faces valid for this approach.</li></ul></div>
+</section>
+<section class="page" data-sheet="SETUP S3 sheet 1">
+<div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
+<h2>SETUP S3 — test-mill (mill) · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op 10 — tool or holder hits the part or the holding</p><p>Op 10 — no starting speed / feed</p><p>Op 10 — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>coordinates; machine envelope; headroom and clearance; starting speeds / feeds (op 10); axis travel; DRO zero check.</p></div><p>Arm on its tips on 20 mm parallels, pivot axis horizontal across the jaws; jaws along X close across frame Y onto the hub faces (width 7.0565). Jaw tops 26 mm above the parallels: z = 4.705, 3.295 mm below the outer-arc apex. The parallel pair lies end to end along the jaws under both tips.</p><p>Starts from: part as it arrives from Setup S2 — top (profile outer) at Z 8.000, bottom at Z -21.295.</p>
+<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>Mount the vise; jaws along X; fixed jaw rear.</li><li>Parallels: parallels.</li><li>Grip on: hub faces.</li><li>Stop: rod-end tip against the fixed-jaw stop.</li><li>Hand snug, then quarter turn.</li></ol></div><figure class="fixture-render overview"><img src="setup-S3.png" alt="Setup S3 holding picture"><figcaption>Setup S3 overview — labels and key are readable on the full-size picture, S3 sheet 2.</figcaption></figure></div><table><thead><tr><th>grip length mm</th><th>jaw top above parallels mm</th><th>jaw centre at X</th><th>parallels at (X, Y)</th></tr></thead><tbody><tr><td>6.000</td><td>26.000</td><td>0.000</td><td>(-75.000, 0.000); (75.000, 0.000)</td></tr></tbody></table><p>Coolant: none. Break edges 0.000 mm max.</p>
+<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:5%"><col style="width:22%"><col style="width:35%"><col style="width:26%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td>8 mm EM</td><td>Ø8.000, 4 flutes, HSS</td><td>R8 collet</td><td>10</td></tr></tbody></table>
+<h2>DRO ZERO — Setup S3 zero, mm, linear mode</h2><table><colgroup><col style="width:5%"><col style="width:45%"><col style="width:13%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>if reversed</th></tr></thead></table>
+<h2>OPERATIONS</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:16%"><col style="width:12%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:26%"></colgroup><thead><tr class="continued"><th colspan="9">SETUP S3 — sheet 1, back: operations continued</th></tr><tr><th>op</th><th>do</th><th>feature</th><th>tool</th><th>rpm</th><th>feed</th><th>Z tip</th><th>direction</th><th>inspection: limit, gauge</th></tr></thead><tbody class="op"><tr><td>10</td><td>finish face</td><td>strap (datum B)</td><td>T1</td><td>STOP</td><td>STOP</td><td><span class="box">STOP: Z target not set</span></td><td>conventional</td><td>—</td></tr><tr class="warn"><td colspan="9"><span class="box">STOP: tool or holder hits the part or the holding</span><span class="see">See note on S3 sheet 2</span></td></tr></tbody></table>
+<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
+</section>
+<section class="page" data-sheet="SETUP S3 sheet 2">
+<div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
+<h2>SETUP S3 — sheet 2 of 2: full-size picture, clearance, feature map and notes</h2><figure class="fixture-render"><img src="setup-S3.png" alt="Setup S3 holding picture"><figcaption>Setup S3 — part as it arrives from Setup S2, held in the vise. Picture shows: holding, setup axes and zero, selected tool approach, material removed this setup (amber hatch).</figcaption></figure>
+<h2>CLEARANCE — mill</h2><p>Jaw tops at Z -1.295; work top 9.295 mm above the jaws. Tool tips near the jaw tops are boxed on the op rows.</p><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); tool stickout and headroom (op 10); X travel; Y travel.</p>
+<div class="keep"><h2>OP AND INSPECTION NOTES</h2><h3>Op notes</h3><ul><li>S3 op 10: Side-mill the +Z strap face (datum B, frame +Y side, the rear-jaw side) with the cutter axis vertical.</li></ul></div>
 </section>
 </body></html>

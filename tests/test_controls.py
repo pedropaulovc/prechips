@@ -1,9 +1,11 @@
 """Each negative control asserts the prescribed stop and its named cause."""
 
 import json
+import re
+import tomllib
 
 import pytest
-from test_cli import copy_examples, traveler
+from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
 
 
 def finding(report, rule, subject):
@@ -12,24 +14,37 @@ def finding(report, rule, subject):
     )
 
 
+def swap(text, old, new):
+    """Apply one explicit scratch mutation; an absent target is a broken control, not a no-op."""
+    assert old in text, old
+    return text.replace(old, new)
+
+
 def test_removed_reamer_is_named_inventory_error(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     inventory = examples / "inventory" / "pedro-shop.toml"
     original = inventory.read_text(encoding="utf-8")
-    plan.write_text(
-        plan.read_text(encoding="utf-8").replace("reamers-metric/6.5-H7", "control-reamer-6.5"),
-        encoding="utf-8",
-    )
+    text = plan.read_text(encoding="utf-8")
+    reamers = {
+        op["tool"]
+        for setup in tomllib.loads(text)["setups"]
+        for op in setup.get("ops", [])
+        if op.get("do") == "ream"
+    }
+    assert reamers, "the control needs a planned ream op"
+    for reamer in reamers:
+        text = swap(text, f'tool = "{reamer}"', 'tool = "control-reamer-6.5"')
+    plan.write_text(text, encoding="utf-8")
     known = (
         '\n[tools."control-reamer-6.5"]\nkind = "reamer"\nverify = false\n'
         'dia_mm = 6.5\nshank_mm = 6.5\nlead_mm = 1.0\nunits = "mm"\n'
     )
     inventory.write_text(original + known, encoding="utf-8")
-    _, present, _ = traveler(plan, tmp_path / "present")
+    _, present, _ = traveler(plan, tmp_path / "present", setup=SYNTHETIC_KERNEL)
     assert finding(present, "tool_resolves", "control-reamer-6.5")["status"] == "pass"
     inventory.write_text(original, encoding="utf-8")
-    result, absent, html = traveler(plan, tmp_path / "absent")
+    result, absent, html = traveler(plan, tmp_path / "absent", setup=SYNTHETIC_KERNEL)
     assert result.returncode == 2, result.stderr
     row = finding(absent, "tool_resolves", "control-reamer-6.5")
     assert row["status"] == "error"
@@ -40,43 +55,86 @@ def test_removed_reamer_is_named_inventory_error(tmp_path):
 def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
-    _, baseline, _ = traveler(plan, tmp_path / "baseline")
-    before = finding(baseline, "zero_check", "S1")["numbers"]["axes"]["x"]
-    assert before["axis_set"] == pytest.approx(-157.54)
-    assert before["check_reading"] == pytest.approx(-147.54)
-    assert before["mirrored_reading"] == pytest.approx(-167.54)
-    plan.write_text(
-        plan.read_text(encoding="utf-8").replace('x = "right"', 'x = "left"', 1), encoding="utf-8"
-    )
-    result, reversed_report, _ = traveler(plan, tmp_path / "reversed")
+    text = plan.read_text(encoding="utf-8")
+    authored = tomllib.loads(text)
+    assert authored["dro"]["direction"]["x"] == "right", "the control reverses an authored +X DRO"
+    s1 = next(setup for setup in authored["setups"] if setup["id"] == "S1")
+    jog = s1["zero"]["x"]["check_jog_mm"]
+    _, baseline, _ = traveler(plan, tmp_path / "baseline", setup=SYNTHETIC_KERNEL)
+    row = finding(baseline, "zero_check", "S1")
+    assert row["status"] == "pass", row
+    before = row["numbers"]["axes"]["x"]
+    assert before["check_reading"] == pytest.approx(before["axis_set"] + jog)
+    assert before["mirrored_reading"] == pytest.approx(before["axis_set"] - jog)
+    reversed_text, count = re.subn(r'(?m)^x = "right"', 'x = "left"', text, count=1)
+    authored["dro"]["direction"]["x"] = "left"
+    assert count == 1 and tomllib.loads(reversed_text) == authored, "only the DRO X sense flips"
+    plan.write_text(reversed_text, encoding="utf-8")
+    result, reversed_report, _ = traveler(plan, tmp_path / "reversed", setup=SYNTHETIC_KERNEL)
     row = finding(reversed_report, "zero_check", "S1")
     after = row["numbers"]["axes"]["x"]
-    assert after["axis_set"] == before["axis_set"]
-    assert after["check_reading"] == before["mirrored_reading"]
-    assert after["mirrored_reading"] == before["check_reading"]
+    # The touch-off is unchanged; only the reading the authored +X jog produces reverses.
+    assert after["axis_set"] == pytest.approx(before["axis_set"])
+    assert after["check_reading"] == pytest.approx(after["axis_set"] - jog)
+    assert after["mirrored_reading"] == pytest.approx(after["axis_set"] + jog)
+    assert after["check_reading"] == pytest.approx(before["mirrored_reading"])
+    assert after["mirrored_reading"] == pytest.approx(before["check_reading"])
     assert row["status"] == "error"
     assert result.returncode == 2
+
+
+# A whole key/value line, including a multiline basic or literal string value.
+POSITION_CHECK = re.compile(r'(?ms)^position_dia = (?:""".*?"""|\'\'\'.*?\'\'\'|[^\n]*)[^\n]*\n')
 
 
 def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
-    lines = [line for line in text.splitlines() if not line.startswith("position_dia =")]
-    plan.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    result, report, _ = traveler(plan, tmp_path / "out")
+    _, baseline, _ = traveler(plan, tmp_path / "baseline", setup=SYNTHETIC_KERNEL)
+    # Remove each position check together with its inspection method; nothing else changes.
+    expected = tomllib.loads(text)
+    features = set()
+    for setup in expected["setups"]:
+        for op in setup.get("ops", []):
+            checks = op.get("checks")
+            if isinstance(checks, dict) and checks.pop("position_dia", None) is not None:
+                features.add(op["feature"])
+            methods = op.get("inspection_methods")
+            if isinstance(methods, dict):
+                methods.pop("position_dia", None)
+    assert features, "the control needs a planned position check"
+    stripped = POSITION_CHECK.sub("", text)
+    assert tomllib.loads(stripped) == expected
+    plan.write_text(stripped, encoding="utf-8")
+    result, report, _ = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     assert result.returncode == 2, result.stderr
-    row = finding(report, "inspection", "rod_hole:position_dia")
-    assert row["status"] == "error"
-    assert "position" in row["message"].lower()
-    assert finding(report, "inspection", "rod_hole:dia")["status"] != "error"
+    for feature in sorted(features):
+        subject = f"{feature}:position_dia"
+        assert "op" in finding(baseline, "inspection", subject)["numbers"]
+        row = finding(report, "inspection", subject)
+        assert row["status"] == "error", row
+        assert "op" not in row["numbers"] and row["numbers"]["gauge"] == "unknown"
+        # The feature's own size checks still exist and are untouched; they cannot cover position.
+        sizes = {
+            other["subject"]: other["status"]
+            for other in baseline["findings"]
+            if other["rule"] == "inspection"
+            and other["subject"].startswith(f"{feature}:")
+            and other["subject"] != subject
+            and "op" in other["numbers"]
+        }
+        assert sizes, f"the control needs a {feature} size check that could substitute"
+        for size, status in sizes.items():
+            assert finding(report, "inspection", size)["status"] == status
 
 
 def clean_inspection_bundle(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     prefix = plan.read_text(encoding="utf-8").split("[[setups.ops]]", 1)[0]
-    prefix = prefix.replace("retouch_after = [10, 20, 25, 50, 60]", "retouch_after = []")
+    prefix, schedules = re.subn(r"(?m)^retouch_after = .*$", "retouch_after = []", prefix)
+    assert schedules == 1, "the clean bundle pins the copied S1 retouch schedule"
     plan.write_text(
         prefix + '\n[[setups.ops]]\nop = 10\ndo = "inspect"\nfeature = "hub_faces"\n'
         'checks = { dia = "control-micrometer", length = "control-micrometer" }\n',
@@ -254,12 +312,26 @@ def test_missing_retouch_schedule_is_unknown_after_facing(
         request.getfixturevalue("freecad_kernel")
     plan = clean_inspection_bundle(tmp_path)
     prefix = plan.read_text(encoding="utf-8").split("[[setups.ops]]", 1)[0]
+    # S1 keeps its authored hold; its stock top and whole zero recipe are synthetic, so the
+    # schedule control never depends on the example's tool ids or facing order.
+    head, *zeros = re.split(r"(?m)^\[setups\.zero\][^\n]*\n", prefix)
+    assert len(zeros) == 1, "the control replaces the copied S1 [setups.zero] table"
+    for key, value in [("top_feature", '"hub_faces"'), ("top_z", "0.5")]:
+        head, count = re.subn(rf"(?m)^{key} = .*$", f"{key} = {value}", head)
+        assert count == 1, f"the control needs the copied S1 stock_state {key}"
+    finders = "".join(
+        f'\n[setups.zero.{axis}]\nedge = "control_{axis}_edge"\nfrom = "-{axis}"\n'
+        'tool = "control-finder"\nholder = "r8-collets-lms-4860/3-8in"\n'
+        f"edge_mm = {edge}\ncheck_jog_mm = 10.0\n"
+        for axis, edge in [("x", -170.0), ("y", -28.0)]
+    )
     prefix = (
-        prefix.replace("top_z = 4.47175", "top_z = 0.5")
-        .replace('tool = "edge-finder"', 'tool = "control-finder"')
-        .replace('tool = "endmills-lms-6784/3-8in-4fl"', 'tool = "control-face"')
-        .replace("[setups.zero.x]", "[setups.zero]\ntool_touches = []\n\n[setups.zero.x]")
-        .replace("retouch_after = []", declaration.rstrip("\n"))
+        head
+        + "[setups.zero]\ntool_touches = []\n"
+        + finders
+        + '\n[setups.zero.z]\nface = "top"\nmethod = "paper"\npaper_mm = 0.05\n'
+        'tool = "control-face"\ncheck_jog_mm = 10.0\n'
+        + declaration
     )
     ops = "".join(
         f'\n[[setups.ops]]\nop = {op}\ndo = "face"\nfeature = "hub_faces"\n'

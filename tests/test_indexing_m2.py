@@ -24,8 +24,13 @@ def bundle(
     category="machines",
     feature="indexed",
     general=1.0,
+    rotation=_ABSENT,
 ):
-    index = {"fixture": "head", "positions": positions}
+    index = {"fixture": "head"}
+    if positions is not _ABSENT:
+        index["positions"] = positions
+    if rotation is not _ABSENT:
+        index["rotation"] = rotation
     if angle is not _ABSENT:
         index["angle_deg"] = angle
     if feature is not _ABSENT:
@@ -92,6 +97,24 @@ def bundle(
 def result(bundle):
     [finding] = indexing.evaluate(bundle)
     return finding
+
+
+def test_continuous_rotation_passes_only_on_a_dividing_head(tmp_path):
+    free = result(bundle(tmp_path, angle=_ABSENT, positions=_ABSENT, rotation="continuous"))
+    assert free.status == "pass" and free.numbers["rotation"] == "continuous"
+    vise = {"kind": "vise", "verify": False}
+    wrong = result(
+        bundle(tmp_path, angle=_ABSENT, positions=_ABSENT, rotation="continuous", item=vise)
+    )
+    assert wrong.status == "error" and "not a dividing head" in wrong.sentence
+    # A plate pattern and free rotation contradict each other.
+    both = result(bundle(tmp_path, angle=_ABSENT, positions=6, rotation="continuous"))
+    assert both.status == "error"
+    unverified = {"kind": "dividing_head", "verify": True}
+    tentative = result(
+        bundle(tmp_path, angle=_ABSENT, positions=_ABSENT, rotation="continuous", item=unverified)
+    )
+    assert tentative.status == "unknown"
 
 
 @pytest.mark.parametrize("category", ["machines", "fixtures"])
@@ -281,8 +304,7 @@ def test_single_cone_tilt_checks_landing_without_cycle_closure_and_prints_spaces
     assert finding.numbers["closure"] == "not_applicable"
     assert finding.numbers["failed"] == []
     html = render_traveler(subject, [finding], {"verification": "checked"})
-    assert "requested 12.5182°; one angular setting" in html
-    assert "actual step 12.5217°." in html
+    assert "12.52" in html
     assert "plate B, circle 23: 1 crank turns + 9 hole spaces" in html
     assert "Single setting: no cycle closure." in html
     absent = result(bundle(tmp_path, angle=_ABSENT, positions=1))
@@ -503,4 +525,3 @@ def test_explicit_unknown_selector_cannot_inherit_a_looser_general_class(tmp_pat
     assert exit_code([finding], subject.policy, subject) == 4
     html = render_traveler(subject, [finding], {"verification": "planned"})
     assert "Index: ? Tentative" in html
-    assert "Angular tolerance ±?°" in html

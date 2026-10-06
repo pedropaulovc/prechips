@@ -86,15 +86,27 @@ Dro = record(
         "direction": Direction,
     },
 )
-StockComponent = record(
-    "StockComponent",
-    {
-        **texts("form note"),
-        **numbers("dia_mm length_mm"),
-        "section_mm": Vector,
-        "cite": Citations,
-    },
-)
+
+
+class StockComponent(InputModel):
+    id: Annotated[str, Field(min_length=1)]
+    form: str | Unknown = UNKNOWN
+    note: str | Unknown = UNKNOWN
+    dia_mm: Number = UNKNOWN
+    length_mm: Number = UNKNOWN
+    section_mm: Vector = UNKNOWN
+    origin_mm: Vector = UNKNOWN
+    axis: Vector = UNKNOWN
+    section_axis: Vector = UNKNOWN
+    cite: Citations = UNKNOWN
+
+    @model_validator(mode="after")
+    def known_id(self) -> StockComponent:
+        if not self.id.strip() or self.id == UNKNOWN:
+            raise ValueError("Stock component id must be a known identifier.")
+        return self
+
+
 Stock = record(
     "Stock",
     {
@@ -124,27 +136,64 @@ StockState = record(
         "entry_z": dict[str, Number],
     },
 )
-Reference = record("Reference", {**texts("ref orientation note"), **numbers("height_mm")})
-Index = record("Index", {"fixture": str, "feature": str, "angle_deg": Number, "positions": int})
+# A `hold.supports` table: follow rest {ref, ops, jaw_lead_mm[, jaw_side]} or steady rest
+# {ref, ops, at_z_mm}. A follow rest's jaw_side is "turned" (behind the cutting point along
+# the feed, on the diameter just cut; the default) or "uncut" (ahead of it).
+Reference = record(
+    "Reference",
+    {
+        **texts("ref orientation note jaw_side"),
+        **numbers("height_mm jaw_lead_mm at_z_mm"),
+        "ops": list[int],
+    },
+)
+# ``rotation = "continuous"``: a dividing head turned freely by its rotary ops, no plate.
+Index = record(
+    "Index",
+    {
+        "fixture": str,
+        "feature": str,
+        "angle_deg": Number,
+        "positions": int,
+        "rotation": Literal["continuous"],
+    },
+)
+type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
+# A fixture-local frame placed in the setup frame (mm): origin plus unit x and z axes.
+Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
+# ``restraint``: press holds stock down onto the fixture; locate only positions it.
+ClampPlacement = record(
+    "ClampPlacement",
+    {**texts("ref note"), "pose": Pose, "restraint": Literal["press", "locate", "none"]},
+)
+type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
 Hold = record(
     "Hold",
     {
         **texts(
             "fixture jaws_along fixed_jaw parallels support support_orientation "
             "grip_on stop clamp note centre_lubrication riser method orientation locator "
-            "release jaw_protection locate"
+            "release jaw_protection locate chuck riser_up riser_along parallels_along"
         ),
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
         "jaw_center_along_mm": Number,
-        "parallels_centres_mm": Annotated[
-            list[Annotated[list[Number], Field(min_length=2, max_length=2)]],
-            Field(min_length=2, max_length=2),
-        ],
+        "parallels_centres_mm": Annotated[PlanCentres, Field(min_length=2, max_length=2)],
+        "riser_centres_mm": Annotated[PlanCentres, Field(min_length=1)],
         "supports": str | list[str | Reference],
         **flags("grip_mm_verify jaw_above_parallels_mm_verify"),
         "index": Index,
+        "pose": Pose,
+        "jaw_clock_deg": Number,
+        "support_tip_mm": Point3,
+        "quill_extension_mm": Number,
+        "clamps": list[ClampPlacement],
+        # Diagram annotations: action order references the 1-based clamps array.
+        "clamp_order": list[Annotated[int, Field(gt=0)]],
+        "preload_direction": Literal["clockwise", "counterclockwise"] | Unknown,
+        "stop_fixture": str,
+        "stop_pose": Pose,
     },
 )
 AxisZero = record(
@@ -196,6 +245,10 @@ Contour = record(
         "sweep_bounds": Bounds,
     },
 )
+SawPlane = record(
+    "SawPlane",
+    {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
+)
 Operation = record(
     "Operation",
     {
@@ -215,22 +268,205 @@ Operation = record(
         "contour": Contour,
         # Setup-frame volume (plan units) the op clears down to the finished part.
         "stock_removal_bounds": Bounds,
+        # Mill op on a horizontal dividing head: each face sample turned under the spindle;
+        # z_from/z_to are then head-axis positions and angle_window_deg its rotation span.
+        "approach": Literal["rotary"],
+        "angle_window_deg": Annotated[list[Number], Field(min_length=2, max_length=2)],
+        # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
+        "cut_plane": SawPlane,
     },
     indexed=("do",),
 )
+type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
+type KnownBand = Annotated[list[float], Field(min_length=2, max_length=2)]
+# Authored unit vectors carry trig residue; the kernel's pose tolerance applies.
+UNIT_TOLERANCE = 1e-6
+
+
+def _cited(value: Any) -> bool:
+    values = value if isinstance(value, list) else [value]
+    return bool(values) and all(
+        isinstance(item, str) and item.strip() and item.strip() != UNKNOWN for item in values
+    )
+
+
+def _known_text(value: str, what: str) -> None:
+    if not value.strip() or value.strip() == UNKNOWN:
+        raise ValueError(f"{what} must be known and non-empty.")
+
+
+def _unit(vector: Any, what: str) -> None:
+    if vector != UNKNOWN and abs(sum(v * v for v in vector) ** 0.5 - 1.0) > UNIT_TOLERANCE:
+        raise ValueError(f"{what} must be a unit vector.")
+
+
+def _ordered(band: Any, what: str, *, floor: float, inclusive: bool) -> None:
+    if band == UNKNOWN:
+        return
+    low, high = band
+    if not (low >= floor if inclusive else low > floor) or low > high:
+        relation = ">=" if inclusive else ">"
+        raise ValueError(f"{what} must be an ordered [lo, hi] band with lo {relation} {floor:g}.")
+
+
+class JointFeature(InputModel):
+    """A plan-owned transient cylinder on one stock component, never a finished surface.
+
+    Unsuffixed lengths (``at``, ``dia``, ``nominal_dia``, ``depth``) are in manifest units
+    in the model frame. Numeric literal unknown is joint-geometry debt; identities are strict.
+    """
+
+    kind: Literal["cylinder_bore", "cylinder_spigot"]
+    component: str
+    at: KnownPoint3 | Unknown
+    axis: KnownPoint3 | Unknown
+    dia: KnownBand | Unknown
+    nominal_dia: float | Unknown
+    depth: float | Unknown
+    thru: bool
+    cite: Citations
+    requirements: list[Literal["dia"]] = Field(default_factory=lambda: ["dia"])
+    precision: dict[str, int | Unknown] | Unknown = UNKNOWN
+    note: str | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def known_geometry(self) -> JointFeature:
+        _known_text(self.component, "A joint feature component")
+        if not _cited(self.cite):
+            raise ValueError("A joint feature must cite its author's geometry source.")
+        _unit(self.axis, "A joint feature axis")
+        _ordered(self.dia, "A joint feature dia", floor=0.0, inclusive=False)
+        if self.dia != UNKNOWN and self.nominal_dia != UNKNOWN:
+            if not self.dia[0] <= self.nominal_dia <= self.dia[1]:
+                raise ValueError("A joint feature nominal_dia must lie within its dia band.")
+        if self.depth != UNKNOWN and self.depth <= 0:
+            raise ValueError("A joint feature depth must be positive, also when thru.")
+        if len(set(self.requirements)) != len(self.requirements):
+            raise ValueError("A joint feature lists a requirement twice.")
+        return self
+
+
+class JointInterface(InputModel):
+    """One planar rectangular contact patch: model-frame centre (manifest units)."""
+
+    at: KnownPoint3 | Unknown
+    normal: KnownPoint3 | Unknown
+    x: KnownPoint3 | Unknown
+    size_mm: KnownBand | Unknown
+    cite: Citations
+
+    @model_validator(mode="after")
+    def known_geometry(self) -> JointInterface:
+        if not _cited(self.cite):
+            raise ValueError("A joint interface must cite its source.")
+        _unit(self.normal, "A joint interface normal")
+        _unit(self.x, "A joint interface x")
+        if self.normal != UNKNOWN and self.x != UNKNOWN:
+            if abs(sum(a * b for a, b in zip(self.normal, self.x, strict=True))) > UNIT_TOLERANCE:
+                raise ValueError("A joint interface x must be orthogonal to its normal.")
+        if self.size_mm != UNKNOWN and min(self.size_mm) <= 0:
+            raise ValueError("A joint interface size_mm must be positive.")
+        return self
+
+
+_FIT_METHODS = {
+    "clearance": {"silver_braze", "retaining_compound"},
+    "interference": {"press"},
+}
+
+
+class CylindricalJoint(InputModel):
+    """Socket/spigot join of exactly two branches; fit bands are diametral mm."""
+
+    kind: Literal["cylindrical"]
+    socket: str
+    spigot: str
+    fit: Literal["clearance", "interference"]
+    clearance_mm: KnownBand | Unknown | None = None
+    interference_mm: KnownBand | Unknown | None = None
+    method: Literal["silver_braze", "retaining_compound", "press"]
+    process: str
+    cure_time_min: float | Unknown | None = None
+    surface_prep: str | None = None
+    cite: Citations
+
+    @model_validator(mode="after")
+    def declared_fit(self) -> CylindricalJoint:
+        _known_text(self.process, "A joint process")
+        if not _cited(self.cite):
+            raise ValueError("A joint must cite its fit and process source.")
+        if self.method not in _FIT_METHODS[self.fit]:
+            raise ValueError(f"A {self.fit} joint cannot be made by {self.method}.")
+        band, other = (
+            (self.clearance_mm, self.interference_mm)
+            if self.fit == "clearance"
+            else (self.interference_mm, self.clearance_mm)
+        )
+        if band is None or other is not None:
+            raise ValueError(
+                f"A {self.fit} joint must declare {self.fit}_mm and no other fit band."
+            )
+        _ordered(band, f"{self.fit}_mm", floor=0.0, inclusive=self.fit == "clearance")
+        if self.method == "retaining_compound":
+            if self.cure_time_min is None or self.surface_prep is None:
+                raise ValueError(
+                    "A retaining_compound joint must declare cure_time_min and surface_prep."
+                )
+            if self.cure_time_min != UNKNOWN and self.cure_time_min <= 0:
+                raise ValueError("A retaining_compound cure_time_min must be positive.")
+            if self.surface_prep != UNKNOWN:
+                _known_text(self.surface_prep, "A retaining_compound surface_prep")
+        elif self.cure_time_min is not None or self.surface_prep is not None:
+            raise ValueError("Cure time and surface prep are retaining_compound process facts.")
+        return self
+
+
+class SurfaceJoint(InputModel):
+    """Planar butt join of exactly two branches through declared contact interfaces."""
+
+    kind: Literal["surface"]
+    method: Literal["weld", "silver_braze"]
+    process: str
+    cite: Citations
+    interfaces: Annotated[list[JointInterface], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def declared_process(self) -> SurfaceJoint:
+        _known_text(self.process, "A joint process")
+        if not _cited(self.cite):
+            raise ValueError("A joint must cite its interface and process source.")
+        return self
+
+
 Setup = record(
     "Setup",
     {
-        **texts("id machine frame coolant stock_in note"),
+        **texts("id machine frame coolant note"),
+        "stock_in": str | Annotated[list[str], Field(min_length=1)],
         "deburr_mm": Number,
         "deburr_cite": Citations,
         "stock_state": StockState,
         "hold": Hold,
         "zero": Zero,
         "ops": list[Operation],
+        "joint": CylindricalJoint | SurfaceJoint,
     },
     indexed=("machine",),
 )
+
+
+def stock_ancestry(routes: Any) -> dict[str, frozenset[str]]:
+    """Root supplies behind each validated setup output; ``routes`` = (id, refs or None).
+
+    A setup whose routing is omitted is its own root: its material is unexplained.
+    """
+    ancestry: dict[str, frozenset[str]] = {}
+    for sid, refs in routes:
+        roots = frozenset(
+            root for ref in refs or () for root in ancestry.get(ref, frozenset((ref,)))
+        )
+        ancestry[sid] = roots or frozenset((sid,))
+    return ancestry
 
 
 class Plan(InputModel):
@@ -247,6 +483,8 @@ class Plan(InputModel):
     # Author-declared setup frames in model coordinates; never feature source frames.
     frames: dict[str, PlanFrame] | Unknown = UNKNOWN
     setups: list[Setup]
+    # Plan-owned transient joint cylinders keyed by id; never exported finished features.
+    joint_features: dict[str, JointFeature] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def named_frames(self) -> Plan:
@@ -254,6 +492,149 @@ class Plan(InputModel):
             not name.strip() or name == UNKNOWN for name in self.frames
         ):
             raise ValueError("Plan frame names must be known, non-empty names.")
+        return self
+
+    @model_validator(mode="after")
+    def stock_routes(self) -> Plan:
+        components = self.stock.components if isinstance(self.stock, Stock) else UNKNOWN
+        component_ids = []
+        if isinstance(components, list):
+            component_ids = [component.id for component in components]
+            if len(set(component_ids)) != len(component_ids):
+                raise ValueError("Stock component ids must be unique.")
+        setup_ids = [setup.id for setup in self.setups]
+        known_ids = [sid for sid in setup_ids if sid != UNKNOWN]
+        if len(set(known_ids)) != len(known_ids):
+            raise ValueError("Setup ids must be unique.")
+        if any(not sid.strip() or sid == "stock" or sid.startswith("stock.") for sid in known_ids):
+            raise ValueError(
+                "Setup ids must be non-empty and cannot use the reserved stock namespace."
+            )
+        earlier = set()
+        ancestry = {"stock": {"stock"}}
+        ancestry.update({f"stock.{cid}": {f"stock.{cid}"} for cid in component_ids})
+        for setup in self.setups:
+            consumed = {}
+            # Omitted routing remains input debt, never an inferred linear route.
+            if "stock_in" in setup.model_fields_set:
+                refs = setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in]
+                for ref in refs:
+                    where = f"Setup {setup.id} stock_in reference {ref!r}"
+                    if ref == "stock":
+                        if isinstance(components, list) and components:
+                            raise ValueError(
+                                f"{where} requires a single stock supply; use stock.<component id>."
+                            )
+                    elif ref.startswith("stock."):
+                        if ref.removeprefix("stock.") not in component_ids:
+                            raise ValueError(f"{where} names an unknown stock component.")
+                    elif ref not in earlier:
+                        reason = (
+                            "is not an earlier setup"
+                            if ref in known_ids
+                            else "is an unknown stock reference"
+                        )
+                        raise ValueError(f"{where} {reason}.")
+                    for ancestor in ancestry[ref]:
+                        if ancestor in consumed:
+                            raise ValueError(
+                                f"{where} shares ancestor {ancestor!r} with "
+                                f"{consumed[ancestor]!r}; an assembly cannot join the same "
+                                "material twice."
+                            )
+                        consumed[ancestor] = ref
+            if setup.id != UNKNOWN:
+                earlier.add(setup.id)
+                ancestry[setup.id] = set(consumed) if consumed else {setup.id}
+        return self
+
+    @model_validator(mode="after")
+    def joints(self) -> Plan:
+        """Exactly two-branch arrays declare one joint; transient cuts stay on their branch."""
+        features = self.joint_features
+        stock = self.stock if isinstance(self.stock, Stock) else None
+        components = stock.components if stock is not None else UNKNOWN
+        component_ids = (
+            {component.id for component in components} if isinstance(components, list) else set()
+        )
+        for name, feature in features.items():
+            _known_text(name, "A joint feature id")
+            if feature.component not in component_ids:
+                raise ValueError(
+                    f"Joint feature {name!r} names component {feature.component!r}, which is "
+                    "not a declared stock component."
+                )
+        ancestry = stock_ancestry(
+            (
+                setup.id,
+                (setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in])
+                if "stock_in" in setup.model_fields_set
+                else None,
+            )
+            for setup in self.setups
+            if setup.id != UNKNOWN
+        )
+        joined: dict[str, str] = {}
+        for setup in self.setups:
+            where = f"Setup {setup.id}"
+            refs = setup.stock_in if "stock_in" in setup.model_fields_set else UNKNOWN
+            declared = "joint" in setup.model_fields_set
+            if not isinstance(refs, list):
+                if declared:
+                    raise ValueError(f"{where} declares a joint but receives one stock_in.")
+                continue
+            if len(refs) != 2:
+                raise ValueError(
+                    f"{where} joins {len(refs)} stock_in references; a joint joins exactly two "
+                    "branches."
+                )
+            branch_roots = [ancestry.get(ref, frozenset((ref,))) for ref in refs]
+            if all(len(roots) > 1 for roots in branch_roots):
+                raise ValueError(
+                    f"{where} joins two already-joined assemblies; each joint may add only "
+                    "one single component to an assembly."
+                )
+            joint = setup.joint
+            if not declared or joint == UNKNOWN:
+                raise ValueError(f"{where} stock_in array requires a declared joint.")
+            if not isinstance(joint, CylindricalJoint):
+                continue
+            sides = {}
+            for role, kind in (("socket", "cylinder_bore"), ("spigot", "cylinder_spigot")):
+                name = getattr(joint, role)
+                feature = features.get(name)
+                if feature is None or feature.kind != kind:
+                    raise ValueError(
+                        f"{where} joint {role} {name!r} is not a plan joint feature of kind {kind}."
+                    )
+                if name in joined:
+                    raise ValueError(
+                        f"{where} joint {role} {name!r} is already joined in setup {joined[name]}."
+                    )
+                joined[name] = setup.id
+                root = f"stock.{feature.component}"
+                owners = [ref for ref in refs if root in ancestry.get(ref, {ref})]
+                if not owners:
+                    raise ValueError(
+                        f"{where} joint {role} {name!r} belongs to component "
+                        f"{feature.component!r}, which no consumed branch carries."
+                    )
+                sides[role] = owners[0]
+            if sides["socket"] == sides["spigot"]:
+                raise ValueError(
+                    f"{where} joint socket and spigot must come from different stock_in branches."
+                )
+        for setup in self.setups:
+            for op in setup.ops if isinstance(setup.ops, list) else ():
+                feature = features.get(op.feature) if isinstance(op.feature, str) else None
+                if feature is None:
+                    continue
+                root = f"stock.{feature.component}"
+                if ancestry.get(setup.id) != {root}:
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op} claims joint feature {op.feature!r} "
+                        f"outside the unjoined {root} branch; transient cuts precede the join."
+                    )
         return self
 
 
@@ -447,8 +828,30 @@ MachineEnvelope = record(
             ),
             MeasuredLength,
         ),
+        # Lathe envelope: swing diameters and the headstock-to-tailstock centre distance.
+        **dict.fromkeys(
+            (
+                "swing_over_bed_mm",
+                "swing_over_bed_in",
+                "swing_over_cross_slide_mm",
+                "swing_over_cross_slide_in",
+                "between_centres_mm",
+                "between_centres_in",
+            ),
+            MeasuredLength,
+        ),
     },
 )
+
+
+class SpindleRotation(InputModel):
+    """A labelled spindle rotation: only its own measured/verify qualify it."""
+
+    value: Literal["cw", "ccw"]
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+
 Spindle = record(
     "Spindle",
     {
@@ -456,13 +859,22 @@ Spindle = record(
         **numbers("rpm_min rpm_max hp bore_in runout_in"),
         "two_ranges": bool,
         "ranges_rpm": list[list[Number]],
+        # Cutting rotation viewed from above, looking down setup -Z (a right-hand cutter: cw).
+        "rotation": Literal["cw", "ccw"] | SpindleRotation | Unknown,
     },
 )
 # Tool projection belongs to one (tool, holder) pair: full holder reference -> fact.
 type ProjectionMap = dict[str, MeasuredLength]
 LeadScrew = record("LeadScrew", {**numbers("tpi dial_in"), "cross_feed_ipr": Vector})
 Capacity = record("Capacity", numbers("drill end_mill face_mill"))
-Tailstock = record("Tailstock", {"taper": str, "quill_travel_in": Number})
+Tailstock = record(
+    "Tailstock",
+    {
+        "taper": str,
+        "quill_travel_in": Number,
+        **dict.fromkeys(("quill_dia_mm", "quill_dia_in"), MeasuredLength),
+    },
+)
 Threads = record("Threads", {"inch_tpi": Vector, "metric_pitch_mm": Vector})
 Toolpost = record("Toolpost", {**texts("series type note"), "holders": int, "included": bool})
 DirectIndex = record("DirectIndex", numbers("positions step_deg"))
@@ -471,12 +883,30 @@ Bars = record(
     "Bars",
     {"count": int, "type": str, "shank_in": Number, "min_bore_in": Vector, "depth_in": Vector},
 )
+# One primitive of a fixture body, in its owner's local frame (plain mm). Its own
+# measured/verify qualify it, like a LengthMeasurement; nothing above it does. A ``void``
+# primitive (bore, tapped hole, slot) is not drawn: it is cut from the owner's other
+# primitives, or only from those named in ``cuts``.
+FixtureSolid = record(
+    "FixtureSolid",
+    {
+        **texts("name shape note label"),
+        "at_mm": Point3,
+        "size_mm": Point3,
+        "axis": Point3,
+        **numbers("dia_mm length_mm"),
+        "void": bool,
+        "cuts": list[str],
+        "measured": Measurement,
+        "verify": bool,
+    },
+)
 InventoryItem = record(
     "InventoryItem",
     {
         **texts(
             "kind make control operation_mode note coating material coverage by standards "
-            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in "
+            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in hand "
             "standard series chart units taper"
         ),
         "sku": str | int,
@@ -486,11 +916,12 @@ InventoryItem = record(
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
-            "diameter_in thickness_in resolution_in runout_max_in "
-            "max_shank_in sfm chip_load_mm_per_tooth "
-            "shank_mm capacity_mm nose_radius_mm reach_mm"
+            "diameter_in thickness_in runout_max_in "
+            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev "
+            "shank_mm capacity_mm"
         ),
         "point_angle": MeasuredAngle,
+        "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
         **dict.fromkeys(
             (
                 "dia",
@@ -525,9 +956,37 @@ InventoryItem = record(
                 "length_in",
                 "width_mm",
                 "width_in",
+                "resolution_mm",
+                "resolution_in",
+                "kerf_mm",
+                "kerf_in",
             ),
             MeasuredLength,
         ),
+        # Turning tools (insert holder) and toolpost holder bodies: docs/rules-lathe.md.
+        **dict.fromkeys(
+            (
+                "nose_radius_mm",
+                "nose_radius_in",
+                "reach_mm",
+                "reach_in",
+                "edge_len_mm",
+                "edge_len_in",
+                "head_len_mm",
+                "head_len_in",
+                "shank_width_mm",
+                "shank_width_in",
+                "functional_width_mm",
+                "functional_width_in",
+                "body_width_mm",
+                "body_width_in",
+                "body_depth_mm",
+                "body_depth_in",
+            ),
+            MeasuredLength,
+        ),
+        "insert_angle_deg": MeasuredAngle,
+        "entering_angle_deg": MeasuredAngle,
         "projection_mm": ProjectionMap,
         "projection_in": ProjectionMap,
         "envelope": MachineEnvelope,
@@ -544,7 +1003,8 @@ InventoryItem = record(
         "ranges_in": list[str],
         "range_in": float | list[Number],
         "range_mm": float | list[Number],
-        "resolution_mm": Number,
+        # Roughness capability of a roughness gauge/comparator/profilometer, Ra µm [lo, hi].
+        "ra_range": Annotated[list[Number], Field(min_length=2, max_length=2)],
         "size_in": str | list[Number],
         "nominal_dia_mm": dict[str, Number],
         "nominal_dia_cite": dict[str, Citations],
@@ -563,6 +1023,22 @@ InventoryItem = record(
         "plate_holes": dict[str, Vector],
         "bars": Bars,
         "members": dict[str, "InventoryItem | Unknown"],
+        "solids": list[FixtureSolid],
+        # Chuck body dimensions (fixture solids).
+        **dict.fromkeys(
+            ("body_dia_mm", "body_dia_in", "body_length_mm", "body_length_in")
+            + ("bore_dia_mm", "bore_dia_in"),
+            MeasuredLength,
+        ),
+        # Follow/steady rest jaw capacity: the work diameters the rest can ride on.
+        **dict.fromkeys(
+            ("capacity_min_mm", "capacity_min_in", "capacity_max_mm", "capacity_max_in"),
+            MeasuredLength,
+        ),
+        # Grooving/parting blade front-edge width (two-cornered blade): docs/rules-geometry.md.
+        **dict.fromkeys(("blade_width_mm", "blade_width_in"), MeasuredLength),
+        # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
+        "jaw_angles_deg": list[Number],
     },
 )
 InventoryItem.model_rebuild()
@@ -572,10 +1048,27 @@ InventoryItem.model_rebuild()
 _INVENTORY_LENGTH_STEMS = frozenset(
     "dia oal grip gauge_len gauge_dia lead height bed_height projection flute_len "
     "jaw_height jaw_width jaw_depth opening width shank capacity max_shank "
-    "nose_radius reach tip length resolution".split()
+    "nose_radius reach tip length resolution edge_len head_len shank_width functional_width "
+    "body_width body_depth kerf".split()
 )
-_ENVELOPE_LENGTH_STEMS = frozenset(("spindle_to_table_max", "spindle_to_table_min", "travel"))
+_ENVELOPE_LENGTH_STEMS = frozenset(
+    (
+        "spindle_to_table_max",
+        "spindle_to_table_min",
+        "travel",
+        "swing_over_bed",
+        "swing_over_cross_slide",
+        "between_centres",
+    )
+)
 _TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))
+
+# Chuck body dimensions (fixture solids).
+_INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
+# Follow/steady rest jaw capacity.
+_INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
+# Grooving/parting blade front-edge width.
+_INVENTORY_LENGTH_STEMS |= {"blade_width"}
 
 
 def _inventory_lengths(
@@ -648,7 +1141,7 @@ Cut = record(
     {
         **texts("material_class tool_material operation"),
         "diameter_range": Vector,
-        **numbers("sfm chip_load_mm_per_tooth"),
+        **numbers("sfm chip_load_mm_per_tooth feed_mm_rev feed_mm_min"),
         "cite": Citations,
     },
 )
