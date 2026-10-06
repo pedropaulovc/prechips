@@ -1253,7 +1253,9 @@ sheet.
    cannot mask splitting another.
    **Joint-feature engine implemented:** plan-owned finite sockets and spigots
    resolve for operation/dimension rules without modifying the exported
-   manifest or earning final STEP coverage. Cylindrical joints check all
+   manifest. Their analytic claims never earn final STEP coverage; a finishing
+   spigot turn earns it only for exported faces the kernel certifies lie, over
+   their full area, on its accepted finite cut. Cylindrical joints check all
    diametral fit extremes, branch-specific preparation and actual geometry,
    finite engagement, actual overlap and straight-axis insertion. Surface joints
    require essentially full finite rectangle contact on both sides inside the
