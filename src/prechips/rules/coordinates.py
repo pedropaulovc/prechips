@@ -890,7 +890,10 @@ def _dome_stair(name, feature, op, radius_mode, allowance):
         return None  # facing rows come in from +Z: an apex toward the chuck has no stair
     centre = apex - sphere
     grown = sphere + allowance / 2
-    work = math.sqrt(max(0.0, sphere * sphere - (base - centre) ** 2))
+    squared = sphere * sphere - (base - centre) ** 2
+    if squared < -1e-10:
+        return None  # the window runs past the sphere: no dome caps that base
+    work = math.sqrt(max(0.0, squared))
     display = 1 if radius_mode else 2
     rows = []
     count = math.ceil((apex - base) / step)

@@ -11,10 +11,16 @@ def _forms(op):
     return "contour" in op or action.startswith(("form", "profile"))
 
 
+def _z(value):
+    return f"{value:g}" if number(value) else "an unknown Z"
+
+
 def _banded_starts(bundle):
-    """{feature: [clause]} for contour/form ops whose ``z_from`` is the face an earlier op
-    in the setup leaves only within its ``to_z_band`` (the last op leaving that Z decides)."""
-    clauses = {}
+    """({feature: [error clause]}, {feature: [unknown clause]}) for contour/form ops whose
+    ``z_from`` is the face an earlier op in the setup leaves only within its ``to_z_band``
+    (the last op leaving that Z decides). A band with an unknown end still makes its own
+    ``to_z`` a banded face; whether it holds another start is then unknown."""
+    errors, unknowns = {}, {}
     for setup in bundle.plan["setups"]:
         ops = setup["ops"]
         for index, op in enumerate(ops):
@@ -24,23 +30,34 @@ def _banded_starts(bundle):
             for earlier in reversed(ops[:index]):
                 to_z, band = earlier.get("to_z"), earlier.get("to_z_band")
                 banded = isinstance(band, list) and len(band) == 2
-                if not number(to_z) or not (
-                    same_length(to_z, start) or banded and min(band) <= start <= max(band)
-                ):
+                known = banded and all(number(v) for v in band)
+                if not number(to_z):
                     continue
-                if banded:
-                    clauses.setdefault(op.get("feature"), []).append(
-                        f"{setup['id']} op {op['op']} starts at Z {start:g}, which op "
-                        f"{earlier['op']} leaves anywhere in {min(band):g} to {max(band):g}; "
-                        "an op must leave that face at a deterministic to_z first"
+                same = same_length(to_z, start)
+                if not same and not (banded and (not known or min(band) <= start <= max(band))):
+                    continue
+                if not banded:
+                    break
+                leader = (
+                    f"{setup['id']} op {op['op']} starts at Z {start:g}, which op {earlier['op']}"
+                )
+                lo, hi = sorted(band) if known else band
+                if same or known:
+                    errors.setdefault(op.get("feature"), []).append(
+                        f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}; an op must leave "
+                        "that face at a deterministic to_z first"
+                    )
+                else:
+                    unknowns.setdefault(op.get("feature"), []).append(
+                        f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}, which may hold it"
                     )
                 break
-    return clauses
+    return errors, unknowns
 
 
 def evaluate(bundle):
     result = []
-    starts = _banded_starts(bundle)
+    starts, unsure = _banded_starts(bundle)
     for name, feature in bundle.feature_definitions.items():
         route = operations(bundle, name)
         actions = [op["do"] for _, op in route]
@@ -49,9 +66,11 @@ def evaluate(bundle):
             "ops": [f"{s['id']}:{o['op']}" for s, o in route],
             "chain": actions,
         }
-        banded = starts.get(name, [])
+        banded, maybe = starts.get(name, []), unsure.get(name, [])
         if banded:
             nums["banded_starts"] = banded
+        if maybe:
+            nums["unknown_starts"] = maybe
         cite = ["PLAN.md §4.1 op chain", "plan authored route", "features declared process/thread"]
         if feature["kind"] == "unknown" or "unknown" in actions:
             result.append(
@@ -70,15 +89,15 @@ def evaluate(bundle):
                 Finding(
                     "op_chain",
                     name,
-                    "error" if banded else "not_applicable",
+                    "error" if banded else "unknown" if maybe else "not_applicable",
                     nums,
                     cite,
-                    f"{name}: " + ("; ".join(banded) if banded else "not a hole chain") + ".",
+                    f"{name}: " + ("; ".join(banded or maybe) or "not a hole chain") + ".",
                 )
             )
             continue
         errors = list(banded)
-        unknown = False
+        unknown = bool(maybe)
         parent = (
             feature.get("hole", feature.get("parent", name))
             if feature["kind"] == "counterbore"
@@ -131,7 +150,7 @@ def evaluate(bundle):
                 + (
                     "; ".join(errors)
                     if errors
-                    else "thread tap-drill specification/measurement unresolved"
+                    else "; ".join(maybe) or "thread tap-drill specification/measurement unresolved"
                     if unknown
                     else "hole prerequisites are present across the route"
                 )

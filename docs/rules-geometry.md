@@ -338,15 +338,21 @@ nearest placed fixture component with its clearance; at `z_from` it adds
 `max_start_z_mm`, the furthest start back against the feed before the tool or
 holder touches that component (stepped out by the clearance until within
 0.001 mm; none when nothing is met within 250 mm). The traveler boxes a start
-within 3 mm of a component with both numbers. Served follow rests are not set
+within 3 mm of a component with both numbers, converted to plan units on the
+setup's DRO grid (clearance rounded down, the furthest start toward the planned
+one). Served follow rests are not set
 at a window end: when their jaws, set on the work with the tool at `z_from`,
 would meet a fixture component, `rest_engagement` gives the cut Z from which
-they clear it. The plan's `hold.supports[].engage_at_z_mm` (the Z the tool
-passes before the jaws go on) passes when it is at or past that Z along the
-feed and inside the op window, is an `error` before it or after `z_to`, and is
-`unknown` when undeclared or when no clear Z was computed. A blade's
-`blade_z_mm` is its axial extent over its cutting poses; the traveler's jaw
-distance uses its chuck-side face, not only the Z its op names.
+they clear it. The plan's `hold.supports[].engage_at_z_mm` (millimetres, the Z
+the tool passes before the jaws go on) passes when it is at or past that Z along
+the feed and inside the op window (its plan-unit `z_to` scaled to mm), is an
+`error` before it or after `z_to`, and is `unknown` when undeclared, when no
+clear Z was computed, or when the plan units are unknown. The traveler prints it
+on the DRO grid rounded along the feed (the clear side) and rechecks the printed
+Z against the clear Z and `z_to`; with no such grid position it prints a STOP
+box. A blade's `blade_z_mm` is its axial extent over its cutting poses; the
+traveler's jaw distance uses its chuck-side face (in plan units, rounded toward
+the jaws), not only the Z its op names.
 
 ### Follow and steady rests
 

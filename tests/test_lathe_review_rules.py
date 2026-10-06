@@ -74,7 +74,7 @@ _IDENTITY = {
 }
 
 
-def _lathe(ops, features, tools):
+def _lathe(ops, features, tools, units="mm"):
     """A one-setup lathe bundle in an identity frame (setup Z = model Z, +Z free end)."""
     return Bundle(
         plan={
@@ -95,7 +95,7 @@ def _lathe(ops, features, tools):
         },
         features={
             "part": "lathe-review",
-            "units": "mm",
+            "units": units,
             "frames": {"model": dict(_IDENTITY), "T": dict(_IDENTITY)},
             "features": features,
         },
@@ -229,7 +229,7 @@ def test_a_dome_stair_is_not_assumed_for_an_apex_toward_the_chuck():
 _ENGAGE = {"rest": "follow_rest", "start_z_mm": 166.0, "meets": ["dead centre"]}
 
 
-def _rest_row(monkeypatch, engage_z, declared):
+def _rest_row(monkeypatch, engage_z, declared, units="mm", window=(166.0, 0.2)):
     """Accessibility for a clear turning op whose follow rest, set with the tool at its
     start, would meet the dead centre until the tool passes ``engage_z``."""
     from prechips.rules import accessibility
@@ -239,7 +239,7 @@ def _rest_row(monkeypatch, engage_z, declared):
     if declared is not None:
         rest["engage_at_z_mm"] = declared
     setup = {"id": "S1", "hold": {"supports": [rest]}}
-    op = {"op": 10, "do": "rough_turn", "z_from": 166.0, "z_to": 0.2}
+    op = {"op": 10, "do": "rough_turn", "z_from": window[0], "z_to": window[1]}
     inputs = {key: 1.0 for key in TURNING_TOOL_KEYS + TURNING_HOLDER_KEYS}
     inputs.update(approach=TURNING, feed_z=-1)
     detail = {
@@ -250,7 +250,7 @@ def _rest_row(monkeypatch, engage_z, declared):
     }
     contexts = [(setup, op, {}, detail, inputs, [], None)]
     monkeypatch.setattr(accessibility, "op_contexts", lambda *_, **__: iter(contexts))
-    [row] = accessibility.evaluate(None)
+    [row] = accessibility.evaluate(SimpleNamespace(features={"units": units}))
     return row
 
 
@@ -270,3 +270,105 @@ def test_a_follow_rest_goes_on_only_once_the_tool_passes_its_declared_clear_z(mo
         _rest_row(monkeypatch, 155.474, 152.0).numbers["rest_engagement"][0]["declared_z_mm"]
         == 152.0
     )
+
+
+@pytest.mark.parametrize(
+    ("band", "status", "text"),
+    [
+        ([1.5, "unknown"], "error", "anywhere in 1.5 to an unknown Z;"),
+        (["unknown", "unknown"], "error", "anywhere in an unknown Z to an unknown Z;"),
+    ],
+)
+def test_a_band_with_unknown_ends_still_leaves_its_own_to_z_undetermined(band, status, text):
+    row = _chain([{**_PART, "to_z_band": band}, _FORM])
+    assert row.status == status
+    assert text in row.sentence
+
+
+def test_whether_a_partly_unknown_band_holds_another_start_is_unknown():
+    banded = {**_PART, "to_z": 2.25, "to_z_band": [2.0, "unknown"]}
+    row = _chain([banded, _FORM])
+    assert row.status == "unknown"
+    assert row.numbers["unknown_starts"] == [
+        "S3 op 20 starts at Z 1.75, which op 10 leaves anywhere in 2 to an unknown Z, "
+        "which may hold it"
+    ]
+
+
+def test_a_dome_window_past_the_sphere_gets_no_stair():
+    # Apex Z1.75 to base Z-7 is 8.75 of cap on a 4.11 sphere (8.22 across): no dome
+    # caps that base, so neither a finish table nor a rough stair is established.
+    impossible = _dome(do="rough_dome", z_to=-7.0, rough_allowance_mm=0.2)
+    assert "stair_tables" not in impossible.numbers
+    assert impossible.status == "unknown"
+
+
+def test_an_inch_op_ends_before_a_millimetre_engagement_z_it_never_reaches(monkeypatch):
+    # Z3.0 to Z1.0 in inches runs 76.2 to 25.4 mm; jaws set at 20 mm never go on in it.
+    late = _rest_row(monkeypatch, 45.0, 20.0, units="in", window=(3.0, 1.0))
+    assert late.status == "error"
+    assert "after the op ends at Z25.4 mm" in late.sentence
+    assert _rest_row(monkeypatch, 45.0, 30.0, units="in", window=(3.0, 1.0)).status == "pass"
+
+
+def _sheet(units, resolution_mm, numbers, z_from, z_to):
+    from prechips.sheet import _Traveler
+
+    op = {"op": 10, "do": "rough_turn", "z_from": z_from, "z_to": z_to}
+    bundle = _lathe([op], {}, {}, units=units)
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = resolution_mm
+    setup = bundle.plan["setups"][0]
+    sheet = _Traveler(bundle, [], {}, None)
+    sheet.setup = setup
+    sheet.records[("accessibility", "S1:10")] = numbers
+    return sheet, setup, op
+
+
+def test_millimetre_start_and_engagement_facts_print_in_inch_dro_coordinates():
+    start = {
+        "end": "z_from",
+        "z_mm": 50.8,
+        "clearance_mm": 1.27,
+        "max_start_z_mm": 52.07,
+        "nearest_fixture": "dead centre",
+    }
+    engage = {"declared_z_mm": 50.8, "engage_z_mm": 52.0}
+    numbers = {"window_poses": [start], "rest_engagement": [engage], "feed_z": -1}
+    sheet, setup, op = _sheet("in", 0.0254, numbers, 2.0, 0.5)
+    assert sheet.posed_start(setup, op) == (
+        "START Z 2.000: 0.050 CLEAR OF dead centre — start no further out than Z 2.050"
+    )
+    assert sheet.rest_engagement(setup, op) == [
+        "set the follow rest at Z 2.000 once the tool passes it"
+    ]
+
+
+def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
+    # Clear from Z155.47 toward the chuck; declared 155.46 passes, but ordinary rounding
+    # to the 0.1 grid prints 155.5, where the jaws still meet the centre.
+    engage = {"declared_z_mm": 155.46, "engage_z_mm": 155.47}
+    sheet, setup, op = _sheet("mm", 0.1, {"rest_engagement": [engage], "feed_z": -1}, 166.0, 0.2)
+    assert sheet.rest_engagement(setup, op) == [
+        "set the follow rest at Z 155.4 once the tool passes it"
+    ]
+    # Feeding away from the chuck the clear side is up the grid.
+    sheet, setup, op = _sheet(
+        "mm",
+        0.1,
+        {"rest_engagement": [{"declared_z_mm": 10.04, "engage_z_mm": 10.03}], "feed_z": 1},
+        0.0,
+        50.0,
+    )
+    assert sheet.rest_engagement(setup, op) == [
+        "set the follow rest at Z 10.1 once the tool passes it"
+    ]
+    # No grid position between the clear Z and the op's end is refused, not rounded in.
+    sheet, setup, op = _sheet(
+        "mm",
+        0.1,
+        {"rest_engagement": [{"declared_z_mm": 0.25, "engage_z_mm": 0.26}], "feed_z": -1},
+        166.0,
+        0.22,
+    )
+    [line] = sheet.rest_engagement(setup, op)
+    assert line.startswith("STOP")

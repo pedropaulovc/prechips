@@ -1194,7 +1194,9 @@ class _Traveler:
             numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
             blade = numbers.get("blade_z_mm")
             if zs and isinstance(blade, list) and blade and all(_known(z) for z in blade):
-                zs = [*zs, min(blade)]
+                # Millimetre kernel fact; down-rounded so the jaw gap is never overstated.
+                face = self.mm_on_grid(setup, min(blade), up=False)
+                zs = [*zs, face] if _known(face) else zs
             if zs:
                 result[str(op["op"])] = min(zs) - jaw
         return result
@@ -1204,16 +1206,10 @@ class _Traveler:
         when a fixture component is within the crash zone of it: the clearance, and how
         far out the start may go when that was found; None otherwise."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-        step, decimals = dro_grid(self.bundle, setup)
-
-        def snap(value, up):
-            """``value`` on the setup's DRO grid, rounded the safe way."""
-            steps = (math.ceil if up else math.floor)(value / step + (-1e-6 if up else 1e-6))
-            return _number(steps * step, decimals)
-
+        o = self.operative
         for pose in numbers.get("window_poses") or []:
             pose = _mapping(pose)
-            clear, z = pose.get("clearance_mm"), pose.get("z_mm")
+            clear, z = pose.get("clearance_mm"), op.get("z_from")
             if pose.get("end") != "z_from" or not _known(clear) or clear > _CRASH_ZONE_MM:
                 continue
             # The kernel names a placed component "<role> <inventory ref>"; print the shop
@@ -1222,22 +1218,52 @@ class _Traveler:
             ref = name.rsplit(" ", 1)[-1]
             if resolve(self.bundle, "fixtures", ref):
                 name = "the " + self.short_reference(ref, "fixtures")
-            text = f"START Z {snap(z, False)}: {snap(clear, False)} CLEAR OF {name}"
+            gap = self.mm_on_grid(setup, clear, up=False)
+            text = f"START Z {o(self.surface_z(setup, z))}: {o(gap)} CLEAR OF {name}"
             start = pose.get("max_start_z_mm")
             if _known(start) and _known(z):
-                text += f" — start no further out than Z {snap(start, start < z)}"
+                # Toward the planned start: never further out than the found limit.
+                limit = self.mm_on_grid(setup, start, up=start < pose.get("z_mm", start))
+                text += f" — start no further out than Z {o(limit)}"
             return _Box(text)
         return None
 
+    def mm_on_grid(self, setup, value, up):
+        """A millimetre kernel fact in plan units on the setup's DRO grid, rounded up (True)
+        or down (False); unknown when the value or the plan units are."""
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if scale is None or not _known(value):
+            return "unknown"
+        step, decimals = dro_grid(self.bundle, setup)
+        steps = (math.ceil if up else math.floor)(value / scale / step + (-1e-6 if up else 1e-6))
+        return round(steps * step, decimals)
+
     def rest_engagement(self, setup, op):
-        """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``)."""
+        """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``),
+        on the DRO grid toward the clear side (along the feed), rechecked as printed: past
+        the Z where the jaws clear the fixture and not past the op's end."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-        o = self.operative
-        return [
-            f"set the follow rest at Z {o(entry['declared_z_mm'])} once the tool passes it"
-            for entry in map(_mapping, numbers.get("rest_engagement") or [])
-            if _known(entry.get("declared_z_mm"))
-        ]
+        feed, end = numbers.get("feed_z"), op.get("z_to")
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        lines = []
+        for entry in map(_mapping, numbers.get("rest_engagement") or []):
+            declared, clear = entry.get("declared_z_mm"), entry.get("engage_z_mm")
+            if not _known(declared):
+                continue
+            printed = self.mm_on_grid(setup, declared, up=feed == 1)
+            fits = (
+                feed in (-1, 1)
+                and _known(printed)
+                and _known(clear)
+                and (printed - clear / scale) * feed >= -1e-9
+                and (not _known(end) or (printed - end) * feed <= 1e-9)
+            )
+            lines.append(
+                f"set the follow rest at Z {self.operative(printed)} once the tool passes it"
+                if fits
+                else _Box("STOP: no follow-rest position on the DRO grid is checked clear")
+            )
+        return lines
 
     def path_zs(self, setup, op):
         """The Z ends of an op's path as its op row prints them."""

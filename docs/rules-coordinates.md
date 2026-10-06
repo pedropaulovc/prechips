@@ -265,7 +265,8 @@ Dome roughing: the rough stage of an `axial_table` op (a `form_*` op with
 finished table. Each row faces in at a finish-table Z below the apex to the X
 where the sphere grown by half the diametral allowance crosses it, so every
 stair corner (the imaginary-tip reading) stays that far off the dome; rows at or
-past the base radius are dropped. An apex toward the chuck has no stair
+past the base radius are dropped. An apex toward the chuck, or a window whose
+base the sphere cannot reach (cap taller than its diameter), has no stair
 (`unknown`). The finish table prints its row-to-row order for an apex-to-base
 convex dome: X out to the next row first, then Z toward the chuck.
 
