@@ -122,6 +122,40 @@ PLAN §8 M3.
 | `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
 
+### Rocker-arm supported route
+
+The illustrative rocker plan binds the exported `v40` drawing revision and
+uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
+a clean checker exit is released-plan approval or a measured first article.
+
+The four holding states are explicit, rather than pretending a clamp can move
+halfway through a fixed setup:
+
+- **S1/S2 — retained rail frame in the vise.** A **340 × 65 × 16 mm** example
+  blank puts the full-thickness rails and end ears outside the entire 9.525 mm
+  roughing-cutter sweep, not just its centreline. Opposed roughing retains a
+  0.40 mm connecting web. The 1/2 in parallels sit entirely beneath the rails
+  on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance
+  to each closed jaw and 6.8453 mm nominal vertical jaw engagement. S2 adds
+  passive ground posts under the S1-finished strap, roughs before its finish
+  passes, and drills the rod hole while the frame is still vise-held.
+- **S3 — supported upper hub and ream.** Stepped padded straps press over the
+  fixture pads; their studs are outside the whole blank and their bridges
+  clear the retained rails. The upper hub OD and pivot ream share the indicated
+  setting. No outside-profile cut crosses these straps.
+- **S4 — pinned, shoulder-screw profile fixture.** The reamed pivot bore accepts
+  a shoulder screw and bored washer; a pin in the predrilled rod hole sets
+  clocking. Separate toe clamps retain the scrap rail frame on its own rests,
+  so neither the part nor the scrap becomes loose when the final web releases.
+  The twelve inset pads support the lower strap throughout the full outline.
+
+Final inspection checks both hub patches against the reamed datum, and rod
+position against A|B|C with face B seated and the finished rod-side land C
+squared. Fixture dimensions and primitive solids in the rocker additions
+block carry `example (plausible, not measured)` labels; these are authored
+example clearances, not approved CAM toolpaths or actual shop measurements.
+
+
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats
 required unknown/unsupported/warn; only clean required subjects permit exit 0.
 The validator independently recomputes report exits and itself exits **0**

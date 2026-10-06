@@ -1,8 +1,8 @@
-# rocker-arm process plan (PLAN.md rev 6 §3.1), M1 reference fixture.
-# The three-setup route is the rev-3 fixture's (vise S1 upper side, vise S2
-# flipped lower side, supported fixture S3 finish), kept whole. Blank, placement
-# and 0.20 mm allowances are restored from rev 3; other process decisions marked
-# author's choice are proposals, not measured stock or inventory facts.
+# Rocker-arm illustrative process plan: four explicit holding states.
+# Vise S1/S2 retain a full-thickness rail frame around a 340 x 65 mm blank.
+# S3 straps hold the supported part for upper-hub finishing and pivot reaming;
+# S4 shoulder-screw/pin location holds the part while separately clamped scrap
+# rails release. Authored process dimensions are proposals, not shop measurements.
 # RPM/feed come from the illustrative example cutting data; the R8 drill chuck,
 # 6.5 H7 reamer and supported profile fixture are illustrative example items.
 part = "rocker-arm"
@@ -28,12 +28,12 @@ drawing_material = "LOW-CARBON STEEL OR GRAY IRON"
 material_cite = ["harmonic-analyzer/cad/config/parts/rocker-arm.yaml:3", "harmonic-analyzer/cad/config/parts/_defaults.yaml:25-27", "rev-3 rocker-arm/plan.yaml:7"]
 form = "rectangular_blank" # rev-3 prepared blank with rectangular reference edges; no stock on hand claimed
 form_verify = false # illustrative example: prepared blank accepted for the pilot
-section_mm = [45.0, 16.0] # author's choice, restored from rev-3 plan
-length_mm = 310.0 # author's choice, restored from rev-3 plan
-origin_mm = [-155.0, -8.0, -8.0] # author's model-frame blank corner, made explicit from the note
+section_mm = [65.0, 16.0] # author's choice: rails outside the full 9.525 mm cutter sweep
+length_mm = 340.0 # author's choice: 10 mm retained ears beyond X ±160
+origin_mm = [-170.0, -20.0, -8.0] # author's model-frame blank corner
 axis = [1.0, 0.0, 0.0] # length direction
-section_axis = [0.0, 1.0, 0.0] # 45 mm section direction; axis × section_axis is 16 mm Z
-note = "Author's prepared blank: model X -155..155, Y -8..37, Z -8..8 (16 mm centred on model Z0). No stock on hand or measured surface is asserted. Retain rectangular rails and end ears through S1/S2; leave a 0.40 mm connecting web between opposed rough-profile depths. Integral hub from the bar: no brazed boss, loose bushing, rod tap or counterbore."
+section_axis = [0.0, 1.0, 0.0] # 65 mm section direction; axis × section_axis is 16 mm Z
+note = "Illustrative prepared blank: model X -170..170, Y -20..45, Z -8..8. Full-thickness rails are outside frame-A Y -20..31.7 and ears outside X ±160, beyond the full 9.525 mm cutter sweep plus clearance. Retain a 0.40 mm connecting web between opposed rough-profile depths. Integral hub from the bar; no brazed boss, loose bushing, rod tap or counterbore. These are authored example dimensions, not stock on hand."
 as_is_faces = [] # every finished face is cut
 
 [dro]
@@ -92,19 +92,19 @@ fixture = "vise-pm-6"
 jaws_along = "x"
 fixed_jaw = "rear" # author's choice
 parallels = "parallels-lms-6745/1-2in"
-supports = "blocks-123-lms-2881"
-support_orientation = "1 in height"
-riser_up = "height" # 1-2-3 blocks on their 1 in face
-riser_along = "length" # 3 in edge along the jaws
-riser_centres_mm = [[-40.0, 6.5], [40.0, 6.5]] # author's choice, under both parallels inside the 6 in jaws
-parallels_centres_mm = [[0.0, -13.0], [0.0, 26.0]] # author's choice, under the retained rails
+supports = "rocker-riser-bars"
+riser = "rocker-riser-bars"
+riser_up = "height" # matched 25.4 mm ground height
+riser_along = "length" # 76.2 mm edge along the jaws; 64 mm edge across the 65 mm opening
+riser_centres_mm = [[-40.0, 4.5], [40.0, 4.5]] # author's choice, both parallels fully carried inside the jaws
+parallels_centres_mm = [[0.0, -25.5], [0.0, 34.5]] # author's choice, wholly under retained full-thickness rails
 grip_on = "full-thickness rectangular rails"
-grip_mm = 6.0 # author's choice, horizontal engagement into each retained rectangular rail
-jaw_above_parallels_mm = 6.8453 # author's choice nominal target: 44.9453 measured jaw (1.7695 in) - 25.4 block - 12.7 parallel; measure
-jaw_center_along_mm = 0.0 # author's choice: jaws centred on the 310 mm blank (frame A x -155..155)
+grip_mm = 6.0 # author's choice, minimum vertical jaw engagement on the full-thickness retained rails
+jaw_above_parallels_mm = 6.8453 # nominal stack: 44.9453 measured jaw - 25.4 example riser - 12.7 example parallel
+jaw_center_along_mm = 0.0 # author's choice: jaws centred on the 340 mm blank
 stop = "left blank end against fixed-jaw stop" # author's choice
 clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # author's choice
-note = "Grip the rails on the 1-2-3 blocks plus 1/2 in parallels; never rest the thinned strap on an unsupported island."
+note = "Grip the full-thickness rails on matched narrow risers plus 1/2 in parallels. The 64 mm risers fit between the 65 mm closed jaws and fully carry both parallels. Keep the cutter's whole swept diameter inside the clearing bounds, not just its centre."
 
 [setups.zero]
 tool_touches = [] # one Z touch per tool change, listed in retouch_after
@@ -114,7 +114,7 @@ edge = "blank_left_end"
 from = "-x"
 tool = "edge-finder"
 holder = "r8-collets-lms-4860/3-8in"
-edge_mm = -155.0 # author's choice, restored centred 310 mm blank
+edge_mm = -170.0 # author's choice, left end of the centred 340 mm blank
 check_jog_mm = 10.0 # author's choice
 
 [setups.zero.y]
@@ -122,7 +122,7 @@ edge = "blank_front_edge"
 from = "-y"
 tool = "edge-finder"
 holder = "r8-collets-lms-4860/3-8in"
-edge_mm = -16.0 # author's choice, restored model Y-8 minus frame A origin Y8
+edge_mm = -28.0 # author's choice, model Y -20 minus frame-A origin Y8
 check_jog_mm = 10.0 # author's choice
 
 [setups.zero.z]
@@ -197,11 +197,11 @@ direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
 note = "Bottom arc, radial lands and tapered ends; rails and ears stay continuous. The 5.59 lands are profile lines, not chamfers."
-# Interrupted cut: clears the bottom arc, tapers and lands round both tips up to
-# frame-A Y22 (just above the tips; the clearing wraps round each tip in one
-# piece); the lower rail (frame-A Y -16..-10) and the ears beyond X ±150 stay on.
-# Op 50 then clears the rest above the top edge.
-stock_removal_bounds = { x = [-150.0, 150.0], y = [-10.0, 22.0], z = [-3.32825, 5.0] }
+# Clear the bottom arc, tapers and lands round both tips. The retained lower
+# rail is frame-A Y -28..-20, beyond the full cutter sweep, and the end ears
+# are outside X ±160. Op 50 clears the upper pocket. Stop the cutter's whole
+# swept solid inside these bounds; retain the central 0.40 mm web.
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 24.0], z = [-3.32825, 5.0] }
 
 [[setups.ops]]
 op = 50
@@ -215,9 +215,9 @@ direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
 note = "R800 top edge and the upper ends of the tapers; leave the rails and ears connected."
-# Interrupted cut: clears above the top edge, round both tips, to the retained
-# upper rail (frame-A Y 26.05..29) and the ears beyond X ±150.
-stock_removal_bounds = { x = [-150.0, 150.0], y = [3.24, 26.05], z = [-3.32825, 5.0] }
+# Clear above the top edge round both tips, preserving the upper rail
+# frame-A Y 31.7..37 and the ears outside X ±160.
+stock_removal_bounds = { x = [-160.0, 160.0], y = [3.24, 31.7], z = [-3.32825, 5.0] }
 
 [[setups.ops]]
 op = 60
@@ -236,7 +236,7 @@ tool = "drill-index-115/1-4in"
 holder = "drill-chuck-r8"
 exit_mm = 2.0 # author's choice, full drill diameter beyond raw exit face
 approach_mm = 5.0
-note = "Pilot for the S3 ream and the S2/S3 pickups. Drill size kept from the earlier plan; the ream allowance it leaves is not confirmed."
+note = "6.35 mm pilot leaves 0.15 mm diametral stock for the nominal 6.50 mm machine reamer in S3; indicate this pilot for S2/S3 pickups."
 
 # ---------------------------------------------------------------- S2
 [[setups]]
@@ -247,7 +247,7 @@ coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S1"
-note = "Lower side, flipped about model X: qualify the lower hub face to the hub length, finish the lower strap face and lower hub OD, rough the lower side of the top edge and profile. Rails and ears stay on. Interrupt roughing at clamped rails/ears, retain the 0.40 mm web and verify access; nominal boundary checkpoints are not an approved full contour cut."
+note = "Lower side, flipped about model X: indicate the S1 pilot, qualify the lower hub face, rough before finishing the lower strap face and hub OD, then rough the opposed outer pockets leaving the 0.40 mm web. Ground posts support the S1-finished strap over the risers. Spot and drill the rod hole while the rail frame remains vise-held; final A|B|C position inspection follows S4 land finishing."
 
 [setups.stock_state]
 top_feature = "hub_faces" # the Z-touch face is the lower hub face; strap face ops do not move it
@@ -256,21 +256,34 @@ bottom_z = -7.0565 # S1 hub face, HUB_LENGTH below frame B Z0 (nominal; band +0.
 bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
 retained_rail_bottom_z = -11.52825 # author's choice, raw model Z8 after flip; rails, not faced hub, seat on supports
 
+[setups.stock_state.local_thickness]
+rod_hole = 2.5 # both strap faces are finished before op 60/70
+
+[setups.stock_state.local_thickness_cite]
+rod_hole = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:542-545"
+
+[setups.stock_state.entry_z]
+rod_hole = -2.27825 # lower strap face, uppermost in frame B
+
 [setups.hold]
 fixture = "vise-pm-6"
 jaws_along = "x"
 fixed_jaw = "rear" # author's choice
 parallels = "parallels-lms-6745/1-2in"
-supports = "blocks-123-lms-2881"
-support_orientation = "1 in height"
+supports = "rocker-riser-bars"
+riser = "rocker-riser-bars"
 riser_up = "height"
 riser_along = "length"
-riser_centres_mm = [[-40.0, -6.5], [40.0, -6.5]] # author's choice, frame B (Y flipped)
-parallels_centres_mm = [[0.0, -26.0], [0.0, 13.0]] # author's choice, under the retained rails
+riser_centres_mm = [[-40.0, -4.5], [40.0, -4.5]] # author's choice, frame B (Y flipped)
+parallels_centres_mm = [[0.0, -34.5], [0.0, 25.5]] # author's choice, wholly under retained rails
+clamps = [
+  { ref = "rocker-s2-support-post", pose = { origin_mm = [40.0, -1.0, -24.22825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "passive ground support on the riser, not a clamp; supports the S1-finished strap underside" },
+  { ref = "rocker-s2-support-post", pose = { origin_mm = [-40.0, -1.0, -24.22825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored passive ground support on the other riser" },
+]
 grip_on = "full-thickness rectangular rails and ears"
-grip_mm = 6.0 # author's choice, horizontal engagement into retained rails/ears
-jaw_above_parallels_mm = 6.8453 # author's choice nominal target: 44.9453 measured jaw (1.7695 in) - 25.4 block - 12.7 parallel; verify actual seating
-jaw_center_along_mm = 0.0 # author's choice: jaws centred on the 310 mm blank (frame B x -155..155, B origin on model X0)
+grip_mm = 6.0 # author's choice, minimum vertical jaw engagement on the full-thickness retained rails/ears
+jaw_above_parallels_mm = 6.8453 # nominal stack: 44.9453 measured jaw - 25.4 example riser - 12.7 example parallel
+jaw_center_along_mm = 0.0 # author's choice: jaws centred on the 340 mm blank
 stop = "left blank end against fixed-jaw stop; indicate pilot to transfer datum" # author's choice
 clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # author's choice
 note = "Seat the retained rails, not the thin strap or a hub rim."
@@ -305,7 +318,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-4fl"
 check_jog_mm = 10.0 # author's choice
-retouch_after = [10, 30] # op 10 makes the lower hub face Z0; op 40 changes tool
+retouch_after = [10, 15, 20, 28, 30, 50, 60] # retouch before each changed cutting tool
 
 [[setups.ops]]
 op = 10
@@ -320,6 +333,18 @@ approach_mm = 5.0 # author's choice: rapid plane above the retained rails
 
 [setups.ops.checks]
 length = "micrometers/0-1in"
+
+[[setups.ops]]
+op = 15
+do = "rough_face"
+feature = "strap_faces"
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.07825
+rough_allowance_mm = 0.20
+direction = "conventional"
+approach_mm = 5.0
+note = "Take stepped roughing passes on the supported lower strap, leave 0.20 mm for the finish pass."
 
 [[setups.ops]]
 op = 20
@@ -344,6 +369,19 @@ note = "Same strap-thickness micrometer check after both sides are finished; exp
 thickness = "micrometers/0-1in"
 
 [[setups.ops]]
+op = 28
+do = "rough_profile"
+feature = "hub_od"
+faces = ["#518/ADVANCED_FACE[16]/HAF_HUB_OD__P01", "#539/ADVANCED_FACE[17]/HAF_HUB_OD__P01"]
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.07825
+rough_allowance_mm = 0.20
+direction = "conventional"
+approach_mm = 5.0
+contour = { method = "arc_table", step_deg = 10.0 }
+
+[[setups.ops]]
 op = 30
 do = "finish_profile"
 feature = "hub_od"
@@ -357,7 +395,7 @@ contour = { method = "arc_table", step_deg = 10.0 } # author's choice, continuou
 note = "Lower hub OD about the transferred pilot axis."
 
 [setups.ops.checks]
-dia = "calipers" # author's choice; range/resolution nominally capable, verify=true retained
+dia = "calipers" # illustrative example gauge for the drawing's 1.02 mm OD band
 coaxiality_dia = "dial-indicator"
 
 [[setups.ops]]
@@ -373,10 +411,9 @@ rough_allowance_mm = 0.20 # author's choice, restored rev-3 allowance
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
-# Interrupted cut (frame B, Y flipped): bottom arc, tapers and lands round both
-# tips from frame-B Y10 (model Y-2) to Y-22 (just past the tips); the lower rail
-# (frame-B Y 10..16) and ears beyond X ±150 stay on. Runs before op 50, as in S1.
-stock_removal_bounds = { x = [-150.0, 150.0], y = [-22.0, 10.0], z = [-3.32825, 5.0] }
+# Frame B reverses Y: lower-rail material remains Y20..28; the clearing
+# wraps around both tips while the ears remain outside X ±160.
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-24.0, 20.0], z = [-3.32825, 5.0] }
 
 [[setups.ops]]
 op = 50
@@ -389,9 +426,30 @@ rough_allowance_mm = 0.20 # author's choice, restored rev-3 allowance
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
-# Interrupted cut: above the top edge and round both tips to the retained upper
-# rail (frame-B Y -29..-26.05) and the ears beyond X ±150.
-stock_removal_bounds = { x = [-150.0, 150.0], y = [-26.05, -3.24], z = [-3.32825, 5.0] }
+# Upper-rail material remains frame-B Y -37..-31.7; the cutter's whole
+# swept diameter stays inside the clearing box and outside the rail.
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, -3.24], z = [-3.32825, 5.0] }
+
+[[setups.ops]]
+op = 60
+do = "spot"
+feature = "rod_hole"
+tool = "center-drills-lms-4859/2"
+holder = "drill-chuck-r8"
+depth_mm = 0.50 # author's choice, shallow spot from the lower strap face in frame B
+approach_mm = 5.0
+
+[[setups.ops]]
+op = 70
+do = "drill"
+feature = "rod_hole"
+tool = "drill-index-115/#47"
+holder = "drill-chuck-r8"
+exit_mm = 1.5 # author's choice, full drill diameter beyond local strap exit
+approach_mm = 5.0
+
+[setups.ops.checks]
+dia = "pin-gauges" # 1.994 go / 2.094 no-go
 
 # ---------------------------------------------------------------- S3
 [[setups]]
@@ -402,7 +460,7 @@ coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S2"
-note = "Finish on a supported profile fixture: upper hub OD and ream without relocating, top edge, outer profile (frees the rails and ears), rod-pin hole, deburr, black oxide."
+note = "Strap-held hub setup: seat the lower strap face on the pads and the retained rail frame on its own rests. Finish the upper hub OD and ream the pivot without relocating. Remote studs and stepped straps clear the raw rails; do not profile across these straps. S4 replaces the part straps with the bore screw and pin."
 
 [setups.stock_state]
 top_feature = "hub_faces" # Z touches the upper hub face
@@ -429,15 +487,15 @@ clamps = [
   { ref = "clamping-kit-lms-1144/strap-pad", pose = { origin_mm = [70.0, 3.27, -2.27825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "rod side, on the finished upper strap face" },
   { ref = "clamping-kit-lms-1144/strap-pad", pose = { origin_mm = [-70.0, 3.27, -2.27825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "opposite side, mirrored" },
 ]
-locate = "datum A indicated on the pivot pilot, broad face B seated on the support pads, rod-side radial land C clocked"
+locate = "pilot axis indicated for datum A, lower strap face seated on the pads, rod-hole pilot sets clocking; upper datum face B is under the strap toes"
 supports = "not_applicable" # the fixture's own support pads carry the strap
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 grip_mm = "not_applicable" # author's choice, supported plate/strap contacts, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
-stop = "indicate pivot pilot axis A, seat broad face B, clock rod-side radial land C" # author's choice
-clamp = "two padded strap clamps on the finished upper strap face, snug before the rails and ears release" # author's choice
+stop = "indicate the pivot pilot, seat the lower strap face, and indicate the rod hole for clocking" # author's choice
+clamp = "two stepped padded straps on upper datum face B, remote studs outside the retained rail frame; supported toes, no stud through the part" # author's choice
 note = "Illustrative example fixture: twelve pads 6 mm inside the outline support the lower strap face; the clamps press over pads so clamp load cannot bow the strap."
 
 [setups.zero]
@@ -447,7 +505,6 @@ tool_touches = [] # one Z touch per tool change, listed in retouch_after
 from = "S2"
 indicate = "pivot_bore"
 tool = "dti"
-reindicate_after = [20] # re-find the reamed datum A before the rod-pin hole
 
 [setups.zero.x]
 edge = "pivot_bore_axis"
@@ -471,7 +528,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-4fl"
 check_jog_mm = 10.0 # author's choice
-retouch_after = [10, 20, 42, 50] # each listed op is followed by a tool change
+retouch_after = [10] # finish endmill to reamer
 
 [[setups.ops]]
 op = 10
@@ -484,14 +541,14 @@ to_z = -2.27825 # upper hub OD runs down to the upper strap face
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 10.0 } # author's choice, continuous circle
-note = "Upper hub OD; no relocation before the ream (note 7: turn hub and ream bore in one setup)."
+note = "Upper hub OD and pivot ream without relocation. Lower hub patches were finished in S2 about the transferred pilot; inspect both patches to the reamed datum after profiling."
 
 [setups.ops.checks]
 dia = "calipers" # author's choice
 coaxiality_dia = "dial-indicator"
 
 [setups.ops.inspection_methods]
-coaxiality_dia = "indicate the hub OD with the dial indicator in the spindle while the reamed bore stays on the indicated axis; half the total reading is the axis offset"
+coaxiality_dia = "preliminary spindle indication about the transferred pilot; final verification uses both hub patches against the reamed-bore datum in S4"
 
 [[setups.ops]]
 op = 20
@@ -506,6 +563,69 @@ approach_mm = 5.0
 dia = "pin-gauges" # 6.500 go / 6.530 no-go minus pins
 finish_ra = "roughness-comparator"
 
+# ---------------------------------------------------------------- S4
+[[setups]]
+id = "S4"
+machine = "PM-30MV"
+frame = "TA"
+coolant = "cutting_oil_brush"
+deburr_mm = 0.25
+deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
+stock_in = "S3"
+note = "Remove the S3 stepped part straps. Seat the part on the same supported fixture, fit the shoulder screw and washer through the reamed pivot, and clock on the rod-hole pin. Clamp the scrap rail frame independently on its rests before the web releases. Finish the full outline with light passes; no loose frame or clamp crosses the cutter."
+
+[setups.stock_state]
+top_feature = "hub_faces"
+top_z = 0.0
+bottom_z = -7.0565
+bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
+
+[setups.hold]
+fixture = "rocker-profile-fixture"
+pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+locate = "reamed bore A on the shoulder screw, lower strap face on support pads, rod hole on the clocking pin"
+supports = "not_applicable"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+grip_mm = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "shoulder screw locates A; rod-hole pin sets clocking before datum-C lands are finished"
+clamp = "washer and shoulder screw clamp the hub; separate toe clamps retain both scrap rails on their rests"
+note = "The part and the scrap rail frame are held independently. Leave all rail-frame clamps tight through the final land cut, then remove scrap away from the finished part."
+
+[setups.zero]
+tool_touches = []
+
+[setups.zero.transfer]
+from = "S3"
+indicate = "pivot_bore"
+tool = "dti"
+
+[setups.zero.x]
+edge = "pivot_bore_axis"
+from = "indicated"
+tool = "dti"
+edge_mm = 0.0
+radius_mm = 0.0
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "pivot_bore_axis"
+from = "indicated"
+tool = "dti"
+edge_mm = 0.0
+radius_mm = 0.0
+check_jog_mm = 10.0
+
+[setups.zero.z]
+face = "top"
+method = "paper"
+paper_mm = 0.05
+tool = "endmills-lms-6784/3-8in-4fl"
+check_jog_mm = 10.0
+retouch_after = []
+
 [[setups.ops]]
 op = 30
 do = "finish_profile"
@@ -513,7 +633,7 @@ feature = "top_edge"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.02825 # author's choice, lower strap Z-4.77825 minus 1.25 exit
-exit_mm = 1.25 # author's choice; fixture/cutter clearance is not established
+exit_mm = 1.25 # author's choice, through the 2.50 mm strap; fixture base top is frame-A Z -10.00
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
@@ -532,7 +652,7 @@ faces = ["#225/ADVANCED_FACE[7]/HAF_PROFILE_OUTER__P01", "#84/ADVANCED_FACE[4]/H
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.02825 # author's choice, lower strap Z-4.77825 minus 1.25 exit
-exit_mm = 1.25 # author's choice; no fixture-clearance claim
+exit_mm = 1.25 # author's choice, same through-profile depth as op 30
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
@@ -571,7 +691,7 @@ feature = "tip_land_pos_x"
 note = "Each-end land checks after ops 41/42, keyed to the exported rod-side land."
 [setups.ops.checks]
 tip_land = "calipers" # author's choice
-land_angle_deg = "rocker-profile-template" # the export leaves the limit unknown
+land_angle_deg = "rocker-profile-template" # 90° land template against the drawing's title-block ±1° band
 
 [[setups.ops]]
 op = 44
@@ -584,28 +704,25 @@ land_angle_deg = "rocker-profile-template"
 
 [[setups.ops]]
 op = 50
-do = "spot"
+do = "inspect"
 feature = "rod_hole"
-tool = "center-drills-lms-4859/2"
-holder = "drill-chuck-r8"
-depth_mm = 0.50 # author's choice, shallow spot from upper strap face
-approach_mm = 5.0
+note = "Final position verification after datum-C lands are finished and after removing the part from the fixture."
+[setups.ops.checks]
+position_dia = "height-gauge"
+[setups.ops.inspection_methods]
+position_dia = "Seat upper datum face B against an angle plate and square the rod-side land C to the surface plate. Fit a 6.5 mm pin in datum bore A and the largest calibrated go pin that fits the rod hole; measure over both pins with the height gauge in two orthogonal orientations, subtract pin radii, and compare the centre offsets to the basic drawing coordinates within the Ø0.20 zone."
 
 [[setups.ops]]
 op = 60
-do = "drill"
-feature = "rod_hole"
-tool = "drill-index-115/#47"
-holder = "drill-chuck-r8"
-exit_mm = 1.5 # author's choice, full drill diameter beyond local strap exit
-approach_mm = 5.0
-
+do = "inspect"
+feature = "hub_od"
+note = "Final verification of both upper and lower hub patches against reamed datum A, not only the S1 pilot."
 [setups.ops.checks]
-dia = "pin-gauges" # 1.994 go / 2.094 no-go
-position_dia = "height-gauge"
-
+dia = "calipers"
+coaxiality_dia = "dial-indicator"
 [setups.ops.inspection_methods]
-position_dia = "6.5 mm pin in the pivot bore and 1.99 mm pin in the rod hole; rocker on parallels on the surface plate with the pivot pin levelled, height gauge over both pins and a 90° re-check gives the X/Y offset"
+coaxiality_dia = "After removing the part, support a close-fitting calibrated pin through the reamed bore in the inspection V-block. Rotate the pin and indicate both hub patches; each patch must remain within 0.50 mm TIR, accounting for pin clearance and indicator resolution, corresponding to the drawing's Ø0.50 coaxial zone."
+
 
 [[setups.ops]]
 op = 70
