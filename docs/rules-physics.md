@@ -78,7 +78,10 @@ stick-out model above with only the remaining supports. An unresolved serving
 rest (unknown kind or reference, unmeasured or unverified capacity, unknown jaw
 lead, ridden diameter, `at_z_mm` or cut z, or both `jaw_lead_mm` and `at_z_mm`)
 leaves deflection unknown and lists unmeasured capacity in the measurement
-checklist. Rests have no kernel solid; they are not drawn or collision-checked.
+checklist. A follow rest's `jaw_side` (default `turned`) is the diameter its
+jaws ride: `uncut` (leading jaws) rides the diameter before the cut, which this
+rule does not derive, so the ridden diameter stays unknown. The kernel draws and
+collision-checks rests ([rules-geometry](rules-geometry.md#follow-and-steady-rests)).
 Evidence: `span_mm`, `span_model` (`stickout`/`follow_rest`/`steady_rest`),
 `rests` rows (reference, kind, ops, capacity, ridden diameter, span, status
 `pass`/`outside_capacity`/`unknown`) and `turned_diameter_mm`.
