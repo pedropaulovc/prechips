@@ -193,6 +193,13 @@ halfway through a fixed setup:
   opens the web; op 40 finishes the actual complete outline, including both
   tip lands and tapers. Both cuts use light conventional feed to keep positive
   pin contact. Keep all four scrap clamps in place until op 40 is complete.
+  The shoulder screw and four rail clamps declare `restraint = "press"`; the
+  diamond pin declares `"locate"` and receives no lift-restraint credit.
+  A separate native contact probe of the final cut found a clamp-bearing →
+  stock → anchored-support witness for each of the two released solids:
+  washer to hub stand for the part, and rail beams to matched shims for the
+  connected scrap frame. This is a necessary holding-geometry screen, not a
+  certification of thread engagement, tightening torque, friction or capacity.
 
 Final inspection checks both hub patches against the reamed datum. The rod
 position check keeps the finished C land on a fixed ground bar on the

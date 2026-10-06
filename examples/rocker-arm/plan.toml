@@ -658,12 +658,12 @@ retained_rail_bottom_z = -11.52825 # scrap rails remain seated and independently
 fixture = "rocker-profile-fixture"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 clamps = [
-  { ref = "rocker-pivot-screw", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "ground locating shoulder through reamed datum A; bored washer clamps the hub" },
-  { ref = "rocker-rod-diamond-pin", pose = { origin_mm = [133.06740213488345, 8.456064115939025, -4.77825], x = [0.9979869699018047, 0.06341930231573287, 0.0], z = [0.0, 0.0, -1.0] }, note = "positive tangential clocking stop; radial flats allow centre-distance variation, the collar seats on the plate, and the pin carries no clamp or lift load" },
-  { ref = "rocker-rail-clamp", pose = { origin_mm = [70.0, 34.5, 4.47175], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "upper scrap rail held on its own rest; stud outside the blank" },
-  { ref = "rocker-rail-clamp", pose = { origin_mm = [-70.0, 34.5, 4.47175], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored upper scrap rail hold-down" },
-  { ref = "rocker-rail-clamp", pose = { origin_mm = [70.0, -25.5, 4.47175], x = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "lower scrap rail held on its own rest; stud outside the blank" },
-  { ref = "rocker-rail-clamp", pose = { origin_mm = [-70.0, -25.5, 4.47175], x = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored lower scrap rail hold-down" },
+  { ref = "rocker-pivot-screw", restraint = "press", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "ground locating shoulder through reamed datum A; bored washer clamps the hub" },
+  { ref = "rocker-rod-diamond-pin", restraint = "locate", pose = { origin_mm = [133.06740213488345, 8.456064115939025, -4.77825], x = [0.9979869699018047, 0.06341930231573287, 0.0], z = [0.0, 0.0, -1.0] }, note = "positive tangential clocking stop; radial flats allow centre-distance variation, the collar seats on the plate, and the pin carries no clamp or lift load" },
+  { ref = "rocker-rail-clamp", restraint = "press", pose = { origin_mm = [70.0, 34.5, 4.47175], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "upper scrap rail held on its own rest; stud outside the blank" },
+  { ref = "rocker-rail-clamp", restraint = "press", pose = { origin_mm = [-70.0, 34.5, 4.47175], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored upper scrap rail hold-down" },
+  { ref = "rocker-rail-clamp", restraint = "press", pose = { origin_mm = [70.0, -25.5, 4.47175], x = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "lower scrap rail held on its own rest; stud outside the blank" },
+  { ref = "rocker-rail-clamp", restraint = "press", pose = { origin_mm = [-70.0, -25.5, 4.47175], x = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored lower scrap rail hold-down" },
 ]
 clamp_order = [1, 3, 4, 5, 6] # shoulder screw first, then the four scrap hold-downs; pin 2 never tightens
 preload_direction = "counterclockwise" # viewed from above, looking down setup -Z
