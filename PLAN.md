@@ -575,13 +575,24 @@ not exist.
 | joint_assembly (always required): received prepared branches satisfy actual target geometry, overlap/insertion or full internal surface contact, and final-material coverage plus permitted finite fill | STEP final solid, selected stock lineage/output completion, plan.joint_features, plan.setups.joint | M4 | "Join refused: the received branch has lost required finished material." |
 
 **Accessibility pose decision — user, 2026-10-05.** Ordinary wall samples
-keep the cutter-radius offset along the horizontal outward normal. At a
-concave floor edge shared with a rising wall, shift the floor-sample axis one
-cutter radius into the floor away from that wall; at a two-wall concave floor
-corner, select a pose tangent to both walls. Nearby concave-corner edge
-samples also use both-wall tangency when the second wall is within a cutter
-radius. Convex edges and ordinary interior samples are unchanged; convex
-wall/wall island vertices retain legacy samples with no added corner pose.
+keep the cutter-radius offset along the horizontal outward normal. A floor
+sample on or within one cutter radius of any concave floor/rising-wall edge,
+straight or curved (pocket walls and boss feet alike), moves its axis along
+the wall's in-plane normal at the nearest edge point until the cutter is
+tangent; every such edge bounds the axis at once, so a two-wall concave floor
+corner and samples near it stand tangent to both walls. A concave circle at
+least the cutter's radius bounds it exactly; the smallest move is one of
+finitely many analytic candidates, never a search, and a concave edge the
+shifted axis comes within a radius of, or crosses as its nearest edge, joins
+the bounds once (a finite constraint closure). A cutter wider than its
+gap or circle keeps the sample's own axis and reports the real hit. Convex
+edges and farther interior samples are unchanged. Past an edge's end, only the
+wall/wall edge rising there classifies the corner: a concave one bounds by the
+wall's line; a sharp convex island corner bounds only a sample past the end of
+every wall meeting there, which moves straight away from the corner (its
+nearest boundary point) until tangent; a sample in front of or behind a wall's
+interior is bounded by that wall alone, and convex vertices get no corner
+pose. This is per sample, not a whole-face or centroid pose.
 Tangency is not corner-radius certification. Floor-only claims do not certify
 a wall/wall corner: `internal_corner_radius` retains its existing scope and
 checks a sharp wall/wall corner when the op claims both walls. No adjacent
@@ -597,7 +608,9 @@ solid offset outward by `a`, keeping radial and axial leave on drafted faces
 too, and later finishing ops remove it as their own allowance. An explicit
 `to_z` caps that endpoint (the tip is the higher of `to_z` and floor plus
 leave), so a `to_z` already at the rough floor plus a 0.2 mm leave is not
-raised by a second leave. An unknown leave is accessibility and later-stock
+raised by a second leave. A finishing op's numeric `to_z` above its face is
+likewise its actual tip (a 0.1 mm spring pass samples there, matching its
+own cut). An unknown leave is accessibility and later-stock
 debt. If the arc-join outward offset fails, a valid intersection-join offset
 that contains the finished solid with the same solid count may be used
 instead (conservative, extra leave at convex corners), never the nominal
@@ -1248,12 +1261,16 @@ sheet.
    Invalid supply, unbound as-stock faces or a non-derivable retained
    rail/profile mask yields a named unknown and no stock picture.
 
-   The 2026-10-05 user decision replaces boundary-centred floor poses at
-   concave floor/rising-wall edges with a one-radius shift into the floor;
-   two-wall concave floor corners and nearby concave-corner edge samples
-   within a cutter radius of the second wall use tangency to both walls.
-   Convex edges/interior samples are unchanged; convex wall/wall island
-   vertices keep legacy samples with no added corner pose. Tangency does not
+   The 2026-10-05 user decision replaces boundary-centred floor poses: a
+   floor sample on or within a cutter radius of any concave floor/rising-wall
+   edge, curved ones and boss feet included, shifts along the wall's in-plane
+   normal at the nearest edge point to tangency with every such wall (exact
+   for concave circles at least the cutter's radius); a cutter wider than its
+   gap keeps its own axis and reports the real hit. Convex edges and farther
+   interior samples are unchanged; a sample past both walls of a sharp convex
+   island corner moves straight away from that corner to tangency (classified
+   by the wall/wall edge rising there, not another edge the walls share), and
+   convex vertices add no corner pose. Tangency does not
    certify corner radii, and floor-only claims do not certify wall/wall corners.
    `internal_corner_radius` retains its existing claimed-face scope:
    a sharp wall/wall corner is checked when the op claims both walls.
@@ -1287,7 +1304,8 @@ sheet.
    undercut/leaning walls and unrelated material remain obstacles.
    Rough milling leaves its `rough_allowance_mm` normal to the finished
    surface (`r + a` floor-edge constraints); an explicit `to_z` caps the
-   endpoint without a second leave.
+   endpoint without a second leave, and any milling op's numeric `to_z`
+   above its face is its actual tip.
    Holder obstacles, holding and rendering keep actual setup-entry stock;
    no op borrows another op's removal.
    OpenCASCADE distance extrema that fail with `StdFail_NotDone` retry with

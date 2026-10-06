@@ -15,9 +15,10 @@ Measurement conventions (setup frame, tool axis +Z):
 * Samples: a cell-centred 5x5 UV grid inside each claimed face plus points along
   every boundary edge (spacing max(r, 1 mm), 2..12 per edge).  The tool axis is
   offset by r along the horizontal outward normal on walls. By user decision
-  2026-10-05, concave floor-edge samples instead shift r into the floor; two-wall
-  floor corners use the axis tangent to both. Convex edges and interior samples
-  are unchanged. Rough tips stand at their authored to_z when above the finished
+  2026-10-05, floor samples on or within r of any concave floor-edge (curved
+  ones included) shift along the wall's normal at the nearest edge point until
+  tangent to every such wall. Convex edges and farther samples are unchanged.
+  Milling tips (rough or finish) stand at their numeric to_z when above the finished
   face, and hole tools follow their geometry-matched axis to their declared depth
   or through extent. Spot/drill flutes use their point cone plus full-radius body;
   flat tools use an r x flute_len cylinder. The holder starts at tip + projection.
@@ -710,6 +711,57 @@ def _concave_edge(part, edge, face_a, face_b):
     # Air is the intersection of the two half-spaces at a concave edge, their union
     # at a convex one; the probe lies in exactly one half-space.
     return part.isInside(probe, 1e-9, False)
+
+
+def _crossings(fx, fy, tx, ty, radius, along):
+    """Where a line through ``(fx, fy)`` along unit ``(tx, ty)``, ``along`` from a circle's
+    centre, crosses that circle of ``radius`` (one point when tangent, none when apart)."""
+    square = radius * radius - along * along
+    if square < -1e-9:
+        return ()
+    half = math.sqrt(max(square, 0.0))
+    return ((fx + half * tx, fy + half * ty), (fx - half * tx, fy - half * ty))
+
+
+def _nearest_clear(lines, discs):
+    """The smallest axis move ``d`` meeting every bound, or None when none can.
+
+    ``lines`` are half-planes ``n·d >= rhs`` as ``(nx, ny, rhs)``: the tangent at a wall
+    edge's nearest point. ``discs`` are ``(cx, cy, rho)`` with ``|d - (cx, cy)| <= rho``:
+    the exact axes clear of a circular wall concave toward the floor, ``rho`` its radius
+    less the cutter's. The bounds are convex, so the answer is the unique projection of
+    the origin onto them: the origin, one bound's own projection or two bound
+    boundaries' intersection, and those finitely many candidates find it exactly.
+    """
+    candidates = [(0.0, 0.0)] + [(rhs * nx, rhs * ny) for nx, ny, rhs in lines]
+    for cx, cy, rho in discs:
+        length = math.hypot(cx, cy)
+        if length > rho:
+            candidates.append((cx - rho * cx / length, cy - rho * cy / length))
+    for i, (ax, ay, ra) in enumerate(lines):
+        for bx, by, rb in lines[i + 1 :]:
+            determinant = ax * by - ay * bx
+            if abs(determinant) > 1e-9:
+                candidates.append(
+                    ((ra * by - ay * rb) / determinant, (ax * rb - ra * bx) / determinant)
+                )
+        for cx, cy, rho in discs:
+            along = ra - (ax * cx + ay * cy)
+            candidates.extend(_crossings(cx + along * ax, cy + along * ay, -ay, ax, rho, along))
+    for i, (ax, ay, ra) in enumerate(discs):
+        for bx, by, rb in discs[i + 1 :]:
+            gap = math.hypot(bx - ax, by - ay)
+            if gap > 1e-9:
+                ux, uy = (bx - ax) / gap, (by - ay) / gap
+                along = (gap * gap + ra * ra - rb * rb) / (2 * gap)
+                candidates.extend(_crossings(ax + along * ux, ay + along * uy, -uy, ux, ra, along))
+    feasible = [
+        (dx, dy)
+        for dx, dy in candidates
+        if all(nx * dx + ny * dy >= rhs - 1e-7 for nx, ny, rhs in lines)
+        and all(math.hypot(dx - cx, dy - cy) <= rho + 1e-7 for cx, cy, rho in discs)
+    ]
+    return min(feasible, key=lambda d: d[0] ** 2 + d[1] ** 2) if feasible else None
 
 
 def _edge_direction(edge):
@@ -4777,11 +4829,12 @@ class _Setup:
         }
 
     def _floor_edges(self, index):
-        """``(edge, wall index, edge box)`` per sharp concave rising wall of a +Z planar floor.
+        """``(edge, wall index, edge box, end points)`` per sharp concave rising wall of a
+        +Z planar floor.
 
         One scan of every shared edge caches each floor's walls, the edges each face pair
-        shares (for :meth:`_wall_corner`) and the floors whose wall edges could not be
-        classified; asking for such a floor raises with the reason.
+        shares (for :meth:`_wall_corner` and :meth:`_wall_edge_at`) and the floors whose
+        wall edges could not be classified; asking for such a floor raises with the reason.
         """
         if self.floor_adjacency is None:
             walls, failed, pairs = {}, {}, {}
@@ -4806,8 +4859,15 @@ class _Setup:
                             f"floor edge with {self.owner.labels[wall]} is unclassified ({exc})",
                         )
                         continue
-                    walls.setdefault(floor, []).append((edge, wall, _bbox(edge)))
-            self.floor_adjacency = {"walls": walls, "failed": failed, "pairs": pairs, "corners": {}}
+                    ends = [vertex.Point for vertex in edge.Vertexes]
+                    walls.setdefault(floor, []).append((edge, wall, _bbox(edge), ends))
+            self.floor_adjacency = {
+                "walls": walls,
+                "failed": failed,
+                "pairs": pairs,
+                "corners": {},
+                "sharp": {},
+            }
         if index in self.floor_adjacency["failed"]:
             raise ValueError(self.floor_adjacency["failed"][index])
         return self.floor_adjacency["walls"].get(index, ())
@@ -4823,17 +4883,28 @@ class _Setup:
             )
         return corners[key]
 
-    def _floor_contacts(self, index, point, reach):
-        """Rising walls of floor ``index`` whose floor edge is within ``reach`` of ``point``.
+    def _floor_contacts(self, index, point, reach, origin):
+        """Rising walls of floor ``index`` whose concave floor edge is on or within ``reach``.
 
-        Returns ``(incident, near)``: ``(wall, nx, ny)`` for edges through the point and
-        ``(wall, nx, ny, offset)`` for the others, where ``(nx, ny)`` is the wall's unit
-        in-plane normal into the floor at the edge's nearest point and ``offset`` the
-        point's signed in-plane distance from it, positive into the floor.
+        Returns ``(wall, nx, ny, offset, circle, incident, slot)`` per edge: ``(nx, ny)`` is
+        the unit in-plane normal into the floor at the edge's nearest point, ``offset`` the
+        point's distance from that point along it (0 for an edge through the point),
+        ``circle`` ``(cx, cy, radius)`` when the edge is a circle concave toward the floor,
+        else None, and ``slot`` the edge's position in :meth:`_floor_edges`. Along an edge,
+        and at a concave wall/wall corner, that normal is the wall's. A point beyond an
+        edge's end rather than along its normal is bounded by that edge only through the
+        wall/wall edge rising from that end (:meth:`_floor_end`): at a concave corner by the
+        wall's own line; at a sharp convex corner past the end of every wall meeting there
+        by the corner itself, whose normal points from the corner to the point (the nearest
+        boundary point has no single wall normal there); past a tangent junction or a
+        split face nothing. A solved axis ``point`` away from its sample
+        ``origin`` whose nearest such edge has it behind that edge's interior stands in the
+        wall's material: it crossed that wall, which then bounds it. A sample on the floor
+        behind a farther face (a thin rib's far side) is not inside material and is not.
         """
-        incident, near, vertex = [], [], None
+        near, vertex = [], None
         margin = max(reach, STOCK_TOL)
-        for edge, wall, box in self._floor_edges(index):
+        for slot, (edge, wall, box, _) in enumerate(self._floor_edges(index)):
             if any(
                 point[axis] < box[axis] - margin or point[axis] > box[axis + 3] + margin
                 for axis in range(3)
@@ -4841,31 +4912,118 @@ class _Setup:
                 continue
             if vertex is None:
                 vertex = Part.Vertex(point)
-            distance, nearest, _ = edge.distToShape(vertex)
-            if distance > STOCK_TOL and distance >= reach:
-                continue
-            foot = nearest[0][0]
+            distance, nearest, support = edge.distToShape(vertex)
+            if distance <= STOCK_TOL or distance < reach:
+                # The native nearest support: the edge's end vertex, or None inside the edge.
+                end = edge.Vertexes[support[0][1]] if support[0][0] == "Vertex" else None
+                near.append((slot, edge, wall, distance, nearest[0][0], end))
+        closest = min((entry[3] for entry in near), default=0.0)
+        moved = point.distanceToPoint(origin) > STOCK_TOL
+        contacts = []
+        for slot, edge, wall, distance, foot, _ in near:
+            incident = distance <= STOCK_TOL
             normal = _normal_at(self.faces[wall], foot)
             length = math.hypot(normal.x, normal.y)
             if length < 1e-9:
                 continue
             nx, ny = normal.x / length, normal.y / length
-            if distance <= STOCK_TOL:
-                incident.append((wall, nx, ny))
-            else:
-                near.append((wall, nx, ny, nx * (point.x - foot.x) + ny * (point.y - foot.y)))
-        return incident, near
+            offset, radial = 0.0, False
+            if not incident:
+                offset = nx * (point.x - foot.x) + ny * (point.y - foot.y)
+                crossed = (
+                    moved and distance <= closest + PLANE_TOL and distance + offset <= PLANE_TOL
+                )
+                if distance - offset > PLANE_TOL and not crossed:
+                    corner = self._floor_end(index, slot, point, near)
+                    if corner is None:
+                        continue
+                    if corner is not True:
+                        # The nearest boundary point is the convex corner: the axis moves
+                        # straight away from it until tangent.
+                        nx, ny = (point.x - corner.x) / distance, (point.y - corner.y) / distance
+                        offset, radial = distance, True
+            circle, curve = None, edge.Curve
+            if not radial and isinstance(curve, Part.Circle) and abs(curve.Axis.z) >= PARALLEL:
+                centre = curve.Center
+                if nx * (centre.x - foot.x) + ny * (centre.y - foot.y) > 0:
+                    circle = (centre.x, centre.y, curve.Radius)
+            contacts.append((wall, nx, ny, offset, circle, incident, slot))
+        return contacts
+
+    def _floor_end(self, index, slot, point, near):
+        """How floor edge ``slot`` of floor ``index`` bounds ``point`` beyond its end:
+        True by the wall's own line, the corner vertex's point to stand clear of, or None.
+
+        ``near`` is :meth:`_floor_contacts`'s ``(slot, edge, wall, distance, foot, end)``
+        per floor edge within reach, ``end`` the edge's end vertex when that is the native
+        nearest support (None for a foot inside the edge, however close to its end). Only
+        the wall/wall edges rising from that vertex classify the corner
+        (:meth:`_wall_edge_at`), never another edge the two faces share elsewhere. A
+        concave one makes it a corner bounded by the wall's line. A sharp convex corner
+        bounds by the vertex only when ``point`` is past the end of every other wall's
+        floor edge there too: the vertex is that edge's native nearest support and
+        ``point`` lies off its normal (``distance - offset > PLANE_TOL``), so a point in
+        front of or behind a wall's interior is bounded by that wall alone.
+        """
+        found = {entry[0]: entry for entry in near}
+        wall, end = found[slot][2], found[slot][5]
+        if end is None:
+            return None
+        others = []
+        for other_slot, (edge, other, _, _) in enumerate(self._floor_edges(index)):
+            if other_slot == slot or other == wall:
+                continue
+            if any(vertex.isSame(end) for vertex in edge.Vertexes):
+                sharp = self._wall_edge_at(wall, other, end)
+                if sharp is True:
+                    return True
+                others.append((found.get(other_slot), other, sharp))
+        if not others:
+            return None
+        for entry, other, sharp in others:
+            if sharp is not False or entry is None or entry[5] is None or not entry[5].isSame(end):
+                return None
+            _, _, _, distance, foot, _ = entry
+            normal = _normal_at(self.faces[other], foot)
+            length = math.hypot(normal.x, normal.y)
+            if length < 1e-9:
+                return None
+            offset = (normal.x * (point.x - foot.x) + normal.y * (point.y - foot.y)) / length
+            if distance - offset <= PLANE_TOL:
+                return None
+        return end.Point
+
+    def _wall_edge_at(self, a, b, vertex):
+        """:func:`_concave_edge` of the edge faces ``a`` and ``b`` share at ``vertex``:
+        True when one is concave, False when every one is convex, None when they share
+        none there or one is tangent (cached per shared edge)."""
+        key = (min(a, b), max(a, b))
+        sharp = self.floor_adjacency["sharp"]
+        verdicts = []
+        for at, edge in enumerate(self.floor_adjacency["pairs"].get(key, ())):
+            if not any(end.isSame(vertex) for end in edge.Vertexes):
+                continue
+            if (key, at) not in sharp:
+                sharp[key, at] = _concave_edge(self.finished, edge, self.faces[a], self.faces[b])
+            verdicts.append(sharp[key, at])
+        if True in verdicts:
+            return True
+        return False if verdicts and all(v is False for v in verdicts) else None
 
     def _floor_corners(self, index):
         """(vertex, floor normal) where two rising walls meet the floor at a concave corner.
 
-        Convex island corners get no pose of their own: their edge samples already
-        stand tangent to one wall each.
+        Convex island corners get no pose of their own: samples beside them stand tangent
+        to one wall, or past both walls' ends to the corner itself (:meth:`_floor_end`).
         """
         face = self.faces[index]
         found = []
         for vertex in face.Vertexes:
-            walls = [wall for wall, _, _ in self._floor_contacts(index, vertex.Point, 0.0)[0]]
+            walls = [
+                contact[0]
+                for contact in self._floor_contacts(index, vertex.Point, 0.0, vertex.Point)
+                if contact[5]
+            ]
             if any(
                 a != b and self._wall_corner(a, b)
                 for i, a in enumerate(walls)
@@ -4877,38 +5035,43 @@ class _Setup:
     def _floor_axis(self, index, point, radius):
         """User decision 2026-10-05: the nearest axis tangent to the walls bounding a sample.
 
-        Each wall through the sample constrains the axis offset ``d`` by ``n·d >= radius``.
-        A wall whose floor edge is nearer than ``radius`` adds ``n·d >= radius - offset``
-        only when it meets an incident wall at a concave wall/wall corner, so a sample
-        near a pocket corner stands tangent to both walls; convex island corners and
-        unrelated walls add nothing.  A sample on no wall keeps its own axis.
+        Every concave floor edge (curved ones included) on or within ``radius`` of the
+        sample, as :meth:`_floor_contacts` keeps it, bounds the axis offset ``d`` from the
+        sample (:func:`_nearest_clear`). Moving the axis can bring it within ``radius`` of
+        a concave edge the sample was not near (the far wall of an acute cusp), or carry it
+        across one (past an island in a narrow corner), so each such edge within
+        ``radius`` of the solved axis joins the bounds and the axis is solved again. This
+        constraint closure only ever adds an edge not yet bounding, so it ends after at
+        most one round per rising floor edge: it is not a search.
+        A sample bounded by no wall keeps its own axis, and so does one no axis can
+        clear every bounding wall from (a tool wider than its slot, gap or circle), so
+        that pose reports the real hit. A half-plane is exact for a straight edge and for
+        one convex edge alone; on a non-circular concave curve, or a circle smaller than
+        the tool, it is only the nearest point's tangent, so a pose still crossing the
+        wall reports that real hit.
         """
-        incident, near = self._floor_contacts(index, point, radius)
-        if not incident:
-            return point.x, point.y
-        walls = {wall for wall, _, _ in incident}
-        limits = [(nx, ny, radius) for _, nx, ny in incident] + [
-            (nx, ny, radius - offset)
-            for wall, nx, ny, offset in near
-            if wall not in walls and any(self._wall_corner(wall, other) for other in walls)
-        ]
-        candidates = [(0.0, 0.0)] + [(rhs * nx, rhs * ny) for nx, ny, rhs in limits]
-        for i, (ax, ay, ra) in enumerate(limits):
-            for bx, by, rb in limits[i + 1 :]:
-                determinant = ax * by - ay * bx
-                if abs(determinant) > 1e-9:
-                    candidates.append(
-                        ((ra * by - ay * rb) / determinant, (ax * rb - ra * bx) / determinant)
-                    )
-        feasible = [
-            (dx, dy)
-            for dx, dy in candidates
-            if all(nx * dx + ny * dy >= rhs - 1e-7 for nx, ny, rhs in limits)
-        ]
-        if not feasible:
-            raise ValueError("no floor-axis pose is tangent to all bounding rising walls")
-        dx, dy = min(feasible, key=lambda delta: delta[0] ** 2 + delta[1] ** 2)
-        return point.x + dx, point.y + dy
+        lines, discs, seen = [], [], set()
+        at, dx, dy = point, 0.0, 0.0
+        while True:
+            fresh = False
+            contacts = self._floor_contacts(index, at, radius, point)
+            for _, nx, ny, offset, circle, _, slot in contacts:
+                if slot in seen:
+                    continue
+                seen.add(slot)
+                fresh = True
+                if circle is not None and circle[2] >= radius:
+                    discs.append((circle[0] - point.x, circle[1] - point.y, circle[2] - radius))
+                else:
+                    # ``offset`` is measured from ``at``; the bound is on ``d`` from ``point``.
+                    lines.append((nx, ny, radius - offset + nx * dx + ny * dy))
+            if not fresh:
+                return at.x, at.y
+            solved = _nearest_clear(lines, discs)
+            if solved is None:
+                return point.x, point.y
+            dx, dy = solved
+            at = FreeCAD.Vector(point.x + dx, point.y + dy, point.z)
 
     def _floor_debt(self, index, exc, facts):
         """A floor whose tool pose cannot be derived leaves this op's measured facts unknown."""
@@ -4992,7 +5155,8 @@ class _Setup:
                     except Exception as exc:
                         self._floor_debt(index, exc, facts)
                         return
-            if str(op.get("do", "")).startswith("rough_") and _number(op.get("to_z")):
+            # An authored to_z above the finished face is the cut's actual endpoint.
+            if _number(op.get("to_z")):
                 level = max(level, op["to_z"])
             placed.append((index, point, ax, ay, level + LIFT, normal.z < -1e-3))
         if hole_cut is not None:

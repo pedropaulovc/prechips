@@ -1,8 +1,8 @@
 """Floor tool poses next to rising walls, measured on solids authored in FreeCAD.
 
 A floor sample on a wall's floor edge stands tangent to that wall; near a concave
-two-wall pocket corner it stands tangent to both, while convex island corners keep the
-one-wall pose of their edge samples and gain no corner pose. FreeCAD-backed tests run
+two-wall pocket corner it stands tangent to both, while convex island corners gain no
+corner pose: edge samples beside them keep their one-wall pose. FreeCAD-backed tests run
 ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
