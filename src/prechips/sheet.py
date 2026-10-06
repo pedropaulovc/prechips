@@ -25,7 +25,7 @@ from .rules.resolution import (
     selected_references,
 )
 from .rules.resolution import record as _mapping
-from .rules.tip_endpoints import FACING, POCKETING, stock_states
+from .rules.tip_endpoints import SAME_Z, operative_z, stock_states
 
 _CSS = """@page { size: Letter portrait; margin: .4in; }
 * { box-sizing: border-box; }
@@ -199,8 +199,6 @@ _GLYPHS = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}
 # A planned tool path ending this close to jaws, a dead centre or the jaw tops is
 # hand-feed territory: it is boxed on the op row instead of buried in clearance prose.
 _CRASH_ZONE_MM = 3.0
-# Plan units within which a touched datum's nominal Z is the to_z of the op that cut it.
-_SAME_Z = 1e-9
 _REQUIREMENT_NAMES = {
     "dia": "Ø",
     "position_dia": "position Ø",
@@ -1158,7 +1156,7 @@ class _Traveler:
         jaw = _mapping(numbers.get("jaw_obstruction"))
         if _known(jaw.get("jaw_top_z")):
             # The work top as its DRO surface, so the gap adds up with the printed Zs.
-            top = self.surface_z(setup, _mapping(setup.get("stock_state")).get("top_z"))
+            top = self.surface_z(setup, _mapping(setup.get("stock_state")).get("top_z"), face="top")
             above = top - jaw["jaw_top_z"] if _known(top) else "unknown"
             lines.append(
                 f"Jaw tops at Z {o(jaw['jaw_top_z'])}; work top {o(above)} mm above the jaws. "
@@ -1195,10 +1193,16 @@ class _Traveler:
 
     def path_zs(self, setup, op):
         """The Z ends of an op's path as its op row prints them."""
-        zs = [self.surface_z(setup, op[k]) for k in ("z_from", "z_to") if _known(op.get(k))]
+        zs = [self.op_z(setup, op, k) for k in ("z_from", "z_to") if _known(op.get(k))]
         if _known(op.get("to_z")):
             zs.append(self.dro_to_z(setup, op))
         return [z for z in zs if _known(z)]
+
+    def op_z(self, setup, op, key):
+        """``op``'s ``key`` Z (``z_from``/``z_to``) on its feature's surface as the op that
+        cut that feature before it left it (:meth:`surface_z`)."""
+        done = self.ops_done(setup, before=op.get("op"))
+        return self.surface_z(setup, op.get(key), face=op.get("feature"), done=done)
 
     def crash_boxes(self, setup, op):
         boxes = []
@@ -1395,7 +1399,9 @@ class _Traveler:
         }
         for record in numbers.get("retouch", []):
             # The top as the op that last faced it left it, else as the DRO shows it.
-            top = self.surface_z(setup, record.get("top_z"), tops.get(str(record.get("op"))))
+            top = self.surface_z(
+                setup, record.get("top_z"), tops.get(str(record.get("op"))), face="top"
+            )
             paper = record.get("paper_mm")
             axis_set = top + paper if _known(top) and _known(paper) else "unknown"
             key = (o(top), o(paper), o(axis_set))
@@ -1479,7 +1485,12 @@ class _Traveler:
                 x = record.get("x_target_mm")
                 if not _known(x) or not _known(coordinates[2]):
                     continue
-                entry = grouped.setdefault(feature, {"dia": x, "z": []})
+                # Its ends as its ops print them: cut before its first op (:meth:`op_z`).
+                first = [
+                    op.get("op") for op in setup.get("ops", []) if op.get("feature") == feature
+                ]
+                done = self.ops_done(setup, before=first)
+                entry = grouped.setdefault(feature, {"dia": x, "z": [], "done": done})
                 entry["z"].append(coordinates[2])
             elif all(_known(v) for v in coordinates):
                 grouped.setdefault((feature, tuple(coordinates)), {})
@@ -1491,8 +1502,8 @@ class _Traveler:
                 (
                     self.feature_name(feature),
                     "Ø" + self.value(entry["dia"], feature, "dia"),
-                    o(self.surface_z(setup, max(entry["z"]))),
-                    o(self.surface_z(setup, min(entry["z"]))),
+                    o(self.surface_z(setup, max(entry["z"]), face=feature, done=entry["done"])),
+                    o(self.surface_z(setup, min(entry["z"]), face=feature, done=entry["done"])),
                 )
                 for feature, entry in grouped.items()
             ]
@@ -1555,25 +1566,28 @@ class _Traveler:
             if endpoint.get("exit_face", "not_applicable") != "not_applicable":
                 parts.append(f"breaks through at {o(endpoint.get('dro_exit_face'))}")
                 left = endpoint.get("dro_exit_mm")
-                if _known(left) and left < -_SAME_Z:
+                if _known(left) and left < -SAME_Z:
                     # Rounded up, the DRO tip leaves the full diameter short of the exit.
                     parts.append(_Box("STOP: DRO tip stops short of break-through; raise exit"))
             elif _known(endpoint.get("depth_mm")):
                 depth = endpoint.get("dro_depth_mm")
                 parts.append(f"depth {o(depth if _known(depth) else endpoint['depth_mm'])}")
-                floor = endpoint.get("depth_floor_mm")
-                banded = "depth_floor_mm" in endpoint and _known(depth)
-                if banded and _known(floor) and depth < floor - _SAME_Z:
+                floor = endpoint.get("depth_floor_mm", "unknown")
+                if _known(depth) and _known(floor) and depth < floor - SAME_Z:
                     # Rounded up, the DRO tip leaves the hole shallower than its depth band.
                     parts.append(_Box("STOP: DRO depth is below the feature's depth band"))
-                elif banded and not _known(floor) and abs(depth - endpoint["depth_mm"]) > _SAME_Z:
+                elif (
+                    _known(depth)
+                    and not _known(floor)
+                    and abs(depth - endpoint["depth_mm"]) > SAME_Z
+                ):
                     parts.append(_Box("STOP: DRO depth rounded; feature depth band unknown"))
             if not _known(endpoint.get("tip_z")):
                 parts[0] = f"Z {o(entry)} → depth not set"
                 parts.append(_Box("STOP: drill point length unknown"))
             return parts
         parts = []
-        start, end = (self.surface_z(setup, op.get(key)) for key in ("z_from", "z_to"))
+        start, end = (self.op_z(setup, op, key) for key in ("z_from", "z_to"))
         if "z_from" in op and "z_to" in op:
             parts.append(f"Z {o(start)} → {o(end)}")
         elif "to_z" in op:
@@ -1602,48 +1616,17 @@ class _Traveler:
                 return entry.get("dro_to_z", "unknown")
         return dro_z(op.get("to_z", "unknown"), dro_grid(self.bundle, setup))
 
-    def surface_z(self, setup, value, source=None):
-        """One surface, one printed Z: the checked :meth:`dro_to_z` of the op ``source``
-        names (``"S2 op 20 to_z"``, :func:`stock_states`), else ``value`` as the DRO shows
-        any Z (``dro_z``: on the setup's grid, rounded up); an unknown stays unknown."""
-        match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
-        if match and match[1] == setup["id"]:
-            for op in setup.get("ops", []):
-                if str(op.get("op")) == match[2]:
-                    return self.dro_to_z(setup, op)
-        return dro_z(value, dro_grid(self.bundle, setup)) if _known(value) else value
+    def surface_z(self, setup, value, source=None, face=None, done=0):
+        """One surface, one printed Z (:func:`operative_z`): the checked depth of the op
+        that produced it, on its own setup's grid, as this setup's DRO shows it; else
+        ``value`` on this grid, rounded up. An unknown stays unknown."""
+        return operative_z(self.bundle, setup, value, face, done, source)
 
     def datum_z(self, setup, face, edge, done=0):
-        """A touched Z datum at nominal ``edge`` as the DRO shows it, once ``setup``'s
-        first ``done`` ops have run: the checked :meth:`dro_to_z` of the facing or pocketing
-        op that last cut ``face`` (``top``: the stock top feature), here, else in an earlier
-        setup of the same frame, when it cut it to ``edge``, on this setup's grid; else
-        ``edge`` as any surface (:meth:`surface_z`)."""
-        if face == "top":
-            face = _mapping(setup.get("stock_state")).get("top_feature")
-        setups = self.plan.get("setups", [])
-        index = next((i for i, s in enumerate(setups) if s.get("id") == setup["id"]), 0)
-        frame = setup.get("frame")
-        cuts = [
-            (earlier, op)
-            for earlier in setups[:index]
-            if frame not in (None, "unknown") and earlier.get("frame") == frame
-            for op in earlier.get("ops", [])
-        ] + [(setup, op) for op in setup.get("ops", [])[:done]]
-        last = next(
-            (
-                (cut_setup, op)
-                for cut_setup, op in reversed(cuts)
-                if face is not None
-                and op.get("feature") == face
-                and op.get("do") in FACING | POCKETING
-                and _known(op.get("to_z"))
-            ),
-            None,
-        )
-        if last and abs(last[1]["to_z"] - edge) <= _SAME_Z:
-            return dro_z(self.dro_to_z(*last), dro_grid(self.bundle, setup))
-        return self.surface_z(setup, edge)
+        """A touched Z datum at nominal ``edge`` once ``setup``'s first ``done`` ops have
+        run, as the op that last cut ``face`` (``top``: the stock top) left it, through
+        this setup and its stock lineage (:meth:`surface_z`)."""
+        return self.surface_z(setup, edge, face=face, done=done)
 
     @staticmethod
     def ops_done(setup, after=None, before=None):
@@ -2392,7 +2375,7 @@ class _Traveler:
             if key == "top_z" and state.get("top_feature"):
                 name = f"top ({self.feature_name(state['top_feature'])})"
             # Each arriving surface as the DRO shows it, as every other line prints it.
-            value = self.surface_z(setup, value)
+            value = self.surface_z(setup, value, face="top" if key == "top_z" else None)
             parts.append(f"{name} at Z {o(value)}" if _known(value) else f"{name} Z ? not set")
         line = f"Starts from: {self.arrival(setup)}"
         if parts:
