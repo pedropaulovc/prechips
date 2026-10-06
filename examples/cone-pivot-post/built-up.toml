@@ -852,7 +852,7 @@ cite = ["AUTHOR'S CHOICE: example retaining-compound process, clearance band and
 [setups.hold]
 fixture = "cone-bond-cradle"
 support = "none"
-grip_on = "AUTHOR'S CHOICE: body in the cradle saddle at Y10..20, raw tail on its support at Y100..120, foot B against the foot stop; the north cap rests on the two cone pins"
+grip_on = "AUTHOR'S CHOICE: gravity only, crank socket axis vertical, no clamping force on the joint while it cures: body in the cradle saddle at Y10..20, raw tail on its support at Y100..120, foot B against the foot stop; the north cap rests on the two cone pins"
 grip_mm = "not_applicable"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
@@ -860,7 +860,7 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "AUTHOR'S CHOICE: the foot stop locates B; the two cone pins set the north cap 21.0055 mm from the post axis, which centres the 42.011 mm sleeve on the axis."
-clamp = "AUTHOR'S CHOICE: gravity only, crank socket axis vertical; no clamping force on the joint while it cures."
+clamp = "none"
 [[setups.ops]]
 op = 10
 do = "fit"
@@ -904,7 +904,7 @@ cite = ["AUTHOR'S CHOICE: example retaining-compound process, clearance band and
 [setups.hold]
 fixture = "cone-bond-cradle"
 support = "none"
-grip_on = "AUTHOR'S CHOICE: unchanged cradle position from S6; the crank sleeve north face rests on the two crank pins"
+grip_on = "AUTHOR'S CHOICE: gravity only, no clamping force on either joint while it cures: unchanged cradle position from S6; the crank sleeve north face rests on the two crank pins"
 grip_mm = "not_applicable"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
@@ -912,7 +912,7 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "AUTHOR'S CHOICE: the two crank pins set the sleeve north face 21.3753 mm below the post axis, flush with the bottom of the head."
-clamp = "AUTHOR'S CHOICE: gravity only; no clamping force on either joint while it cures."
+clamp = "none"
 [[setups.ops]]
 op = 10
 do = "fit"
