@@ -77,7 +77,7 @@ coolant = "cutting_oil_brush" # author's choice; brush-on cutting oil, supply/su
 deburr_mm = 0.25 # title block: break edges R0.25 or chamfer 0.25 max
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "stock"
-note = "Upper side: qualify the upper hub face as Setup S1 Z0, finish the upper strap face, rough the hub, top edge and outer profile, spot and drill the pivot pilot. Keep the rails and ears continuous. Contour tables are nominal boundary offsets: interrupt at clamped rails/ears, preserve the 0.40 mm web, and confirm actual cutter access before using any checkpoint."
+note = "Upper side: rough-face, then finish-face the internal field to make the upper hub face Setup S1 Z0; rough and finish the upper strap face; rough the hub, top edge and outer profile; spot and drill the pivot pilot. Face only inside X -160..160, Y -20..31.7: the rails and ears stay full thickness and continuous. Contour tables are nominal boundary offsets: interrupt at clamped rails/ears, preserve the 0.40 mm web, and confirm actual cutter access before using any checkpoint."
 
 [setups.stock_state]
 top_feature = "hub_faces" # the Z-touch face is the upper hub face; strap face ops do not move it
@@ -131,13 +131,32 @@ check_jog_mm = 10.0 # author's choice
 face = "top"
 method = "paper"
 paper_mm = 0.05 # author's choice
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-lms-6784/3-8in-2fl" # op 5 rougher touches the raw top first
 check_jog_mm = 10.0 # author's choice
-retouch_after = [10, 20, 25, 50, 60] # op 10 makes the hub face Z0; each later op listed is followed by a tool change
+retouch_after = [5, 10, 20, 25, 50, 60] # op 10 makes the hub face Z0; each op listed is followed by a tool change
+
+# Op 5 and op 10 face only the internal field between the retained rails and
+# inside the ears: the lower rail is Y -28..-20, the upper rail Y 31.7..37 and
+# the ears lie outside X ±160. The whole cutter diameter stays inside the field.
+[[setups.ops]]
+op = 5
+do = "rough_face"
+feature = "hub_faces"
+faces = ["#374/ADVANCED_FACE[8]/HAF_HUB_FACES__P02"] # exported +Z hub end only
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = 0.20 # author's choice, finish hub face Z0 + 0.20 allowance
+rough_allowance_mm = 0.20 # author's choice, same leave as the strap and profile roughs
+doc_mm = 1.5 # author's choice, largest step per pass over the 4.27175 mm from the raw top
+direction = "conventional" # author's choice
+approach_mm = 5.0 # author's choice: rapid plane above the blank
+note = "Step down through the internal field, keeping the rails and ears at raw height."
+# The envelope includes the nominal face; to_z and the allowance stop the rough cut above it.
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 31.7], z = [0.0, 5.0] }
 
 [[setups.ops]]
 op = 10
-do = "face"
+do = "finish_face"
 feature = "hub_faces"
 faces = ["#374/ADVANCED_FACE[8]/HAF_HUB_FACES__P02"] # exported +Z hub end only
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -145,6 +164,8 @@ holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.0 # the upper hub face becomes frame A Z0; the lower face stays overstock for S2
 direction = "conventional" # author's choice
 approach_mm = 5.0 # author's choice: rapid plane above the blank
+note = "Finish the same field at one depth, removing the 0.20 mm left by op 5."
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 31.7], z = [0.0, 5.0] }
 
 [[setups.ops]]
 op = 20
@@ -156,8 +177,10 @@ holder = "r8-collets-lms-4860/3-8in"
 to_z = -2.07825 # author's choice, finish strap Z-2.27825 + 0.20 allowance
 rough_allowance_mm = 0.20 # author's choice, restored rev-3 allowance
 direction = "conventional" # author's choice
+doc_mm = 1.5 # author's choice, largest step per pass over the 2.07825 mm below Z0
 approach_mm = 5.0
-note = "Around the hub island, keeping the rails."
+note = "Step down through the internal field around the hub island, keeping the rails and ears at raw height."
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 31.7], z = [-2.27825, 5.0] }
 
 [[setups.ops]]
 op = 25
@@ -170,6 +193,8 @@ to_z = -2.27825 # upper strap face: HUB_PROUD = (7.0565 - 2.5)/2 below the hub f
 to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
 direction = "conventional" # author's choice
 approach_mm = 5.0
+note = "Finish the same field at one depth, removing the 0.20 mm left by op 20."
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 31.7], z = [-2.27825, 5.0] }
 
 [[setups.ops]]
 op = 30
@@ -249,7 +274,7 @@ coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S1"
-note = "Lower side: roll the blank over about its length, keeping the rod-hole end at +X. Indicate the S1 pilot, qualify the lower hub face, and rough before finishing the lower strap face and hub OD. Adjust the two support jacks to just bear on the S1-finished strap without lifting the rail frame from its parallels. Spot, drill and ream the rod hole before opening the outer pockets; then rough the opposed pockets leaving the 0.40 mm web. Final A|B|C position inspection follows S4 land finishing."
+note = "Lower side: roll the blank over about its length, keeping the rod-hole end at +X. Indicate the S1 pilot, then rough-face and finish-face the internal field to qualify the lower hub face, and rough before finishing the lower strap face and hub OD. Face only inside X -160..160, Y -31.7..20: the rails and ears stay full thickness. Adjust the two support jacks to just bear on the S1-finished strap without lifting the rail frame from its parallels. Spot, drill and ream the rod hole and pass its process gauge hold before opening the outer pockets; then rough the opposed pockets leaving the 0.40 mm web. Final A|B|C position inspection follows S4 land finishing."
 
 [setups.stock_state]
 top_feature = "hub_faces" # the Z-touch face is the lower hub face; strap face ops do not move it
@@ -300,6 +325,7 @@ tool_touches = [] # one Z touch per tool change, listed in retouch_after
 from = "S1"
 indicate = "pivot_bore" # the S1 pilot
 tool = "rocker-datum-indicator"
+runout_limit_mm = 0.02 # authored pilot-pickup TIR criterion, not a drawing tolerance or a measured reading
 
 [setups.zero.x]
 edge = "pivot_bore_axis"
@@ -321,9 +347,27 @@ check_jog_mm = 10.0 # author's choice
 face = "top"
 method = "paper"
 paper_mm = 0.05 # author's choice
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-lms-6784/3-8in-2fl" # op 5 rougher touches the raw top first
 check_jog_mm = 10.0 # author's choice
-retouch_after = [10, 15, 20, 28, 30, 32, 33, 34] # retouch before each changed cutting tool, including every rod-hole tool and the return to the rougher
+retouch_after = [5, 10, 15, 20, 28, 30, 32, 33, 34] # retouch before each changed cutting tool, including every rod-hole tool and the return to the rougher
+
+# Frame B reverses Y: op 5 and op 10 face only the internal field between the
+# lower rail Y 20..28 and the upper rail Y -37..-31.7, inside the ears outside
+# X ±160. The whole cutter diameter stays inside the field.
+[[setups.ops]]
+op = 5
+do = "rough_face"
+feature = "hub_faces"
+faces = ["#510/ADVANCED_FACE[15]/HAF_HUB_FACES__P01"] # exported -Z hub end, upward in frame B
+tool = "endmills-lms-6784/3-8in-2fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = 0.20 # author's choice, finish hub face Z0 + 0.20 allowance
+rough_allowance_mm = 0.20 # author's choice, same leave as the strap and profile roughs
+doc_mm = 1.5 # author's choice, largest step per pass over the 4.27175 mm from the raw top
+direction = "conventional" # author's choice
+approach_mm = 5.0 # author's choice: rapid plane above the retained rails
+note = "Step down through the internal field, keeping the rails and ears at raw height."
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [0.0, 5.0] }
 
 [[setups.ops]]
 op = 10
@@ -335,6 +379,8 @@ holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.0 # lower hub face; approach the length from long, never below 7.0565
 direction = "conventional" # author's choice
 approach_mm = 5.0 # author's choice: rapid plane above the retained rails
+note = "Finish the same field at one depth, removing the 0.20 mm left by op 5; approach the hub length from long."
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [0.0, 5.0] }
 
 [setups.ops.checks]
 length = "micrometers/0-1in"
@@ -348,8 +394,10 @@ holder = "r8-collets-lms-4860/3-8in"
 to_z = -2.07825
 rough_allowance_mm = 0.20
 direction = "conventional"
+doc_mm = 1.5 # author's choice, largest step per pass over the 2.07825 mm below Z0
 approach_mm = 5.0
-note = "Take stepped roughing passes on the supported lower strap, leave 0.20 mm for the finish pass."
+note = "Step down through the internal field around the hub island on the supported lower strap, keeping the rails and ears at raw height; leave 0.20 mm for the finish pass."
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [-2.27825, 5.0] }
 
 [[setups.ops]]
 op = 20
@@ -361,6 +409,8 @@ to_z = -2.27825
 to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
 direction = "conventional" # author's choice
 approach_mm = 5.0
+note = "Finish the same field at one depth, removing the 0.20 mm left by op 15."
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [-2.27825, 5.0] }
 
 [setups.ops.checks]
 thickness = "micrometers/0-1in"
@@ -430,10 +480,14 @@ tool = "rocker-rod-reamer/2.0mm" # illustrative purchase, 2.004 mm example worki
 holder = "drill-chuck-r8"
 exit_mm = 1.5 # clears the 0.4 mm lead beyond the 2.5 mm strap
 approach_mm = 5.0
-note = "Ream and gauge before roughing the outside pockets. Process GO 2.000 must enter and process NO-GO 2.010 must not; the unchanged drawing band is 1.994..2.094. This controls clearance over the 1.9875 mm diamond clocking stop without relying on a close twist-drilled hole."
+note = "Ream through the 2.5 mm strap while the full-thickness outside stock still supports it."
+inspection_note = "HOLD before op 40: process GO 2.000 must enter through the strap and process NO-GO 2.010 must not. If either fails, stop; do not open the outer pockets until the hole is resolved. The process limits keep clearance over the 1.9875 mm diamond clocking stop."
 
 [setups.ops.checks]
 dia = "rocker-rod-limit-gauges" # process GO 2.000 / NO-GO 2.010; drawing GO 1.994 / NO-GO 2.094
+
+[setups.ops.inspection_methods]
+dia = "Plug-gauge after deburring both mouths: process GO 2.000 and NO-GO 2.010 first (the op 34 hold), then drawing GO 1.994 and NO-GO 2.094 for the unchanged 1.994..2.094 drawing band."
 
 [[setups.ops]]
 op = 40
@@ -522,6 +576,7 @@ tool_touches = [] # one Z touch per tool change, listed in retouch_after
 from = "S2"
 indicate = "pivot_bore"
 tool = "rocker-datum-indicator"
+runout_limit_mm = 0.02 # same drilled-pilot pickup criterion before the in-place pivot ream
 
 [setups.zero.x]
 edge = "pivot_bore_axis"
@@ -621,7 +676,7 @@ grip_mm = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "shoulder screw locates A; preload counterclockwise against the diamond pin before tightening; its radial flats allow centre-distance variation"
 clamp = "washer and shoulder screw prevent hub lift; pads carry Z; separate toe clamps retain both scrap rails on matched shimmed rests"
-note = "The part and scrap frame are held independently. The web transmits early profile loads to the clamped frame; the hardened diamond pin is the positive tangential stop during and after the closing cut. Keep every scrap clamp tight through op 42. The 1.9875 mm pin in a 2.000..2.010 mm process hole has 0.0125..0.0225 mm diametral clearance, included in the clocking budget."
+note = "The part and scrap frame are held independently. The web transmits early profile loads to the clamped frame; the hardened diamond pin is the positive tangential stop during and after the closing cut in op 40. Keep every scrap clamp tight through op 40. The 1.9875 mm pin in a 2.000..2.010 mm process hole has 0.0125..0.0225 mm diametral clearance, included in the clocking budget."
 
 [setups.zero]
 tool_touches = []
@@ -630,6 +685,7 @@ tool_touches = []
 from = "S3"
 indicate = "rocker-pivot-screw ground head" # indirect fixture-axis pickup; actual A is checked off-machine
 tool = "rocker-datum-indicator"
+runout_limit_mm = 0.01 # authored ground-head axis pickup criterion; the 1 µm indicator is labelled illustrative inventory
 
 [setups.zero.x]
 edge = "ground_shoulder_screw_head_axis"
@@ -668,6 +724,7 @@ exit_mm = 1.25 # author's choice, through the 2.50 mm strap; fixture base top is
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
+note = "Finish the top arc with light conventional passes. Its two endpoints are the joins for op 40; this cut does not complete the outline release. Keep every scrap-rail clamp tight for the closing contour in op 40."
 
 [setups.ops.checks]
 height_above_pivot = "rocker-profile-template" # final bench inspection on a 6.5 mm pin after removing the fixture screw
@@ -678,8 +735,8 @@ arc_len = "rocker-profile-template" # scribed arc-end marks on the template
 op = 40
 do = "finish_profile"
 feature = "profile_outer"
-# Same whole outline; the export names both radial lands separately.
-faces = ["#225/ADVANCED_FACE[7]/HAF_PROFILE_OUTER__P01", "#84/ADVANCED_FACE[4]/HAF_PROFILE_OUTER__P02", "#475/ADVANCED_FACE[11]/HAF_PROFILE_OUTER__P03"]
+# The op 40 end joins cut both exported radial lands, including rod-side datum C.
+faces = ["#225/ADVANCED_FACE[7]/HAF_PROFILE_OUTER__P01", "#84/ADVANCED_FACE[4]/HAF_PROFILE_OUTER__P02", "#475/ADVANCED_FACE[11]/HAF_PROFILE_OUTER__P03", "#495/ADVANCED_FACE[13]/HAF_TIP_LAND_POS_X__P01", "#483/ADVANCED_FACE[12]/HAF_TIP_LAND_NEG_X__P01"]
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -6.02825 # author's choice, lower strap Z-4.77825 minus 1.25 exit
@@ -687,41 +744,17 @@ exit_mm = 1.25 # author's choice, same through-profile depth as op 30
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
-note = "Bottom arc and tapered ends in one contour with ops 41/42; the rails and ears come off when op 42 closes the outline, only under the fixture's support."
+note = "Finish the bottom arc, both tapered ends and both radial tip lands with the listed contour and straight end joins meeting the op 30 top-arc endpoints. These joins finish tip_land_pos_x (rod-side datum C) and tip_land_neg_x; the outline releases during this op, not in a later land pass. Use light conventional passes in the direction that pushes into the counterclockwise-preloaded pin contact. Keep every scrap-rail clamp tight through completion and retract before removing scrap. The hardened diamond pin reacts the tangential closing-cut load; do not rely on hub friction to react the long-arm cutting torque. The shoulder screw and washer prevent lift, and the nearby pads carry Z; the pin carries no clamp or lift load."
 
 [setups.ops.checks]
 bottom_radius = "rocker-profile-template"
 bottom_arc_len = "rocker-profile-template"
 
 [[setups.ops]]
-op = 41
-do = "finish_profile"
-feature = "tip_land_pos_x" # rod-side radial land, datum C
-tool = "endmills-lms-6784/3-8in-4fl"
-holder = "r8-collets-lms-4860/3-8in"
-to_z = -6.02825 # same contour depth as op 40
-exit_mm = 1.25
-direction = "conventional" # author's choice
-approach_mm = 5.0
-note = "Light conventional finish passes only. The hardened diamond pin is the positive tangential clocking stop; the shoulder screw and washer prevent lift, and the nearby pads carry Z. Do not rely on hub friction to react the long-arm cutting torque."
-
-[[setups.ops]]
-op = 42
-do = "finish_profile"
-feature = "tip_land_neg_x"
-tool = "endmills-lms-6784/3-8in-4fl"
-holder = "r8-collets-lms-4860/3-8in"
-to_z = -6.02825 # same contour depth as op 40
-exit_mm = 1.25
-direction = "conventional" # author's choice
-approach_mm = 5.0
-note = "Close the outline with a light conventional pass along the negative-X land, in the direction that pushes into the counterclockwise-preloaded pin contact. Keep every scrap-rail clamp tight; the pin reacts tangential cutting load, never clamp or lift load."
-
-[[setups.ops]]
 op = 43
 do = "inspect"
 feature = "tip_land_pos_x"
-note = "After ops 41/42, check the rod-hole-end land width and its 90° angle to the drawing's title-block ±1° limit."
+note = "After op 40 finishes both lands and releases the outline, check the rod-hole-end land width and its 90° angle to the drawing's title-block ±1° limit."
 [setups.ops.checks]
 tip_land = "calipers" # author's choice
 land_angle_deg = "rocker-profile-template" # 90° land template against the drawing's title-block ±1° band
@@ -730,7 +763,7 @@ land_angle_deg = "rocker-profile-template" # 90° land template against the draw
 op = 44
 do = "inspect"
 feature = "tip_land_neg_x"
-note = "Check the opposite end land to the same width and 90° angle limits; inspect both ends separately."
+note = "After op 40, check the opposite end land to the same width and 90° angle limits; inspect both ends separately."
 [setups.ops.checks]
 tip_land = "calipers"
 land_angle_deg = "rocker-profile-template"
@@ -739,11 +772,23 @@ land_angle_deg = "rocker-profile-template"
 op = 50
 do = "inspect"
 feature = "rod_hole"
-note = "Final position verification after datum-C lands are finished and after removing the part from the fixture."
+note = "Off-machine final A|B|C position check after both C lands are finished: preserve the same fixed-C contact through both height-gauge views."
 [setups.ops.checks]
 position_dia = "rocker-position-height-gauge"
+# Nominals below are projected from the bound v40 STEP: X is outward C normal, Y is B cross C.
+# The tighter 0.16 mm shop HOLD is an authored guardband, not a changed drawing tolerance or a calibration claim.
 [setups.ops.inspection_methods]
-position_dia = "Seat upper datum face B against an angle plate and square the rod-side land C to the surface plate. Fit a 6.5 mm pin in datum bore A and the largest calibrated go pin that fits the rod hole; measure over both pins with the height gauge in two orthogonal orientations, subtract pin radii, and compare the centre offsets to the basic drawing coordinates within the Ø0.20 zone."
+position_dia = """
+Use the rocker-inspection-box with its fixed ground C stop bar. Select the largest freely passing pins from rocker-position-pins for datum bore A and the rod hole; record their actual calibrated diameters. Seat only the strap datum B against the box face, place the A axis within 5 mm of the box's left edge, and leave the integral hub clear above the box. Seat C on the fixed bar and secure the B contact with the two rocker-inspection-clamps through the left windows, without bending or clamping the free span.
+
+Equilibrate the part, box, pins and rocker-position-blocks on the granite plate at 20 ±1 °C. Use the height gauge only to carry the 1 µm rocker-datum-indicator, not as a long-range absolute scale. For each pin reading, wring a stack of known actual calibrated block lengths near the pin's top, zero the indicator on the stack, then sweep the pin crown and read its height deviation with the same carrier setting. Verify the indicator's positive sense for a higher contact. Pin-centre height = actual stack height + indicator deviation - actual pin radius.
+
+First view: C faces down onto the bar and the hub-pin centre is above the rod-pin centre by about 132.4 mm. Take the comparator readings within 2 mm of each accessible bore face and record X = hub-centre height minus rod-centre height. Tip the entire box onto its marked ground RIGHT side; the rod centre must be below the hub centre by about 15.8 mm. Do not unclamp the part or lose C contact. Repeat the near-face block-comparator readings and record Y = hub-centre height minus rod-centre height. Gently press the opposite, non-rod tip toward the fixed C bar to reseat C, release it, and repeat both readings at the same comparator settings; HOLD if either changes by more than 0.002 mm. This seating check is required before accepting the tipped-view result.
+
+Check the B-to-A-axis approximation in both views by comparing the hub-pin height near its accessible mouth with the height 10 mm farther out: HOLD if the change exceeds 0.005 mm or the strap cannot seat without leaning the pin. Do not claim ideal datum simulation from B contact alone.
+
+The CAD-derived nominal differences in this fixed-C inspection basis are X = 132.3912 mm and Y = 15.8429 mm, not the milling setup XY coordinates. Calculate 2 * sqrt((X - 132.3912)^2 + (Y - 15.8429)^2). The drawing zone remains diameter 0.20 mm at RFS, with no bonus tolerance; use diameter 0.16 mm as the shop guardband and HOLD larger results for disposition. These are illustrative process limits, not measured first-article readings.
+"""
 
 [[setups.ops]]
 op = 60
