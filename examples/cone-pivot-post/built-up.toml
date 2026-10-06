@@ -123,21 +123,21 @@ cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.p
 [frames.B6]
 origin = [0.0, 86.0, 0.0]
 x = [0.0, -1.0, 0.0]
-y = [0.0, 0.0, -1.0]
-z = [1.0, 0.0, 0.0]
+y = [0.9762272058393484, 0.0, -0.21674972336567902]
+z = [0.21674972336567902, 0.0, 0.9762272058393484]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: post on its side in the bandsaw vise; setup (X,Y,Z) = (86 - model Y, -model Z, model X). The head top is X0 and the tail end X-39. Set the blade to a scribed line, not a DRO zero."
-cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33"]
+note = "AUTHOR'S CHOICE: post on its side in the saw cradle, cone cross-bore vertical with the south cap up; setup X = 86 - model Y, so the head top is X0 and the tail end X-39; the cone axis is X52.632 Y0 and its caps Z+-21.0055. Set the blade to a scribed line, not a DRO zero."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,59-67"]
 
 # Head top at Z86 = exported body height_nominal.
 [frames.M2]
 origin = [0.0, 0.0, 0.0]
-x = [1.0, 0.0, 0.0]
-y = [0.0, 0.0, -1.0]
+x = [0.9762272058393484, 0.0, -0.21674972336567902]
+y = [-0.21674972336567902, 0.0, -0.9762272058393484]
 z = [0.0, 1.0, 0.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: foot-down milling; Z0 at finished foot B, head top at Z86, crank sleeve toward setup -Y."
-cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"]
+note = "AUTHOR'S CHOICE: foot-down milling, turned 12.5182 deg about the post axis so the cone cross-bore axis is setup Y: the north cap faces +Y and the south cap -Y at Y+-21.0055. Z0 at finished foot B, head top at Z86; the crank sleeve points toward setup -Y, 12.5182 deg off it."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,59-67,79-81,373-376"]
 
 # Joint geometry: two cylindrical sockets in the body and the two sleeve outsides.
 [joint_features.cone_socket]
@@ -1125,22 +1125,29 @@ stock_in = "S9"
 coolant = "none: dry cut"
 deburr_mm = 0.1
 deburr_cite = ["AUTHOR'S CHOICE: retain the finished journal's 0.1 mm maximum rim break"]
+note = "AUTHOR'S CHOICE: the post lies in a shop-made saw cradle gripped by the bandsaw vise; the raw tail overhangs the cradle end and falls clear after the cut."
 [setups.stock_state]
-top_z = 22.225
-bottom_z = -22.225
-note = "AUTHOR'S CHOICE: raw round tail in the saw vise; the finished post overhangs the blade side."
+top_z = 51.8315
+bottom_z = -23.2437
+note = "AUTHOR'S CHOICE: post horizontal, cone cross-bore vertical; the crank sleeve's far end rim is the highest point and the low rim of its north face the lowest, 6.76 mm above the cradle base."
 [setups.hold]
-fixture = "vise-bandsaw-4x6"
+fixture = "cone-saw-cradle"
+pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+clamps = [
+  { ref = "cone-cap-bridge", restraint = "press", pose = { origin_mm = [52.632, 0.0, 21.0055], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "brass pad on the south cap annulus; the load runs down the cone sleeve onto the north-cap pad, not through the bonded joint; studs at Y+-30 clear the body" },
+]
+clamp_order = [1]
+locate = "body in both cradle saddles, north cap annulus on the cap pad; the cap faces square the cone cross-bore to the saw bed"
+supports = "not_applicable"
 support = "none"
-grip_on = "AUTHOR'S CHOICE: raw round tail, model Y91..125, not the finished head or the crank sleeve"
-grip_mm = 44.45
-fixed_jaw = "rear"
-jaws_along = "x"
-parallels = "none"
-jaw_above_parallels_mm = 60.0
-jaw_center_along_mm = -60.0
-stop = "AUTHOR'S CHOICE: scribe model Y87.75 for the blade centre; the 1.5 mm kerf leaves the head at Y87."
-clamp = "AUTHOR'S CHOICE: tail on the saw bed, tighten the saw vise; keep both sleeves outside the jaws. Support the post by hand as the cut breaks through, clear of the blade."
+grip_on = "AUTHOR'S CHOICE: finished body in two 42.011 mm saddles at model Y6..20 and Y44..58, north cap on the 16 mm pad, south cap under the bridge pad; no load on the head, the crank sleeve or the raw tail"
+grip_mm = "not_applicable"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "AUTHOR'S CHOICE: scribe model Y87.75 for the blade centre; slide the cradle in the saw vise until the blade touches the scribed line, then close the vise. The 1.5 mm kerf leaves the head at Y87, and the cradle base ends 3 mm on the kept side of the kerf."
+clamp = "AUTHOR'S CHOICE: lay the post in the saddles with the crank sleeve up and the north cap on the pad; turn it until the south cap sits flat under the bridge pad, then tighten both bridge nuts evenly. Grip the cradle base in the saw vise. Set the blade guides outside the 44.45 mm tail; let the tail drop clear as the cut breaks through."
 [[setups.ops]]
 op = 10
 do = "saw_cut"
@@ -1164,20 +1171,20 @@ entry_z = { mount_west = 86.0, mount_east = 86.0 }
 local_thickness = { mount_west = 86.0, mount_east = 86.0 }
 note = "AUTHOR'S CHOICE: foot B down after the saw cut; 1 mm facing allowance above the head top Z86."
 [setups.hold]
-fixture = "vise-pm-6"
+fixture = "vise-pm-6-tall-soft-jaws"
 support = "none"
-grip_on = "AUTHOR'S CHOICE: lower body, model Y0..32.245, foot B seated on parallels"
-grip_mm = 32.245
-fixed_jaw = "left"
-jaws_along = "y"
+grip_on = "AUTHOR'S CHOICE: the two flush cone-sleeve caps, Z24.77..41.97 above foot B, faced square to the cross-bore; foot B seated on parallels"
+grip_mm = 17.2
+fixed_jaw = "rear"
+jaws_along = "x"
 parallels = "parallels-lms-6745/1-2in"
-parallels_along = "y"
-parallels_centres_mm = [[-19.0, 0.0], [19.0, 0.0]]
-jaw_above_parallels_mm = 32.245
+parallels_along = "x"
+parallels_centres_mm = [[0.0, -19.4], [0.0, 19.4]]
+jaw_above_parallels_mm = 50.8
 jaw_center_along_mm = 0.0
-jaw_protection = "aluminium soft jaws over the finished body"
-stop = "AUTHOR'S CHOICE: foot B on clean parallels clear of both hole exits at X+/-12.98."
-clamp = "AUTHOR'S CHOICE: snug the jaws on the lower body, tap B down and tighten. Clock the crank sleeve parallel to the table X travel with the DTI. Keep the sleeve and the cone caps clear of the jaws."
+jaw_protection = "aluminium soft-jaw plates on the finished cone caps"
+stop = "AUTHOR'S CHOICE: foot B on two 1/2 in tall, 1/8 in thick parallels against the jaws, under the foot at Y+-17.8..21.0, clear of both hole exits at X+-12.67."
+clamp = "AUTHOR'S CHOICE: close the soft jaws on both cone caps with the crank sleeve over the front jaw, tap B down on the parallels and tighten. The cap faces square the cross-bore to the jaws, so no clocking is needed; the jaw tops stay 8.6 mm under the head shoulder and 10.9 mm under the crank sleeve."
 [setups.zero.transfer]
 from = "S9"
 indicate = ["head", "foot_seat", "crank_boss"]

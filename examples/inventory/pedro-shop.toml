@@ -1166,6 +1166,77 @@ solids = [
   { name = "crank-pin-1", shape = "cylinder", at_mm = [-6.0, 72.7, -30.0], axis = [0.0, 0.0, 1.0], dia_mm = 4.0, length_mm = 8.6247, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, base top to pin top" } },
   { name = "crank-pin-2", shape = "cylinder", at_mm = [6.0, 72.7, -30.0], axis = [0.0, 0.0, 1.0], dia_mm = 4.0, length_mm = 8.6247, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, base top to pin top" } },
 ]
+
+# S10 saw cradle (illustrative example shop-made item, cone-pivot-post only). Local frame =
+# cone plan frame B6: post axis along -X (head top X0, foot B X86), cone cross-bore axis
+# vertical (+Z, south cap up), so the post's body axis is Y0 Z0. Two saddles bored
+# 42.011 together carry the body at X28..42 and X66..80 (clear of the head shoulder at
+# X26.6, the crank sleeve at X2.3..24.3 and the cone sleeve at X44..61.2); a 16 mm pad,
+# ground flush with the saddle seats at Z-21.0055, carries the north cap annulus, so the
+# bridge's load runs down the cone sleeve onto the pad and never through the bonded joint.
+# The 19.05 mm base ends at X2, 3 mm on the kept side of the 1.5 mm kerf at X-2.5..-1;
+# the raw tail overhangs it and falls clear. The base is gripped across its 100 mm width
+# by the bandsaw's own vise; those jaws (110 x 12 x 60 mm, from vise-bandsaw-4x6) are
+# drawn here as closed on the base, rear jaw at +Y, so the scene shows every solid.
+[fixtures.cone-saw-cradle]
+kind = "custom"
+note = "AUTHOR'S CHOICE: illustrative example shop-made saw cradle: 95 x 100 x 19.05 mm steel base, two saddles bored 42.011 mm, a 16 mm north-cap pad ground flush with the saddle seats, two 3/8-16 tapped stud holes, drawn with the bandsaw vise jaws closed on the base; post horizontal with the cone cross-bore vertical."
+length_mm = { value = 95.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+width_mm = { value = 100.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+height_mm = { value = 39.05, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, base bottom to saddle tops" } }
+bed_height_mm = { value = 28.0445, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, saw bed to the saddle seat bottoms and the cap-pad top" } }
+solids = [
+  { name = "base", shape = "box", at_mm = [2.0, -50.0, -49.05], size_mm = [95.0, 100.0, 19.05], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule" } },
+  { name = "head-side-saddle", shape = "box", at_mm = [28.0, -24.0, -30.0], size_mm = [14.0, 48.0, 20.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "head-side-seat", shape = "cylinder", at_mm = [27.0, 0.0, 0.0], axis = [1.0, 0.0, 0.0], dia_mm = 42.011, length_mm = 16.0, void = true, cuts = ["head-side-saddle"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "inside micrometer; height gauge, base top to seat bottom" } },
+  { name = "foot-side-saddle", shape = "box", at_mm = [66.0, -24.0, -30.0], size_mm = [14.0, 48.0, 20.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "foot-side-seat", shape = "cylinder", at_mm = [65.0, 0.0, 0.0], axis = [1.0, 0.0, 0.0], dia_mm = 42.011, length_mm = 16.0, void = true, cuts = ["foot-side-saddle"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "inside micrometer; height gauge, base top to seat bottom" } },
+  { name = "north-cap-pad", shape = "cylinder", at_mm = [52.632, 0.0, -30.0], axis = [0.0, 0.0, 1.0], dia_mm = 16.0, length_mm = 8.9945, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD; height gauge, base top to pad top, ground with the saddle seats" } },
+  { name = "stud-tap-rear", label = "Bridge stud holes", shape = "cylinder", at_mm = [52.632, 30.0, -49.55], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 20.05, void = true, cuts = ["base"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
+  { name = "stud-tap-front", label = "Bridge stud holes", shape = "cylinder", at_mm = [52.632, -30.0, -49.55], axis = [0.0, 0.0, 1.0], dia_mm = 9.6, length_mm = 20.05, void = true, cuts = ["base"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread plug gauge; drawn at major dia + 0.075" } },
+  { name = "saw-vise-rear-jaw", shape = "box", at_mm = [2.0, 50.0, -49.05], size_mm = [110.0, 12.0, 60.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "vise-bandsaw-4x6 jaw width, depth and height; closed on the base" } },
+  { name = "saw-vise-front-jaw", shape = "box", at_mm = [2.0, -62.0, -49.05], size_mm = [110.0, 12.0, 60.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "vise-bandsaw-4x6 jaw width, depth and height; closed on the base" } },
+]
+
+# S10 cap bridge (illustrative example shop-made two-stud bridge, cone-pivot-post only).
+# Frame: origin at the centre of the brass pad's underside on the south cap, +x along the
+# beam, +z away from the work. S10 poses it at B6 [52.632, 0, 21.0055], x = B6 +Y: the pad
+# bears on the south cap annulus and the 76 mm beam spans the post with studs at B6 Y+-30
+# (4.2 mm clear of the body), screwed into the cradle base taps.
+[fixtures.cone-cap-bridge]
+kind = "strap_clamp"
+note = "AUTHOR'S CHOICE: illustrative example shop-made bridge: 76 x 19.05 x 12.7 mm steel beam with an 18 x 18 x 6 mm brass pad, two 3/8-16 x 3-3/4 in studs, washers and nuts; cylindrical nut envelopes are conservative, not hex geometry"
+solids = [
+  { name = "pad", shape = "box", at_mm = [-9.0, -9.0, 0.0], size_mm = [18.0, 18.0, 6.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, brass pad" } },
+  { name = "beam", shape = "box", at_mm = [-38.0, -9.525, 6.0], size_mm = [76.0, 19.05, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule" } },
+  { name = "rear-stud", shape = "cylinder", at_mm = [30.0, 0.0, -62.0055], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 95.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 x 3-3/4 in stud" } },
+  { name = "rear-washer", shape = "cylinder", at_mm = [30.0, 0.0, 18.7], axis = [0.0, 0.0, 1.0], dia_mm = 20.64, length_mm = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "rear-nut", shape = "cylinder", at_mm = [30.0, 0.0, 20.3], axis = [0.0, 0.0, 1.0], dia_mm = 16.5, length_mm = 8.33, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "front-stud", shape = "cylinder", at_mm = [-30.0, 0.0, -62.0055], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 95.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 x 3-3/4 in stud" } },
+  { name = "front-washer", shape = "cylinder", at_mm = [-30.0, 0.0, 18.7], axis = [0.0, 0.0, 1.0], dia_mm = 20.64, length_mm = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "front-nut", shape = "cylinder", at_mm = [-30.0, 0.0, 20.3], axis = [0.0, 0.0, 1.0], dia_mm = 16.5, length_mm = 8.33, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "rear-clearance", shape = "cylinder", at_mm = [30.0, 0.0, 5.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.5, length_mm = 16.0, void = true, cuts = ["beam", "rear-washer"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
+  { name = "front-clearance", shape = "cylinder", at_mm = [-30.0, 0.0, 5.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.5, length_mm = 16.0, void = true, cuts = ["beam", "front-washer"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
+  { name = "rear-nut-bore", shape = "cylinder", at_mm = [30.0, 0.0, 19.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 11.0, void = true, cuts = ["rear-nut"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread, drawn at the stud major dia" } },
+  { name = "front-nut-bore", shape = "cylinder", at_mm = [-30.0, 0.0, 19.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 11.0, void = true, cuts = ["front-nut"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "3/8-16 thread, drawn at the stud major dia" } },
+]
+
+# S11 vise configuration (illustrative example): the PM 6 in vise with shop-made 6061
+# aluminium soft-jaw plates on its M10 jaw bolts in place of the hardened plates. The
+# plates are 19.05 mm thick and stand 63.5 mm above the vise bed (18.55 mm above the
+# hardened-jaw top), so on 1/2 in parallels they reach Z50.8 above foot B: over the full
+# 17.2 mm cone caps (Z24.77..41.97) and below the head shoulder (Z59.4) and crank sleeve
+# (Z61.7). Body facts are the vise-pm-6 readings; the opening loses the thicker plates.
+[fixtures.vise-pm-6-tall-soft-jaws]
+kind = "vise"
+note = "AUTHOR'S CHOICE: illustrative example: vise-pm-6 fitted with shop-made 158.7 x 63.5 x 19.05 mm 6061 aluminium soft-jaw plates on the M10 jaw bolts"
+jaw_width_mm = { value = 158.67, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, along the soft-jaw face" } }
+opening_mm = { value = 153.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, soft jaws fully open" } }
+jaw_height_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, vise bed to soft-jaw top" } }
+jaw_depth_mm = { value = 19.05, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, soft-jaw plate thickness" } }
+bed_height_in = { value = 2.886, measured = { by = "Pedro Paulo Vezza Campos", date = "2026-10-05", instrument = "calipers (vise-pm-6 reading, unchanged by the jaw plates)" } }
+length_in = { value = 16.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+width_in = { value = 7.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 # --- end cone-pivot-post built-up additions ---
 
 # Preserved original inventory comments (rev-3 status vocabulary is superseded above):
