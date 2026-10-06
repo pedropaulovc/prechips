@@ -372,3 +372,64 @@ def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
     )
     [line] = sheet.rest_engagement(setup, op)
     assert line.startswith("STOP")
+
+
+def test_an_inch_relief_is_plunged_in_millimetres_and_printed_in_inches():
+    # The same 2.0 mm relief drawn in inches: the 1.6 mm blade still needs two plunges.
+    inch = 25.4
+    relief = {
+        **_RELIEF,
+        "dia": [5.57 / inch, 5.83 / inch],
+        "dia_nominal": 5.7 / inch,
+        "width": [1.2 / inch, 2.8 / inch],
+    }
+    op = {
+        "op": 50,
+        "do": "form_relief",
+        "feature": "relief",
+        "tool": "blade",
+        "z_from": 0.0,
+        "z_to": 2.0 / inch,
+        "direction": "plunge_radial",
+    }
+    bundle = _lathe([op], {"relief": relief}, {"blade": _blade()}, units="in")
+    finding = coordinates.evaluate(bundle)[0]
+    (plunges,) = finding.numbers["plunges"]
+    assert plunges["corner_z_mm"] == pytest.approx([0.0, 0.4])
+    assert plunges["width_mm"] == pytest.approx(2.0)
+    assert finding.status != "error"
+    from prechips.sheet import _Traveler
+
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("coordinates", "S1")] = finding.numbers
+    printed = sheet.relief_plunges(setup, op)
+    assert printed[:2] == [
+        "plunge 1 chuck-side corner Z 0.000",
+        "plunge 2 chuck-side corner Z 0.016",
+    ]
+    assert printed[3] == "groove Z 0.000 to 0.079"
+
+
+def test_an_inch_dome_stair_keeps_half_the_millimetre_allowance_off_the_sphere():
+    inch = 25.4
+    op = {
+        "op": 20,
+        "do": "rough_dome",
+        "feature": "dome",
+        "tool": "ar",
+        "z_from": 1.75 / inch,
+        "z_to": 0.25 / inch,
+        "direction": "apex_to_base",
+        "contour": {"method": "axial_table", "step_mm": 0.1 / inch},
+        "rough_allowance_mm": 0.2,
+    }
+    dome = {**_DOME, "sphere_radius": 4.1102 / inch, "height": [0.7 / inch, 2.3 / inch]}
+    bundle = _lathe([op], {"dome": dome}, {"ar": dict(_AR)}, units="in")
+    (stair,) = coordinates.evaluate(bundle)[0].numbers["stair_tables"]
+    centre = (1.75 - 4.1102) / inch
+    assert stair["rows"]
+    for row in stair["rows"]:
+        r, z = row["x_target_mm"] / 2, row["z_mm"]
+        off = (r * r + (z - centre) ** 2) ** 0.5 - 4.1102 / inch
+        assert off == pytest.approx(0.1 / inch)

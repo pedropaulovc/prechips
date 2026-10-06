@@ -1811,7 +1811,12 @@ class _Traveler:
         )
         if plunges is None:
             return []
-        o = self.operative
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+
+        def o(value):
+            """A millimetre plunge fact as the DRO shows it, in plan units."""
+            return self.operative(value / scale if scale and _known(value) else "unknown")
+
         corners = plunges.get("corner_z_mm")
         if not isinstance(corners, list):
             return [_Box("STOP: plunge positions not set — blade width or hand unknown")]
@@ -1819,8 +1824,9 @@ class _Traveler:
         parts = [f"plunge {index} {corner} corner Z {o(z)}" for index, z in enumerate(corners, 1)]
         feature = op.get("feature")
         size = f"Ø {o(plunges.get('diameter_mm'))}"
-        if isinstance(plunges.get("dia_band_mm"), list):
-            size += f" ({self.band(plunges['dia_band_mm'], feature, 'dia')})"
+        band = plunges.get("dia_band_mm")
+        if isinstance(band, list) and scale:
+            size += f" ({self.band([v / scale for v in band], feature, 'dia')})"
         parts.append(("each to " if len(corners) > 1 else "to ") + size)
         low, high = plunges.get("groove_z_mm", [None, None])
         parts.append(f"groove Z {o(low)} to {o(high)}")
