@@ -3,7 +3,9 @@
 Checks before chips: a deterministic, offline checker and printable traveler for
 an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
 plan, workholding, indexing and physics rule families, write a canonical findings
-report, and render Letter-portrait HTML with setup pages and contour continuations.
+report, and render a Letter-portrait shop traveler: one setup per page with
+holding steps, DRO zero, tools, operations, speeds/feeds and inspection, plus
+contour tables (see docs/report-and-telemetry.md, "Generated traveler").
 M4 adds eight geometry and workholding rules measured on the bundle's STEP by a
 local FreeCAD kernel, plus a deterministic setup render on the sheet. M5 adds
 measured machine/holder inventory, envelope/travel screens and a machine
@@ -296,9 +298,16 @@ geometrically checked op can still be M5 measurement debt. A
 missing `jaw_depth` or a debt-carrying jaw fact is debt and the setup picture
 is a labelled part-only view; an
 undeclared jaw centre draws only the certain jaw material plus a pale
-possible-jaw envelope and keeps samples inside it `?`. The render is a
-deterministic rasterization of the kernel tessellation, hashed into
-`report.json` with its scene record so an approval binds to it.
+possible-jaw envelope and keeps samples inside it `?`. Setup diagrams are
+1600×1000 deterministic PNGs with an engine-bundled bitmap font: lathe side
+elevations, mill isometric views and custom-plate plan views, with labelled
+axes, Z0, datums, holding, stickout and the selected tool's approach. Amber
+hatching shows this setup's derived material removal (entry minus exit stock);
+profile sketches share waypoint keys with the traveler tables. Authored clamp
+order and posed inventory stops are shown explicitly. Dashed machine-context
+outlines are schematic, not measured fixture geometry, and unresolved drawing
+items remain plain-language warnings. The image is hashed into `report.json`
+with its scene record so an approval binds to it; it is not a toolpath.
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
 setup id, not only the previous one. A nonempty reference array joins solids by
