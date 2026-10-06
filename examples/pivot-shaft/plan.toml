@@ -35,7 +35,7 @@ north_allowance_mm = 5.0     # author's choice: stub past the north apex, grippe
 supply_length_mm = 175       # "SUPPLY 175 LONG, PLAIN END UNCUT." (pivot_shaft_spec.py:182,186)
 supply_datum = "north dome apex plane to south supply end"  # author's choice; drawing leaves datum unstated
 on_hand = false              # inventory stock = [] (pedro-shop.toml:7)
-prerequisite = "blank sawn and faced to 180, south (plain) end centre-drilled with a #2 centre drill (drawing: CENTRES OK)"
+prerequisite = "blank sawn and faced to 180, south (plain) end centre-drilled with a #2 centre drill to a Ø3.5 countersink (drawing: CENTRES OK)"  # AUTHOR'S CHOICE: Ø3.5, a shallow seat, so the dead-centre point sits 3.03 inside the end and the turning tool's trailing edge clears its cone at the end of the bar
 # Model frame: the blank's south (plain) face centre, running +Z to the north stub end
 # (supply station = north apex 1.5 - 175 = -173.5; north end = apex + stub 5 = 6.5).
 origin_mm = [0.0, 0.0, -173.5]
@@ -134,16 +134,18 @@ south_end_z = 166.0          # author's choice: plain end = supply station, cent
 fixture = "chuck-3jaw-6-d1-4"
 # PM-1127VF-LB standard accessories: the MT3 dead centre in the plain-end centre, and the
 # carriage-mounted follow rest riding the freshly turned diameter 8 mm behind the tool on the
-# 26:1 body (author's choice; jaws reset to the rough Ø6.55 for op 10, the finish Ø6.35 for op 30).
+# 26:1 body. AUTHOR'S CHOICE: the rest supports roughing too (between centres alone the Ø6.55
+# body would deflect ~0.47 mm under the 0.5 mm cut); its jaws are set on each new diameter at
+# Z152, in the end length that S3 cuts off, so the dwell mark never reaches the finished body.
 support = "dead_centre_tailstock_mt3"
 supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]
-grip_on = "north stub of Ø10 bar, up to the shoulder north face"
-grip_mm = 12.0              # author's choice: 1.2 D grip; the dead centre carries the far end
+grip_on = "north end of the plain Ø10 bar: the 12.5 mm between the rule mark and the north end"
+grip_mm = 12.5             # author's choice: jaw fronts Z-1.5 to the north end Z-14; the dead centre carries the far end
 fixed_jaw = "not_applicable"            # scroll chuck
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "push the Ø10 north stub into the jaws until the jaw fronts sit on the shoulder north face (T1 Z-1.5); about 12 mm of stub is gripped"  # author's choice
+stop = "the bar arrives plain, with no shoulder yet: mark a line 12.5 mm from the north end with a steel rule and push the bar into the jaws until the mark is at the jaw fronts (Z-1.5), so the plain end stands 167.5 ±0.3 out from the jaw fronts; check that with the rule before tightening"  # AUTHOR'S CHOICE: ±0.3 rule placement; the Z zero is taken on the plain end, so this placement only sets the jaw room (1.2 mm or more to the thrust face)
 clamp = "snug the chuck, bring up the dead centre with light quill pressure, then tighten the chuck key at all three pinions; remove key"  # author's choice
 centre_lubrication = "CRC cutting oil on dead-centre seat; replenish between cuts; back off the quill as the bar warms"  # author's choice
 stickout_mm = 167.5         # author's choice: jaw fronts Z-1.5 to plain end Z166, tailstock supported
@@ -188,13 +190,13 @@ do = "rough_turn"
 feature = "pivot_bearing"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 166.0
+z_from = 166.3               # author's choice: start 0.3 clear of the plain end
 z_to = 0.2                    # stop 0.2 short of the thrust face for the facing pass
 rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
 doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body
 feed_mm_rev = 0.08
 direction = "toward_chuck"  # author's choice: plain end to shoulder; cutting load pushes into the headstock
-note = "Rough the body from the plain end to the shoulder in four light passes; the Ø10 shoulder stays as bar."
+note = "Four passes, Ø10 → Ø6.55. Each pass: open the follow-rest jaws wide, clear of the dead centre; start at Z166.3; at Z152 stop the feed (S3 cuts that end length off), bring both rest jaws onto the diameter just cut and lock them; resume to the shoulder. The Ø10 shoulder stays as bar."
 
 [[setups.ops]]
 op = 20
@@ -217,12 +219,12 @@ do = "finish_turn"
 feature = "pivot_bearing"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 166.0
+z_from = 166.3               # author's choice: start 0.3 clear of the plain end
 z_to = 0.0
 doc_mm = 0.1                # Ø6.55 → Ø6.35
 feed_mm_rev = 0.05
 direction = "toward_chuck"  # author's choice: plain end to the thrust face in one pass
-note = "Single finishing pass over the full supply length; mic at both ends and the middle for taper before moving on."
+note = "One pass, Ø6.55 → Ø6.35, with the same rest sequence: jaws open at the start, feed stopped at Z152 to set them on the finished diameter, then on to the thrust face. Mic at both ends and the middle for taper before moving on."
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
@@ -448,13 +450,15 @@ length = "calipers"
 # After fit-up scribes the shaft at the south ear's outer face
 # (draw_channel_assembly.py:101-110). The consumer comment names a saw cut
 # (draw_channel_assembly.py:78-79); no saw is in the inventory, so the plain
-# end is parted to the band on the lathe and the dome formed on the parted face.
-# T3 stations: scribe 0, plain end 16.83 (supply 175), north apex -158.17.
+# end is parted off long on the lathe, faced to the band with the turning tool
+# and the dome formed on the faced end.
+# T3 stations: scribe 0, plain end 16.83 (supply 175), north apex -158.17,
+# north dome base rim -156.67.
 [[setups]]
 id = "S3"
 machine = "PM-1127VF-LB"
 frame = "T3"                 # plan.frames.T3 (author's choice)
-note = "Before S3 (assembly trial fit, off the lathe): slide the shaft through both rocker-bank ears with the shoulder pushed against the north ear; scribe a light ring on the body at the south ear's outer face, then remove the shaft. The scribe is T3 Z0, nominally 156.67 from the north apex; if it measures more than ±0.5 off that, stop and ask: the S3 numbers assume the nominal span."
+note = "Before S3 (assembly trial fit, off the lathe): slide the shaft through both rocker-bank ears with the shoulder pushed against the north ear; scribe a light ring on the body at the south ear's outer face, then remove the shaft. The scribe is Z0, nominally 158.17 from the north apex (156.67 from the north dome base rim); if it measures more than ±0.5 off, stop and ask: the S3 numbers assume the nominal span."
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S2"
@@ -525,21 +529,32 @@ do = "cut_to_fit"
 feature = "south_dome"     # exported final surface at the cut-to-fit plain end
 tool = "parting-blade-lms-1728"
 holder = "qctp-axa-lms-2280/7-parting"
-to_z = 1.75                # author's choice: midpoint of sourced 1.5–2.0 past-scribe band; not absolute fitted length
-to_z_band = [1.5, 2.0]        # "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE"
+to_z = 2.25                # AUTHOR'S CHOICE: part the waste off 0.5 long so op 20 faces the apex to a DRO-set Z
 doc_mm = 3.2               # radial plunge to the centre of Ø6.35
 feed_mm_rev = 0.03
 direction = "plunge_radial"  # author's choice
-inspection_note = "Check 1.5–2.0 from the actual scribe to the parted end with the caliper depth rod before doming."
-note = "Part the excess off with the chuck-side blade corner at Z1.75; catch the offcut. The centre pip goes with the dome."
+note = "Part the waste off long, chuck-side blade corner at Z2.25. Let the waste offcut drop into the chip tray; pick it up only with the spindle stopped. Op 20 faces off the parting pip."
 
 [[setups.ops]]
 op = 20
+do = "face"
+feature = "south_dome"
+tool = "turning-tools-warner-lms-4132/AR"
+holder = "qctp-axa-lms-2280/1-turning-facing"
+to_z = 1.75                # author's choice: midpoint of the sourced "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE" band; the apex of the dome. A DRO-set Z, not a band: op 30 starts its table here
+doc_mm = 0.25              # two facing passes, Z2.25 → 1.75
+feed_mm_rev = 0.05
+direction = "radially_inward"  # author's choice
+inspection_note = "Spindle stopped: caliper depth rod from the actual scribe to the faced end; the drawing allows 1.5 to 2.0 (cut the plain end 1.5 to 2.0 past the scribe). Outside that, stop before doming."
+note = "Face the parted end to Z1.75 in two passes, feeding toward the centre; stop at centre height and check that no pip is left."
+
+[[setups.ops]]
+op = 30
 do = "form_dome"
 feature = "south_dome"
 tool = "turning-tools-warner-lms-4132/AR"   # same 93° tool as the north dome; the 60° E cannot reach the near-axial apex faces
 holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 1.75              # author's choice: op 10 parted face
+z_from = 1.75              # author's choice: the op 20 faced end (apex), a deterministic DRO Z
 z_to = 0.25                # author's choice: apex 1.75 - sourced dome height 1.5
 doc_mm = 0.2
 feed_mm_rev = 0.04
