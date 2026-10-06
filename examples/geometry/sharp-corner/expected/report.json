@@ -84,7 +84,7 @@
           },
           "plan": {
             "path": "examples/geometry/sharp-corner/plan.toml",
-            "sha256": "84e7a440c46b2385e70188185ecdadebf86e6ae378f0b7b094857e62ea926e97"
+            "sha256": "70d2851e27cd93f36fb4e13f17802bfe6c8e967ed76eddf6082fcc46936b040f"
           },
           "shop_policy": {
             "path": "examples/geometry/shop-policy.toml",
@@ -139,6 +139,7 @@
             "do": "rough_pocket",
             "feature": "pocket",
             "op": 10,
+            "rough_allowance_mm": 0.0,
             "tool": "em-preparation"
           }
         ],
@@ -593,6 +594,7 @@
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.test-mill.envelope.travel.x",
         "inventory.machines.test-mill.envelope.travel.y"
       ],
@@ -654,8 +656,17 @@
           }
         ],
         "stock_bottom_z": 0.0,
-        "stock_extent_x_mm": 21.0,
-        "stock_extent_y_mm": 60.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          0.0,
+          0.0,
+          0.0,
+          60.0,
+          40.0,
+          20.0
+        ],
+        "stock_extent_x_mm": 60.0,
+        "stock_extent_y_mm": 40.0,
         "stock_height_mm": 20.0,
         "stock_top_above_jaws_mm": 0.0,
         "stock_top_z": 20.0,
@@ -665,13 +676,13 @@
         "travel_checks": {
           "x": {
             "fixture_mm": "unknown",
-            "part_mm": 21.0,
+            "part_mm": 60.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "fixture_mm": "unknown",
-            "part_mm": 60.0,
+            "part_mm": 40.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -801,13 +812,17 @@
         "examples/geometry/author_solids.py: slot_block (synthetic test specification)",
         "plan.setups.S1: frame and hold",
         "plan.setups.S1.ops.10: selected action/tool/holder",
-        "inventory.tools.em-preparation: explicit-unit verified dimensions"
+        "inventory.tools.em-preparation: explicit-unit verified dimensions",
+        "features.features.pocket.corner_radius_max_design: drawing allowance for CAD-sharp (< 0.005 mm) concave corners",
+        "examples/geometry/author_solids.py: slot_block (synthetic test specification)"
       ],
-      "message": "S1:10: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S1:10: a claimed internal corner is smaller than the selected cutter radius and the feature declares no corner_radius_max_design admitting it.",
       "numbers": {
+        "cad_sharp_corners": 1,
         "corner_radii_mm": [
           0.0
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 0.0,
         "tool_radius_mm": 4.0
       },
@@ -826,13 +841,17 @@
         "inventory.fixtures.test-parallels-20: declared dimensions",
         "plan.setups.S2.ops.10: selected action/tool/holder",
         "inventory.tools.em-1-4in: explicit-unit verified dimensions",
-        "inventory.holders.r8-collet-1-4in: explicit-unit verified dimensions"
+        "inventory.holders.r8-collet-1-4in: explicit-unit verified dimensions",
+        "features.features.pocket.corner_radius_max_design: drawing allowance for CAD-sharp (< 0.005 mm) concave corners",
+        "examples/geometry/author_solids.py: slot_block (synthetic test specification)"
       ],
-      "message": "S2:10: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S2:10: a claimed internal corner is smaller than the selected cutter radius and the feature declares no corner_radius_max_design admitting it.",
       "numbers": {
+        "cad_sharp_corners": 1,
         "corner_radii_mm": [
           0.0
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 0.0,
         "tool_radius_mm": 3.175
       },
@@ -1014,22 +1033,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -1041,22 +1063,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -1284,7 +1309,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm.",
       "numbers": {
         "measurements": [
           {
@@ -1321,14 +1346,6 @@
           },
           {
             "cite": [
-              "features.features.pocket.bounds/at; plan.stock"
-            ],
-            "id": "plan.setups.S1.ops.10.xy_geometry",
-            "instruction": "author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
-            "units": "mm"
-          },
-          {
-            "cite": [
               "plan.setups.S1.ops.10"
             ],
             "id": "plan.setups.S1.ops.10.z_geometry",
@@ -1351,7 +1368,7 @@
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
             "op": 10,
-            "rough_allowance_mm": "unknown",
+            "rough_allowance_mm": 0.0,
             "tip_z_bounds_mm": "unknown",
             "tool": "em-preparation",
             "tool_projection_mm": "unknown",
@@ -1370,9 +1387,9 @@
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": "unknown",
-            "required_mm": "unknown",
-            "required_verified": false,
+            "minimum_required_mm": 60.0,
+            "required_mm": 60.0,
+            "required_verified": true,
             "travel_mm": "unknown",
             "travel_verified": false
           },
@@ -1380,9 +1397,9 @@
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": "unknown",
-            "required_mm": "unknown",
-            "required_verified": false,
+            "minimum_required_mm": 40.0,
+            "required_mm": 40.0,
+            "required_verified": true,
             "travel_mm": "unknown",
             "travel_verified": false
           },
@@ -1558,7 +1575,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
@@ -1566,9 +1583,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -1577,7 +1596,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
@@ -1585,9 +1604,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -1701,7 +1722,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "c6c42768853167c0a6b3f812ef031026c0b75ae228457275aef2ccbff1451e25",
+  "hash": "ea8ee2f5ba451cf643459667c8278e9e3a9c1c09e13c9bb0deea61065879fc88",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -1717,7 +1738,7 @@
     },
     "plan": {
       "path": "examples/geometry/sharp-corner/plan.toml",
-      "sha256": "84e7a440c46b2385e70188185ecdadebf86e6ae378f0b7b094857e62ea926e97"
+      "sha256": "70d2851e27cd93f36fb4e13f17802bfe6c8e967ed76eddf6082fcc46936b040f"
     },
     "render:S1": {
       "path": "setup-S1.png",
@@ -1786,7 +1807,7 @@
       "sha256": "f7eae7a3bfcbd29d985f69c330d709647fe04e023d3b60e026ab07826e2d45b9"
     }
   },
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "6662f278cc58a0ec90b54ab6b310c3b5cf5f7692e27a805b8993a756f16a5a40",
   "verification": "planned"
 }

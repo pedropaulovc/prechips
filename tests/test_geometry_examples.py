@@ -279,10 +279,13 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
     )
 
 
-def test_reference_rocker_arm_binds_the_labelled_export(tmp_path, freecad_kernel):
+def test_reference_rocker_arm_binds_the_labelled_export_and_keeps_unresolved_setups_unknown(
+    tmp_path, freecad_kernel
+):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
-    _, report, _ = traveler(plan, tmp_path / "ref")
+    result, report, _ = traveler(plan, tmp_path / "ref")
+    assert result.returncode == 2, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
     assert (
         report["step_sha256"]
@@ -290,7 +293,15 @@ def test_reference_rocker_arm_binds_the_labelled_export(tmp_path, freecad_kernel
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    # Every labelled exported face resolves to some planned claim.
+    assert set(report["renders"]) == {"S1"}
+    for setup in ("S2", "S3"):
+        row = finding(report, "accessibility", setup + ":10")
+        assert row["status"] == "unknown"
+        assert not (tmp_path / "ref" / f"setup-{setup}.png").exists()
+    assert all(render["fixture"] != "modeled" for render in report["renders"].values())
+    assert not any(
+        row["status"] == "error" for row in report["findings"] if row["rule"] in GEOMETRY_RULES
+    )
     coverage = finding(report, "coverage", "rocker-arm")
     assert coverage["numbers"]["face_count"] > 0
     assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"]
