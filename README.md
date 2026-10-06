@@ -419,10 +419,13 @@ likewise its actual tip (a 0.1 mm spring pass samples there, not at the
 floor). An unknown leave is accessibility and later-stock
 debt. A failed arc-join offset may use a validated, conservative
 intersection-join offset (extra leave at convex corners), never the nominal
-solid; if both fail, the result is named offset debt. Holding, rendering,
-reach and holder obstacles still use actual setup-entry stock; a flute is
-never credited with a later op's removal. Missing surface normals or
-unresolved pose facts never become
+solid. If both fail on the whole part, each consumer of the guard uses the
+exact arc-join offset of the finished part within its own box (that box
+grown by `2a`, then cropped), and lineage bands use exact claimed-face
+skin primitives that are cut one by one. Any failure is named offset debt.
+Holding, rendering, reach and holder obstacles still use actual setup-entry
+stock; a flute is never credited with a later op's removal. Missing surface
+normals or unresolved pose facts never become
 clearance or reach passes.
 Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
 while preserving finished islands. `stock_removal_bounds` is an authored
