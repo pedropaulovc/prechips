@@ -341,8 +341,11 @@ edge point until the cutter is tangent; every such edge bounds it at once, so
 two-wall concave corners and samples near them stand tangent to both walls,
 and a concave circle at least the cutter's radius bounds it exactly. A cutter
 wider than its gap or circle keeps the sample's own axis and reports the real
-hit. Convex edges and farther interior samples are unchanged; convex
-wall/wall island vertices add no bound and no corner pose. An edge the shifted
+hit. Convex edges and farther interior samples are unchanged. A sample past
+both walls of a sharp convex island corner (classified by the wall/wall edge
+rising there) moves straight away from that corner, its nearest boundary
+point, until tangent; one in front of or behind a wall's interior is bounded
+by that wall alone, and convex vertices get no corner pose. An edge the shifted
 axis comes within a radius of, or crosses into its material from the floor
 (its nearest edge, straight behind the edge), joins the bounds once (a finite
 constraint closure, not a search). This is a

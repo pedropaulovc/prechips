@@ -584,9 +584,14 @@ finitely many analytic candidates, never a search, and a concave edge the
 shifted axis comes within a radius of, or crosses as its nearest edge, joins
 the bounds once (a finite constraint closure). A cutter wider than its
 gap or circle keeps the sample's own axis and reports the real hit. Convex
-edges and farther interior samples are unchanged; convex wall/wall island
-vertices add no bound and no corner pose. This is per sample for floors that
-keep their samples. **Whole-face floor pose (literal face-inside-cutter):** a
+edges and farther interior samples are unchanged. Past an edge's end, only the
+wall/wall edge rising there classifies the corner: a concave one bounds by the
+wall's line; a sharp convex island corner bounds only a sample past the end of
+every wall meeting there, which moves straight away from the corner (its
+nearest boundary point) until tangent; a sample in front of or behind a wall's
+interior is bounded by that wall alone, and convex vertices get no corner
+pose. This is per sample for floors that keep their samples.
+**Whole-face floor pose (literal face-inside-cutter):** a
 +Z planar floor whose entire face fits inside the actual cutter disc gets
 exactly one pose and no samples or corners: the area centroid of the convex
 set of covering axes (exact for line and Z-circle outer edges, emptiness
@@ -1241,8 +1246,10 @@ sheet.
    normal at the nearest edge point to tangency with every such wall (exact
    for concave circles at least the cutter's radius); a cutter wider than its
    gap keeps its own axis and reports the real hit. Convex edges and farther
-   interior samples are unchanged; convex wall/wall island
-   vertices add no corner pose. A +Z planar floor that fits wholly inside the
+   interior samples are unchanged; a sample past both walls of a sharp convex
+   island corner moves straight away from that corner to tangency (classified
+   by the wall/wall edge rising there, not another edge the walls share), and
+   convex vertices add no corner pose. A +Z planar floor that fits wholly inside the
    cutter disc instead stands on one derived pose (centroid of the covering
    axes, a certified single axis, or its R-arc walls' shared centre); an
    undecidable one drops only its own poses and leaves the op's facts unknown.
