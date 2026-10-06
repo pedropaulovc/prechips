@@ -156,28 +156,43 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   `scene.fixture_detail_labels`. The caption neither creates geometry nor
   overrides the void's measurement or verification debt.
 - A shop-made item (`kind = "custom"`, or any item / member flagged
-  `shop_made = true`) gets one SHOP-MADE FIXTURE table on sheet 2 of the first
-  setup using it at those poses; later setups at the same poses point back to it.
-  Each row is one made primitive (identical primitives group into one row,
-  named by their shared `label` or the words their names share) with its size and
-  setup-frame position (box X / Y / Z extents, cylinder axis), placed by
-  `hold.pose`, the clamp entry's `pose` or `stop_pose`. A void is listed in the
-  row of the made primitive it cuts (the first made name in `cuts`, else the one
-  holding its centre) as "with N × <fastener or size>: positions"; a void that
-  cuts only bought hardware is not listed. Per-primitive `supply` is `made`
-  (default), `bought` (hardware: one "Bought hardware (not made)" line under the
-  table, named by its `fastener` or its name and size) or `existing` (already in
-  the shop, such as a machine's vise jaws drawn for clearance: not listed).
+  `shop_made = true`) with something to make gets one SHOP-MADE FIXTURE table
+  on sheet 2 of the first setup using it at those poses under the same HOLD
+  labels; later setups with the same poses and labels point back to it, and a
+  moved or relabelled use (C1 renumbered C2) gets its own table. An item whose
+  primitives are all bought or existing, with no hole made in them, gets no
+  table and no pointer. Each row is one made primitive (identical primitives of
+  one `supply` group into one row, named by their shared `label` or the words
+  their names share) with its size and setup-frame position (box X / Y / Z
+  extents, cylinder axis), placed by `hold.pose`, the clamp entry's `pose` or
+  `stop_pose`. A void is listed, as "with N × <fastener or size>: positions",
+  in the row of every made or existing primitive it cuts: every one `cuts`
+  names, else every one it overlaps. Overlap is decided exactly for boxes,
+  parallel cylinders and axis-aligned cylinders against boxes; a primitive an
+  oblique void may cross is not set ("? not set: oblique hole … may cross it;
+  name it in cuts") until `cuts` names it. A void that cuts only bought
+  hardware is not listed. A primitive whose own `verify`/`measured` leaves it
+  untrusted, or that an untrusted void cuts, prints "? not set: … verify before
+  making" instead of a size and position, as the setup render leaves it out.
+  Per-primitive `supply` is `made` (default), `bought` (hardware: one "Bought
+  hardware (not made)" line under the table, named by its `fastener` or its
+  name and size; primitives with one `fastener` text that touch or overlap,
+  such as a screw's head and shank, count as one part) or `existing` (already
+  in the shop, such as a machine's vise jaws drawn for clearance: not listed,
+  unless holes are made in it here, when its row reads "(existing part: make
+  the holes only)" with size "—").
   Sizes and positions print at shop policy `numbers.fixture_make_decimals`; the
   fit of a primitive with `locates` (the bore cut in it, else the primitive
   itself) and shim nominals print at the drawing precision. Optional texts
   `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
   Locates and Fastener columns; `shim = true` marks an adjustable shim stack
-  whose drawn thickness HOLD prints as the nominal to fit with feeler gauges.
-  An angle plate's (or posed shop-made fixture's) lowest made box is its base:
-  HOLD prints its underside Z, an angle plate's working face (local y = 0,
-  facing local -y) and the base's `fastener` as the hold-down. None of these
-  texts creates geometry or trust.
+  whose drawn thickness HOLD prints as the nominal to fit with feeler gauges,
+  one stack per shim primitive per placement of its item.
+  An angle plate's (or posed shop-made fixture's) lowest box that is not bought
+  is its base: HOLD prints its underside Z, an angle plate's working face (local
+  y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
+  such box untrusted, HOLD prints no setting line. None of these texts creates
+  geometry or trust.
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
