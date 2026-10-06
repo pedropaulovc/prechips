@@ -1,4 +1,10 @@
-"""Offset cutter/holder cylinders, or revolved turning tools, never zero-radius ray claims."""
+"""Offset cutter/holder cylinders, or revolved turning tools, never zero-radius ray claims.
+
+Printed DRO checkpoints (coordinates arc/line tables) are checked in the kernel (rule A′): a
+checkpoint whose cutter meets the finished part, the op's rough leave, a fixture component or
+stock outside a bounded op's box, or removes stock a later setup grips, presses, locates,
+rests or supports on, is an error naming the row; an unknown check never passes the op.
+"""
 
 from prechips.findings import Finding
 from prechips.rules.geometry_common import (
@@ -10,6 +16,41 @@ from prechips.rules.geometry_common import (
     op_contexts,
 )
 from prechips.rules.resolution import number
+
+_CHECKPOINT_KEYS = (
+    "checkpoint_count",
+    "checkpoint_hits",
+    "checkpoint_errors",
+    "checkpoint_overshoot_ok",
+)
+
+
+def _checkpoint_error(error):
+    if "later_setup" in error:
+        return (
+            f"{error['row']} removes stock later setup {error['later_setup']}'s "
+            f"{error['obstacle']} ({error['contact']}) bears on ({error['area_mm2']} mm^2)"
+        )
+    return f"{error['row']} meets {error['obstacle']} ({error['volume_mm3']} mm^3)"
+
+
+def _checkpoints(detail):
+    """(checkpoint numbers, certain-hit message or None, unknown reason or None)."""
+    if "checkpoint_count" not in detail:
+        return {}, None, None
+    values = {key: detail.get(key, "unknown") for key in _CHECKPOINT_KEYS}
+    errors = values["checkpoint_errors"] if isinstance(values["checkpoint_errors"], list) else []
+    hit = None
+    if errors:
+        listed = "; ".join(_checkpoint_error(error) for error in errors[:3])
+        more = f" (+{len(errors) - 3} more)" if len(errors) > 3 else ""
+        hit = f"printed DRO checkpoint cutter breaks rule A′: {listed}{more}"
+    unknown = None
+    if not number(values["checkpoint_hits"]):
+        unknown = "printed DRO checkpoints unproven: " + detail.get(
+            "checkpoint_reason", "checkpoint check is unresolved"
+        )
+    return values, hit, unknown
 
 
 def evaluate(bundle):
@@ -32,19 +73,25 @@ def evaluate(bundle):
             for key in ("tool", "holder")
             if isinstance(minimum, dict) and key in minimum
         }
+        checkpoints, checkpoint_hit, checkpoint_unknown = _checkpoints(detail)
         if blocked:
-            if blocked.status == "unknown" and any(
-                number(value) and value > 0 for value in certain.values()
-            ):
+            occluded = any(number(value) and value > 0 for value in certain.values())
+            if blocked.status == "unknown" and (occluded or checkpoint_hit):
+                message = (
+                    "selected cutter or holder is certainly occluded by part/fixture material"
+                    if occluded
+                    else checkpoint_hit
+                )
+                if occluded and checkpoint_hit:
+                    message += "; " + checkpoint_hit
                 rows.append(
                     Finding(
                         "accessibility",
                         blocked.subject,
                         "error",
-                        certain,
+                        {**certain, **checkpoints},
                         cite,
-                        f"{blocked.subject}: selected cutter or holder is certainly "
-                        "occluded by part/fixture material.",
+                        f"{blocked.subject}: {message}.",
                     )
                 )
             else:
@@ -90,6 +137,13 @@ def evaluate(bundle):
                 "error",
                 "selected cutter or holder is certainly occluded by part/fixture material",
             )
+        values.update(checkpoints)
+        if checkpoint_hit:
+            message = checkpoint_hit if status != "error" else f"{message}; {checkpoint_hit}"
+            status = "error"
+        elif checkpoint_unknown and status != "error":
+            message = checkpoint_unknown if status == "pass" else f"{message}; {checkpoint_unknown}"
+            status = "unknown"
         rows.append(
             Finding("accessibility", subject, status, values, cite, f"{subject}: {message}.")
         )

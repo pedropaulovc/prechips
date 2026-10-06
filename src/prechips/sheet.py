@@ -14,6 +14,7 @@ from html import escape
 
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .model import tolerance_requirements
+from .rules.coordinates import DRO_DECIMALS, OVERSHOOT_NOTE, row_id
 from .rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -194,8 +195,6 @@ _DUPLEX_JS = """(() => {
 """
 # Console-style status marks kept on the dividing-head index line.
 _GLYPHS = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}
-# Operative targets print at DRO display resolution; report.json keeps every digit.
-_DRO_DECIMALS = {"mm": 2, "in": 4}
 # A planned tool path ending this close to jaws, a dead centre or the jaw tops is
 # hand-feed territory: it is boxed on the op row instead of buried in clearance prose.
 _CRASH_ZONE_MM = 3.0
@@ -468,7 +467,7 @@ class _Traveler:
             and not self.approval.get("warnings")
         )
         self.units = bundle.features.get("units", "unknown")
-        self.decimals = _DRO_DECIMALS.get(self.units, 2)
+        self.decimals = DRO_DECIMALS.get(self.units, 2)
         self.pages = []
         self.references = {}
         for reference in sorted(selected_references(self.plan)):
@@ -1831,6 +1830,19 @@ class _Traveler:
         reason = table.get("cut_order_reason", "not established")
         return text + f"; rows NOT in an established cutting order: {reason}"
 
+    @staticmethod
+    def clip(table, markers):
+        """Where coordinates clipped this table at its op's stock_removal_bounds."""
+        clipped = list(dict.fromkeys(_text(marker) for marker in markers if marker))
+        text = ""
+        if clipped:
+            text = "; path clipped where the cutter meets " + ", ".join(clipped)
+            text += " (points past it are not cut by this op)"
+        fragment = table.get("fragment")
+        if isinstance(fragment, list) and len(fragment) == 2:
+            text += f"; separate piece {fragment[0]} of {fragment[1]}, not linked by a cut"
+        return text
+
     def contours(self, setup, tools):
         """One block per contour op; both sides of a symmetric profile print explicitly."""
         numbers = self.records.get(("coordinates", setup["id"]), {})
@@ -1849,14 +1861,15 @@ class _Traveler:
             rows = []
             for record in arc.get("rows", []):
                 xy = record.get("setup_xy", [record.get("x"), record.get("y")])
-                z = record.get("tip_z", arc.get("tip_z"))
+                printed = record.get("dro_xy") or ["unknown", "unknown"]
+                z = record.get("dro_tip_z", arc.get("dro_tip_z"))
                 entry["z"].add(o(z))
                 rows.append(
                     [
                         self.waypoint(waypoints, arc.get("op"), xy),
                         self.angle(record.get("angle_deg")),
-                        o(xy[0]),
-                        o(xy[1]),
+                        o(printed[0]),
+                        o(printed[1]),
                         o(z),
                     ]
                 )
@@ -1871,24 +1884,35 @@ class _Traveler:
                 description += f", chord error ≤ {o(arc['max_chord_sagitta_mm'])}"
             if arc.get("interpolation"):
                 description += "; " + self.bench(arc["interpolation"])
-            description += self.cut_order(arc)
+            description += self.cut_order(arc) + self.clip(
+                arc, [row.get("clipped_at") for row in arc.get("rows", [])]
+            )
             entry["parts"].append((description, ["P", "angle °", "X", "Y", "Z"], rows))
         for line in numbers.get("line_table", []):
             entry = block(line.get("op"))
             rows = []
-            for xy in line.get("setup_xy", []):
-                entry["z"].add(o(line.get("tip_z")))
+            subject = f"{setup['id']}:{line.get('op')}"
+            proven = self.records.get(("accessibility", subject), {})
+            proven = proven.get("checkpoint_overshoot_ok") if isinstance(proven, dict) else None
+            proven = set(proven) if isinstance(proven, list) else set()
+            printed, flags = line.get("dro_xy") or [], line.get("overshoot") or []
+            for index, xy in enumerate(line.get("setup_xy", [])):
+                dro = printed[index] if index < len(printed) else ["unknown", "unknown"]
+                ok = index < len(flags) and flags[index] is True
+                ok = ok and row_id(subject, "line_table", line, index) in proven
+                entry["z"].add(o(line.get("dro_tip_z")))
                 rows.append(
                     [
                         self.waypoint(waypoints, line.get("op"), xy),
-                        "",
-                        o(xy[0]),
-                        o(xy[1]),
-                        o(line.get("tip_z")),
+                        OVERSHOOT_NOTE if ok else "",
+                        o(dro[0]),
+                        o(dro[1]),
+                        o(line.get("dro_tip_z")),
                     ]
                 )
             side = _text(line.get("side"))
             description = f"Straight joins on the {side} side" + self.cut_order(line)
+            description += self.clip(line, line.get("clipped_at") or [])
             entry["parts"].append((description, ["P", "", "X", "Y", "Z"], rows))
         arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
         for profile in numbers.get("profiles", []):
@@ -1900,7 +1924,7 @@ class _Traveler:
             if not isinstance(points, list) or not points:
                 entry.setdefault("unresolved", True)
                 continue
-            z = o(profile.get("to_z"))
+            z = o(profile.get("dro_to_z", profile.get("to_z")))
             entry["z"].add(z)
             rows = []
             headings = ["P", "angle °", "X", "Y", "Z"]
@@ -2585,6 +2609,6 @@ def tool_label(bundle, reference) -> str:
         return f"{member} {role} holder"
     if kind == "parting_blade":
         width = _amount(item.get("blade_width_mm"))
-        decimals = _DRO_DECIMALS.get(bundle.features.get("units"), 2)
+        decimals = DRO_DECIMALS.get(bundle.features.get("units"), 2)
         return (f"{_number(width, decimals)} mm " if width else "") + "parting blade"
     return short_reference_label(bundle, reference, "tools")
