@@ -189,9 +189,8 @@ on one length fact it leaves only that fact unresolved.
 No invented tool dimension, Handbook page, measurement or drawing tolerance
 fills a gap. Sources are citations, never network fetches at check time. The
 only optional network activity is explicitly configured OpenTelemetry export.
-An unknown cutter radius leaves the `stock_removal_bounds` XY-extent check `?`
-with a missing-radius reason and later stock unresolved; it never substitutes
-zero or manufactures a definite extent error.
+An unknown cutter radius leaves `stock_removal_bounds` `?` with a
+missing-radius reason and later stock unresolved; it never substitutes zero.
 An existing policy without `[required]`, a feature without `requirements`, or a
 Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
 Explicit empty tables/lists remain known empty; no policy file still selects the
@@ -316,8 +315,75 @@ Joined references must have disjoint supply ancestry: duplicate entries and
 joining a supply with its descendant are bad input (exit 3), naming the shared
 ancestor. Independent route alternatives may restart from the same supply but
 cannot join that material lineage twice.
-Cutter exclusion is only a thin shell of the sampled face; another claimed groove wall remains an
-obstacle. Missing surface normals never become clearance or reach passes.
+Cutter self-contact exclusion is only a thin shell of the sampled face;
+another claimed groove wall remains an obstacle. Under the user's
+2026-10-05 pose decision, concave floor/rising-wall edge samples shift the
+cutter axis one radius into the floor away from the wall, with tangency to
+both walls at a two-wall concave floor corner and at nearby concave-corner
+edge samples within a cutter radius of the second wall. Convex edges and
+ordinary interior samples are unchanged; convex wall/wall island vertices
+retain legacy samples with no added corner pose. Tangency does not certify
+corner radii. Floor-only claims do not certify wall/wall corners;
+`internal_corner_radius` retains its existing scope and checks a sharp
+wall/wall corner when the operation claims both walls.
+Adjacent finished walls, including undercut/leaning walls, are not removed
+to manufacture clearance.
+
+Only flute stock obstacles exclude an op's own derivable outside-finished
+allowance or, for drill/spot/ream/bore/tap/counterbore, its own actual cutter
+volume to declared depth or explicit through extent.
+Hole axes/centres derive from geometry-matched concave cylindrical faces
+aligned to setup Z. Missing depth/entry and explicitly unknown through facts
+remain debt; absent `thru` keeps the existing blind-hole default.
+Spot and drill cut with a point cone (apex at the tip) and full-radius body;
+the tool's numeric included `point_angle` is mandatory, and an unknown angle
+is named accessibility debt and leaves later stock unresolved, never a flat
+cylinder or default angle. The flute check uses that cone and body against
+part and all modeled fixture solids; holders retain full setup-entry stock. Spot
+`depth_mm` is the apex tip depth; drill `depth_mm` is full-diameter depth, its
+tip a point length `r / tan(angle/2)` deeper; an op `to_z` is the absolute
+actual tip. A through drill exits each matched bore's actual axial bottom plus
+its point; other through actions end at that bore bottom, never the raw-stock
+bounding-box bottom. Ream, bore, tap and counterbore remain flat-bottomed
+cylinders. A hole op wider than its matched bore removes its own bore wall to
+the op radius with no fixed radial cap; the sizing rule owns drill/reamer
+diameter. A spot never widens its own bore.
+Spot and tap honor explicit depth even on a through feature. A hole
+operation's own bore radius is diameter-sizing, not an `internal_corner_radius` limit.
+Claimed point caps are not blanket-exempt: only an op's own known matched
+cone/sphere cap, below and sharing an edge with its claimed Z-parallel bore,
+is checked against unmodified setup-entry stock instead of an impossible
+offset shell, and is not an internal corner. Its actual collision still
+counts; wider countersinks and unrelated caps keep their unknowns and hits.
+Stock-state `top_z`/`entry_z` and op `depth_mm` are millimetres even for
+inch-unit features; tap fallback feature-depth bands convert to millimetres.
+Unrelated finished material and holder obstacles remain. A rough milling op's
+scalar `rough_allowance_mm` (a) is an engine-consumed leave normal to the
+finished surface: each sample moves `a` along the unit normal before the
+cutter-radius XY shift, floor-edge/corner constraints use `r + a`, derived
+stock protects the finished solid offset outward by `a` (drafted faces
+included), and later finishing ops remove it. An explicit `to_z` caps the endpoint rather
+than adding a second leave. An unknown leave is accessibility and later-stock
+debt. A failed arc-join offset may use a validated, conservative
+intersection-join offset (extra leave at convex corners), never the nominal
+solid; if both fail, the result is named offset debt. Holding, rendering
+and holder obstacles still use actual setup-entry stock, never another op's
+removal. Missing surface normals or unresolved pose facts never become
+clearance or reach passes.
+Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
+while preserving finished islands. `stock_removal_bounds` is an authored
+cleared footprint (possibly several passes), not capped to the claims' XY
+bounding box plus cutter radius and not a toolpath proof; known radius,
+finite bounds, stock intersection, finished protection, exact claim/piece
+contact, future hole columns and no split of an original solid still apply.
+Generic bounded clearing preserves known
+unclaimed planned-hole columns for their own future hole operations, not all
+concave cylindrical faces.
+Those reserved columns span the actual matched bore plus any adjacent coaxial
+concave cone/sphere cap no wider than the bore, using exact axial spans and
+numerical lift at either end, not the entry-stock height. Wider back
+countersinks are not reserved, blind columns stop at their caps, and
+pins/rods outside that span remain.
 Kernel-absent runs remove stale setup PNGs in the same output transaction.
 Nothing here is a toolpath or a certification of the physical setup. See
 [docs/rules-geometry.md](docs/rules-geometry.md).
