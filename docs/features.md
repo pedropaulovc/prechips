@@ -59,14 +59,17 @@ requires actual referenced STEP bytes in the bundle and must match their hash;
 the digest alone is not accepted. Only a bundle with matching bytes reaches the
 FreeCAD kernel. The shaft, rocker and cone reference bundles now consume the
 consumer's generated manifests and exact adjacent STEP exports. The bracket
-remains hand-authored without STEP bytes, so its geometry rows remain `?`.
+keeps a hand-authored `features.toml` on the consumer v39 STEP
+(`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
+There is no dimensioned bracket drawing, so its acceptance bands are
+illustrative example design intent, not measured or imported drawing limits.
 Exported face sets do not establish operation coverage, measured setup binding
 or machining approval.
 `cite`, `cite_root`, and per-dimension citations identify evidence and
 are not file assets fetched or opened during the check. Python citations use
 `file:line` or line ranges; YAML citations use `file:dotted.key.path`.
 M3 exports replace the three drawn pilots' handwritten manifests; the bracket's
-missing drawing contract remains explicit. Preserve exports verbatim, including
+absence of a dimensioned drawing remains explicit. Preserve exports verbatim, including
 unknown requirements and omitted optional fields: do not backfill facts from
 the superseded hand-authored manifests. Delivery provenance belongs in
 [examples/README.md](../examples/README.md), not extra manifest keys.

@@ -193,3 +193,13 @@ sfm = 80
 feed_mm_min = 25.0
 cite = "illustrative example value (plausible 4 x 6 bandsaw blade speed and descent feed for 2 x 3 in mild steel), not transcribed from a handbook"
 # --- end cone-pivot-post additions ---
+
+# --- pivot-bracket additions ---
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "spot"
+diameter_range = [6.51, 13.0]
+sfm = 70
+chip_load_mm_per_tooth = 0.02
+cite = "example (plausible, not measured), 2026-10-05: conservative cobalt spotting start, not transcribed from a handbook"
