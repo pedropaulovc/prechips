@@ -199,9 +199,9 @@ Hold = record(
 AxisZero = record(
     "AxisZero",
     {
-        **texts("edge feature face method tool holder gauge"),
+        **texts("edge feature face method tool holder gauge measure"),
         "from": str,
-        **numbers("edge_mm radius_mm paper_mm check_jog_mm"),
+        **numbers("edge_mm radius_mm paper_mm check_jog_mm offset_mm"),
         "retouch_after": list[int],
         "after_op": int,
     },
@@ -220,8 +220,8 @@ Transfer = record(
 ToolTouch = record(
     "ToolTouch",
     {
-        **texts("tool x_method gauge z_face method"),
-        **numbers("edge_mm paper_mm"),
+        **texts("tool x_method gauge z_face method z_gauge z_measure"),
+        **numbers("edge_mm paper_mm z_offset_mm"),
         "before_ops": list[int],
         "after_op": int,
     },
