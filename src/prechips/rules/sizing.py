@@ -2,7 +2,17 @@
 
 from ..findings import Finding
 from ..joint_features import source_cite
-from .resolution import _citations, length_mm, number, operations, record, resolve, uncertain
+from .internal_corner_radius import corner_allowance_mm
+from .resolution import (
+    _citations,
+    length_mm,
+    number,
+    operations,
+    record,
+    resolve,
+    same_length,
+    uncertain,
+)
 
 
 def evaluate(bundle):
@@ -48,7 +58,7 @@ def evaluate(bundle):
                 and bundle.features.get("units") == "mm"
                 else "unknown"
             )
-            corner = feature.get("corner_radius_max_design", "unknown")
+            corner = corner_allowance_mm(bundle, name)
             nums.update(
                 tool=tool_ref or "unknown",
                 tool_nose_radius_mm=nose,
@@ -72,7 +82,8 @@ def evaluate(bundle):
                 and all(number(v) for v in (nose, reach, corner, needed))
                 and bundle.features.get("units") == "mm"
             ):
-                status = "pass" if nose <= corner and reach >= needed else "error"
+                fits = nose <= corner or same_length(nose, corner)
+                status = "pass" if fits and reach >= needed else "error"
                 message = (
                     "tool nose and reach cover the groove design"
                     if status == "pass"

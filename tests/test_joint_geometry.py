@@ -139,6 +139,38 @@ def test_ordinary_prejoin_turning_uses_component_owned_protection(engine, joint_
     assert "assembly_error" not in facts["setups"]["join"]
 
 
+def test_join_backstop_refuses_lost_final_material_outside_finite_spigot(engine, joint_solids):
+    step = joint_solids["joined"]
+    job = _joint_job(engine, step)
+    job["joint_features"]["spigot"]["depth_mm"] = 10.0
+    job["setups"][1]["ops"][0]["joint_cut"]["depth_mm"] = 10.0
+    job["features"]["top"] = engine.refs(
+        step, (-4.9, -4.9, 20), (4.9, 4.9, 20), kind="Plane"
+    )
+    face = {
+        "id": "lost-cap",
+        "stock_in": "spigot-cut",
+        "frame": IDENTITY,
+        "hold": {"reason": "fixture not part of this stock-boundary probe"},
+        "ops": [{**_op("lost-cap:10", "top", 1, 25, 50), "do": "face", "to_z": 15.0}],
+    }
+    job["setups"].insert(2, face)
+    join = job["setups"][3]
+    join["stock_in"][1] = "lost-cap"
+    join["joint"].update(spigot_ref="lost-cap", refs=list(join["stock_in"]))
+    facts = engine.run(job)
+    cap = facts["setups"]["lost-cap"]
+    # Preparation remains intact at z=0..10, but z=15..20 finished boss material
+    # has been faced away outside that finite protected spigot cylinder.
+    assert cap["completed_joint_features"] == ["spigot"]
+    assert cap["stock_out_volume_mm3"] == pytest.approx(
+        math.pi * (4.9**2 * 10 + 6**2 * 5), abs=1e-3
+    )
+    assert "assembly_error" in facts["setups"]["join"]
+    assert "stock_out_volume_mm3" not in facts["setups"]["join"]
+    assert "render_png_base64" not in facts["setups"]["join"]
+
+
 def test_declared_cap_runout_removes_real_transient_shoulder_corner(engine, joint_solids):
     job = _joint_job(engine, joint_solids["joined"])
     job["stock"]["components"]["boss"]["length_mm"] = 22.0

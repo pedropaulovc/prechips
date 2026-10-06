@@ -169,16 +169,35 @@ major edge at `entering_angle_deg`, minor edge closing `insert_angle_deg`, both
 `edge_len` long, feed direction from `hand`: right → −Z, left → +Z), the head
 (hull of the insert to `head_len`), the radial shank (`shank_width`, back face
 `functional_width` from the nose centre, out to the tool projection) and the
-toolpost body (holder `body_depth` radially, `body_width` along Z). Claimed
+toolpost body (holder `body_depth` radially, `body_width` along Z). A tool
+whose kind is `parting_blade` or `grooving_blade` is a blade instead: two
+`nose_radius` corners on a square front edge `blade_width` wide (inventory
+`blade_width_mm`/`blade_width_in`; job op `corners = 2`, `blade_width_mm`),
+entering angle 90°, sides running straight back to `head_len`; an unmeasured
+`blade_width` leaves the row `unknown`. Claimed
 faces must be surfaces of revolution about setup Z on the outside; other faces
 are claim errors; internal (bore) claims stay `unknown`. Samples on the
-claimed meridians are checked against the held stock minus this op's own
-turned removal plus modeled fixture obstacles, including the rotating
-envelopes of placed chuck jaws.
-Reach is the material radius within the nose's axial band; corners are concave toroid or
+claimed meridians (a dome's pole included; a `to_z` op's samples moved onto
+the `to_z` plane it leaves) are checked against the profile after the op —
+the held stock minus the turned removals of the setup's turning ops up to and
+including this one — plus modeled fixture obstacles, including the rotating
+envelopes of placed chuck jaws. Each pose is chosen on that profile's
+meridian section: an insert's nose is tangent at the sample; a blade's front
+edge lies on a floor sample anywhere along it that keeps the blade clear, so
+it sits inside its groove and floor spans narrower than the blade are swept by
+that plunge, and a wall sample is cut by the nearest corner. Where that nose or
+blade meets the profile at an exposed sample it moves to the nearest clear
+pose within twice the corner radius — tangent to both segments of a concave
+corner, offset from the wall by the nose radius (the milling floor-edge rule)
+— so a corner sharper than the nose is the corner-radius fact below, not a
+collision. Flank, head and holder hits stay hits.
+Reach is the material radius within the nose's or blade's axial extent; corners are concave toroid or
 sphere profile radii (a sharp shoulder is 0) compared with the nose radius.
 Removal is revolved: `to_z` faces a band from the innermost claimed radius to
-the stock OD; profile ops close each claimed meridian to the OD within the
+the stock OD; a facing op, `part_off` or `cut_to_fit` given `to_dia` sweeps
+from `to_dia`/2 — the axis when a `part_off` omits it — to the stock OD and the
+stock end, never leaving a core for a bore the finished part only receives
+later; profile ops close each claimed meridian to the OD within the
 declared `z_from`/`z_to` span, then cut the finished part back out. That
 in-process stock is inverse-transformed back into model coordinates and can
 feed any later setup that explicitly selects it through `stock_in`, not only
@@ -186,10 +205,12 @@ the immediately following setup. Removal checks each input solid separately:
 splitting any one input piece into multiple retained pieces leaves the output
 unresolved. Separate supplies do not authorize an unconnected assembly.
 
-The turning model is a deterministic radial sampled necessary-condition screen.
-It does not prove tool paths, chip flow, insert clearance angles below centre height, boring bars or
-internal features, grooving/part-off blade geometry, or chatter. Every turning
-input must be measured and accepted; otherwise the row is `unknown`.
+The turning model is a deterministic radial sampled necessary-condition screen:
+it poses the tool at sampled meridian points only, one final-pass profile per
+op. It does not prove tool paths or roughing passes, chip flow, insert or blade
+clearance below centre height, blade side clearance or thickness, boring bars
+or internal features, cutting load, or chatter. Every turning input must be
+measured and accepted; otherwise the row is `unknown`.
 
 An explicit turning action (`turn`, `rough_turn`, `finish_turn`,
 `profile_turn`, `form_dome`, `form_relief`, `part_off`, `cut_to_fit`) off a
@@ -698,7 +719,8 @@ expand this rule's claimed-face scope.
 A concave cylinder with an off-axis axis, an oblique concave edge, or any
 other concave curved claimed surface cannot be reduced to one radius and
 makes the row `unknown` with that face/edge named. Numbers:
-`corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`.
+`corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`,
+`cad_sharp_corners` and `corner_radius_max_design_mm`.
 These are finished-solid facts, independent of unknown in-process stock;
 a known sharp corner remains an error even when reach cannot be measured.
 The comparison uses a 0.005 mm numeric tolerance: a concave radius admits the
@@ -707,6 +729,16 @@ write only 5–6 significant digits, so sub-tolerance import/kernel rounding
 must not turn a nominally equal radius into an error. This is numeric tolerance,
 not a machining allowance: a 0.004 mm deficit passes; a 0.006 mm deficit errors,
 and a genuinely sharp corner still fails.
+
+A CAD-sharp corner (modelled radius below 0.005 mm) is drawn sharp, but the
+drawing may permit a radius there. Only the operation feature's own
+`corner_radius_max_design` (explicit feature `units`; inch × 25.4) states that
+permission: the cutter is admitted when `tool_radius_mm ≤
+corner_radius_max_design` (equality passes; 0.25 admits a 0.25 mm nose, not
+0.26). A modelled non-sharp corner smaller than the cutter is never rescued by
+the allowance, and a title-block `edge_break`/`general_tolerances.edge_break_r`
+is never borrowed. Without the feature field the sharp-corner error stays, and
+the sentence names the missing `corner_radius_max_design`.
 
 - no such corners: `claimed faces have no concave edges perpendicular to the tool axis.` (not_applicable)
 - `concave corner radii admit the selected cutter.` (pass)

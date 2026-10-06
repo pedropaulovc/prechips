@@ -404,6 +404,7 @@ by = "lms-package"
 [tools.parting-blade-lms-1728]
 kind = "parting_blade"
 size_in = "1/16 x 1/2 x 4-1/2"
+blade_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "blade-width micrometer" } }
 material = "M2"
 present = "unknown"
 verify = true

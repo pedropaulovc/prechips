@@ -647,8 +647,10 @@ envelopes. Turning-model facts, not raw axial direction arrays, establish
 turning coverage. Invalid STEP references still error first; missing/unmapped
 references and unresolved inputs remain unknown. Explicit turning actions off
 a resolved lathe remain unsupported; shared profile/form/groove actions follow
-resolved machine kind. This necessary-condition screen proves no toolpath,
-internal boring, grooving/part-off blade geometry, chip flow or chatter. See
+resolved machine kind. Grooving/part-off blades are two-cornered sections of
+measured `blade_width`, posed on the profile after the op. This
+necessary-condition screen proves no toolpath, internal boring, chip flow,
+chatter or rest-jaw clearance. See
 [geometry rules](docs/rules-geometry.md#approach-models) for the exact boundary.
 
 

@@ -21,7 +21,7 @@ _GEOMETRY_RULES = {
 @pytest.mark.parametrize(
     ("part", "plan_filename", "expected_subdir", "exit_code"),
     [
-        ("pivot-shaft", "plan.toml", "expected", 4),
+        ("pivot-shaft", "plan.toml", "expected", 2),
         ("rocker-arm", "plan.toml", "expected", 2),
         ("pivot-bracket", "plan.toml", "expected", 2),
         ("cone-pivot-post", "plan.toml", "expected", 2),

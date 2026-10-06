@@ -488,15 +488,30 @@ binding = "nominal"
         .replace('id = "P"', 'id = "P"\nframe = "turn"')
     )
     bundle = _load(tmp_path, text, features)
+    # Finished-STEP measurements must never override transient preparation,
+    # even if a kernel fact happens to carry the same feature identity.
+    bundle.kernel = {
+        "status": "ok",
+        "setups": {"P": {"revolved": {"spigot": {
+            "z_mm": [100.0, 200.0], "radii_mm": [50.0, 50.0],
+            "end_radii_mm": [50.0, 50.0],
+        }}}},
+    }
+    span = turned_profile.feature_span(bundle, bundle.plan["setups"][1], "spigot")
     profile = turned_profile.exposed_profile(bundle, bundle.plan["setups"][1])
     if expected is None:
         assert "spigot" in profile["unresolved"]
         assert not any(row["feature"] == "spigot" for row in profile["intervals"])
+        assert span["z_mm"] == "unknown"
+        assert "kernel" not in span["sources"].values()
     else:
         interval = next(row for row in profile["intervals"] if row["feature"] == "spigot")
         assert interval["z_mm"] == pytest.approx(expected)
         assert interval["diameter_mm"] == pytest.approx(9.875)
         assert "spigot" not in profile["unresolved"]
+        assert span["z_mm"] == pytest.approx(expected)
+        assert span["diameter_mm"] == pytest.approx(9.875)
+        assert "kernel" not in span["sources"].values()
 
 
 def test_nested_two_reference_assembly_cannot_hide_a_third_supply_component(tmp_path):
