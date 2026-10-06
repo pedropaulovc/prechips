@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket", "cone-pivot-post")
 EXPECTED_EXIT = {
-    "pivot-shaft": 4,
+    "pivot-shaft": 2,
     "rocker-arm": 2,
     "pivot-bracket": 2,
     "cone-pivot-post": 2,

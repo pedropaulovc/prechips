@@ -49,26 +49,43 @@ Measurement conventions (setup frame, tool axis +Z):
   faces are surfaces of revolution about it (every sampled normal lies in its
   meridian plane, within ``REVOLVED_TOL``); a face whose normals point toward
   the axis is internal turning (boring bar), which is not modelled.  Samples
-  collapse to distinct (r, z) meridian points.  The tool is its centre-height
-  (y = 0) section in the XZ half-plane, revolved 360 degrees about Z because the
-  work turns: an insert (nose circle radius r_e lifted ``LIFT`` off the sample
-  along the meridian normal, major edge at the entering angle to the feed,
+  collapse to distinct (r, z) meridian points (plus a dome's pole on the axis);
+  a ``to_z`` op is posed across its claims' radii on the to_z plane it leaves.
+  The tool is its centre-height (y = 0) section in the XZ half-plane, revolved
+  360 degrees about Z because the work turns: an insert (nose circle radius r_e
+  lifted ``LIFT`` off its pose, major edge at the entering angle to the feed,
   minor edge closing the insert angle, both edge_len long), a head (convex hull
   of insert and shank start head_len out from the nose centre), a radial shank
   shank_width wide whose back face lies functional_width from the nose centre
   against the feed, out to projection, and the toolpost body behind it
   (body_depth radially, body_width from the shank's leading face against the
-  feed).  Insert/holder thickness above and below centre height is not
-  modelled.  Obstacles are the held stock minus this op's own revolved removal
-  (its final-pass state; roughing passes are not simulated) plus placed fixture
-  solids.  Turned removal sweeps each claimed meridian radially outward (facing
-  actions: along +Z, bounded by to_z), extended at the profile's end radius over
-  the declared z_from..z_to span and limited to it, minus the finished part.
-  Reach depth is the material radius beside the nose (z within the nose circle,
-  r beyond its centre) above the sample.  Concave profile corners are sharp
-  concave edges between claimed faces (0) and concave tori/spheres (their
-  profile radius).  Chuck grip-zone walls are radial lines through each jaw:
-  the material run starting at the jaw contact.
+  feed).  A grooving/parting blade (``corners = 2``, entering angle 90) has
+  two r_e corners on a square front edge ``blade_width_mm`` wide, its sides
+  running straight back to head_len.  Insert/blade/holder thickness above and
+  below centre height and blade side clearance are not modelled.  Obstacles
+  are the profile after the op, the held stock minus the revolved removals of
+  the setup's turning ops up to and including this one (final-pass states;
+  roughing passes are not simulated), plus placed fixture solids.  Poses are
+  chosen on that profile's meridian section (``MERIDIAN_AZIMUTH``): an
+  insert's nose tangent at the sample; a blade's front edge on a radial-normal
+  sample anywhere that keeps the sample under the edge and the blade clear
+  (inside its groove: floor spans narrower than the blade are swept by that
+  plunge), any other sample cut by the nearest corner.  A nose/blade meeting
+  the profile at an exposed sample moves to the nearest clear pose within 2 r_e
+  (``POSE_SEARCH``): tangent to both segments of a concave corner, offset by
+  r_e, so a corner sharper than the nose is a ``corner_radii_mm`` fact, not a
+  collision.  Flank, head and holder hits stay hits.  Turned removal sweeps
+  each claimed meridian radially outward (facing actions: along +Z, bounded by
+  to_z; a facing op, part-off or cut-to-fit given to_dia, from to_dia/2 to the stock
+  end, a part-off's default the axis, never a bore inferred from the finished
+  part), extended at the profile's end radius over the declared z_from..z_to
+  span and limited to it, minus the finished part.
+  Reach depth is the material radius beside the nose/blade (z within its axial
+  extent, r beyond the sample).  Concave profile corners are sharp concave
+  edges between claimed faces (0) and concave tori/spheres (their profile
+  radius).  Chuck grip-zone walls are radial lines through each jaw: the
+  material run starting at the jaw contact.  The result is a deterministic
+  sampled screen: it proves no tool path, chip flow, cutting load or chatter.
 """
 
 from __future__ import annotations
@@ -114,6 +131,9 @@ STRAP_GRID = (4, 16)  # samples per side of a strap's bearing footprint (1 mm pi
 REVOLVED_TOL = 1e-5  # tangential normal component above which a face is not revolved about Z
 AXIS_TOL = 1e-6  # mm: sample radius treated as on the spindle axis
 NOSE_ARC = 12  # chords approximating the insert nose arc (inscribed: never enlarges it)
+MERIDIAN_AZIMUTH = 0.5  # rad: the pose-selection meridian plane through Z (off revolved seams)
+MERIDIAN_DEFLECTION = 1e-4  # mm: chord deflection of that section (well below LIFT)
+POSE_SEARCH = (24, 16, 10)  # corner-offset search: directions, radial steps, bisections
 TURNING = "turning"
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
@@ -217,6 +237,114 @@ def _revolved(polygon):
     if not pieces:
         return None
     return pieces[0].fuse(pieces[1]) if len(pieces) == 2 else pieces[0]
+
+
+def _meridian_segments(shape):
+    """Chords (s0, z0, s1, z1) of ``shape``'s section by the plane through Z at azimuth
+    ``MERIDIAN_AZIMUTH``; s is the signed distance from Z in that plane, so the section of a
+    solid of revolution carries both of its meridians (the work turns past both sides)."""
+    c, s = math.cos(MERIDIAN_AZIMUTH), math.sin(MERIDIAN_AZIMUTH)
+    segments = []
+    for wire in shape.slice(V(-s, c, 0), 0.0):
+        for edge in wire.Edges:
+            if edge.Degenerated or edge.Length < 1e-7:
+                continue
+            points = [
+                (p.x * c + p.y * s, p.z) for p in edge.discretize(Deflection=MERIDIAN_DEFLECTION)
+            ]
+            segments.extend((*a, *b) for a, b in zip(points, points[1:], strict=False))
+    return segments
+
+
+def _in_material(point, segments):
+    """Whether an (s, z) point lies inside the closed section ``segments`` bound (even-odd)."""
+    x, z = point
+    inside = False
+    for s0, z0, s1, z1 in segments:
+        if (z0 > z) != (z1 > z) and s0 + (z - z0) * (s1 - s0) / (z1 - z0) > x:
+            inside = not inside
+    return inside
+
+
+def _segment_distance(point, segment):
+    x, z = point
+    s0, z0, s1, z1 = segment
+    ds, dz = s1 - s0, z1 - z0
+    length = ds * ds + dz * dz
+    t = 0.0 if length <= 0 else max(0.0, min(1.0, ((x - s0) * ds + (z - z0) * dz) / length))
+    return math.hypot(x - s0 - t * ds, z - z0 - t * dz)
+
+
+def _near(segments, box):
+    """Segments whose bounding box meets ``box`` (s0, z0, s1, z1)."""
+    return [
+        seg
+        for seg in segments
+        if min(seg[0], seg[2]) <= box[2]
+        and max(seg[0], seg[2]) >= box[0]
+        and min(seg[1], seg[3]) <= box[3]
+        and max(seg[1], seg[3]) >= box[1]
+    ]
+
+
+def _disk_clear(centre, radius, segments):
+    """Whether a disk lies outside the section's material (touching allowed)."""
+    x, z = centre
+    near = _near(segments, (x - radius, z - radius, x + radius, z + radius))
+    return not _in_material(centre, segments) and all(
+        _segment_distance(centre, seg) >= radius for seg in near
+    )
+
+
+def _cross(o, a, b):
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+
+def _polygon_clear(polygon, segments):
+    """Whether a convex (s, z) polygon lies outside the section's material (touching allowed)."""
+    edges = list(zip(polygon, polygon[1:] + polygon[:1], strict=True))
+    sign = 1.0 if sum(_cross((0.0, 0.0), a, b) for a, b in edges) > 0 else -1.0
+
+    def inside(point):
+        return all(sign * _cross(a, b, point) > 1e-12 for a, b in edges)
+
+    xs, zs = [p[0] for p in polygon], [p[1] for p in polygon]
+    for s0, z0, s1, z1 in _near(segments, (min(xs), min(zs), max(xs), max(zs))):
+        a, b = (s0, z0), (s1, z1)
+        if inside(a) or inside(b) or inside(((s0 + s1) / 2, (z0 + z1) / 2)):
+            return False
+        for p, q in edges:
+            if _cross(p, q, a) * _cross(p, q, b) < 0 and _cross(a, b, p) * _cross(a, b, q) < 0:
+                return False
+    return not _in_material(polygon[0], segments)
+
+
+def _nearest_free(free, start, bound):
+    """The (s, z) point nearest ``start`` within ``bound`` that ``free`` accepts, or None:
+    ``POSE_SEARCH`` directions at growing radial steps, the first ring with a free point
+    bisected back along each of its free directions."""
+    directions, steps, halvings = POSE_SEARCH
+    units = [
+        (math.cos(2 * math.pi * k / directions), math.sin(2 * math.pi * k / directions))
+        for k in range(directions)
+    ]
+
+    def at(unit, distance):
+        return (start[0] + unit[0] * distance, start[1] + unit[1] * distance)
+
+    for step in range(1, steps + 1):
+        found = [unit for unit in units if free(at(unit, bound * step / steps))]
+        best = None
+        for unit in found:
+            low, high = bound * (step - 1) / steps, bound * step / steps
+            for _ in range(halvings):
+                middle = (low + high) / 2
+                low, high = (low, middle) if free(at(unit, middle)) else (middle, high)
+            if best is None or high < best[0]:
+                best = (high, at(unit, high))
+        if best is not None:
+            return best[1]
+    return None
 
 
 def _band(r0, r1, z0, z1):
@@ -1222,7 +1350,8 @@ class _Setup:
         self.culled_part = None
         self.directions = {}  # finished face index -> direction verdict cache
         self.revolutions = {}  # finished face index -> turning verdict cache
-        self.turn_obstacles = {}  # op subject -> (held stock minus its own turned removal, why)
+        # Turning op subject -> (profile after it, or None, and (failing op, why) or None).
+        self.turn_obstacles = {}
         self.floor_adjacency = None
         self.hole_cuts = {}  # (id(op), indices, radius) -> _hole_cut record
         self.hole_columns = None  # finished hole-face index -> entry-stock-long bore column
@@ -1304,6 +1433,10 @@ class _Setup:
         if self.stock_reason is None and self.chuck is not None:
             with _timed(phases, "chuck_walls"):
                 self._chuck_walls(facts)
+        # Turned setups: each declared feature's faces of revolution about setup Z (finished
+        # geometry, independent of the entering stock).
+        if any(_turned(op) for op in self.ops):
+            self._revolution_facts(facts)
         # Every op and the render see the stock as it enters the setup; this setup's own
         # removals only shape the stock handed to the next one.
         ops = {}
@@ -3527,7 +3660,8 @@ class _Setup:
 
         ``verdict`` is "external", "internal" (a normal points toward the axis: boring) or
         "away" (a normal leaves its meridian plane: not a surface of revolution about the
-        spindle axis). Meridian samples are ((r, z), (n_r, n_z)) pairs.
+        spindle axis). Meridian samples are ((r, z), (n_r, n_z)) pairs; a pole on the axis
+        with an axial normal (a dome's apex), which the grid never lands on, is one too.
         """
         if index not in self.revolutions:
             found, skipped = _face_samples(self.faces[index], 1.0)
@@ -3548,6 +3682,18 @@ class _Setup:
                 if radial < -REVOLVED_TOL:
                     verdict = "internal"
                 meridian.append(((rho, point.z), (radial, normal.z)))
+            if verdict == "external" and found:
+                face = self.faces[index]
+                for vertex in face.Vertexes:
+                    point = vertex.Point
+                    if math.hypot(point.x, point.y) > BBOX_TOL:
+                        continue
+                    try:
+                        normal = _normal_at(face, point)
+                    except Exception:
+                        continue
+                    if math.hypot(normal.x, normal.y) <= REVOLVED_TOL and normal.Length > 0.5:
+                        meridian.append(((0.0, point.z), (0.0, normal.z)))
             self.revolutions[index] = (verdict, meridian, skipped if found else max(skipped, 1))
         return self.revolutions[index]
 
@@ -3576,10 +3722,12 @@ class _Setup:
 
         A ``to_z`` op faces: everything beyond the plane on its claims' axial side, outside
         their innermost radius, up to the finished part's end on that side (a shoulder) or
-        the stock end when nothing finished lies beyond (an end face). Other ops cut down to
-        each claimed meridian; with ``z_from``/``z_to`` the profile is extended at its end
-        radii and its axial faces swept along their normals to the window, then limited to
-        it. Without a window removal stays within the claimed faces' own z extent.
+        the stock end when nothing finished lies beyond (an end face). A facing op, part-off
+        or cut-to-fit given ``to_dia_mm`` sweeps from to_dia/2 (0: the axis) to the stock end
+        instead: the separated piece goes, whatever bore the part receives later. Other ops
+        cut down to each claimed meridian; with ``z_from``/``z_to`` the profile is extended at
+        its end radii and its axial faces swept along their normals to the window, then
+        limited to it. Without a window removal stays within the claimed faces' own z extent.
         """
         if not valid:
             return None, None
@@ -3595,7 +3743,10 @@ class _Setup:
                 return None, "z_from and z_to span no length"
         regions = []
         if op.get("to_z") is not None:
-            region, why = self._facing_region(meridians, op["to_z"], outer)
+            to_dia = op.get("to_dia_mm")
+            if "to_dia_mm" in op and not (_number(to_dia) and to_dia >= 0):
+                return None, "to_dia is unknown"
+            region, why = self._facing_region(meridians, op["to_z"], outer, to_dia)
             if why is not None:
                 return None, why
             regions.append(region)
@@ -3612,16 +3763,18 @@ class _Setup:
             return None, None
         return removal, None
 
-    def _facing_region(self, meridians, to_z, outer):
+    def _facing_region(self, meridians, to_z, outer, to_dia=None):
         samples = [sample for meridian in meridians for sample in meridian]
         sides = {1 if nz > 0 else -1 for _, (_, nz) in samples if abs(nz) > REVOLVED_TOL}
         if len(sides) != 1:
             return None, "to_z facing needs every claimed face to face one axial side"
         side = sides.pop()
+        stock_end = self.box[5] + 1.0 if side > 0 else self.box[2] - 1.0
+        if to_dia is not None:
+            return _band(to_dia / 2, outer, min(to_z, stock_end), max(to_z, stock_end)), None
         inner = min(r for (r, _), _ in samples)
         x0, y0, z0, x1, y1, z1 = _bbox(self.finished)
         finished_end = z1 if side > 0 else z0
-        stock_end = self.box[5] + 1.0 if side > 0 else self.box[2] - 1.0
         beyond = (finished_end - to_z) * side > PLANE_TOL
         end = finished_end if beyond else stock_end
         return _band(inner, outer, min(to_z, end), max(to_z, end)), None
@@ -3646,7 +3799,8 @@ class _Setup:
             chain.sort(key=lambda item: (item[0][1], item[0][0]))
             # Chords of a concave meridian run through air: push every point into the
             # material by the largest chord sagitta, so no sliver of overstock survives;
-            # cutting the finished part back out keeps the region exact.
+            # cutting the finished part back out keeps the region exact. The region closes
+            # through the unshifted end points, so no slab survives under its ends either.
             sag = 0.0
             for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
                 cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
@@ -3654,8 +3808,14 @@ class _Setup:
                 sag = max(sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4))
             sag += 1e-6
             points = [(r - nr * sag, z - nz * sag) for (r, z), (nr, nz) in chain]
-            first, last = points[0], points[-1]
-            regions.append(_revolved_side([*points, (outer, last[1]), (outer, first[1])]))
+            first, last = chain[0][0], chain[-1][0]
+            polygon = []
+            for point in [*points, last, (outer, last[1]), (outer, first[1]), first]:
+                if not polygon or math.dist(point, polygon[-1]) > 1e-5:
+                    polygon.append(point)
+            if math.dist(polygon[0], polygon[-1]) <= 1e-5:
+                polygon.pop()
+            regions.append(_revolved_side(polygon))
             ends.append((chain[0][0][1], chain[0][0][0], chain[-1][0][1], chain[-1][0][0]))
         if window is not None and ends:
             low = min(ends, key=lambda end: end[0])
@@ -3664,65 +3824,111 @@ class _Setup:
             regions.append(_band(high[3], outer, high[2], window[1]))
         return regions
 
+    def _turn_cut(self, op):
+        """(this turning op's revolved removal or None, and why it cannot be derived)."""
+        valid, _, why = self._claims(op)
+        if not isinstance(valid, list):
+            return None, why
+        to_z = op.get("to_z")
+        if to_z is not None and not _number(to_z):
+            return None, "to_z is unknown"
+        try:
+            return self._turn_removal(op, valid)
+        except Exception as exc:
+            return None, f"turned removal boolean failed ({exc})"
+
     def _turn_obstacle(self, op):
-        """(held stock minus this op's own turned removal, or None, and why not)."""
+        """(the profile after this op, or None, and why not): the held stock minus the
+        revolved removals of the setup's turning ops up to and including this one."""
         subject = self._subject(op)
         if subject not in self.turn_obstacles:
-            valid, _, why = self._claims(op)
-            to_z = op.get("to_z")
-            if not isinstance(valid, list):
-                result = None, why
-            elif to_z is not None and not _number(to_z):
-                result = None, "to_z is unknown"
-            else:
-                try:
-                    removal, why = self._turn_removal(op, valid)
-                    obstacle = self.part if removal is None else self.part.cut(removal)
-                except Exception as exc:
-                    removal, why = None, f"turned removal boolean failed ({exc})"
-                result = (None, why) if why is not None else (obstacle, None)
-            if result[1] is not None:
-                result = None, f"this op's turned removal cannot be derived: {result[1]}"
-            self.turn_obstacles[subject] = result
-        return self.turn_obstacles[subject]
+            stock, failed = self.part, None
+            for other in self.ops:
+                if not _turned(other):
+                    continue
+                name = self._subject(other)
+                if name in self.turn_obstacles:
+                    stock, failed = self.turn_obstacles[name]
+                    continue
+                if failed is None:
+                    removal, why = self._turn_cut(other)
+                    if why is None and removal is not None:
+                        try:
+                            stock = stock.cut(removal)
+                        except Exception as exc:
+                            why = f"turned removal boolean failed ({exc})"
+                    if why is not None:
+                        stock, failed = None, (name, why)
+                self.turn_obstacles[name] = stock, failed
+                if name == subject:
+                    break
+        stock, failed = self.turn_obstacles[subject]
+        if failed is None:
+            return stock, None
+        name, why = failed
+        whose = "this op's" if name == subject else f"earlier op {name}'s"
+        return None, f"{whose} turned removal cannot be derived: {why}"
 
     @classmethod
     def _turn_tool(cls, op):
-        """(turning-tool values, missing insert/head/shank keys, missing holder keys)."""
-        tool = {key: _positive(op, key) for key in (*cls._TURN_TOOL, *cls._TURN_HOLDER)}
+        """(turning-tool values, missing insert/head/shank keys, missing holder keys).
+
+        ``corners = 2`` is a grooving/parting blade: both front corners nose radius
+        ``radius_mm``, a square front edge ``blade_width_mm`` wide."""
+        blade = op.get("corners") == 2
+        keys = (*cls._TURN_TOOL, *(("blade_width_mm",) if blade else ()))
+        tool = {key: _positive(op, key) for key in (*keys, *cls._TURN_HOLDER)}
         tool["feed_z"] = op.get("feed_z") if op.get("feed_z") in (-1, 1) else None
-        missing = sorted(key for key in (*cls._TURN_TOOL, "feed_z") if tool[key] is None)
+        tool["corners"] = 2 if blade else 1
+        missing = sorted(key for key in (*keys, "feed_z") if tool[key] is None)
         if not missing and tool["insert_angle_deg"] + tool["entering_angle_deg"] >= 180:
             missing.append("insert_angle_deg + entering_angle_deg below 180")
+        if blade and not missing:
+            if abs(tool["entering_angle_deg"] - 90.0) > 1e-9:
+                missing.append("entering_angle_deg 90 (a square blade front edge)")
+            if tool["blade_width_mm"] < 2 * tool["radius_mm"]:
+                missing.append("blade_width_mm at least twice radius_mm")
         holder = sorted(key for key in cls._TURN_HOLDER if tool[key] is None)
         if not holder and tool["projection_mm"] < tool["head_len_mm"]:
             holder.append("projection_mm at least head_len_mm")
         return tool, missing, holder
 
     @staticmethod
-    def _turn_sections(tool, point, normal, holder):
-        """(insert + head polygon, [shank, toolpost body] polygons or None) in (r, z)."""
+    def _turn_sections(tool, centre, holder):
+        """(insert/blade + head polygon, [shank, toolpost body] polygons or None) in (r, z)
+        for a nose (a blade's leading corner) centred at ``centre``."""
         nose = tool["radius_mm"]
-        cr, cz = point[0] + normal[0] * nose, point[1] + normal[1] * nose
+        cr, cz = centre
         inner = nose - LIFT
-        points = [
-            (
-                cr + inner * math.cos(2 * math.pi * k / NOSE_ARC),
-                cz + inner * math.sin(2 * math.pi * k / NOSE_ARC),
-            )
-            for k in range(NOSE_ARC)
-        ]
-        feed, length = tool["feed_z"], tool["edge_len_mm"]
-        entering = math.radians(tool["entering_angle_deg"])
-        for angle in (entering, entering + math.radians(tool["insert_angle_deg"])):
-            dr, dz = math.sin(angle), feed * math.cos(angle)
-            er, ez = cr + dr * length, cz + dz * length
-            points += [(er - dz * inner, ez + dr * inner), (er + dz * inner, ez - dr * inner)]
+        feed = tool["feed_z"]
         against = -feed
+
+        def arc(z):
+            return [
+                (
+                    cr + inner * math.cos(2 * math.pi * k / NOSE_ARC),
+                    z + inner * math.sin(2 * math.pi * k / NOSE_ARC),
+                )
+                for k in range(NOSE_ARC)
+            ]
+
         back = cz + against * tool["functional_width_mm"]
         lead = back - against * tool["shank_width_mm"]
         start = cr + tool["head_len_mm"]
-        section = _hull(points + [(start, lead), (start, back)])
+        if tool["corners"] == 2:
+            # Blade: both corners on the front edge, its sides straight back to head_len.
+            trail = cz + against * (tool["blade_width_mm"] - 2 * nose)
+            sides = [(start, cz - against * inner), (start, trail + against * inner)]
+            section = _hull(arc(cz) + arc(trail) + sides)
+        else:
+            points = arc(cz)
+            length = tool["edge_len_mm"]
+            entering = math.radians(tool["entering_angle_deg"])
+            for angle in (entering, entering + math.radians(tool["insert_angle_deg"])):
+                dr, dz = math.sin(angle), feed * math.cos(angle)
+                er, ez = cr + dr * length, cz + dz * length
+                points += [(er - dz * inner, ez + dr * inner), (er + dz * inner, ez - dr * inner)]
+            section = _hull(points + [(start, lead), (start, back)])
         if not holder:
             return section, None
         end = cr + tool["projection_mm"]
@@ -3732,6 +3938,74 @@ class _Setup:
             [(start, lead), (end, lead), (end, back), (start, back)],
             [(end, lead), (far, lead), (far, side), (end, side)],
         ]
+
+    def _turn_pose(self, tool, point, normal, segments):
+        """(nose centre, axial extent) of the tool that cuts a meridian sample, posed on
+        the profile after the op (``segments``, its meridian section).
+
+        An insert's nose is tangent at the sample (centre ``point + r_e * normal``). A
+        blade's front edge lies on a sample whose normal is radial, the blade anywhere
+        along it that keeps the sample under the front edge and the blade clear (inside
+        the groove: floor spans narrower than the blade are swept by that plunge); any
+        other sample is cut by the corner nearest it (the leading corner when the normal
+        points against the feed). Where that pose meets the profile at an exposed sample,
+        the nose/blade moves to the nearest clear pose within twice the corner radius:
+        tangent to both meridian segments of a concave corner, offset from the wall by
+        the corner radius. A corner sharper than the nose is thus left for
+        ``corner_radii_mm``, not counted as a collision; a buried sample keeps its pose.
+        """
+        nose, against = tool["radius_mm"], -tool["feed_z"]
+        nr, nz = normal
+        if tool["corners"] == 2:
+            width = tool["blade_width_mm"]
+            span = width - 2 * nose
+
+            def free(centre):
+                return _polygon_clear(self._turn_sections(tool, centre, False)[0], segments)
+
+            def extent(centre):
+                ends = (centre[1] - against * nose, centre[1] + against * (span + nose))
+                return min(ends), max(ends)
+
+            if abs(nz) <= REVOLVED_TOL and nr > 0:
+                lowest = point[1] - width
+
+                def centre_at(low):
+                    return (point[0] + nose, low + nose if against > 0 else low + width - nose)
+
+                nominal = point[1] - nose if against > 0 else lowest + nose
+                lows = {nominal} | {lowest + width * k / 32 for k in range(33)}
+                # Snap to wall heights so a blade as wide as its groove still fits exactly.
+                band = (-math.inf, lowest, math.inf, point[1] + width)
+                for _, z0, _, z1 in _near(segments, band):
+                    lows |= {z0, z0 - width, z1, z1 - width}
+                for low in sorted(
+                    (low for low in lows if lowest <= low <= point[1]),
+                    key=lambda low: (abs(low - nominal), low),
+                ):
+                    if free(centre_at(low)):
+                        return centre_at(low), extent(centre_at(low))
+                start = centre_at(nominal)
+            else:
+                corner = (point[0] + nr * nose, point[1] + nz * nose)
+                leading = nz * against > 0
+                start = corner if leading else (corner[0], corner[1] - against * span)
+        else:
+
+            def free(centre):
+                return _disk_clear(centre, nose - LIFT, segments)
+
+            def extent(centre):
+                return centre[1] - nose, centre[1] + nose
+
+            start = (point[0] + nr * nose, point[1] + nz * nose)
+        if free(start):
+            return start, extent(start)
+        exposed = not _in_material(point, segments) or any(
+            _segment_distance(point, seg) <= 10 * MERIDIAN_DEFLECTION for seg in segments
+        )
+        moved = _nearest_free(free, start, 2 * nose) if exposed else None
+        return (moved, extent(moved)) if moved is not None else (start, extent(start))
 
     def _turn_fixture(self, solid):
         """Names of placed fixture solids a revolved tool meets; None while none are placed."""
@@ -3799,19 +4073,37 @@ class _Setup:
                 key = (round(point[0], 6), round(point[1], 6))
                 meridian.setdefault(key, (index, point, normal))
         samples = [meridian[key] for key in sorted(meridian)]
+        to_z = op.get("to_z")
+        sides = {1 if n[1] > 0 else -1 for _, _, n in samples if abs(n[1]) > REVOLVED_TOL}
+        if _number(to_z) and len(sides) == 1 and samples:
+            # A facing/parting op leaves its to_z plane: it is posed there, across the
+            # claims' radii (and down to to_dia/2 when it parts to a diameter).
+            side, faced = sides.pop(), {}
+            radii = [(index, point[0]) for index, point, _ in samples]
+            if _number(op.get("to_dia_mm")) and op["to_dia_mm"] >= 0:
+                radii.append((samples[0][0], op["to_dia_mm"] / 2))
+            for index, r in radii:
+                faced.setdefault(round(r, 6), (index, (r, float(to_z)), (0.0, float(side))))
+            samples = [faced[key] for key in sorted(faced)]
         facts["sample_count"] = len(samples)
         obstacle, obstacle_reason = self._turn_obstacle(op)
-        # Without this op's own removal only finished material is a certain obstacle.
+        # Without the post-op profile only finished material is a certain obstacle.
         part = obstacle if obstacle is not None else self.finished
+        try:
+            segments = _meridian_segments(part)
+        except Exception as exc:
+            segments = []
+            obstacle_reason = obstacle_reason or f"meridian section for tool poses failed ({exc})"
         part_box = _bbox(part)
         placed = self.fixture_ready
         outer = self._outer()
-        nose = tool["radius_mm"]
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
         reach, wall_hits = 0.0, 0
         for index, point, normal in samples:
-            section, pieces = self._turn_sections(tool, point, normal, not holder_missing)
+            # Without a section (its reason keeps the hits unknown) the pose is nominal.
+            centre, (low, high) = self._turn_pose(tool, point, normal, segments)
+            section, pieces = self._turn_sections(tool, centre, not holder_missing)
             solids = {"tool": _revolved(section)}
             if pieces is not None:
                 parts = [solid for solid in map(_revolved, pieces) if solid is not None]
@@ -3834,9 +4126,9 @@ class _Setup:
                     _boxes_overlap(_bbox(solid), box) for _, box in self.fixture_possible
                 ):
                     uncertain[kind] += 1
-            # Reach: material radius beside the nose (within its axial band) beyond the sample.
-            centre_z = point[1] + normal[1] * nose
-            band = _band(point[0], outer, centre_z - nose, centre_z + nose)
+            # Reach: material radius beside the nose/blade (within its axial extent) beyond
+            # the sample.
+            band = _band(point[0], outer, low, high)
             if band is not None:
                 common = band.common(self.part)
                 if common.Volume > HIT_MM3:
@@ -3951,6 +4243,73 @@ class _Setup:
             return
         facts["min_wall_mm"] = _r(min(runs))
         reasons.pop("min_wall_mm", None)
+
+    def _revolution_facts(self, facts):
+        """revolved: each declared feature's finished faces of revolution about setup Z.
+
+        ``z_mm`` is their axial extent and ``radii_mm`` the least/greatest distance from the
+        spindle axis: the greatest over boundary vertices and edges (a curved face of
+        revolution carries a meridian on its boundary, its seam or an angular limit; a planar
+        one its outer circle), the least by distance to the axis (a disk reaches it inside its
+        boundary). ``end_radii_mm`` is the greatest boundary radius at each axial end and
+        ``kinds`` the surface kinds. A feature whose references are unknown/unmapped, or with
+        any face that is not an external surface of revolution about setup Z through
+        x = y = 0, is omitted with its reason under ``revolved_reasons``. When none of its
+        faces is revolved about setup Z and one is a cylinder/cone/torus/surface of
+        revolution whose axis is not parallel to setup Z, ``revolved_off_axis`` also gives
+        that axis: the feature is turned (if at all) about another direction.
+        """
+        revolved, reasons, off_axis = {}, {}, {}
+        for name, indices in sorted(self.owner.features.items()):
+            if not isinstance(indices, list) or not indices:
+                reasons[name] = "face references are unknown or unmapped"
+                continue
+            problems, kinds, points, axes, away = [], set(), [], [], 0
+            for index in indices:
+                verdict, _, skipped = self._revolution(index)
+                label = self.owner.labels[index]
+                face = self.faces[index]
+                if verdict == "away":
+                    away += 1
+                    problems.append(f"{label} is not revolved about setup Z through x = y = 0")
+                    surface = face.Surface
+                    direction = getattr(surface, "Direction", None)
+                    if type(surface).__name__ in {"Cylinder", "Cone", "Toroid"}:
+                        direction = surface.Axis
+                    if direction is not None and abs(direction.dot(Z)) < PARALLEL:
+                        axes.append([_r(value) for value in direction])
+                elif verdict == "internal":
+                    problems.append(f"{label} is an internal (bored) surface")
+                elif skipped:
+                    problems.append(f"{label} has {skipped} undefined normal sample(s)")
+                kinds.add(type(face.Surface).__name__)
+                points.extend(vertex.Point for vertex in face.Vertexes)
+                for edge in face.Edges:
+                    if not edge.Degenerated and edge.Length >= 1e-7:
+                        points.extend(edge.discretize(Deflection=1e-4))
+            if problems:
+                extra = f" (+{len(problems) - 3} more)" if len(problems) > 3 else ""
+                reasons[name] = "; ".join(problems[:3]) + extra
+                if axes and away == len(indices):
+                    off_axis[name] = {"axis": axes[0]}
+                continue
+            meridian = [(math.hypot(point.x, point.y), point.z) for point in points]
+            low = min(z for _, z in meridian)
+            high = max(z for _, z in meridian)
+            axis = Part.makeLine(V(0, 0, low - 1), V(0, 0, high + 1))
+            least = min(self.faces[index].distToShape(axis)[0] for index in indices)
+            revolved[name] = {
+                "z_mm": [_r(low), _r(high)],
+                "radii_mm": [_r(least), _r(max(r for r, _ in meridian))],
+                "end_radii_mm": [
+                    _r(max(r for r, z in meridian if z - low <= PLANE_TOL)),
+                    _r(max(r for r, z in meridian if high - z <= PLANE_TOL)),
+                ],
+                "kinds": sorted(kinds),
+            }
+        facts["revolved"] = revolved
+        facts["revolved_reasons"] = reasons
+        facts["revolved_off_axis"] = off_axis
 
 
 def main(argv):

@@ -14,7 +14,7 @@ def test_deflection_retains_known_sources_in_incomplete_citation_lists():
     finding = turning_deflection.evaluate(bundle)[0]
 
     assert finding.status == "warn"
-    assert finding.numbers["deflection_mm"] > finding.numbers["diameter_tolerance_mm"]
+    assert finding.numbers["deflection_mm"] > finding.numbers["acceptance_threshold_mm"]
     assert ROW_CITE in finding.cite
     assert DIA_CITE in finding.cite
     assert "unknown" not in finding.cite

@@ -14,7 +14,12 @@ from pathlib import Path
 
 from prechips.measurements import angle_fact, length_fact, record_trusted
 from prechips.rules._envelope import measurement_item, tool_projection
-from prechips.rules.geometry_common import TURNING_HOLDER_KEYS, TURNING_TOOL_KEYS
+from prechips.rules.geometry_common import (
+    TURNING_BLADE_KEYS,
+    TURNING_BLADE_KINDS,
+    TURNING_HOLDER_KEYS,
+    TURNING_TOOL_KEYS,
+)
 from prechips.rules.resolution import (
     WORKHOLDING_CATEGORIES,
     inventory_category,
@@ -77,6 +82,11 @@ def _turning_values(bundle, op):
         "holder_body_width_mm": _accepted_length(holder, "body_width"),
         "holder_body_depth_mm": _accepted_length(holder, "body_depth"),
     }
+    if record(resolve(bundle, "tools", op.get("tool"))).get("kind") in TURNING_BLADE_KINDS:
+        # A two-cornered grooving/parting blade: both corners nose_radius, front edge
+        # blade_width wide (docs/rules-geometry.md "Approach models").
+        values["corners"] = 2
+        values["blade_width_mm"] = _accepted_length(tool, "blade_width")
     missing = [
         key
         for key, value in values.items()
@@ -181,6 +191,16 @@ def op_inputs(bundle, setup, op, finishing=None):
         for key in ("z_from", "z_to"):
             if key in op:
                 result[key] = op[key] * scale if number(op[key]) and scale else UNKNOWN
+        # Facing, parting and cutting to length sweep radially to an explicit to_dia (0:
+        # the axis; a part_off omitting it parts to the axis); a bore is never inferred
+        # from the finished part, so a later-drilled bore does not leave a core behind.
+        if op.get("do") in {"face", "rough_face", "finish_face", "part_off", "cut_to_fit"} and (
+            "to_dia" in op or op.get("do") == "part_off"
+        ):
+            to_dia = op.get("to_dia", 0.0)
+            result["to_dia_mm"] = (
+                to_dia * scale if number(to_dia) and to_dia >= 0 and scale else UNKNOWN
+            )
     for key, value in values.items():
         if key not in missing and number(value) and (value > 0 or key == "feed_z"):
             result[key] = value
@@ -681,8 +701,11 @@ _ENGINE_OP = (
     "approach",
     "z_from",
     "z_to",
+    "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
+    "corners",
+    *TURNING_BLADE_KEYS,
 )
 _ENGINE_HOLD = (
     "fixed_jaw",
