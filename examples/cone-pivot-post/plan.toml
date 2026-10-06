@@ -40,7 +40,7 @@ axis = [0.0, 1.0, 0.0]               # length along the post axis (model Y)
 section_axis = [1.0, 0.0, 0.0]       # 50.8 along model X; axis x section_axis = -Z carries the 76.2
 on_hand = false                      # inventory stock = []: known none on hand; no procurement claimed
 as_is_faces = []                     # every finished face is cut
-note = "AUTHOR'S CHOICE: the 76.2 side runs model Z -24..52.2 so the crank boss (Z to 50.66) and the -Z land (Z -21.38) sit inside the bar with 1.5 and 2.6 mm to clean up. Model Y86..137 is a sacrificial rectangular tail: the BS-0 four-jaw grips Y117..137, which keeps its 32 mm jaws clear of the holder while the crank boss wall (to Y83.9) is milled; S7 saws the tail off at Y87 and S8 faces the head top."
+note = "AUTHOR'S CHOICE: the 76.2 side runs model Z -24..52.2 so the crank boss (Z to 50.6591) and the -Z land (Z -21.3753) sit inside the bar with 1.5 and 2.6 mm to clean up. Model Y86..137 is a sacrificial rectangular tail: the BS-0 four-jaw grips Y117..137, which keeps its 32 mm jaws clear of the holder while the crank boss wall (to Y83.9) is milled; S7 saws the tail off at Y87 and S8 faces the head top."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67"]
 
 [dro]
@@ -69,21 +69,21 @@ note = "AUTHOR'S CHOICE: S1 bar upright in the vise, foot up; model (X,Y,Z) -> (
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33"]
 
 [frames.C0]
-origin = [0.0, 72.7, 50.66]
+origin = [0.0, 72.7, 50.6591]
 x = [0.0, -1.0, 0.0]
 y = [1.0, 0.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"          # X from the foot (B), Y on the head axis, Z on the faced crank +Z face
-note = "AUTHOR'S CHOICE: BS-0 index 0 deg, crank boss up; origin on the crank axis at the +Z boss face. Foot x = 72.7, head axis z = -50.66."
+note = "AUTHOR'S CHOICE: BS-0 index 0 deg, crank boss up; origin on the crank axis at the +Z boss face. Foot x = 72.7, head axis z = -50.6591."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
 
 [frames.C180]
-origin = [0.0, 72.7, -21.38]
+origin = [0.0, 72.7, -21.3753]
 x = [0.0, -1.0, 0.0]
 y = [-1.0, 0.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: BS-0 index 180 deg, crank -Z land up; origin on the crank axis at the land. Foot x = 72.7, head axis z = -21.38."
+note = "AUTHOR'S CHOICE: BS-0 index 180 deg, crank -Z land up; origin on the crank axis at the land. Foot x = 72.7, head axis z = -21.3753."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
 
 [frames.JN]
@@ -210,16 +210,16 @@ deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
 stock_in = "S1"
 
 [setups.stock_state]
-top_z = 1.54                 # raw bar face, model Z 52.2
-bottom_z = -74.66            # raw bar face, model Z -24
+top_z = 1.5409                # raw bar face, model Z 52.2
+bottom_z = -74.6591            # raw bar face, model Z -24
 
 [setups.stock_state.local_thickness]
-crank_bore = 74.66           # faced +Z boss face through the raw -Z bar face
+crank_bore = 74.6591          # faced +Z boss face through the raw -Z bar face
 
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
-pose = { origin_mm = [-44.3, 0.0, -50.66], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-44.3, 0.0, -50.6591], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0          # jaw 1 on the +Z bar face
 grip_mm = 20.0               # author's choice: model Y117..137 in the jaws
 support = "none"             # the foot end is free; the BS-0 tailstock would block the foot face
@@ -271,10 +271,10 @@ faces = ["#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02"]
 tool = "endmills-cone/1-2in-4fl"
 holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
-to_z = 0.0                   # crank +Z face, model Z 50.66
+to_z = 0.0                   # crank +Z face, model Z 50.6591
 doc_mm = 0.25
 direction = "conventional"
-stock_removal_bounds = { x = [-17.315, 17.315], y = [-17.315, 17.315], z = [0.0, 1.54] }   # boss r10.965 + cutter r6.35
+stock_removal_bounds = { x = [-17.315, 17.315], y = [-17.315, 17.315], z = [0.0, 1.5409] }   # boss r10.965 + cutter r6.35
 
 [[setups.ops]]
 op = 20
@@ -284,11 +284,11 @@ faces = ["#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02", "#313/ADVANCED_FACE[8]/HAF
 tool = "endmills-cone/1-2in-4fl"
 holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
-to_z = -29.2847              # head crest, model Z 21.3753
+to_z = -29.2838              # head crest, model Z 21.3753
 rough_allowance_mm = 0.3
 doc_mm = 1.5                 # author's choice: axial steps down the 29 mm boss wall, 1/2 in cutter at 3.8 D
 direction = "conventional"
-stock_removal_bounds = { x = [-25.0, 25.0], y = [-25.4, 25.4], z = [-29.2847, 1.54] }   # clear the bar above the head crest, model Y47.7..97.7, so the cutter walks round the boss in open air
+stock_removal_bounds = { x = [-25.0, 25.0], y = [-25.4, 25.4], z = [-29.2838, 1.5409] }   # clear the bar above the head crest, model Y47.7..97.7, so the cutter walks round the boss in open air
 
 [[setups.ops]]
 op = 30
@@ -298,10 +298,10 @@ faces = ["#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02", "#313/ADVANCED_FACE[8]/HAF
 tool = "endmills-cone/1-2in-4fl"
 holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
-to_z = -29.2847
+to_z = -29.2838
 doc_mm = 0.15
 direction = "climb"          # author's choice: light finishing pass
-stock_removal_bounds = { x = [-25.0, 25.0], y = [-25.4, 25.4], z = [-29.2847, 1.54] }
+stock_removal_bounds = { x = [-25.0, 25.0], y = [-25.4, 25.4], z = [-29.2838, 1.5409] }
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
@@ -350,15 +350,15 @@ deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
 stock_in = "S2"
 
 [setups.stock_state]
-top_z = 2.62                 # raw bar face, model Z -24
-bottom_z = -73.58            # faced crank +Z face
+top_z = 2.6247                # raw bar face, model Z -24
+bottom_z = -72.0344            # faced crank +Z face, model Z 50.6591
 
 [setups.stock_state.local_thickness]
 
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
-pose = { origin_mm = [-44.3, 0.0, -21.38], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-44.3, 0.0, -21.3753], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 180.0        # same chucking turned 180 deg: jaw 1 now on the bottom face
 grip_mm = 20.0
 support = "none"
@@ -407,10 +407,10 @@ faces = ["#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"]
 tool = "endmills-cone/3-8in-4fl-stub"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0
-to_z = 0.0                   # crank -Z land, model Z -21.38
+to_z = 0.0                   # crank -Z land, model Z -21.3753
 doc_mm = 0.25
 direction = "conventional"
-stock_removal_bounds = { x = [-15.7, 15.7], y = [-15.7, 15.7], z = [0.0, 2.62] }
+stock_removal_bounds = { x = [-15.7275, 15.7275], y = [-15.7275, 15.7275], z = [0.0, 2.6247] }
 
 [setups.ops.checks]
 length = "calipers"
@@ -424,10 +424,10 @@ faces = ["#356/ADVANCED_FACE[10]/HAF_CRANK_BOSS__P01", "#950/ADVANCED_FACE[28]/H
 tool = "endmills-cone/3-8in-4fl-stub"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0
-to_z = -3.03                 # land walls run down to model Z -18.35 at the head flanks
+to_z = -3.0267                # land walls run down to model Z -18.35 at the head flanks
 doc_mm = 0.75
 direction = "climb"
-stock_removal_bounds = { x = [-15.7, 15.7], y = [-15.7, 15.7], z = [-3.03, 0.0] }
+stock_removal_bounds = { x = [-15.7275, 15.7275], y = [-15.7275, 15.7275], z = [-3.0267, 0.0] }
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
