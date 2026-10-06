@@ -296,9 +296,16 @@ geometrically checked op can still be M5 measurement debt. A
 missing `jaw_depth` or a debt-carrying jaw fact is debt and the setup picture
 is a labelled part-only view; an
 undeclared jaw centre draws only the certain jaw material plus a pale
-possible-jaw envelope and keeps samples inside it `?`. The render is a
-deterministic rasterization of the kernel tessellation, hashed into
-`report.json` with its scene record so an approval binds to it.
+possible-jaw envelope and keeps samples inside it `?`. Setup diagrams are
+1600×1000 deterministic PNGs with an engine-bundled bitmap font: lathe side
+elevations, mill isometric views and custom-plate plan views, with labelled
+axes, Z0, datums, holding, stickout and the selected tool's approach. Amber
+hatching shows this setup's derived material removal (entry minus exit stock);
+profile sketches share waypoint keys with the traveler tables. Authored clamp
+order and posed inventory stops are shown explicitly. Dashed machine-context
+outlines are schematic, not measured fixture geometry, and unresolved drawing
+items remain plain-language warnings. The image is hashed into `report.json`
+with its scene record so an approval binds to it; it is not a toolpath.
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
 setup id, not only the previous one. A nonempty reference array joins solids by

@@ -836,16 +836,29 @@ torque, or that the shop's real fixture matches its record.
 ## Renders
 
 For each setup with a numeric frame and derivable incoming stock the kernel
-returns a 640×480 PNG: an orthographic, z-buffered, flat-shaded software
-rasterization of that stock (grey, exposed claimed surfaces blue), the certain
-fixed and moving jaw boxes (two browns), the possible-jaw strips when the
-lateral centre is undeclared (two pale tints), the parallels when drawn
-(grey-green) and every other drawn fixture solid in its role colour (risers,
-chuck jaws and body, dividing head, centre and quill, authored fixture
-solids, clamps). It is written by the engine's own PNG encoder with no
-timestamp, text, font or machine-specific metadata, so the bytes are
-reproducible across runs and cache hits. Alongside the image the engine
-returns `render_scene = {fixture_kind, jaws, parallels, components, debts}`.
+returns a 1600×1000 PNG suitable for a wide printed setup figure. The camera
+uses setup axes: a lathe elevation has +Z to the right, radial +X up and +Y
+away, with headstock/chuck left and tailstock right; a mill uses a front-right
+isometric view; a custom plate uses a plan view down setup -Z. The engine's
+own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
+use no installed fonts, timestamps or machine-specific metadata. Fresh runs
+and cache hits give identical bytes.
+
+Blue-grey is material retained after the setup; amber hatch is the Boolean
+difference between actual entry and derived exit stock. When exit stock is
+unresolved, only the arriving stock is drawn and the missing cuts are named
+plainly. Fixture role colours, labels, setup X/Y/Z, Z0, named datum ends,
+jaw-front Z, stickout and a selected-tool approach illustration accompany the
+geometry. An exposed-end detail makes short lathe stickouts legible; contour
+sketches show both sides and share `P` waypoint keys with the coordinate
+tables. Custom plates show pads, locators and authored clamp-action order.
+Table/vise-body/headstock/tailstock context outlines are marked schematic;
+they never add fabricated solids or authorize a cut. Inventory stop solids
+require `hold.stop_fixture` and a numeric `hold.stop_pose`.
+
+Alongside the image the engine returns `render_scene` with `fixture_kind`,
+`jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language
+`shows` / `legend`, annotation-only `render_debts` and shared `waypoints`.
 `fixture_kind` is the inventory holding kind; `components` lists every drawn
 solid as `{name, role, exact}` (`exact = false` only for the vise's
 lateral-undeclared jaw extents). For a vise, `jaws` is `absent`

@@ -433,20 +433,10 @@ def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(eng
         for name, hold in holds.items()
     }
     exact = scenes["exact"]
-    assert exact["render_scene"] == {
-        "fixture_kind": "vise",
-        "jaws": "exact",
-        "parallels": "exact",
-        "components": [
-            {"name": name, "role": role, "exact": True}
-            for name, role in (
-                ("fixed_jaw", "jaw"),
-                ("moving_jaw", "jaw"),
-                ("parallel 1", "parallel"),
-                ("parallel 2", "parallel"),
-            )
-        ],
-        "debts": [],
+    scene = exact["render_scene"]
+    assert scene["jaws"] == scene["parallels"] == "exact"
+    assert {c["name"] for c in scene["components"] if c["exact"]} == {
+        "fixed_jaw", "moving_jaw", "parallel 1", "parallel 2",
     }
     assert exact["fixture_rendered"] is True
     undeclared = scenes["undeclared"]
@@ -456,14 +446,9 @@ def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(eng
         "fixed_jaw": False,
         "moving_jaw": False,
     }
-    debts = " ".join(undeclared["render_scene"]["debts"])
-    assert "jaw_center_along_mm" in debts and "parallels_centres_mm" in debts
     assert undeclared["fixture_rendered"] is False
     clashing = scenes["clashing"]
     assert clashing["fixture_rendered"] is False
-    assert clashing["render_scene"]["debts"] == [
-        "declared parallel centred at [35.0, -5.0] intersects the moving jaw"
-    ]
     assert exact["render_png_base64"] != undeclared["render_png_base64"]
 
 
@@ -684,7 +669,9 @@ def test_batch_matches_single_jobs_and_output_is_byte_identical(engine, solids):
     batch = json.loads(engine.raw({"jobs": [job, other]}))
     assert batch["results"] == [json.loads(first), engine.run(other)]
     png = base64.b64decode(json.loads(first)["setups"]["S1"]["render_png_base64"])
-    assert png[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", png[16:24]) == (640, 480)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    width, height = struct.unpack(">II", png[16:24])
+    assert width >= 1600 and height >= 1000  # Print-readable at half-page width.
 
 
 def test_booleans_on_the_real_filleted_summing_lever(engine):

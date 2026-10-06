@@ -1,0 +1,738 @@
+"""Print-oriented setup diagrams from placed meshes and explicit shop-floor facts.
+
+All millimetre measurements come from ``spec``. Outlined machine/table context is
+screen-space symbolism, deliberately separate from the modelled fixture geometry.
+"""
+
+import math
+from collections import defaultdict
+from dataclasses import dataclass
+
+try:
+    from .render_png import RenderCanvas
+except ImportError:  # FreeCAD runs the kernel helpers as standalone modules.
+    from render_png import RenderCanvas
+
+
+_INK = (30, 35, 40)
+_MUTED = (85, 93, 100)
+_RULE = (183, 190, 195)
+_WHITE = (255, 255, 255)
+_BLUE = (35, 83, 147)
+_GREEN = (24, 91, 58)
+_AMBER = (172, 111, 16)
+_AMBER_LIGHT = (252, 235, 190)
+_FIXTURE = (120, 98, 76)
+_BODY_SCALE = 3
+_AXIS_COLOURS = ((160, 47, 43), (44, 104, 57), (42, 83, 158))
+_CAMERAS = {
+    "lathe": ((0, 0, 1), (1, 0, 0), (0, -1, 0)),
+    "plan": ((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+    "isometric": (
+        (1 / math.sqrt(2), 1 / math.sqrt(2), 0),
+        (-1 / math.sqrt(6), 1 / math.sqrt(6), 2 / math.sqrt(6)),
+        (1 / math.sqrt(3), -1 / math.sqrt(3), 1 / math.sqrt(3)),
+    ),
+}
+
+
+@dataclass
+class _Callout:
+    label: str
+    points: list
+    colour: tuple = _INK
+
+
+def _plain(value):
+    """Keep shop labels printable without exposing unsupported glyph placeholders."""
+    text = str(value).replace("_", " ")
+    for old, new in (("?", "not declared"), ("−", "-"), ("–", "-"), ("—", "-"),
+                     ("×", "x"), ("Ø", "DIA "), ("ø", "DIA "), ("°", " DEG"),
+                     ("→", " TO "), ("≤", " <= "), ("≥", " >= ")):
+        text = text.replace(old, new)
+    return " ".join(text.split())
+
+
+def _mm(value):
+    return f"{value:.3f}".rstrip("0").rstrip(".") or "0"
+
+
+def _corners(box):
+    if box is None:
+        return []
+    return [(x, y, z) for x in (box[0], box[3])
+            for y in (box[1], box[4]) for z in (box[2], box[5])]
+
+
+def _bounds(points):
+    return (min(p[0] for p in points), min(p[1] for p in points),
+            max(p[0] for p in points), max(p[1] for p in points))
+
+
+def _centre(box):
+    return tuple((box[i] + box[i + 3]) / 2 for i in range(3))
+
+
+def _role(component):
+    name = component.get("name", "").lower().replace(" ", "_")
+    role = component.get("role", "").lower().replace(" ", "_")
+    if name in ("fixed_jaw", "moving_jaw"):
+        return name
+    return role
+
+
+def _wrap(canvas, text, width, scale=2):
+    words = _plain(text).split()
+    lines, line = [], ""
+    for word in words:
+        if canvas.text_width(word, scale=scale) > width:
+            if line:
+                lines.append(line)
+                line = ""
+            chunk = ""
+            for character in word:
+                if chunk and canvas.text_width(chunk + character, scale=scale) > width:
+                    lines.append(chunk)
+                    chunk = ""
+                chunk += character
+            line = chunk
+        elif line and canvas.text_width(line + " " + word, scale=scale) > width:
+            lines.append(line)
+            line = word
+        else:
+            line = (line + " " + word).strip()
+    if line:
+        lines.append(line)
+    return lines or [""]
+
+
+def _text(canvas, x, y, text, colour=_INK, scale=_BODY_SCALE, align="left", backing=False):
+    text = _plain(text)
+    width = canvas.text_width(text, scale=scale)
+    if align == "centre":
+        x -= width / 2
+    elif align == "right":
+        x -= width
+    if backing:
+        canvas.rect(x - 4, y - 3, width + 8, 7 * scale + 6, _WHITE)
+    canvas.text(x, y, text, colour=colour, scale=scale)
+
+
+def _outline(canvas, points, colour=_MUTED, width=2, dashed=False):
+    for first, second in zip(points, points[1:] + points[:1]):
+        canvas.line(first, second, colour, width=width, dashed=dashed)
+
+
+def _badge(canvas, point, label, colour=_BLUE):
+    width = max(32, canvas.text_width(label, scale=3) + 12)
+    x, y = point[0] - width / 2, point[1] - 16
+    canvas.rect(x, y, width, 33, _WHITE)
+    _outline(canvas, [(x, y), (x + width, y), (x + width, y + 33), (x, y + 33)], colour)
+    _text(canvas, point[0], y + 5, label, colour, align="centre")
+
+
+def _dimension(canvas, first, second, label, colour=_INK):
+    """Opposed inward arrowheads; a very short projection still has a readable label."""
+    length = math.dist(first, second)
+    if length > 18:
+        middle = ((first[0] + second[0]) / 2, (first[1] + second[1]) / 2)
+        canvas.arrow(middle, first, colour, width=2)
+        canvas.arrow(middle, second, colour, width=2)
+    else:
+        canvas.line(first, second, colour, width=2)
+        for point in (first, second):
+            canvas.line((point[0], point[1] - 5), (point[0], point[1] + 5), colour, width=2)
+    _text(canvas, (first[0] + second[0]) / 2, (first[1] + second[1]) / 2 - 23,
+          label, colour, align="centre", backing=True)
+
+
+class _Diagram:
+    def __init__(self, meshes, spec):
+        self.spec = spec
+        self.view = spec["view"]
+        self.camera = _CAMERAS[self.view]
+        self.components = spec.get("components", [])
+        self.stock = spec.get("stock_box")
+        self.tool = spec.get("primary_tool")
+        self.is_vise = any(_role(c) in ("fixed_jaw", "moving_jaw", "jaw")
+                           for c in self.components)
+        self.is_chuck = self.view == "lathe" or any(_role(c).startswith("chuck")
+                                                   for c in self.components)
+        self.callouts = []
+        self.obstacles = []
+        self.position_badges = []
+        self.meshes = list(meshes)
+        points = _corners(self.stock)
+        if spec.get("zero_mm") is not None:
+            points.append(spec["zero_mm"])
+        for datum in spec.get("datums", []):
+            points.append(datum["point_mm"])
+        for component in self.components:
+            points.extend(_corners(component.get("box_mm")))
+            points.append(component["center_mm"])
+        if self.tool:
+            outlines = self.tool.get("outlines_mm") or [self.tool.get("outline_mm", [])]
+            points.extend(point for outline in outlines for point in outline)
+            points.extend(self.tool.get("approach_mm", []))
+            points.append(self.tool["tip_mm"])
+        self.meshes.append((points, [], _WHITE))
+        self.canvas = RenderCanvas([], self.camera, (0, 0, 1, 1), width=1, height=1)
+        # Keep the printable scene large. Verbose source legends must not turn
+        # into a second notes column and push the placed geometry off the page.
+        self.footer_top = 740
+        self.scene_bottom = 620
+        self.note_scale = 3
+        self.note_lines = self._notes()
+        if len(self.note_lines) > 7:
+            self.note_scale = 2
+            self.note_lines = self._notes()
+        self.legend_rows = self._legend()
+        self.canvas = RenderCanvas(self.meshes, self.camera,
+                                   (278, 225, 900, self.scene_bottom))
+        self.stock_pixels = [self.canvas.project(p) for p in _corners(self.stock)]
+
+    def _notes(self):
+        notes = [_plain(note) for note in self.spec.get("notes", [])]
+        if self.tool:
+            notes.append("Tool approach is illustrative, not a machining pose or simulated path.")
+            notes.append(f"Selected tool: {self.tool['label']} / op {self.tool.get('op', 'not declared')}")
+        if self.spec.get("zero_mm") is None:
+            notes.append("Z0: not declared")
+        if not self.spec.get("datums"):
+            notes.append("Datums: not declared")
+        if self.is_chuck:
+            if self.spec.get("jaw_front_z_mm") is None:
+                notes.append("Jaw-front Z: not declared")
+            if self.spec.get("stickout_mm") is None:
+                notes.append("Stickout: not declared")
+        return [line for note in notes for line in _wrap(self.canvas, note, 720, scale=self.note_scale)]
+
+    def _legend(self):
+        rows = []
+        kinds = set()
+        meanings = (
+            ("retained", "RETAINED AFTER SETUP", "stock"),
+            ("removed", "REMOVED THIS SETUP", "removal"),
+            ("holding", "WORKHOLDING", "fixture"),
+            ("tool", "TOOL / APPROACH", "tool"),
+            ("context", "CONTEXT SYMBOLS ONLY", "context"),
+        )
+        for supplied in self.spec.get("legend", []):
+            text = _plain(supplied)
+            match = next((m for m in meanings if m[0] in text.lower()), None)
+            if match:
+                _, label, kind = match
+                if kind not in kinds:
+                    rows.append((label, kind))
+                    kinds.add(kind)
+            else:
+                rows.extend((line, "text") for line in _wrap(self.canvas, text, 480, scale=3))
+        required = [("ARRIVING STOCK", "stock"), ("WORKHOLDING", "fixture")]
+        if any(len(mesh) > 3 and mesh[3] for mesh in self.meshes):
+            required.append(("REMOVED THIS SETUP", "removal"))
+        if self.tool:
+            required.append(("TOOL / APPROACH", "tool"))
+        required.append(("CONTEXT SYMBOLS ONLY", "context"))
+        for label, kind in required:
+            if kind not in kinds:
+                rows.append((label, kind))
+                kinds.add(kind)
+        if any("pad" in _plain(c.get("label") or c["name"]).lower() for c in self.components):
+            rows.append(("PAD BADGES: POSITIONS", "text"))
+        return rows
+
+    def render(self):
+        self._header()
+        self._context()
+        self._components()
+        self._origin_datums_tool()
+        self._measurements()
+        self._labels()
+        if self.position_badges:
+            self._waypoint_badges(self.position_badges, lambda p: p, (278, 205, 900, 593),
+                                  prefix="", colour=_FIXTURE)
+        self._insets()
+        self._footer()
+        return self.canvas.png()
+
+    def _header(self):
+        c = self.canvas
+        _text(c, 32, 27, f"SETUP {self.spec['setup_id']}  /  {self.view.upper()} VIEW", scale=4)
+        subtitles = {
+            "lathe": "SPINDLE Z TO RIGHT  /  RADIAL X UP  /  FULL ARRIVING STOCK",
+            "plan": "SETUP X TO RIGHT  /  Y UP  /  VIEW FROM +Z",
+            "isometric": "PLACED GEOMETRY IN THE SETUP FRAME",
+        }
+        _text(c, 34, 76, subtitles[self.view], _MUTED)
+        _text(c, 1565, 77, "DIMENSIONS IN mm", _MUTED, align="right")
+        c.line((32, 112), (1568, 112), _INK, width=2)
+        _text(c, 32, 138, "PLACED STOCK + WORKHOLDING", _INK, scale=2)
+        _text(c, 32, 166, "Machine context is symbolic, not modelled geometry.", _MUTED)
+
+    def _component_pixels(self, components):
+        return [self.canvas.project(p) for item in components
+                for p in (_corners(item.get("box_mm")) or [item["center_mm"]])]
+
+    def _context(self):
+        c = self.canvas
+        if self.view == "lathe":
+            chuck = [item for item in self.components if _role(item).startswith("chuck")]
+            if chuck:
+                left, top, _, bottom = _bounds(self._component_pixels(chuck))
+                x, y = left - 100, (top + bottom) / 2 - 55
+                _outline(c, [(x, y), (x + 94, y), (x + 94, y + 110), (x, y + 110)], dashed=True)
+                _outline(c, [(x - 8, y + 110), (x + 98, y + 110),
+                             (x + 98, y + 128), (x - 8, y + 128)], dashed=True)
+                self.obstacles.append((x - 10, y - 28, x + 100, y + 130))
+                _text(c, x + 47, y - 26, "HEADSTOCK", _MUTED, align="centre", backing=True)
+                _text(c, x + 47, y + 138, "SYMBOL ONLY", _MUTED, align="centre", backing=True)
+            centres = [item for item in self.components if _role(item) in ("centre", "center")]
+            if centres:
+                _, top, right, bottom = _bounds(self._component_pixels(centres))
+                x, y = right + 8, (top + bottom) / 2 - 44
+                _outline(c, [(x, y + 20), (x + 20, y), (x + 82, y),
+                             (x + 82, y + 88), (x, y + 88)], dashed=True)
+                _outline(c, [(x - 4, y + 88), (x + 88, y + 88),
+                             (x + 88, y + 106), (x - 4, y + 106)], dashed=True)
+                self.obstacles.append((x - 10, y - 28, x + 95, y + 130))
+                _text(c, x + 41, y - 26, "TAILSTOCK", _MUTED, align="centre", backing=True)
+                _text(c, x + 41, y + 116, "SYMBOL ONLY", _MUTED, align="centre", backing=True)
+        elif self.is_vise:
+            jaws = [item for item in self.components
+                    if _role(item) in ("fixed_jaw", "moving_jaw", "jaw")]
+            left, top, right, bottom = _bounds(self._component_pixels(jaws))
+            # Dashed screen-space frames provide context without inventing solids.
+            vise = [(left - 18, top - 18), (right + 18, top - 18),
+                    (right + 18, bottom + 24), (left - 18, bottom + 24)]
+            table = [(left - 45, top - 40), (right + 45, top - 40),
+                     (right + 45, bottom + 45), (left - 45, bottom + 45)]
+            _outline(c, table, dashed=True)
+            _outline(c, vise, dashed=True)
+            _text(c, (left + right) / 2, bottom + 54,
+                  "TABLE + VISE BODY: SYMBOLS ONLY", _MUTED, align="centre", backing=True)
+
+    def _components(self):
+        c = self.canvas
+        groups = defaultdict(list)
+        pads = []
+        order = self.spec.get("custom_clamp_order", [])
+        numbered = {}
+        role_groups = {"parallel": "PARALLELS", "riser": "RISERS",
+                       "chuck_jaw": "CHUCK JAWS", "centre": "CENTRE"}
+        for component in self.components:
+            role = _role(component)
+            label = _plain(component.get("label") or component["name"])
+            if role == "fixed_jaw":
+                label = "FIXED JAW" + (" / " + _plain(self.spec["fixed_jaw_label"])
+                                      if self.spec.get("fixed_jaw_label") else "")
+            elif role == "moving_jaw":
+                label = "MOVING JAW"
+            elif role in role_groups:
+                label = role_groups[role]
+            elif label.upper().startswith(("RAIL REST", "SHIM", "HOLD-DOWN", "HOLD DOWN")):
+                label = next(prefix for prefix in ("RAIL REST", "SHIM", "HOLD-DOWN", "HOLD DOWN")
+                             if label.upper().startswith(prefix)) + "S"
+            if "pad" in label.lower() and role in ("fixture", "support", "pad"):
+                pads.append(component)
+                continue
+            for index, declared in enumerate(order, 1):
+                if declared in (component.get("label"), component.get("name"),
+                                component.get("clamp_label")):
+                    code = f"C{index}"
+                    declared_label = _plain(declared)
+                    suffix = declared_label.split(":", 1)[1].strip() if ":" in declared_label else declared_label
+                    label = code if suffix.upper() == code else f"{code}: {suffix}"
+                    numbered[label] = code
+                    break
+            groups[label].append(component)
+        for label, components in groups.items():
+            points = [c.project(item["center_mm"]) for item in components]
+            self.callouts.append(_Callout(label.upper(), points, _FIXTURE))
+            if label in numbered:
+                for point in points:
+                    self.position_badges.append({"label": numbered[label], "xy": point})
+        if pads:
+            for index, component in enumerate(pads, 1):
+                point = c.project(component["center_mm"])
+                label = _plain(component.get("label") or component["name"]).upper()
+                code = label.removeprefix("PAD ").removeprefix("SUPPORT PAD ") or str(index)
+                if self.view == "plan" and component.get("box_mm"):
+                    left, top, right, bottom = _bounds(self._component_pixels([component]))
+                    _outline(c, [(left, top), (right, top), (right, bottom), (left, bottom)],
+                             _FIXTURE, width=2, dashed=True)
+                self.position_badges.append({"label": code, "xy": point})
+            self.callouts.append(_Callout("SUPPORT PADS",
+                                         [c.project(pads[0]["center_mm"])], _FIXTURE))
+        if self.stock_pixels:
+            left, top, right, _ = _bounds(self.stock_pixels)
+            self.callouts.append(_Callout("STOCK", [((left + right) / 2, top)], _INK))
+
+    def _origin_datums_tool(self):
+        c = self.canvas
+        if self.spec.get("zero_mm") is not None:
+            point = c.project(self.spec["zero_mm"])
+            c.circle(*point, 10, fill=_WHITE, outline=_BLUE)
+            c.line((point[0] - 15, point[1]), (point[0] + 15, point[1]), _BLUE, width=2)
+            c.line((point[0], point[1] - 15), (point[0], point[1] + 15), _BLUE, width=2)
+            self.callouts.append(_Callout("Z0", [point], _BLUE))
+        for datum in self.spec.get("datums", []):
+            point = c.project(datum["point_mm"])
+            c.circle(*point, 5, fill=_WHITE, outline=_INK)
+            c.circle(*point, 2, fill=_INK)
+            self.callouts.append(_Callout("DATUM " + _plain(datum["label"]).upper(), [point]))
+        if self.tool:
+            outlines = self.tool.get("outlines_mm") or [self.tool.get("outline_mm", [])]
+            for polygon in outlines:
+                outline = [c.project(point) for point in polygon]
+                if len(outline) >= 3:
+                    _outline(c, outline, _GREEN, width=3)
+                elif len(outline) == 2:
+                    c.line(*outline, _GREEN, width=3)
+            approach = self.tool.get("approach_mm", [])
+            if len(approach) == 2:
+                c.arrow(c.project(approach[0]), c.project(approach[1]), _GREEN, width=3)
+            point = c.project(self.tool["tip_mm"])
+            c.circle(*point, 4, fill=_GREEN)
+            self.callouts.append(_Callout("PRIMARY TOOL", [point], _GREEN))
+
+    def _measurements(self):
+        c = self.canvas
+        y = 674
+        if self.stock is None:
+            _text(c, 285, y, "STOCK EXTENTS: NOT DECLARED", _MUTED)
+            return
+        box = self.stock
+        sizes = [box[i + 3] - box[i] for i in range(3)]
+        _text(c, 32, self.footer_top - 36,
+              f"ACTUAL STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm")
+        axis = 2 if self.view == "lathe" else 0
+        first, second = list(_centre(box)), list(_centre(box))
+        first[axis], second[axis] = box[axis], box[axis + 3]
+        a, b = c.project(first), c.project(second)
+        c.line(a, (a[0], y), _MUTED, width=2, dashed=True)
+        c.line(b, (b[0], y), _MUTED, width=2, dashed=True)
+        _dimension(c, (a[0], y), (b[0], y),
+                   f"STOCK {'XYZ'[axis]} {_mm(sizes[axis])} mm")
+        jaw = self.spec.get("jaw_front_z_mm")
+        if jaw is not None:
+            plane = [(box[0], box[1], jaw), (box[3], box[1], jaw),
+                     (box[3], box[4], jaw), (box[0], box[4], jaw)]
+            pixels = [c.project(p) for p in plane]
+            if self.view == "lathe":
+                x = pixels[0][0]
+                _, top, _, bottom = _bounds(self.stock_pixels)
+                c.line((x, top - 24), (x, bottom + 24), _BLUE, width=2, dashed=True)
+                anchor = (x, top - 24)
+            else:
+                _outline(c, pixels, _BLUE, width=2, dashed=True)
+                anchor = pixels[0]
+            self.callouts.append(_Callout(f"JAW FRONT Z {_mm(jaw)} mm", [anchor], _BLUE))
+        stickout = self.spec.get("stickout_mm")
+        if stickout is not None:
+            if jaw is not None and self.view == "lathe":
+                # The declared distance is shown from the declared jaw front,
+                # not reverse-engineered from a guessed fixture contact point.
+                start = (_centre(box)[0], _centre(box)[1], jaw)
+                end = (start[0], start[1], box[5])
+                a, b = c.project(start), c.project(end)
+                dim_y = 622
+                c.line(a, (a[0], dim_y), _BLUE, width=2, dashed=True)
+                c.line(b, (b[0], dim_y), _BLUE, width=2, dashed=True)
+                _dimension(c, (a[0], dim_y), (b[0], dim_y),
+                           f"STICKOUT {_mm(stickout)} mm", _BLUE)
+            else:
+                _text(c, 1126, self.footer_top - 36,
+                      f"STICKOUT {_mm(stickout)} mm", _BLUE, align="right")
+
+    def _labels(self):
+        c = self.canvas
+        lanes = [[], []]
+        for callout in self.callouts:
+            side = 0 if callout.points[0][0] < 590 else 1
+            lanes[side].append(callout)
+        while abs(len(lanes[0]) - len(lanes[1])) > 2:
+            source = 0 if len(lanes[0]) > len(lanes[1]) else 1
+            moved = min(lanes[source], key=lambda item: abs(item.points[0][0] - 590))
+            lanes[source].remove(moved)
+            lanes[1 - source].append(moved)
+        for side, callouts in enumerate(lanes):
+            callouts.sort(key=lambda item: item.points[0][1])
+            x, width, edge = (32, 214, 249) if side == 0 else (928, 214, 916)
+            obstacles = sorted((b for b in self.obstacles if x < b[2] and x + width > b[0]),
+                               key=lambda b: b[1])
+            scale = 3
+            labels = [_wrap(c, item.label, width, scale=scale) for item in callouts]
+
+            def pack(gap):
+                rows, row_y = [], 202
+                for lines in labels:
+                    height = len(lines) * (9 * scale) + 8
+                    for _, top, _, bottom in obstacles:
+                        if row_y < bottom and row_y + height > top:
+                            row_y = bottom + 10
+                    rows.append(row_y)
+                    row_y += height + gap
+                return rows, row_y - gap
+
+            # Dense fixture keys use the smaller body face only when necessary;
+            # no label may spill into dimensions, a context symbol or the footer.
+            if pack(5)[1] > self.footer_top - 64:
+                scale = 2
+                labels = [_wrap(c, item.label, width, scale=scale) for item in callouts]
+            lo, hi = 5.0, 60.0
+            for _ in range(12):
+                gap = (lo + hi) / 2
+                if pack(gap)[1] <= self.footer_top - 64:
+                    lo = gap
+                else:
+                    hi = gap
+            rows, _ = pack(lo)
+            for item, lines, row_y in zip(callouts, labels, rows):
+                target_y = row_y + (len(lines) * 9 * scale - 3 * scale) / 2
+                for point in item.points:
+                    elbow = (edge + (14 if side == 0 else -14), point[1])
+                    c.line(point, elbow, item.colour, width=2)
+                    c.line(elbow, (edge, target_y), item.colour, width=2)
+                    c.circle(*point, 3, fill=item.colour)
+                for index, line in enumerate(lines):
+                    _text(c, x, row_y + index * 9 * scale, line, item.colour,
+                          scale=scale, backing=True)
+
+    def _insets(self):
+        c = self.canvas
+        left, right = 1174, 1568
+        c.line((1157, 134), (1157, self.footer_top - 17), _RULE, width=2)
+        profiles = self.spec.get("lathe_profiles", []) if self.view == "lathe" else []
+        if profiles or (self.view == "lathe" and self.spec.get("axial_paths")):
+            top = self._lathe_detail(left, right, profiles) + 24
+            if not self.spec.get("paths") and not any("xy" in p for p in self.spec.get("waypoints", [])):
+                _text(c, left, top, "NO PATH SIMULATION", _MUTED)
+            else:
+                self._path_inset(left, right, top, self.footer_top - 70)
+        else:
+            self._path_inset(left, right, 142, self.footer_top - 70)
+        if self.spec.get("preload") == "counterclockwise":
+            center = (left + 17, self.footer_top - 37)
+            arc = [(center[0] + 13 * math.cos(a), center[1] - 13 * math.sin(a))
+                   for a in (i * math.pi / 12 for i in range(2, 23))]
+            for a, b in zip(arc, arc[1:]):
+                c.line(a, b, _FIXTURE, width=2)
+            c.arrow(arc[-2], arc[-1], _FIXTURE, width=2)
+            _text(c, left + 42, center[1] - 10, "CCW PRELOAD / +Z", _FIXTURE, scale=3)
+
+    def _lathe_detail(self, left, right, profiles):
+        c = self.canvas
+        _text(c, left, 140, "DETAIL: EXPOSED END")
+        _text(c, left, 169, "Z RIGHT / RADIAL UP", _MUTED)
+        axial = self.spec.get("axial_paths", [])
+        display = {str(path["op"]): path.get("x_display", "radius") for path in axial}
+
+        def radial(point, convention):
+            return (point[0] / 2 if convention == "diameter" else point[0], point[1])
+
+        paths = [(path, [radial(p, path.get("x_display", "radius")) for p in path["xz"]])
+                 for path in axial]
+        waypoints = [{"label": p["label"], "xy": radial(p["xz"],
+                      p.get("x_display", display.get(str(p.get("op")), "radius")))}
+                     for p in self.spec.get("waypoints", []) if "xz" in p]
+        points = [p for profile in profiles for line in profile["lines"] for p in line]
+        points.extend(p for _, path in paths for p in path)
+        points.extend(p["xy"] for p in waypoints)
+        if not points:
+            _text(c, left, 208, "Profile not declared", _MUTED)
+            return 239
+        # Profile points are [radius, setup Z]; preserve equal scale in both axes.
+        rmin, rmax = min(p[0] for p in points), max(p[0] for p in points)
+        zmin, zmax = min(p[1] for p in points), max(p[1] for p in points)
+        scale = min((right - left - 134) / max(zmax - zmin, 1e-9),
+                    234 / max(rmax - rmin, 1e-9))
+        cx, cy = (left + right) / 2, 355
+
+        def project(point):
+            return (cx + (point[1] - (zmin + zmax) / 2) * scale,
+                    cy - (point[0] - (rmin + rmax) / 2) * scale)
+
+        closed = [(profile, line) for profile in profiles for line in profile["lines"]
+                  if len(line) >= 4 and line[0] == line[-1]]
+        for profile, line in closed:
+            if profile["label"] == "arriving stock":
+                c.polygon([project(p) for p in line], _AMBER_LIGHT)
+        for profile, line in closed:
+            if profile["label"] == "after this setup":
+                c.polygon([project(p) for p in line], _WHITE)
+        if rmin <= 0 <= rmax:
+            c.line(project((0, zmin)), project((0, zmax)), _RULE, width=2, dashed=True)
+        row = 510
+        for profile in profiles:
+            colour = tuple(profile.get("colour", _INK))
+            for line in profile["lines"]:
+                for a, b in zip(line, line[1:]):
+                    c.line(project(a), project(b), colour, width=3,
+                           dashed=profile["label"] == "arriving stock")
+            c.line((left, row + 10), (left + 25, row + 10), colour, width=3,
+                   dashed=profile["label"] == "arriving stock")
+            for line in _wrap(c, profile["label"].upper(), right - left - 34, scale=3):
+                _text(c, left + 34, row, line, colour)
+                row += 30
+        for path, points in paths:
+            self._ordered_path([project(p) for p in points], _GREEN)
+            for line in _wrap(c, f"OP {path['op']} TABLE PATH", right - left - 34, scale=3):
+                c.line((left, row + 10), (left + 25, row + 10), _GREEN, width=3)
+                _text(c, left + 34, row, line, _GREEN)
+                row += 30
+        self._waypoint_badges(waypoints, project, (left, 205, right, 493))
+        if paths:
+            _text(c, left, row, "ARROWS: TABLE ORDER", _MUTED)
+            row += 30
+        if closed:
+            _text(c, left, row, "TINT: PROFILE DIFFERENCE", _AMBER, scale=2)
+            row += 24
+        return row
+
+    def _path_inset(self, left, right, top, bottom):
+        c = self.canvas
+        _text(c, left, top, "PROFILE SKETCH / XY")
+        _text(c, left, top + 30, "NO PATH SIMULATION", _MUTED)
+        paths = self.spec.get("paths", [])
+        waypoints = [p for p in self.spec.get("waypoints", []) if "xy" in p]
+        points = [point for path in paths for point in path["xy"]]
+        points.extend(item["xy"] for item in waypoints)
+        if not points:
+            _text(c, left, top + 69, "Paths not declared.", _MUTED)
+            return
+        xmin, ymin, xmax, ymax = _bounds(points)
+        ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
+        key_lines = [(op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)]
+        plot_top, plot_bottom = top + 82, bottom - 40 - 30 * len(key_lines)
+        scale = min((right - left - 74) / max(xmax - xmin, 1e-9),
+                    max(50, plot_bottom - plot_top - 28) / max(ymax - ymin, 1e-9))
+        cx, cy = (left + right) / 2, (plot_top + plot_bottom) / 2
+
+        def project(point):
+            return (cx + (point[0] - (xmin + xmax) / 2) * scale,
+                    cy - (point[1] - (ymin + ymax) / 2) * scale)
+
+        palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
+        colours = {op: palette[index % len(palette)] for index, op in enumerate(ops)}
+        for path in paths:
+            colour = colours[_plain(path.get("op", ""))]
+            self._ordered_path([project(point) for point in path["xy"]], colour)
+        self._waypoint_badges(waypoints, project, (left, plot_top, right, plot_bottom))
+        row = plot_bottom + 18
+        for op, line in key_lines:
+            c.line((left, row + 10), (left + 23, row + 10), colours[op], width=3)
+            _text(c, left + 32, row, line, colours[op])
+            row += 30
+        _text(c, left, bottom - 1, "ARROWS: POINT ORDER", _MUTED)
+
+    def _ordered_path(self, pixels, colour):
+        c = self.canvas
+        segments = [(a, b) for a, b in zip(pixels, pixels[1:]) if math.dist(a, b) >= 1]
+        for a, b in segments:
+            c.line(a, b, colour, width=3)
+        if segments:
+            for index in sorted({0, len(segments) // 2, len(segments) - 1}):
+                a, b = segments[index]
+                if math.dist(a, b) >= 14:
+                    tail = (a[0] * .6 + b[0] * .4, a[1] * .6 + b[1] * .4)
+                    tip = (a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75)
+                    c.arrow(tail, tip, colour, width=3)
+
+    def _waypoint_badges(self, waypoints, project, plot, prefix="P", colour=_BLUE):
+        c = self.canvas
+        left, top, right, bottom = plot
+        occupied = []
+        for item in waypoints:
+            point = project(item["xy"])
+            label = _plain(item["label"])
+            if prefix and not label.upper().startswith(prefix):
+                label = prefix + label
+            width = max(32, c.text_width(label, scale=3) + 12)
+            candidates = [(point[0] + dx, point[1] + dy)
+                          for dx, dy in ((0, -29), (0, 30), (width / 2 + 8, 0),
+                                         (-width / 2 - 8, 0), (0, -65), (0, 66))]
+            candidates.extend((x, y) for y in range(int(top + 17), int(bottom - 16), 43)
+                              for x in range(int(left + width / 2 + 3),
+                                             int(right - width / 2 - 2), int(width + 10)))
+            badge = None
+            for candidate in candidates:
+                box = (candidate[0] - width / 2, candidate[1] - 16,
+                       candidate[0] + width / 2, candidate[1] + 17)
+                if box[0] < left or box[2] > right or box[1] < top or box[3] > bottom:
+                    continue
+                if not any(box[0] < b[2] + 5 and box[2] > b[0] - 5
+                           and box[1] < b[3] + 5 and box[3] > b[1] - 5 for b in occupied):
+                    badge = candidate
+                    break
+            if badge is None:
+                raise ValueError("Position badge identities exceed the reserved diagram lanes")
+            c.line(point, badge, colour, width=2)
+            c.circle(*point, 4, fill=colour)
+            _badge(c, badge, label, colour)
+            occupied.append((badge[0] - width / 2, badge[1] - 16,
+                             badge[0] + width / 2, badge[1] + 17))
+
+    def _footer(self):
+        c = self.canvas
+        c.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
+        self._triad(112, self.footer_top + 125)
+        _text(c, 273, self.footer_top + 23, "KEY")
+        for index, (label, kind) in enumerate(self.legend_rows):
+            y = self.footer_top + 57 + index * 30
+            if kind == "stock":
+                c.rect(274, y + 2, 27, 18, (160, 174, 184), outline=_INK)
+            elif kind == "fixture":
+                c.rect(274, y + 2, 27, 18, _FIXTURE, outline=_INK)
+            elif kind == "removal":
+                c.rect(274, y + 2, 27, 18, _AMBER_LIGHT, outline=_AMBER)
+                for dx in (0, 7, 14, 21):
+                    c.line((276 + dx, y + 17), (282 + dx, y + 6), _AMBER, width=2)
+            elif kind == "tool":
+                c.arrow((274, y + 10), (301, y + 10), _GREEN, width=3)
+            elif kind == "context":
+                c.line((274, y + 10), (301, y + 10), _MUTED, width=2, dashed=True)
+            _text(c, 318, y, label, _MUTED if kind == "text" else _INK, scale=3)
+        _text(c, 840, self.footer_top + 23, "SETUP NOTES")
+        for index, line in enumerate(self.note_lines):
+            _text(c, 840, self.footer_top + 57 + index * 9 * self.note_scale, line, _MUTED,
+                  scale=self.note_scale)
+
+    def _triad(self, x, y):
+        c = self.canvas
+        _text(c, 32, self.footer_top + 23, "SETUP AXES")
+        right, up, toward = self.camera
+        normal_axis = None
+        for index, label in enumerate("XYZ"):
+            dx, dy = right[index] * 61, -up[index] * 61
+            colour = _AXIS_COLOURS[index]
+            if math.hypot(dx, dy) < 1e-9:
+                normal_axis = index
+                c.circle(x, y, 8, fill=_WHITE, outline=colour)
+                if toward[index] > 0:
+                    c.circle(x, y, 3, fill=colour)
+                else:
+                    c.line((x - 5, y - 5), (x + 5, y + 5), colour, width=2)
+                    c.line((x - 5, y + 5), (x + 5, y - 5), colour, width=2)
+                _text(c, x - 29, y + 17, label, colour)
+            else:
+                end = (x + dx, y + dy)
+                c.arrow((x, y), end, colour, width=3)
+                _text(c, end[0] + (7 if dx >= 0 else -17),
+                      end[1] + (4 if dy >= 0 else -17), label, colour)
+        if normal_axis is not None:
+            direction = "TOWARD" if toward[normal_axis] > 0 else "AWAY"
+            _text(c, 32, self.footer_top + 190, f"{'XYZ'[normal_axis]} {direction}", _MUTED, scale=2)
+        else:
+            c.circle(37, self.footer_top + 197, 6, fill=_WHITE, outline=_MUTED)
+            c.circle(37, self.footer_top + 197, 2, fill=_MUTED)
+            _text(c, 49, self.footer_top + 190, "VIEW NORMAL", _MUTED, scale=2)
+
+
+def render_diagram(meshes, spec):
+    """Return a 1600 x 1000 setup PNG without inventing physical dimensions.
+
+    ``meshes`` contain numeric setup-frame XYZ triples, triangle index triples,
+    RGB and optionally a removal-hatch flag. ``spec`` is the kernel's plain JSON
+    diagram record; optional ``lathe_profiles`` contain exact [radius, Z] lines.
+    """
+    return _Diagram(meshes, spec).render()

@@ -78,11 +78,32 @@ prior `traveler.html` so no old sheet accompanies the new report. It does not
 create PNGs or a sheet. Replacement and removal share the report transaction;
 a refusal restores every prior output, even if a stale target has already
 disappeared. No stale fixture image survives a successful run.
-The render is a deterministic software rasterization of the kernel's
-tessellation, so a cache hit and a fresh FreeCAD run give identical bytes; it
-is a view of setup-entry stock plus only fixture solids built from explicit
-inventory dimensions and declared pose, never a toolpath or CAM simulation.
-Unknown incoming stock produces no figure. See [geometry rules](rules-geometry.md#renders).
+The render is a 1600×1000 deterministic software drawing of kernel geometry,
+with an engine-bundled bitmap font and the engine's own PNG encoder. No host
+font, clock, image service or machine-specific metadata participates in the
+bytes. Lathe views put the headstock/chuck on the left, the tailstock on the
+right and setup +Z along the spindle to the right; mills use setup-frame
+isometric views, and custom plates use a plan view. Labels identify the setup
+axes, Z0, named datums, jaws, supports and selected cutter approach. The amber
+hatch is **entry stock minus this setup's derived exit stock**, not a finished
+part substituted for arriving material or a simulated toolpath. If the exit
+stock or a cutter cannot be established, a plain `render_debts` sentence says
+what is not shown; that display debt never changes a rule verdict.
+
+`scene` additionally records `view`, `width_px`, `height_px`, plain-language
+`shows` / `legend`, `render_debts`, `primary_op`, and sparse `waypoints`.
+Mill keys are `{label, op, xy}` in setup mm; axial lathe keys use `xz`, whose
+X is the declared radius/diameter DRO target and whose Z is the table station.
+The same `P1`, `P2`, … keys annotate the profile inset and traveler coordinate
+rows. Both mirrored sides remain explicit. Numbered custom-clamp badges
+follow authored `hold.clamp_order`, not an order inferred from prose.
+
+Exact posed fixture solids remain the only basis for `fixture = "modeled"`.
+Dashed table, vise-body and machine-context outlines are clearly marked
+schematic and do not enter geometry checks. A stop is drawn from a selected
+inventory fixture and declared `stop_pose`, never guessed from a holding note.
+Unknown incoming stock produces no figure. See
+[geometry rules](rules-geometry.md#renders).
 
 
 ## Eligibility and approval
