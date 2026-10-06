@@ -26,6 +26,7 @@ from .resolution import (
     UNKNOWN,
     _citations,
     length_mm,
+    manifest_mm,
     number,
     resolve,
     uncertain,
@@ -84,14 +85,17 @@ AXIAL_FACING = {"face", "rough_face", "finish_face", "cut_to_fit", "part_off"}
 def _diameter(bundle, setup, op, tool, lathe):
     if not lathe:
         return length_mm(tool, "dia")
-    feature = bundle.features["features"].get(op.get("feature"), {})
-    diameter = feature.get("dia_nominal", UNKNOWN)
+    feature = bundle.feature_definitions.get(op.get("feature"), {})
+    # Feature lengths are manifest units; convert once here, before mm allowance arithmetic.
+    diameter = manifest_mm(bundle, feature.get("dia_nominal", UNKNOWN))
     if not number(diameter) and feature.get("kind") == "dome":
         # Widest (base) diameter: declared base_radius, else the declared sphere radius and
-        # height, else the kernel's faces of revolution (feature_span).
+        # height, else the kernel's faces of revolution (feature_span, already in mm).
         diameter = feature_span(bundle, setup, op.get("feature"))["base_diameter_mm"]
-    elif not number(diameter) and number(feature.get("base_radius")):
-        diameter = 2 * feature["base_radius"]
+    elif not number(diameter):
+        radius = manifest_mm(bundle, feature.get("base_radius", UNKNOWN))
+        if number(radius):
+            diameter = 2 * radius
     if not number(diameter) and op.get("do") in AXIAL_FACING:
         diameter = mapping(setup.get("stock_state")).get("od_mm", UNKNOWN)
     if op.get("do") == "rough_turn":

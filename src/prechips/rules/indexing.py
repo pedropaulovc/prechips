@@ -170,9 +170,12 @@ def evaluate(bundle):
         feature = None
         selector_unknown = declaration.get("feature") == UNKNOWN
         if feature_name != UNKNOWN:
-            feature = bundle.features["features"].get(feature_name)
+            feature = bundle.feature_definitions.get(feature_name)
             if feature is None:
-                invalid.append(f"{source}.feature {feature_name!r} is not in the manifest")
+                invalid.append(
+                    f"{source}.feature {feature_name!r} is not in the manifest or "
+                    "plan.joint_features"
+                )
         if selector_unknown:
             tolerance = None
             tolerance_source = UNKNOWN

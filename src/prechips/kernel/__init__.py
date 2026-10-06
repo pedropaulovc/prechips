@@ -120,6 +120,7 @@ def _turning_values(bundle, op):
 
 
 def op_inputs(bundle, setup, op, finishing=None, complete=None):
+    from prechips.joint_features import joint_operation
     from prechips.rules.geometry_common import (
         TURNING,
         approach,
@@ -166,6 +167,9 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None):
         "do": op.get("do", UNKNOWN),
         "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
     }
+    joint_cut = joint_operation(bundle, op, result["finishing"])
+    if joint_cut is not None:
+        result["joint_cut"] = joint_cut
     if "faces" in op:
         result["faces"] = op["faces"]
     if turned:
@@ -181,16 +185,22 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None):
         result["rough_allowance_mm"] = (
             allowance if number(allowance) and allowance >= 0 else UNKNOWN
         )
-    feature = record(bundle.features.get("features", {}).get(op.get("feature")))
-    if op.get("do") in HOLE_OPS and feature.get("kind") in {
-        "hole",
-        "counterbore",
-        "thread",
-        "threaded_hole",
-    }:
+    feature = record(bundle.feature_definitions.get(op.get("feature")))
+    # Joint cuts use transient geometry, never the ordinary finished-face bore path.
+    if (
+        joint_cut is None
+        and op.get("do") in HOLE_OPS
+        and feature.get("kind")
+        in {
+            "hole",
+            "counterbore",
+            "thread",
+            "threaded_hole",
+        }
+    ):
         # stock_state entry/top heights are machine-frame mm, never scaled by feature units.
         entry = UNKNOWN
-        for stock_op, before, _ in stock_states(setup, bundle.features.get("features")):
+        for stock_op, before, _ in stock_states(setup, bundle.feature_definitions):
             if stock_op is op or stock_op.get("op") == op["op"]:
                 entry = before["entry_z"].get(op.get("feature"), before["top_z"])
                 break
@@ -733,6 +743,7 @@ def hold_inputs(bundle, setup):
 
 
 def build_job(bundle):
+    from prechips.joint_features import primitives_mm, setup_joint
     from prechips.rules.coordinates import evaluate as coordinate_findings
     from prechips.rules.geometry_common import (
         complete_form_subjects,
@@ -767,6 +778,7 @@ def build_job(bundle):
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
                 "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
+                "joint": setup_joint(bundle, setup),
                 # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
                 "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
                     "kind", UNKNOWN
@@ -783,6 +795,7 @@ def build_job(bundle):
             name: feature.get("faces", UNKNOWN)
             for name, feature in bundle.features["features"].items()
         },
+        "joint_features": primitives_mm(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
         "stock": stock_inputs(bundle),
         "setups": setups,
@@ -856,6 +869,7 @@ _ENGINE_OP = (
     "kerf_mm",
     "feature",
     "faces",
+    "joint_cut",
     "hole",
     "radius_mm",
     "flute_len_mm",
@@ -960,6 +974,7 @@ def engine_job(job):
         "step_path": job["step_path"],
         "step_sha256": job["step_sha256"],
         "features": job["features"],
+        "joint_features": job.get("joint_features", {}),
         "as_is_faces": job["as_is_faces"],
         "stock": job["stock"],
         "setups": [
@@ -969,6 +984,7 @@ def engine_job(job):
                 "hold": _engine_hold(setup["hold"]),
                 "ops": [{key: op[key] for key in _ENGINE_OP if key in op} for op in setup["ops"]],
                 "stock_in": setup["stock_in"],
+                "joint": setup.get("joint"),
                 "machine_kind": setup["machine_kind"],
                 "render": setup.get("render", {}),
             }
@@ -1074,11 +1090,7 @@ def _write_cache(path, result):
 
 def _timing_attributes(timing, source):
     prefix = "kernel.original_" if source == "cache" else "kernel."
-    return {
-        prefix + name: timing[name]
-        for name in ("wall_ms", "cpu_ms")
-        if name in timing
-    }
+    return {prefix + name: timing[name] for name in ("wall_ms", "cpu_ms") if name in timing}
 
 
 def _export_timing(active, result, source):
