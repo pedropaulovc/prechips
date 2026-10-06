@@ -147,11 +147,25 @@ Reference = record(
         "ops": list[int],
     },
 )
-Index = record("Index", {"fixture": str, "feature": str, "angle_deg": Number, "positions": int})
+# ``rotation = "continuous"``: a dividing head turned freely by its rotary ops, no plate.
+Index = record(
+    "Index",
+    {
+        "fixture": str,
+        "feature": str,
+        "angle_deg": Number,
+        "positions": int,
+        "rotation": Literal["continuous"],
+    },
+)
 type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
 # A fixture-local frame placed in the setup frame (mm): origin plus unit x and z axes.
 Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
-ClampPlacement = record("ClampPlacement", {**texts("ref note"), "pose": Pose})
+# ``restraint``: press holds stock down onto the fixture; locate only positions it.
+ClampPlacement = record(
+    "ClampPlacement",
+    {**texts("ref note"), "pose": Pose, "restraint": Literal["press", "locate", "none"]},
+)
 type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
 Hold = record(
     "Hold",
@@ -254,6 +268,10 @@ Operation = record(
         "contour": Contour,
         # Setup-frame volume (plan units) the op clears down to the finished part.
         "stock_removal_bounds": Bounds,
+        # Mill op on a horizontal dividing head: each face sample turned under the spindle;
+        # z_from/z_to are then head-axis positions and angle_window_deg its rotation span.
+        "approach": Literal["rotary"],
+        "angle_window_deg": Annotated[list[Number], Field(min_length=2, max_length=2)],
         # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
         "cut_plane": SawPlane,
     },
@@ -812,6 +830,16 @@ MachineEnvelope = record(
         ),
     },
 )
+
+
+class SpindleRotation(InputModel):
+    """A labelled spindle rotation: only its own measured/verify qualify it."""
+
+    value: Literal["cw", "ccw"]
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+
 Spindle = record(
     "Spindle",
     {
@@ -819,6 +847,8 @@ Spindle = record(
         **numbers("rpm_min rpm_max hp bore_in runout_in"),
         "two_ranges": bool,
         "ranges_rpm": list[list[Number]],
+        # Cutting rotation viewed from above, looking down setup -Z (a right-hand cutter: cw).
+        "rotation": Literal["cw", "ccw"] | SpindleRotation | Unknown,
     },
 )
 # Tool projection belongs to one (tool, holder) pair: full holder reference -> fact.

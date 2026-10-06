@@ -206,7 +206,7 @@ def test_exported_nominal_contradiction_survives_unknown_applicability(tmp_path)
 
 def test_west_mount_station_sign_error_is_a_nominal_band_contradiction():
     """The pre-correction export sign (-12.98 against a +12.47..13.49 station band) is an error."""
-    bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "plan.toml")
+    bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
     west = bundle.features["features"]["mount_west"]
     west["station"] = [12.47, 13.49]
     west["station_nominal"] = -12.98
@@ -229,3 +229,21 @@ def test_reference_length_does_not_contradict_a_different_exported_requirement(t
     bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]", gauge="caliper")
     bundle.features["features"]["cone"]["length_ref"] = 99.0
     assert inspection_finding(bundle, "length").status == "pass"
+
+
+@pytest.mark.parametrize("key", ["height_above_pivot", "height", "separation"])
+@pytest.mark.parametrize(
+    ("band", "status"), [("[5.0, 5.25]", "pass"), ("[5.0, 5.09]", "error"), ('"unknown"', "unknown")]
+)
+def test_height_from_tolerance_is_the_declared_height_band(tmp_path, key, band, status):
+    bundle = angularity_bundle(tmp_path, requirement=key, band=band, datums="[]")
+    bundle.features["features"]["cone"]["height_from"] = "base"
+    row = datum_finding(bundle)
+    assert row.status == status
+    assert [item["datum"] for item in row.numbers["relationships"]] == ["base"]
+
+
+def test_height_from_without_a_height_band_stays_unresolved(tmp_path):
+    bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]", datums="[]")
+    bundle.features["features"]["cone"]["height_from"] = "base"
+    assert datum_finding(bundle).status == "unknown"

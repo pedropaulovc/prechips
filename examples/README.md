@@ -28,6 +28,8 @@ unchanged: anything still `unknown` keeps its finding unknown.
 |---|---|---|---|
 | `cone-pivot-post/features.toml` | `construction` | `"one_piece"` → `"built_up_permitted"` | user-approved: treat the drawing as permitting built-up so `built-up.toml` is not refused |
 | `cone-pivot-post/features.toml` | `features.mount_west.station_nominal` | `-12.98` → `12.98` | sign bug, [HA #1214](https://github.com/pedropaulovc/harmonic-analyzer/issues/1214) |
+| `cone-pivot-post/features.toml` | `features.journal_bore.requirements` | `[..., "unknown"]` → `["dia", "thru", "finish_ra", "height"]` | the export's `"unknown"` entry is the RIMS BREAK 0.1 MAX callout (`cone_gear_shaft_spec.py:113`, `draw_cone_pivot_post.py:264`); the plan carries it as `deburr_mm = 0.1` on the journal setups |
+| `cone-pivot-post/features.toml` | `features.crank_bore.angle_tol_deg` | absent → `0.0795` | HA's derived limit `CRANK_BORE_ANGLE_LIMIT_DEG = atan(0.10 / 72.0344)` (`cone_pivot_post_spec.py:373-375`) for the BASIC 12.5182° angle; not an independent ± band, and the validator pins it to the FCF arithmetic |
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
 | `rocker-arm/features.toml` | `material.thickness` | `"unknown"` → `2.5` | drawing manufacturing note 2 states `STRAP 2.50 THICK`; this is the nominal strap, not the integral hub length or supplied blank thickness |
@@ -107,15 +109,13 @@ Shared inputs:
   The generic `Plain Carbon Steel` alias is a candidate classification, not a
   sourced grade or measured carbon content; no material-property claim follows.
 
-Current expected consumer CLI exits are **0 / 2 / 2 / 2 / 2** for shaft,
-rocker, bracket, cone one-piece and cone built-up respectively. The one-piece cone
-moved from 4 to 2 because the export's `mount_west` station nominal conflicts
-with its band and restored milling frames expose far-side boss claims.
+Current expected consumer CLI exits are **0 / 2 / 2 / 2** for shaft,
+rocker, bracket and cone built-up respectively.
 Existing inspection choices follow the exported feature
 owners, using separate inspection steps where needed, without changing gauges or
 inventing methods. The earlier split-feature inspection errors were migration
 regressions, not legitimate new debt; they are corrected. Regenerated CLI
-outputs, the cone comparison exit and combined gate evidence are recorded in
+outputs and combined gate evidence are recorded in
 PLAN §8 M3.
 
 | Part | What it demonstrates | Current exit |
@@ -123,8 +123,7 @@ PLAN §8 M3.
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
 | `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (last CLI proof)**: all four native fixtures are modeled without fixture debts. Exit-0 still needs complete explicit-face ownership and legal cutter poses; S4's cut-state render is separately blocked by the engine's blanket stock-split guard despite independently held part and scrap. Checked-in goldens remain stale. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: physical inventory and authored setup data are complete; all three native fixture scenes are modeled without debts. Legal planar cutter poses, the finish-floor cut plane and preceding-operation stock clearance remain engine-owned accessibility stops. |
-| `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
-| `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
+| `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: the `mount_west` nominal conflict and S2:50 far-side cone-boss claims. |
 
 ### Rocker-arm supported route
 
@@ -263,13 +262,51 @@ Cutting-data-dependent RPM/feed, unmeasured tooling/holding facts, missing gauge
 measured setup binding and the shaft's actual fitted span remain unresolved.
 
 Each part directory contains `plan.toml`, `features.toml` and parent-regenerated
-`expected/report.json` / `expected/traveler.html`. The cone also has
-`built-up.toml`, `expected/built-up/report.json`,
-`expected/built-up/traveler.html`, and `expected/compare.json`. Comparison rows
-retain `part = "cone-pivot-post"` and distinguish `plan.toml` from `built-up.toml`;
+`expected/report.json` / `expected/traveler.html`. The cone instead has
+`built-up.toml`, `expected/built-up/report.json` and
+`expected/built-up/traveler.html`;
 there is no generated plan-text file. Plans do not request external coordinate
 files: machine-readable numbers are in the report and bench coordinates are on
 the sheet. No operative asset lies outside the bundle.
+
+### Built-up cone route provenance
+
+`cone-pivot-post/built-up.toml` is an authored manufacturing alternative, not a
+second consumer export. It uses the same v40 cone STEP and the example-only
+construction permission above. Its twelve stages keep an integral body and
+inclined pads in one 50.8 mm square by 123 mm blank, and turn the separate crank
+sleeve from 25 mm diameter by 110 mm bar. These are illustrative purchase and
+process choices, not stock-on-hand or first-article evidence.
+The sleeve chucking grips 25 mm of the sacrificial end, leaving 85 mm exposed:
+below the 87.72 mm four-diameter limit at the finished 21.930 mm OD. The blade
+and turning tools clear the modeled chuck in the native geometry probe; the
+finished parting plane is 6.9656 mm ahead of the jaw fronts.
+
+The pre-join socket and spigot are plan-owned joint features, not invented STEP
+faces: the 22.000–22.020 mm socket and 21.924–21.936 mm spigot give
+0.064–0.096 mm diametral clearance for the explicitly authored BAg-7 capillary
+silver-braze process. Join only the finished body and separately turned sleeve
+branches, support the sleeve with the modeled ceramic height button, then cool,
+clean and re-indicate datum A/foot B before cutting the final crank bore. This
+example process is not a structural-joint certification.
+
+Body rotary milling uses the 3/8 in cutter in the foot and shoulder bands
+(model Y0–19 and Y48–59.4), and a 3/16 in square-end carbide cutter in the
+pad-wall window Y19–48. Its 19.05 mm flute and projection are labelled plausible
+inventory facts; native geometry calculations rejected the shorter 1/8 in
+candidate because its holder entered retained material. The separate `S6cut`
+bandsaw stage cuts at blade centre Y87.75: the 1.5 mm kerf retains Y≤87,
+leaving 1 mm for `S6` to finish-face to Y86 instead of milling away the entire
+34 mm sacrificial tail. Every declared holding item remains part of the setup
+scene, including the saw vise and refractory braze cradle.
+
+The socket bore gauge retains its fact-local illustrative measurement label;
+its 0.001 mm resolution is not flattened into an unlabeled number to bypass
+the inventory schema. Final crank angularity and separation use the declared
+outsourced CMM method, not a caliper or a dividing-head angle as certification.
+Generated built-up artifacts live in `cone-pivot-post/expected/built-up/`.
+Generated findings and scene debts, not the authorship of this section,
+determine readiness.
 
 ### Historical M5 inventory and output reconciliation
 
@@ -425,11 +462,11 @@ degrees itself. HA does derive `CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795°
 The exported `mount_west.station_nominal = -12.98` is signed, while its
 `station` band [12.47, 13.49] is absolute (`cad/scripts/export_features.py:566`).
 The consumer's generic nominal-within-band check reports `mount_west:station`
-as an `error`, so the one-piece cone exits 2. This is an HA export follow-up.
+as an `error`. This is an HA export follow-up.
 Prechips does not flip the sign or drop the field.
 
 The restored milling frames also expose genuine far-side face claims on
-one-piece S2:40/50 and built-up S2:50. These remain errors and need an authored
+built-up S2:50. These remain errors and need an authored
 route/claim correction, not an HA sign fix. By contrast, the engine's −Z-only
 approach model does not cover radial lathe cuts: their directional geometry
 and dependent finish coverage are `unsupported`, not false failures or passes.
@@ -529,21 +566,11 @@ verbatim export above; the authored stock/route choices below remain distinct.
   `cone_gear_shaft_spec.py:79–97,111–113`: **RIMS BREAK 0.1 MAX**, not the
   title block's otherwise applicable 0.25 edge break.
 
-The one-piece **Ø110×120 round** is an **AUTHOR'S CHOICE**, not an inventory
-claim. With bar axis along body Y, the crank far-face radial corner is
-`hypot(50.6591,21.93/2)=51.8322 mm`, within radius 55. Axial blank length is
-86 body +6 foot-facing allowance +28 sacrificial grip. The cone-pad plan
-half-extent is 22.3702mm, also within that round. A body-only Ø45 blank would
-exclude the integral crank boss and is deliberately **not** asserted. S1's
-declared stick-out is 92/110; lower-body turning stops at Y24.5 before the cone
-pad's lowest Y24.768. Remaining profiles preserve both integral bosses.
-
-The separate built-up candidate declares two **AUTHOR'S CHOICE** leaf blanks:
+The built-up candidate declares two **AUTHOR'S CHOICE** leaf blanks:
 46×50×92 rectangular body and Ø25×100 boss. Its lathe declared stick-out is
 80/25; a preliminary foot setup adds the fifth setup. The proposed pressed
 joint's interface, interference, engagement, press/arbor and strength are
-unknown, and no drawing note authorizes it. A lower historical computed waste
-ratio cannot override the construction stop; current waste is unknown without
+unknown, and no drawing note authorizes it. Current waste is unknown without
 an exported finished volume. Neither blank is on hand (`inventory stock=[]`).
 
 The BS-0 lives under inventory **machines**, with worm 40, direct 24×15° and all
@@ -669,9 +696,8 @@ these authored contracts; it is not another machining checker and does not asser
 geometry, material properties, gauge calibration, first-article evidence or telemetry.
 The cone extension also independently enumerates all inventory indexing settings,
 checks signed landing arithmetic and full-pattern-only closure, smallest finished
-exposed diameter/verified-ratio arithmetic separately from held OD, explicit
-construction permission, and leaf-blank stock/net/waste arithmetic in
-`expected/compare.json`. Unbound or incomplete finished profiles stay unknown.
+exposed diameter/verified-ratio arithmetic separately from held OD, and explicit
+construction permission. Unbound or incomplete finished profiles stay unknown.
 Historically, the PR #6 review corrections regenerated only changed output:
 stick-out evidence, endmill-with-DOC engagement eligibility and machine-listed
 BS-0 hold resolution. That gate retained candidate exits 4 / 2 / 2 / 4 / 2 and
@@ -680,8 +706,8 @@ Endpoint arithmetic distinguishes spot/tap depth, blind tip depth and its drawin
 guard, and through breakthrough allowance. Reamers use sourced axial lead,
 drills use the point cone, and boring/counterboring uses zero drill-cone length;
 blind counterbores never acquire a through exit allowance.
-The integrating parent regenerated current report/HTML pairs, renders and
-comparison from the combined implementation. PLAN §8 M3 records the evidence;
+The integrating parent regenerated current report/HTML pairs and renders
+from the combined implementation. PLAN §8 M3 records the evidence;
 documentation work did not run builds, lint, tests, formatting or golden generation.
 Historical M1 sheets rendered to four Letter pages for shaft/bracket and five
 for rocker before generated continuations. Historical scoped mutation smoke
@@ -983,10 +1009,13 @@ edge-found against the raw faces for its own DRO zero. No unmodeled stop is
 claimed. The S2 foot's 3.6703 mm jaw engagement leaves its top 2.3297 mm above
 the jaws; tool exits remain between the narrow parallels.
 The open relief clears the raw free-run overhang, not merely the finished-face
-footprint. Separate outside-in left/right side-slot rasters retain the rectangular
-crown stock; the 31.75 mm long-flute cutter reaches the 26.2 mm inner wall with
-37 mm projection. The last wall pass leaves 0.1 mm on the floor for the final
-facing pass. Both hold-down holes then drill over an open central exit gap.
+footprint. The early relief operations claim only the retained inner wall, not
+the whole floor. Separate outside-in left/right side-slot rasters retain the
+rectangular crown; the 31.75 mm long-flute cutter reaches the 26.2 mm inner wall
+with 37 mm projection. All wall finish passes stop at Z +0.1, keeping a common
+floor skin. Only after the side strips are open does S2:56 claim and skim the
+whole foot-top floor, including its narrow side ledges, to Z0. Both hold-down
+holes then drill over an open central exit gap.
 A stiff 3/8 in 120-degree spotter projects 31 mm from the chuck, keeping its nose
 above the uncut ear; a 0.6 mm tip depth makes a 2.08 mm spot.
 

@@ -273,8 +273,9 @@ Each setup then starts on a new page, in this order:
 10. **CONTOURS**: one block per contour op with its tool and direction, the
    table at DRO precision and, when the render supplies `scene.waypoints`, a
    `P` column keyed to the labels drawn in the picture. A missing tool prints
-   `STOP … tool not selected; do not run` instead of a table; an uncompensated
-   lathe profile says the nose radius compensation is not computed.
+   `STOP … tool not selected; do not run` instead of a table; a lathe dome table
+   prints the imaginary-tip tool X/Z columns when the nose compensation is known,
+   otherwise it says the nose radius compensation is not computed.
 
 Every setup ends with the sign-off line, kept on the page with the setup's last
 block. Setup coordinates, Z targets and DRO values print at the DRO's display
@@ -341,6 +342,27 @@ indicates whether a native batch was invoked. Actual fresh batch measurements
 are `kernel.batch.wall_ms` / `kernel.batch.cpu_ms`; a cache-only call has no such
 attributes. The geometry span's own elapsed duration includes host cache lookup
 and subprocess overhead, not just the measured native work.
+
+Collision sampling reuses only exact, immutable query recipes; it does not round
+poses or stop after the first hit. Every placed sample still contributes to the
+full hit count. Finished-face references are a per-operation, per-tool-kind set
+union: once a label is proven, later poses need not rediscover it. Partial new
+reference sets stay local to that monotonically growing union; a stock-region
+cache shared by operations stores only complete reference sets. Pointed cutters
+keep their actual cone/body geometry in stock and fixture intersections.
+A cylinder touching no stock-face bound has constant material membership. Its
+midpoint can be rejected beyond the tolerance-grown stock envelope; all other
+midpoints retain the native material classifier and the existing shape type.
+A part-hit count may also skip the boolean when an interior ball is certified:
+the native classifier puts its centre inside the stock, rigorous lower bounds
+clear it of every boundary face, and it lies strictly inside the exact query
+cylinder, so its volume exceeds the hit threshold. The certificate only counts
+hits: it substitutes no shape and never proves a miss, and every unsupported
+proof falls back to the native boolean. A skipped boolean cannot raise, but every
+boolean still run keeps its original errors, never caught or suppressed. Pointed
+cutters never use it and their solid queries stay uncached; a hit skips the
+intersection only when no finished face outside the known reference union has
+positive contact area with that query cylinder.
 
 When no kernel is found, every geometry finding carries
 `numbers.kernel_unavailable = true`; the console prints that identical
