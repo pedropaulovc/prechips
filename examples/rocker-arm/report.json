@@ -655,7 +655,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S2.ops.33: selected action/tool/holder",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm: explicit-unit verified dimensions",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
       "message": "S2:33: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
@@ -1355,9 +1355,9 @@
             "feature": "rod_hole",
             "local_thickness": 2.5,
             "op": 33,
-            "point_mm": 0.5708175880761822,
+            "point_mm": 0.5858391035518713,
             "setup": "S2",
-            "tip_z": -6.849067588076182
+            "tip_z": -6.864089103551871
           },
           {
             "entry_from": "S2 stock_state.entry_z.rod_hole",
@@ -1475,11 +1475,11 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "1d4befc7d7ea4696791c47cf3315eba0d51f237591e33954cfd2a8079c1665c9"
+            "sha256": "8e2ffe0c9900185aec66e0504b0741729b4c5e603df25117070bbbc5f7fd9d28"
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
-            "sha256": "f65c538b38feddd982e7b0a66ca67431aa48ecb2600aea0806956228d08bbc0b"
+            "sha256": "4218eaf77e938622e6752cf61390046607ad88450ec6a8f5c0a99a332599025d"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -6084,7 +6084,7 @@
             "do": "drill",
             "feature": "rod_hole",
             "op": 33,
-            "tool": "rocker-rod-pilot-drill/1.90mm"
+            "tool": "rocker-rod-pilot-drill/1.95mm"
           },
           {
             "do": "ream",
@@ -11122,7 +11122,7 @@
       "numbers": {
         "holder": "drill-chuck-r8",
         "operation": "drill",
-        "tool": "rocker-rod-pilot-drill/1.90mm",
+        "tool": "rocker-rod-pilot-drill/1.95mm",
         "tool_kind": "drill_set"
       },
       "rule": "engagement",
@@ -11607,9 +11607,9 @@
         "inventory.tools.center-drills-lms-4859/2.projection_mm.drill-chuck-r8",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm.dia",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm.point_angle",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm.projection_mm.drill-chuck-r8",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm.dia",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm.point_angle",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm.projection_mm.drill-chuck-r8",
         "inventory.tools.rocker-rod-reamer/2.0mm.lead",
         "inventory.tools.rocker-rod-reamer/2.0mm.projection_mm.drill-chuck-r8",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
@@ -11774,18 +11774,18 @@
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 199.52358241192383,
+            "lower_margin_mm": 199.50856089644816,
             "op": 33,
             "spindle_nose_table_band_mm": [
-              260.4835824119238,
+              260.46856089644814,
               272.33265
             ],
             "stack_mm": 271.8044,
             "tip_z_bounds_mm": [
-              -6.849067588076182,
+              -6.864089103551871,
               5.0
             ],
-            "tool": "rocker-rod-pilot-drill/1.90mm",
+            "tool": "rocker-rod-pilot-drill/1.95mm",
             "tool_projection_mm": 24.0,
             "upper_margin_mm": 159.46734999999995,
             "verified": true
@@ -12702,7 +12702,7 @@
             "margin_mm": 160.39559999999994,
             "op": 33,
             "sum_mm": 271.4044,
-            "tool": "rocker-rod-pilot-drill/1.90mm",
+            "tool": "rocker-rod-pilot-drill/1.95mm",
             "tool_oal_mm": 38.0,
             "tool_projection_mm": 24.0,
             "verify": false
@@ -14537,7 +14537,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S2.ops.33: selected action/tool/holder",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm: explicit-unit verified dimensions",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
       "message": "S2:33: concave corner radii admit the selected cutter.",
@@ -14546,7 +14546,7 @@
           0.99695
         ],
         "minimum_corner_radius_mm": 0.99695,
-        "tool_radius_mm": 0.95
+        "tool_radius_mm": 0.975
       },
       "rule": "internal_corner_radius",
       "status": "pass",
@@ -16089,7 +16089,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S2.ops.33: selected action/tool/holder",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm: explicit-unit verified dimensions",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
       "message": "S2:33: in-process stock unknown: S1:40 stock_removal_bounds extends 8.982932 mm beyond its claimed faces' XY footprint dilated by 4.7625 mm cutter radius; the in-process stock setup S1 leaves cannot be derived.",
@@ -17573,7 +17573,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": 0.02,
         "cutting_data_row": "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook",
-        "diameter_in": 0.07480314960629922,
+        "diameter_in": 0.07677165354330709,
         "feed_mm_min": 120.0,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -18565,8 +18565,8 @@
         "holder_standard": "R8",
         "machine": "PM-30MV",
         "machine_standard": "R8",
-        "shank_mm": 1.9,
-        "tool": "rocker-rod-pilot-drill/1.90mm"
+        "shank_mm": 1.95,
+        "tool": "rocker-rod-pilot-drill/1.95mm"
       },
       "rule": "tool_resolves",
       "status": "pass",
@@ -19121,17 +19121,17 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "rocker-rod-pilot-drill/1.90mm: listed inventory identity resolves.",
+      "message": "rocker-rod-pilot-drill/1.95mm: listed inventory identity resolves.",
       "numbers": {
-        "dia_mm": 1.9,
+        "dia_mm": 1.95,
         "kind": "drill_set",
         "present": true,
-        "reference": "rocker-rod-pilot-drill/1.90mm",
+        "reference": "rocker-rod-pilot-drill/1.95mm",
         "verified": true
       },
       "rule": "tool_resolves",
       "status": "pass",
-      "subject": "rocker-rod-pilot-drill/1.90mm"
+      "subject": "rocker-rod-pilot-drill/1.95mm"
     },
     {
       "cite": [
@@ -19722,9 +19722,9 @@
         "plan.setups.S2.ops.32.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.32: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.33",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm.projection_mm.drill-chuck-r8",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm.dia",
-        "inventory.tools.rocker-rod-pilot-drill/1.90mm.point_angle",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm.projection_mm.drill-chuck-r8",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm.dia",
+        "inventory.tools.rocker-rod-pilot-drill/1.95mm.point_angle",
         "plan.setups.S2.ops.33.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.33: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.34",
@@ -20008,9 +20008,9 @@
               "feature": "rod_hole",
               "local_thickness": 2.5,
               "op": 33,
-              "point_mm": 0.5708175880761822,
+              "point_mm": 0.5858391035518713,
               "setup": "S2",
-              "tip_z": -6.849067588076182
+              "tip_z": -6.864089103551871
             },
             "extent_mm": {
               "x": [
@@ -20032,10 +20032,10 @@
             "op": 33,
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
-              -6.849067588076182,
+              -6.864089103551871,
               5.0
             ],
-            "tool": "rocker-rod-pilot-drill/1.90mm",
+            "tool": "rocker-rod-pilot-drill/1.95mm",
             "tool_projection_mm": 24.0,
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
@@ -20050,7 +20050,7 @@
               ]
             },
             "z_bounds_mm": [
-              112.15093241192382,
+              112.13591089644812,
               124.0
             ],
             "z_verified": true
@@ -21622,7 +21622,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "b33a07a2efa9061b95cebf78e5258adaa615ab3752a41d3c78e52ed68ac23215",
+  "hash": "9e15c2549587570d422883a89da1d4d38fd24ee1c0244dcf3fd680757333e4fe",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -21634,11 +21634,11 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "1d4befc7d7ea4696791c47cf3315eba0d51f237591e33954cfd2a8079c1665c9"
+      "sha256": "8e2ffe0c9900185aec66e0504b0741729b4c5e603df25117070bbbc5f7fd9d28"
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
-      "sha256": "f65c538b38feddd982e7b0a66ca67431aa48ecb2600aea0806956228d08bbc0b"
+      "sha256": "4218eaf77e938622e6752cf61390046607ad88450ec6a8f5c0a99a332599025d"
     },
     "render:S1": {
       "path": "setup-S1.png",

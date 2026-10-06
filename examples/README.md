@@ -118,7 +118,7 @@ PLAN §8 M3.
 | Part | What it demonstrates | Current exit |
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
-| `rocker-arm` | Three-setup route, integral hub, retained rails/ears and supported final profiling, consuming the exported datum and tip-land features. | **2**: original missing tools and supported profile fixture remain stops. |
+| `rocker-arm` | Four setups: retained rail frame, supported upper-hub/ream stage, then shoulder-screw/diamond-stop profiling with independently held scrap. | **2**: engine-owned accessibility poses and authored stock-clearing guards block downstream stock/rendering; fixture and tool gaps are removed. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. Missing drawing contract stays explicit. | **2**: absent angle plate, R8 chuck and 6.5 mm reamer. |
 | `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
@@ -138,17 +138,23 @@ halfway through a fixed setup:
   0.40 mm connecting web. The 1/2 in parallels sit entirely beneath the rails
   on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance
   to each closed jaw and 6.8453 mm nominal vertical jaw engagement. S2 adds
-  passive ground posts under the S1-finished strap, roughs before its finish
-  passes, and drills the rod hole while the frame is still vise-held.
+  adjustable passive jacks under the S1-finished strap, set to just contact
+  without lifting the rails. The rod hole is spotted, drilled 1.90 mm and
+  reamed 2.00 mm before the outside pockets leave only the web.
 - **S3 — supported upper hub and ream.** Stepped padded straps press over the
   fixture pads; their studs are outside the whole blank and their bridges
-  clear the retained rails. The upper hub OD and pivot ream share the indicated
-  setting. No outside-profile cut crosses these straps.
+  clear the retained rails. Indicate the empty plate bore first, place the
+  part within 0.20 mm radial of that axis, and then indicate the pilot as
+  working A. The 8 mm stand relief gives the 6.512 mm reamer clearance.
+  Match rail-rest shims after seating the finished strap on the pads; no
+  fixed spacer is allowed to lift it. No profile cut crosses these straps.
 - **S4 — pinned, shoulder-screw profile fixture.** The reamed pivot bore accepts
-  a shoulder screw and bored washer; a pin in the predrilled rod hole sets
-  clocking. Separate toe clamps retain the scrap rail frame on its own rests,
-  so neither the part nor the scrap becomes loose when the final web releases.
-  The twelve inset pads support the lower strap throughout the full outline.
+  a shoulder screw and bored washer; the hardened diamond pin is the positive
+  tangential clocking stop. Preload toward the closing-cut contact before
+  tightening, then indicate the screw head ground coaxial with its shoulder.
+  The screw prevents lift and the twelve pads carry Z, not cutting torque.
+  Separate toe clamps retain the scrap rails on matched shimmed rests, so
+  neither the part nor the scrap becomes loose when the final web releases.
 
 Final inspection checks both hub patches against the reamed datum, and rod
 position against A|B|C with face B seated and the finished rod-side land C
@@ -156,12 +162,12 @@ squared. Fixture dimensions and primitive solids in the rocker additions
 block carry `example (plausible, not measured)` labels; these are authored
 example clearances, not approved CAM toolpaths or actual shop measurements.
 The letter-D pilot leaves about 0.264 mm diametral reaming stock. Custom metric
-GO/NO-GO plugs verify the 6.500..6.530 bore; a separate 2.010 mm process NO-GO
-limits diamond-pin clocking clearance within the unchanged rod-hole drawing
-band. A 1 µm test indicator records pilot-to-ream centre shift against the
-0.020 mm radial process limit, and the final rod-position check uses a 1 µm
-digital height gauge. The diamond pin clocks only: hub-screw friction takes
-cutting torque and the support pads carry the strap.
+GO/NO-GO plugs verify the 6.500..6.530 bore. The rod's process GO 2.000 /
+NO-GO 2.010 plugs control a reamed hole, not an unrealistically close twist
+drill; the 1.9875 mm stop has 0.0125..0.0225 mm diametral clearance.
+A 1 µm test indicator records pivot pilot-to-ream centre shift against the
+0.020 mm radial process limit, and final rod position uses a 1 µm digital
+height gauge. The pin takes tangential finish loads but no clamp or lift load.
 
 
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats
