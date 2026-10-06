@@ -1291,6 +1291,18 @@ sheet.
    normalized native S1 prefix, with 20/25 mm grips, retained known stock after
    its spring pass and had no tool/holder hits or false shoulder debt.
    This is local engine evidence, not physical fixture or first-article approval.
+   **Sequential bonded-sleeve extension:** on the frozen integration `637f444`
+   plus the multi-joint engine, **296** scoped host/native behavior tests passed
+   under required FreeCAD 1.1. They cover three-component assembly plus singleton,
+   both-open sockets (including a small blocked cap), preserved sleeve cores,
+   fit/process debt precedence, ancestry and consumed-interface ownership.
+   A separate actual native batch produced known successive unions of
+   **3330.402372 mm³** and **4065.849212 mm³**; unknown clearance or cure withheld
+   both current and downstream output. Lost protected material remained a known
+   error even with unknown cure. Actual traveler HTML showed the preparation,
+   cure and no-disturb instructions, and visible STOP debt for unknown cure.
+   These synthetic engine proofs are not the complete cone pilot, a programme
+   gate or physical process/first-article approval.
    **Consolidated joint-worktree gate:** locked `uv sync`, repository formatting
    (**126** files) and the example validator (**27** TOML files; twelve traveler
    bundles plus comparison) passed. The required-FreeCAD suite recorded
