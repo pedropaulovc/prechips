@@ -593,7 +593,7 @@ Bars = record(
 FixtureSolid = record(
     "FixtureSolid",
     {
-        **texts("name shape note"),
+        **texts("name shape note label"),
         "at_mm": Point3,
         "size_mm": Point3,
         "axis": Point3,
