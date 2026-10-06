@@ -786,6 +786,26 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
         sign = row.get("sign", "unknown")
         require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
         scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
+        if recipe.get("method") == "measure_then_set":
+            # A measured edge is a bench reading M: with a ready gauge, a stated
+            # measurement and numeric offset/paper/jog, Axis Set M + offset + paper.
+            gauge, base = recipe.get("gauge", "unknown"), recipe.get("offset_mm", "unknown")
+            paper = recipe.get("paper_mm", "unknown")
+            ready = (
+                axis == "z"
+                and isinstance(gauge, str)
+                and resolves(gauge, entries)
+                and not uncertain(gauge, entries)
+                and bool(str(recipe.get("measure", "")).strip())
+                and all(numeric(v) for v in (base, paper, jog))
+            )
+            for field, step in (("axis_set", 0), ("check_reading", 1), ("mirrored_reading", -1)):
+                text = "unknown"
+                if ready:
+                    value = round(base + paper + step * sign * jog, 6) + 0.0
+                    text = "M " + f"{value:+.6f}".rstrip("0").rstrip(".")
+                require(row.get(field) == text, f"{setup['id']}.{axis}: measured-edge {field}")
+            continue
         if axis == "z":
             if recipe.get("face") == "top":
                 edge = setup["stock_state"].get("top_z", "unknown")

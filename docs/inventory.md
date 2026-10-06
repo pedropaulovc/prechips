@@ -167,6 +167,29 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   centre after applying `hold.pose`, and records the label and posed centre in
   `scene.fixture_detail_labels`. The caption neither creates geometry nor
   overrides the void's measurement or verification debt.
+- A shop-made item (`kind = "custom"`, or any item / member flagged
+  `shop_made = true`) gets one SHOP-MADE FIXTURE table on sheet 2 of the first
+  setup using it at those poses; later setups at the same poses point back to it.
+  Each row is one made primitive (identical primitives group into one row,
+  named by their shared `label` or the words their names share) with its size and
+  setup-frame position (box X / Y / Z extents, cylinder axis), placed by
+  `hold.pose`, the clamp entry's `pose` or `stop_pose`. A void is listed in the
+  row of the made primitive it cuts (the first made name in `cuts`, else the one
+  holding its centre) as "with N × <fastener or size>: positions"; a void that
+  cuts only bought hardware is not listed. Per-primitive `supply` is `made`
+  (default), `bought` (hardware: one "Bought hardware (not made)" line under the
+  table, named by its `fastener` or its name and size) or `existing` (already in
+  the shop, such as a machine's vise jaws drawn for clearance: not listed).
+  Sizes and positions print at shop policy `numbers.fixture_make_decimals`; the
+  fit of a primitive with `locates` (the bore cut in it, else the primitive
+  itself) and shim nominals print at the drawing precision. Optional texts
+  `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
+  Locates and Fastener columns; `shim = true` marks an adjustable shim stack
+  whose drawn thickness HOLD prints as the nominal to fit with feeler gauges.
+  An angle plate's (or posed shop-made fixture's) lowest made box is its base:
+  HOLD prints its underside Z, an angle plate's working face (local y = 0,
+  facing local -y) and the base's `fastener` as the hold-down. None of these
+  texts creates geometry or trust.
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
@@ -559,6 +582,7 @@ on hand.
 | `standard_accessories` | `list[str]` |
 | `included` | `list[str]` |
 | `spindle` | `Spindle` |
+| `contouring` | `"mdi"` / `"jog"` / `{value, measured, verify}` (a machine's way of cutting an arc or diagonal contour row: `mdi` types one coordinated `G1`/`G2`/`G3` MDI move per row at the op's feed; `jog` moves one handwheel axis at a time, so the sheet prints single-axis stair rows and a finish stair must leave no more than the feature's band. Absent, `"unknown"` or `verify = true` leaves every arc and diagonal row unproven, never pass: [rules-coordinates](rules-coordinates.md)) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |

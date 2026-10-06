@@ -12,7 +12,8 @@ range and selected diameter are also required. RPM is `12*sfm/(pi*D_in)`, rounde
 to nearest 50 (ties to even), then clamped to the actual machine limits.
 An actual nonmultiple-of-50 boundary is retained. Mill feed is
 `RPM*flutes*chip_load_mm_per_tooth`; lathe feed is `RPM*feed_mm_rev` with
-`feed_mm_rev` (mm/revolution) from the same cited row or tool chart, under the
+`feed_mm_rev` (mm/revolution) from the op's planned `feed_mm_rev` when declared,
+else from the same cited row or tool chart, under the
 same citation and verify rules as the chip load. Numbers are starting points,
 not cut-force or stability limits.
 
