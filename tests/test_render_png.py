@@ -6,6 +6,7 @@ import zlib
 
 import pytest
 
+from prechips.kernel.render_diagram import _Diagram
 from prechips.kernel.render_png import RenderCanvas
 
 
@@ -278,3 +279,18 @@ def test_empty_and_degenerate_meshes_still_support_annotations_and_finite_projec
     point.text(10, 10, "Datum", scale=2)
     assert _pixel(point, 10, 10) == (30, 35, 40)
     assert _pixel(empty, 10, 10) == _WHITE
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_contour_direction_arrows_survive_subpixel_tessellation(reverse):
+    colour = (35, 83, 147)
+    spec = {"view": "plan", "stock_box": [0, 0, 0, 10, 10, 1]}
+    fine = _Diagram([], spec)
+    samples = [(300 + index / 4, 400) for index in range(1601)]
+    if reverse:
+        samples.reverse()
+    fine._ordered_path(samples, colour, width=3)
+
+    assert _pixel(fine.canvas, 500, 400) == colour
+    # A three-pixel path cannot colour this row; visible arrowhead wings can.
+    assert any(_pixel(fine.canvas, x, 404) == colour for x in range(300, 700))

@@ -765,13 +765,13 @@ class _Diagram:
         for path, points in paths:
             window = (project((0, zmin))[0], 228, project((0, zmax))[0], 493)
             self._ordered_path([project(p) for p in points], _GREEN, clip=window)
-            for line in _wrap(c, f"OP {path['op']} TABLE PATH", right - left - 34, scale=3):
+            for line in _wrap(c, f"OP {path['op']} SURFACE", right - left - 34, scale=3):
                 c.line((left, row + 10), (left + 25, row + 10), _GREEN, width=3)
                 _text(c, left + 34, row, line, _GREEN)
                 row += 30
         self._waypoint_badges(waypoints, project, (left, 205, right, 493))
         if paths:
-            _text(c, left, row, "ARROWS: TABLE ORDER", _MUTED)
+            _text(c, left, row, "ARROWS: POINT ORDER", _MUTED)
             row += 30
         if closed:
             _text(c, left, row, "TINT: PROFILE DIFFERENCE", _AMBER, scale=2)
