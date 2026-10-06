@@ -312,8 +312,11 @@ exists or clears. The remaining guards all hold: the cutter radius must be
 known (an unknown radius leaves the bounds `?` with a reason naming the
 missing cutter radius, never a zero-radius result, and later stock stays
 unresolved); the bounds are finite numbers; removal is the box's intersection
-with the selected stock, never finished material or a protected rough leave;
-each claim must touch the box and every removed piece must border a claim;
+with the setup-entry stock, never finished material or a protected rough leave;
+each claim must touch the box and every removed piece must border a claim on
+that setup-entry stock (an earlier op clearing the bridge between a claim and
+the rest of its box never strands it), and the pieces are then cut from the
+current stock, so removal never restores material an earlier op cleared;
 known future planned-hole columns, with their finite caps, stay stock; and
 the removal must not split an original input solid. A violation is not an
 error verdict: it is named stock debt (the stock reason names the failed
