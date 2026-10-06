@@ -343,9 +343,10 @@ M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 frame: `jaws_along` is the jaw length axis (`x` / `y`), `fixed_jaw` picks the
 jaw on the negative or positive side of the other axis, `grip_mm` is the depth
 of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
-above the stock seat (parallel tops, or the bed when no parallels are selected).
-An explicit `parallels = "none"` or `"not_applicable"` means known zero lift,
-bed seating and no parallel solids or parallel-position debt. Omitted,
+above the stock seat (support tops, or the bed without a lifting support).
+An explicit `parallels = "none"` or `"not_applicable"` means known zero parallel
+lift and no parallel solids or parallel-position debt. Without another lifting
+support the work seats on the bed. Omitted,
 `"unknown"` or unresolved named parallels still need an accepted positive
 height; a named zero-height parallel is not equivalent to explicit absence.
 A `grip_mm_verify = true` or

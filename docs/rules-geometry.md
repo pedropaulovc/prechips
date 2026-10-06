@@ -413,9 +413,10 @@ so they never enter hit counts; they exist for the picture, for the
 the jaw-opening check of [`fixture_interference`](#fixture_interference). With
 any of those inputs missing for selected parallels, the scene records
 `parallels not drawn: … undeclared`. A vise hold with explicit
-`parallels = "none"` or `"not_applicable"` instead uses known zero lift:
-the stock seats on the bed, no parallel boxes are drawn and their absent
-dimensions/centres do not create fixture debt. Missing/unknown selections and
+`parallels = "none"` or `"not_applicable"` instead uses known zero parallel lift:
+no parallel boxes are drawn and their absent dimensions/centres do not create
+fixture debt. Without another lifting support the stock seats on the bed.
+Missing/unknown selections and
 unresolved named parallels remain debt, as do nonpositive/unverified named heights.
 
 ## `accessibility`
