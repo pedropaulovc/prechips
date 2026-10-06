@@ -23,6 +23,7 @@ LATHE_APPROACH_REASON = (
     "(the turning model needs a lathe spindle on setup Z)"
 )
 TURNING = "turning"
+ROTARY = "rotary"
 CHUCK_KINDS = {"chuck_3jaw", "chuck_4jaw"}
 # Shared profile/form/groove actions also occur on mills; resolve their machine kind.
 _TURNING_ACTIONS = (
@@ -46,9 +47,13 @@ TURNING_HOLDER_KEYS = ("holder_body_width_mm", "holder_body_depth_mm")
 
 
 def approach(bundle, setup, op):
-    """'turning', 'axial' (-Z cutter cylinders) or None when no approach model applies."""
+    """'turning', 'rotary' (dividing-head milling), 'axial' (-Z cutter cylinders) or None
+    when no approach model applies."""
     machine = record(resolve(bundle, "machines", setup.get("machine")))
     kind, action = machine.get("kind"), op.get("do")
+    if op.get("approach") == ROTARY and kind != "lathe" and action not in _TURNING_ACTIONS:
+        # The engine checks the hold: a horizontal dividing-head axis, else unsupported.
+        return ROTARY
     if kind == "lathe":
         return "axial" if action in _AXIAL_LATHE_ACTIONS else TURNING
     if action in _TURNING_ACTIONS or (kind != "mill" and action in PROFILE_OPS):
@@ -61,10 +66,14 @@ def approach_model_reason(bundle, setup, op):
     return LATHE_APPROACH_REASON if approach(bundle, setup, op) is None else None
 
 
-def turning_facts(bundle, facts, setup, op):
-    """Whether a lathe op's kernel facts come from the turning model, never raw -Z facts."""
+def approach_facts(bundle, facts, setup, op):
+    """Whether a turning/rotary op's kernel facts come from its own model (never raw -Z
+    facts); axial ops always do."""
+    model = approach(bundle, setup, op)
+    if model not in (TURNING, ROTARY):
+        return True
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
-    return detail.get("approach") == TURNING
+    return detail.get("approach") == model
 
 
 def cutting_action(op):
@@ -199,7 +208,7 @@ def op_claims(bundle, facts, setup, op):
         return None, [], invalid
     if approach_model_reason(bundle, setup, op):
         return None, [], []
-    if approach(bundle, setup, op) == TURNING and not turning_facts(bundle, facts, setup, op):
+    if not approach_facts(bundle, facts, setup, op):
         return None, [], []
     away = detail.get("claim_errors")
     away = sorted(ref for ref in away if isinstance(ref, str)) if isinstance(away, list) else []
@@ -226,10 +235,11 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
         blocked = unavailable(bundle, rule, subject, facts, cite)
         inputs = jobs.get(subject, {})
         approach_reason = approach_model_reason(bundle, setup, op)
-        turned = approach(bundle, setup, op) == TURNING
+        model = approach(bundle, setup, op)
+        turned = model == TURNING
         keys = turning if turned and turning is not None else required
-        # Raw -Z collision/stock/corner facts never establish lathe results.
-        stale = turned and not turning_facts(bundle, facts, setup, op)
+        # Raw -Z collision/stock/corner facts never establish turning or rotary results.
+        stale = not approach_facts(bundle, facts, setup, op)
         detail = {} if approach_reason or stale else record(record(facts.get("ops")).get(subject))
         if blocked is None:
             if cutting_action(op) is False:
@@ -295,7 +305,10 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         "unknown",
                         {},
                         cite,
-                        f"{subject}: kernel facts for this lathe op are not turning-model facts.",
+                        f"{subject}: kernel facts for this lathe op are not turning-model facts."
+                        if turned
+                        else f"{subject}: kernel facts for this rotary op are not rotary-model "
+                        "facts.",
                     )
                 elif away and turned:
                     blocked = Finding(
@@ -306,6 +319,17 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         cite,
                         f"{subject}: claimed face(s) are not surfaces of revolution about the "
                         f"spindle axis (setup Z) and cannot be turned: {', '.join(away)}.",
+                    )
+                elif away and model == ROTARY:
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "error",
+                        {"claim_errors": away},
+                        cite,
+                        f"{subject}: claimed face(s) are not external surfaces of revolution "
+                        "about the dividing-head axis inside the op's rotary window: "
+                        f"{', '.join(away)}.",
                     )
                 elif away:
                     blocked = Finding(

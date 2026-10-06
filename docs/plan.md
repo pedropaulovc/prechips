@@ -397,6 +397,7 @@ are bad input (exit 3 before output).
 | `feature` | `str` | Feature owning the angular landing allowance. |
 | `angle_deg` | `Number` | Authored step declares an open pattern with no closure; omitted with `positions >= 2` declares a full pattern at exact `360 / positions`. Explicit `"unknown"` stays unresolved. |
 | `positions` | `int` | Number of checked landings; `1` is a single setting. Closure requires both `positions >= 2` and omitted `angle_deg`. |
+| `rotation` | `"continuous"` | The head turns freely under rotary ops (`approach = "rotary"`); declares no `positions` or `angle_deg`, so there are no plate landings. |
 
 `feature` selects the journal/pattern's angular tolerance. An omitted selector
 or absent feature allowance falls back to `general_tolerances.angular_deg`;
@@ -509,6 +510,8 @@ with angles at the drawing's declared angular precision.
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 | `stock_removal_bounds` | `Bounds` |
+| `approach` | `"rotary"` |
+| `angle_window_deg` | `[Number, Number]` |
 
 `faces` explicitly declares this operation's cutting claims using bound STEP
 references. Omission uses the feature's default `faces`; `"unknown"` means
@@ -538,6 +541,15 @@ still use setup-entry stock. This is an authored process/fixture volume, not a
 measured toolpath or proof that roughing is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
 needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
+
+`approach = "rotary"` mills on a horizontal dividing head: every claimed sample
+is turned about the head axis to top dead centre under the vertical spindle
+(see [Approach models](rules-geometry.md#approach-models)). For such an op
+`z_from`/`z_to` are positions along the head axis (the chuck `pose` z) from the
+pose origin, and `angle_window_deg = [from, to]` is the head rotation in
+degrees, right-handed about that axis (from < to; a span of 360 or more is
+unbounded). Both bound the op's removal; a claimed sample outside them is a
+claim error. The setup's `hold.index` then declares `rotation = "continuous"`.
 
 `doc_mm` enables the engagement screen only for an endmill-family cutter on a
 cutting operation. Omitted DOC, noncutting actions and known drills, reamers,

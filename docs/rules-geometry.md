@@ -196,6 +196,44 @@ remain `unknown`. Raw −Z facts never establish a lathe result: kernel facts
 without `approach = "turning"` leave a lathe row `unknown` (`kernel facts for
 this lathe op are not turning-model facts.`) and credit no coverage.
 
+**Rotary (dividing head).** A mill op with `approach = "rotary"` on a setup held
+in a `dividing_head` turns the work about the head axis (the placed chuck's pose
+z, pointing out of the jaws) under the vertical spindle. The head axis must be
+perpendicular to setup Z (|z·Z| ≤ 1e-6); any other head pose, or a hold that is
+not a dividing head, is `unsupported` with the engine's reason. Claimed faces
+must be external surfaces of revolution about the head axis (coaxial
+cylinders, plus planar annuli normal to the axis); other faces, and any sample
+outside the op's window, are claim errors. The optional window bounds the op:
+`z_from`/`z_to` are positions along the head axis from the chuck pose origin
+(plan units) and `angle_window_deg = [from, to]` is the head rotation,
+right-handed about the head axis; a span of 360° or more is unbounded.
+
+Each sample is turned about the head axis to top dead centre and receives the
+vertical-cutter pose there: the cutter end touches the presented sample
+(cylinder samples include their edge vertices), offset like a milled floor
+where it meets a concave wall (the accessibility floor-edge convention: tangent
+to each incident wall, and to a nearer wall meeting an incident one at a
+concave corner; a sample off every wall but within the cutter radius of one it
+sees squarely is also placed tangent to it). Cutter and holder cylinders and
+the reach column are then turned back by the sample's angle and checked
+against the held stock minus this op's own rotary removal. Chuck jaws and body
+turn with the work; the head body, tailstock and clamps stay put and are
+checked at the presented pose. Removal is a radial sweep of each claimed
+coaxial cylinder out to the stock's outer radius, extended at that radius to
+the window ends and intersected with the window, then the finished part is cut
+back out. Unclaimed pads keep their stock and stay obstacles. Corners: a
+concave edge in a plane through the head axis is 0; other concave edges are
+unresolved.
+
+The rotary model is one static pose per sample. It does not prove a swept
+toolpath, helical or simultaneous rotary-plus-linear motion, rotation between
+samples, chip flow, the head's torque or locking, or interference while the
+head is turning. Setups that turn the head freely declare
+`hold.index = { fixture = "<head>", rotation = "continuous" }` (no `positions`
+or `angle_deg`); `indexing` then passes on a verified dividing head with no
+landings to check, errors on any other fixture kind or when positions/angles
+are also declared, and is `unknown` while the head is unverified.
+
 ## Inputs the job accepts
 
 Numeric fields reach the kernel only when they resolve to a positive

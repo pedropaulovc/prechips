@@ -102,10 +102,11 @@ def _turning_values(bundle, op):
 
 
 def op_inputs(bundle, setup, op, finishing=None):
-    from prechips.rules.geometry_common import TURNING, approach, finishing_subjects
+    from prechips.rules.geometry_common import ROTARY, TURNING, approach, finishing_subjects
 
     subject = f"{setup['id']}:{op['op']}"
-    turned = approach(bundle, setup, op) == TURNING
+    model = approach(bundle, setup, op)
+    turned = model == TURNING
     if turned:
         values, missing = _turning_values(bundle, op)
     else:
@@ -136,8 +137,8 @@ def op_inputs(bundle, setup, op, finishing=None):
     }
     if "faces" in op:
         result["faces"] = op["faces"]
-    if turned:
-        result["approach"] = TURNING
+    if model in (TURNING, ROTARY):
+        result["approach"] = model
     units = bundle.features.get("units", UNKNOWN)
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     if "to_z" in op:
@@ -145,11 +146,15 @@ def op_inputs(bundle, setup, op, finishing=None):
         result["to_z"] = op["to_z"] * scale if number(op["to_z"]) and scale else UNKNOWN
     if "stock_removal_bounds" in op:
         result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
-    if turned:
-        # The declared turned span (setup-frame Z) bounds and extends the revolved removal.
+    if model in (TURNING, ROTARY):
+        # Turning: the declared span on setup Z bounds and extends the revolved removal.
+        # Rotary: the span along the head axis from the chuck pose origin.
         for key in ("z_from", "z_to"):
             if key in op:
                 result[key] = op[key] * scale if number(op[key]) and scale else UNKNOWN
+    if model == ROTARY and "angle_window_deg" in op:
+        window = op["angle_window_deg"]
+        result["angle_window_deg"] = window if all(number(v) for v in window) else UNKNOWN
     for key, value in values.items():
         if key not in missing and number(value) and (value > 0 or key == "feed_z"):
             result[key] = value
@@ -647,6 +652,7 @@ _ENGINE_OP = (
     "approach",
     "z_from",
     "z_to",
+    "angle_window_deg",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
 )
