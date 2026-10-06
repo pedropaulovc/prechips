@@ -70,6 +70,23 @@ result = {
     "corner gone": job._cleared(box, box.cut(Part.makeBox(2, 2, 2, V(-1, -1, -1))), corner),
     "corner residue": job._cleared(box, taken, corner),
 }
+
+# One op can sever a temporary fragment, then remove it with its lineage group.
+stock = Part.makeBox(12, 8, 4)
+own = Part.makeBox(1, 8, 4, V(5, 0, 0))
+band = Part.makeBox(6, 8, 4, V(6, 0, 0))
+kept, why = job._Setup._remove(stock, own, [[band]])
+rejected, rejection = job._Setup._remove(stock, own, [])
+result["transient split"] = {
+    "intermediate_pieces": len(stock.cut(own).Solids),
+    "pieces": len(kept) if kept is not None else None,
+    "why": why,
+    "valid": all(piece.isValid() for piece in kept or []),
+    "volume": sum(piece.Volume for piece in kept or []),
+    "outside_input": sum(piece.cut(stock).Volume for piece in kept or []),
+    "band_left": sum(piece.common(band).Volume for piece in kept or []),
+    "unremoved_split_refused": rejected is None and rejection is not None,
+}
 with open(out + "/skin.json", "w") as handle:
     json.dump(result, handle)
 """
@@ -196,3 +213,10 @@ def test_skin_and_band_judgements_are_exact_and_never_waive_material(tmp_path, f
     # mere residue (5e-7 mm^3) of more; a tiny group still whole (1.25e-7 mm^3) is cut.
     assert result["speck elsewhere"] and result["corner gone"] and result["corner residue"]
     assert not result["speck whole"] and not result["corner whole"]
+    transient = result["transient split"]
+    assert transient["intermediate_pieces"] == 2
+    assert transient["pieces"] == 1 and transient["why"] is None and transient["valid"]
+    assert transient["volume"] == pytest.approx(160.0)
+    assert transient["outside_input"] == pytest.approx(0.0, abs=1e-9)
+    assert transient["band_left"] == pytest.approx(0.0, abs=1e-9)
+    assert transient["unremoved_split_refused"]
