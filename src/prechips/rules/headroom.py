@@ -160,6 +160,41 @@ def _entry_stock(bundle, setup, frame):
     return result
 
 
+# The tip-near-jaw-top crash zone the traveler boxes (sheet ``_CRASH_ZONE_MM``).
+CRASH_ZONE_MM = 3.0
+
+
+def _jaw_faces(bundle, setup):
+    """(clamp axis index, [low, high] setup coordinates of the vise jaw faces), or None.
+
+    The jaws grip the setup-entry stock across the axis they do not run along, so their
+    faces stand at the kernel's setup-entry stock box along that axis."""
+    axis = {"x": 1, "y": 0}.get(_mapping(setup.get("hold")).get("jaws_along"))
+    kernel = getattr(bundle, "kernel", None)
+    if axis is None or not isinstance(kernel, dict) or kernel.get("status") != "ok":
+        return None
+    bbox = _mapping(_mapping(kernel.get("setups")).get(setup["id"])).get("stock_bbox_mm")
+    if not (isinstance(bbox, list) and len(bbox) == 6 and all(_numeric(v) for v in bbox)):
+        return None
+    return axis, [bbox[axis], bbox[axis + 3]]
+
+
+def _inside_jaws(bundle, op, faces):
+    """Whether ``op``'s cutter, swept over its stock_removal_bounds, stays more than
+    :data:`CRASH_ZONE_MM` inside both jaw faces along the clamp axis; an underivable sweep
+    or jaw never is."""
+    if faces is None:
+        return False
+    axis, (low, high) = faces
+    span = _mapping(op.get("stock_removal_bounds")).get("xy"[axis])
+    dia = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
+    if not (isinstance(span, list) and len(span) == 2 and all(_numeric(v) for v in span)):
+        return False
+    if not _numeric(dia):
+        return False
+    return span[0] - dia / 2 > low + CRASH_ZONE_MM and span[1] + dia / 2 < high - CRASH_ZONE_MM
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
@@ -339,10 +374,14 @@ def evaluate(bundle):
             if head
             else _UNKNOWN
         )
+        faces = None if head else _jaw_faces(bundle, setup)
         cuts = {
             str(op["op"]): op["to_z"] - jaw_top_z
             for op in setup["ops"]
-            if op["do"] not in SAW_OPS and _numeric(op.get("to_z")) and _numeric(jaw_top_z)
+            if op["do"] not in SAW_OPS
+            and _numeric(op.get("to_z"))
+            and _numeric(jaw_top_z)
+            and not _inside_jaws(bundle, op, faces)
         }
         numbers.update(
             {

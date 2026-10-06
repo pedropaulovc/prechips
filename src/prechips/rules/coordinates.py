@@ -1012,14 +1012,15 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
     return _ordered(record, None if reverse is None else False, order, ()), None
 
 
-def _z_levels(op, before, declared, grid, units):
+def _z_levels(op, before, declared, reached, grid, units):
     """The axial Z levels of a milling op that authors ``doc_mm``, else None.
 
     Levels step from the op's start surface down to its DRO depth, each on the DRO grid and
     no more than ``doc_mm`` below the one before; the last is the DRO depth itself. A
     wall-finishing op starts at its feature's declared setup ``entry_z`` (never one an
     earlier op's floor advanced), else the current top, as its flank engages the whole
-    wall; any other op starts at its feature's current entry, else the current top.
+    wall; any other op starts where an earlier face or pocket op of its own feature left
+    it (``reached``), else at its feature's current entry, else the current top.
     """
     if op.get("do") not in _LEVEL_OPS or "doc_mm" not in op or "to_z" not in op:
         return None
@@ -1027,6 +1028,8 @@ def _z_levels(op, before, declared, grid, units):
     if op["do"] in _WALL_OPS:
         start = declared.get(name, top)
         basis = "declared entry_z" if name in declared else "setup top_z"
+    elif name in reached:
+        start, basis = reached[name], "earlier op of the feature"
     else:
         start = before["entry_z"].get(name, top)
         basis = "entry_z" if name in before["entry_z"] else "setup top_z"
@@ -1782,14 +1785,16 @@ def evaluate(bundle, *, pre_kernel=False):
         grid = dro_grid(bundle, setup)
         numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
-        states = stock_states(setup, features)
+        states, reached = stock_states(setup, features), {}
         for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)
-            levels = None if lathe else _z_levels(op, before, declared, grid, units)
+            levels = None if lathe else _z_levels(op, before, declared, reached, grid, units)
             if levels is not None:
                 entry["z_levels"] = levels
+            if op.get("do") in RASTER_OPS and number(op.get("to_z")):
+                reached[op.get("feature")] = op["to_z"]
         residuals = _z_residuals(bundle, setup, grid, features)
         unknown = not frame or frame.get("binding") == UNKNOWN
         if lathe:
