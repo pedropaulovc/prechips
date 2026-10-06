@@ -23,19 +23,41 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket", "cone-pivot-post")
 EXPECTED_EXIT = {
-    "pivot-shaft": 4,
+    "pivot-shaft": 0,
     "rocker-arm": 2,
     "pivot-bracket": 2,
     "cone-pivot-post": 2,
     "cone-pivot-post/built-up.toml": 2,
 }
+# (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
+# errors on). Setups outside the modeled set must render as partial pictures with debts.
 GEOMETRY_CASES = (
-    ("rocker-jaw-occluded", "plan.toml", "expected", 2, "accessibility", "S3"),
-    ("pocket-reach", "plan.toml", "expected", 2, "reach", "S2"),
-    ("pocket-reach", "long-reach.toml", "expected/long-reach", 0, None, "S2"),
-    ("sharp-corner", "plan.toml", "expected", 2, "internal_corner_radius", "S2"),
-    ("unclaimed-face", "plan.toml", "expected", 2, "coverage", "S2"),
+    ("rocker-jaw-occluded", "plan.toml", "expected", 2, "accessibility", ("S3",), ("S3",)),
+    ("pocket-reach", "plan.toml", "expected", 2, "reach", ("S2",), ("S2",)),
+    ("pocket-reach", "long-reach.toml", "expected/long-reach", 0, None, ("S2",), ()),
+    ("sharp-corner", "plan.toml", "expected", 2, "internal_corner_radius", ("S2",), ("S2",)),
+    ("unclaimed-face", "plan.toml", "expected", 2, "coverage", ("S2",), ("S2",)),
+    (
+        "fixture-holds",
+        "plan.toml",
+        "expected",
+        2,
+        "accessibility",
+        ("S1", "S2", "S3", "S4", "S5", "S6"),
+        ("S2", "S3", "S4"),
+    ),
+    (
+        "fixture-holds",
+        "clash.toml",
+        "expected/clash",
+        2,
+        "fixture_interference",
+        ("S1", "S3"),
+        ("S1", "S2"),
+    ),
 )
+# Discriminating rules whose subject is the setup id rather than its op.
+SETUP_GEOMETRY_RULES = {"vise", "thin_wall_under_clamp", "fixture_interference"}
 STATUSES = {"pass", "error", "warn", "info", "unknown", "unsupported", "not_applicable"}
 FEATURE_RULES = {"sizing", "op_chain", "blind_depth", "datum_consistency"}
 SETUP_RULES = {
@@ -212,6 +234,14 @@ def resolves(ref: str, entries: dict) -> bool:
     entry = entries.get(root, {})
     if not entry or entry.get("present") is False:
         return False
+    members = entry.get("members", {})
+    if isinstance(members, dict) and selected in members:
+        # An explicitly declared member resolves by identity; an "unknown" member
+        # resolves to an unverified identity rather than a missing one.
+        member = members[selected]
+        return member == "unknown" or (
+            isinstance(member, dict) and member.get("present") is not False
+        )
     if selected in entry.get("included", []) + entry.get("standard_accessories", []):
         return True
     kind = entry.get("kind")
@@ -261,6 +291,10 @@ def resolves(ref: str, entries: dict) -> bool:
 def uncertain(ref: str, entries: dict, seen: tuple = ()) -> bool:
     root = ref if ref in entries else ref.split("/", 1)[0]
     if root not in entries or root in seen:
+        return True
+    members = entries[root].get("members", {})
+    member = ref.split("/", 1)[1] if ref != root else None
+    if isinstance(members, dict) and member is not None and members.get(member) == "unknown":
         return True
 
     def walk(value) -> bool:
@@ -451,7 +485,7 @@ def read_report(path: Path) -> dict:
         == ("checked" if report.get("expected_exit") == 0 else "planned"),
         f"{path}: unearned readiness",
     )
-    require(report.get("rules_version") == "m5-rev8", f"{path}: stale rule catalogue")
+    require(report.get("rules_version") == "m5-rev9", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]
@@ -674,6 +708,10 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
     for axis, row in numbers.get("axes", {}).items():
         recipe = setup["zero"][axis]
         edge = recipe.get("edge_mm", "unknown")
+        jog = recipe["check_jog_mm"]
+        sign = row.get("sign", "unknown")
+        require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
+        scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
         if axis == "z":
             if recipe.get("face") == "top":
                 edge = setup["stock_state"].get("top_z", "unknown")
@@ -681,7 +719,26 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
             paper = recipe.get("paper_mm", "unknown")
             expected = edge + paper if numeric(edge) and numeric(paper) else "unknown"
         elif recipe.get("method") == "trial_cut_measure":
-            expected = "unknown"  # A measured trial diameter has not been supplied.
+            # The measured diameter is a bench reading: a ready gauge and jog complete it.
+            gauge = recipe.get("gauge", "unknown")
+            ready = (
+                isinstance(gauge, str)
+                and resolves(gauge, entries)
+                and not uncertain(gauge, entries)
+                and numeric(jog)
+            )
+            display = "D" if scale == 2 else "D/2"
+            step = sign * scale * jog if ready else 0
+            for field, text in (
+                ("axis_set", f"measured {display}"),
+                ("check_reading", f"{display} {step:+g}"),
+                ("mirrored_reading", f"{display} {-step:+g}"),
+            ):
+                require(
+                    row.get(field) == (text if ready else "unknown"),
+                    f"{setup['id']}.{axis}: trial-cut {field}",
+                )
+            continue
         elif recipe.get("from") == "indicated":
             near(row["radius_mm"], 0, "indicated axis has no finder correction")
             expected = edge
@@ -691,11 +748,9 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
             near(row.get("radius_mm", "unknown"), radius, f"{setup['id']}.{axis}: finder radius")
             side = -1 if recipe.get("from") == f"-{axis}" else 1
             expected = edge + side * radius if numeric(edge) and numeric(radius) else "unknown"
+        # The display shows scale × the physical contact (diameter mode doubles it).
+        expected = expected * scale if numeric(expected) else "unknown"
         near(row.get("axis_set", "unknown"), expected, f"{setup['id']}.{axis}: Axis Set")
-        jog = recipe["check_jog_mm"]
-        sign = row.get("sign", "unknown")
-        require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
-        scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
         for field, factor in (("check_reading", 1), ("mirrored_reading", -1)):
             result = (
                 expected + factor * sign * scale * jog
@@ -834,9 +889,14 @@ def check_speeds(
         near(row["rpm"], rpm, f"{setup['id']}:{op['op']}: RPM")
     else:
         require(row.get("rpm") == "unknown", "uncited cutting speed became RPM")
-    values = row.get("rpm"), row.get("flutes"), row.get("chip_load_mm_per_tooth")
+    if numeric(row.get("feed_mm_rev")):  # lathe rows feed per spindle revolution
+        values = row.get("rpm"), row.get("feed_mm_rev")
+        label = "feed per revolution"
+    else:
+        values = row.get("rpm"), row.get("flutes"), row.get("chip_load_mm_per_tooth")
+        label = "feed per tooth"
     feed = math.prod(values) if all(numeric(v) for v in values) else "unknown"
-    near(row.get("feed_mm_min", "unknown"), feed, "feed per tooth")
+    near(row.get("feed_mm_min", "unknown"), feed, label)
 
 
 def check_coordinates(setup: dict, features: dict, finding: dict, plan: dict) -> None:
@@ -1175,7 +1235,12 @@ def check_stickout(setup: dict, plan: dict, features: dict, policy: dict, findin
 
 
 def check_cone_facts(plan: dict, features: dict) -> None:
-    require(features["construction"] == "one_piece", "cone drawing has no built-up permission")
+    # User-approved example divergence (examples/README.md): the export says one_piece;
+    # the example treats the drawing as permitting the built-up candidate.
+    require(
+        features["construction"] == "built_up_permitted",
+        "cone drawing lost its approved built-up permission",
+    )
     for field, expected in (
         ("linear_1pl", 0.8),
         ("linear_2pl", 0.51),
@@ -1399,7 +1464,7 @@ def validate_fixture(
 
 
 def validate_geometry_fixture(case: tuple, documents: dict) -> None:
-    name, plan_filename, expected_subdir, expected_exit, failing_rule, target_sid = case
+    name, plan_filename, expected_subdir, expected_exit, failing_rule, modeled, failing = case
     folder = EXAMPLES / "geometry" / name
     plan = documents[(folder / plan_filename).resolve()]
     features = documents[(folder / plan["features"]).resolve()]
@@ -1444,16 +1509,33 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         set(report.get("renders", {})) == {setup["id"] for setup in plan["setups"]},
         f"{name}: numeric in-process stock render missing",
     )
+    holds = {setup["id"]: setup.get("hold", {}) for setup in plan["setups"]}
+    inventory = documents[paths["inventory"]]
     for sid, asset in report["renders"].items():
-        if sid == target_sid:
+        scene = asset.get("scene", {})
+        if sid in modeled:
+            # Every drawn component exact, no debt, and the scene names the held kind.
+            fixture = holds[sid].get("fixture")
+            kinds = [
+                inventory.get(category, {}).get(fixture, {}).get("kind")
+                for category in ("fixtures", "machines")
+            ]
+            components = scene.get("components", [])
             require(
                 asset.get("fixture") == "modeled"
-                and asset.get("scene") == {"jaws": "exact", "parallels": "exact", "debts": []},
-                f"{name}: authored target fixture scene is unresolved",
+                and scene.get("debts") == []
+                and scene.get("fixture_kind") in kinds
+                and components
+                and all(component.get("exact") is True for component in components)
+                and (
+                    scene.get("fixture_kind") != "vise"
+                    or (scene.get("jaws"), scene.get("parallels")) == ("exact", "exact")
+                ),
+                f"{name}: authored {sid} fixture scene is unresolved",
             )
         else:
             require(
-                asset.get("fixture") != "modeled" and asset.get("scene", {}).get("debts"),
+                asset.get("fixture") != "modeled" and scene.get("debts"),
                 f"{name}: unknown preparation holding is falsely modeled as clear",
             )
         image = (folder / expected_subdir / asset["path"]).resolve()
@@ -1470,15 +1552,21 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         "geometry exit",
     )
     if failing_rule:
+        errors = {
+            row["subject"]
+            for row in report["findings"]
+            if row["rule"] == failing_rule and row["status"] == "error"
+        }
+        expected = (
+            {plan["part"]}
+            if failing_rule == "coverage"
+            else {sid if failing_rule in SETUP_GEOMETRY_RULES else f"{sid}:10" for sid in failing}
+        )
+        # Preparation setups may show their own errors; a modeled setup errors only if named.
+        extra = {subject.split(":")[0] for subject in errors - expected - {plan["part"]}}
         require(
-            any(
-                row["rule"] == failing_rule
-                and row["status"] == "error"
-                and row["subject"]
-                == (plan["part"] if failing_rule == "coverage" else f"{target_sid}:10")
-                for row in report["findings"]
-            ),
-            f"{name}: missing discriminating {failing_rule} error",
+            expected <= errors and (failing_rule == "coverage" or not extra & set(modeled)),
+            f"{name}: discriminating {failing_rule} errors differ: {sorted(errors)}",
         )
     else:
         require(

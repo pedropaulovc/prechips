@@ -25,11 +25,13 @@ section_mm = [100.0, 100.0]
 length_mm = 100.0
 cite = "scratch assembly candidate"
 [[stock.components]]
+id = "round"
 form = "round_bar"
 dia_mm = 2.0
 length_mm = 10.0
 cite = "scratch component round dimensions"
 [[stock.components]]
+id = "block"
 form = "flat_bar"
 section_mm = [2.0, 5.0]
 length_mm = 10.0

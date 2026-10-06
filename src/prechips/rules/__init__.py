@@ -16,6 +16,7 @@ from prechips.rules import (
     engagement,
     envelope,
     finish_coverage,
+    fixture_interference,
     headroom,
     hold_fields,
     indexing,
@@ -24,6 +25,7 @@ from prechips.rules import (
     op_chain,
     op_order,
     reach,
+    saw_cut,
     sizing,
     speeds_feeds,
     stickout,
@@ -77,6 +79,8 @@ GEOMETRY_RULES = [
     Rule("finish_coverage", finish_coverage.evaluate),
     Rule("vise", vise.evaluate),
     Rule("thin_wall_under_clamp", thin_wall_under_clamp.evaluate),
+    Rule("saw_cut", saw_cut.evaluate),
+    Rule("fixture_interference", fixture_interference.evaluate),
 ]
 RULES.extend(GEOMETRY_RULES)
 

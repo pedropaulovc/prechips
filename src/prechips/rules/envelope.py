@@ -17,11 +17,13 @@ from prechips.rules._envelope import (
 from prechips.rules.coordinates import CENTRE_OPS
 from prechips.rules.resolution import (
     MANUAL,
+    SAW_OPS,
     UNKNOWN,
     number,
     plan_frame_cite,
     record,
     same_length,
+    saw_setup,
     setup_frame_ref,
 )
 
@@ -38,6 +40,18 @@ def evaluate(bundle):
     for setup in bundle.plan["setups"]:
         machine, _ = machine_envelope(bundle, setup)
         cite = ["PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"]
+        if saw_setup(setup):
+            findings.append(
+                Finding(
+                    "envelope",
+                    setup["id"],
+                    "not_applicable",
+                    {},
+                    cite,
+                    "A dedicated saw setup has no spindle-nose-to-table stack.",
+                )
+            )
+            continue
         if machine.get("kind") == "lathe":
             findings.append(
                 Finding(
@@ -86,7 +100,8 @@ def evaluate(bundle):
             )
         stacks = []
         for op, before, _ in tip_endpoints.stock_states(setup, features):
-            if op.get("do") in MANUAL:
+            # Saw cuts have no spindle stack; the setup's other cutting ops are still assessed.
+            if op.get("do") in MANUAL or op.get("do") in SAW_OPS:
                 continue
             label = f"plan.setups.{setup['id']}.ops.{op['op']}"
             name = op.get("feature", UNKNOWN)

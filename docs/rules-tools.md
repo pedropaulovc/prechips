@@ -21,6 +21,12 @@ mismatch conclusions and stay unknown. A missing item's error is owned by its
 reference finding; its assembly finding stays unknown.
 An explicitly unknown operation action also makes its assembly fit unknown.
 
+Saw cut-off resolves the selected bandsaw blade and a `mill` / `bench` /
+`bandsaw` machine instead of a spindle/holder/shank assembly. No holder is
+required; incompatible known machine/tool kinds are errors and unverified
+identities remain debt. A saw naming a groove cannot replace that groove's
+size-setting tool, and a saw does not establish a finished datum.
+
 Sentence templates:
 
 - `{ref}: not listed in the inventory.`
@@ -48,8 +54,11 @@ not applicable. Drawing units other than mm remain unresolved rather than
 implicitly converting their tolerance limits.
 An explicitly unknown feature kind or route action is unknown, not not-applicable.
 
-Grooves compare selected nose radius to `corner_radius_max_design`, and radial
-reach to `(stock.dia_mm - groove low diameter)/2`. These are explicit design
+Grooves compare selected nose radius to the feature's own
+`corner_radius_max_design` (the same allowance `internal_corner_radius` admits at
+CAD-sharp corners; equality passes: 0.25 admits a 0.25 mm nose, 0.26 errors), and
+radial reach to `(stock.dia_mm - groove low diameter)/2`. A missing allowance
+stays unknown; `edge_break` is never borrowed. These are explicit design
 checks, not M2 turned-profile machinability or swept geometry proof.
 
 Sentence templates (each prefixed `{feature}: ` and ending `.`):

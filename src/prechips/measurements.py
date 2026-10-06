@@ -57,6 +57,11 @@ def _trust(fact, require_measured):
     return True, "Trusted nominal value; this fact declares no verification debt."
 
 
+def record_trusted(fact, *, require_measured=True):
+    """(trusted, reason) for a record carrying its own ``measured``/``verify`` qualifiers."""
+    return _trust(fact if isinstance(fact, dict) else {}, require_measured)
+
+
 def _resolve(item, field):
     """(value in mm, fact record or None, reason) for one dotted or tuple length path.
 

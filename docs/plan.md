@@ -2,9 +2,10 @@
 
 `part`, `features`, and `setups` are required. The loader additionally requires
 a nonempty setup list, known unique setup ids, a nonempty operation list per
-setup, known unique operation numbers within each setup, and every operation's
-feature in the manifest. Plan and manifest part names must agree; a known setup
-frame must name an exported manifest frame or a plan-owned frame in
+setup and known unique operation numbers within each setup. A saw stock cut may
+omit `feature`; every authored feature must be in the manifest, and inspection
+checks need a named feature. Plan and manifest part names must agree; a known
+setup frame must name an exported manifest frame or a plan-owned frame in
 [`frames`](#frames). A literal `"unknown"` setup frame stays unresolved.
 Execution follows authored array order, not numeric sorting of operation ids.
 
@@ -19,7 +20,7 @@ Plan-declared shared paths must stay inside
 the bundle root; explicit CLI/environment shop paths may be external. STEP references are read and hashed, contained
 inside the bundle, and checked against a known `step_sha256`. M4 geometry rules
 hand that STEP, once its bytes match the manifest digest, to one FreeCAD job per
-run; an unknown digest, a missing `step`, or mismatched bytes keeps all seven
+run; an unknown digest, a missing `step`, or mismatched bytes keeps all eight
 geometry rules `?`. See [geometry rules](rules-geometry.md).
 
 Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in
@@ -168,8 +169,10 @@ provenance.
 | `cite` | `Citations` |
 
 For a built-up stock candidate, `components` lists the separately authored
-blanks. Each `StockComponent` accepts `form`, `dia_mm`, `length_mm`,
-`section_mm`, `note`, and `cite` with the same types as the stock fields above.
+blanks. Each `StockComponent` requires a known, nonempty, unique `id`;
+references match the exact id, with no ASCII character whitelist. It accepts `form`,
+`dia_mm`, `length_mm`, `section_mm`, `origin_mm`, `axis`, `section_axis`, `note`,
+and `cite` with the same types and model-frame pose semantics as root stock.
 A round blank uses diameter and length; a rectangular blank uses two section
 dimensions and length. These are authored purchase/process choices, not
 confirmed on-hand inventory. Missing dimensions or citations keep comparison
@@ -183,9 +186,18 @@ For a rectangular blank `section_axis` is the perpendicular unit direction
 of `section_mm[0]`; `axis × section_axis` carries `section_mm[1]`. The box is
 the product of those three positive intervals; a round blank is the declared
 diameter cylinder along `axis`. Dimensions/placement describe authored material,
-not measured stock on hand. Missing placement or dimensions, unsupported
-built-up stock, and incompatible as-is surfaces keep stock-dependent geometry
-`?` with a reason. `as_is_faces` never creates a stock solid by itself.
+not measured stock on hand. Each built-up component must contain only its own
+piece, not the full finished STEP. Missing component dimensions or placement
+remain individual stock debt; a known component does not resolve another one.
+Known component branches remain usable when another component's geometry is
+missing. When every component envelope is known, their full union must contain
+the finished STEP; failure leaves all component references with geometry debt.
+A nonempty root `as_is_faces` declaration applies to the full joined supply
+exterior and therefore requires every component envelope to be known; this
+global declaration can withhold otherwise-known branches. Empty or omitted
+`as_is_faces` adds no such cross-component dependency.
+Incompatible as-is surfaces also keep stock-dependent geometry `?` with a reason.
+`as_is_faces` never creates a stock solid by itself.
 
 `as_is_faces` lists STEP face references (same forms as a feature's `faces`)
 that stay as supplied stock; the M4 `coverage` rule unites them with the faces
@@ -233,7 +245,7 @@ setups. Unknown controller/install facts remain unresolved independently.
 | `machine` | `str` |
 | `frame` | `str` |
 | `coolant` | `str` |
-| `stock_in` | `str` |
+| `stock_in` | `str \| list[str]` |
 | `note` | `str` |
 | `deburr_mm` | `Number` |
 | `deburr_cite` | `Citations` |
@@ -241,6 +253,19 @@ setups. Unknown controller/install facts remain unresolved independently.
 | `hold` | `Hold` |
 | `zero` | `Zero` |
 | `ops` | `list[Operation]` |
+
+`stock_in` names `"stock"` for a single supply, `"stock.<id>"` for a built-up
+component, or any earlier setup's `id` (not necessarily the immediately previous
+setup). A nonempty array of these references joins their solids by Boolean union
+in model coordinates. Unknown or forward authored references are bad input
+(exit 3), including authored `"unknown"` as a source. Omitted `stock_in`
+remains stock debt; it does not infer a linear route. Every supply and setup output stays in the model frame:
+joining references never applies an implicit assembly transform.
+Array entries must have disjoint supply ancestry: repeated references or joining
+a supply with its descendant (for example `["stock", "S1"]` when S1 consumes
+stock) are bad input (exit 3), naming the shared supply ancestor. Separate route
+alternatives may start from the same supply again, but cannot join that material
+lineage twice.
 
 ## StockState
 
@@ -293,23 +318,61 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `stickout_mm` | `Number` |
 | `jaw_center_along_mm` | `Number` |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
+| `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
+| `riser_up` | `str` (riser dimension standing vertical: `length` / `width` / `height`) |
+| `riser_along` | `str` (riser dimension along `jaws_along`) |
+| `riser_centres_mm` | `list[[Number, Number]]` (at least one) |
+| `chuck` | `str` (the chuck a `dividing_head` carries) |
+| `pose` | `Pose` |
+| `jaw_clock_deg` | `Number` |
+| `support_tip_mm` | `[Number, Number, Number]` |
+| `quill_extension_mm` | `Number` |
+| `clamps` | `list[ClampPlacement]` |
+| `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |
+| `preload_direction` | `"clockwise"` / `"counterclockwise"` |
+| `stop_fixture` | `str` (inventory fixture with authored solids) |
+| `stop_pose` | `Pose` |
 | `grip_mm_verify` | `bool` |
 | `jaw_above_parallels_mm_verify` | `bool` |
 | `index` | `Index` |
+
+`Pose` is `{origin_mm, x, z}`, each `[Number, Number, Number]` in setup-frame
+mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
+`ClampPlacement` is `{ref, note, pose}`: `ref` names a fixture or a
+`kit/member` such as a clamping-kit strap, and its authored `solids` are
+placed by `pose` (origin at the strap underside on the work).
+
+`clamp_order` is the declared tightening-action sequence for drawing badges,
+not an automatic interpretation of the `clamps` array. A locating pin may
+belong to that array for its posed solids without being a tightening action;
+omit its index from the order. `preload_direction` is viewed from above,
+looking down setup -Z. These annotations do not certify clamp force or order.
+
+A physical stop uses `stop_fixture` plus `stop_pose`; its inventory solids
+follow the same dimension/measurement/void trust rules as other fixture bodies.
+The kernel places it, draws it and includes it in collision/interference checks.
+An unresolved stop is a named fixture gap, not a guessed point from `stop` prose.
 
 M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 `grip_mm` and `jaw_above_parallels_mm` to place the jaw solids in the setup
 frame: `jaws_along` is the jaw length axis (`x` / `y`), `fixed_jaw` picks the
 jaw on the negative or positive side of the other axis, `grip_mm` is the depth
 of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
-above the parallels. A `grip_mm_verify = true` or
+above the stock seat (support tops, or the bed without a lifting support).
+An explicit `parallels = "none"` or `"not_applicable"` means known zero parallel
+lift and no parallel solids or parallel-position debt. Without another lifting
+support the work seats on the bed. Omitted,
+`"unknown"` or unresolved named parallels still need an accepted positive
+height; a named zero-height parallel is not equivalent to explicit absence.
+A `grip_mm_verify = true` or
 `jaw_above_parallels_mm_verify = true` flag makes that number unknown to the
 kernel; `jaw_above_parallels_mm = 0` is a known zero, any other nonpositive or
 unknown value is debt. Together with the vise's explicit `jaw_height`,
-`jaw_width`, `jaw_depth` and `opening` and the parallels' `height`, these are
-the facts behind the jaw solids and the setup findings. When any is
-missing, the setup's `vise` and `thin_wall_under_clamp` findings stay `?`
-and the render, if any, is a part-only view labelled as unresolved.
+`jaw_width`, `jaw_depth` and `opening` and the selected parallels' `height`
+(or explicitly declared zero lift), these are the facts behind the jaw solids
+and setup findings. When a required fact is missing, the setup's `vise` and
+`thin_wall_under_clamp` findings stay `?` and the render, if any, is a part-only
+view labelled as unresolved.
 
 Two optional authored pose fields complete the picture. `jaw_center_along_mm`
 is the centre of the jaw plates along `jaws_along` in setup-frame
@@ -322,13 +385,28 @@ parallels row's fact-local `height`, `length` (along the jaws) and `width`
 seat. Nominal numbers are usable for geometry, not evidence of a measured
 shop setup. Both poses are declarations the author must measure at the bench; the
 kernel never infers a jaw centre or a parallel position, and only a setup
-with both exact jaws and exact parallels is captioned as a modeled fixture.
+with exact jaws and, when selected, exact parallels is captioned as modeled.
 Either field may be `"unknown"` (any unknown coordinate is a render debt, not
 a guessed pose) and neither has a `_verify` flag: they are author coordinate
 choices, while each parallel dimension has its own fact-local trust; the
 inventory item's `verify` does not taint other numeric facts. Omitting the
 optional poses does not block independent `vise` / `thin_wall_under_clamp`
-facts. Missing parallel height still leaves the fixture dimensions unknown.
+facts. A selected parallel's missing height still leaves fixture dimensions unknown.
+
+Other holding kinds are drawn from their own declarations, never defaulted.
+A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with
+`chuck`) is placed by `pose` (origin at the jaw-face centre, +z toward the
+work) with jaw 1 at `jaw_clock_deg` from pose x; its jaws close on the
+setup-entry stock inside `grip_mm` behind the jaw face. A `dead_centre`
+`support` is drawn from its tip at `support_tip_mm`, its quill
+`quill_extension_mm` beyond the centre shank. An angle plate, custom fixture
+or dividing head draws its inventory `solids` placed by `pose`, and each
+`clamps` entry draws its member's `solids` at its own pose; a strap must bear
+on the stock top. `riser`, `riser_up`, `riser_along` and `riser_centres_mm`
+stand a vise's parallels on riser blocks (a `blocks_123` `supports` item is
+the riser when `riser` is absent). Non-vise holds that declare no jaws set
+`fixed_jaw = "not_applicable"`; one without a gripped depth also sets
+`grip_mm = "not_applicable"`.
 
 ## Index
 
@@ -365,6 +443,25 @@ with angles at the drawing's declared angular precision.
 | `orientation` | `str` |
 | `note` | `str` |
 | `height_mm` | `float` |
+| `jaw_lead_mm` | `float` |
+| `at_z_mm` | `float` |
+| `jaw_side` | `str` (`turned` or `uncut`; follow rests only) |
+| `ops` | `list[int]` |
+
+A `hold.supports` table with `jaw_lead_mm` declares a follow rest riding that
+far from the tool along Z; one with `at_z_mm` declares a steady rest at that
+setup-frame Z. `ops` lists the operation ids it serves (omitted = every turning
+op of the setup). A follow rest's `jaw_side` says which diameter its jaws ride:
+`turned` (the default; trailing the tool on the diameter just cut) or `uncut`
+(leading it on the diameter about to be cut). `ref` names an inventory
+`follow_rest`/`steady_rest` fixture with measured `capacity_min`/`capacity_max`.
+`turning_deflection` then uses the rest span instead of `stickout_mm`
+(docs/rules-physics.md "Follow and steady rests"). The kernel also draws and
+collision-checks the rest from that fixture's measured solid fields: a follow
+rest's `jaw_width`, `jaw_height`, `jaw_depth` and `jaw_angles_deg`, a steady
+rest's `body_dia` and `body_length` ([inventory](inventory.md),
+[rules-geometry](rules-geometry.md#follow-and-steady-rests)). Example:
+`supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]`.
 
 ## Zero
 
@@ -454,6 +551,7 @@ with angles at the drawing's declared angular precision.
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 | `stock_removal_bounds` | `Bounds` |
+| `cut_plane` | `SawPlane` (saw cut-off only) |
 
 `faces` explicitly declares this operation's cutting claims using bound STEP
 references. Omission uses the feature's default `faces`; `"unknown"` means
@@ -465,22 +563,35 @@ errors. A far-side face whose outward normal opposes the setup's +Z approach
 by more than 90° is an error naming the face and earns no coverage credit.
 Complementary setups can explicitly claim opposite sides; finishing coverage
 credits each face only to the direction-valid finishing cuts that claim it.
+A claimed hole cap also needs its feature's last drill/ream/bore/counterbore
+setup to leave it clear of stock; a tap or pilot claim never stands in for that
+(see [geometry](rules-geometry.md#finish_coverage)). No plan field selects that op.
 
 `stock_removal_bounds` is an explicit setup-frame clearing box:
 `{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric
 and strictly increasing. It declares the material outside the finished part
 that this cutting operation clears inside that volume, leaving everything
 outside it unchanged. Its faces still need valid cutting claims from this
-setup. If the cutter radius is known, the box's XY extent cannot exceed the union
-XY bounding box of its direction-valid claimed faces dilated by that radius;
-an excess is a named geometry error and leaves later stock unresolved. If the
-radius is unknown, the extent check is `?` with a reason naming the missing cutter
-radius, and later stock stays unresolved. Every claim must touch the box and
-every removed piece must border a claim.
-It shapes stock passed to later setups and excludes only this operation's own
-derivable allowance from its flute obstacles; holder, reach and holding facts
-still use setup-entry stock. This is an authored process/fixture volume, not a
-measured toolpath or proof that roughing is safe. Without it, any claimed wall
+setup. The box is the explicit cleared footprint, for example the envelope of
+several roughing passes; it is not capped to the claimed faces' XY bounding box
+dilated by the cutter radius. The cutter radius must still be known: if it is
+unknown, the bounds are `?` with a reason naming the missing cutter radius, and
+later stock stays unresolved. Removal is the box's intersection with the
+setup-entry stock and never takes finished material or a protected rough leave.
+Every claim must touch the box and every removed piece must border a claim on
+that setup-entry stock, so an earlier op of the setup clearing the bridge
+between a claim and the rest of its box never strands it; the pieces are then
+cut from the current stock, which only removes material and never restores what
+an earlier op cleared. Known future planned-hole columns, with their finite caps,
+stay stock; and the removal must not split an original input solid. A violation is named stock
+debt, not an error: later stock that depends on it stays unresolved (later ops
+of the same setup keep only certain finished-material flute hits, with tool hits
+unknown), while genuine collisions with finished material remain independent
+errors. It shapes the stock later flutes of this setup and later setups meet,
+and excludes this operation's own derivable allowance from its flute obstacles;
+holder, reach and holding facts still use setup-entry stock. This is an
+authored process/fixture volume, not a
+measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
 needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
 
@@ -516,3 +627,43 @@ the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inve
 | `x` | `Vector` |
 | `y` | `Vector` |
 | `z` | `Vector` |
+
+## Saw cut-off
+
+`do = "saw_cut"` and `do = "cut_off"` remove a sacrificial end/slab with a
+`tools.<blade>` whose `kind = "bandsaw"`. The setup machine may be a `mill`,
+`bench` or `bandsaw`; a lathe uses its separate `part_off` action, not this model.
+The operation requires no spindle holder, direction or finished-face claim.
+If a feature is authored it must resolve normally; checks cannot be attached to
+an omitted feature.
+
+```toml
+[[setups.ops]]
+op = 10
+do = "saw_cut"
+tool = "metal-blade"
+cut_plane = { axis = "y", value = 87.75, keep = "below" }
+```
+
+`SawPlane` has `axis = "x" | "y" | "z"`, numeric `value` in the manifest/plan
+units, and `keep = "below" | "above"` (each may be `"unknown"`). The plane is the
+**blade centre**, in setup coordinates. The blade's inventory `kerf` straddles
+it: below retains `coordinate <= value - kerf/2`; above retains
+`coordinate >= value + kerf/2`. For a 1.5 mm kerf, the example retains Y ≤ 87 mm,
+not Y ≤ 87.75 mm. The kernel removes the kerf and the discarded offcut, checks
+that no finished target is removed, and hands the retained stock to later setups.
+
+An all-saw setup (possibly with manual inspection/deburring) needs no `zero`
+recipe or mill envelope; `zero_check`, `headroom`, `envelope` and `travel` state
+why they are not applicable. Mixed setups still check their other machining ops.
+Holding declarations, `stock_state.top_z/bottom_z`, the bound frame and routing
+remain operative. Use an ordinary declared fixture (for example a saw vise with
+the usual jaw/parallels fields) to obtain a modeled fixture; a bandsaw machine
+identity does not invent integral-vise geometry.
+
+The traveler prints blade-centre setting, retained edge in mm, blade speed in
+sfm and descent feed in mm/min. These starting numbers come only from the cited
+[`saw_cut` cutting-data row](cutting-data.md), never op-level RPM/feed overrides.
+Blade-centre settings, retained edges and sourced blade speed/feed keep their
+own numeric digits; a coarse drawing print class does not round machine settings.
+

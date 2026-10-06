@@ -12,8 +12,29 @@ telemetry live beside them.
 
 ## Sources and fixtures
 
-Never invent a tool measurement, tolerance, cutting number, source page, drawing
-revision, STEP digest or first-article claim. Use the literal `"unknown"`; it is
+### Examples policy (illustrative plausible data)
+
+Everything under `examples/` (shop inventory, policy, cutting data, plans and
+example features) is **illustrative**; real shop inputs come later. The examples
+carry a plausible value for every fact the checker consumes so that each pilot
+bundle shows a complete, passing route. Every invented physical fact is labelled
+fact-locally as
+`measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "<plausible instrument>" }`;
+invented non-length facts (cutting-data rows, policy floors, gauge/identity
+confirmations) carry a cite or comment that names them as example values. Real
+measurements (for example `fixtures.vise-pm-6`, measured by Pedro Paulo Vezza
+Campos) keep their real `by`; never relabel or overwrite them. Do not revert the
+example values back to `"unknown"`, and do not copy them into a real shop file:
+they are not evidence. The checker's semantics do **not** change for examples:
+`unknown` is never a pass, missing data stays `?`, verify debt stays debt and exit
+codes are unchanged. Engine limitations are fixed in the engine, not worked around
+with example-specific special cases.
+
+### Real inputs and engine fixtures
+
+Outside the labelled example values above, never invent a tool measurement,
+tolerance, cutting number, source page, drawing revision, STEP digest or
+first-article claim. Use the literal `"unknown"`; it is
 not zero or a pass. `verify = true` means measurement/identity debt. Absence
 from a known feature `requirements` list means known absence; an unknown list
 or identity cannot establish absence. An unknown listed dimension still needs
@@ -35,17 +56,29 @@ unresolved holder asks to be added or resolved, not measured.
 
 The shipped reference bundles are under `examples/`, with authored plans and
 shared inventory, policy and cutting data. `rocker-arm`, `pivot-shaft` and
-`cone-pivot-post` consume verbatim consumer-generated `features.toml` and their
-exact adjacent STEP files; never hand-edit those exports or add local provenance
-keys. Record delivery provenance only in [examples/README.md](examples/README.md).
-`pivot-bracket` remains hand-authored: no registered consumer drawing or STEP
-is supplied. Python citations use `file:line` (or line ranges); YAML citations
+`cone-pivot-post` start from consumer-generated `features.toml` and retain their
+exact adjacent STEP bytes. Approved, documented example corrections are allowed;
+the patched manifests are not verbatim exports. The rocker example permits
+source-backed land-angle limits `[89.0, 91.0]` with whole-degree display
+precision `0`, material thickness `2.5` from drawing note 2, and plan revision
+`v40`; these are source bindings, not measured shop facts or release approval.
+The cone permits built-up construction and fixes `mount_west` `station_nominal`
+to `12.98` (harmonic-analyzer issue #1214). Keep other source facts and citations.
+`pivot-bracket/features.toml` is hand-authored on the copied consumer v39
+`pivot-bracket.STEP` (SHA
+`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`,
+no `HAF_` labels): its face refs are geometry-matched
+`#<id>/ADVANCED_FACE[<n>]/NONE` references. Record delivery provenance and every
+divergence in [examples/README.md](examples/README.md).
+There is no dimensioned bracket drawing, so its acceptance bands are
+illustrative example design intent, not measured or imported drawing limits.
+Python citations use `file:line` (or line ranges); YAML citations
 use `file:dotted.key.path`, not unstable line numbers. Consumer citations point
 to the read-only harmonic-analyzer tree; they do not cause the checker to read
 that tree or fetch a URL. Runtime must generate reports/sheets from inputs,
 never load `expected/` as an answer. Reconcile expected fixtures only from
 justified actual rule output and source evidence, never by weakening stops,
-rewriting exported facts or certifying unknowns. Keep fixture LF endings,
+dropping requirements or certifying unknowns. Keep fixture LF endings,
 raw STEP bytes and canonical report hashes.
 
 Checks must perform **no network activity except explicitly configured OTel
@@ -56,8 +89,10 @@ the installed FreeCAD 1.1, then `PATH`, with results cached under
 `PRECHIPS_KERNEL_CACHE`. A missing kernel is `?` plus exit 4, never a pass; a
 kernel failure is `✗`. No CAM, geometry certification or fixture solid is
 implied by a declared input/display field: fixture solids exist only for a
-vise whose `jaw_height`/`jaw_width`/`jaw_depth`/`opening` are explicit and not
-`verify = true`, plus a declared pose, and face identity comes only from a
+vise, riser, chuck, dividing head, dead centre, angle plate, clamp or custom
+fixture whose own dimensions (or authored `solids` primitives) are explicit
+and not `verify = true`, plus a declared pose; a fixture is `modeled` only
+when every drawn component is exact and no debt remains, and face identity comes only from a
 geometry-matched STEP `ADVANCED_FACE` reference, never from import order or
 the nearest face. M2 rules evaluate declared profile, holding, indexing and
 physics inputs; unknown K_c/E, shop limits, `thin_wall_floor_mm` and verified
@@ -95,8 +130,8 @@ The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
 outputs correctly stop with 2 or 4. Current expected M3 CLI exits are
 4 / 2 / 2 / 2 / 2 (shaft / rocker / bracket / cone one-piece / cone built-up).
-The one-piece cone stops on the exported `mount_west` nominal lying outside its
-band; never flip or drop exported facts to recover an exit. Migrate existing
+Approved source-backed example corrections must retain their documented
+provenance, not erase requirements to recover an exit. Migrate existing
 inspection choices to the exact exported feature owners rather than dropping
 checks, inventing methods or changing gauges to force an exit. A check whose
 requirement the export lacks stays visible as an explicit `missing_requirements`
