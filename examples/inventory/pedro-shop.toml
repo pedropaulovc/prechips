@@ -446,6 +446,7 @@ material = "HSS"
 note = "illustrative example item: 0.4500 in and 0.4835 in straight-flute HSS chucking reamers, 45° bevel lead"
 
 [tools.reamers-decimal.members."0.4500in"]
+name = "0.4500 in chucking reamer"
 dia_mm = { value = 11.430, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
 shank_mm = 10.05
 flutes = 6
@@ -457,6 +458,7 @@ oal_mm = { value = 177.8, measured = { by = "example (plausible, not measured)",
 "drill-chuck-r8" = { value = 150.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } }
 
 [tools.reamers-decimal.members."0.4835in"]
+name = "0.4835 in chucking reamer"
 dia_mm = { value = 12.281, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
 shank_mm = 11.06
 flutes = 6
@@ -787,6 +789,7 @@ jaw_depth_mm = { value = 20.0, measured = { by = "example (plausible, not measur
 # Example purchase: 4 x 6 in horizontal bandsaw for sawing stock and cut-offs
 # (the cone post's sacrificial tail). Its own swivel vise holds the work.
 [machines.bandsaw-4x6]
+name = "4x6 bandsaw"
 kind = "bandsaw"
 blade_speed_sfm = [80, 200]   # illustrative example belt steps (80/120/200 ft/min), not measured
 verify = false
@@ -1178,6 +1181,7 @@ range_mm = [18.0, 35.0]
 resolution_mm = { value = 0.001, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "indicator graduation and gauge calibration certificate" } }
 
 [machines.cone-bond-bench]
+name = "assembly bench"
 kind = "bench"
 note = "AUTHOR'S CHOICE: clean, level assembly bench away from the machines, with solvent cleaner, rags and nitrile gloves; no spindle, DRO or cutting axes. Only manual fit, inspection and finishing operations are permitted here."
 cite = ["AUTHOR'S CHOICE: illustrative built-up bonding station"]
@@ -1239,6 +1243,7 @@ solids = [
 # bears on the south cap annulus and the 76 mm beam spans the post with studs at B6 Y+-30
 # (4.2 mm clear of the body), screwed into the cradle base taps.
 [fixtures.cone-cap-bridge]
+name = "cap bridge clamp"
 shop_made = true
 kind = "strap_clamp"
 note = "AUTHOR'S CHOICE: illustrative example shop-made bridge: 76 x 19.05 x 12.7 mm steel beam with an 18 x 18 x 6 mm brass pad, two 3/8-16 x 3-3/4 in studs, washers and nuts; cylindrical nut envelopes are conservative, not hex geometry"
