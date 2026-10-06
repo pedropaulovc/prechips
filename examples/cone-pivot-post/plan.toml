@@ -223,13 +223,13 @@ pose = { origin_mm = [-44.3, 0.0, -50.66], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0
 jaw_clock_deg = 0.0          # jaw 1 on the +Z bar face
 grip_mm = 20.0               # author's choice: model Y117..137 in the jaws
 support = "none"             # the foot end is free; the BS-0 tailstock would block the foot face
-grip_on = "raw rectangular tail, model Y117..137"
+grip_on = "raw tail end of the bar, last 20 mm"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "bar end against the jaw steps"   # author's choice
-clamp = "four-jaw: set the body axis on the spindle (model Z offset 14.1 from the bar centre) with a dial on the raw faces, then tighten opposite pairs; remove key"   # author's choice
+clamp = "four-jaw: set the post axis on the head spindle (14.1 mm off the bar centre toward the narrow crank-side face) with a dial on the raw faces, then tighten opposite pairs; remove key"   # author's choice
 jaw_protection = "none: the tail is scrap"
 stickout_mm = 117.0          # jaw face model Y117 to datum B at Y0
 note = "BS-0 horizontal, spindle axis along table X, chuck on the left. Head locked at 0 deg (crank boss up) for this setup."
@@ -362,7 +362,7 @@ pose = { origin_mm = [-44.3, 0.0, -21.38], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0
 jaw_clock_deg = 180.0        # same chucking turned 180 deg: jaw 1 now on the bottom face
 grip_mm = 20.0
 support = "none"
-grip_on = "raw rectangular tail, model Y117..137 (unchanged chucking)"
+grip_on = "raw tail end of the bar, last 20 mm (unchanged chucking)"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
@@ -456,7 +456,7 @@ pose = { origin_mm = [-83.632, 0.0, -21.0055], x = [0.0, 0.0, 1.0], z = [1.0, 0.
 jaw_clock_deg = 192.5182
 grip_mm = 20.0
 support = "none"
-grip_on = "raw rectangular tail, model Y117..137 (unchanged chucking)"
+grip_on = "raw tail end of the bar, last 20 mm (unchanged chucking)"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
@@ -578,7 +578,7 @@ pose = { origin_mm = [-83.632, 0.0, -21.0055], x = [0.0, 0.0, 1.0], z = [1.0, 0.
 jaw_clock_deg = 12.5182
 grip_mm = 20.0
 support = "none"
-grip_on = "raw rectangular tail, model Y117..137 (unchanged chucking)"
+grip_on = "raw tail end of the bar, last 20 mm (unchanged chucking)"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
@@ -675,7 +675,7 @@ pose = { origin_mm = [-117.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0
 jaw_clock_deg = 0.0
 grip_mm = 20.0
 support = "none"
-grip_on = "raw rectangular tail, model Y117..137 (unchanged chucking)"
+grip_on = "raw tail end of the bar, last 20 mm (unchanged chucking)"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
@@ -727,7 +727,7 @@ stock_to_leave_mm = 0.0
 doc_mm = 0.5
 approach_mm = 5.0
 direction = "conventional"
-note = "Rotary-mill the head OD 42.7506 from Y94 down to Y49 around the finished crank boss, before the smaller body. Leaves a 42.75 neck from the head top to Y94 for the S7 saw cut."
+note = "Rotary-mill the head OD 42.7506 from Y94 down to Y49 around the finished crank boss, before the smaller body. Run the head diameter 8 mm past the head top so the saw cut in S7 lands on round stock."
 
 [setups.ops.checks]
 dia = "calipers"
@@ -747,7 +747,7 @@ stock_to_leave_mm = 0.0
 doc_mm = 0.5
 approach_mm = 5.0
 direction = "conventional"
-note = "Rotary-mill the body OD 42.011 from the shoulder to the foot between the finished cone pads, and skim the Y59.4 shoulder annulus (#395) with the cutter flank."
+note = "Rotary-mill the body OD 42.011 from the shoulder to the foot between the finished cone pads, and skim the head-to-body shoulder with the cutter flank."
 
 [setups.ops.checks]
 dia = "calipers"
@@ -819,7 +819,7 @@ jaw_above_parallels_mm = 32.245
 stop = "none: foot seated on the parallels"
 clamp = "snug, tap the foot down, tighten; clock the crank boss +Z face parallel to the table X travel with the DTI"
 jaw_protection = "aluminium soft jaws over the finished body"
-note = "Datum B down on 1/2 in parallels, body Y0..32 in the jaws."
+note = "Datum B down on 1/2 in parallels, the bottom 32 mm of the body in the jaws."
 
 [setups.zero.transfer]
 from = "S5"
