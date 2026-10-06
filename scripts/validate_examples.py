@@ -223,6 +223,14 @@ def resolves(ref: str, entries: dict) -> bool:
     entry = entries.get(root, {})
     if not entry or entry.get("present") is False:
         return False
+    members = entry.get("members", {})
+    if isinstance(members, dict) and selected in members:
+        # An explicitly declared member resolves by identity; an "unknown" member
+        # resolves to an unverified identity rather than a missing one.
+        member = members[selected]
+        return member == "unknown" or (
+            isinstance(member, dict) and member.get("present") is not False
+        )
     if selected in entry.get("included", []) + entry.get("standard_accessories", []):
         return True
     kind = entry.get("kind")
@@ -272,6 +280,10 @@ def resolves(ref: str, entries: dict) -> bool:
 def uncertain(ref: str, entries: dict, seen: tuple = ()) -> bool:
     root = ref if ref in entries else ref.split("/", 1)[0]
     if root not in entries or root in seen:
+        return True
+    members = entries[root].get("members", {})
+    member = ref.split("/", 1)[1] if ref != root else None
+    if isinstance(members, dict) and member is not None and members.get(member) == "unknown":
         return True
 
     def walk(value) -> bool:
@@ -1186,7 +1198,12 @@ def check_stickout(setup: dict, plan: dict, features: dict, policy: dict, findin
 
 
 def check_cone_facts(plan: dict, features: dict) -> None:
-    require(features["construction"] == "one_piece", "cone drawing has no built-up permission")
+    # User-approved example divergence (examples/README.md): the export says one_piece;
+    # the example treats the drawing as permitting the built-up candidate.
+    require(
+        features["construction"] == "built_up_permitted",
+        "cone drawing lost its approved built-up permission",
+    )
     for field, expected in (
         ("linear_1pl", 0.8),
         ("linear_2pl", 0.51),

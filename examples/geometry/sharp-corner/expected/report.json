@@ -72,7 +72,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
           },
           "features": {
             "path": "examples/geometry/sharp-corner/features.toml",
@@ -1672,11 +1672,11 @@
       "subject": "S2"
     }
   ],
-  "hash": "6eacf503fe837da696e6fe7495926edb21972de707fbeeeb14340b8b57e0fb26",
+  "hash": "0764c533d1e780a3e18f4757ebcb986dfb924cb0c27d130a141f61ccb32a910a",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
     },
     "features": {
       "path": "examples/geometry/sharp-corner/features.toml",
