@@ -295,8 +295,10 @@ resolve without a verify flag, `check_jog_mm` is numeric and the lathe
 Z `method = "measure_then_set"` touches a face whose position is measured at
 the machine (M, read with `gauge` as the stated `measure`) and Axis Sets
 `M + offset_mm + paper_mm`; check/mirror are `M ±j` on the same base. Like a
-trial cut it is complete when `gauge` resolves unflagged, `measure` is stated and
-`offset_mm`, `paper_mm` and the jog are numeric; the rows show `M -9`, `M +1`.
+trial cut it is complete when `gauge` resolves unflagged, `measure` is stated
+(`"unknown"` states nothing) and `offset_mm`, `paper_mm` and the jog are
+numeric; the rows show `M -9`, `M +1`. The same holds for a tool touch's
+`z_measure`.
 
 Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
 `gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
@@ -317,15 +319,25 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
 `edge_then_set` on a lathe (Z-cutting edge to the surface, withdraw along X),
 `touch_then_set` on a mill:
 
-- Z on the latest touched or faced surface still standing at a plan Z: the zero
-  face, a tool-touch face, a listed retouch's top or a face/pocket op's `to_z`
-  (faced surfaces take the zero's paper). A surface stands until a face or
-  pocket op cuts that feature (the top: moves the top) to another Z. A measured
-  Z (`trial_cut_measure`, `measure_then_set`) is no plan number to repeat.
+- Z on the latest touched or faced surface still standing at a known plan Z:
+  the zero face, a tool-touch face, a listed retouch's top or a face/pocket op's
+  `to_z` (faced surfaces take the zero's paper). A surface stands until an op
+  cuts that feature (the top: moves the top) to another or an unknown Z, or cuts
+  it other than by facing/pocketing; a face or pocket op on an unnamed feature
+  ends every surface. With no standing surface at a known Z, the latest standing
+  one whose Z is unknown is repeated with an unknown Axis Set (unknown). A
+  measured Z (`trial_cut_measure`, `measure_then_set`) is no plan number to
+  repeat.
 - On a lathe, X on the latest diameter turned in the setup (`turn`,
-  `rough_turn`, `finish_turn`) measured with the latest X gauge, else the latest
-  touch's own `x_method` surface (not a trial cut), Axis Set the measured
-  diameter. Tailstock tools (axial actions) do not read the carriage DRO.
+  `rough_turn`, `finish_turn`) that still stands, measured with the latest X
+  gauge, Axis Set the measured diameter. A turned diameter stands until an op
+  cuts that feature other than by turning it (a dome formed on it) or cuts an
+  unnamed feature. A touch's own `x_method` surface is prose the rule cannot
+  follow past a cut, so it is never repeated. Tailstock tools (axial actions) do
+  not read the carriage DRO.
+- A cutting op whose tool is unknown leaves the setter unknown (unknown); an
+  incoming tool that does not resolve, or carries a verify flag, keeps its
+  derived touch unknown, as it keeps an authored touch.
 
 An axis with nothing to derive from is a `missing_touches` row
 (`before_op`, `tool`, `axes`, `dro_set_by`) and an error: a tool cutting on

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from prechips.rules.zero_recipe import evaluate
+from prechips.sheet import _Traveler
 
 DRO = {
     "controller": "el400",
@@ -138,6 +139,40 @@ def test_a_lathe_tool_change_with_no_diameter_to_touch_is_an_error():
     ]
 
 
+def test_a_turned_diameter_formed_away_is_no_longer_touched():
+    # The nose turned in op 10 is formed into a dome in op 20: no cylinder is left to
+    # touch the blade off on, so its X needs a planned touch.
+    ops = [
+        op(10, "turn", "nose", "turner"),
+        op(20, "form_dome", "nose", "turner"),
+        op(30, "part_off", "relief", "parter"),
+    ]
+    data = bundle("lathe", lathe_zero([]), ops)
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["missing_touches"] == [
+        {"before_op": 30, "tool": "parter", "axes": ["x"], "dro_set_by": "turner"}
+    ]
+    # The sheet stops the operator at that op instead of printing a touch.
+    html = _Traveler(data, [finding], {}, {}).dro(data.plan["setups"][0], {})
+    assert "STOP: before op 30" in html and "no X touch" in html
+
+
+def test_a_diameter_a_touch_names_only_in_words_is_not_tracked_for_the_next_tool():
+    # Nothing was turned in the setup; the blade's touch surface is prose whose survival
+    # past the blade's own cut the rule cannot follow, so the turner's X is planned.
+    ops = [
+        op(10, "face", "shoulder", "turner", to_z=-7.5),
+        op(20, "form_relief", "relief", "parter"),
+        op(30, "face", "dome", "turner", to_z=0.0),
+    ]
+    finding = evaluate(bundle("lathe", lathe_zero([{**BLADE, "before_ops": [20]}]), ops))[0]
+    assert finding.status == "error"
+    assert finding.numbers["missing_touches"] == [
+        {"before_op": 30, "tool": "turner", "axes": ["x"], "dro_set_by": "parter"}
+    ]
+
+
 def mill_zero(z, retouch_after=()):
     return {
         "x": {"edge": "left", "edge_mm": 0.0, "from": "-x", "tool": "finder", "check_jog_mm": 5},
@@ -204,6 +239,37 @@ def test_a_top_picked_up_after_a_facing_op_is_re_touched_where_that_op_left_it()
     assert touch["z_axis_set"] == pytest.approx(-1.95)
 
 
+def test_a_face_cut_to_an_unknown_depth_leaves_no_known_z_to_re_touch():
+    zero = mill_zero({**DECK, "tool": "mill"})
+    ops = [op(10, "face", "deck", "mill", to_z="unknown"), op(20, "drill", "hole", "drill")]
+    finding = evaluate(bundle("mill", zero, ops, {"top_z": 10.0}))[0]
+    assert finding.status == "unknown"
+    [touch] = finding.numbers["derived_touches"]
+    assert (touch["z_face"], touch["z_axis_set"]) == ("deck", "unknown")
+
+
+def test_a_floor_re_pocketed_to_an_unknown_depth_falls_back_to_a_face_still_standing():
+    zero = mill_zero({**DECK, "tool": "mill"})
+    ops = [
+        op(10, "face", "deck", "mill", to_z=5.0),
+        op(20, "pocket", "field", "mill", to_z=0.0),
+        op(30, "pocket", "field", "mill", to_z="unknown"),
+        op(40, "drill", "hole", "drill"),
+    ]
+    finding = evaluate(bundle("mill", zero, ops, {"top_z": 10.0}))[0]
+    [touch] = finding.numbers["derived_touches"]
+    assert (touch["z_face"], touch["edge_mm"]) == ("deck", 5.0)
+    assert touch["z_axis_set"] == pytest.approx(5.05)
+
+
+@pytest.mark.parametrize("incoming", ["unknown", "not-in-inventory"])
+def test_an_unresolved_incoming_tool_keeps_the_tool_change_unknown(incoming):
+    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", incoming)]
+    finding = evaluate(bundle("mill", mill_zero(DECK), ops))[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["missing_touches"] == []
+
+
 def test_a_measured_zero_gives_no_plan_z_to_re_touch_so_the_change_is_an_error():
     z = {
         "face": "deck",
@@ -228,6 +294,7 @@ def test_a_measured_zero_gives_no_plan_z_to_re_touch_so_the_change_is_an_error()
         ({}, "M -0.95", "M +4.05", "M -5.95"),
         ({"gauge": "unknown"}, "unknown", "unknown", "unknown"),
         ({"measure": ""}, "unknown", "unknown", "unknown"),
+        ({"measure": "unknown"}, "unknown", "unknown", "unknown"),
         ({"offset_mm": "unknown"}, "unknown", "unknown", "unknown"),
     ],
 )
@@ -254,7 +321,11 @@ def test_a_measured_z_zero_sets_the_measurement_plus_offset_and_paper(
     assert finding.status == ("pass" if axis_set != "unknown" else "unknown")
 
 
-def test_a_mill_tool_touch_is_z_only_and_may_be_measured():
+@pytest.mark.parametrize(
+    "measure,axis_set,status",
+    [("boss height above the deck", "M +10.05", "pass"), ("unknown", "unknown", "unknown")],
+)
+def test_a_mill_tool_touch_is_z_only_and_may_be_measured(measure, axis_set, status):
     touch = {
         "tool": "drill",
         "z_face": "boss",
@@ -262,14 +333,14 @@ def test_a_mill_tool_touch_is_z_only_and_may_be_measured():
         "paper_mm": 0.05,
         "method": "measure_then_set",
         "z_gauge": "mic",
-        "z_measure": "boss height above the deck",
+        "z_measure": measure,
         "z_offset_mm": 10.0,
         "before_ops": [20],
     }
     zero = {**mill_zero(DECK), "tool_touches": [touch]}
     ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
     finding = evaluate(bundle("mill", zero, ops))[0]
-    assert finding.status == "pass"
+    assert finding.status == status
     [row] = finding.numbers["tool_touches"]
-    assert (row["x_axis_set"], row["z_axis_set"]) == ("not_applicable", "M +10.05")
+    assert (row["x_axis_set"], row["z_axis_set"]) == ("not_applicable", axis_set)
     assert finding.numbers["derived_touches"] == []
