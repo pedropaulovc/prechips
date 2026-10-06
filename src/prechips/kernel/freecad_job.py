@@ -1390,6 +1390,10 @@ class _Setup:
             ]
             if saws:
                 scene["saw_cuts"] = saws
+        for result in ops.values():
+            completion = result.get("cap_completion")
+            if completion is not None and completion["unformed"] == UNKNOWN:
+                completion["reason"] = self.stock_out_reason
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
         unknown = [facts["reasons"][key] for key in sorted(facts["reasons"])]
@@ -1413,7 +1417,7 @@ class _Setup:
         self.culled_part = None
         self.regions = {}
 
-    def _output(self, facts):
+    def _output(self, ops):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
 
         A hole op (``hole`` metadata) removes its geometry-located bore cylinder (see
@@ -1427,16 +1431,18 @@ class _Setup:
         cuts the lineage leave off its claimed lateral faces (:meth:`_band`). Every
         profile-claimed face with a horizontal normal component must be clear of overstock
         beyond its op's guard at its interior after the setup's removals; merely sweeping a
-        sliver from a drafted wall does not prove it cleared.
+        sliver from a drafted wall does not prove it cleared. Each complete-form hole op's
+        own claimed caps (``cap_completion`` in its ``ops`` facts) must likewise be clear of
+        the setup's final stock; touched caps are named there and make the output stock debt.
         """
         where = f"the in-process stock setup {self.setup.get('id')} leaves cannot be derived"
-        stock, walls = self.part, []
+        stock, walls, forms = self.part, [], []
         try:
             for op in self.ops:
                 subject = self._subject(op)
                 if _sawn(op):
                     stock, detail = self._saw_stock(op, stock)
-                    facts[subject] = detail
+                    ops[subject] = detail
                     why = detail.get("saw_error") or detail.get("saw_reason")
                     if why is not None:
                         return None, f"{subject}: {why}; {where}"
@@ -1457,6 +1463,9 @@ class _Setup:
                     if cut["reason"] is not None:
                         return None, f"{subject} {cut['reason']}; {where}"
                     removal = cut["removal"]
+                    # Judged on the final stock even when this cut removes nothing new.
+                    if "cap_completion" in ops[subject]:
+                        forms.append((subject, ops[subject]["cap_completion"]))
                 else:
                     leave, why = self._guarded(op)
                     if why is not None:
@@ -1509,6 +1518,20 @@ class _Setup:
                         "stock_removal_bounds (cleared XY footprint, retained rail/ear volume "
                         f"of an interrupted profile) for it; {where}"
                     )
+            # The exact wall contact test without a to_z clip or leave: a complete-form
+            # cut is never rough, and stock left below its floor still leaves a cap unformed.
+            residue = stock.cut(self.finished) if forms else None
+            labels, unformed = self.owner.labels, []
+            for subject, completion in forms:
+                touched = self._covered(residue, completion["caps"], None)
+                completion["unformed"] = [i for i in completion["caps"] if labels[i] in touched]
+                if touched:
+                    unformed.append(f"{subject} {', '.join(touched)}")
+            if unformed:
+                return None, (
+                    "stock still touches claimed hole cap(s) after the setup's cuts, so their "
+                    f"final cut does not form them: {'; '.join(unformed)}; {where}"
+                )
             model = stock.copy()
             model.transformShape(self.matrix.inverse())
         except Exception as exc:
@@ -3150,6 +3173,13 @@ class _Setup:
             reasons["claimed_indices"] = self._undefined(undefined)
         else:
             facts["claimed_indices"] = sorted(valid)
+            hole_meta = op.get("hole")
+            if isinstance(hole_meta, dict) and hole_meta.get("complete_form") is True:
+                caps = sorted(self._own_caps(valid))
+                if caps:
+                    # Its claimed caps must be formed by the setup's final stock: run()
+                    # fills ``unformed`` from :meth:`_output`, or why it stays unknown.
+                    facts["cap_completion"] = {"caps": caps, "unformed": UNKNOWN}
         # Faces whose normals are only partly evaluable are still sampled: a hit on them
         # is a definite hit (``min_hits``), but no measured fact may pass on them while
         # the claim verdict itself stays unknown.

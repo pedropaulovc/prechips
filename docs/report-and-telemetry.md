@@ -225,7 +225,8 @@ Each setup then starts on a new page, in this order:
    Pose vectors and planner field names are not printed.
 3. The holding picture with a caption of the form `Setup S2 — part as it
    arrives from Setup S1, held in the 6 in 3-jaw chuck. Picture shows the
-   holding only, not the cuts.` (or the render's own `scene.shows` / `legend`),
+   holding only, not the cuts.` (or the render's own `scene.shows`; the key is
+   drawn in the picture, not repeated in the caption),
    followed by bold `NOT SHOWN:` lines for each scene debt. Without a render the
    setup prints `NO PICTURE — the holding is not modelled; set up from the HOLD
    steps above.` The image is referenced by relative filename.

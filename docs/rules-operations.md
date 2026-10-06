@@ -89,7 +89,14 @@ spot depth is the apex tip depth, and drill depth is the full-diameter depth
 with the tip one point length (`r / tan(angle/2)`) deeper. A spot's endpoint
 here does not add its point, but its included `point_angle` is still mandatory
 for the kernel's point cone; an unknown angle is accessibility and later-stock
-debt there (see [geometry](rules-geometry.md#accessibility)).
+debt there (see [geometry](rules-geometry.md#accessibility)). Endpoints
+here do not prove a cap is formed. The kernel separately requires each
+feature's last drill, ream, bore or counterbore to leave its claimed caps clear
+of that setup's stock, so a flatter point, a smaller pilot or a flat finishing
+floor above a modelled cone is named stock debt.
+A spot on a through feature still uses its authored mouth depth; it does not
+inherit the through bore's exit. This also bounds the kernel's reach and
+cutter/holder poses, not just the traveler endpoint column.
 
 Exact sentence alternatives:
 

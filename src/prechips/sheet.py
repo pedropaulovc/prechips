@@ -1841,9 +1841,6 @@ class _Traveler:
             if isinstance(shows, list) and shows
             else "Picture shows the holding only, not the cuts."
         )
-        legend = scene.get("legend")
-        if isinstance(legend, list) and legend:
-            caption.append("Key: " + "; ".join(map(str, legend)) + ".")
         lines = []
         for debt in scene.get("debts") or []:
             text = re.sub(r"^(?:fixture )?not drawn:\s*", "", str(debt))
@@ -2178,3 +2175,8 @@ _METADATA = {"cite", "source", "paths", "features", "step_sha256", "inspection_m
 def render_traveler(bundle, findings, report, approval=None) -> str:
     """Render fresh declared/computed instructions; approval never supplies numbers."""
     return _Traveler(bundle, findings, report, approval).render()
+
+
+def tool_label(bundle, reference) -> str:
+    """The traveler's short shop name for a tool reference (e.g. '1.60 mm parting blade')."""
+    return _Traveler(bundle, [], {}, None).tool_name(reference)
