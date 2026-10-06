@@ -422,9 +422,16 @@ interior; a sample's own position never counts as crossing, so a floor sample
 beside a thin rib is not bounded by the rib's far face. This finite constraint
 closure only adds walls not yet bounding, at most once each, and is not a pose
 search.
-A sample beyond an edge's end counts that edge only at
-a concave wall/wall corner there, so convex wall/wall island vertices add no
-bound and no corner pose. When no axis clears every bounding wall (a cutter
+A sample beyond an edge's end counts that edge only through the wall/wall edge
+rising from that end, classified there rather than by another edge the two
+walls share elsewhere. At a concave corner the wall's own line bounds it. At a
+sharp convex island corner it is bounded only when it is past the end of every
+wall meeting there (the corner is each floor edge's own nearest point and the
+sample lies off each wall's normal): the nearest boundary point is then the
+corner itself, so the axis moves straight away from the corner until tangent.
+A sample in front of or behind a wall's interior is bounded by that wall alone,
+a tangent junction or split face bounds nothing, and convex corners get no
+corner pose of their own. When no axis clears every bounding wall (a cutter
 wider than the slot, gap or pocket circle), the sample keeps its own axis and
 its collision is a real hit; an unclassifiable floor edge remains localized
 pose debt. On a non-circular concave curve, or a circle smaller than the
@@ -517,7 +524,10 @@ of a groove exactly two radii wide, while a cutter wider than its circle or
 groove reports the real wall hit; samples near a 40° V tip whose two-wall axis
 lands inside an r0.5 island stand past the island (only the two samples whose
 island and V-wall bounds conflict report the hit), and plate samples beside a
-1 mm rib clear it; an offset cutter tangent to
+1 mm rib clear it; a plate sample past both walls of a square island's convex
+corner stands tangent to the corner and clears, and a sample just past one
+wall's end but in front of the other, in a slot exactly two radii wide, stands
+tangent to that wall alone and clears; an offset cutter tangent to
 its claimed side wall clears while the sample-centred mutant intersects the
 wall; a Ø10 cutter
 in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the

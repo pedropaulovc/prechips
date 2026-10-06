@@ -1,8 +1,9 @@
 """Floor tool poses within a cutter radius of any concave floor edge, curved ones included.
 
 User decision 2026-10-05: a floor sample on or within R of a concave floor/wall edge (a
-pocket wall or a boss foot, straight or circular) shifts along that wall's in-plane normal
-at the nearest edge point until the cutter is tangent; a concave circle at least R in
+pocket wall or a boss foot, straight or circular) shifts away from the nearest edge point
+until the cutter is tangent: along that wall's in-plane normal, or straight away from a
+sharp convex island corner the sample is past both walls of. A concave circle at least R in
 radius bounds it exactly, so a sample between an arc and a straight wall stands tangent to
 both. A tool wider than its gap or circle still reports the real wall hit, never unknown.
 FreeCAD-backed tests run ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and
@@ -54,8 +55,19 @@ save("v-boss", block.cut(wedge).fuse(boss).removeSplitter())
 # Plate 10 thick with a 1 mm rib 6 tall (y 19.5..20.5, x 10..50) standing on it.
 plate = Part.makeBox(60, 40, 10)
 save("rib", plate.fuse(Part.makeBox(40, 1, 6, V(10, 19.5, 10))).removeSplitter())
+# The plate's 5x5 floor grid samples x 6..54 step 12, y 4..36 step 8. Square island
+# x 31..41 y 21..31: the sample (30, 20) is past both walls' ends at its convex corner.
+save("corner-island", plate.fuse(Part.makeBox(10, 10, 6, V(31, 21, 10))).removeSplitter())
+# Island A (x 23.99..29.99, y from 19.9991) puts the sample (30, 20) 0.01 in front of its
+# right wall and 0.01 past its bottom wall's end; B (x from 35.99) leaves a slot exactly
+# 6 wide, which C closes at y 23.01.
+save("partial-gap", plate.fuse([
+    Part.makeBox(6, 30 - 19.9991, 6, V(23.99, 19.9991, 10)),
+    Part.makeBox(6, 20, 6, V(35.99, 10, 10)),
+    Part.makeBox(6, 30 - 23.01, 6, V(29.99, 23.01, 10)),
+]).removeSplitter())
 """
-_AUTHORED = 8
+_AUTHORED = 10
 
 
 @pytest.fixture(scope="module")
@@ -144,5 +156,23 @@ def test_plate_samples_beside_a_thin_rib_stand_clear_of_its_near_face_only(engin
     # A sample at one face's foot lies behind the rib's other face 1 mm away: it is not
     # inside material, so that far face does not bound it and the near face alone does.
     _, detail = _floor_op(engine, solids["rib"], (0, 0, 10), (60, 40, 10), 3.0)
+    assert detail["sample_count"] > 0
+    assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail
+
+
+def test_plate_sample_past_a_square_islands_convex_corner_stands_clear_of_it(engine, solids):
+    # The sample (30, 20) is 1.41 mm from the corner (31, 21) and past both walls' ends:
+    # neither wall's line bounds it, the corner does, so it moves straight away to tangency.
+    _, detail = _floor_op(engine, solids["corner-island"], (0, 0, 10), (60, 40, 10), 3.0)
+    assert detail["sample_count"] > 0
+    assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail
+
+
+def test_sample_just_past_one_walls_end_is_bounded_by_the_other_wall_alone(engine, solids):
+    # The sample (30, 20) faces A's right wall; its nearest point on A's bottom wall is the
+    # corner, 0.01 away. Bounding it by that corner too would push the axis up the exactly
+    # 6 mm slot into C's reach, leaving no clear axis; the right wall alone puts it at
+    # (32.99, 20), tangent to A and B and clear of C.
+    _, detail = _floor_op(engine, solids["partial-gap"], (0, 0, 10), (60, 40, 10), 3.0)
     assert detail["sample_count"] > 0
     assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail

@@ -2473,8 +2473,8 @@ class _Setup:
         +Z planar floor.
 
         One scan of every shared edge caches each floor's walls, the edges each face pair
-        shares (for :meth:`_wall_corner`) and the floors whose wall edges could not be
-        classified; asking for such a floor raises with the reason.
+        shares (for :meth:`_wall_corner` and :meth:`_wall_edge_at`) and the floors whose
+        wall edges could not be classified; asking for such a floor raises with the reason.
         """
         if self.floor_adjacency is None:
             walls, failed, pairs = {}, {}, {}
@@ -2501,7 +2501,13 @@ class _Setup:
                         continue
                     ends = [vertex.Point for vertex in edge.Vertexes]
                     walls.setdefault(floor, []).append((edge, wall, _bbox(edge), ends))
-            self.floor_adjacency = {"walls": walls, "failed": failed, "pairs": pairs, "corners": {}}
+            self.floor_adjacency = {
+                "walls": walls,
+                "failed": failed,
+                "pairs": pairs,
+                "corners": {},
+                "sharp": {},
+            }
         if index in self.floor_adjacency["failed"]:
             raise ValueError(self.floor_adjacency["failed"][index])
         return self.floor_adjacency["walls"].get(index, ())
@@ -2521,14 +2527,17 @@ class _Setup:
         """Rising walls of floor ``index`` whose concave floor edge is on or within ``reach``.
 
         Returns ``(wall, nx, ny, offset, circle, incident, slot)`` per edge: ``(nx, ny)`` is
-        the wall's unit in-plane normal into the floor at the edge's nearest point,
-        ``offset`` the point's distance from that point along it (0 for an edge through the
-        point), ``circle`` ``(cx, cy, radius)`` when the edge is a circle concave toward the
-        floor, else None, and ``slot`` the edge's position in :meth:`_floor_edges`. A point
-        beyond an edge's end rather than along its normal is
-        bounded by that edge only where it meets another wall's floor edge at a concave
-        wall/wall corner there: past a convex island corner or a tangent junction the
-        edge's line bounds nothing. A solved axis ``point`` away from its sample
+        the unit in-plane normal into the floor at the edge's nearest point, ``offset`` the
+        point's distance from that point along it (0 for an edge through the point),
+        ``circle`` ``(cx, cy, radius)`` when the edge is a circle concave toward the floor,
+        else None, and ``slot`` the edge's position in :meth:`_floor_edges`. Along an edge,
+        and at a concave wall/wall corner, that normal is the wall's. A point beyond an
+        edge's end rather than along its normal is bounded by that edge only through the
+        wall/wall edge rising from that end (:meth:`_floor_end`): at a concave corner by the
+        wall's own line; at a sharp convex corner past the end of every wall meeting there
+        by the corner itself, whose normal points from the corner to the point (the nearest
+        boundary point has no single wall normal there); past a tangent junction or a
+        split face nothing. A solved axis ``point`` away from its sample
         ``origin`` whose nearest such edge has it behind that edge's interior stands in the
         wall's material: it crossed that wall, which then bounds it. A sample on the floor
         behind a farther face (a thin rib's far side) is not inside material and is not.
@@ -2543,54 +2552,109 @@ class _Setup:
                 continue
             if vertex is None:
                 vertex = Part.Vertex(point)
-            distance, nearest, _ = edge.distToShape(vertex)
+            distance, nearest, support = edge.distToShape(vertex)
             if distance <= STOCK_TOL or distance < reach:
-                near.append((slot, edge, wall, distance, nearest[0][0]))
+                # The native nearest support: the edge's end vertex, or None inside the edge.
+                end = edge.Vertexes[support[0][1]] if support[0][0] == "Vertex" else None
+                near.append((slot, edge, wall, distance, nearest[0][0], end))
         closest = min((entry[3] for entry in near), default=0.0)
         moved = point.distanceToPoint(origin) > STOCK_TOL
         contacts = []
-        for slot, edge, wall, distance, foot in near:
+        for slot, edge, wall, distance, foot, _ in near:
             incident = distance <= STOCK_TOL
             normal = _normal_at(self.faces[wall], foot)
             length = math.hypot(normal.x, normal.y)
             if length < 1e-9:
                 continue
             nx, ny = normal.x / length, normal.y / length
-            offset = 0.0
+            offset, radial = 0.0, False
             if not incident:
                 offset = nx * (point.x - foot.x) + ny * (point.y - foot.y)
                 crossed = (
                     moved and distance <= closest + PLANE_TOL and distance + offset <= PLANE_TOL
                 )
-                if (
-                    distance - offset > PLANE_TOL
-                    and not crossed
-                    and not self._floor_corner_at(index, wall, foot)
-                ):
-                    continue
+                if distance - offset > PLANE_TOL and not crossed:
+                    corner = self._floor_end(index, slot, point, near)
+                    if corner is None:
+                        continue
+                    if corner is not True:
+                        # The nearest boundary point is the convex corner: the axis moves
+                        # straight away from it until tangent.
+                        nx, ny = (point.x - corner.x) / distance, (point.y - corner.y) / distance
+                        offset, radial = distance, True
             circle, curve = None, edge.Curve
-            if isinstance(curve, Part.Circle) and abs(curve.Axis.z) >= PARALLEL:
+            if not radial and isinstance(curve, Part.Circle) and abs(curve.Axis.z) >= PARALLEL:
                 centre = curve.Center
                 if nx * (centre.x - foot.x) + ny * (centre.y - foot.y) > 0:
                     circle = (centre.x, centre.y, curve.Radius)
             contacts.append((wall, nx, ny, offset, circle, incident, slot))
         return contacts
 
-    def _floor_corner_at(self, index, wall, foot):
-        """Whether another wall's floor edge of floor ``index`` ends at ``foot`` and meets
-        ``wall`` there at a sharp concave wall/wall corner."""
-        return any(
-            other != wall
-            and any(end.distanceToPoint(foot) <= STOCK_TOL for end in ends)
-            and self._wall_corner(wall, other)
-            for _, other, _, ends in self._floor_edges(index)
-        )
+    def _floor_end(self, index, slot, point, near):
+        """How floor edge ``slot`` of floor ``index`` bounds ``point`` beyond its end:
+        True by the wall's own line, the corner vertex's point to stand clear of, or None.
+
+        ``near`` is :meth:`_floor_contacts`'s ``(slot, edge, wall, distance, foot, end)``
+        per floor edge within reach, ``end`` the edge's end vertex when that is the native
+        nearest support (None for a foot inside the edge, however close to its end). Only
+        the wall/wall edges rising from that vertex classify the corner
+        (:meth:`_wall_edge_at`), never another edge the two faces share elsewhere. A
+        concave one makes it a corner bounded by the wall's line. A sharp convex corner
+        bounds by the vertex only when ``point`` is past the end of every other wall's
+        floor edge there too: the vertex is that edge's native nearest support and
+        ``point`` lies off its normal (``distance - offset > PLANE_TOL``), so a point in
+        front of or behind a wall's interior is bounded by that wall alone.
+        """
+        found = {entry[0]: entry for entry in near}
+        wall, end = found[slot][2], found[slot][5]
+        if end is None:
+            return None
+        others = []
+        for other_slot, (edge, other, _, _) in enumerate(self._floor_edges(index)):
+            if other_slot == slot or other == wall:
+                continue
+            if any(vertex.isSame(end) for vertex in edge.Vertexes):
+                sharp = self._wall_edge_at(wall, other, end)
+                if sharp is True:
+                    return True
+                others.append((found.get(other_slot), other, sharp))
+        if not others:
+            return None
+        for entry, other, sharp in others:
+            if sharp is not False or entry is None or entry[5] is None or not entry[5].isSame(end):
+                return None
+            _, _, _, distance, foot, _ = entry
+            normal = _normal_at(self.faces[other], foot)
+            length = math.hypot(normal.x, normal.y)
+            if length < 1e-9:
+                return None
+            offset = (normal.x * (point.x - foot.x) + normal.y * (point.y - foot.y)) / length
+            if distance - offset <= PLANE_TOL:
+                return None
+        return end.Point
+
+    def _wall_edge_at(self, a, b, vertex):
+        """:func:`_concave_edge` of the edge faces ``a`` and ``b`` share at ``vertex``:
+        True when one is concave, False when every one is convex, None when they share
+        none there or one is tangent (cached per shared edge)."""
+        key = (min(a, b), max(a, b))
+        sharp = self.floor_adjacency["sharp"]
+        verdicts = []
+        for at, edge in enumerate(self.floor_adjacency["pairs"].get(key, ())):
+            if not any(end.isSame(vertex) for end in edge.Vertexes):
+                continue
+            if (key, at) not in sharp:
+                sharp[key, at] = _concave_edge(self.finished, edge, self.faces[a], self.faces[b])
+            verdicts.append(sharp[key, at])
+        if True in verdicts:
+            return True
+        return False if verdicts and all(v is False for v in verdicts) else None
 
     def _floor_corners(self, index):
         """(vertex, floor normal) where two rising walls meet the floor at a concave corner.
 
-        Convex island corners get no pose of their own: their edge samples already
-        stand tangent to one wall each.
+        Convex island corners get no pose of their own: samples beside them stand tangent
+        to one wall, or past both walls' ends to the corner itself (:meth:`_floor_end`).
         """
         face = self.faces[index]
         found = []

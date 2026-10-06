@@ -583,9 +583,13 @@ finitely many analytic candidates, never a search, and a concave edge the
 shifted axis comes within a radius of, or crosses as its nearest edge, joins
 the bounds once (a finite constraint closure). A cutter wider than its
 gap or circle keeps the sample's own axis and reports the real hit. Convex
-edges and farther interior samples are unchanged; convex wall/wall island
-vertices add no bound and no corner pose. This is per sample, not a
-whole-face or centroid pose.
+edges and farther interior samples are unchanged. Past an edge's end, only the
+wall/wall edge rising there classifies the corner: a concave one bounds by the
+wall's line; a sharp convex island corner bounds only a sample past the end of
+every wall meeting there, which moves straight away from the corner (its
+nearest boundary point) until tangent; a sample in front of or behind a wall's
+interior is bounded by that wall alone, and convex vertices get no corner
+pose. This is per sample, not a whole-face or centroid pose.
 Tangency is not corner-radius certification. Floor-only claims do not certify
 a wall/wall corner: `internal_corner_radius` retains its existing scope and
 checks a sharp wall/wall corner when the op claims both walls. No adjacent
@@ -1198,8 +1202,10 @@ sheet.
    normal at the nearest edge point to tangency with every such wall (exact
    for concave circles at least the cutter's radius); a cutter wider than its
    gap keeps its own axis and reports the real hit. Convex edges and farther
-   interior samples are unchanged; convex wall/wall island
-   vertices add no corner pose. Tangency does not
+   interior samples are unchanged; a sample past both walls of a sharp convex
+   island corner moves straight away from that corner to tangency (classified
+   by the wall/wall edge rising there, not another edge the walls share), and
+   convex vertices add no corner pose. Tangency does not
    certify corner radii, and floor-only claims do not certify wall/wall corners.
    `internal_corner_radius` retains its existing claimed-face scope:
    a sharp wall/wall corner is checked when the op claims both walls.
