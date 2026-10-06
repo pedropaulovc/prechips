@@ -241,3 +241,27 @@ def test_turning_a_component_keeps_it_intact_or_refuses_to_split_it(engine, shaf
     splits = "T1:10: removing its claimed clearance splits an input stock piece into 2"
     assert splits in row["stock_reason"]
     assert "render_png_base64" not in row and "stock_volume_mm3" not in row
+
+
+def test_a_turning_op_is_posed_at_its_window_ends_so_overtravel_into_the_jaws_fails(engine, shafts):
+    # The exposed journal's claimed samples are all clear of the jaws (above); stopping
+    # the same cut at z_to 4 runs the tool past the jaw face (z 10) into the revolving
+    # jaws, which only a pose where the tool actually stops can see.
+    step = shafts["filleted"]
+    features = _journals(engine, step)
+    clear, overtravel = (_turn("T1:10", "exposed", z_from=40.0, z_to=z_to) for z_to in (20.0, 4.0))
+    results = engine.run(
+        {
+            "jobs": [
+                engine.job(step, features, [_lathe("T1", [op], _chuck(face_z=10.0))], stock=BAR)
+                for op in (clear, overtravel)
+            ]
+        }
+    )["results"]
+    within, beyond = (result["ops"]["T1:10"] for result in results)
+    assert within["tool_hits"] == 0 and within["holder_hits"] == 0
+    assert [w["end"] for w in within["window_poses"]] == ["z_from", "z_to"]
+    assert all(w["meets"] == [] for w in within["window_poses"])
+    assert beyond["tool_hits"] > 0
+    stop = next(w for w in beyond["window_poses"] if w["end"] == "z_to")
+    assert stop["z_mm"] == 4.0 and set(JAWS) & set(stop["meets"])

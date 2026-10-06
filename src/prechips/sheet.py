@@ -1602,6 +1602,35 @@ class _Traveler:
                 return entry.get("dro_to_z", "unknown")
         return dro_z(op.get("to_z", "unknown"), dro_grid(self.bundle, setup))
 
+    def relief_plunges(self, setup, op):
+        """A blade groove's plunges (coordinates ``plunges``): the reading corner's Z for
+        each, the diameter every plunge stops at and the groove they leave."""
+        numbers = self.records.get(("coordinates", setup["id"]), {})
+        plunges = next(
+            (
+                entry
+                for entry in _mapping(numbers).get("plunges", [])
+                if str(_mapping(entry).get("op")) == str(op.get("op"))
+            ),
+            None,
+        )
+        if plunges is None:
+            return []
+        o = self.operative
+        corners = plunges.get("corner_z_mm")
+        if not isinstance(corners, list):
+            return [_Box("STOP: plunge positions not set — blade width or hand unknown")]
+        corner = "chuck-side" if plunges.get("reading_corner") == "chuck_side" else "+Z"
+        parts = [f"plunge {index} {corner} corner Z {o(z)}" for index, z in enumerate(corners, 1)]
+        feature = op.get("feature")
+        size = f"Ø {o(plunges.get('diameter_mm'))}"
+        if isinstance(plunges.get("dia_band_mm"), list):
+            size += f" ({self.band(plunges['dia_band_mm'], feature, 'dia')})"
+        parts.append(("each to " if len(corners) > 1 else "to ") + size)
+        low, high = plunges.get("groove_z_mm", [None, None])
+        parts.append(f"groove Z {o(low)} to {o(high)}")
+        return parts
+
     def surface_z(self, setup, value, source=None):
         """One surface, one printed Z: the checked :meth:`dro_to_z` of the op ``source``
         names (``"S2 op 20 to_z"``, :func:`stock_states`), else ``value`` as the DRO shows
@@ -1835,7 +1864,7 @@ class _Traveler:
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"
                 ]
             else:
-                target = self.tip(setup, op)
+                target = self.tip(setup, op) + self.relief_plunges(setup, op)
             if any(isinstance(line, _Box) and "Z target" in line for line in target):
                 stops.setdefault("no Z target", []).append(str(op["op"]))
             boxes = self.crash_boxes(setup, op)
@@ -2165,7 +2194,46 @@ class _Traveler:
                     "nose-radius compensation set at the machine"
                 )
                 headings = ["P", f"X ({x_unit})", "Z"]
+            if _known(contour.get("apex_z_mm")) and _known(contour.get("base_z_mm")):
+                if contour["apex_z_mm"] > contour["base_z_mm"] and rows:
+                    first = rows[0][0] or f"the Z {rows[0][2]} row"
+                    last = rows[-1][0] or f"the Z {rows[-1][2]} row"
+                    description += (
+                        ". Row to row: move X out to the next row first, then Z toward the "
+                        "chuck (Z first gouges the dome). Enter at "
+                        f"{first} from +Z; leave radially, X out, at {last}"
+                    )
+            for row, record in zip(rows, contour.get("rows", []), strict=True):
+                tip_x = record.get("x_tool_mm")
+                if not (compensated and _known(tip_x) and tip_x < 0):
+                    continue
+                normal = math.radians(record.get("normal_deg", 0.0))
+                centre = record.get("radius_mm", 0.0) + compensation * math.cos(normal)
+                where = "on the axis" if abs(centre) < 1e-6 else f"at radius {o(centre)}"
+                description += (
+                    f". {row[0] or 'Z ' + row[2]} tool X {o(tip_x)} {x_unit} is intentional: "
+                    f"the R{o(compensation)} nose centre is {where} there (imaginary tip "
+                    "past centre)"
+                )
             entry["parts"].append((order(entry), description, headings, rows))
+        for stair in numbers.get("stair_tables", []):
+            entry = block(stair.get("op"))
+            x_unit = "radius" if _mapping(self.plan.get("dro")).get("radius_mode") is True else "Ø"
+            rows = [
+                [str(index), o(r.get("z_mm")), o(r.get("x_target_mm"))]
+                for index, r in enumerate(stair.get("rows", []), 1)
+            ]
+            description = (
+                f"Rough stair, leaves {o(stair.get('allowance_mm'))} mm on diameter for the "
+                "finish table: for each row, from outside the work at the row's Z, face in to "
+                f"X, then back out radially. X ({x_unit}) / Z are the DRO readings of the "
+                "imaginary tip, touched off on an outside diameter and a +Z end face"
+            )
+            if not rows:
+                description += "; no row cuts: the allowance already covers the work"
+            entry["parts"].append(
+                (order(entry, stair), description, ["row", "Z", f"in to X ({x_unit})"], rows)
+            )
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
         if not blocks:

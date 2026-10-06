@@ -483,6 +483,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_clock_deg` | `Number` |
 | `support_tip_mm` | `[Number, Number, Number]` |
 | `quill_extension_mm` | `Number` |
+| `centre_hole_dia_mm` | `Number` (> 0): the work's centre-hole countersink mouth at its end face; the kernel cuts a seat of the dead centre's own point angle from the tip out to it before checking the centre against the setup-entry stock |
 | `clamps` | `list[ClampPlacement]` |
 | `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |
 | `preload_direction` | `"clockwise"` / `"counterclockwise"` |

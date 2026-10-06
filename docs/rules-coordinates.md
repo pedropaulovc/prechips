@@ -251,6 +251,24 @@ A finish depth the DRO leaves above its face past the feature's band appends:
 
 ` DRO depth rounding error: op {op} prints Z {dro} for to_z {to_z}: … .`
 
+Blade grooves: a `form_*`/groove op whose tool is a grooving/parting blade gets
+`plunges` numbers: the corner the DRO reads (a right-hand blade's chuck-side
+corner, a left-hand blade's +Z corner) at each plunge, flush with the chuck-side
+wall and stepping evenly, never more than a blade width, until the last plunge
+is flush with the far wall; the diameter each stops at; and the groove they
+leave (`max(span, blade_width)`). A groove outside the feature's `width` band
+is an `error` (`op {n} plunges leave a groove {w} wide, outside the drawing
+width {lo} to {hi}`); an unknown blade width or hand is `unknown`.
+
+Dome roughing: the rough stage of an `axial_table` op (a `form_*` op with
+`rough_allowance_mm`, or a `rough_*` op) is a `stair_tables` entry, not the
+finished table. Each row faces in at a finish-table Z below the apex to the X
+where the sphere grown by half the diametral allowance crosses it, so every
+stair corner (the imaginary-tip reading) stays that far off the dome; rows at or
+past the base radius are dropped. An apex toward the chuck has no stair
+(`unknown`). The finish table prints its row-to-row order for an apex-to-base
+convex dome: X out to the next row first, then Z toward the chuck.
+
 Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
 manifest frames/nominal geometry, plan-owned setup frames, authored contour

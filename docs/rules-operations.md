@@ -26,6 +26,13 @@ Templates:
   operation`, `counterbore operation absent`, `counterbore has no parent hole
   drill`, `selected tap drill differs from thread specification`.
 
+A contour/form op (a `contour` table, or `do` starting `form`/`profile`) whose
+numeric `z_from` is a face an earlier op in the same setup leaves only within a
+`to_z_band` is an `error` on its feature: `{sid} op {n} starts at Z {z}, which
+op {m} leaves anywhere in {lo} to {hi}; an op must leave that face at a
+deterministic to_z first`. The last earlier op whose `to_z` is that Z (or whose
+band holds it) decides, so an unbanded facing op between them clears it.
+
 Evidence: feature kind, route operation ids and actions, expected/selected tap
  drill mm. Citations: PLAN §4.1 op chain, authored route, declared process/thread.
 

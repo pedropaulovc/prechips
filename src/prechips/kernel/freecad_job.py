@@ -3130,6 +3130,7 @@ class _Setup:
         # (follow rest name, op subject) -> its carriage-relative jaw poses for that op
         self.rest_poses = {}
         self.chuck = None  # placed chuck geometry for the turning model, else None
+        self.centre_seat = None  # the work's declared centre-hole countersink, else None
         self.regions = {}
         self.culled_part = None
         self.directions = {}  # finished face index -> direction verdict cache
@@ -4978,6 +4979,11 @@ class _Setup:
                 swept=quill if lathe else None,
                 owner="tailstock",
             )
+        if centre.get("hole_dia_mm"):
+            # The work's centre hole: a countersink of the centre's own point angle from
+            # the tip out to its declared mouth, which the setup-entry stock lacks.
+            mouth = centre["hole_dia_mm"] / 2
+            self.centre_seat = Part.makeCone(0, mouth, mouth / math.tan(half), tip, axis)
         if point.distToShape(self.part)[0] > STOCK_TOL:
             self.fixture_debts.append(f"{name} tip does not reach the stock")
 
@@ -5089,10 +5095,11 @@ class _Setup:
         """
         clashes, debts = [], list(self.undrawn)
         components = self.fixture
+        stock = self.part if self.centre_seat is None else self.part.cut(self.centre_seat)
         for component in components:
             if not _boxes_overlap(component["bbox"], self.box):
                 continue
-            volume = component["solid"].common(self.part).Volume
+            volume = component["solid"].common(stock).Volume
             if volume > STOCK_MM3:
                 clashes.append(
                     f"{component['name']} interpenetrates the setup-entry stock ({_r(volume)} mm^3)"
@@ -8173,8 +8180,7 @@ class _Setup:
             regions.append(region)
         else:
             straight = [
-                isinstance(self.faces[index].Surface, (Part.Cylinder, Part.Cone))
-                for index in valid
+                isinstance(self.faces[index].Surface, (Part.Cylinder, Part.Cone)) for index in valid
             ]
             regions.extend(self._profile_regions(meridians, straight, window, outer))
         regions = [
@@ -8263,9 +8269,7 @@ class _Setup:
                 for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
                     cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
                     angle = math.acos(cos)
-                    sag = max(
-                        sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4)
-                    )
+                    sag = max(sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4))
                 sag += 1e-6
             points = [(r - nr * sag, z - nz * sag) for (r, z), (nr, nz) in chain]
             first, last = chain[0][0], chain[-1][0]
@@ -8576,15 +8580,37 @@ class _Setup:
         # plunges between the part and the slug, so its depth is measured in entry stock.
         radial_feed = faced_feed and tool["corners"] != 2
         reach_stock = part if radial_feed else self.part
-        for index, point, normal in samples:
+        windows = [] if faced_feed else self._turn_windows(op, tool, samples)
+        poses = [(index, point, normal, None) for index, point, normal in samples]
+        poses += [(w["index"], w["point"], (1.0, 0.0), w) for w in windows]
+        for index, point, normal, window in poses:
             # Without a section (its reason keeps the hits unknown) the pose is nominal.
-            centre, (low, high) = self._turn_pose(tool, point, normal, segments)
+            if window is None:
+                centre, (low, high) = self._turn_pose(tool, point, normal, segments)
+            else:
+                # As a cut sample: a nose meeting the profile within twice its radius (a
+                # fillet or corner at the window end) stands at the nearest clear pose.
+                centre = window["centre"]
+                nose = tool["radius_mm"]
+
+                def free(c, nose=nose):
+                    return _disk_clear(c, nose - LIFT, segments)
+
+                if segments and not free(centre):
+                    centre = _nearest_free(free, centre, 2 * nose) or centre
+                window["centre"] = centre
+                window["meets"] = set()
             section, pieces = self._turn_sections(tool, centre, not holder_missing)
             solids = {"tool": _revolved(section)}
             if pieces is not None:
                 parts = [solid for solid in map(_revolved, pieces) if solid is not None]
                 solids["holder"] = parts[0].fuse(parts[1:]) if len(parts) > 1 else parts[0]
-            rest_hits, rest_gap = self._rest_hits(posed, tool, point, section, pieces, subject)
+            # A window end cuts nothing: the served rests are set on the work later.
+            rest_hits, rest_gap = (
+                self._rest_hits(posed, tool, point, section, pieces, subject)
+                if window is None
+                else ({"tool": set(), "holder": set()}, None)
+            )
             if rest_gap is not None and rest_gap not in rest_gaps:
                 rest_gaps.append(rest_gap)
             for kind, solid in solids.items():
@@ -8603,6 +8629,8 @@ class _Setup:
                 if labels:
                     counters[kind][0] += 1
                     counters[kind][1].update(labels)
+                    if window is not None:
+                        window["meets"].update(labels)
                 elif (
                     self.fixture_gaps
                     or rest_gap is not None
@@ -8610,6 +8638,8 @@ class _Setup:
                     or any(_boxes_overlap(_bbox(solid), box) for _, box in self.fixture_possible)
                 ):
                     uncertain[kind] += 1
+            if window is not None:
+                continue
             # Reach: material radius beside the nose/blade (within its axial extent) beyond
             # the sample.
             band = _band(point[0], outer, low, high)
@@ -8617,6 +8647,15 @@ class _Setup:
                 common = band.common(reach_stock)
                 if common.Volume > HIT_MM3:
                     reach = max(reach, _max_radius(common) - point[0])
+        if windows:
+            facts["window_poses"] = [
+                self._window_record(w, tool, holder_missing, subject)
+                | {"meets": sorted(w["meets"])}
+                for w in windows
+            ]
+            engage = self._rest_engagement(posed, tool, windows, subject)
+            if engage:
+                facts["rest_engagement"] = engage
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
@@ -8659,6 +8698,99 @@ class _Setup:
                 )
             else:
                 facts[key] = certain
+
+    @staticmethod
+    def _turn_windows(op, tool, samples):
+        """[{end, index, point, centre, sample_z}]: a single-point tool standing where its
+        op starts and stops (docs/rules-geometry.md "Turning"). ``z_from``/``z_to`` is the
+        nose's leading extreme there, the DRO reading after a +Z end-face touch; the nose
+        rides the turned diameter of the claimed cylinder sample nearest that Z (``index``
+        at ``sample_z``), so an air start past the work or an overtravel past the cut is
+        posed where the tool stands."""
+        if tool["corners"] == 2:
+            return []
+        radial = [
+            (index, point)
+            for index, point, normal in samples
+            if abs(normal[1]) <= REVOLVED_TOL and normal[0] > 0
+        ]
+        nose, against = tool["radius_mm"], -tool["feed_z"]
+        windows = []
+        for end in ("z_from", "z_to"):
+            if not radial or not _number(op.get(end)):
+                continue
+            z = float(op[end])
+            index, point = min(radial, key=lambda item: (abs(item[1][1] - z), item[1][0]))
+            windows.append(
+                {
+                    "end": end,
+                    "index": index,
+                    "point": (point[0], z),
+                    "centre": (point[0] + nose, z + against * nose),
+                    "sample_z": point[1],
+                }
+            )
+        return windows
+
+    def _window_record(self, window, tool, holder_missing, subject):
+        """One window end's pose and the placed fixture component nearest its tool/holder."""
+        section, pieces = self._turn_sections(tool, window["centre"], not holder_missing)
+        solids = [_revolved(section)]
+        if pieces is not None:
+            solids += list(map(_revolved, pieces))
+        point = window["point"]
+        record = {"end": window["end"], "z_mm": _r(point[1]), "dia_mm": _r(2 * point[0])}
+        nearest = None
+        for component in self.fixture if self.fixture_ready else []:
+            subjects = component.get("subjects", "all")
+            if subjects != "all" and subject not in subjects:
+                continue
+            for solid in solids:
+                if solid is None:
+                    continue
+                distance = solid.distToShape(component["envelope"])[0]
+                if nearest is None or distance < nearest[1]:
+                    nearest = (component["name"], distance)
+        if nearest is not None:
+            record["nearest_fixture"] = nearest[0]
+            record["clearance_mm"] = _r(nearest[1])
+        return record
+
+    def _rest_engagement(self, posed, tool, windows, subject):
+        """[{rest, start_z_mm, meets, engage_z_mm}] for each served follow rest whose jaws,
+        set on the work with the tool at the op's ``z_from`` start, would meet a placed
+        fixture component: the cut Z from which they clear it, found between the start and
+        the nearest claimed cylinder sample (where they ride the work), else unknown."""
+        result = []
+        start = next((window for window in windows if window["end"] == "z_from"), None)
+        if start is None:
+            return result
+        first, inside = start["point"][1], start["sample_z"]
+        for rest, _, rest_section, _ in posed:
+            radius = _outer_radius(rest_section, inside, inside)
+            if radius is None or radius <= PLANE_TOL:
+                continue
+
+            def meets(z, rest=rest, radius=radius):
+                names = set()
+                for jaw in self._rest_jaws(rest, radius, z, tool["feed_z"])[0]:
+                    names.update(self._fixture_hits(jaw, subject))
+                return sorted(names)
+
+            met = meets(first)
+            if not met:
+                continue
+            entry = {"rest": rest["name"], "start_z_mm": _r(first), "meets": met}
+            if meets(inside):
+                entry["engage_z_mm"] = UNKNOWN
+            else:
+                clashing, clear = first, inside
+                for _ in range(30):
+                    middle = (clashing + clear) / 2
+                    clashing, clear = (middle, clear) if meets(middle) else (clashing, middle)
+                entry["engage_z_mm"] = _r(clear)
+            result.append(entry)
+        return result
 
     # ------------------------------------------------------------------ follow rests
 
@@ -8712,6 +8844,20 @@ class _Setup:
             posed.append((rest, profile, section, record))
         return posed, blocked
 
+    @staticmethod
+    def _rest_jaws(rest, radius, cut_z, feed_z):
+        """(follow-rest jaw boxes set to ``radius`` for a cut at ``cut_z``, their lowest Z)."""
+        ahead = feed_z if rest["side"] == "uncut" else -feed_z
+        middle = cut_z + ahead * rest["lead_mm"]
+        z0, depth = middle - rest["jaw_depth_mm"] / 2, rest["jaw_depth_mm"]
+        width = rest["jaw_width_mm"]
+        jaws = []
+        for angle in rest["jaw_angles_deg"]:
+            jaw = Part.makeBox(rest["jaw_height_mm"], width, depth, V(radius, -width / 2, z0))
+            jaw.rotate(V(0, 0, 0), V(0, 0, 1), angle)
+            jaws.append(jaw)
+        return jaws, z0
+
     def _rest_hits(self, posed, tool, point, section, pieces, subject):
         """({tool kind: follow rest names its jaws meet}, why a rest could not be posed or
         None) for one cutting point; jaw clashes with the work and the fixture are recorded.
@@ -8742,15 +8888,9 @@ class _Setup:
                     record["gaps"].append(why)
                 gap = gap or why
                 continue
-            ahead = tool["feed_z"] if rest["side"] == "uncut" else -tool["feed_z"]
-            middle = point[1] + ahead * rest["lead_mm"]
-            z0, depth = middle - rest["jaw_depth_mm"] / 2, rest["jaw_depth_mm"]
-            width = rest["jaw_width_mm"]
-            jaws = []
-            for angle in rest["jaw_angles_deg"]:
-                jaw = Part.makeBox(rest["jaw_height_mm"], width, depth, V(radius, -width / 2, z0))
-                jaw.rotate(V(0, 0, 0), V(0, 0, 1), angle)
-                jaws.append(jaw)
+            jaws, z0 = self._rest_jaws(rest, radius, point[1], tool["feed_z"])
+            depth = rest["jaw_depth_mm"]
+            for angle, jaw in zip(rest["jaw_angles_deg"], jaws, strict=True):
                 for other in self._fixture_hits(jaw, subject):
                     key = f"{label} jaw at {_r(angle)} deg meets {other}"
                     record["clashes"][key] = record["clashes"].get(key, 0) + 1

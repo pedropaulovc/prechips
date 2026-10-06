@@ -627,7 +627,14 @@ def _centre_inputs(bundle, machine, hold, result, gaps):
     if missing:
         gaps.append(f"dead centre {reference!r} not drawn: " + ", ".join(missing) + " unresolved")
         return
+    hole = hold.get("centre_hole_dia_mm")
+    if hole is not None and not (number(hole) and hole > 0):
+        gaps.append(f"dead centre {reference!r} not drawn: centre_hole_dia_mm is not positive")
+        return
     result["centre"] = {"name": reference, **values}
+    if hole is not None:
+        # The work's centre-hole countersink: the stock the centre point seats in.
+        result["centre"]["hole_dia_mm"] = hole
 
 
 def _clamp_inputs(bundle, hold, result, gaps):
