@@ -109,7 +109,7 @@ def setup(name):
     owner.joint_features = {}
     owner.sweep_mm = 200
     runner = job._Setup(owner, {}, held=solid,
-        state={"components": {"stock"}, "completed": {}, "joined": set()})
+        state={"components": {"stock"}, "completed": {}, "joined": set(), "consumed": set()})
     runner.matrix = FreeCAD.Matrix()
     runner.finished = runner.protected = solid
     runner.faces = solid.Faces

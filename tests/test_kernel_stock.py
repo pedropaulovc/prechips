@@ -349,18 +349,22 @@ def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
         )
         for to_z in (15.0, None)
     )
-    # A 5 mm web above the floor stays as overstock; a target retaining it still collides.
+    # A 5 mm web above the floor stays as overstock in the next setup's entry stock.
     assert webbed["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(48000.0 - 60 * 30 * 5)
     finished = engine.run(
         engine.job(step, {"floor": floor}, [_setup("S2", [_floor_op("S2:10")])], stock=PART)
-    )["ops"]["S2:10"]["tool_hits"]
-    assert webbed["ops"]["S2:10"]["tool_hits"] > finished
+    )["ops"]["S2:10"]
+    # That web lies below the tip, which stands at its authored to_z = 15, so it is not a
+    # flute obstacle: only the 20 mm rails rise over the tip, 5 mm against 10 mm above
+    # the z = 10 floor of the cleared channel and of the finished part.
+    assert webbed["ops"]["S2:10"]["reach_depth_mm"] == 5.0
+    assert cleared["ops"]["S2:10"]["reach_depth_mm"] == finished["reach_depth_mm"] == 10.0
     # Without to_z the channel is cleared; the unclaimed 5 mm rails are kept and gripped.
     assert webbed["setups"]["S1"]["min_wall_mm"] == 40.0
     s2 = cleared["setups"]["S2"]
     assert s2["stock_volume_mm3"] == pytest.approx(48000.0 - 60 * 30 * 10)
     assert s2["width_mm"] == 40.0 and s2["min_wall_mm"] == 5.0
-    assert cleared["ops"]["S2:10"]["tool_hits"] == finished
+    assert cleared["ops"]["S2:10"]["tool_hits"] == finished["tool_hits"]
 
 
 def test_unswept_profile_wall_makes_only_later_stock_unknown(engine, solids):
@@ -428,7 +432,12 @@ def test_declared_clearing_box_derives_the_next_setup_and_keeps_unclaimed_rails(
     ops = full["ops"]
     # Wall end poses still meet retained rails, even though the op cuts its own allowance.
     assert ops["S2:20"]["tool_hits"] > finished["S2:20"]["tool_hits"]
-    assert webbed["ops"]["S2:10"]["tool_hits"] > ops["S2:10"]["tool_hits"]
+    # The floor tip stands at its authored endpoint over the retained 22 mm entry stock
+    # (the high half's top allowance and the rails): 12 mm above the z = 10 floor (10 mm
+    # on the finished part) but 7 mm above to_z = 15, whose web stays below the tip.
+    assert ops["S2:10"]["reach_depth_mm"] == 12.0
+    assert webbed["ops"]["S2:10"]["reach_depth_mm"] == 7.0
+    assert finished["S2:10"]["reach_depth_mm"] == 10.0
 
 
 def _refused(engine, step):
@@ -573,17 +582,34 @@ def test_facing_own_allowance_is_not_a_flute_obstacle_but_still_hits_a_low_holde
     assert low_facts["tool_hits"] == 0 and low_facts["holder_hits"] > 0
 
 
-def test_another_ops_removal_and_a_retained_web_do_not_clear_the_current_flute(engine, solids):
+def test_current_flute_meets_raw_outside_its_authorised_window_despite_a_later_facing(
+    engine, solids
+):
     step = solids["block"]
     top = engine.refs(step, (0, 0, 20), (60, 40, 20))
     stock = {**BOX, "section_mm": [40.0, 25.0]}
-    leave_web = {**_op("S1:10", "top", 5.0, 20.0, 40.0), "to_z": 23.0}
-    clear_later = _op("S1:20", "top", 5.0, 20.0, 40.0)
-    result = engine.run(
-        engine.job(step, {"top": top}, [_setup("S1", [leave_web, clear_later])], stock=stock)
-    )
-    assert result["ops"]["S1:10"]["tool_hits"] > 0
-    assert result["ops"]["S1:20"]["tool_hits"] == 0
+    # S1:10 claims the whole top but authorises clearing only its x 0..30 half. Its floor
+    # poses take their nearest legal centre ignoring raw stock, so those over the
+    # uncleared right half meet the real 5 mm raw above their actual tip at z = 20.
+    half = {
+        **_op("S1:10", "top", 5.0, 20.0, 40.0),
+        "do": "face",
+        "to_z": 20.0,
+        "stock_removal_bounds": {"x": [0.0, 30.0], "y": [0.0, 40.0], "z": [20.0, 25.0]},
+    }
+    later = _op("S1:20", "top", 5.0, 20.0, 40.0)
+    jobs = [
+        engine.job(step, {"top": top}, [_setup("S1", ops), _setup("S2", [])], stock=stock)
+        for ops in ([half], [half, later])
+    ]
+    alone, faced = engine.run({"jobs": jobs})["results"]
+    # Alone it removes only its authorised half; the later facing clears the rest.
+    assert alone["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(60 * 40 * 25 - 30 * 40 * 5)
+    assert faced["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(60 * 40 * 20)
+    # The later clearance is never credited to the earlier flute.
+    hits = alone["ops"]["S1:10"]["tool_hits"]
+    assert hits > 0 and faced["ops"]["S1:10"]["tool_hits"] == hits
+    assert faced["ops"]["S1:20"]["tool_hits"] == 0
 
 
 def test_nonprevious_output_keeps_its_removal_despite_an_unresolved_other_branch(engine, solids):
