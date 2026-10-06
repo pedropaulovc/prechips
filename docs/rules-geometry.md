@@ -509,7 +509,13 @@ down, tops at the part seat. They lie below every tool and holder cylinder,
 so they never enter hit counts; they exist for the picture, for the
 `declared parallel centred at [x, y] intersects the <side> jaw` debt and for
 the jaw-opening check of [`fixture_interference`](#fixture_interference). With
-any of those inputs missing the scene records `parallels not drawn: … undeclared`.
+any of those inputs missing for selected parallels, the scene records
+`parallels not drawn: … undeclared`. A vise hold with explicit
+`parallels = "none"` or `"not_applicable"` instead uses known zero parallel lift:
+no parallel boxes are drawn and their absent dimensions/centres do not create
+fixture debt. Without another lifting support the stock seats on the bed.
+Missing/unknown selections and
+unresolved named parallels remain debt, as do nonpositive/unverified named heights.
 
 ## `accessibility`
 

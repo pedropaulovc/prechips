@@ -206,6 +206,8 @@ note = "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, k
 [setups.zero.transfer]
 from = "S1"
 indicate = ["foot_profile"]
+tool = "dti"
+runout_limit_mm = 0.0254          # author's choice: max 0.001 in TIR, two 0.0005 in DTI divisions; not a measured alignment
 
 # Pickup option 2: touch the unfinished upper-stock overhang, not the foot.
 # S1 profiles only model Y 0..6: remaining model X -9..9 / Z -4..22.2
@@ -428,6 +430,7 @@ note = "Seat the finished seat face against the angle-plate upright, outer face 
 from = "S2"
 indicate = ["foot_profile", "foot_top", "seat_face"] # transfer the actual height datum, not only its adjacent faces
 tool = "dti"
+runout_limit_mm = 0.0254          # author's choice: max 0.001 in TIR, two 0.0005 in DTI divisions; not a measured alignment
 
 [setups.zero.x]
 edge = "foot_left"

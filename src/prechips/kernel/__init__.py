@@ -396,12 +396,16 @@ def _vise_inputs(bundle, hold, fixture, result):
             result[key + "_mm"] = value
         else:
             missing.append(key + "_mm")
-    parallels = measurement_item(bundle, "fixtures", hold.get("parallels"))
-    height = _accepted_length(parallels, "height")
-    if number(height) and height > 0:
-        result["parallels_height_mm"] = height
+    reference = hold.get("parallels")
+    if reference in ("none", "not_applicable"):
+        # Declared absence (not a missing key): the stock seats on the vise bed, zero lift.
+        result["parallels_height_mm"] = 0.0
     else:
-        missing.append("parallels_height_mm")
+        height = _accepted_length(measurement_item(bundle, "fixtures", reference), "height")
+        if number(height) and height > 0:
+            result["parallels_height_mm"] = height
+        else:
+            missing.append("parallels_height_mm")
     if missing:
         result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
             missing
