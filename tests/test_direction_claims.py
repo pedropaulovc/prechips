@@ -228,6 +228,7 @@ def _two_sided_bundle(tmp_path, monkeypatch, s1_faces, s2_faces):
             "tool": "em-preparation",
             "holder": "unknown",
             "to_z": 10.0,
+            "rough_allowance_mm": 0.0,
             "stock_removal_bounds": {
                 "x": [30.0, 60.0],
                 "y": [0.0, 40.0],
