@@ -132,11 +132,14 @@ The illustrative rocker plan binds the exported `v40` drawing revision and
 uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
 a clean checker exit is released-plan approval or a measured first article.
 
-The checked-in rocker artifacts are regenerated from the actual required-kernel
-CLI with integration `f5c8182` and the revised route below. They honestly retain
-exit **2**: 189 passes, 165 not-applicable findings, eleven accessibility errors
-and one unresolved datum-transfer finding, with no warnings or unsupported
-findings. All four fixtures are modeled with exact components and no fixture
+The checked-in rocker artifacts are the last actual required-kernel CLI
+snapshot, generated with integration `f5c8182` before the positive-restraint
+declarations and corrected tip-turnover corridors below. They are stale against
+those newer inputs and must be regenerated after the engine contracts land.
+That stopped snapshot records exit **2**: 189 passes, 165 not-applicable
+findings, eleven accessibility errors and one unresolved datum-transfer finding,
+with no warnings or unsupported findings. All four fixtures are modeled with
+exact components and no fixture
 debts; S1/S2/S3 have no render debts. S4 still explicitly shows arriving stock
 only because the current stock-split guard rejects separating the retained
 scrap frame from the independently clamped part. This needs
