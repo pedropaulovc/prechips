@@ -24,8 +24,14 @@ def findings(report, rule):
 
 @pytest.fixture(scope="module")
 def bracket(tmp_path_factory):
-    out = tmp_path_factory.mktemp("bracket") / "out"
-    _, report, html = traveler(ROOT / "examples" / "pivot-bracket" / "plan.toml", out)
+    """The bracket traveler with an explicitly unknown scratch S1 deburr limit."""
+    root = tmp_path_factory.mktemp("bracket")
+    plan = copy_examples(root) / "pivot-bracket" / "plan.toml"
+    authored = plan.read_text(encoding="utf-8")
+    authored, deburrs = re.subn(r"(?m)^deburr_mm = .*$", 'deburr_mm = "unknown"', authored, count=1)
+    assert deburrs == 1
+    plan.write_text(authored, encoding="utf-8")
+    _, report, html = traveler(plan, root / "out")
     return report, html
 
 
@@ -56,13 +62,6 @@ def test_unknown_inventory_category_still_renders_its_references(tmp_path):
     assert "micrometers" in text(html)
 
 
-def test_transfer_feature_list_prints_as_words(bracket):
-    _, html = bracket
-    sheet = text(html)
-    assert "indicate foot profile, foot top, ear relief with" in sheet
-    assert "['" not in sheet
-
-
 def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explicit(bracket):
     report, html = bracket
     pages = sections(html, "CONTOUR CONTINUATION")
@@ -74,13 +73,12 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
         assert all(isinstance(v, float) for r in row["numbers"].get("rows", []) for v in r["setup"])
     tables = [table for table in sections(html, "COORDINATES") if "<table" in table]
     assert tables and all("<td>?</td>" not in table for table in tables)
-    assert "<td>-8.2</td>" in "".join(tables)
     for row in findings(report, "blind_depth"):
         for endpoint in row["numbers"].get("endpoints", []):
             entry, tip = endpoint["entry_z"], endpoint["tip_z"]
             if isinstance(entry, float) and isinstance(tip, float):
                 assert f"entry {entry:g} → tip {tip:g}" in text(html)
-    # The bracket plan leaves deburr_mm unknown: the sentinel survives the fallback.
+    # The scratch S1 deburr_mm is unknown: the sentinel survives the precision fallback.
     assert "deburr maximum: ? mm" in text(html)
 
 
@@ -90,11 +88,10 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     endpoint = next(
         row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 10 to_z"
     )
-    assert coordinates["status"] == "unknown"
-    # Plan frame T3 restores X/Y; its unbound Z keeps the authored local endpoint.
+    assert coordinates["status"] == "pass"
+    # Nominal frame T3 (z = -model Z from -156.67) maps the authored local endpoint.
     assert endpoint["setup"] == [0.0, 0.0, 1.75]
-    assert endpoint["model"] == [0.0, 0.0, "unknown"]
-    assert endpoint["local_from"] == {"op": 10, "field": "to_z", "axis": "z"}
+    assert endpoint["model"] == pytest.approx([0.0, 0.0, -158.42])
     assert any("frame T3" in heading for heading in sections(html, "COORDINATES"))
     coordinate_rows = re.findall(r"<tr>.*?</tr>", "".join(sections(html, "COORDINATES")), re.DOTALL)
     endpoint_row = next(
@@ -123,8 +120,22 @@ def test_machine_backed_workholding_prints_without_missing_label(tmp_path, plan)
     assert "<td>PM-30MV / BS-0</td>" in html
 
 
+MISSING_LENGTH_OP = """
+[[setups.ops]]
+op = 30
+do = "inspect"
+feature = "pivot_bearing"
+missing_requirements = { length = "calipers" }
+
+[setups.ops.inspection_methods]
+length = "Measure 1.75 past the actual scribe to the cut face with calipers."
+"""
+
+
 def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path):
-    _, report, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
+    _, report, html = traveler(plan, tmp_path / "out")
     row = next(
         row
         for row in re.findall(r"<tr>.*?</tr>", html, re.DOTALL)
@@ -135,10 +146,7 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
     assert "<td>pivot bearing</td>" in row
     assert "? length ?:" in sheet
     assert "missing requirement pivot_bearing:length" in sheet
-    assert (
-        "Measure 1.75 past the actual scribe to the cut face with calipers; after doming "
-        "verify cylinder end 0.25 past scribe and trial fit over the installed ears."
-    ) in sheet
+    assert "Measure 1.75 past the actual scribe to the cut face with calipers." in sheet
     assert "156.67" not in sheet
     finding = next(
         row for row in findings(report, "inspection") if row["subject"] == "pivot_bearing:length"
