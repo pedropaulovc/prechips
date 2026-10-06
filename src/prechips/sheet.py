@@ -2596,13 +2596,27 @@ class _Traveler:
             check += f"; {len(topics)} check(s) not verified, listed above." if topics else "."
         else:
             check = "Plan check: not passed — clear the items above before running."
-        state = [
-            check,
-            "Approved: hash-matched first article recorded for this input bundle."
-            if self.checked
-            else "NOT APPROVED: no first article is recorded for this input bundle; the "
-            "first part made is the first article — sign it off below.",
-        ]
+        evidence = self.approval.get("first_article")
+        recorded = isinstance(evidence, str) and evidence.strip().lower() not in ("", "unknown")
+        this_bundle = bool(self.approval) and self.approval.get("hash") == self.report.get("hash")
+        if self.checked:
+            approval = "Approved: hash-matched first article recorded for this input bundle."
+        elif recorded and this_bundle:
+            approval = (
+                "NOT APPROVED: a first article is recorded for this input bundle, but the plan "
+                "check has not passed and approval cannot waive it."
+            )
+        else:
+            approval = (
+                "NOT APPROVED: "
+                + (
+                    "the recorded first article is for other inputs"
+                    if recorded
+                    else "no first article is recorded for this input bundle"
+                )
+                + "; the first part made is the first article — sign it off below."
+            )
+        state = [check, approval]
         stock = _mapping(self.plan.get("stock"))
         components = stock.get("components")
         pieces = [("stock", stock)] + [

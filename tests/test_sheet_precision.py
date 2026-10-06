@@ -298,6 +298,34 @@ def test_a_setup_edge_break_tighter_than_the_drawing_prints_on_its_own_sheet(tmp
         assert "Break edges" not in text(pages[sid]), sid
 
 
+@pytest.mark.parametrize(
+    ("record_hash", "evidence", "expected"),
+    [
+        ("current", "FA-001 measured and signed", "a first article is recorded for this input"),
+        ("current", "", "no first article is recorded for this input bundle"),
+        ("other", "FA-001 measured and signed", "the recorded first article is for other inputs"),
+    ],
+    ids=["recorded-unchecked", "no-evidence", "stale"],
+)
+def test_job_status_states_the_first_article_record_it_was_given(
+    record_hash, evidence, expected, tmp_path
+):
+    # The job page tells the operator whether a first article exists for these inputs;
+    # a recorded one on an unchecked plan is not "none recorded, make a new one".
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    _, report, _ = traveler(plan, tmp_path / "plain", setup=SYNTHETIC_KERNEL)
+    assert report["verification"] != "checked"
+    digest = report["hash"] if record_hash == "current" else "0" * 64
+    approval = tmp_path / "approvals.toml"
+    approval.write_text(f'hash = "{digest}"\nfirst_article = "{evidence}"\n', encoding="utf-8")
+    _, _, html = traveler(plan, tmp_path / "out", "--approval", approval, setup=SYNTHETIC_KERNEL)
+    job = text(sections(html, "JOB STATUS")[0])
+    assert f"NOT APPROVED: {expected}" in job
+    assert ("sign it off below" in job) == (
+        expected != "a first article is recorded for this input"
+    )
+
+
 def test_a_named_inventory_item_prints_its_name_not_its_kind_or_slug(tmp_path):
     # The shop names what it owns; the traveler prints that name, not the item's kind or
     # identity key. A member's name is its own: naming the kit does not rename a piece.

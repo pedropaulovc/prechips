@@ -248,8 +248,10 @@ at the machine. A job page opens with the part, drawing number, revision (or
 **JOB STATUS** (STOP / CAUTION / not-verified boxes; a setup with its own STOP
 items is named here too, so the job page never says "no stops" over a stopped
 setup; then, always, the plan-check result, the approval state matching the
-banner — `NOT APPROVED: no first article is recorded for this input bundle…`
-until a hash-matched first article is recorded — and each `Before S1:` stock
+banner — `NOT APPROVED:` with what the approval record holds: no first article
+for this input bundle, one recorded for other inputs (both: the first part made
+is the first article), or one recorded for these inputs on a plan check that
+has not passed, which approval cannot waive — and each `Before S1:` stock
 prerequisite, such as `obtain the stock — not on hand`), the drawing material
 and finish, a one-line speeds/feeds source, the DRO manual named once, the
 `DRO resolution:` of each routed machine (its inventory `resolution`, or the
