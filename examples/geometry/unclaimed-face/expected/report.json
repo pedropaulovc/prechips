@@ -88,7 +88,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
           },
           "features": {
             "path": "examples/geometry/unclaimed-face/features.toml",
@@ -96,11 +96,11 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "8f70e674c4d999686d6b41bd7d70a3be4eab0ac51434f0784779f6bf16578749"
+            "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
           },
           "plan": {
             "path": "examples/geometry/unclaimed-face/plan.toml",
-            "sha256": "dacfab1f5e8e2ff2b57aafd67b9bc25542c4ed590171a49a5fcd727eea957185"
+            "sha256": "8bab5b082b501546b5d8203f15fac10cca628535d11ad7863856886e36d86103"
           },
           "shop_policy": {
             "path": "examples/geometry/shop-policy.toml",
@@ -155,6 +155,7 @@
             "do": "rough_profile",
             "feature": "step",
             "op": 10,
+            "rough_allowance_mm": 0.0,
             "tool": "em-preparation"
           }
         ],
@@ -516,6 +517,35 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 6eb79bedf8985fb140b6f6bc5c4561c0c929f0f9332e124816ea752d6979caca; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold"
+      ],
+      "message": "S1: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 6eb79bedf8985fb140b6f6bc5c4561c0c929f0f9332e124816ea752d6979caca; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions"
+      ],
+      "message": "S2: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S2"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
@@ -612,6 +642,7 @@
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.test-mill.envelope.travel.x",
         "inventory.machines.test-mill.envelope.travel.y"
       ],
@@ -673,8 +704,17 @@
           }
         ],
         "stock_bottom_z": 0.0,
-        "stock_extent_x_mm": 21.0,
-        "stock_extent_y_mm": 60.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          0.0,
+          0.0,
+          0.0,
+          60.0,
+          40.0,
+          20.0
+        ],
+        "stock_extent_x_mm": 60.0,
+        "stock_extent_y_mm": 40.0,
         "stock_height_mm": 20.0,
         "stock_top_above_jaws_mm": 0.0,
         "stock_top_z": 20.0,
@@ -684,13 +724,13 @@
         "travel_checks": {
           "x": {
             "fixture_mm": "unknown",
-            "part_mm": 21.0,
+            "part_mm": 60.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "fixture_mm": "unknown",
-            "part_mm": 60.0,
+            "part_mm": 40.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -1072,22 +1112,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -1099,22 +1142,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -1343,7 +1389,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough_allowance_mm >= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
       "numbers": {
         "measurements": [
           {
@@ -1418,7 +1464,7 @@
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
             "op": 10,
-            "rough_allowance_mm": "unknown",
+            "rough_allowance_mm": 0.0,
             "tip_z_bounds_mm": "unknown",
             "tool": "em-preparation",
             "tool_projection_mm": "unknown",
@@ -1642,7 +1688,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
@@ -1650,9 +1696,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -1661,7 +1709,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
@@ -1669,9 +1717,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -1785,11 +1835,11 @@
       "subject": "S2"
     }
   ],
-  "hash": "c4964ecf0c383014c301c134630ca2fe97b153c03516f11dbdb8a44bbeb24fbe",
+  "hash": "cc925976cc45dd9c1dceb41ab3feb97aa32793e5aa5a1073368c9c3de9787429",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
     },
     "features": {
       "path": "examples/geometry/unclaimed-face/features.toml",
@@ -1797,11 +1847,11 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "8f70e674c4d999686d6b41bd7d70a3be4eab0ac51434f0784779f6bf16578749"
+      "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
     },
     "plan": {
       "path": "examples/geometry/unclaimed-face/plan.toml",
-      "sha256": "dacfab1f5e8e2ff2b57aafd67b9bc25542c4ed590171a49a5fcd727eea957185"
+      "sha256": "8bab5b082b501546b5d8203f15fac10cca628535d11ad7863856886e36d86103"
     },
     "render:S1": {
       "path": "setup-S1.png",
@@ -1826,9 +1876,11 @@
       "fixture": "unresolved",
       "path": "setup-S1.png",
       "scene": {
+        "components": [],
         "debts": [
-          "jaws not drawn: Fixture solids are not declared for this holding kind."
+          "fixture not drawn: Fixture solids are not declared for this holding kind."
         ],
+        "fixture_kind": null,
         "jaws": "absent",
         "parallels": "absent"
       },
@@ -1838,14 +1890,37 @@
       "fixture": "modeled",
       "path": "setup-S2.png",
       "scene": {
+        "components": [
+          {
+            "exact": true,
+            "name": "fixed_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "moving_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "parallel 1",
+            "role": "parallel"
+          },
+          {
+            "exact": true,
+            "name": "parallel 2",
+            "role": "parallel"
+          }
+        ],
         "debts": [],
+        "fixture_kind": "vise",
         "jaws": "exact",
         "parallels": "exact"
       },
       "sha256": "8a71428bc6aac2814e3f5c0be04f6f08e9356d60946e294b322c61f88e3d813b"
     }
   },
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "6eb79bedf8985fb140b6f6bc5c4561c0c929f0f9332e124816ea752d6979caca",
   "verification": "planned"
 }

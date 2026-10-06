@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from ..findings import Finding
+from ._bench import manual_bench, not_applicable
 from .resolution import (
     UNKNOWN,
     length_mm,
     number,
     plan_frame_cite,
     resolve,
+    saw_setup,
     setup_frame,
     uncertain,
 )
@@ -25,7 +27,8 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
     """Return nominal Axis Set/check/mirror; jog is physically along frame +axis.
 
     A finder approaching from -axis subtracts its radius regardless of DRO
-    direction. Diameter display multiplies only the physical X jog by two.
+    direction. ``scale`` is the display scale: a lathe diameter display shows
+    twice the physical X position, so the contact and the jog both double.
     """
     if paper_mm is not None:
         contact = edge_mm + paper_mm if number(edge_mm) and number(paper_mm) else UNKNOWN
@@ -35,23 +38,52 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
         contact = edge_mm + (-1 if approach == f"-{axis}" else 1) * radius_mm
     else:
         contact = UNKNOWN
+    shown = contact * scale if number(contact) and number(scale) else UNKNOWN
     increment = (
         sign * scale * jog_mm if sign in {-1, 1} and number(scale) and number(jog_mm) else UNKNOWN
     )
     return {
-        "axis_set": contact,
-        "check_reading": contact + increment if number(contact) and number(increment) else UNKNOWN,
-        "mirrored_reading": contact - increment
-        if number(contact) and number(increment)
-        else UNKNOWN,
+        "axis_set": shown,
+        "check_reading": shown + increment if number(shown) and number(increment) else UNKNOWN,
+        "mirrored_reading": shown - increment if number(shown) and number(increment) else UNKNOWN,
         "sign": sign,
     }
+
+
+def measured(scale):
+    """The bench expression a measured trial-cut diameter is set as on this display."""
+    return {2: "D", 1: "D/2"}.get(scale, UNKNOWN)
+
+
+def gauge_ready(bundle, reference):
+    """A trial-cut diameter is a bench reading: it needs a resolved, unflagged gauge."""
+    gauge = resolve(bundle, None, reference)
+    return bool(gauge) and not uncertain(gauge)
 
 
 def evaluate(bundle):
     result = []
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
+        bench = manual_bench(bundle, setup)
+        if bench is not None:
+            result.append(
+                not_applicable("zero_check", setup, bench, "zero recipe", "DRO zero to set")
+            )
+            continue
+        if saw_setup(setup):
+            result.append(
+                Finding(
+                    "zero_check",
+                    setup["id"],
+                    "not_applicable",
+                    {"frame": setup.get("frame", UNKNOWN)},
+                    ["PLAN.md §4.1 zero recipe", *plan_frame_cite(bundle, setup)],
+                    "A dedicated saw setup locates its cut by cut_plane; no spindle XYZ "
+                    "zero is set.",
+                )
+            )
+            continue
         frame = setup_frame(bundle, setup)
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe" or "lathe" in str(machine.get("type", "")).lower()
@@ -116,11 +148,24 @@ def evaluate(bundle):
                 scale,
                 paper,
             )
+            gauge = gauge_ready(bundle, recipe.get("gauge"))
             if method == "trial_cut_measure":
-                # A target diameter cannot stand in for a measured trial cut.
-                values = axis_recipe(
-                    UNKNOWN, 0, "indicated", axis, recipe.get("check_jog_mm", UNKNOWN), sign, scale
+                # The diameter is measured at the machine after the cut, like paper
+                # thickness: the recipe is complete once the gauge and jog are known.
+                display = measured(scale) if axis == "x" and lathe else UNKNOWN
+                jog = recipe.get("check_jog_mm", UNKNOWN)
+                increment = (
+                    sign * scale * jog
+                    if sign in {-1, 1} and number(scale) and number(jog)
+                    else UNKNOWN
                 )
+                known = display != UNKNOWN and number(increment) and gauge
+                values = {
+                    "axis_set": f"measured {display}" if known else UNKNOWN,
+                    "check_reading": f"{display} {increment:+g}" if known else UNKNOWN,
+                    "mirrored_reading": f"{display} {-increment:+g}" if known else UNKNOWN,
+                    "sign": sign,
+                }
             row = dict(recipe)
             row.pop("retouch_after", None)
             row.update(
@@ -130,16 +175,18 @@ def evaluate(bundle):
                 paper_mm=paper if paper is not None else "not_applicable",
                 jog_mm=recipe.get("check_jog_mm", UNKNOWN),
                 dro_direction=direction,
-                axis_set_status="computed" if number(values["axis_set"]) else UNKNOWN,
+                axis_set_status=(
+                    "measured"
+                    if method == "trial_cut_measure" and values["axis_set"] != UNKNOWN
+                    else "computed"
+                    if number(values["axis_set"])
+                    else UNKNOWN
+                ),
             )
             if method == "trial_cut_measure":
-                increment = (
-                    sign * scale * recipe["check_jog_mm"]
-                    if sign in {-1, 1} and number(scale) and number(recipe.get("check_jog_mm"))
-                    else UNKNOWN
-                )
-                row["check_expression"] = f"D {increment:+g}" if number(increment) else UNKNOWN
-                row["mirrored_expression"] = f"D {-increment:+g}" if number(increment) else UNKNOWN
+                row["check_expression"] = values["check_reading"]
+                row["mirrored_expression"] = values["mirrored_reading"]
+                row["gauge_verify"] = not gauge
             elif axis != "z":
                 row["indicator_verify" if indicated else "finder_verify"] = uncertain(
                     tool
@@ -156,23 +203,25 @@ def evaluate(bundle):
         unknown |= (
             recipe.get("retouch_after", UNKNOWN) == UNKNOWN or zero.get("tool_touches") == UNKNOWN
         )
-        for op, _, after in stock_states(setup, bundle.features["features"]):
+        for op, _, after in stock_states(setup, bundle.feature_definitions):
             if op["op"] in records(recipe.get("retouch_after")):
                 top = after["top_z"]
                 touch = top + paper if number(top) and number(paper) else UNKNOWN
                 retouch.append({"op": op["op"], "top_z": top, "paper_mm": paper, "axis_set": touch})
                 unknown |= touch == UNKNOWN
         touches = []
+        x_scale = {True: 1, False: 2}.get(dro.get("radius_mode"), UNKNOWN) if lathe else UNKNOWN
         for record in records(zero.get("tool_touches")):
             edge, paper = record.get("edge_mm", UNKNOWN), record.get("paper_mm", UNKNOWN)
-            touches.append(
-                {
-                    **record,
-                    "x_axis_set": UNKNOWN,
-                    "z_axis_set": edge + paper if number(edge) and number(paper) else UNKNOWN,
-                }
+            tool = resolve(bundle, None, record.get("tool")) or {}
+            x_set = (
+                f"measured {measured(x_scale)}"
+                if measured(x_scale) != UNKNOWN and gauge_ready(bundle, record.get("gauge"))
+                else UNKNOWN
             )
-            unknown = True
+            z_set = edge + paper if number(edge) and number(paper) else UNKNOWN
+            touches.append({**record, "x_axis_set": x_set, "z_axis_set": z_set})
+            unknown |= x_set == UNKNOWN or z_set == UNKNOWN or not tool or uncertain(tool)
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),

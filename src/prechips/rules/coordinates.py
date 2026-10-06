@@ -1,9 +1,13 @@
-"""Nominal feature targets and finite cutter-centre tables (no kernel claims).
+"""Nominal feature targets and finite cutter-centre tables.
 
 A model point is transformed by the dot product with each setup basis. Unknown
 components propagate only through nonzero basis coefficients. Local authored Z
 can substitute only an unknown model transform in an unbound frame, retaining
 local_from operation provenance. No tolerance-band midpoint defines geometry.
+
+A located feature is placed by its own ``at``, else by its parent hole's ``at``
+(:func:`located_by`), else by the kernel's measured faces of revolution about setup Z
+through X0 Y0 (:func:`revolved_located`); otherwise its row stays unknown.
 """
 
 from __future__ import annotations
@@ -12,8 +16,11 @@ import itertools
 import math
 
 from ..findings import Finding
+from ..measurements import angle_fact
+from ._bench import manual_bench, not_applicable
 from .resolution import (
     UNKNOWN,
+    _citations,
     length_mm,
     number,
     plan_frame_cite,
@@ -26,10 +33,56 @@ from .tip_endpoints import HOLE_OPS, stock_states
 AXES = ("x", "y", "z")
 CENTRE_OPS = HOLE_OPS | {"center"}
 LOCATED_KINDS = {"hole", "counterbore", "thread", "threaded_hole", "boss"}
+# Side-milling traverse sense. With n the cutter-side surface normal (from the cut wall
+# toward the cutter centre) and t the travel, a clockwise spindle (viewed from above,
+# looking down setup -Z) cuts conventionally when (n x t)·Z > 0 and climbs when it is < 0;
+# a counterclockwise spindle inverts both.
+_CUT_SENSE = {"conventional": 1, "climb": -1}
+_SPINDLE_SENSE = {"cw": 1, "ccw": -1}
 
 
 def mapping(value):
     return value if isinstance(value, dict) else {}
+
+
+def located_by(features, name, feature):
+    """The feature whose ``at`` locates ``name``, that feature's frame name and its name.
+
+    An explicit ``at`` (even ``unknown``) wins; otherwise a child names its
+    parent hole (``hole``/``parent``) and is located at that parent's ``at`` in the
+    parent's frame. A missing parent locates nothing, so the child stays unknown.
+    """
+    parent = feature.get("hole", feature.get("parent"))
+    if "at" in feature or not isinstance(parent, str):
+        return feature, feature.get("frame", "model"), name
+    owner = mapping(features.get(parent))
+    return owner, owner.get("frame", "model"), parent
+
+
+def _located_names(setup, features):
+    """This setup's located features (a located kind or a centre-op target), in op order."""
+    centre = {op.get("feature") for op in setup["ops"] if op.get("do") in CENTRE_OPS}
+    return [
+        name
+        for name in dict.fromkeys(op.get("feature") for op in setup["ops"])
+        if mapping(features.get(name)).get("kind") in LOCATED_KINDS or name in centre
+    ]
+
+
+def revolved_located(setup, features):
+    """Located features of ``setup`` with neither ``at`` nor a parent locator.
+
+    Only the kernel's faces of revolution about setup Z through X0 Y0 can locate them; the
+    kernel request asks it to measure them in every setup (turning setups measure every
+    feature anyway).
+    """
+    return [
+        name
+        for name in _located_names(setup, features)
+        if isinstance(name, str)
+        and "at" not in mapping(features.get(name))
+        and located_by(features, name, mapping(features.get(name)))[2] == name
+    ]
 
 
 def _sum(terms):
@@ -102,6 +155,57 @@ def _samples(start, end, step):
 
 def _cross(a, b):
     return a[0] * b[1] - a[1] * b[0]
+
+
+def cut_order(machine, op):
+    """(required sign of (n x t)·Z or None, order record) from op direction and spindle.
+
+    Only an authored ``conventional``/``climb`` op on a machine whose spindle ``rotation``
+    is declared (bare, or a ``{value, measured}`` fact not flagged ``verify``) has a
+    cutting order; anything else keeps the order unknown.
+    """
+    direction = op.get("direction", UNKNOWN)
+    rotation = mapping(mapping(machine).get("spindle")).get("rotation", UNKNOWN)
+    flagged = isinstance(rotation, dict) and rotation.get("verify") is True
+    if isinstance(rotation, dict):
+        rotation = rotation.get("value", UNKNOWN)
+    if direction not in _CUT_SENSE:
+        reason = f"op direction {direction!r} is neither conventional nor climb"
+    elif flagged:
+        reason = "the machine spindle rotation is flagged verify"
+    elif rotation not in _SPINDLE_SENSE:
+        reason = "the machine spindle rotation is not declared"
+    else:
+        sense = _CUT_SENSE[direction] * _SPINDLE_SENSE[rotation]
+        return sense, {"cut_order": direction, "spindle_rotation": rotation}
+    return None, {"cut_order": UNKNOWN, "cut_order_reason": reason}
+
+
+def _reversal(a, b, normal, sense):
+    """Whether travel a->b (setup XY) must reverse to cut with ``sense``, or None.
+
+    ``normal`` is the cutter-side wall normal there; an unknown sense, unknown values or a
+    travel parallel to the normal cannot establish an order.
+    """
+    values = (*a, *b, *normal)
+    if sense is None or not all(number(v) for v in values):
+        return None
+    turn = _cross(normal, [b[0] - a[0], b[1] - a[1]])
+    if abs(turn) < 1e-12:
+        return None
+    return (turn > 0) != (sense > 0)
+
+
+def _ordered(record, reverse, order, keys):
+    """Reverse ``keys`` lists for the traverse and stamp the order (unknown if unproven)."""
+    if reverse is None:
+        order = {"cut_order": UNKNOWN, **{k: v for k, v in order.items() if k != "cut_order"}}
+        order.setdefault("cut_order_reason", "the traverse direction is not determined")
+    elif reverse:
+        for key in keys:
+            record[key] = list(reversed(record[key]))
+    record.update(order)
+    return record
 
 
 def _offset_line(a, b, offset):
@@ -180,7 +284,12 @@ def _xy_model(point, feature, frames):
     return model_point([point[0], point[1], 0.0], frames.get(feature.get("frame", "model")))
 
 
-def _arc(feature_name, feature, op, offset, frame, frames, features):
+def _arc(feature_name, feature, op, offset, frame, frames, features, sense, order):
+    """(arc table, join lines), each listed in cutting order for ``sense`` (see cut_order).
+
+    The cutter-side wall normal is radial: outward when the cutter centre runs outside the
+    wall radius, inward on a concave wall. A join's normal is its offset land's normal.
+    """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
     full = feature.get("kind") in {"boss", "cylinder"}
@@ -258,6 +367,14 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
             }
         )
     model_centre = model_point(centre, frames.get(feature.get("frame", "model")))
+    centre_xy = frame_point(model_centre, frame)[:2]
+    reverse = None
+    if len(rows) >= 2 and cutter_radius != radius and all(number(v) for v in centre_xy):
+        a, b = rows[len(rows) // 2 - 1]["setup_xy"], rows[len(rows) // 2]["setup_xy"]
+        outward = 1 if cutter_radius > radius else -1
+        if all(number(v) for v in (*a, *b)):
+            normal = [outward * ((a[i] + b[i]) / 2 - centre_xy[i]) for i in range(2)]
+            reverse = _reversal(a, b, normal, sense)
     interpolation = (
         "continuous circle; checkpoints are not straight-chord cuts"
         if full
@@ -269,7 +386,7 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
         "method": "arc_table",
         "step_deg": step,
         "centre_model_xy": model_centre[:2],
-        "centre_setup_xy": frame_point(model_centre, frame)[:2],
+        "centre_setup_xy": centre_xy,
         "cutter_centre_radius_mm": cutter_radius,
         "radius_mm": cutter_radius,
         "tip_z": op.get("to_z", UNKNOWN),
@@ -280,6 +397,7 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
             + "govern readiness"
         ),
     }
+    _ordered(arc, reverse, order, ("rows",))
     if number(step):
         arc["max_chord_sagitta_mm"] = cutter_radius * (
             1 - math.cos(math.radians(min(step, abs(end - start)) / 2))
@@ -287,20 +405,34 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
     lines = []
     if bottom and joins:
         sides = (-1, 1) if feature.get("mirror_symmetric") is True else (1,)
+        # _joins validated both land ends; the land's unit left normal is its cutter side.
+        top_end = mapping(features.get(feature.get("top_edge_feature")))["end"]
+        shifted, _ = _offset_line(top_end, feature["radial_tip_end"], 1.0)
+        left = [shifted[i] - top_end[i] for i in range(2)]
+
+        def setup_xy(point):
+            return frame_point(_xy_model(point, feature, frames), frame)[:2]
+
         for side in sides:
             xy = [[centre[0] + side * (p[0] - centre[0]), p[1]] for p in joins]
-            lines.append(
-                {
-                    "op": op["op"],
-                    "feature": feature_name,
-                    "side": "+X" if side == 1 else "-X",
-                    "model_xy": xy,
-                    "setup_xy": [frame_point(_xy_model(p, feature, frames), frame)[:2] for p in xy],
-                    "offset_mm": offset,
-                    "tip_z": op.get("to_z", UNKNOWN),
-                    "join_method": "line-line miter and exact line-circle intersections",
-                }
-            )
+            local = [setup_xy(p) for p in xy]
+            wall = setup_xy([xy[0][0] - side * left[0] * offset, xy[0][1] - left[1] * offset])
+            normal = [
+                local[0][i] - wall[i] if number(local[0][i]) and number(wall[i]) else UNKNOWN
+                for i in range(2)
+            ]
+            line = {
+                "op": op["op"],
+                "feature": feature_name,
+                "side": "+X" if side == 1 else "-X",
+                "model_xy": xy,
+                "setup_xy": local,
+                "offset_mm": offset,
+                "tip_z": op.get("to_z", UNKNOWN),
+                "join_method": "line-line miter and exact line-circle intersections",
+            }
+            reverse = _reversal(local[0], local[1], normal, sense)
+            lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
     return arc if rows else None, lines
 
 
@@ -430,7 +562,63 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
     return rows
 
 
-def _dome(name, feature, op, radius_mode):
+def _axis_rows(bundle, setup, name, feature, frame, dro, lathe):
+    """(rows, citation, None) locating a feature on setup Z through X0 Y0 at both ends of
+    its kernel-measured axial span, or ([], None, why not) when the kernel did not measure
+    every face revolved about setup Z through the origin (``turned_profile.spindle_span``).
+
+    On a lathe that axis is the spindle and the rows carry the DRO X target; on any other
+    machine they are setup X0 Y0 points, transformed to the model through the setup frame.
+    """
+    from .turned_profile import spindle_span
+
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if scale is None:
+        return [], None, "feature units are not mm or in"
+    span, cite = spindle_span(bundle, setup, name)
+    if span is None:
+        return [], None, f"kernel: {cite}"
+    diameter = _nominal(feature, "dia")
+    radius_mode = dro.get("radius_mode") is True
+    rows = []
+    for end, z in zip(("start", "end"), span, strict=True):
+        local = [0.0, 0.0, z / scale]
+        row = {
+            "feature": name,
+            "point": f"{'spindle' if lathe else 'setup Z'} axis, kernel span {end}",
+            "model": model_point(local, frame),
+            "setup": local,
+        }
+        if lathe:
+            row["dia_nominal"] = diameter
+            row["x_target_mm"] = diameter / 2 if radius_mode and number(diameter) else diameter
+        rows.append(row)
+    return rows, cite, None
+
+
+def _nose_arc(edges):
+    """(lowest, highest) contact-normal angle in degrees, measured from +X (radially out)
+    toward +Z, that a right-hand insert's nose arc spans: its major edge (entering angle
+    ``kappa`` from the -Z feed) bounds it at ``kappa``, its trailing edge at
+    ``kappa + insert - 180``. (None, reason) when the edge facts do not establish it."""
+    edges = mapping(edges)
+    kappa, insert = edges.get("entering_angle_deg"), edges.get("insert_angle_deg")
+    if edges.get("hand") != "right":
+        return None, "the nose arc is modelled for a right-hand tool feeding toward the chuck"
+    if not (number(kappa) and number(insert)) or kappa <= 0 or insert <= 0:
+        return None, "the selected tool's entering or insert angle is unknown"
+    if kappa + insert >= 180:
+        return None, "the selected tool's entering and insert angles do not form an insert"
+    return (kappa + insert - 180, kappa), None
+
+
+def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
+    """Axial table of the dome's finished surface and, when the selected insert's nose arc
+    spans every row's contact normal, the imaginary-tip readings of a tool touched off on
+    an outside diameter (X) and a +Z end face (Z), the lathe tool-touch convention: the
+    nose centre sits ``nose`` along the surface normal, so the tip reads ``nose * (n - 1)``
+    from the surface point per axis. A normal outside the arc is cut by an edge or flank,
+    not the nose, so no nose offset holds there."""
     sphere = feature.get("sphere_radius", UNKNOWN)
     apex, base = op.get("z_from", UNKNOWN), op.get("z_to", UNKNOWN)
     step = mapping(op.get("contour")).get("step_mm", UNKNOWN)
@@ -438,6 +626,16 @@ def _dome(name, feature, op, radius_mode):
         return None
     sign = 1 if apex > base else -1
     centre = apex - sign * sphere
+    arc, arc_reason = _nose_arc(edges)
+    if not number(nose) or nose < 0:
+        compensation, why = UNKNOWN, "the selected tool's nose radius is unknown"
+    elif sign < 0:
+        compensation, why = UNKNOWN, "the dome apex faces the chuck, not the +Z touch-off face"
+    elif arc is None:
+        compensation, why = UNKNOWN, arc_reason
+    else:
+        compensation, why = nose, None
+    display = 1 if radius_mode else 2
     rows = []
     count = math.ceil(abs(apex - base) / step)
     for i in range(count + 1):
@@ -446,16 +644,31 @@ def _dome(name, feature, op, radius_mode):
         if squared < -1e-10:
             return None
         radius = math.sqrt(max(0, squared))
+        normal_r, normal_z = radius / sphere, (z - centre) / sphere
         rows.append(
             {
                 "z_mm": z,
                 "radius_mm": radius,
                 "diameter_mm": 2 * radius,
-                "x_target_mm": radius if radius_mode else 2 * radius,
-                "setup_xz": [radius if radius_mode else 2 * radius, z],
+                "x_target_mm": display * radius,
+                "setup_xz": [display * radius, z],
+                "normal_deg": math.degrees(math.atan2(normal_z, normal_r)),
             }
         )
-    return {
+    if why is None:
+        outside = [r["z_mm"] for r in rows if not arc[0] - 1e-9 <= r["normal_deg"] <= arc[1] + 1e-9]
+        if outside:
+            compensation = UNKNOWN
+            why = (
+                f"contact normals at Z {', '.join(f'{z:g}' for z in outside)} lie outside the "
+                f"nose arc {arc[0]:g}°..{arc[1]:g}°, so an edge, not the nose, meets them"
+            )
+    if why is None:
+        for row in rows:
+            normal = math.radians(row["normal_deg"])
+            row["x_tool_mm"] = display * (row["radius_mm"] + nose * (math.cos(normal) - 1))
+            row["z_tool_mm"] = row["z_mm"] + nose * (math.sin(normal) - 1)
+    contour = {
         "feature": name,
         "op": op["op"],
         "method": "axial_table",
@@ -465,20 +678,45 @@ def _dome(name, feature, op, radius_mode):
         "apex_z_mm": apex,
         "base_z_mm": base,
         "step_mm": step,
-        "tool_nose_compensation_mm": UNKNOWN,
+        "tool_nose_compensation_mm": compensation,
+        "tool_reference": "imaginary tip: X touched on an outside diameter, Z on a +Z end face",
     }
+    if why is not None:
+        contour["tool_nose_compensation_reason"] = why
+    return contour
+
+
+def _edge_facts(bundle, op):
+    """The selected turning insert's hand and accepted entering/insert angles (degrees)."""
+    from ._envelope import measurement_item
+
+    item = measurement_item(bundle, "tools", op.get("tool"))
+    angles = {}
+    for field in ("entering_angle_deg", "insert_angle_deg"):
+        fact = angle_fact(item, field, require_measured=False)
+        angles[field] = fact["value"] if fact["verified"] else UNKNOWN
+    return {"hand": mapping(item).get("hand", UNKNOWN), **angles}
 
 
 def evaluate(bundle):
     result = []
-    features = bundle.features["features"]
+    features = bundle.feature_definitions
     # Feature source frames are manifest-only; setups resolve exported or plan-owned frames.
     frames = mapping(bundle.features.get("frames"))
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
+        bench = manual_bench(bundle, setup)
+        if bench is not None:
+            result.append(
+                not_applicable(
+                    "coordinates", setup, bench, "coordinates", "DRO target or cutter-centre table"
+                )
+            )
+            continue
         frame = setup_frame(bundle, setup)
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"
+        unordered = set()  # why a contour table's cutting order is unknown
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -524,17 +762,43 @@ def evaluate(bundle):
                 if "tool" in op
             )
         names = list(dict.fromkeys(op.get("feature") for op in setup["ops"]))
-        centre_features = {op.get("feature") for op in setup["ops"] if op.get("do") in CENTRE_OPS}
+        located_names = set(_located_names(setup, features))
+        revolved_names = set(revolved_located(setup, features))
+        axis_cites, locator_cites = [], []
         for name in names:
             feature = mapping(features.get(name))
-            at = feature.get("at")
-            located = feature.get("kind") in LOCATED_KINDS or name in centre_features
+            locator, locator_frame, locator_name = located_by(features, name, feature)
+            at = locator.get("at")
+            located = name in located_names
             vector = isinstance(at, list) and len(at) == 3
-            unknown |= located and not (vector and all(number(value) for value in at))
+            placed = vector and all(number(value) for value in at)
+            why = None
+            if located and not placed and (lathe or name in revolved_names):
+                # A feature the kernel measured revolved about setup Z through X0 Y0 is
+                # located on that axis (a lathe's spindle); off-axis or unmeasured ones still
+                # need ``at``. Off a lathe an explicit ``at`` (even unknown) or a parent wins.
+                rows, cite, why = _axis_rows(bundle, setup, name, feature, frame, dro, lathe)
+                if rows:
+                    numbers["rows"].extend(rows)
+                    axis_cites.append(cite)
+                    located = vector = False
+            unknown |= located and not placed
             if located or vector:
-                model = model_point(at, frames.get(feature.get("frame", "model")))
+                model = model_point(at, frames.get(locator_frame))
                 local = frame_point(model, frame)
-                numbers["rows"].append({"feature": name, "model": model, "setup": local})
+                row = {"feature": name, "model": model, "setup": local}
+                if locator_name != name:
+                    row["located_by"] = locator_name
+                    locator_cites.extend(
+                        [
+                            f"features.features.{locator_name}.at",
+                            *_citations(locator.get("cite"), "at"),
+                        ]
+                    )
+                if why is not None and not lathe:
+                    # Lathe rows keep their established shape; elsewhere name the debt.
+                    row["reason"] = why
+                numbers["rows"].append(row)
                 unknown |= UNKNOWN in local
             if lathe:
                 numbers["rows"].extend(
@@ -560,6 +824,7 @@ def evaluate(bundle):
                 if paired
                 else [("finish", 0)]
             )
+            sense, order = cut_order(machine, op)
             for stage, allowance in stages:
                 offset = radius + allowance if number(radius) and number(allowance) else UNKNOWN
                 profile = {
@@ -579,7 +844,9 @@ def evaluate(bundle):
                 }
                 generated = False
                 if contour.get("method") == "arc_table":
-                    arc, lines = _arc(name, feature, op, offset, frame, frames, features)
+                    arc, lines = _arc(
+                        name, feature, op, offset, frame, frames, features, sense, order
+                    )
                     if arc:
                         arc.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
                         numbers["arc_table"].append(arc)
@@ -587,24 +854,45 @@ def evaluate(bundle):
                             line["stage"] = stage
                         numbers["line_table"].extend(lines)
                         profile["cutter_centre"] = arc["rows"]
+                        unordered.update(
+                            item["cut_order_reason"]
+                            for item in (arc, *lines)
+                            if item["cut_order"] == UNKNOWN
+                        )
                         generated = True
                 elif contour.get("method") == "linear_table":
                     path = _linear(feature, op, offset, radius, frame, frames)
                     if path:
                         profile["cutter_centre"] = path
+                        if not isinstance(path[0][0], list):
+                            # A closed outline runs counterclockwise with the cutter outside
+                            # its walls, so (n x t)·Z > 0; rasters are independent passes.
+                            reverse = None if sense is None else sense < 0
+                            _ordered(profile, reverse, order, ("cutter_centre",))
+                            if profile["cut_order"] == UNKNOWN:
+                                unordered.add(profile["cut_order_reason"])
                         generated = True
                 elif contour.get("method") == "axial_table" and (not paired or stage == "finish"):
-                    dome = _dome(name, feature, op, dro.get("radius_mode") is True)
+                    nose = length_mm(tool, "nose_radius") if tool and not uncertain(tool) else None
+                    dome = _dome(
+                        name,
+                        feature,
+                        op,
+                        dro.get("radius_mode") is True,
+                        nose if number(nose) else UNKNOWN,
+                        _edge_facts(bundle, op) if tool and not uncertain(tool) else None,
+                    )
                     if dome:
                         numbers["contours"].append(dome)
                         generated = True
+                        unknown |= not number(dome["tool_nose_compensation_mm"])
                 if not generated:
                     profile["cutter_centre"] = UNKNOWN
                 numbers["profiles"].append(profile)
                 unknown |= not generated or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
-        status = "unknown" if unknown else "pass"
+        status = "unknown" if unknown or unordered else "pass"
         sentence = (
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
             "nominal geometry and authored allowance."
@@ -613,6 +901,8 @@ def evaluate(bundle):
             sentence += (
                 " Missing geometry or unverified tool/frame binding prevents a cleared toolpath."
             )
+        if unordered:
+            sentence += " Cutting order is unknown: " + "; ".join(sorted(unordered)) + "."
         result.append(
             Finding(
                 "coordinates",
@@ -625,6 +915,8 @@ def evaluate(bundle):
                     "plan contour steps, operation targets and stock allowances",
                     "inventory selected cutter nominal diameter",
                     *plan_frame_cite(bundle, setup),
+                    *dict.fromkeys(locator_cites),
+                    *axis_cites,
                 ],
                 sentence,
             )

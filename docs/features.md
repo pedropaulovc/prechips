@@ -59,14 +59,17 @@ requires actual referenced STEP bytes in the bundle and must match their hash;
 the digest alone is not accepted. Only a bundle with matching bytes reaches the
 FreeCAD kernel. The shaft, rocker and cone reference bundles now consume the
 consumer's generated manifests and exact adjacent STEP exports. The bracket
-remains hand-authored without STEP bytes, so its geometry rows remain `?`.
+keeps a hand-authored `features.toml` on the consumer v39 STEP
+(`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
+There is no dimensioned bracket drawing, so its acceptance bands are
+illustrative example design intent, not measured or imported drawing limits.
 Exported face sets do not establish operation coverage, measured setup binding
 or machining approval.
 `cite`, `cite_root`, and per-dimension citations identify evidence and
 are not file assets fetched or opened during the check. Python citations use
 `file:line` or line ranges; YAML citations use `file:dotted.key.path`.
 M3 exports replace the three drawn pilots' handwritten manifests; the bracket's
-missing drawing contract remains explicit. Preserve exports verbatim, including
+absence of a dimensioned drawing remains explicit. Preserve exports verbatim, including
 unknown requirements and omitted optional fields: do not backfill facts from
 the superseded hand-authored manifests. Delivery provenance belongs in
 [examples/README.md](../examples/README.md), not extra manifest keys.
@@ -113,6 +116,15 @@ measured setup transform. Setup transforms the CAD export does not carry are
 authored in the plan's `frames` table ([plan format](plan.md#frames)); they are
 never written back into, merged with or allowed to shadow the exported manifest.
 
+For travel-centre and `coordinates` placement (one shared locator), a child
+feature with `parent` or `hole` and no authored `at` inherits the named
+parent's `at`, transformed from the parent's source frame. An authored child
+`at` takes precedence; explicit `"unknown"`
+does not request inheritance. Missing parents/locations/frames remain debt;
+dimensions and face claims are not borrowed as a side effect of locating the
+child. Saw stock cuts may omit a feature entirely and never establish coverage
+or surface-finish credit for a manifest face.
+
 The optional root `volume_mm3` and `volume_cite` hold a sourced finished-part
 volume for stock comparison. Missing or unverified volume remains `"unknown"`;
 prechips never substitutes a feature bounding box, guessed cone subtraction,
@@ -122,9 +134,8 @@ Unknown or omitted drawing permission retains the one-piece-only restriction;
 it never permits built-up construction. A one-piece candidate needs no permission.
 
 In particular, the current cone export omits `volume_mm3` and `volume_cite`.
-Its comparison therefore has unknown finished volume/waste despite the older
-hand-authored fixture's analytic-volume citation. The export's `construction`
-remains `"one_piece"`; the separately authored built-up candidate is still refused.
+Its finished volume/waste therefore stay unknown despite the older
+hand-authored fixture's analytic-volume citation.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled

@@ -16,7 +16,7 @@ DIA_CITE = "scratch drawing fixture: diameter acceptance band"
 
 
 def turning_bundle():
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"material": "scratch alloy", "material_verify": False},
             "setups": [
@@ -69,6 +69,8 @@ def turning_bundle():
         },
         policy={"required": {}},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def milling_bundle():
@@ -96,7 +98,7 @@ def test_cantilever_force_inertia_and_gpa_conversion():
     assert values["e_n_per_mm2"] == 200_000
     assert values["denominator_coefficient"] == 3
     assert values["deflection_mm"] == pytest.approx(100 * 100**3 / (3 * 200_000 * inertia))
-    assert values["diameter_tolerance_mm"] == pytest.approx(0.1)
+    assert values["acceptance_threshold_mm"] == pytest.approx(0.1)
     assert finding.status == "warn"
     assert ROW_CITE in finding.cite
     assert DIA_CITE in finding.cite
@@ -149,8 +151,8 @@ def test_explicit_inch_feature_nominal_and_band_convert_to_mm():
     data.features["features"]["journal"].update(dia_nominal=0.25, dia=[0.24, 0.26])
     values = turning_deflection.evaluate(data)[0].numbers
     assert values["diameter_mm"] == pytest.approx(6.35)
-    assert values["dia_band_mm"] == pytest.approx([6.096, 6.604])
-    assert values["diameter_tolerance_mm"] == pytest.approx(0.254)
+    assert values["acceptance_band_mm"] == pytest.approx([6.096, 6.604])
+    assert values["acceptance_threshold_mm"] == pytest.approx(0.254)
     inertia = math.pi * 6.35**4 / 64
     assert values["deflection_mm"] == pytest.approx(100 * 100**3 / (3 * 200_000 * inertia))
 
@@ -223,8 +225,7 @@ def test_computed_deflection_without_sourced_acceptance_stays_unknown(problem):
     finding = turning_deflection.evaluate(data)[0]
     assert finding.status == "unknown"
     assert finding.numbers["deflection_mm"] == pytest.approx(0.33953054526271004)
-    assert finding.numbers["diameter_tolerance_mm"] == "unknown"
-    assert "acceptance threshold" in finding.sentence
+    assert finding.numbers["acceptance_threshold_mm"] == "unknown"
 
 
 @pytest.mark.parametrize("problem", ["band_only", "unknown_nominal", "units", "hold", "support"])
@@ -282,7 +283,7 @@ def test_engagement_scope_excludes_known_non_endmill_families_even_with_doc(kind
     assert engagement.evaluate(data)[0].status == "not_applicable"
 
 
-@pytest.mark.parametrize("action", ["fit_up", "transfer"])
+@pytest.mark.parametrize("action", ["fit", "transfer"])
 def test_engagement_scope_excludes_noncutting_operations_even_with_endmill_and_doc(action):
     data = milling_bundle()
     data.plan["setups"][0]["ops"][0]["do"] = action

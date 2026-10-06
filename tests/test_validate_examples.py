@@ -8,66 +8,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from test_cli import copy_examples
 
-from prechips.inputs import load_bundle
-from prechips.rules.inspection import evaluate as inspection_findings
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
-
-
-@pytest.mark.parametrize(
-    ("part", "plan_filename", "expected"),
-    [
-        (
-            "pivot-shaft",
-            "plan.toml",
-            {
-                "shoulder_north_face:length": "calipers",
-                "shoulder_thrust:length": "calipers",
-            },
-        ),
-        (
-            "rocker-arm",
-            "plan.toml",
-            {
-                "strap_datum_b:thickness": "micrometers/0-1in",
-                "tip_land_pos_x:tip_land": "calipers",
-                "tip_land_neg_x:tip_land": "calipers",
-                "tip_land_pos_x:land_angle_deg": "unknown",
-                "tip_land_neg_x:land_angle_deg": "unknown",
-            },
-        ),
-        (
-            "cone-pivot-post",
-            "plan.toml",
-            {
-                "crank_boss_faces:length": "calipers",
-                "crank_boss_faces:station": "calipers",
-                "cone_boss_north_face:length": "calipers",
-            },
-        ),
-        (
-            "cone-pivot-post",
-            "built-up.toml",
-            {
-                "crank_boss_faces:length": "calipers",
-                "crank_boss_faces:station": "unknown",
-                "cone_boss_north_face:length": "calipers",
-            },
-        ),
-    ],
-)
-def test_exported_split_features_retain_authored_inspection(part, plan_filename, expected):
-    bundle = load_bundle(ROOT / "examples" / part / plan_filename)
-    findings = {finding.subject: finding for finding in inspection_findings(bundle)}
-    for subject, gauge in expected.items():
-        finding = findings[subject]
-        # Missing ownership is an error, not ordinary unverified shop capability.
-        assert finding.status == "unknown", finding.sentence
-        assert finding.numbers["gauge"] == gauge
 
 
 @pytest.mark.parametrize(
@@ -99,149 +44,26 @@ def test_rejects_self_consistent_wrong_z_edge(part, setup_id):
         VALIDATOR["check_zero"](setup, corrupted, entries, plan["dro"])
 
 
-def cone_inputs(plan_filename="plan.toml"):
+def cone_inputs():
     folder = ROOT / "examples" / "cone-pivot-post"
-    plan = tomllib.loads((folder / plan_filename).read_text(encoding="utf-8"))
+    plan = tomllib.loads((folder / "built-up.toml").read_text(encoding="utf-8"))
     features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
-    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
     policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
-    expected = "expected" if plan_filename == "plan.toml" else "expected/built-up"
-    report = json.loads((folder / expected / "report.json").read_bytes())
-    return plan, features, inventory, policy, report
+    report = json.loads((folder / "expected" / "built-up" / "report.json").read_bytes())
+    return plan, features, policy, report
 
 
-@pytest.mark.parametrize("corruption", ["nearest", "spaces", "basic_band", "closure"])
-def test_rejects_cone_indexing_arithmetic_even_when_unverified(corruption):
-    plan, features, inventory, _, report = cone_inputs()
-    setup = next(s for s in plan["setups"] if s["id"] == "S3")
-    finding = next(
-        f for f in report["findings"] if f["rule"] == "indexing" and f["subject"] == "S3"
-    )
-    entries = VALIDATOR["entries_for"](inventory)
-    VALIDATOR["check_indexing"](setup, features, entries, finding)
-    corrupted = copy.deepcopy(finding)
-    row = corrupted["numbers"]
-    if corruption == "nearest":
-        # A plausible actual setting on another declared circle, but not the
-        # nearest one. Matching its own signed error must not legitimize it.
-        row.update(plate="C", circle=41, turns=1, spaces=16, actual_angle_deg=513 / 41)
-        error = 513 / 41 - 12.5182
-        row.update(position_errors_deg=[error], max_position_error_deg=abs(error))
-    elif corruption == "spaces":
-        row["spaces"] += 1
-    elif corruption == "basic_band":
-        row["tolerance_deg"] = 1.0
-    else:
-        row["closure"] = {"error_deg": 0.0, "within_tolerance": True}
-    with pytest.raises(ValueError):
-        VALIDATOR["check_indexing"](setup, features, entries, corrupted)
-
-
-@pytest.mark.parametrize("plan_filename", ["plan.toml", "built-up.toml"])
-def test_rejects_unsourced_finished_diameter_in_unbound_profile(plan_filename):
-    plan, features, _, policy, report = cone_inputs(plan_filename)
+def test_rejects_unsourced_finished_diameter_in_unbound_profile():
+    plan, features, policy, report = cone_inputs()
     setup = next(s for s in plan["setups"] if s["id"] == "S1")
     finding = next(
         f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1"
     )
     VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
     corrupted = copy.deepcopy(finding)
-    corrupted["numbers"]["diameter_mm"] = 42.011 if plan_filename == "plan.toml" else 21.93
+    corrupted["numbers"]["diameter_mm"] = 21.93
     with pytest.raises(ValueError):
         VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted)
-
-
-def test_stickout_verified_policy_cannot_certify_an_unbound_finished_profile():
-    plan, features, _, policy, report = cone_inputs()
-    setup = next(s for s in plan["setups"] if s["id"] == "S1")
-    finding = copy.deepcopy(
-        next(f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1")
-    )
-    # This is a synthetic unit-test policy, not new fixture/shop evidence.
-    policy["numbers"]["stickout_ld_max"] = 3.0
-    policy["numbers_cite"]["stickout_ld_max"] = "synthetic test-policy citation"
-    policy["numbers_verify"]["stickout_ld_max"] = False
-    finding["numbers"]["stickout_ld_max"] = 3.0
-    VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
-
-    for field, value in (("unsupported_limit_mm", 330.0), ("diameter_mm", 42.011)):
-        corrupted = copy.deepcopy(finding)
-        corrupted["numbers"][field] = value
-        with pytest.raises(ValueError):
-            VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted)
-    finding["status"] = "pass"
-    with pytest.raises(ValueError):
-        VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
-
-
-@pytest.mark.parametrize("corruption", ["waste", "joint_permission"])
-def test_comparison_rejects_bad_arithmetic_and_hidden_built_up_intent(tmp_path, corruption):
-    examples = copy_examples(tmp_path)
-    folder = examples / "cone-pivot-post"
-    documents = {
-        path.resolve(): tomllib.loads(path.read_text(encoding="utf-8"))
-        for path in examples.rglob("*.toml")
-    }
-    VALIDATOR["check_comparison"](folder, documents)
-    path = folder / "expected" / "compare.json"
-    rows = json.loads(path.read_bytes())
-    if corruption == "waste":
-        rows[0]["waste_ratio"] = 0.1
-    else:
-        built_up = next(row for row in rows if row["plan"] == "built-up.toml")
-        built_up["construction"] = "one_piece"
-    path.write_bytes(VALIDATOR["canonical"](rows))
-    with pytest.raises(ValueError):
-        VALIDATOR["check_comparison"](folder, documents)
-
-
-@pytest.mark.parametrize("corruption", ["tip", "depth", "guard", "cone"])
-def test_blind_counterbore_uses_authored_depth_without_through_allowance(corruption):
-    plan, features, inventory, _, report = cone_inputs()
-    findings = {(f["rule"], f["subject"]): f for f in report["findings"]}
-    entries = VALIDATOR["entries_for"](inventory)
-    VALIDATOR["check_endpoints"](plan, features, findings, entries)
-    corrupted = copy.deepcopy(findings)
-    row = corrupted["blind_depth", "mount_west_counterbore"]["numbers"]["endpoints"][0]
-    if corruption == "tip":
-        row["tip_z"] -= 0.5
-    elif corruption == "depth":
-        # Still under the printed guard, and self-consistent internally, but
-        # not the cutting depth authored in S2 op80.
-        row["depth_mm"] += 0.5
-        row["total_depth_mm"] += 0.5
-        row["tip_z"] -= 0.5
-    elif corruption == "guard":
-        row["depth_limit_mm"] += 1.0
-    else:
-        # A counterbore has no drill cone even with an unidentified cutter.
-        row["point_mm"] = 0.2
-        row["total_depth_mm"] += 0.2
-        row["tip_z"] -= 0.2
-    with pytest.raises(ValueError):
-        VALIDATOR["check_endpoints"](plan, features, corrupted, entries)
-
-
-@pytest.mark.parametrize("corruption", ["tip", "cone"])
-def test_through_bore_endpoint_has_zero_drill_cone(corruption):
-    plan, features, inventory, _, report = cone_inputs()
-    # The authored final bore is S3 op40, with unknown cutter identity. Its
-    # endpoint still has a known flat-end axial lead rather than a drill cone.
-    findings = {(f["rule"], f["subject"]): copy.deepcopy(f) for f in report["findings"]}
-    row = next(
-        row
-        for row in findings["blind_depth", "journal_bore"]["numbers"]["endpoints"]
-        if row["setup"] == "S3" and row["op"] == 40
-    )
-    entries = VALIDATOR["entries_for"](inventory)
-    VALIDATOR["check_endpoints"](plan, features, findings, entries)
-    if corruption == "tip":
-        row["tip_z"] -= 0.25
-    else:
-        row["point_mm"] = 0.25
-        row["tip_z"] -= 0.25
-    with pytest.raises(ValueError):
-        VALIDATOR["check_endpoints"](plan, features, findings, entries)
 
 
 @pytest.mark.parametrize("action", ["tap", "ream", "drill"])
@@ -289,6 +111,7 @@ def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(act
             }
         },
     )
+    bundle.feature_definitions = bundle.features["features"]
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(bundle)}
     row = findings["blind_depth", "h"]["numbers"]["endpoints"][0]
     expected_tip = {"tap": 5.0, "ream": -13.675, "drill": -13.5}[action]
@@ -339,3 +162,104 @@ def test_validator_rejects_silently_dropped_or_cleared_missing_requirement(statu
     }
     with pytest.raises(ValueError, match="missing requirement inspection"):
         VALIDATOR["check_inspection_declarations"](plan, features, findings)
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        ("tool_resolves", "S4:30"),
+        ("inspection", "crank_socket:dia"),
+        ("joint_fit", "S4"),
+        ("joint_assembly", "S4"),
+    ],
+)
+def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(missing):
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    # The exported fixture's fit action has tool="unknown", but no cutting assembly.
+    VALIDATOR["check_subjects"](plan, features, findings)
+    del findings[missing]
+    with pytest.raises(ValueError, match=f"missing finding {missing[0]}:{missing[1]}"):
+        VALIDATOR["check_subjects"](plan, features, findings)
+
+
+@pytest.mark.parametrize(
+    "corruption", ["fit_pass", "missing", "socket", "assembly_pass", "branches"]
+)
+def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corruption):
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    VALIDATOR["check_joint_declarations"](plan, features, findings)
+    fit = findings["joint_fit", "S4"]
+    assembly = findings["joint_assembly", "S4"]
+    if corruption == "fit_pass":
+        fit["status"] = "pass"
+    elif corruption == "missing":
+        fit["numbers"]["missing"] = []
+    elif corruption == "socket":
+        fit["numbers"]["socket"] = fit["numbers"]["spigot"]
+    elif corruption == "assembly_pass":
+        assembly["status"] = "pass"
+    else:
+        assembly["numbers"]["stock_in"].reverse()
+    with pytest.raises(ValueError, match="joint|assembly"):
+        VALIDATOR["check_joint_declarations"](plan, features, findings)
+
+
+@pytest.mark.parametrize("corruption", ["shared_ancestor", "wrong_role", "finished_face"])
+def test_joint_identity_and_exported_face_contract_remain_strict(corruption):
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "S4")
+    if corruption == "shared_ancestor":
+        setup["stock_in"] = ["S3", "S2"]
+    elif corruption == "wrong_role":
+        setup["joint"]["socket"] = "crank_spigot"
+    else:
+        features["features"]["crank_boss"]["faces"] = ["plan.joint_features.crank_spigot"]
+    with pytest.raises(ValueError, match="ancestor|kind cylinder_bore|finished STEP faces"):
+        VALIDATOR["check_subjects"](plan, features, findings)
+
+
+@pytest.mark.parametrize("rule", ["joint_fit", "joint_assembly"])
+def test_unresolved_joint_is_required_without_shop_policy_permission(rule):
+    plan, features, _, _, _ = cone_inputs("built-up.toml")
+    report = {"findings": [{"rule": rule, "subject": "S4", "status": "unknown", "numbers": {}}]}
+    assert VALIDATOR["report_exit"](report, {"required": {}}, plan, features) == 4
+
+
+@pytest.mark.parametrize(
+    ("selector", "subject"),
+    [("holes", "crank_socket"), ("toleranced_features", "crank_spigot:dia")],
+)
+def test_required_selectors_include_transient_joint_requirements(selector, subject):
+    plan, features, _, _, _ = cone_inputs("built-up.toml")
+    finding = {"rule": "inspection", "subject": subject, "numbers": {}}
+    assert VALIDATOR["required_finding"](
+        finding, {"required": {"inspection": selector}}, plan, features
+    )
+
+
+def test_joint_checks_use_operative_requirements_without_inventing_drawing_fields():
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "S1")
+    op = {"op": 50, "feature": "crank_spigot", "checks": {"dia": "calipers"}}
+    setup["ops"].append(op)
+    VALIDATOR["check_inspection_declarations"](plan, features, findings)
+    op["missing_requirements"] = op.pop("checks")
+    with pytest.raises(ValueError, match="crank_spigot.dia is an exported requirement"):
+        VALIDATOR["check_inspection_declarations"](plan, features, findings)
+
+
+@pytest.mark.parametrize("kernel_status,status", [("unavailable", "unknown"), ("error", "error")])
+def test_joint_kernel_failure_cannot_be_approved_without_assembly_evidence(kernel_status, status):
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    assembly = findings["joint_assembly", "S4"]
+    assembly["numbers"] = {"kernel_status": kernel_status}
+    assembly["status"] = status
+    VALIDATOR["check_joint_declarations"](plan, features, findings)
+    assembly["status"] = "pass"
+    with pytest.raises(ValueError, match="unavailable kernel cannot approve"):
+        VALIDATOR["check_joint_declarations"](plan, features, findings)

@@ -41,10 +41,22 @@ M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
 must resolve to actual inventory or a named machine accessory; an unconfirmed
 accessory does not certify support.
+A `follow_rest` / `steady_rest` fixture that a plan `hold.supports` table
+selects (`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`) declares its jaw
+capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or
+`_in`): the work diameters the rest can ride on, inclusive. `turning_deflection`
+uses the rest span only for an op whose ridden diameter is inside that capacity;
+an unmeasured or unverified capacity leaves deflection unknown and is listed in
+the measurement checklist. The kernel draws the rest from its own measured
+solid fields (below and [rules-geometry](rules-geometry.md#follow-and-steady-rests)).
 Hold identities resolve through `fixtures`, `holders`, then `machines`, so a
-machine-mounted dividing head is not an unresolved fixture. A dividing head
-without declared gripping capacity is `not_applicable` to the diameter screen;
-a machine or dividing head with declared collet sizes or chuck ranges is checked.
+machine-mounted dividing head is not an unresolved fixture. Its declared
+`centre_height_in` locates the spindle axis above its mounting base for the
+headroom screen; `hold.pose.origin_mm[2]` locates that axis in the setup frame.
+`height` / `length` / `width` still describe the head body; `bed_height` is not
+a substitute for the centre. A dividing head without declared gripping capacity
+is `not_applicable` to the diameter screen; a machine or dividing head with
+declared collet sizes or chuck ranges is checked.
 
 For indexing, a dividing head can live in `machines` (the example is `BS-0`) or
 `fixtures`. `worm_ratio`, `direct_index` and every `plate_holes` circle are
@@ -58,6 +70,23 @@ gauge length substitutes for projection.
 Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
+
+## Bandsaw machines and blades
+
+Both `machines.<saw>.kind` and `tools.<blade>.kind` may be `"bandsaw"`.
+The machine declares `blade_speed_sfm = [min, max]`, positive ordered feet/minute
+limits. The blade declares its `material` for cutting-data selection and a
+positive `kerf_mm` or `kerf_in`, using the ordinary `MeasuredLength` form or
+trusted nominal scalar. Declaring kerf in both units is rejected, and explicit
+fact-local verification debt withholds geometry. Illustrative example
+measurements must use the examples policy's plausible/not-measured label.
+
+Saw operations need no spindle taper, holder, shank diameter, tool OAL or
+projection. A mill/bench may host the saw operation but must also declare its
+actual blade-speed range for a sourced speed recommendation. The hold resolves
+an ordinary fixture; no machine identity silently supplies an integral vise.
+See [plan saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
+
 
 ## Kernel geometry facts (M4)
 
@@ -82,10 +111,76 @@ A vise enters the job solely when `jaw_height`, `jaw_width`, `jaw_depth` and
 `opening` all resolve that way; the parallels fixture needs a positive
 `height`, and its optional `length` (along the jaws) and `width` (along the
 clamp axis), resolved the same way, are what let the kernel draw the parallel
-solids once the plan declares `parallels_centres_mm`. These are the only
+solids once the plan declares `parallels_centres_mm`. A `blocks_123` riser
+item supplies `length`, `width` and `height` the same way. These are the vise
 sources of fixture solids: `jaw_depth_mm` / `jaw_depth_in` is the physical
 jaw-plate thickness along the gripping normal and is never synthesized from
-jaw width, jaw height, bed height or any other dimension. A tool enters an
+jaw width, jaw height, bed height or any other dimension.
+
+Other holding solids come from the same accepted-fact rule, never defaults:
+
+- `chuck_3jaw` / `chuck_4jaw`: `body_dia`, `body_length`, `bore_dia` (bore
+  smaller than body), `jaw_width` (tangential), `jaw_height` (radial, outward
+  from the grip) and `jaw_depth` (axial, ahead of the body face). A
+  `dividing_head` names its chuck from the plan (`hold.chuck`).
+- `follow_rest`: `jaw_width` (tangential), `jaw_height` (radial, outward from
+  the ridden diameter) and `jaw_depth` (axial), each fact-local measured, plus
+  `jaw_angles_deg`: the jaw directions about the spindle axis in degrees from
+  the cutting tool (e.g. `[90, 180]` for a top and a back jaw). Any one missing
+  leaves the rest undrawn and the ops it serves `unknown`, naming the field.
+- `steady_rest`: `body_dia` (the ring's outside diameter) and `body_length`
+  (its axial length), each fact-local measured; otherwise the rest is an
+  undrawn possible obstacle (a gap naming the field), so clear turning samples
+  and `fixture_interference` stay `unknown`.
+- `dead_centre` fixtures: `dia` (shank), `length` (tip to quill face) and
+  `point_angle` (included cone angle, degrees); the quill is the machine's
+  `tailstock.quill_dia` (a dividing head's own `tailstock` when it has one).
+- Any item (angle plate, `dividing_head`, custom fixture, `clamping_kit`
+  member such as a strap) may author `solids = [{name, shape, at_mm,
+  size_mm}]` boxes or `{name, shape = "cylinder", at_mm, axis, dia_mm,
+  length_mm}` cylinders in its own frame. Each primitive is trusted on its
+  own: a primitive whose record carries `verify = true` / `"unknown"` or an
+  incomplete `measured` is not drawn and is named as debt.
+- A primitive with `void = true` (a bore, tapped or clearance hole, stud
+  slot) is not drawn: it is cut from the same `solids` list's other
+  primitives, or only from those it names in `cuts = ["<name>", …]`, and
+  never from another item's or member's solids. An untrusted or malformed
+  void withholds the solids it would cut (named debt) rather than draw them
+  uncut. A strap member models its whole clamp assembly in one list: beam,
+  slot void (`cuts = ["beam"]`), stud, heel, nut and washer (washer bore with
+  `cuts = ["washer"]`). Primitives of one list are one part and never checked
+  against each other; each posed clamp's list must touch the stock to bear.
+- A trusted void in the holding fixture may carry an optional shop-caption
+  `label = "Strap stud holes"`. The setup render places its leader at the void's
+  centre after applying `hold.pose`, and records the label and posed centre in
+  `scene.fixture_detail_labels`. The caption neither creates geometry nor
+  overrides the void's measurement or verification debt.
+
+For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
+its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
+`hold.pose` (origin at the chuck jaw-face centre, pose +z out toward the work),
+`jaw_clock_deg` and `grip_mm`. Pose z is the head axis and must be horizontal
+in the setup, perpendicular to setup Z. The head's own authored `solids`, the
+chuck body/jaws and any tailstock or clamps provide the modeled obstacles;
+indexing ratios or a vendor photograph do not supply missing solids or poses.
+The chuck rotates with the work; the head body, tailstock and clamps do not.
+Continuous rotation uses the existing plan record
+`hold.index = { fixture = "<head>", rotation = "continuous" }`, without
+`positions` or `angle_deg`; it needs a verified dividing-head identity, not a
+plate landing calculation.
+
+Rotary cutting uses the same vertical mill cutter and holder facts below:
+tool `dia`, `flute_len`, `oal`, holder `gauge_dia`, `gauge_len`, and the
+selected tool/holder projection (or the permitted OAL-minus-grip fallback).
+No lathe insert, toolpost or new rotary-specific inventory fields are implied.
+Each rotary op's own cutter and holder apply to its window, so a face may be
+covered by several ops with different cutters (for example a smaller endmill
+windowed into a shoulder); the geometry rules union their window portions.
+Missing or unresolved dimensions keep their dependent screens `?`; a modeled
+sample pose does not establish head torque, locking or collision-free motion
+between samples.
+
+A tool enters an
 op's geometry job when `dia`, `flute_len` and `oal` resolve and a holder when
 `gauge_dia` and `gauge_len` resolve; the holder cylinder uses `gauge_dia`
 (`gauge_dia_mm` / `gauge_dia_in`), not `shank` or collet capacity. The op's
@@ -103,6 +198,15 @@ identity debt elsewhere, not a geometry veto. The shipped parallels declare
 no `width` and no shipped plan declares `parallels_centres_mm`, so no shipped
 setup draws parallel solids. See
 [geometry rules](rules-geometry.md).
+
+For a spot or drill operation the kernel also consumes the selected tool's
+existing `point_angle` (`MeasuredAngle`, degrees; no new schema field) as its
+point profile. The fact is accepted the same fact-local way, nominal included;
+a missing, `"unknown"` or debt-carrying angle reaches the job as unknown and is
+never defaulted. It is required for a spot too, even though a spot's tip
+endpoint formula uses only its depth: the kernel cuts with the real point cone
+and body, so an unknown angle leaves that op's accessibility `?` and later
+stock unresolved. See [geometry rules](rules-geometry.md#accessibility).
 
 ## Measured envelopes and installed tool stacks (M5)
 
@@ -191,8 +295,9 @@ support blocks carry their own heights. `point_angle` accepts the same
 
 `prechips tools --measure [--plan PLAN ...]` lists the measurement debt behind
 the current reports: every `numbers.measurements` entry that an unresolved
-applicable finding emits for the given plans (default: the five shipped example
-plans), sorted and deduplicated by scoped report id, including set-member and
+applicable finding emits for the given plans (default: the four pilot plans for
+shaft, rocker, bracket and the sole built-up cone), sorted and deduplicated by
+scoped report id, including set-member and
 tool/holder-pair ids such as `holders.r8-collets-lms-4860/3-8in.gauge_len` and
 `tools.endmills-lms-6784/3-8in-4fl.projection.r8-collets-lms-4860/3-8in`. An
 `"unknown"` fact a rule needs is listed even without `verify` debt. It is not a
@@ -211,6 +316,10 @@ marks each limit measured or unmeasured. Applicable M5 `?` sheet sentences also
 state what to measure and how; unresolved tools, holders, fixtures and supports
 are told to add or resolve an owned identity, not to measure an item the shop
 does not own.
+
+This evaluates the actual applicable rules and may need native in-process
+stock facts. A successful debt-list command is not a machining-readiness pass;
+unavailable physical facts remain unknown.
 
 ### Measurement records
 
@@ -354,6 +463,8 @@ on hand.
 | `pieces` | `float` |
 | `angle_deg` | `float` |
 | `point_angle` | `MeasuredAngle` |
+| `blade_speed_sfm` | `[Number, Number]` (machine blade-speed limits) |
+| `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade) |
 | `flute_len` | `MeasuredLength` |
 | `oal` | `MeasuredLength` |
 | `head_in` | `float` |
@@ -372,7 +483,7 @@ on hand.
 | `bed_height_mm` | `MeasuredLength` |
 | `diameter_in` | `float` |
 | `thickness_in` | `float` |
-| `resolution_in` | `float` |
+| `resolution_in` | `MeasuredLength` |
 | `runout_max_in` | `float` |
 | `grip_mm` | `MeasuredLength` |
 | `max_shank_in` | `float` |
@@ -380,6 +491,7 @@ on hand.
 | `projection_mm` | `ProjectionMap` (tools only) |
 | `sfm` | `float` |
 | `chip_load_mm_per_tooth` | `float` |
+| `feed_mm_rev` | `float` |
 | `dia_mm` | `MeasuredLength` |
 | `dia_in` | `MeasuredLength` |
 | `shank_mm` | `float` |
@@ -400,6 +512,12 @@ on hand.
 | `width_mm` | `MeasuredLength` |
 | `width_in` | `MeasuredLength` |
 | `capacity_mm` | `float` |
+| `capacity_min_mm` / `capacity_min_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `capacity_max_mm` / `capacity_max_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `jaw_angles_deg` | `list[Number]` (follow rest jaw directions about the spindle, degrees from the tool) |
+| `body_dia_mm` / `body_dia_in` | `MeasuredLength` (chuck body; steady rest ring outside diameter) |
+| `body_length_mm` / `body_length_in` | `MeasuredLength` (chuck body; steady rest ring axial length) |
+| `blade_width_mm` / `blade_width_in` | `MeasuredLength` (grooving/parting blade front-edge width) |
 | `bed_height_in` | `MeasuredLength` |
 | `nose_radius_mm` | `float` |
 | `reach_mm` | `float` |
@@ -417,7 +535,8 @@ on hand.
 | `ranges_in` | `list[str]` |
 | `range_in` | `float \| list[Number]` |
 | `range_mm` | `float \| list[Number]` |
-| `resolution_mm` | `Number` |
+| `ra_range` | `list[Number]` (two items, µm Ra; roughness gauges, read by inspection finish_ra) |
+| `resolution_mm` | `MeasuredLength` (inspection trusts only the fact's own qualifiers: `verify = true`/`"unknown"` or an incomplete `measured` stays unknown, never pass or error) |
 | `size_in` | `str \| list[Number]` |
 | `nominal_dia_mm` | `dict[str, Number]` |
 | `nominal_dia_cite` | `dict[str, Citations]` |
@@ -452,6 +571,14 @@ on hand.
 | `runout_in` | `float` |
 | `two_ranges` | `bool` |
 | `ranges_rpm` | `list[list[Number]]` |
+| `rotation` | `"cw"` / `"ccw"` / `{value, measured, verify}` |
+
+`rotation` is the spindle's cutting rotation viewed from above, looking down
+setup -Z (a right-hand cutter runs `cw`, M03). It may be bare or a labelled
+fact `{ value = "cw", measured = {by, date, instrument} }`; a labelled value
+flagged `verify = true` counts as undeclared. With an op's `direction`
+(`conventional`/`climb`) it fixes the cutting order of contour tables
+(see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
 
 ## Length and angle facts
 

@@ -20,7 +20,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
         "plan.setups.S0.ops.10: selected action/tool/holder"
       ],
-      "message": "S0:10: in-process stock unknown: stock_in 'authored_block_blank' of the first setup is not the supplied 'stock'; in-process stock cannot be derived.",
+      "message": "S0:10: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -50,10 +50,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:10: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:10"
     },
     {
@@ -78,10 +78,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:20: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:20"
     },
     {
@@ -106,10 +106,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:30: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:30"
     },
     {
@@ -162,10 +162,10 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S1.ops.40: selected action/tool/holder"
       ],
-      "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:40: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:40"
     },
     {
@@ -213,7 +213,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.10: selected action/tool/holder"
       ],
-      "message": "S2:10: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:10: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -244,7 +244,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.100: selected action/tool/holder"
       ],
-      "message": "S2:100: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:100: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -270,7 +270,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.110: selected action/tool/holder"
       ],
-      "message": "S2:110: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:110: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -295,7 +295,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.20: selected action/tool/holder"
       ],
-      "message": "S2:20: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:20: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -320,7 +320,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.30: selected action/tool/holder"
       ],
-      "message": "S2:30: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:30: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -382,7 +382,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.60: selected action/tool/holder"
       ],
-      "message": "S2:60: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:60: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -413,7 +413,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.70: selected action/tool/holder"
       ],
-      "message": "S2:70: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:70: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -439,7 +439,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.80: selected action/tool/holder"
       ],
-      "message": "S2:80: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:80: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -470,7 +470,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.90: selected action/tool/holder"
       ],
-      "message": "S2:90: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:90: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -501,7 +501,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.10: selected action/tool/holder"
       ],
-      "message": "S3:10: in-process stock unknown: stock_in 'S2_body_block' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:10: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -540,7 +540,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.20: selected action/tool/holder"
       ],
-      "message": "S3:20: in-process stock unknown: stock_in 'S2_body_block' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:20: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -579,7 +579,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.30: selected action/tool/holder"
       ],
-      "message": "S3:30: in-process stock unknown: stock_in 'S2_body_block' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:30: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -618,7 +618,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.40: selected action/tool/holder"
       ],
-      "message": "S3:40: in-process stock unknown: stock_in 'S2_body_block' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:40: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -656,7 +656,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.10: selected action/tool/holder"
       ],
-      "message": "S4:10: in-process stock unknown: stock_in 'S3_body_and_S1_separate_boss' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:10: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -694,7 +694,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.20: selected action/tool/holder"
       ],
-      "message": "S4:20: in-process stock unknown: stock_in 'S3_body_and_S1_separate_boss' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:20: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -732,7 +732,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.30: selected action/tool/holder"
       ],
-      "message": "S4:30: in-process stock unknown: stock_in 'S3_body_and_S1_separate_boss' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:30: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -756,7 +756,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.5: selected action/tool/holder"
       ],
-      "message": "S4:5: fit_up does not cut geometry.",
+      "message": "S4:5: fit does not cut geometry.",
       "numbers": {},
       "rule": "accessibility",
       "status": "not_applicable",
@@ -935,6 +935,38 @@
       "rule": "blind_depth",
       "status": "not_applicable",
       "subject": "crank_boss_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "hole"
+      },
+      "rule": "blind_depth",
+      "status": "unknown",
+      "subject": "crank_socket"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "boss"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "crank_spigot"
     },
     {
       "cite": [
@@ -1169,23 +1201,23 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+            "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
           },
           "features": {
             "path": "examples/cone-pivot-post/features.toml",
-            "sha256": "40f52509669835c39be26c1f480b6e3d4ea36d9cc06bec611d9fd271d7c388ed"
+            "sha256": "1d96ccb32b7f4a5383e40eb0f9077975120d36a4112d89b08c41667cf9b34c09"
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
+            "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
-            "sha256": "3b81ace8d6a02006d5f95f078d0283d6efbbaba7525ff96d11e8f298a74d5701"
+            "sha256": "d9a9e1b0d08aff84bb4c9fbea5942c6e2968c884f0a6c6117468c6ece1b36b36"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
-            "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+            "sha256": "ee9edc7968b1d9f2fe4792fc26fc113e71eb4d62c9d69559a3f4c28bd0c5e041"
           },
           "step": {
             "path": "examples/cone-pivot-post/cone-pivot-post.STEP",
@@ -1203,13 +1235,13 @@
         "PLAN.md §4.5 stock-form comparison, lines 573–577",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:352-358"
       ],
-      "message": "drawing permits one-piece only",
+      "message": "The drawing explicitly permits built-up construction.",
       "numbers": {
-        "drawing_construction": "one_piece",
+        "drawing_construction": "built_up_permitted",
         "plan_construction": "built_up"
       },
       "rule": "construction",
-      "status": "error",
+      "status": "pass",
       "subject": "cone-pivot-post"
     },
     {
@@ -1819,7 +1851,7 @@
         "operations": [
           {
             "direction": "along_crank_axis",
-            "do": "fit_up",
+            "do": "fit",
             "feature": "crank_boss",
             "op": 5,
             "tool": "unknown"
@@ -1891,19 +1923,12 @@
       ],
       "message": "cone-pivot-post: cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown.",
       "numbers": {
-        "claimed_face_count": 23,
+        "claimed_face_count": 30,
         "face_count": 36,
         "unclaimed_faces": [
           "#1271/ADVANCED_FACE[32]/HAF_CONE_BOSS__P01",
           "#598/ADVANCED_FACE[17]/HAF_CONE_BOSS__P03",
-          "#356/ADVANCED_FACE[10]/HAF_CRANK_BOSS__P01",
-          "#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02",
           "#395/ADVANCED_FACE[11]/NONE",
-          "#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02",
-          "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02",
-          "#503/ADVANCED_FACE[15]/HAF_CRANK_BOSS__P03",
-          "#950/ADVANCED_FACE[28]/HAF_CRANK_BOSS__P01",
-          "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01",
           "#1234/ADVANCED_FACE[30]/HAF_CONE_BOSS_SOUTH_FACE__P01",
           "#4/ADVANCED_FACE[1]/HAF_CONE_BOSS__P04",
           "#1357/ADVANCED_FACE[34]/HAF_CONE_BOSS__P02"
@@ -1911,14 +1936,7 @@
         "unclaimed_indices": [
           5,
           6,
-          8,
-          9,
           15,
-          17,
-          18,
-          19,
-          20,
-          21,
           23,
           25,
           27
@@ -1984,7 +2002,8 @@
       "cite": [
         "PLAN.md §4.1 datum consistency",
         "features: datum references and tolerance",
-        "plan: finishing cuts and zero.transfer"
+        "plan: finishing cuts and zero.transfer",
+        "illustrative example value (plausible hobby-shop vise re-seat repeatability), not measured"
       ],
       "message": "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget.",
       "numbers": {
@@ -2010,7 +2029,7 @@
         ],
         "from": "journal_bore",
         "position_datums": [],
-        "refixture_budget_mm": "unknown",
+        "refixture_budget_mm": 0.05,
         "relationships": [
           {
             "datum": "A",
@@ -2118,7 +2137,8 @@
       "cite": [
         "PLAN.md §4.1 datum consistency",
         "features: datum references and tolerance",
-        "plan: finishing cuts and zero.transfer"
+        "plan: finishing cuts and zero.transfer",
+        "illustrative example value (plausible hobby-shop vise re-seat repeatability), not measured"
       ],
       "message": "Datum relationships share a setup, have an indicated transfer, or fit the measured shop re-fixture budget.",
       "numbers": {
@@ -2136,7 +2156,7 @@
         ],
         "from": "foot_seat",
         "position_datums": [],
-        "refixture_budget_mm": "unknown",
+        "refixture_budget_mm": 0.05,
         "relationships": [
           {
             "datum": "foot_seat",
@@ -2586,7 +2606,7 @@
       "message": "S4:5: engagement applies only to an endmill cutting operation with an authored DOC.",
       "numbers": {
         "holder": "unknown",
-        "operation": "fit_up",
+        "operation": "fit",
         "tool": "unknown",
         "tool_kind": "unknown"
       },
@@ -2626,7 +2646,7 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S0: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S0.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S0.ops.10.tool.",
+      "message": "S0: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S0.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder; author: Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S0.ops.10.tool.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -2646,22 +2666,6 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder",
             "units": "identity"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_min",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm",
-            "units": "mm"
           },
           {
             "cite": [
@@ -2686,7 +2690,7 @@
           "z": 92.0
         },
         "spindle_to_table_max_mm": 431.79999999999995,
-        "spindle_to_table_min_mm": "unknown",
+        "spindle_to_table_min_mm": 60.959999999999994,
         "stacks": [
           {
             "approach_mm": "unknown",
@@ -2762,7 +2766,7 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S2: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
+      "message": "S2: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S2.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -2782,22 +2786,6 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder",
             "units": "identity"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_min",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm",
-            "units": "mm"
           },
           {
             "cite": [
@@ -2894,7 +2882,7 @@
           "z": 89.0
         },
         "spindle_to_table_max_mm": 431.79999999999995,
-        "spindle_to_table_min_mm": "unknown",
+        "spindle_to_table_min_mm": 60.959999999999994,
         "stacks": [
           {
             "approach_mm": "unknown",
@@ -3080,7 +3068,9 @@
         "features.features.journal_bore.bounds/at",
         "features.frames.model; plan.frames.J3",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
         "https://www.precisionmatthews.com/products/pm-30mv",
+        "inventory.machines.BS-0.height",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
@@ -3096,19 +3086,11 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S3: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
+      "message": "S3: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: BS-0 record height, steel rule or calipers, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
         "measurements": [
-          {
-            "cite": [
-              "inventory.fixtures.BS-0"
-            ],
-            "id": "fixtures.BS-0.resolve",
-            "instruction": "resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture",
-            "units": "identity"
-          },
           {
             "cite": [
               "inventory.holders.unknown"
@@ -3119,18 +3101,10 @@
           },
           {
             "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
+              "inventory.machines.BS-0.height"
             ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_min",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm",
+            "id": "machines.BS-0.height",
+            "instruction": "measure: BS-0 record height, steel rule or calipers, mm",
             "units": "mm"
           },
           {
@@ -3180,7 +3154,7 @@
           "z": 42.011
         },
         "spindle_to_table_max_mm": 431.79999999999995,
-        "spindle_to_table_min_mm": "unknown",
+        "spindle_to_table_min_mm": 60.959999999999994,
         "stacks": [
           {
             "approach_mm": "unknown",
@@ -3261,7 +3235,6 @@
         "AUTHOR'S CHOICE",
         "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
         "features.features.crank_bore.bounds/at",
-        "features.features.crank_boss.bounds/at",
         "features.frames.model; plan.frames.C4",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "https://www.precisionmatthews.com/products/pm-30mv",
@@ -3275,12 +3248,10 @@
         "plan.setups.S4.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S4.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S4.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.S4.ops.5.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.S4.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S4: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S4.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
+      "message": "S4: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S4.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -3300,22 +3271,6 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder",
             "units": "identity"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_min"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_min",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm",
-            "units": "mm"
           },
           {
             "cite": [
@@ -3343,14 +3298,6 @@
           },
           {
             "cite": [
-              "plan.setups.S4.ops.5"
-            ],
-            "id": "plan.setups.S4.ops.5.z_geometry",
-            "instruction": "author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
               "inventory.tools.unknown"
             ],
             "id": "tools.unknown.resolve",
@@ -3364,25 +3311,8 @@
           "z": 72.0344
         },
         "spindle_to_table_max_mm": 431.79999999999995,
-        "spindle_to_table_min_mm": "unknown",
+        "spindle_to_table_min_mm": 60.959999999999994,
         "stacks": [
-          {
-            "approach_mm": "unknown",
-            "holder": "unknown",
-            "holder_gauge_len_mm": "unknown",
-            "lower_margin_mm": "unknown",
-            "op": 5,
-            "spindle_nose_table_band_mm": "unknown",
-            "stack_mm": "unknown",
-            "tip_z_bounds_mm": [
-              0.0,
-              0.0
-            ],
-            "tool": "unknown",
-            "tool_projection_mm": "unknown",
-            "upper_margin_mm": "unknown",
-            "verified": false
-          },
           {
             "approach_mm": "unknown",
             "holder": "unknown",
@@ -3806,11 +3736,91 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S0: frame and hold",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"
+      ],
+      "message": "S0: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S0"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.C4: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "S1: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "plan.frames.M2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"
+      ],
+      "message": "S2: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "plan.frames.J3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279"
+      ],
+      "message": "S3: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S4: frame and hold",
+        "plan.frames.C4: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "S4: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S0.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
@@ -3827,32 +3837,7 @@
           "jaw_top_z": "unknown",
           "requires_path_check": false
         },
-        "measurements": [
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.x"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.x",
-            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.y"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.y",
-            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          }
-        ],
+        "measurements": [],
         "parallels_mm": "not_applicable",
         "retained_rail_bottom_z": -89.0,
         "spindle_to_table_max_mm": 431.79999999999995,
@@ -3870,6 +3855,8 @@
           }
         ],
         "stock_bottom_z": -89.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_reason": "stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived",
         "stock_extent_x_mm": "unknown",
         "stock_extent_y_mm": "unknown",
         "stock_height_mm": 92.0,
@@ -3899,12 +3886,56 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 headroom"
+        "PLAN.md §4.1 headroom",
+        "inventory: lathe swing/between-centres facts and chuck body dimensions",
+        "plan: stock_state od_mm/north_end_z/south_end_z and hold stickout_mm",
+        "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/",
+        "inventory.machines.PM-1127VF-LB.envelope.swing_over_bed",
+        "inventory.machines.PM-1127VF-LB.envelope.swing_over_cross_slide",
+        "inventory.machines.PM-1127VF-LB.envelope.between_centres"
       ],
-      "message": "Lathe headroom is outside the mill-only M1 envelope rule.",
-      "numbers": {},
+      "message": "S1: lathe swing, chuck body or between-centres length remains unmeasured or unresolved.",
+      "numbers": {
+        "between_centres_mm": "unknown",
+        "chuck_body_dia_mm": "unknown",
+        "chuck_body_length_mm": "unknown",
+        "clearance_basis": "measured swing over bed/cross slide and distance between centres against the declared stock OD, stick-out (else stock length) and nominal chuck body; no tool path, carriage stroke or tailstock extension is checked",
+        "fixture_verify": false,
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.PM-1127VF-LB.envelope.between_centres"
+            ],
+            "id": "machines.PM-1127VF-LB.envelope.between_centres",
+            "instruction": "measure: PM-1127VF-LB record envelope.between_centres, steel rule or calipers, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-1127VF-LB.envelope.swing_over_bed"
+            ],
+            "id": "machines.PM-1127VF-LB.envelope.swing_over_bed",
+            "instruction": "measure: PM-1127VF-LB record envelope.swing_over_bed, steel rule or calipers, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.PM-1127VF-LB.envelope.swing_over_cross_slide"
+            ],
+            "id": "machines.PM-1127VF-LB.envelope.swing_over_cross_slide",
+            "instruction": "measure: PM-1127VF-LB record envelope.swing_over_cross_slide, steel rule or calipers, mm",
+            "units": "mm"
+          }
+        ],
+        "required_length_mm": "unknown",
+        "stickout_mm": 80.0,
+        "stock_length_mm": 100.0,
+        "stock_od_mm": 25.0,
+        "swing_over_bed_mm": "unknown",
+        "swing_over_cross_slide_mm": "unknown"
+      },
       "rule": "headroom",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1"
     },
     {
@@ -3914,6 +3945,7 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
@@ -3930,32 +3962,7 @@
           "jaw_top_z": "unknown",
           "requires_path_check": false
         },
-        "measurements": [
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.x"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.x",
-            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.y"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.y",
-            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          }
-        ],
+        "measurements": [],
         "parallels_mm": "not_applicable",
         "retained_rail_bottom_z": 0.0,
         "spindle_to_table_max_mm": 431.79999999999995,
@@ -4072,6 +4079,8 @@
           }
         ],
         "stock_bottom_z": 0.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_reason": "stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived",
         "stock_extent_x_mm": "unknown",
         "stock_extent_y_mm": "unknown",
         "stock_height_mm": 89.0,
@@ -4106,48 +4115,26 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
       "message": "S3: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
       "numbers": {
-        "bed_height_mm": "unknown",
+        "bed_height_mm": "not_applicable",
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
-        "fixture_verify": "missing",
+        "fixture_verify": false,
+        "head_axis_z": "unknown",
+        "head_centre_height_mm": 100.01249999999999,
         "holder_gauge_len_mm": "unknown",
         "insertion_mm": 25,
         "jaw_obstruction": {
-          "jaw_top_z": "unknown",
+          "jaw_top_z": "not_applicable",
           "requires_path_check": false
         },
-        "measurements": [
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.x"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.x",
-            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.y"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.y",
-            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          }
-        ],
+        "measurements": [],
         "parallels_mm": "not_applicable",
         "retained_rail_bottom_z": -21.0055,
         "spindle_to_table_max_mm": 431.79999999999995,
@@ -4198,10 +4185,12 @@
           }
         ],
         "stock_bottom_z": -21.0055,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_reason": "stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived",
         "stock_extent_x_mm": "unknown",
         "stock_extent_y_mm": "unknown",
         "stock_height_mm": 42.011,
-        "stock_top_above_jaws_mm": "unknown",
+        "stock_top_above_jaws_mm": "not_applicable",
         "stock_top_z": 21.0055,
         "sum_mm": "unknown",
         "support_blocks_mm": 0,
@@ -4219,7 +4208,8 @@
             "required_mm": "unknown",
             "travel_mm": 222.25
           }
-        }
+        },
+        "work_top_above_table_mm": "unknown"
       },
       "rule": "headroom",
       "status": "unknown",
@@ -4232,6 +4222,7 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S4.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
@@ -4248,47 +4239,11 @@
           "jaw_top_z": "unknown",
           "requires_path_check": false
         },
-        "measurements": [
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.spindle_to_table_max"
-            ],
-            "id": "machines.PM-30MV.envelope.spindle_to_table_max",
-            "instruction": "measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.x"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.x",
-            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.y"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.y",
-            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          }
-        ],
+        "measurements": [],
         "parallels_mm": "not_applicable",
         "retained_rail_bottom_z": -72.0344,
         "spindle_to_table_max_mm": 431.79999999999995,
         "stacks": [
-          {
-            "holder": "unknown",
-            "holder_gauge_len_mm": "unknown",
-            "margin_mm": "unknown",
-            "op": 5,
-            "sum_mm": "unknown",
-            "tool": "unknown",
-            "tool_oal_mm": "unknown",
-            "tool_projection_mm": "unknown",
-            "verify": true
-          },
           {
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
@@ -4324,6 +4279,8 @@
           }
         ],
         "stock_bottom_z": -72.0344,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_reason": "stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived",
         "stock_extent_x_mm": "unknown",
         "stock_extent_y_mm": "unknown",
         "stock_height_mm": 72.0344,
@@ -4520,12 +4477,11 @@
       "cite": [
         "PLAN.md §4.1 hold fields"
       ],
-      "message": "S4: holding declarations need hold.fixture, ops.5.holder, ops.10.holder, ops.20.holder, ops.30.holder.",
+      "message": "S4: holding declarations need hold.fixture, ops.10.holder, ops.20.holder, ops.30.holder.",
       "numbers": {
         "coolant": "CRC cutting oil brushed on",
         "cut_directions": {
-          "30": "negative_setup_z",
-          "5": "along_crank_axis"
+          "30": "negative_setup_z"
         },
         "deburr_mm": 0.25,
         "fixture": "unknown",
@@ -4543,7 +4499,6 @@
         },
         "missing": [
           "hold.fixture",
-          "ops.5.holder",
           "ops.10.holder",
           "ops.20.holder",
           "ops.30.holder"
@@ -4594,7 +4549,7 @@
         "inventory.machines.BS-0",
         "https://www.precisionmatthews.com/products/dividinghead-bs-0"
       ],
-      "message": "S3: Indexing remains tentative: features.features.crank_bore.angle_tol_deg, inventory.machines.BS-0.verify.",
+      "message": "S3: Indexing remains tentative: features.features.crank_bore.angle_tol_deg.",
       "numbers": {
         "actual_angle_deg": 12.521739130434783,
         "circle": 23,
@@ -4621,10 +4576,9 @@
         "tolerance_source": "features.features.crank_bore.angle_tol_deg",
         "turns": 1,
         "unresolved": [
-          "features.features.crank_bore.angle_tol_deg",
-          "inventory.machines.BS-0.verify"
+          "features.features.crank_bore.angle_tol_deg"
         ],
-        "verified": false
+        "verified": true
       },
       "rule": "indexing",
       "status": "unknown",
@@ -4646,7 +4600,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "body dia: named gauge capability needs verification.",
+      "message": "body dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999943,
         "gauge": "calipers",
@@ -4664,7 +4618,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "body:dia"
     },
     {
@@ -4673,7 +4627,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "body height: named gauge capability needs verification.",
+      "message": "body height: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999943,
         "gauge": "calipers",
@@ -4691,7 +4645,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "body:height"
     },
     {
@@ -4700,7 +4654,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "cone_boss dia: named gauge capability needs verification.",
+      "message": "cone_boss dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.6000000000000014,
         "gauge": "calipers",
@@ -4718,7 +4672,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "cone_boss:dia"
     },
     {
@@ -4744,7 +4698,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "cone_boss_north_face length: named gauge capability needs verification.",
+      "message": "cone_boss_north_face length: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0200000000000031,
         "gauge": "calipers",
@@ -4762,7 +4716,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "cone_boss_north_face:length"
     },
     {
@@ -4859,7 +4813,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "crank_boss dia: named gauge capability needs verification.",
+      "message": "crank_boss dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999979,
         "gauge": "calipers",
@@ -4877,7 +4831,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "crank_boss:dia"
     },
     {
@@ -4886,7 +4840,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "crank_boss_faces length: named gauge capability needs verification.",
+      "message": "crank_boss_faces length: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999943,
         "gauge": "calipers",
@@ -4904,7 +4858,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "crank_boss_faces:length"
     },
     {
@@ -4930,6 +4884,38 @@
     {
       "cite": [
         "PLAN.md §4.1 inspection",
+        "plan.joint_features.crank_socket: TEMPORARY JOINT FEATURE (removed by later ops)",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_socket dia: no requirement-keyed inspection check.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": "unknown",
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "error",
+      "subject": "crank_socket:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "plan.joint_features.crank_spigot: TEMPORARY JOINT FEATURE (removed by later ops)",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "crank_spigot dia: no requirement-keyed inspection check.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": "unknown",
+        "requirement": "dia"
+      },
+      "rule": "inspection",
+      "status": "error",
+      "subject": "crank_spigot:dia"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
@@ -4950,7 +4936,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "head dia: named gauge capability needs verification.",
+      "message": "head dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.6000000000000014,
         "gauge": "calipers",
@@ -4968,7 +4954,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "head:dia"
     },
     {
@@ -4977,7 +4963,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "head height: named gauge capability needs verification.",
+      "message": "head height: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999979,
         "gauge": "calipers",
@@ -4995,7 +4981,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "head:height"
     },
     {
@@ -5095,7 +5081,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "mount_east station: named gauge capability needs verification.",
+      "message": "mount_east station: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
         "gauge": "calipers",
@@ -5113,7 +5099,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "mount_east:station"
     },
     {
@@ -5122,7 +5108,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "mount_east_counterbore depth: named gauge capability needs verification.",
+      "message": "mount_east_counterbore depth: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0200000000000005,
         "gauge": "calipers",
@@ -5140,7 +5126,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "mount_east_counterbore:depth"
     },
     {
@@ -5149,7 +5135,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "mount_east_counterbore dia: named gauge capability needs verification.",
+      "message": "mount_east_counterbore dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
         "gauge": "calipers",
@@ -5167,7 +5153,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "mount_east_counterbore:dia"
     },
     {
@@ -5196,7 +5182,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "mount_west station: exported nominal is outside the requirement band.",
+      "message": "mount_west station: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
         "gauge": "calipers",
@@ -5205,8 +5191,6 @@
           12.47,
           13.49
         ],
-        "nominal": -12.98,
-        "nominal_field": "station_nominal",
         "op": "S2:70",
         "range_mm": [
           0,
@@ -5216,7 +5200,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "error",
+      "status": "pass",
       "subject": "mount_west:station"
     },
     {
@@ -5225,7 +5209,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "mount_west_counterbore depth: named gauge capability needs verification.",
+      "message": "mount_west_counterbore depth: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0200000000000005,
         "gauge": "calipers",
@@ -5243,7 +5227,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "mount_west_counterbore:depth"
     },
     {
@@ -5252,7 +5236,7 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "mount_west_counterbore dia: named gauge capability needs verification.",
+      "message": "mount_west_counterbore dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
         "gauge": "calipers",
@@ -5270,7 +5254,7 @@
         "resolution_mm": 0.0127
       },
       "rule": "inspection",
-      "status": "unknown",
+      "status": "pass",
       "subject": "mount_west_counterbore:dia"
     },
     {
@@ -5322,10 +5306,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:10"
     },
     {
@@ -5350,10 +5334,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:20: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:20"
     },
     {
@@ -5378,10 +5362,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:30: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:30"
     },
     {
@@ -5434,10 +5418,10 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S1.ops.40: selected action/tool/holder"
       ],
-      "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:40: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:40"
     },
     {
@@ -6028,7 +6012,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.5: selected action/tool/holder"
       ],
-      "message": "S4:5: fit_up does not cut geometry.",
+      "message": "S4:5: fit does not cut geometry.",
       "numbers": {},
       "rule": "internal_corner_radius",
       "status": "not_applicable",
@@ -6059,6 +6043,70 @@
       "rule": "internal_corner_radius",
       "status": "not_applicable",
       "subject": "S4:6"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 joint_assembly",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S4: frame and hold",
+        "plan.frames.C4: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
+        "plan.setups.S4.joint: cylindrical join",
+        "AUTHOR'S CHOICE: unresolved pressed-boss proposal",
+        "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7"
+      ],
+      "message": "S4: joined stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
+      "numbers": {
+        "completed_joint_features": "unknown",
+        "joint": "cylindrical",
+        "stock_in": [
+          "S3",
+          "S1"
+        ]
+      },
+      "rule": "joint_assembly",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 joint_fit",
+        "plan.setups.S4.joint: fit, diametral band and process",
+        "AUTHOR'S CHOICE: unresolved pressed-boss proposal",
+        "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7",
+        "AUTHOR'S CHOICE: proposed pressed-boss socket; dimensions and preparation unresolved",
+        "AUTHOR'S CHOICE: proposed pressed-boss spigot; dimensions and preparation unresolved",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "S4: joint geometry unknown (plan.joint_features.crank_socket.at_mm, plan.joint_features.crank_socket.axis, plan.joint_features.crank_socket.dia_mm, plan.joint_features.crank_socket.nominal_dia_mm, plan.joint_features.crank_socket.depth_mm, plan.joint_features.crank_spigot.at_mm, plan.joint_features.crank_spigot.axis, plan.joint_features.crank_spigot.dia_mm, plan.joint_features.crank_spigot.nominal_dia_mm, plan.joint_features.crank_spigot.depth_mm, setups[S4].joint.interference_mm); no union.",
+      "numbers": {
+        "band_mm": "unknown",
+        "engagement_dia_mm": "unknown",
+        "engagement_mm": "unknown",
+        "fit": "interference",
+        "guaranteed_mm": "unknown",
+        "method": "press",
+        "missing": [
+          "plan.joint_features.crank_socket.at_mm",
+          "plan.joint_features.crank_socket.axis",
+          "plan.joint_features.crank_socket.dia_mm",
+          "plan.joint_features.crank_socket.nominal_dia_mm",
+          "plan.joint_features.crank_socket.depth_mm",
+          "plan.joint_features.crank_spigot.at_mm",
+          "plan.joint_features.crank_spigot.axis",
+          "plan.joint_features.crank_spigot.dia_mm",
+          "plan.joint_features.crank_spigot.nominal_dia_mm",
+          "plan.joint_features.crank_spigot.depth_mm",
+          "setups[S4].joint.interference_mm"
+        ],
+        "socket": "plan.joint_features.crank_socket",
+        "spigot": "plan.joint_features.crank_spigot",
+        "violations": []
+      },
+      "rule": "joint_fit",
+      "status": "unknown",
+      "subject": "S4"
     },
     {
       "cite": [
@@ -6172,7 +6220,7 @@
           "rough_turn",
           "finish_turn",
           "inspect",
-          "fit_up"
+          "fit"
         ],
         "kind": "boss",
         "ops": [
@@ -6211,6 +6259,38 @@
       "rule": "op_chain",
       "status": "not_applicable",
       "subject": "crank_boss_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "crank_socket: no drill operation; no spot operation.",
+      "numbers": {
+        "chain": [],
+        "kind": "hole",
+        "ops": []
+      },
+      "rule": "op_chain",
+      "status": "error",
+      "subject": "crank_socket"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "crank_spigot: not a hole chain.",
+      "numbers": {
+        "chain": [],
+        "kind": "boss",
+        "ops": []
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "crank_spigot"
     },
     {
       "cite": [
@@ -6451,7 +6531,7 @@
       "message": "S4: rough/finish, face/spot, hole and release order is consistent.",
       "numbers": {
         "sequence": [
-          "5 fit_up crank_boss",
+          "5 fit crank_boss",
           "6 inspect crank_boss_faces",
           "10 spot crank_bore",
           "20 drill crank_bore",
@@ -6482,7 +6562,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376",
         "plan.setups.S0.ops.10: selected action/tool/holder"
       ],
-      "message": "S0:10: in-process stock unknown: stock_in 'authored_block_blank' of the first setup is not the supplied 'stock'; in-process stock cannot be derived.",
+      "message": "S0:10: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6512,10 +6592,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:10: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:10: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:10"
     },
     {
@@ -6540,10 +6620,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:20: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:20: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:20"
     },
     {
@@ -6568,10 +6648,10 @@
         "inventory.tools.turning-tools-warner-lms-4132/AR: explicit-unit verified dimensions",
         "inventory.holders.qctp-axa-lms-2280/1-turning-facing: explicit-unit verified dimensions"
       ],
-      "message": "S1:30: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:30: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:30"
     },
     {
@@ -6624,10 +6704,10 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S1.ops.40: selected action/tool/holder"
       ],
-      "message": "S1:40: lathe approach model not implemented (engine approaches along -Z only).",
+      "message": "S1:40: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1:40"
     },
     {
@@ -6675,7 +6755,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.10: selected action/tool/holder"
       ],
-      "message": "S2:10: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:10: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6706,7 +6786,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.100: selected action/tool/holder"
       ],
-      "message": "S2:100: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:100: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6732,7 +6812,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.110: selected action/tool/holder"
       ],
-      "message": "S2:110: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:110: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6757,7 +6837,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.20: selected action/tool/holder"
       ],
-      "message": "S2:20: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:20: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6782,7 +6862,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.30: selected action/tool/holder"
       ],
-      "message": "S2:30: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:30: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6844,7 +6924,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.60: selected action/tool/holder"
       ],
-      "message": "S2:60: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:60: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6875,7 +6955,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.70: selected action/tool/holder"
       ],
-      "message": "S2:70: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:70: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6901,7 +6981,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.80: selected action/tool/holder"
       ],
-      "message": "S2:80: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:80: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6932,7 +7012,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.90: selected action/tool/holder"
       ],
-      "message": "S2:90: in-process stock unknown: stock_in 'authored_block_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:90: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6963,7 +7043,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.10: selected action/tool/holder"
       ],
-      "message": "S3:10: in-process stock unknown: stock_in 'S2_body_block' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:10: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -7002,7 +7082,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.20: selected action/tool/holder"
       ],
-      "message": "S3:20: in-process stock unknown: stock_in 'S2_body_block' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:20: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -7041,7 +7121,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.30: selected action/tool/holder"
       ],
-      "message": "S3:30: in-process stock unknown: stock_in 'S2_body_block' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:30: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -7080,7 +7160,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.40: selected action/tool/holder"
       ],
-      "message": "S3:40: in-process stock unknown: stock_in 'S2_body_block' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:40: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -7118,7 +7198,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.10: selected action/tool/holder"
       ],
-      "message": "S4:10: in-process stock unknown: stock_in 'S3_body_and_S1_separate_boss' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:10: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -7156,7 +7236,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.20: selected action/tool/holder"
       ],
-      "message": "S4:20: in-process stock unknown: stock_in 'S3_body_and_S1_separate_boss' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:20: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -7194,7 +7274,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.30: selected action/tool/holder"
       ],
-      "message": "S4:30: in-process stock unknown: stock_in 'S3_body_and_S1_separate_boss' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:30: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -7218,7 +7298,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.5: selected action/tool/holder"
       ],
-      "message": "S4:5: fit_up does not cut geometry.",
+      "message": "S4:5: fit does not cut geometry.",
       "numbers": {},
       "rule": "reach",
       "status": "not_applicable",
@@ -7468,6 +7548,44 @@
       "rule": "sizing",
       "status": "not_applicable",
       "subject": "crank_boss_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "plan.joint_features.crank_socket: TEMPORARY JOINT FEATURE (removed by later ops)",
+        "AUTHOR'S CHOICE: proposed pressed-boss socket; dimensions and preparation unresolved",
+        "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7"
+      ],
+      "message": "crank_socket: selected finishing tool or its measured size is unresolved.",
+      "numbers": {
+        "feature_kind": "hole",
+        "kind": "hole",
+        "ops": [],
+        "tool": "unknown",
+        "tool_dia_basis": "inventory geometry",
+        "tool_dia_mm": "unknown",
+        "unit": "mm"
+      },
+      "rule": "sizing",
+      "status": "unknown",
+      "subject": "crank_socket"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "plan.joint_features.crank_spigot: TEMPORARY JOINT FEATURE (removed by later ops)",
+        "AUTHOR'S CHOICE: proposed pressed-boss spigot; dimensions and preparation unresolved",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "crank_spigot: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "boss",
+        "kind": "boss",
+        "ops": []
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "crank_spigot"
     },
     {
       "cite": [
@@ -7771,7 +7889,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -7783,7 +7901,8 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
       ],
       "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
@@ -7791,7 +7910,8 @@
         "cutting_data_row": "unknown",
         "diameter_in": 0.984251968503937,
         "feed_mm_min": "unknown",
-        "flutes": [],
+        "feed_mm_rev": "unknown",
+        "flutes": "unknown",
         "material": "unknown",
         "material_class": "unknown",
         "material_verify": false,
@@ -7799,9 +7919,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -7811,7 +7931,8 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
       ],
       "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
@@ -7819,7 +7940,8 @@
         "cutting_data_row": "unknown",
         "diameter_in": 0.8791338582677165,
         "feed_mm_min": "unknown",
-        "flutes": [],
+        "feed_mm_rev": "unknown",
+        "flutes": "unknown",
         "material": "unknown",
         "material_class": "unknown",
         "material_verify": false,
@@ -7827,9 +7949,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -7839,7 +7961,8 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
       ],
       "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
@@ -7847,7 +7970,8 @@
         "cutting_data_row": "unknown",
         "diameter_in": 0.8633858267716535,
         "feed_mm_min": "unknown",
-        "flutes": [],
+        "feed_mm_rev": "unknown",
+        "flutes": "unknown",
         "material": "unknown",
         "material_class": "unknown",
         "material_verify": false,
@@ -7855,9 +7979,9 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
-        "tool_material": "unknown"
+        "tool_material": "carbide"
       },
       "rule": "speeds_feeds",
       "status": "unknown",
@@ -7879,14 +8003,16 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
       ],
       "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
+        "diameter_in": 0.984251968503937,
         "feed_mm_min": "unknown",
+        "feed_mm_rev": "unknown",
         "flutes": "unknown",
         "material": "unknown",
         "material_class": "unknown",
@@ -7895,7 +8021,7 @@
         "rpm": "unknown",
         "rpm_max": 2200.0,
         "rpm_min": 70.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -7935,7 +8061,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -7963,7 +8089,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -7991,7 +8117,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8019,7 +8145,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8047,7 +8173,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8075,7 +8201,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8103,7 +8229,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8131,7 +8257,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8159,7 +8285,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8187,7 +8313,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8215,7 +8341,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8243,7 +8369,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8271,7 +8397,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8299,7 +8425,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8327,7 +8453,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8355,7 +8481,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8383,7 +8509,7 @@
         "rpm": "unknown",
         "rpm_max": 3000.0,
         "rpm_min": 50.0,
-        "rpm_range_verify": true,
+        "rpm_range_verify": false,
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -8393,30 +8519,14 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
-        "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "PLAN.md §4.1 speeds/feeds"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "This manual operation has no cutting speed or feed.",
       "numbers": {
-        "chip_load_mm_per_tooth": "unknown",
-        "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
-        "feed_mm_min": "unknown",
-        "flutes": "unknown",
-        "material": "unknown",
-        "material_class": "unknown",
-        "material_verify": false,
-        "operation": "fit_up",
-        "rpm": "unknown",
-        "rpm_max": 3000.0,
-        "rpm_min": 50.0,
-        "rpm_range_verify": true,
-        "sfm": "unknown",
-        "tool_material": "unknown"
+        "operation": "fit"
       },
       "rule": "speeds_feeds",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "S4:5"
     },
     {
@@ -8436,7 +8546,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8448,27 +8558,36 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:32-32",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65"
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65",
+        "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S0: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
-        "stickout_ld_max": "unknown",
+        "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8480,7 +8599,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8492,30 +8611,44 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:32-32",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65"
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65",
+        "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S1: the finished diameter or geometry in the exposed span is unresolved.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": [
           -74.0,
           6.0
         ],
         "held_diameter_mm": 25.0,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
+        "off_axis": {},
         "segments": [],
-        "stickout_ld_max": "unknown",
+        "stickout_ld_max": 4.0,
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
+        "uncovered_z_mm": [
+          [
+            -74.0,
+            6.0
+          ]
+        ],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8527,7 +8660,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8539,27 +8672,36 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:32-32",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65"
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65",
+        "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
-        "stickout_ld_max": "unknown",
+        "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8571,7 +8713,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8583,27 +8725,36 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:32-32",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65"
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65",
+        "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S3: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
-        "stickout_ld_max": "unknown",
+        "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8615,7 +8766,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8627,27 +8778,36 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:32-32",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65"
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:65-65",
+        "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S4: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
-        "stickout_ld_max": "unknown",
+        "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8680,18 +8840,23 @@
         "plan.setups.stock_state.od_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
-      "message": "S1: held diameter or selected collet/chuck verification is unresolved.",
+      "message": "S1: held stock diameter belongs to the selected collet/chuck sizes or range.",
       "numbers": {
         "diameter_mm": 25.0,
         "diameter_source": "plan.setups.stock_state.od_mm",
         "fixture": "chuck-3jaw-6-d1-4",
         "fixture_kind": "chuck_3jaw",
-        "ranges_mm": [],
+        "ranges_mm": [
+          [
+            3.0,
+            140.0
+          ]
+        ],
         "selected_size_mm": "unknown",
         "sizes_mm": []
       },
       "rule": "stock_diameter",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1"
     },
     {
@@ -8780,10 +8945,10 @@
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
       ],
-      "message": "S1: thin_wall_under_clamp has no vise grip-zone facts for chuck_3jaw holding.",
+      "message": "S1: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "thin_wall_under_clamp",
-      "status": "unsupported",
+      "status": "unknown",
       "subject": "S1"
     },
     {
@@ -8838,15 +9003,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "BS-0: listed; presence or catalogue identity needs verification.",
+      "message": "BS-0: listed inventory identity resolves.",
       "numbers": {
         "kind": "dividing_head",
         "present": true,
         "reference": "BS-0",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "BS-0"
     },
     {
@@ -8854,15 +9019,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "PM-1127VF-LB: listed; presence or catalogue identity needs verification.",
+      "message": "PM-1127VF-LB: listed inventory identity resolves.",
       "numbers": {
         "kind": "lathe",
         "present": true,
         "reference": "PM-1127VF-LB",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "PM-1127VF-LB"
     },
     {
@@ -8870,15 +9035,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "PM-30MV: listed; presence or catalogue identity needs verification.",
+      "message": "PM-30MV: listed inventory identity resolves.",
       "numbers": {
         "kind": "mill",
         "present": true,
         "reference": "PM-30MV",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "PM-30MV"
     },
     {
@@ -8901,18 +9066,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:10: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:10: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:10"
     },
     {
@@ -8920,18 +9085,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:20: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:20: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:20"
     },
     {
@@ -8939,18 +9104,18 @@
         "inventory spindle/holder/shank fields",
         "PLAN.md §4.1"
       ],
-      "message": "S1:30: assembly fit needs measured shank, holder and machine facts.",
+      "message": "S1:30: holder interface and shank fit.",
       "numbers": {
         "holder": "qctp-axa-lms-2280/1-turning-facing",
         "holder_capacity_mm": "unknown",
         "holder_standard": "AXA",
         "machine": "PM-1127VF-LB",
         "machine_standard": "AXA",
-        "shank_mm": "unknown",
+        "shank_mm": 9.524999999999999,
         "tool": "turning-tools-warner-lms-4132/AR"
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1:30"
     },
     {
@@ -9225,33 +9390,18 @@
     },
     {
       "cite": [
-        "inventory spindle/holder/shank fields",
-        "PLAN.md §4.1"
-      ],
-      "message": "S4:5: assembly fit needs measured shank, holder and machine facts.",
-      "numbers": {
-        "holder": "unknown",
-        "machine": "PM-30MV",
-        "tool": "unknown"
-      },
-      "rule": "tool_resolves",
-      "status": "unknown",
-      "subject": "S4:5"
-    },
-    {
-      "cite": [
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "calipers: listed; presence or catalogue identity needs verification.",
+      "message": "calipers: listed inventory identity resolves.",
       "numbers": {
         "kind": "caliper",
         "present": true,
         "reference": "calipers",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "calipers"
     },
     {
@@ -9259,15 +9409,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "chuck-3jaw-6-d1-4: listed; presence or catalogue identity needs verification.",
+      "message": "chuck-3jaw-6-d1-4: listed inventory identity resolves.",
       "numbers": {
         "kind": "chuck_3jaw",
         "present": true,
         "reference": "chuck-3jaw-6-d1-4",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "chuck-3jaw-6-d1-4"
     },
     {
@@ -9275,15 +9425,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "dial-indicator: listed; presence or catalogue identity needs verification.",
+      "message": "dial-indicator: listed inventory identity resolves.",
       "numbers": {
         "kind": "dial_indicator",
         "present": true,
         "reference": "dial-indicator",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "dial-indicator"
     },
     {
@@ -9291,15 +9441,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "micrometers/0-1in: listed; presence or catalogue identity needs verification.",
+      "message": "micrometers/0-1in: listed inventory identity resolves.",
       "numbers": {
         "kind": "micrometer_set",
         "present": true,
         "reference": "micrometers/0-1in",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "micrometers/0-1in"
     },
     {
@@ -9307,15 +9457,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "qctp-axa-lms-2280/1-turning-facing: listed; presence or catalogue identity needs verification.",
+      "message": "qctp-axa-lms-2280/1-turning-facing: listed inventory identity resolves.",
       "numbers": {
         "kind": "qctp_set",
         "present": true,
         "reference": "qctp-axa-lms-2280/1-turning-facing",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "qctp-axa-lms-2280/1-turning-facing"
     },
     {
@@ -9323,15 +9473,15 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
-      "message": "turning-tools-warner-lms-4132/AR: listed; presence or catalogue identity needs verification.",
+      "message": "turning-tools-warner-lms-4132/AR: listed inventory identity resolves.",
       "numbers": {
         "kind": "insert_holders",
         "present": true,
         "reference": "turning-tools-warner-lms-4132/AR",
-        "verified": false
+        "verified": true
       },
       "rule": "tool_resolves",
-      "status": "unknown",
+      "status": "pass",
       "subject": "turning-tools-warner-lms-4132/AR"
     },
     {
@@ -9362,7 +9512,7 @@
         "inventory.machines.PM-30MV.envelope.travel.y",
         "inventory.machines.PM-30MV.envelope.travel.z"
       ],
-      "message": "S0: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S0.ops.10.tool.",
+      "message": "S0: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder; author: Author plan.setups.S0.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S0.ops.10.tool.",
       "numbers": {
         "measurements": [
           {
@@ -9372,30 +9522,6 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S0.ops.10.holder",
             "units": "identity"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.x"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.x",
-            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.y"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.y",
-            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.z"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.z",
-            "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
           },
           {
             "cite": [
@@ -9449,23 +9575,23 @@
         "travel_checks": {
           "x": {
             "located_span_mm": "unknown",
-            "lower_bound_margin_mm": "unknown",
-            "margin_mm": "unknown",
+            "lower_bound_margin_mm": 541.4494,
+            "margin_mm": 541.4494,
             "minimum_required_mm": 42.7506,
             "required_mm": 42.7506,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
-            "travel_verified": false
+            "travel_verified": true
           },
           "y": {
             "located_span_mm": "unknown",
-            "lower_bound_margin_mm": "unknown",
-            "margin_mm": "unknown",
+            "lower_bound_margin_mm": 149.220712,
+            "margin_mm": 149.220712,
             "minimum_required_mm": 73.02928800000001,
             "required_mm": 73.02928800000001,
             "required_verified": true,
             "travel_mm": 222.25,
-            "travel_verified": false
+            "travel_verified": true
           },
           "z": {
             "located_span_mm": "unknown",
@@ -9475,7 +9601,7 @@
             "required_mm": "unknown",
             "required_verified": false,
             "travel_mm": 355.59999999999997,
-            "travel_verified": false
+            "travel_verified": true
           }
         }
       },
@@ -9552,6 +9678,7 @@
         "features.features.mount_west_counterbore.bounds/at",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:81-81",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:80-80",
+        "features.features.mount_west.at",
         "plan.setups.S2.ops.80.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.80: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.90",
@@ -9563,13 +9690,14 @@
         "plan.setups.S2.ops.100: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.110",
         "features.features.mount_east_counterbore.bounds/at",
+        "features.features.mount_east.at",
         "plan.setups.S2.ops.110.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.110: stock_states current top and local entry; hole tip/exit endpoints",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y",
         "inventory.machines.PM-30MV.envelope.travel.z"
       ],
-      "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.110 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
+      "message": "S2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.110.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.110 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S2.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.30 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.S2.ops.50 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S2.ops.50 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Author plan.setups.S2.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.60 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.80.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.80 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S2.ops.90.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.90 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S2.ops.110.tool.",
       "numbers": {
         "measurements": [
           {
@@ -9579,30 +9707,6 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S2.ops.110.holder",
             "units": "identity"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.x"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.x",
-            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.y"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.y",
-            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.z"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.z",
-            "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
           },
           {
             "cite": [
@@ -9618,14 +9722,6 @@
             ],
             "id": "plan.setups.S2.ops.100.z_geometry",
             "instruction": "author: Author plan.setups.S2.ops.100.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.100 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "features.features.mount_east_counterbore.bounds/at; plan.stock"
-            ],
-            "id": "plan.setups.S2.ops.110.xy_geometry",
-            "instruction": "author: Measure plan.setups.S2.ops.110 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
             "units": "mm"
           },
           {
@@ -9698,14 +9794,6 @@
             ],
             "id": "plan.setups.S2.ops.70.z_geometry",
             "instruction": "author: Author plan.setups.S2.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S2.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "features.features.mount_west_counterbore.bounds/at; plan.stock"
-            ],
-            "id": "plan.setups.S2.ops.80.xy_geometry",
-            "instruction": "author: Measure plan.setups.S2.ops.80 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
             "units": "mm"
           },
           {
@@ -9982,7 +10070,20 @@
               "tip_z": 79.9802,
               "total_depth_mm": 6.0198
             },
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -12.98,
+                -12.98
+              ],
+              "y": [
+                0.0,
+                0.0
+              ],
+              "z": [
+                86.0,
+                86.0
+              ]
+            },
             "feature": "mount_west_counterbore",
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
@@ -9997,8 +10098,14 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
+              "x": [
+                -12.98,
+                -12.98
+              ],
+              "y": [
+                0.0,
+                0.0
+              ]
             },
             "z_bounds_mm": "unknown",
             "z_verified": false
@@ -10131,7 +10238,20 @@
               "tip_z": 79.9802,
               "total_depth_mm": 6.0198
             },
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                12.98,
+                12.98
+              ],
+              "y": [
+                0.0,
+                0.0
+              ],
+              "z": [
+                86.0,
+                86.0
+              ]
+            },
             "feature": "mount_east_counterbore",
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
@@ -10146,8 +10266,14 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
+              "x": [
+                12.98,
+                12.98
+              ],
+              "y": [
+                0.0,
+                0.0
+              ]
             },
             "z_bounds_mm": "unknown",
             "z_verified": false
@@ -10156,23 +10282,23 @@
         "travel_checks": {
           "x": {
             "located_span_mm": 25.96,
-            "lower_bound_margin_mm": "unknown",
+            "lower_bound_margin_mm": 541.4494,
             "margin_mm": "unknown",
             "minimum_required_mm": 42.7506,
             "required_mm": "unknown",
             "required_verified": false,
             "travel_mm": 584.1999999999999,
-            "travel_verified": false
+            "travel_verified": true
           },
           "y": {
             "located_span_mm": 0.0,
-            "lower_bound_margin_mm": "unknown",
+            "lower_bound_margin_mm": 149.220712,
             "margin_mm": "unknown",
             "minimum_required_mm": 73.02928800000001,
             "required_mm": "unknown",
             "required_verified": false,
             "travel_mm": 222.25,
-            "travel_verified": false
+            "travel_verified": true
           },
           "z": {
             "located_span_mm": "unknown",
@@ -10182,7 +10308,7 @@
             "required_mm": "unknown",
             "required_verified": false,
             "travel_mm": 355.59999999999997,
-            "travel_verified": false
+            "travel_verified": true
           }
         }
       },
@@ -10241,7 +10367,7 @@
         "inventory.machines.PM-30MV.envelope.travel.y",
         "inventory.machines.PM-30MV.envelope.travel.z"
       ],
-      "message": "S3: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
+      "message": "S3: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
       "numbers": {
         "measurements": [
           {
@@ -10251,30 +10377,6 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder",
             "units": "identity"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.x"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.x",
-            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.y"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.y",
-            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.z"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.z",
-            "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
           },
           {
             "cite": [
@@ -10519,23 +10621,23 @@
         "travel_checks": {
           "x": {
             "located_span_mm": 0.0,
-            "lower_bound_margin_mm": "unknown",
-            "margin_mm": "unknown",
+            "lower_bound_margin_mm": 526.6366232424518,
+            "margin_mm": 526.6366232424518,
             "minimum_required_mm": 57.56337675754815,
             "required_mm": 57.56337675754815,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
-            "travel_verified": false
+            "travel_verified": true
           },
           "y": {
             "located_span_mm": 0.0,
-            "lower_bound_margin_mm": "unknown",
-            "margin_mm": "unknown",
+            "lower_bound_margin_mm": 136.25,
+            "margin_mm": 136.25,
             "minimum_required_mm": 86.0,
             "required_mm": 86.0,
             "required_verified": true,
             "travel_mm": 222.25,
-            "travel_verified": false
+            "travel_verified": true
           },
           "z": {
             "located_span_mm": "unknown",
@@ -10545,7 +10647,7 @@
             "required_mm": "unknown",
             "required_verified": false,
             "travel_mm": 355.59999999999997,
-            "travel_verified": false
+            "travel_verified": true
           }
         }
       },
@@ -10561,39 +10663,33 @@
         "plan.frames.C4",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
-        "plan.setups.S4.ops.5",
-        "features.features.crank_boss.bounds/at",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
-        "harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
-        "features.frames.model",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10",
-        "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395",
-        "plan.setups.S4.ops.5.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.S4.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S4.ops.10",
         "features.features.crank_bore.bounds/at",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:380-389",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:372-372",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:51-51",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10",
+        "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-62",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:50-50",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:145-145",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:390-390",
+        "harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:247-279",
         "harmonic-analyzer/cad/scripts/_surface_finish.py:48-48",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:157-157",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333",
         "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:158-158",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
+        "features.frames.model",
         "plan.setups.S4.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S4.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S4.ops.20",
         "plan.setups.S4.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S4.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
@@ -10604,7 +10700,7 @@
         "inventory.machines.PM-30MV.envelope.travel.y",
         "inventory.machines.PM-30MV.envelope.travel.z"
       ],
-      "message": "S4: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Measure plan.setups.S4.ops.5 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
+      "message": "S4: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S4.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S4.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S4.ops.30.tool.",
       "numbers": {
         "measurements": [
           {
@@ -10614,30 +10710,6 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S4.ops.30.holder",
             "units": "identity"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.x"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.x",
-            "instruction": "measure: PM-30MV X safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.y"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.y",
-            "instruction": "measure: PM-30MV Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.machines.PM-30MV.envelope.travel.z"
-            ],
-            "id": "machines.PM-30MV.envelope.travel.z",
-            "instruction": "measure: PM-30MV Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
-            "units": "mm"
           },
           {
             "cite": [
@@ -10665,22 +10737,6 @@
           },
           {
             "cite": [
-              "features.features.crank_boss.bounds/at; plan.stock"
-            ],
-            "id": "plan.setups.S4.ops.5.xy_geometry",
-            "instruction": "author: Measure plan.setups.S4.ops.5 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "plan.setups.S4.ops.5"
-            ],
-            "id": "plan.setups.S4.ops.5.z_geometry",
-            "instruction": "author: Author plan.setups.S4.ops.5.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S4.ops.5 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
               "inventory.tools.unknown"
             ],
             "id": "tools.unknown.resolve",
@@ -10689,32 +10745,6 @@
           }
         ],
         "operations": [
-          {
-            "approach_mm": "unknown",
-            "conservative_stock_spans_mm": "not_applicable",
-            "do": "fit_up",
-            "endpoint": "not_applicable",
-            "extent_mm": "unknown",
-            "feature": "crank_boss",
-            "holder": "unknown",
-            "holder_gauge_len_mm": "unknown",
-            "op": 5,
-            "rough_allowance_mm": 0,
-            "tip_z_bounds_mm": [
-              0.0,
-              0.0
-            ],
-            "tool": "unknown",
-            "tool_projection_mm": "unknown",
-            "tool_radius_mm": "unknown",
-            "tool_radius_verified": false,
-            "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
-            },
-            "z_bounds_mm": "unknown",
-            "z_verified": false
-          },
           {
             "approach_mm": "unknown",
             "conservative_stock_spans_mm": "not_applicable",
@@ -10886,23 +10916,23 @@
         "travel_checks": {
           "x": {
             "located_span_mm": 0.0,
-            "lower_bound_margin_mm": "unknown",
-            "margin_mm": "unknown",
+            "lower_bound_margin_mm": 584.1999999999999,
+            "margin_mm": 584.1999999999999,
             "minimum_required_mm": 0.0,
-            "required_mm": "unknown",
-            "required_verified": false,
+            "required_mm": 0.0,
+            "required_verified": true,
             "travel_mm": 584.1999999999999,
-            "travel_verified": false
+            "travel_verified": true
           },
           "y": {
             "located_span_mm": 0.0,
-            "lower_bound_margin_mm": "unknown",
-            "margin_mm": "unknown",
+            "lower_bound_margin_mm": 222.25,
+            "margin_mm": 222.25,
             "minimum_required_mm": 0.0,
-            "required_mm": "unknown",
-            "required_verified": false,
+            "required_mm": 0.0,
+            "required_verified": true,
             "travel_mm": 222.25,
-            "travel_verified": false
+            "travel_verified": true
           },
           "z": {
             "located_span_mm": "unknown",
@@ -10912,7 +10942,7 @@
             "required_mm": "unknown",
             "required_verified": false,
             "travel_mm": 355.59999999999997,
-            "travel_verified": false
+            "travel_verified": true
           }
         }
       },
@@ -10923,7 +10953,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.T1: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"
@@ -10934,9 +10964,11 @@
         "exposed_z_mm": "unknown",
         "frame": "T1",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -10945,7 +10977,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -10971,6 +11003,7 @@
         ],
         "frame": "C4",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
         "unresolved": [
@@ -10978,7 +11011,13 @@
           "cone_boss",
           "crank_boss",
           "head"
-        ]
+        ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        }
       },
       "rule": "turned_profile",
       "status": "unknown",
@@ -10987,7 +11026,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.M2: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"
@@ -10998,9 +11037,11 @@
         "exposed_z_mm": "unknown",
         "frame": "M2",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -11009,7 +11050,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.J3: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279"
@@ -11020,9 +11061,11 @@
         "exposed_z_mm": "unknown",
         "frame": "J3",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -11031,7 +11074,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.C4: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
@@ -11042,9 +11085,11 @@
         "exposed_z_mm": "unknown",
         "frame": "C4",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -11069,16 +11114,27 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
-        "features.features.crank_boss_faces: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row"
+        "plan.setups[S1].stock_state.od_mm",
+        "features.features.crank_boss_faces: length acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:56-56",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "S1:10: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S1:10: Static deflection is unknown; needs one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
       "numbers": {
+        "acceptance_band_mm": [
+          71.2,
+          72.8
+        ],
+        "acceptance_field": "length",
+        "acceptance_threshold_mm": 0.7999999999999972,
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "plan.setups[S1].stock_state.od_mm",
+        "diameter_mm": 25.0,
         "doc_mm": 0.25,
         "e_gpa": "unknown",
         "e_n_per_mm2": "unknown",
@@ -11092,18 +11148,20 @@
         "material_class": "unknown",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
           "one cited cutting-data material row",
-          "feature nominal diameter",
           "kc_n_per_mm2",
-          "e_gpa",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "e_gpa"
         ],
         "operation": "face",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 80.0,
+        "span_model": "stickout",
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(length_high_mm - length_low_mm) / 2",
+        "turned_diameter_mm": 25.0
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -11115,24 +11173,22 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
-        "features.features.crank_boss: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
+        "features.features.crank_boss: declared nominal diameter",
+        "plan.setups[S1].ops[20].rough_allowance_mm",
+        "cutting-data aliases and unique material row"
       ],
-      "message": "S1:20: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
+      "message": "S1:20: Static deflection is unknown; needs one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 3,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           21.1,
           22.7
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.2,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "diameter_basis": "features.features.crank_boss: declared nominal diameter",
         "diameter_mm": 21.93,
-        "diameter_tolerance_mm": 0.7999999999999989,
         "doc_mm": 0.25,
         "e_gpa": "unknown",
         "e_n_per_mm2": "unknown",
@@ -11146,16 +11202,20 @@
         "material_class": "unknown",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
           "one cited cutting-data material row",
           "kc_n_per_mm2",
           "e_gpa"
         ],
         "operation": "rough_turn",
+        "rests": [],
+        "rough_allowance_mm": 0.4,
+        "span_mm": 80.0,
+        "span_model": "stickout",
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "rough_allowance_mm / 2",
+        "turned_diameter_mm": 22.33
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -11167,7 +11227,8 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
-        "features.features.crank_boss: declared nominal diameter and dia acceptance band",
+        "features.features.crank_boss: declared nominal diameter",
+        "features.features.crank_boss: dia acceptance band",
         "cutting-data aliases and unique material row",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
@@ -11175,16 +11236,18 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "S1:30: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
+      "message": "S1:30: Static deflection is unknown; needs one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 3,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           21.1,
           22.7
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.7999999999999989,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "diameter_basis": "features.features.crank_boss: declared nominal diameter",
         "diameter_mm": 21.93,
-        "diameter_tolerance_mm": 0.7999999999999989,
         "doc_mm": 0.1,
         "e_gpa": "unknown",
         "e_n_per_mm2": "unknown",
@@ -11198,16 +11261,20 @@
         "material_class": "unknown",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
           "one cited cutting-data material row",
           "kc_n_per_mm2",
           "e_gpa"
         ],
         "operation": "finish_turn",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 80.0,
+        "span_model": "stickout",
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2",
+        "turned_diameter_mm": 21.93
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -11232,16 +11299,27 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[40].doc_mm/feed_mm_rev",
-        "features.features.crank_boss_faces: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row"
+        "plan.setups[S1].stock_state.od_mm",
+        "features.features.crank_boss_faces: length acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:56-56",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "S1:40: Static deflection is unknown; needs verified lathe/operation, one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S1:40: Static deflection is unknown; needs one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa.",
       "numbers": {
+        "acceptance_band_mm": [
+          71.2,
+          72.8
+        ],
+        "acceptance_field": "length",
+        "acceptance_threshold_mm": 0.7999999999999972,
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "plan.setups[S1].stock_state.od_mm",
+        "diameter_mm": 25.0,
         "doc_mm": "unknown",
         "e_gpa": "unknown",
         "e_n_per_mm2": "unknown",
@@ -11255,20 +11333,22 @@
         "material_class": "unknown",
         "material_verified": true,
         "missing_inputs": [
-          "verified lathe/operation",
           "one cited cutting-data material row",
-          "feature nominal diameter",
           "doc_mm",
           "feed_mm_rev",
           "kc_n_per_mm2",
-          "e_gpa",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "e_gpa"
         ],
         "operation": "part_off",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 80.0,
+        "span_model": "stickout",
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(length_high_mm - length_low_mm) / 2",
+        "turned_diameter_mm": 25.0
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -11515,7 +11595,7 @@
       "message": "S4:5: the static turning proxy does not apply to this operation.",
       "numbers": {
         "feature": "crank_boss",
-        "operation": "fit_up"
+        "operation": "fit"
       },
       "rule": "turning_deflection",
       "status": "not_applicable",
@@ -11634,7 +11714,7 @@
             "edge_mm": 0.0,
             "feature": "construction_body_axis",
             "from": "indicated",
-            "indicator_verify": true,
+            "indicator_verify": false,
             "jog_mm": 10.0,
             "method": "indicate_axis",
             "mirrored_reading": -10.0,
@@ -11652,7 +11732,7 @@
             "edge_mm": 0.0,
             "feature": "construction_body_axis",
             "from": "indicated",
-            "indicator_verify": true,
+            "indicator_verify": false,
             "jog_mm": 10.0,
             "method": "indicate_axis",
             "mirrored_reading": -10.0,
@@ -11706,20 +11786,21 @@
       "numbers": {
         "axes": {
           "x": {
-            "axis_set": "unknown",
-            "axis_set_status": "unknown",
+            "axis_set": "measured D",
+            "axis_set_status": "measured",
             "check_expression": "D +20",
             "check_jog_mm": 10.0,
-            "check_reading": "unknown",
+            "check_reading": "D +20",
             "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
             "feature": "spindle_axis",
             "from": "+x",
             "gauge": "micrometers/0-1in",
+            "gauge_verify": false,
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
             "mirrored_expression": "D -20",
-            "mirrored_reading": "unknown",
+            "mirrored_reading": "D -20",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
             "sign": 1,
@@ -11778,7 +11859,7 @@
             "edge_mm": 0.0,
             "feature": "body_axis",
             "from": "indicated",
-            "indicator_verify": true,
+            "indicator_verify": false,
             "jog_mm": 10.0,
             "method": "indicate_axis",
             "mirrored_reading": -10.0,
@@ -11796,7 +11877,7 @@
             "edge_mm": 0.0,
             "feature": "body_axis",
             "from": "indicated",
-            "indicator_verify": true,
+            "indicator_verify": false,
             "jog_mm": 10.0,
             "method": "indicate_axis",
             "mirrored_reading": -10.0,
@@ -11865,7 +11946,7 @@
             "edge_mm": 0.0,
             "feature": "journal_axis",
             "from": "indicated",
-            "indicator_verify": true,
+            "indicator_verify": false,
             "jog_mm": 10.0,
             "method": "indicate_axis",
             "mirrored_reading": -10.0,
@@ -11883,7 +11964,7 @@
             "edge_mm": 0.0,
             "feature": "journal_axis",
             "from": "indicated",
-            "indicator_verify": true,
+            "indicator_verify": false,
             "jog_mm": 10.0,
             "method": "indicate_axis",
             "mirrored_reading": -10.0,
@@ -11953,7 +12034,7 @@
             "edge_mm": 0.0,
             "feature": "crank_axis",
             "from": "indicated",
-            "indicator_verify": true,
+            "indicator_verify": false,
             "jog_mm": 10.0,
             "method": "indicate_axis",
             "mirrored_reading": -10.0,
@@ -11971,7 +12052,7 @@
             "edge_mm": 0.0,
             "feature": "crank_axis",
             "from": "indicated",
-            "indicator_verify": true,
+            "indicator_verify": false,
             "jog_mm": 10.0,
             "method": "indicate_axis",
             "mirrored_reading": -10.0,
@@ -12021,27 +12102,27 @@
       "subject": "S4"
     }
   ],
-  "hash": "dc9c6007ac39f528e867ab5b87b924c7eca29314e82908aa7c1f955bc667f3ed",
+  "hash": "58f3963555fa847e00cb9e4338f3a0499cac7be887b3716cf56d4035737130cc",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "52ad143f0ce95176e3da39efd14b7a48e8529834fa7389d27222cc0e98fd3fff"
+      "sha256": "c781d67c3a7e557ef079e8e775cce09b283ac1daa2841fcda61562a789c9d0be"
     },
     "features": {
       "path": "examples/cone-pivot-post/features.toml",
-      "sha256": "40f52509669835c39be26c1f480b6e3d4ea36d9cc06bec611d9fd271d7c388ed"
+      "sha256": "1d96ccb32b7f4a5383e40eb0f9077975120d36a4112d89b08c41667cf9b34c09"
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
+      "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",
-      "sha256": "3b81ace8d6a02006d5f95f078d0283d6efbbaba7525ff96d11e8f298a74d5701"
+      "sha256": "d9a9e1b0d08aff84bb4c9fbea5942c6e2968c884f0a6c6117468c6ece1b36b36"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
-      "sha256": "0e6f91e870df7f16bff932ef06e9616264893c1289a3b0cde53b18f90b142b29"
+      "sha256": "ee9edc7968b1d9f2fe4792fc26fc113e71eb4d62c9d69559a3f4c28bd0c5e041"
     },
     "step": {
       "path": "examples/cone-pivot-post/cone-pivot-post.STEP",
@@ -12049,7 +12130,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b",
   "verification": "planned"
 }

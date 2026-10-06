@@ -8,6 +8,7 @@ import tomllib
 from contextlib import nullcontext
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
+from functools import cached_property
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -42,6 +43,16 @@ class Bundle:
                 label = f"external/{kind}/{path.name}"
             records[kind] = {"path": label, "sha256": self.hashes[kind]}
         return records
+
+    @cached_property
+    def feature_definitions(self) -> dict[str, dict]:
+        """Operative features: the exported manifest plus resolved plan joint features.
+
+        ``features`` stays the original exported document (hash, faces and coverage).
+        """
+        from prechips.joint_features import feature_definitions
+
+        return feature_definitions(self.plan, self.features)
 
 
 def _span(kind: str, path: Path):
@@ -88,6 +99,8 @@ def load_bundle(
     policy: str | Path | None = None,
     cutting_data: str | Path | None = None,
 ) -> Bundle:
+    from prechips.rules.resolution import SAW_OPS
+
     plan_path = Path(plan_path).resolve()
     plan, plan_hash = _load(plan_path, Plan, "plan")
     if plan.get("features") == "unknown":
@@ -101,6 +114,16 @@ def load_bundle(
         raise BadInput("Plan and feature manifest name different parts.")
     if not features["features"]:
         raise BadInput("The feature manifest has no features.")
+    from prechips.joint_features import LABEL_PREFIX, feature_definitions
+
+    definitions = feature_definitions(plan, features)
+    for name, feature in features["features"].items():
+        faces = feature.get("faces")
+        if isinstance(faces, list) and any(str(face).startswith(LABEL_PREFIX) for face in faces):
+            raise BadInput(
+                f"features.{name}.faces names a synthetic {LABEL_PREFIX}* label; transient "
+                "joint geometry never maps to finished STEP faces."
+            )
     setups = plan["setups"]
     if not isinstance(setups, list) or not setups:
         raise BadInput("The plan has no setups.")
@@ -116,9 +139,18 @@ def load_bundle(
         if "unknown" in op_ids or len(set(op_ids)) != len(op_ids):
             raise BadInput(f"{setup['id']}: operation numbers must be known and unique.")
         for op in ops:
-            if op.get("feature") not in features["features"]:
-                raise BadInput(f"{setup['id']}:{op['op']}: feature is not in the manifest.")
-            feature = features["features"][op["feature"]]
+            if op.get("do") in SAW_OPS and "feature" not in op:
+                if op.get("checks") or op.get("missing_requirements"):
+                    raise BadInput(
+                        f"{setup['id']}:{op['op']}: saw inspection checks need a manifest feature."
+                    )
+                continue
+            if op.get("feature") not in definitions:
+                raise BadInput(
+                    f"{setup['id']}:{op['op']}: feature is neither in the manifest nor "
+                    "plan.joint_features."
+                )
+            feature = definitions[op["feature"]]
             requirements = feature.get("requirements")
             exported = requirements if isinstance(requirements, list) else []
             checks = op.get("checks")
@@ -224,7 +256,7 @@ def load_bundle(
             raise BadInput("The manifest STEP digest must be lowercase SHA-256 or unknown.")
         if "step" not in paths:
             raise BadInput("A known STEP digest requires its STEP bytes in the bundle.")
-    return Bundle(
+    bundle = Bundle(
         plan,
         features,
         resolved["inventory"],
@@ -234,3 +266,6 @@ def load_bundle(
         hashes,
         root,
     )
+    # Seed the cached operative mapping already resolved above; it is built once.
+    bundle.__dict__["feature_definitions"] = definitions
+    return bundle

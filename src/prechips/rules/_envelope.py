@@ -14,6 +14,7 @@ from prechips.rules.resolution import (
     record,
     resolve,
     setup_frame_ref,
+    workholding_category,
 )
 
 
@@ -192,19 +193,20 @@ def stock_extents(bundle, setup):
 def fixture_height(bundle, setup, debts, cite):
     hold = record(setup.get("hold"))
     identity = hold.get("fixture", UNKNOWN)
-    fixture = measurement_item(bundle, "fixtures", identity)
+    category = workholding_category(bundle, identity)
+    fixture = measurement_item(bundle, category, identity)
     if not fixture or fixture.get("kind") == UNKNOWN:
         authoring_entry(
             debts,
-            f"fixtures.{identity}.resolve",
+            f"{category}.{identity}.resolve",
             f"resolve: add or select an owned fixture for {identity} in inventory "
             f"and author plan.setups.{setup['id']}.hold.fixture",
-            f"inventory.fixtures.{identity}",
+            f"inventory.{category}.{identity}",
         )
         values, verified = [UNKNOWN], False
     else:
         field = "bed_height" if fixture.get("kind") == "vise" else "height"
-        height = fact(fixture, field, "fixtures", identity, debts, cite)
+        height = fact(fixture, field, category, identity, debts, cite)
         values, verified = [height["value"]], height["verified"]
     for field in ("parallels", "supports", "riser"):
         reference = hold.get(field)

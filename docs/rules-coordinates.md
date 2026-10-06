@@ -7,9 +7,10 @@ station/feature reference points use the dimension's declared drawing precision;
 a known number without one prints its own value (six significant digits) rather
 than `?`, which stays reserved for unknown values. Operation-derived rows,
 computed tip targets, Z stations and contour cutter-centre tables always print
-their own value, never rounded to a drawing dimension's display precision. No
-STEP extraction/kernel geometry is performed by these rules; contour tables use
-manifest geometry even when the M4 kernel rules run on the same bundle.
+their own value, never rounded to a drawing dimension's display precision.
+Contour tables use manifest geometry even when the M4 kernel rules run on the
+same bundle; only feature location may read an already-present kernel result
+(below), and these rules never start the kernel.
 
 ## `coordinates`
 
@@ -27,12 +28,45 @@ midpoints never define nominal geometry: explicit `*_nominal` values take
 precedence, otherwise only scalar dimensions are usable as nominal geometry.
 
 Worked holes (including threaded holes and counterbores), bosses, and features
-used by point/hole operations require a numeric three-component `at` reference
-point. An absent, `"unknown"`, two-component or partially unknown point keeps
-the setup's `coordinates` status unknown; two-component sketch locations do not
-imply Z = 0. A known point still needs a usable model-to-setup frame transform.
-Bounds-only face, rectangular profile and pocket features do not acquire an
-invented centre requirement.
+used by point/hole operations are located by a numeric three-component `at`
+reference point, found in this order (one shared locator,
+`coordinates.located_by`, which [`travel`](rules-setup.md) uses too):
+
+1. The feature's own `at`. An explicit `at` wins even when it is `"unknown"`,
+   two-component or partially unknown; those keep the setup's `coordinates`
+   status unknown, and two-component sketch locations do not imply Z = 0.
+2. Without its own `at`, a child naming its parent hole (`hole`, else `parent`;
+   a counterbore with `parent = "mount_west"`) takes that parent's `at`
+   transformed from the parent's frame. The row records `located_by = <parent>`
+   and the finding cites `features.features.<parent>.at` with the parent's `at`
+   citations. A parent that does not exist, or has no numeric `at`, leaves the
+   row unknown; nothing falls through to the kernel.
+3. Without `at` or a parent, the kernel's faces of revolution about setup Z
+   (below).
+
+A known point still needs a usable model-to-setup frame transform. Bounds-only
+face, rectangular profile and pocket features do not acquire an invented centre
+requirement.
+
+**Kernel revolved location, any setup.** The kernel request lists, per setup,
+its located features with neither `at` nor a parent (`locate_revolved`); the
+engine measures their finished faces of revolution about setup Z in every
+setup (a setup with a turning-model operation measures every feature). Such a
+feature is located on setup Z through X0 Y0 when the kernel measured every one
+of its faces as an external surface of revolution about setup Z through
+x = y = 0 ([turned profile](rules-lathe.md), kernel `revolved` facts): the
+rows place it at setup `[0, 0, z]` for both ends of its kernel axial span, the
+model point is that setup point transformed back through the setup frame, and
+the finding cites `kernel: setups.<id>.revolved.<feature>`. On a lathe the rows
+are `spindle axis, kernel span start` / `end` and also carry the nominal
+diameter and X display; a lathe also tries this for a feature whose own `at`
+is not numeric. Off a lathe the rows are `setup Z axis, kernel span start` /
+`end`. The axis is never inferred from tolerance bands or model-frame
+assumptions. The feature stays unknown when no kernel result is present, the
+setup frame binding is unknown, the kernel reports any face not revolved about
+setup Z through the origin (off-axis, a flat, a cross boss or hole), an
+internal (bored) face, or its facts are malformed or missing; off a lathe that
+unknown row carries the kernel's `reason`.
 
 Feature reference centres are distinct from hole tool-tip endpoints (those
 belong to `blind_depth`). Lathe rows carry drawing stations, authored operation
@@ -41,7 +75,37 @@ can substitute for an unknown model transform only in an unbound frame; the row
 retains `local_from = {op, field, axis}`. This does not bind fitted shaft length
 to nominal model geometry. Dome axial samples compute
 `radius=sqrt(sphere_radius^2-(z-sphere_centre_z)^2)` at authored steps and include
-the exact endpoint. Tool-nose compensation remains unknown.
+the exact endpoint. Each row then gets the tool-nose compensation. The selected
+tool must not be flagged uncertain, and its nose radius `rn` must be known and
+≥ 0. The nose must also be what touches every row. Each row records its contact
+normal `normal_deg`, measured from +X (radially outward) toward +Z. For a
+right-hand tool feeding toward the chuck, the nose arc spans
+`entering_angle_deg + insert_angle_deg − 180` to `entering_angle_deg`: the
+trailing edge sets the lower bound and the major edge the upper. Both angles
+must be accepted inventory facts. A normal outside that range is cut by an edge
+or flank, not the nose, so no nose offset exists there.
+
+When the nose meets every row, its centre lies `rn` out along the sphere's
+surface normal `n`. Each row then adds `x_tool_mm = display·(r + rn·(n_r − 1))`
+and `z_tool_mm = z + rn·(n_z − 1)`. These are the DRO readings of the imaginary
+tool tip when the tool was touched off on an outside diameter (X) and on a +Z
+end face (Z), the `zero_check` tool-touch convention, recorded as
+`tool_reference`. Then `tool_nose_compensation_mm = rn`, and the sheet prints
+tool columns beside the surface columns. The surface columns are never
+relabelled as compensated.
+
+Compensation stays unknown, the sheet STOP stays, and `coordinates` is unknown
+when any of these holds:
+
+- the nose radius is unknown or negative;
+- the tool is uncertain;
+- the dome apex faces the chuck, so it is not cut from the +Z touch-off side;
+- the tool is not right-hand;
+- an entering or insert angle is unknown or does not form an insert;
+- any row's contact normal lies outside the nose arc. The reason names those
+  rows' Z.
+
+`tool_nose_compensation_reason` names which one applied.
 
 For contours, cutter radius is selected diameter/2. An explicitly rough
 operation produces its rough table at cutter radius plus `rough_allowance_mm`
@@ -78,6 +142,28 @@ wall thickness or collision proof. Unknown/unverified cutter or frame binding
 keeps status unknown. M2 lathe feasibility remains unimplemented even where
 nominal stations/dome tables are displayed.
 
+**Cutting order.** Arc rows, each join fragment and a closed `linear_table`
+outline are listed in the real traverse, judged in the setup top view (setup
+XY after the model-to-setup transform, so a part turned over between setups
+swaps which mirrored side runs which way). With `n` the cutter-side wall
+normal (from the cut wall toward the cutter centre: outward for a convex arc
+or outside outline, inward for a concave arc, the offset side of a land) and
+`t` the travel, a clockwise spindle (machine `spindle.rotation = "cw"`, viewed
+from above looking down setup -Z) cuts `conventional` when `(n × t)·Z > 0`
+and `climb` when it is negative; `ccw` inverts both. Each table is reversed
+when its geometric order disagrees with the op's `direction`, so the −X join
+fragment, the bottom arc and the +X fragment chain end to start. Each record
+carries `cut_order` (the authored direction) and `spindle_rotation`. An op
+`direction` other than `conventional`/`climb`, an undeclared spindle rotation,
+unknown setup points or a degenerate witness set `cut_order = "unknown"` with
+`cut_order_reason`, keep the geometric order, and make the setup's
+coordinates finding `unknown` with
+`Cutting order is unknown: <reasons>.` appended to its message. The traveler
+says "rows in cutting order (<direction>, <rotation> spindle)" only for a known
+order and otherwise "rows NOT in an established cutting order: <reason>"; the
+setup picture draws travel arrows only on such directed paths. Raster pocket
+passes are independent cuts and claim no travel direction.
+
 Exact message:
 
 `Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance.`
@@ -94,15 +180,21 @@ and selected inventory cutter nominal diameter.
 
 ## `zero_check`
 
+A dedicated saw setup (all nonmanual ops are `saw_cut` / `cut_off`, at least one
+saw) is `not_applicable`: its setting is an authored blade-centre `cut_plane`,
+not a spindle XYZ zero. A mixed setup still checks its other machining zero
+recipes; an unknown action cannot establish the saw-only exemption.
+
 EL400 ABS Axis Set, not Preset. Approach side is independent of jog polarity.
 For edge finding, `contact=edge + side*finder_radius`, side -1 from negative
 axis and +1 from positive axis; indicated pickup uses radius 0. Paper Z uses
 `contact=edge + paper`; touching `top` takes the received/advanced stock top.
-Physical positive-axis jog gives `check=contact + sign*scale*jog` and
-`mirror=contact - sign*scale*jog`. The sign comes from authored DRO direction;
-lathe diameter-mode X uses scale 2 for the physical X jog and radius mode scale 1;
-an omitted or unknown lathe `radius_mode` leaves the X check/mirror readings
-unknown. Other axes use scale 1.
+Physical positive-axis jog gives `check=shown + sign*scale*jog` and
+`mirror=shown - sign*scale*jog`, where `shown=scale*contact` is the displayed
+Axis Set. The sign comes from authored DRO direction; lathe diameter-mode X
+uses scale 2 (a `+x` touch on a 6.35 mm gauge at the axis sets 6.35, not its
+3.175 radius) and radius mode scale 1; an omitted or unknown lathe
+`radius_mode` leaves the X readings unknown. Other axes use scale 1.
 Direction `right/away/up` (or lathe `away_from_spindle_axis/toward_exposed_end`)
 is positive. Reversed direction or a non-ABS known mode is an error.
 `edge_mm` explicitly locates a named pickup in the setup frame. Only Z
@@ -110,12 +202,22 @@ is positive. Reversed direction or a non-ABS known mode is an error.
 an ear's inner face) uses its own authored edge; stock top is not its fallback.
 
 For each authored Z `retouch_after`, the new set value is advanced top + paper.
-A profile does not move the touched top. A trial-cut method cannot take a target
-diameter as a measurement; the current input schema has no measured-diameter
-field and the resulting Axis Set remains unknown. Per-tool touch X stays
-unknown; known authored Z edge/paper can be displayed without certifying it.
-Missing tools, unverified finder/gauge facts, missing recipes and unknown frame
-binding preserve unknown. A lathe does not require a Y zero recipe.
+A profile does not move the touched top.
+
+X `method = "trial_cut_measure"` cuts a diameter, measures it at the machine
+with the declared `gauge` and Axis Sets that reading. Like paper thickness the
+reading is a bench value, so the recipe is complete when `tool` and `gauge`
+resolve without a verify flag, `check_jog_mm` is numeric and the lathe
+`radius_mode` is known. The rows show bench expressions: diameter mode
+`measured D`, check `D +2j`, mirror `D -2j`; radius mode `measured D/2`,
+`D/2 ±j`. A target diameter is never used as the measurement.
+
+Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
+`gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
+`x_axis_set` is the same measured-diameter expression and `z_axis_set` is
+`edge_mm + paper_mm`. Missing tools, unverified finder/gauge facts, missing
+recipes and unknown frame binding preserve unknown. A lathe does not require a
+Y zero recipe.
 
 Templates:
 
