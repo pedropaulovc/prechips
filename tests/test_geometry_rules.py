@@ -330,6 +330,69 @@ def test_unverified_thin_wall_floor_is_not_a_numeric_gate(bundle):
     assert finding(thin_wall_under_clamp, bundle).status == "unknown"
 
 
+def _strap_hold(bundle, pose=True, verify=False):
+    """S1 held on an angle plate under one clamping-kit strap (posed unless told not)."""
+    up = {"x": [1.0, 0.0, 0.0], "z": [0.0, 0.0, 1.0]}
+    strap = {"name": "strap", "shape": "box", "at_mm": [-25.0, -6.0, 0.0]}
+    strap["size_mm"] = [50.0, 12.0, 8.0]
+    if verify:
+        strap["verify"] = True
+    bundle.inventory["fixtures"].update(
+        plate={
+            "kind": "angle_plate",
+            "solids": [{**strap, "name": "upright", "at_mm": [-40.0, 30.0, -10.0]}],
+        },
+        kit={"kind": "clamping_kit", "members": {"strap": {"kind": "strap_clamp"}}},
+    )
+    bundle.inventory["fixtures"]["kit"]["members"]["strap"]["solids"] = [strap]
+    clamp = {"ref": "kit/strap"}
+    if pose:
+        clamp["pose"] = {"origin_mm": [0.0, 0.0, 20.0], **up}
+    bundle.plan["setups"][0]["hold"] = {
+        "fixture": "plate",
+        "pose": {"origin_mm": [0.0, 0.0, 0.0], **up},
+        "clamps": [clamp],
+        "method": "hard_jaws",
+    }
+
+
+@pytest.mark.parametrize(
+    "wall,debts,status",
+    [
+        (1.9, [], "error"),  # strap over a web thinner than the 2 mm floor
+        (15.0, [], "pass"),  # strap over a thick boss
+        (1.9, ["clamp 2 has no sampled footprint point bearing on the stock"], "error"),
+        (15.0, ["clamp 2 has no sampled footprint point bearing on the stock"], "unknown"),
+    ],
+)
+def test_strap_footprint_wall_meets_the_floor_or_errors(bundle, wall, debts, status):
+    _strap_hold(bundle)
+    bundle.kernel["setups"]["S1"].update(min_wall_mm=wall, strap_wall_debts=debts)
+    row = finding(thin_wall_under_clamp, bundle)
+    assert row.status == status
+    assert all(debt in row.sentence for debt in debts if status == "unknown")
+
+
+@pytest.mark.parametrize("pose,verify", [(False, False), (True, True)])
+def test_unposed_or_unverified_strap_keeps_the_wall_unknown(bundle, pose, verify):
+    _strap_hold(bundle, pose=pose, verify=verify)
+    hold = kernel.build_job(bundle)["setups"][0]["hold"]
+    assert "clamps" not in hold and len(hold["clamp_debts"]) == 1
+    # The engine reports the named debt instead of a wall for a hold with no drawn strap.
+    reason = "strap walls unresolved: " + hold["clamp_debts"][0]
+    bundle.kernel["setups"]["S1"].update(
+        min_wall_mm="unknown", reasons={"min_wall_mm": reason}, strap_wall_debts=hold["clamp_debts"]
+    )
+    row = finding(thin_wall_under_clamp, bundle)
+    assert row.status == "unknown" and hold["clamp_debts"][0] in row.sentence
+
+
+def test_holds_without_clamps_stay_unsupported(bundle):
+    _strap_hold(bundle)
+    bundle.plan["setups"][0]["hold"].pop("clamps")
+    assert finding(thin_wall_under_clamp, bundle).status == "unsupported"
+
+
 def test_missing_physical_jaw_depth_is_not_invented_from_jaw_width(bundle):
     bundle.inventory["fixtures"]["vise"].pop("jaw_depth_mm")
     assert finding(vise, bundle).status == "unknown"

@@ -3133,12 +3133,17 @@
         "PLAN.md §4.3 thin_wall_under_clamp",
         "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
         "plan.setups.S2: frame and hold",
-        "inventory.fixtures.test-angle-plate: declared dimensions"
+        "inventory.fixtures.test-angle-plate: declared dimensions",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S2: thin_wall_under_clamp has no vise grip-zone facts for angle_plate holding.",
-      "numbers": {},
+      "message": "S2: minimum wall under the strap footprints meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 20.0,
+        "thin_wall_floor_mm": 2.0
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unsupported",
+      "status": "pass",
       "subject": "S2"
     },
     {
@@ -3146,12 +3151,17 @@
         "PLAN.md §4.3 thin_wall_under_clamp",
         "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
         "plan.setups.S3: frame and hold",
-        "inventory.fixtures.test-nest: declared dimensions"
+        "inventory.fixtures.test-nest: declared dimensions",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S3: thin_wall_under_clamp has no vise grip-zone facts for custom holding.",
-      "numbers": {},
+      "message": "S3: minimum wall under the strap footprints meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 20.0,
+        "thin_wall_floor_mm": 2.0
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unsupported",
+      "status": "pass",
       "subject": "S3"
     },
     {
@@ -4876,7 +4886,7 @@
       "subject": "S6"
     }
   ],
-  "hash": "f7f01de8bc643be42b3be438066ccc6e4f560fd797d42e2541c5b67a46676537",
+  "hash": "be63c728df4f735ad476fb1e02eaee23cdc506ff6d0cac09eec4eef9826da82d",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

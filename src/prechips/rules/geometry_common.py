@@ -379,8 +379,9 @@ def setup_contexts(bundle, rule):
                     rule, subject, "unknown", {}, cite, f"{subject}: holding identity is unknown."
                 )
             elif inputs["kind"] != "vise" and not (
-                # Chuck jaws load radial walls: the engine maps them like vise clamp lines.
-                rule == "thin_wall_under_clamp" and inputs["kind"] in CHUCK_KINDS
+                # Chuck jaws and posed straps both load sampled stock material runs.
+                rule == "thin_wall_under_clamp"
+                and (inputs["kind"] in CHUCK_KINDS or strap_clamped(inputs))
             ):
                 status = "not_applicable" if rule == "vise" else "unsupported"
                 blocked = Finding(
@@ -412,6 +413,11 @@ def setup_contexts(bundle, rule):
             elif inputs.get("reason"):
                 blocked = Finding(rule, subject, "unknown", {}, cite, inputs["reason"])
         yield setup, facts, detail, inputs, cite, blocked
+
+
+def strap_clamped(inputs):
+    """A posed-solids hold that declares clamps (drawn or with named clamp debts)."""
+    return "solids" in inputs and bool(inputs.get("clamps") or inputs.get("clamp_debts"))
 
 
 def fact_reason(detail, fields, fallback):
