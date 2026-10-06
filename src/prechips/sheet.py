@@ -1118,12 +1118,18 @@ class _Traveler:
     # ------------------------------------------------------------ shop-made
     def shop_made(self, reference):
         """The inventory record of a shop-made holding item (``kind = "custom"`` or flagged
-        ``shop_made``), else None."""
+        ``shop_made``) with something to make, else None: an item whose every solid is
+        bought or existing (a plain ground plate) has no make table."""
         if not isinstance(reference, str) or reference in ("unknown", "none", "not_applicable"):
             return None
         category = inventory_category(self.bundle, reference, WORKHOLDING_CATEGORIES)
         item = _mapping(resolve(self.bundle, category or "fixtures", reference))
-        return item if item.get("kind") == "custom" or item.get("shop_made") is True else None
+        if not (item.get("kind") == "custom" or item.get("shop_made") is True):
+            return None
+        solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
+        if solids and not any(_supply(s) == "made" for s in solids):
+            return None
+        return item
 
     def shop_made_uses(self, setup):
         """``{reference: [(label, pose)]}`` for each shop-made item the hold uses, in HOLD
@@ -1471,26 +1477,31 @@ class _Traveler:
 
     def hardware(self, solids, uses):
         """Bought solids as ``2 × 3/8-16 stud; 2 × washer Ø20.6 × 1.6``: the declared
-        ``fastener`` names a part, else its name and size do."""
+        ``fastener`` names a part, else its name and size do. A part drawn as several
+        primitives (an SHCS head and shank) shares one ``fastener`` text and counts as
+        many parts as its most numerous primitive."""
         groups = {}
         for solid in solids:
-            key = (
-                solid.get("fastener"),
+            shape = (
                 solid.get("shape"),
                 repr(solid.get("size_mm")),
                 solid.get("dia_mm"),
                 solid.get("length_mm"),
             )
-            groups.setdefault(key, []).append(solid)
+            fastener = solid.get("fastener")
+            key = (fastener,) if fastener else (None, *shape)
+            groups.setdefault(key, {}).setdefault(shape, []).append(solid)
         parts = []
-        for (fastener, *_), members in groups.items():
+        for (fastener, *_), shapes in groups.items():
+            count = max(len(members) for members in shapes.values())
             if fastener:
                 what = self.bench(fastener)
             else:
+                members = next(iter(shapes.values()))
                 names = [_solid_name(solid.get("name", "?")) for solid in members]
                 stem, _ = _name_group(names)
                 what = f"{stem or ' / '.join(dict.fromkeys(names))} {self.solid_size(members[0])}"
-            parts.append(f"{len(members) * uses} × {what}")
+            parts.append(f"{count * uses} × {what}")
         return "; ".join(parts)
 
     def jaw_front_z(self, setup):
