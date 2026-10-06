@@ -682,6 +682,11 @@ shank = "unknown"
 
 [consumables]
 cutting-oil = ["CRC cutting oil", "Tap Magic ProTap"]
+# --- pivot-shaft additions ---
+# example (plausible, not measured): a can of light machine oil on the bench, for the
+# drawing's "turned, oiled" finish; the shop list does not name one.
+light-machine-oil = ["light machine oil, example (3-IN-ONE)"]
+# --- end pivot-shaft additions ---
 
 [fixtures]
 

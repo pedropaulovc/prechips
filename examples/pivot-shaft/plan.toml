@@ -145,6 +145,7 @@ fixed_jaw = "not_applicable"            # scroll chuck
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
+stop_face = "stock_end"     # the north end of the plain bar: no turned face exists yet
 stop = "the bar arrives plain, with no shoulder yet: mark a line 12.5 mm from the north end with a steel rule and push the bar into the jaws until the mark is at the jaw fronts (Z-1.5), so the plain end stands 167.5 ±0.3 out from the jaw fronts; check that with the rule before tightening"  # AUTHOR'S CHOICE: ±0.3 rule placement; the Z zero is taken on the plain end, so this placement only sets the jaw room (1.2 mm or more to the thrust face)
 clamp = "snug the chuck, bring up the dead centre with light quill pressure, then tighten the chuck key at all three pinions; remove key"  # author's choice
 centre_lubrication = "CRC cutting oil on dead-centre seat; replenish between cuts; back off the quill as the bar warms"  # author's choice
@@ -284,6 +285,7 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
+stop_face = "shoulder_thrust"  # faced in S1 op 20
 stop = "shoulder thrust face (T2 Z-9) seated against the jaw fronts: axial stop for the reversal"  # author's choice
 clamp = "tighten chuck key by hand at all three pinions; remove key; indicate after clamping"  # author's choice
 jaw_protection = "clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip"  # author's choice; no inventory accessory claimed
@@ -433,16 +435,8 @@ length = "With spindle stopped, align outside caliper jaws axially at the dome b
 [[setups.ops]]
 op = 71
 do = "inspect"
-feature = "shoulder_north_face"
+feature = ["shoulder_north_face", "shoulder_thrust"]  # one drawing length, given to both shoulder faces
 note = "Shoulder length: caliper across the Ø10 shoulder, north face to thrust face."
-[setups.ops.checks]
-length = "calipers"
-
-[[setups.ops]]
-op = 72
-do = "inspect"
-feature = "shoulder_thrust"
-note = "Same shoulder-length reading as op 71; the drawing gives the one length to both shoulder faces, so record it here too."
 [setups.ops.checks]
 length = "calipers"
 
@@ -566,3 +560,10 @@ height = "calipers"         # author's choice: axial outside-jaw contact at apex
 
 [setups.ops.inspection_methods]
 height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim and trial fit the assembly."  # author's choice
+
+[[setups.ops]]
+op = 40
+do = "coating"
+feature = "pivot_bearing"
+process = "light-machine-oil"
+note = "Drawing finish: turned, oiled. Out of the chuck, on the bench: wipe off chips and cutting oil with a clean rag, then wipe a thin film of light machine oil over the whole shaft, domes included."
