@@ -878,6 +878,41 @@ def _write_cache(path, result):
                 pass
 
 
+def _timing_attributes(timing, source):
+    prefix = "kernel.original_" if source == "cache" else "kernel."
+    return {
+        prefix + name: timing[name]
+        for name in ("wall_ms", "cpu_ms")
+        if name in timing
+    }
+
+
+def _export_timing(active, result, source):
+    """Export measured facts, not synthetic spans of past native execution."""
+    if active is None:
+        return
+    provenance = {"kernel.timing_source": source, "kernel.executed": source == "execution"}
+    for setup_id, timing in result.get("timing", {}).get("setups", {}).items():
+        attrs = {**provenance, **_timing_attributes(timing, source)}
+        for phase, measured in timing.get("phases", {}).items():
+            attrs.update(
+                {
+                    name.replace("kernel.", f"kernel.{phase}.", 1): value
+                    for name, value in _timing_attributes(measured, source).items()
+                }
+            )
+        with active.span("kernel.setup", setup_id=setup_id, **attrs):
+            for subject, measured in timing.get("ops", {}).items():
+                with active.span(
+                    "kernel.op",
+                    setup_id=setup_id,
+                    subject=subject,
+                    **provenance,
+                    **_timing_attributes(measured, source),
+                ):
+                    pass
+
+
 def run_geometries(bundles):
     """Prewarm all candidates in one FreeCAD batch, reusing per-job content caches."""
     from prechips import telemetry
@@ -887,7 +922,9 @@ def run_geometries(bundles):
     if not pending:
         return [bundle.kernel for bundle in bundles]
     active = telemetry.current()
-    with active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext():
+    with (
+        active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext()
+    ) as geometry_span:
         executable = discover_kernel()
         if executable is None:
             result = {
@@ -901,6 +938,7 @@ def run_geometries(bundles):
             jobs = []
             targets = []
             keys = {}
+            cached_keys = set()
             identity = None
             try:
                 executable = Path(executable)
@@ -965,20 +1003,48 @@ def run_geometries(bundles):
                     cached = _read_cache(path)
                     if cached is not None:
                         object.__setattr__(bundle, "kernel", cached)
+                        if key not in cached_keys:
+                            _export_timing(active, cached, "cache")
+                            cached_keys.add(key)
                     elif key in keys:
                         targets[keys[key]][1].append(bundle)
                     else:
                         keys[key] = len(jobs)
                         jobs.append(job)
                         targets.append((path, [bundle]))
+                if active:
+                    geometry_span.set_attributes(
+                        {
+                            "kernel.executed_jobs": len(jobs),
+                            "kernel.cached_jobs": len(cached_keys),
+                            "kernel.executed": bool(jobs),
+                            "kernel.timing_source": (
+                                "mixed"
+                                if jobs and cached_keys
+                                else "execution"
+                                if jobs
+                                else "cache"
+                                if cached_keys
+                                else "none"
+                            ),
+                        }
+                    )
                 if jobs:
                     try:
-                        response = _execute(executable, {"jobs": jobs})
+                        response = _execute(executable, {"jobs": jobs, "timing": True})
                     except (OSError, subprocess.SubprocessError) as exc:
                         response = {
                             "status": "error",
                             "reason": f"FreeCAD kernel job failed: {exc}",
                         }
+                    if active:
+                        geometry_span.set_attributes(
+                            {
+                                f"kernel.batch.{name}": value
+                                for name, value in response.get("timing", {}).items()
+                                if name in {"wall_ms", "cpu_ms"}
+                            }
+                        )
                     results = response.get("results")
                     if not isinstance(results, list) or len(results) != len(jobs):
                         error = (
@@ -993,6 +1059,7 @@ def run_geometries(bundles):
                         results = [error] * len(jobs)
                     for result, (path, consumers) in zip(results, targets, strict=True):
                         _write_cache(path, result)
+                        _export_timing(active, result, "execution")
                         for bundle in consumers:
                             object.__setattr__(bundle, "kernel", dict(result))
     return [bundle.kernel for bundle in bundles]
