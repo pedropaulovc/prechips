@@ -324,6 +324,24 @@ STOP):
 
 ` Single-axis stair error: op {op} finish: single-axis steps leave {cusp} on {feature}, more than its {band} band.`
 
+Blade grooves: a `form_*`/groove op whose tool is a grooving/parting blade gets
+`plunges` numbers: the corner the DRO reads (a right-hand blade's chuck-side
+corner, a left-hand blade's +Z corner) at each plunge, flush with the chuck-side
+wall and stepping evenly, never more than a blade width, until the last plunge
+is flush with the far wall; the diameter each stops at; and the groove they
+leave (`max(span, blade_width)`). A groove outside the feature's `width` band
+is an `error` (`op {n} plunges leave a groove {w} wide, outside the drawing
+width {lo} to {hi}`); an unknown blade width or hand is `unknown`.
+
+Dome roughing: the rough stage of an `axial_table` op (a `form_*` op with
+`rough_allowance_mm`, or a `rough_*` op) is a `stair_tables` entry, not the
+finished table. Each row faces in at a finish-table Z below the apex to the X
+where the sphere grown by half the diametral allowance crosses it, so every
+stair corner (the imaginary-tip reading) stays that far off the dome; rows at or
+past the base radius are dropped. An apex toward the chuck has no stair
+(`unknown`). The finish table prints its row-to-row order for an apex-to-base
+convex dome: X out to the next row first, then Z toward the chuck.
+
 Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
 manifest frames/nominal geometry, plan-owned setup frames, authored contour
@@ -386,8 +404,10 @@ One DRO per setup: the DRO reads the tool that last set it, by the zero, a tool
 touch (made before the first of its `before_ops`, else after its `after_op`) or
 a listed retouch. Ops before the Z zero's `after_op` run before any tool set Z.
 Every cutting op whose tool did not make the latest Axis Set
-is touched off first (`derived_touches`, printed "re-touch" at that op), the way
-its source found the surface (a scribe is aligned to; a faced zero is touched):
+is touched off first (`derived_touches`, printed "re-touch" at that op). The
+source's recipe names its own tool's edge, so the re-touch is tool-neutral:
+`edge_then_set` on a lathe (Z-cutting edge to the surface, withdraw along X),
+`touch_then_set` on a mill:
 
 - Z on the latest touched or faced surface still standing at a plan Z: the zero
   face, a tool-touch face, a listed retouch's top or a face/pocket op's `to_z`

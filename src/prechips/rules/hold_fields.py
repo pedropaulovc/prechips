@@ -29,11 +29,14 @@ def stop_face(bundle, setup, name):
     """``(status, facts)`` for a stop face on this setup's arriving stock.
 
     A lineage cut of explicitly unknown action, or undeclared as-is stock faces, may have
-    made the face: unknown.
+    made the face: unknown. So may any other setup's cut when a setup in the lineage omits
+    ``stock_in``: undeclared routing is input debt, not a route with nothing before it.
     """
     if name == STOCK_END:
         return "pass", {"face": name, "on_arriving_stock": True}
-    earlier = _lineage(bundle.plan, setup["id"]) - {setup["id"]}
+    lineage = _lineage(bundle.plan, setup["id"])
+    earlier = lineage - {setup["id"]}
+    routed = all("stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage)
     before, pending, later = [], [], []
     for other in bundle.plan["setups"]:
         for op in other["ops"]:
@@ -43,10 +46,12 @@ def stop_face(bundle, setup, name):
             if op_feature(op) != name and not owns_feature(bundle, op, name):
                 continue
             cut = f"{other['id']} op {op['op']}"
-            if other["id"] not in earlier:
+            if other["id"] in earlier:
+                (pending if action == UNKNOWN else before).append(cut)
+            elif routed or other["id"] == setup["id"]:
                 later.append(cut)
             else:
-                (pending if action == UNKNOWN else before).append(cut)
+                pending.append(cut)
     faces = record(bundle.feature_definitions.get(name)).get("faces", UNKNOWN)
     as_is = record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
     settled = known_refs(faces) and isinstance(as_is, list)

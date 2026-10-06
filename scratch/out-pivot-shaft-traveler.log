@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\src\prechips-rv-compose\.venv\Scripts\prechips.exe\__main__.py", line 10, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\src\prechips-rv-compose\src\prechips\cli.py", line 731, in main
+    return _run(args, tracing)
+  File "C:\src\prechips-rv-compose\src\prechips\cli.py", line 654, in _run
+    run_geometries(bundles)
+    ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\src\prechips-rv-compose\src\prechips\kernel\__init__.py", line 1266, in run_geometries
+    job = engine_job(build_job(bundle))
+                     ~~~~~~~~~^^^^^^^^
+  File "C:\src\prechips-rv-compose\src\prechips\kernel\__init__.py", line 870, in build_job
+    "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
+              ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\src\prechips-rv-compose\src\prechips\kernel\render_inputs.py", line 208, in setup_annotations
+    "target": _target(setup),
+              ~~~~~~~^^^^^^^
+  File "C:\src\prechips-rv-compose\src\prechips\kernel\render_inputs.py", line 156, in _target
+    features = {op.get("feature") for op in setup["ops"]}
+                ~~~~~~^^^^^^^^^^^
+TypeError: cannot use 'list' as a set element (unhashable type: 'list')
