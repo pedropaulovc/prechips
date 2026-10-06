@@ -18,6 +18,18 @@ Measurement conventions (setup frame, tool axis +Z):
   2026-10-05, floor samples on or within r of any concave floor-edge (curved
   ones included) shift along the wall's normal at the nearest edge point until
   tangent to every such wall. Convex edges and farther samples are unchanged.
+  A +Z planar floor (outside hole ops) whose whole face fits inside the actual
+  cutter disc instead gets exactly one pose and no samples or corners: the area
+  centroid of every axis whose disc covers its outer wire (exact for line and
+  Z-circle edges; a single covering axis is certified as the unique minimal
+  enclosing centre; no STOCK_TOL widening), or, with concave rising Z-circle
+  walls only, a wall centre meeting every such wall's tangent-circle floor bound
+  |c - o| <= rho - r. A rough leave or any
+  other rising wall leaves the face on its samples. An outer contour with other
+  curves, unless exact face points prove no disc covers it, or a failed native
+  locus, makes that floor's pose undefined: its poses drop, every other face's
+  certain hits stay, and the op's measured facts become unknown with the reason.
+  This is face-inside-cutter only; a face larger than the cutter keeps samples.
   Milling tips (rough or finish) stand at their numeric to_z when above the finished
   face, and hole tools follow their geometry-matched axis to their declared depth
   or through extent. Spot/drill flutes use their point cone plus full-radius body;
@@ -123,6 +135,7 @@ HIT_MM3 = 1e-6  # common volume that counts as an intersection
 STOCK_TOL = 1e-3  # mm: as-is face distance to the envelope, claimed-face contact
 COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is not cleared
 STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached stock piece
+TUBE_REL = 1e-3  # pipe volume vs pi r^2 L: a lineage-skin edge tube must be whole
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
 REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
 FACING_ACTIONS = {"face", "rough_face", "finish_face"}  # sweeps that span planar inner loops
@@ -130,6 +143,9 @@ AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute 
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
 PARALLEL = 1 - 1e-9  # |cos| beyond which directions are parallel
+COVER_TOL = 1e-9  # mm: numerical slack of the exact whole-face cover check, never a radius
+COVER_GAP = 1e-7  # mm: boundary circles this near to touching meet at a tangent point
+COVER_ANGLE = 1e-9  # rad: support-gap slack of the whole-face singleton certificate
 CONCAVE_PROBE = 1e-2  # mm step used to classify an edge as concave
 WALL_LEVELS = 6  # z levels of the thin-wall map
 WALL_COLUMNS = (8, 64)  # along-jaw columns of the thin-wall map (1 mm pitch, clamped)
@@ -768,6 +784,328 @@ def _nearest_clear(lines, discs):
     return min(feasible, key=lambda d: d[0] ** 2 + d[1] ** 2) if feasible else None
 
 
+def _arc_span(curve, first, last):
+    """``(a0, a1)``, ``a0 < a1 <= a0 + 2 pi``: the directions from a Z-axis circle's centre
+    to its points between curve parameters ``first`` and ``last``, counter-clockwise about
+    +Z whatever the sign of the circle's axis or the orientation of its edge."""
+    o = curve.Center
+    start, end = curve.value(first), curve.value(last)
+    a0 = math.atan2(start.y - o.y, start.x - o.x)
+    a1 = math.atan2(end.y - o.y, end.x - o.x)
+    if last - first >= 2 * math.pi - 1e-12:
+        return a0, a0 + 2 * math.pi
+    if curve.Axis.z < 0:
+        a0, a1 = a1, a0
+    while a1 <= a0:
+        a1 += 2 * math.pi
+    return a0, a1
+
+
+def _cover_contour(face):
+    """``(points, arcs, unsupported)`` of a planar face's outer wire.
+
+    ``points`` are its vertices ``(x, y)``, exact face points; each Z-axis circle edge is
+    ``(ox, oy, r, a0, a1)`` (:func:`_arc_span`); any other non-line edge is
+    ``(type name, edge)``. Inner wires lie inside the outer wire's hull, so they never
+    change which discs cover the face.
+    """
+    points, arcs, unsupported = [], [], []
+    for edge in face.OuterWire.Edges:
+        curve = edge.Curve
+        if isinstance(curve, Part.Circle) and abs(curve.Axis.z) >= PARALLEL:
+            span = _arc_span(curve, edge.FirstParameter, edge.LastParameter)
+            arcs.append((curve.Center.x, curve.Center.y, curve.Radius, *span))
+        elif not isinstance(curve, (Part.Line, Part.LineSegment)):
+            unsupported.append((type(curve).__name__, edge))
+        for vertex in edge.Vertexes:
+            p = (vertex.Point.x, vertex.Point.y)
+            if p not in points:
+                points.append(p)
+    return points, arcs, unsupported
+
+
+def _cover_farthest(points, arcs, x, y):
+    """The exact farthest distance from axis ``(x, y)`` to a :func:`_cover_contour`: a
+    segment's farthest point is an end; an arc's is ``o + r (o - c) / |o - c|`` at
+    ``|c - o| + r`` when that direction lies in its span, else an end."""
+    far = max((math.hypot(px - x, py - y) for px, py in points), default=0.0)
+    for ox, oy, r, a0, a1 in arcs:
+        d = math.hypot(ox - x, oy - y)
+        if d <= 1e-15:
+            far = max(far, r)
+            continue
+        away = math.atan2(oy - y, ox - x)
+        while away < a0:
+            away += 2 * math.pi
+        if away <= a1:
+            far = max(far, d + r)
+    return far
+
+
+def _cover_certified(points, arcs, x, y, radius):
+    """Whether 0 lies in the convex hull of the directions ``p - c`` to the contour points
+    ``radius`` from ``c = (x, y)``: the smallest enclosing disc's optimality condition, so
+    ``c`` is its unique centre and ``radius`` its radius. Supports are angles (a vertex, an
+    arc's farthest point) or an arc's whole span when ``c`` is its centre; the origin is
+    in their hull exactly when no angular gap between them exceeds pi."""
+    spans = []
+    for px, py in points:
+        if math.hypot(px - x, py - y) >= radius - COVER_TOL:
+            angle = math.atan2(py - y, px - x)
+            spans.append((angle, angle))
+    for ox, oy, r, a0, a1 in arcs:
+        d = math.hypot(ox - x, oy - y)
+        if d <= COVER_TOL:
+            if r >= radius - COVER_TOL:
+                spans.append((a0, a1))
+            continue
+        away = math.atan2(oy - y, ox - x)
+        lifted = away
+        while lifted < a0:
+            lifted += 2 * math.pi
+        if lifted <= a1 and d + r >= radius - COVER_TOL:
+            spans.append((away, away))
+    turn = 2 * math.pi
+    if any(hi - lo >= turn - COVER_ANGLE for lo, hi in spans):
+        return True
+    if not spans:
+        return False
+    spans = sorted((lo % turn, lo % turn + hi - lo) for lo, hi in spans)
+    widest, reach = 0.0, spans[0][1]
+    for lo, hi in spans[1:]:
+        widest = max(widest, lo - reach)
+        reach = max(reach, hi)
+    widest = max(widest, spans[0][0] + turn - reach)
+    return widest <= math.pi + COVER_ANGLE
+
+
+def _circle_meets(a, b):
+    """Where circles ``a`` and ``b`` ``(x, y, rho)`` meet; circles within COVER_GAP of
+    touching meet at their tangent point."""
+    (ax, ay, ra), (bx, by, rb) = a, b
+    gap = math.hypot(bx - ax, by - ay)
+    if gap <= 1e-12 or gap > ra + rb + COVER_GAP or gap < abs(ra - rb) - COVER_GAP:
+        return []
+    ux, uy = (bx - ax) / gap, (by - ay) / gap
+    along = (gap * gap + ra * ra - rb * rb) / (2 * gap)
+    half = math.sqrt(max(ra * ra - along * along, 0.0))
+    fx, fy = ax + along * ux, ay + along * uy
+    return [(fx - half * uy, fy + half * ux), (fx + half * uy, fy - half * ux)]
+
+
+def _ray_meets(ox, oy, angle, circle):
+    """Where the ray from ``(ox, oy)`` at ``angle`` meets ``circle`` ``(x, y, rho)``."""
+    wx, wy = math.cos(angle), math.sin(angle)
+    dx, dy = ox - circle[0], oy - circle[1]
+    b = dx * wx + dy * wy
+    square = b * b - (dx * dx + dy * dy - circle[2] ** 2)
+    if square < -COVER_GAP:
+        return []
+    root = math.sqrt(max(square, 0.0))
+    return [(ox + t * wx, oy + t * wy) for t in (-b - root, -b + root) if t >= -COVER_GAP]
+
+
+def _cover_candidates(points, arcs, radius):
+    """Finitely many axes containing every vertex of the cover locus and its singleton.
+
+    The locus boundary lies on the circles ``C(p, R)`` per contour point and ``C(o, R-r)``
+    per arc with ``R > r``: a positive-area locus has a vertex where two of them meet or
+    is the disc ``D(o, R-r)`` about an arc centre, and a single-point locus lies on two of
+    them or at an arc centre. Cone rays meeting the circles are kept too.
+    """
+    circles = [(px, py, radius) for px, py in points]
+    circles += [(ox, oy, radius - r) for ox, oy, r, _, _ in arcs if radius - r > 1e-12]
+    found = [(ox, oy) for ox, oy, _, _, _ in arcs]
+    for i, a in enumerate(circles):
+        for b in circles[i + 1 :]:
+            found.extend(_circle_meets(a, b))
+    for ox, oy, _, a0, a1 in arcs:
+        for angle in (a0 + math.pi, a1 + math.pi):
+            for circle in circles:
+                found.extend(_ray_meets(ox, oy, angle, circle))
+    return found
+
+
+def _extreme_points(face, edge):
+    """The points of ``edge`` extreme along -x, +x, -y and +y (exact Extrema solutions)."""
+    box = face.BoundBox
+    far = 10.0 + box.DiagonalLength
+    x0, x1, y0, y1 = box.XMin - far, box.XMax + far, box.YMin - far, box.YMax + far
+    found = []
+    for a, b in (
+        ((x0, y0), (x0, y1)),
+        ((x1, y0), (x1, y1)),
+        ((x0, y0), (x1, y0)),
+        ((x0, y1), (x1, y1)),
+    ):
+        line = Part.LineSegment(V(a[0], a[1], box.ZMin), V(b[0], b[1], box.ZMin)).toShape()
+        _, pairs, _ = edge.distToShape(line)
+        if not pairs:
+            raise ValueError(f"no extreme point found on its {type(edge.Curve).__name__} edge")
+        found.extend((p.x, p.y) for p, _ in pairs)
+    return found
+
+
+def _cover_disc(x, y, z, radius):
+    return Part.Face(Part.Wire(Part.makeCircle(radius, V(x, y, z))))
+
+
+def _cover_cone(ox, oy, z, a0, a1, length):
+    """The closed sector at ``(ox, oy)`` over directions ``a0..a1``, ``length`` long."""
+    if a1 - a0 >= 2 * math.pi - 1e-12:
+        return _cover_disc(ox, oy, z, length)
+    centre = V(ox, oy, z)
+    ends = [
+        V(ox + length * math.cos(a), oy + length * math.sin(a), z) for a in (a0, (a0 + a1) / 2, a1)
+    ]
+    return Part.Face(
+        Part.Wire(
+            [
+                Part.LineSegment(centre, ends[0]).toShape(),
+                Part.Arc(*ends).toShape(),
+                Part.LineSegment(ends[2], centre).toShape(),
+            ]
+        )
+    )
+
+
+def _cover_region_problem(locus, faces, points, arcs, radius):
+    """Why the native partition ``faces`` of ``locus`` is not the one convex cover locus,
+    or None.
+
+    The locus ``{c : g(c) <= radius}`` is convex and its boundary is where ``g`` reaches
+    ``radius``: arcs of ``D(p, radius)`` about the outer wire's points and, for each arc
+    ``(o, r)``, of ``D(o, radius - r)``. The partition must be valid faces that merge,
+    without overlap, into one face bounded by one wire; that wire must turn one way only
+    (arcs and corners alike, total one full turn), every edge must lie on one of those
+    circles, and every vertex and edge midpoint must have ``g`` within PLANE_TOL of
+    ``radius``. A split, an overlap, a lost corner or a foreign boundary fails.
+    """
+    area = sum(f.Area for f in faces)
+    if not locus.isValid() or not all(f.isValid() for f in faces) or area <= 0:
+        return "is not a valid native face set"
+    union = faces[0] if len(faces) == 1 else faces[0].fuse(faces[1:]).removeSplitter()
+    if len(union.Faces) != 1 or len(union.Faces[0].Wires) != 1:
+        return "is not one simply connected piece"
+    if abs(union.Area - area) > 1e-9 * max(1.0, area):
+        return "has overlapping pieces"
+    circles = [(x, y, radius) for x, y in points]
+    circles += [(ox, oy, radius - r) for ox, oy, r, _, _ in arcs if radius - r > 1e-12]
+    edges = union.Faces[0].OuterWire.OrderedEdges
+    turns, ends = [], []
+    for edge in edges:
+        first, last = edge.FirstParameter, edge.LastParameter
+        sign = -1.0 if edge.Orientation == "Reversed" else 1.0
+        start, end = (first, last) if sign > 0 else (last, first)
+        ends.append(
+            (
+                edge.valueAt(start),
+                edge.tangentAt(start) * sign,
+                edge.valueAt(end),
+                edge.tangentAt(end) * sign,
+            )
+        )
+        curve = edge.Curve
+        if not isinstance(curve, Part.Circle) or not any(
+            math.hypot(curve.Center.x - x, curve.Center.y - y) <= PLANE_TOL
+            and abs(curve.Radius - rho) <= PLANE_TOL
+            for x, y, rho in circles
+        ):
+            return "has a boundary edge on no cover circle"
+        turns.append(math.copysign(last - first, curve.Axis.z * sign))
+        mid = edge.valueAt((first + last) / 2)
+        for p in (mid, edge.valueAt(first)):
+            if abs(_cover_farthest(points, arcs, p.x, p.y) - radius) > PLANE_TOL:
+                return "has boundary off the cover circle"
+    for (_, _, p, t), (q, u, _, _) in zip(ends, ends[1:] + ends[:1], strict=True):
+        if (p - q).Length > PLANE_TOL:
+            return "has an open boundary"
+        turns.append(math.atan2(t.x * u.y - t.y * u.x, t.x * u.x + t.y * u.y))
+    total = sum(turns)
+    if abs(abs(total) - 2 * math.pi) > 1e-6 or any(t * total < -1e-6 for t in turns):
+        return "is not convex"
+    return None
+
+
+def _cover_locus(face, radius):
+    """The axes ``c`` whose cutter disc ``D(c, radius)`` holds the whole planar face.
+
+    The locus is the intersection of ``D(p, radius)`` over the face's points: convex and
+    fixed by its outer wire. A line contributes its end discs; a Z-axis arc (centre
+    ``o``, radius ``r``) its end discs and, across the cone opposite its span, ``|c - o|
+    <= radius - r``. Returns ``("empty", None)`` when no candidate axis
+    (:func:`_cover_candidates`) covers the face; ``("point", (x, y))`` for a certified
+    singleton (:func:`_cover_certified`); else ``("region", (x, y))``, the area centroid
+    of every face of the native locus, accepted only when :func:`_cover_region_problem`
+    certifies those faces as the one convex locus, the centroid covers the face and every
+    covering candidate lies on that locus. Any other
+    contour has no exact locus here: unless discs about its exact points (vertices,
+    extremes) share no point, it raises ValueError, as does a failed native locus.
+    """
+    points, arcs, unsupported = _cover_contour(face)
+    if not points:
+        raise ValueError("its outer wire has no vertex")
+    span = 2 * radius + COVER_TOL
+    if any(
+        math.hypot(ax - bx, ay - by) > span
+        for i, (ax, ay) in enumerate(points)
+        for bx, by in points[i + 1 :]
+    ):
+        return "empty", None
+    if unsupported:
+        exact = points + [p for _, edge in unsupported for p in _extreme_points(face, edge)]
+        if all(
+            _cover_farthest(exact, [], x, y) > radius + COVER_TOL
+            for x, y in _cover_candidates(exact, [], radius)
+        ):
+            return "empty", None
+        names = ", ".join(sorted({name for name, _ in unsupported}))
+        raise ValueError(f"its outer contour ({names}) has no exact whole-face cover locus")
+    feasible = [
+        (x, y)
+        for x, y in _cover_candidates(points, arcs, radius)
+        if _cover_farthest(points, arcs, x, y) <= radius + COVER_TOL
+    ]
+    if not feasible:
+        return "empty", None
+    for x, y in feasible:
+        if _cover_farthest(points, arcs, x, y) >= radius - COVER_TOL and _cover_certified(
+            points, arcs, x, y, radius
+        ):
+            if any(math.hypot(x - u, y - v) > COVER_GAP for u, v in feasible):
+                raise ValueError("its certified covering axis is not the only covering one")
+            return "point", (x, y)
+    z = face.BoundBox.ZMin
+    sx, sy = points[0]
+    locus = _cover_disc(sx, sy, z, radius)
+    for x, y in points[1:]:
+        locus = locus.common(_cover_disc(x, y, z, radius))
+    for ox, oy, r, a0, a1 in arcs:
+        # D(seed, R) already holds every surviving axis, so this length encloses them.
+        length = math.hypot(ox - sx, oy - sy) + radius + 1.0
+        cone = _cover_cone(ox, oy, z, a0 + math.pi, a1 + math.pi, length)
+        if radius - r > 1e-12:
+            cone = cone.cut(_cover_disc(ox, oy, z, radius - r))
+        locus = locus.cut(cone)
+    faces = sorted(
+        locus.Faces,
+        key=lambda f: (round(f.CenterOfMass.x, 9), round(f.CenterOfMass.y, 9), f.Area),
+    )
+    if not faces:
+        raise ValueError("its whole-face cover locus has area but the native boolean lost it")
+    problem = _cover_region_problem(locus, faces, points, arcs, radius)
+    if problem is not None:
+        raise ValueError(f"its native whole-face cover locus {problem}")
+    area = sum(f.Area for f in faces)
+    cx = sum(f.Area * f.CenterOfMass.x for f in faces) / area
+    cy = sum(f.Area * f.CenterOfMass.y for f in faces) / area
+    if _cover_farthest(points, arcs, cx, cy) > radius + COVER_TOL or any(
+        locus.distToShape(Part.Vertex(V(x, y, z)))[0] > PLANE_TOL for x, y in feasible
+    ):
+        raise ValueError("its native whole-face cover locus disagrees with the exact check")
+    return "region", (cx, cy)
+
+
 def _edge_direction(edge):
     """'vertical', 'horizontal' or 'skew' with respect to the tool axis."""
     if isinstance(edge.Curve, Part.Line):
@@ -982,12 +1320,13 @@ def _envelope(stock):
     return solid
 
 
-def _clearing_box(bounds, within=None):
-    """(setup-frame solid of an op's ``stock_removal_bounds`` in mm, or None, and why not).
+def _clearing_span(bounds, within=None):
+    """(setup-frame (x0, y0, z0, x1, y1, z1) of an op's ``stock_removal_bounds`` in mm, or
+    None, and why not).
 
-    Given the stock bbox ``within``, the box is clipped to it grown by 1 mm before it is
-    built, so huge finite bounds never become huge boolean operands; its intersection with
-    that stock and face contact within ``STOCK_TOL`` are unchanged.
+    Given the stock bbox ``within``, the span is clipped to it grown by 1 mm, so huge finite
+    bounds never become huge boolean operands; its intersection with that stock and face
+    contact within ``STOCK_TOL`` are unchanged.
     """
     if isinstance(bounds, dict) and bounds.get("reason"):
         return None, str(bounds["reason"])
@@ -1015,7 +1354,199 @@ def _clearing_box(bounds, within=None):
         hi = [min(v, within[axis + 3] + 1.0) for axis, v in enumerate(hi)]
         if any(a >= b for a, b in zip(lo, hi, strict=True)):
             return None, "stock_removal_bounds lie wholly outside the stock"
-    return _box_shape((*lo, *hi)), None
+    return (*lo, *hi), None
+
+
+def _clearing_box(bounds, within=None):
+    """(setup-frame solid of an op's :func:`_clearing_span`, or None, and why not)."""
+    span, why = _clearing_span(bounds, within)
+    return (None, why) if span is None else (_box_shape(span), None)
+
+
+def _depth_window(span, to_z):
+    """``span`` above an op's ``to_z``, or None when nothing of it is."""
+    if to_z is None:
+        return span
+    z0 = max(span[2], float(to_z))
+    return None if z0 >= span[5] else (span[0], span[1], z0, *span[3:])
+
+
+def _sweep_window(sweep):
+    """A box holding a whole +Z claim sweep."""
+    box = _bbox(sweep)
+    return (*(v - COVER_MM for v in box[:3]), *(v + COVER_MM for v in box[3:]))
+
+
+def _offset(shape, distance, join=0, fill=False):
+    """``shape`` offset by ``distance`` (``fill``: thickened into a solid), built on a deep
+    copy: OCC's offset rewrites the edge tolerances and pcurves of the shape it runs on in
+    place, so offsetting a face shared with the finished part would change that part's
+    geometry, and every later Boolean on it, depending on call order."""
+    return shape.copy().makeOffsetShape(distance, 1e-6, False, False, 0, join, fill)
+
+
+def _tube(edge, radius):
+    """Points within ``radius`` of an edge, swept normal to it (balls cap its ends).
+
+    A line gets an exact cylinder; an arc a pipe whose volume must equal pi r^2 L
+    (Pappus), so a pipe OCC builds short of material, or one folding over a bend tighter
+    than ``radius``, fails instead of keeping less.
+    """
+    start, tangent = edge.valueAt(edge.FirstParameter), edge.tangentAt(edge.FirstParameter)
+    if isinstance(edge.Curve, Part.Line):
+        return Part.makeCylinder(radius, edge.Length, start, tangent)
+    tube = Part.Wire([edge.copy()]).makePipeShell(
+        [Part.Wire([Part.makeCircle(radius, start, tangent)])], True, True
+    )
+    expected = math.pi * radius * radius * edge.Length
+    if (
+        not tube.isValid()
+        or len(tube.Solids) != 1
+        or abs(tube.Volume - expected) > TUBE_REL * expected
+    ):
+        raise ValueError(f"its {_r(radius)} mm tube is not a valid full-volume solid")
+    return tube
+
+
+def _dihedral(edge, first, second):
+    """``"tangent"``, ``"convex"`` or ``"concave"`` where two faces meet along ``edge``, or
+    None unless that is provably the same all along it.
+
+    It is when the edge is a line both surfaces are invariant along (planes, cylinders on
+    a parallel axis, cones through their apex) or a circle both are invariant around
+    (coaxial planes, cylinders, cones, tori, spheres): the dihedral then moves rigidly
+    along the edge, and its midpoint decides it.
+    """
+    curve = edge.Curve
+    if not (_invariant(first.Surface, curve) and _invariant(second.Surface, curve)):
+        return None
+    try:
+        t = (edge.FirstParameter + edge.LastParameter) / 2
+        point, tangent = edge.valueAt(t), edge.tangentAt(t)
+        n1, n2 = _normal_at(first, point), _normal_at(second, point)
+        if n1.cross(n2).Length < 1e-7 and n1.dot(n2) > 0:
+            return "tangent"
+        into = tangent.cross(n1)
+        into.normalize()
+        step = 10 * STOCK_TOL
+        ahead = first.distToShape(Part.Vertex(point + into * step))[0]
+        behind = first.distToShape(Part.Vertex(point - into * step))[0]
+        if ahead > behind:
+            into = -into
+        return "convex" if into.dot(n2) < 0 else "concave"
+    except Exception:
+        return None
+
+
+def _invariant(surface, curve):
+    """Whether ``surface`` maps to itself when a point slides along the line ``curve`` or
+    turns about the circle ``curve``'s axis."""
+
+    def parallel(a, b):
+        return a.cross(b).Length < 1e-9 * a.Length * b.Length
+
+    def on_axis(point, origin, direction):
+        offset = point - origin
+        return offset.cross(direction).Length < STOCK_TOL * direction.Length
+
+    if isinstance(curve, Part.Line):
+        if isinstance(surface, Part.Plane):
+            return True
+        if isinstance(surface, Part.Cylinder):
+            return parallel(surface.Axis, curve.Direction)
+        if isinstance(surface, Part.Cone):
+            return on_axis(surface.Apex, curve.Location, curve.Direction)
+        return False
+    if isinstance(curve, Part.Circle):
+        if isinstance(surface, Part.Plane):
+            return parallel(surface.Axis, curve.Axis)
+        if isinstance(surface, Part.Sphere):
+            return on_axis(surface.Center, curve.Center, curve.Axis)
+        if isinstance(surface, (Part.Cylinder, Part.Toroid)):
+            return parallel(surface.Axis, curve.Axis) and on_axis(
+                curve.Center, surface.Center, surface.Axis
+            )
+        if isinstance(surface, Part.Cone):
+            return parallel(surface.Axis, curve.Axis) and on_axis(
+                curve.Center, surface.Apex, surface.Axis
+            )
+    return False
+
+
+def _material(shape, what):
+    """``shape`` when a Boolean left solid material, None when it left nothing at all.
+
+    A result with faces but no solid is invalid topology, not an empty intersection.
+    """
+    if shape.Solids:
+        return shape
+    if shape.Faces or shape.Shells:
+        raise ValueError(f"{what} is faces without a solid")
+    return None
+
+
+def _valid(shape, what):
+    """:func:`_material` of ``shape``, which must also be valid topology."""
+    shape = _material(shape, what)
+    if shape is not None and not shape.isValid():
+        raise ValueError(f"{what} is not valid")
+    return shape
+
+
+def _cleared(original, rest, group):
+    """Whether a band ``group`` needs no cut from ``rest``, what is left of the stock piece
+    ``original`` after the cuts before it: none of the group is in ``rest``, or those cuts
+    took all but a mere hit of a group ``original`` held more of. A tiny group still whole,
+    or one whose remainder is not valid topology, is not cleared."""
+
+    def within(stock):
+        try:
+            commons = [_valid(stock.common(piece), "band group in stock") for piece in group]
+        except ValueError:
+            return None
+        return sum(common.Volume for common in commons if common is not None)
+
+    left = within(rest)
+    if left is None or left > HIT_MM3:
+        return False
+    return left == 0.0 or (within(original) or 0.0) > HIT_MM3
+
+
+def _breaking(original, applied):
+    """Label of the first ``(label, removal)`` pair of ``applied`` that leaves ``original``
+    invalid when they are cut from it in order. Only an explanation of stock already found
+    invalid: a replay that fails says so instead of replacing that finding."""
+    rest = original
+    try:
+        for label, removal in applied:
+            rest = rest.cut(removal)
+            if not rest.isValid():
+                return label
+    except Exception as exc:
+        return f"replaying its cuts to find the first that breaks it failed ({exc})"
+    return "only once all are cut"
+
+
+def _touching(solids):
+    """``solids`` grouped by contact: the connected pieces their fusion would give."""
+    groups = []
+    for solid in solids:
+        box = solid.BoundBox
+        box.enlarge(STOCK_TOL)
+        joined = [
+            group
+            for group in groups
+            if any(
+                box.intersect(other.BoundBox) and _distance(solid, other)[0] <= HIT_MM3
+                for other in group
+            )
+        ]
+        merged = [solid]
+        for group in joined:
+            merged.extend(group)
+        groups = [group for group in groups if not any(group is j for j in joined)]
+        groups.append(merged)
+    return groups
 
 
 _UNRADIUSED = "stock_removal_bounds is unresolved: missing measured cutter radius_mm"
@@ -1973,9 +2504,10 @@ class _Setup:
         self.stock_out, self.stock_out_reason = None, self.stock_reason
         # Setup-frame stock entering the setup and after each op that changes it.
         self.stock_states = []
-        # Stock builder (:meth:`_build`): id(op) -> (setup-frame stock before it, the removal
-        # derived for it or None, None) or (None, None, why that stock is unknown); the facts
-        # of each saw it reached; and (end stock, None) or (None, why it stopped).
+        # Stock builder (:meth:`_build`): id(op) -> (setup-frame stock before it, the stock
+        # accepted after it (its before stock when it stopped the builder), None) or (None,
+        # None, why that stock is unknown); the facts of each saw it reached; and (end
+        # stock, None) or (None, why it stopped).
         self.cuts = {}
         self.saws = {}
         self.built = None
@@ -2008,10 +2540,15 @@ class _Setup:
         # Turning op subject -> (profile after it, or None, and (failing op, why) or None).
         self.turn_obstacles = {}
         self.floor_adjacency = None
+        self.cover_axes = {}  # (floor index, radius, leave) -> (whole-face axis or None, error)
         self.hole_cuts = {}  # (id(op), indices, radius) -> _hole_cut record
         self.hole_columns = None  # finished hole-face index -> entry-stock-long bore column
-        self.guards = {}  # rough leave -> (protected solid offset outward by it, or None, why)
+        # rough leave -> (protected solid offset outward by it, or None, why); and
+        # (leave, window) -> (exact offset pieces of protected material within it, or None, why)
+        self.guards = {}
         self.slabs = {}  # (face index, thickness) -> (face thickened outward, or None, why)
+        self.skins = {}  # (claimed indices, leave) -> (their offset skin primitives, or None, why)
+        self.sweeps = {}  # (claimed indices, facing?) -> (swept faces, +Z sweep or None)
         self.neighbours = None  # finished face index -> indices sharing an edge with it
         self.timing = None
 
@@ -2395,12 +2932,15 @@ class _Setup:
         """(setup-frame stock after this setup's cuts, or None, and why it cannot be derived).
 
         One pass in op order, before any op is measured: ``cuts`` records the stock before
-        each op and the removal derived for it (:meth:`_cut`), ``saws`` each reached saw's
-        facts (:meth:`_saw_stock`) and ``stock_states`` every changed state. Each input stock
-        solid loses its removal separately and must stay one valid piece. The first op whose
-        cut cannot be derived (or splits, empties or fails a boolean) stops the pass: its own
-        before-op stock stays known, every later op's is unknown for that reason, and no
-        later cut is ever credited to an earlier op.
+        each op and the stock it accepted after removing the cut derived for it
+        (:meth:`_cut`), ``saws`` each reached saw's facts (:meth:`_saw_stock`) and
+        ``stock_states`` the stock after every op that changes it. Each input stock solid
+        loses the same cut separately (:meth:`_remove`); separate solids are never fused.
+        The first op whose cut cannot be derived (or splits, empties, leaves invalid or
+        band-holding stock, or fails a boolean) stops the pass: its own before-op stock stays
+        known and is also its after stock, so its failed clearance is never credited; every
+        later op's is unknown for that reason, and no later cut is ever credited to an
+        earlier op.
         """
         where = self._where()
         stock, stopped = self.part, None
@@ -2410,7 +2950,7 @@ class _Setup:
             if stopped is not None:
                 self.cuts[id(op)] = (None, None, stopped)
                 continue
-            before, removal = stock, None
+            before = stock
             try:
                 if _sawn(op):
                     after, detail = self._saw_stock(op, stock)
@@ -2422,51 +2962,96 @@ class _Setup:
                         stock = after
                         self.stock_states.append(stock)
                     continue
-                removal, why = self._cut(op, stock)
+                plan, why = self._cut(op, stock)
                 if why is not None:
                     stopped = f"{subject} {why}; {where}"
-                elif removal is not None:
+                    continue
+                own, groups = plan
+                after = stock
+                if own is not None or groups:
                     pieces = []
                     for original in stock.Solids:
-                        kept = [p for p in original.cut(removal).Solids if p.Volume > STOCK_MM3]
-                        if len(kept) > 1 or not all(piece.isValid() for piece in kept):
-                            stopped = (
-                                f"{subject}: removing its claimed clearance splits an input "
-                                f"stock piece into {len(kept)} piece(s); {where}"
-                            )
+                        kept, why = self._remove(original, own, groups)
+                        if why is not None:
+                            stopped = f"{subject}: {why}; {where}"
                             break
                         pieces.extend(kept)
                     if stopped is None and not pieces:
                         stopped = f"{subject}: claimed clearance leaves no stock; {where}"
                     if stopped is None:
-                        stock = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
-                        self.stock_states.append(stock)
+                        after = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
                 if stopped is None and isinstance(op.get("joint_cut"), dict):
                     # A finishing joint cut completes its feature on the stock it leaves.
                     try:
-                        self._complete_joint(op, stock)
+                        self._complete_joint(op, after)
                     except ValueError as exc:
                         self.joint_errors[subject] = str(exc)
                         stopped = f"{subject}: {exc}; {where}"
+                if stopped is None and after is not stock:
+                    stock = after
+                    self.stock_states.append(stock)
             except Exception as exc:
                 stopped = f"in-process stock boolean failed ({exc}); {where}"
             finally:
-                self.cuts[id(op)] = (before, removal, None)
+                self.cuts[id(op)] = (before, stock, None)
         return (None, stopped) if stopped is not None else (stock, None)
 
-    def _cut(self, op, stock):
-        """(stock ``op`` removes from ``stock``, or None, and why it cannot be derived).
+    @staticmethod
+    def _remove(original, own, groups):
+        """(the stock solid ``original`` less one op's cut, as its kept pieces, or None, and
+        why that is not one valid piece free of the cut's band).
 
-        A joint op (``joint_cut``) removes its analytic transient cylinder (see
-        :meth:`_joint_removal`); a hole op (``hole`` metadata) its geometry-located bore
+        Its own clearance goes first, then each connected band group, piece by piece and
+        never fused. A group the cuts before it already cleared (:func:`_cleared`) is not
+        cut again. Only the end is judged, so a fragment one piece splits off may still go
+        with a later piece: at most one piece above ``STOCK_MM3`` may remain, valid and
+        holding no more than ``STOCK_MM3`` of the band.
+        """
+        rest, applied = original, []
+        if own is not None:
+            rest = rest.cut(own)
+            applied.append(("its own clearance", own))
+        for number, group in enumerate(groups, 1):
+            if not rest.Solids:
+                break
+            if _cleared(original, rest, group):
+                # Cutting what is gone only adds OCC coincident-face artefacts.
+                continue
+            for piece in group:
+                if rest.Solids:
+                    rest = rest.cut(piece)
+                    applied.append((f"lineage band group {number}", piece))
+        kept = [piece for piece in rest.Solids if piece.Volume > STOCK_MM3]
+        if len(kept) > 1:
+            return None, (
+                f"removing its claimed clearance splits an input stock piece into "
+                f"{len(kept)} pieces"
+            )
+        if not all(piece.isValid() for piece in kept):
+            return None, (
+                "removing its claimed clearance leaves an invalid stock piece "
+                f"({_breaking(original, applied)})"
+            )
+        left = sum(piece.common(cut).Volume for piece in kept for group in groups for cut in group)
+        if left > STOCK_MM3:
+            return None, f"{_r(left)} mm^3 of its lineage leave band survived its removal"
+        return kept, None
+
+    def _cut(self, op, stock):
+        """(the cut ``op`` makes in ``stock``, or None, and why it cannot be derived).
+
+        A cut is ``(own clearance or None, connected band groups)``, each group a list of
+        solids; ``(None, [])`` removes nothing. A joint op (``joint_cut``) removes its
+        analytic transient cylinder (:meth:`_joint_removal`), a turning op its revolved stock
+        (:meth:`_turn_removal`) and a hole op (``hole`` metadata) its geometry-located bore
         cylinder (see :meth:`_hole_cut`). Other ops remove only stock outside their guard:
-        the finished solid offset by their own rough leave (:meth:`_guard`). An authored
-        clearing box removes that within the box above ``to_z``, leaving unclaimed hole
-        columns to their own ops; its pieces must border a claim on the stock entering the
-        setup, so an earlier op clearing the bridge between a claim and the rest of its box
-        never strands that box. Other ops sweep direction-valid claims along +Z, keeping
-        unclaimed rails, ears, webs and overstock. A lower-leave op also cuts the lineage
-        leave off its claimed lateral faces of ``stock`` (:meth:`_band`).
+        the component-owned finished solid offset by their own rough leave
+        (:meth:`_protect`). An authored clearing box removes that within the box above
+        ``to_z``, leaving unclaimed hole columns to their own ops; its pieces must border a
+        claim on the stock entering the setup, so an earlier op clearing the bridge between a
+        claim and the rest of its box never strands that box. Other ops sweep direction-valid
+        claims along +Z, keeping unclaimed rails, ears, webs and overstock. A lower-leave op
+        also cuts the lineage leave off its claimed lateral faces of ``stock`` (:meth:`_band`).
         """
         valid, away, why = self._claims(op)
         if not isinstance(valid, list):
@@ -2475,15 +3060,20 @@ class _Setup:
         if to_z is not None and not _number(to_z):
             return None, "to_z is unknown"
         if isinstance(op.get("joint_cut"), dict):
-            return self._joint_removal(op, stock)
+            removal, why = self._joint_removal(op, stock)
+            return (None, why) if why is not None else ((removal, []), None)
         if _turned(op):
-            return self._turn_removal(op, valid, stock)
+            removal, why = self._turn_removal(op, valid, stock)
+            return (None, why) if why is not None else ((removal, []), None)
         if isinstance(op.get("hole"), dict):
             cut = self._hole_cut(op, valid, _positive(op, "radius_mm"))
-            return cut["removal"], cut["reason"]
+            if cut["reason"] is not None:
+                return None, cut["reason"]
+            return (cut["removal"], []), None
         leave, why = self._guarded(op)
         if why is not None:
             return None, why
+        carried = self._carried(op)
         if "stock_removal_bounds" in op:
             # Removing the entry-stock pieces from the current stock only cuts.
             removal, why = self._bounded(
@@ -2495,16 +3085,16 @@ class _Setup:
                 _positive(op, "radius_mm"),
                 leave,
             )
-            if why is not None:
-                return None, why
         else:
-            removal = self._removal(valid, to_z, op.get("do"), leave)
-        band, why = self._band(stock, valid, to_z, leave, self._carried(op))
+            removal, why = self._removal(valid, to_z, op.get("do"), leave)
         if why is not None:
             return None, why
-        if band is not None:
-            removal = band if removal is None else removal.fuse(band)
-        return removal, None
+        band, why = self._band(
+            stock, valid, to_z, leave, carried, self._reach_window(op, leave, carried)
+        )
+        if why is not None:
+            return None, why
+        return (removal, band or []), None
 
     def _finish(self, ops):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
@@ -2512,7 +3102,8 @@ class _Setup:
         Judged once on the builder's end stock, after every op is measured; neither debt
         changes any op's before-op stock. Every face an unbounded milling op claims with a
         horizontal normal component must be clear of overstock beyond its op's guard at its
-        interior; merely sweeping a sliver from a drafted wall does not prove it cleared.
+        interior (:meth:`_protect` within the claims' reach, the guard's derivable window);
+        merely sweeping a sliver from a drafted wall does not prove it cleared.
         Each complete-form hole op's own claimed caps (``cap_completion`` in its ``ops``
         facts) must likewise be clear of it, even when its cut removes nothing new; touched
         caps are named there and make the output stock debt.
@@ -2531,13 +3122,17 @@ class _Setup:
                     or "stock_removal_bounds" in op
                 ):
                     continue
+                claimed = self._indices(op)
+                if not claimed:
+                    continue
                 subject, to_z = self._subject(op), op.get("to_z")
                 leave, carried = self._guarded(op)[0], self._carried(op)
                 # Raw stock beyond the larger of its own and the lineage leave is uncleared.
-                overstock = stock.cut(self._guard(leave)[0])
-                covered = self._covered(
-                    overstock, self._indices(op), to_z, max(leave, carried) + COVER_MM
-                )
+                reach = max(leave, carried) + COVER_MM
+                overstock, why = self._protect(stock, leave, self._claim_window(claimed, reach))
+                if why is not None:
+                    return None, f"{subject} {why}; {where}"
+                covered = self._covered(overstock, claimed, to_z, reach)
                 if covered:
                     return None, (
                         f"{subject}: overstock still touches claimed wall(s) "
@@ -2722,9 +3317,10 @@ class _Setup:
         removed piece must border a claim across the op's ``leave``. Bores of hole-op
         claims this op does not claim keep their stock (:meth:`_hole_columns`).
         """
-        box, why = _clearing_box(bounds, _bbox(stock))
-        if box is None:
+        span, why = _clearing_span(bounds, _bbox(stock))
+        if span is None:
             return None, why
+        box = _box_shape(span)
         labels = self.owner.labels
         if away:
             return None, (
@@ -2743,7 +3339,12 @@ class _Setup:
             )
         if radius is None:
             return None, _UNRADIUSED
-        removed = stock.common(box).cut(self._guard(leave)[0])
+        window = _depth_window(span, to_z)
+        if window is None:
+            return None, None
+        removed, why = self._protect(stock.common(box), leave, window)
+        if why is not None:
+            return None, why
         columns = self._hole_columns(valid)
         if columns is not None:
             # Not-yet-drilled hole interiors stay stock for their own hole op.
@@ -2767,61 +3368,74 @@ class _Setup:
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
     def _removal(self, valid, to_z, action, leave):
-        """Stock outside the op's guard swept by direction-valid claims along +Z.
+        """(stock outside the op's guard swept by direction-valid claims along +Z, or None,
+        and why not).
 
         A facing ``action`` sweeps each planar claim's outer loop, so raw pins over hole
-        mouths go too; subtracting the guard still keeps islands, bosses and the leave.
+        mouths go too; subtracting the guard still keeps islands, bosses and the leave. The
+        whole sweep is guarded and its pieces judged by claim contact before ``to_z``
+        clips them.
         """
-        up = V(0, 0, 1)
-        faces, prisms = [], []
-        for index in valid:
-            face = self.faces[index]
-            surface = face.Surface
-            if (
-                isinstance(surface, Part.Cylinder)
-                and abs(surface.Axis.dot(up)) >= PARALLEL
-                and _cylinder_concave(face)
-            ):
-                z0 = _bbox(face)[2]
-                faces.append(face)
-                prisms.append(
-                    Part.makeCylinder(
-                        surface.Radius,
-                        self.owner.sweep_mm,
-                        V(surface.Center.x, surface.Center.y, z0),
-                        up,
-                    )
-                )
-                continue
-            if _vertical(face, up):
-                continue
-            if (
-                action in FACING_ACTIONS
-                and isinstance(face.Surface, Part.Plane)
-                and len(face.Wires) > 1
-            ):
-                face = Part.Face(face.OuterWire)
-            prism = face.extrude(up * self.owner.sweep_mm)
-            if prism.Volume > HIT_MM3:
-                faces.append(face)
-                prisms.append(prism)
-        if not prisms:
-            return None
-        sweep = prisms[0].fuse(prisms[1:]) if len(prisms) > 1 else prisms[0]
+        faces, sweep = self._sweep(valid, action)
+        if sweep is None:
+            return None, None
+        cut, why = self._protect(sweep, leave, _sweep_window(sweep))
+        if why is not None:
+            return None, why
         kept = [
             piece
-            for piece in sweep.cut(self._guard(leave)[0]).Solids
+            for piece in cut.Solids
             if piece.Volume > HIT_MM3
             and any(_distance(piece, f)[0] < leave + STOCK_TOL for f in faces)
         ]
         if not kept:
-            return None
+            return None, None
         removal = kept[0].fuse(kept[1:]) if len(kept) > 1 else kept[0]
         if to_z is not None:
             removal = removal.common(self._above(to_z))
             if removal.Volume <= HIT_MM3:
-                return None
-        return removal
+                return None, None
+        return removal, None
+
+    def _sweep(self, valid, action):
+        """(swept claimed faces, their +Z sweep or None), cached per claims and action."""
+        facing = action in FACING_ACTIONS
+        key = (tuple(valid), facing)
+        if key not in self.sweeps:
+            up = V(0, 0, 1)
+            faces, prisms = [], []
+            for index in valid:
+                face = self.faces[index]
+                surface = face.Surface
+                if (
+                    isinstance(surface, Part.Cylinder)
+                    and abs(surface.Axis.dot(up)) >= PARALLEL
+                    and _cylinder_concave(face)
+                ):
+                    z0 = _bbox(face)[2]
+                    faces.append(face)
+                    prisms.append(
+                        Part.makeCylinder(
+                            surface.Radius,
+                            self.owner.sweep_mm,
+                            V(surface.Center.x, surface.Center.y, z0),
+                            up,
+                        )
+                    )
+                    continue
+                if _vertical(face, up):
+                    continue
+                if facing and isinstance(face.Surface, Part.Plane) and len(face.Wires) > 1:
+                    face = Part.Face(face.OuterWire)
+                prism = face.extrude(up * self.owner.sweep_mm)
+                if prism.Volume > HIT_MM3:
+                    faces.append(face)
+                    prisms.append(prism)
+            sweep = None
+            if prisms:
+                sweep = prisms[0].fuse(prisms[1:]) if len(prisms) > 1 else prisms[0]
+            self.sweeps[key] = (faces, sweep)
+        return self.sweeps[key]
 
     def _above(self, z):
         """A box holding everything in this setup at or above height ``z``."""
@@ -2899,29 +3513,108 @@ class _Setup:
         return max(leaves)
 
     def _guarded(self, op):
-        """(op's known rough leave whose guard is derivable, or None, and why not)."""
+        """(op's known rough leave whose guard is derivable, or None, and why not).
+
+        Derivable means the whole finished part offsets, or, where OCC cannot build that
+        (tangent zero-height lands), the exact offset within every window this op's
+        consumers protect (:meth:`_windows`) does.
+        """
         leave, why = _leave(op)
         if why is None:
             why = self._guard(leave)[1]
+        if why is not None and leave is not None:
+            windows, debt = self._windows(op, leave)
+            for window in windows if debt is None else ():
+                debt = self._guard(leave, window)[1]
+                if debt is not None:
+                    break
+            why = None if debt is None else f"{why}; {debt}"
         return (leave, None) if why is None else (None, why)
 
-    def _guard(self, leave):
+    def _windows(self, op, leave):
+        """(setup-frame boxes in which this op's consumers subtract its own guard, or why
+        not): its claimed faces grown by the reach of the wall check, band and pose
+        contacts; its clearing box above ``to_z``, or its whole unclipped claim sweep."""
+        indices = self._indices(op)
+        valid, _, why = self._claims(op)
+        if indices == UNKNOWN or not isinstance(valid, list):
+            return [], f"claimed faces are unresolved ({why})"
+        to_z = op.get("to_z")
+        if to_z is not None and not _number(to_z):
+            return [], "to_z is unknown"
+        windows = []
+        if indices:
+            windows.append(self._reach_window(op, leave, self._carried(op)))
+        if "stock_removal_bounds" in op:
+            span, _ = _clearing_span(op["stock_removal_bounds"], _bbox(self.part))
+            window = None if span is None else _depth_window(span, to_z)
+            if window is not None:
+                windows.append(window)
+        else:
+            sweep = self._sweep(valid, op.get("do"))[1]
+            if sweep is not None:
+                windows.append(_sweep_window(sweep))
+        return windows, None
+
+    def _reach_window(self, op, leave, carried):
+        """:meth:`_claim_window` of an op's claims at its wall-check reach."""
+        indices = self._indices(op)
+        if indices == UNKNOWN:
+            return None
+        return self._claim_window(indices, max(leave, carried) + COVER_MM)
+
+    def _claim_window(self, indices, reach):
+        """The claimed faces' box grown by ``reach``: every point within it of them."""
+        if not indices:
+            return None
+        boxes = [_bbox(self.faces[index]) for index in indices]
+        return (
+            *(min(box[axis] for box in boxes) - reach for axis in range(3)),
+            *(max(box[axis] for box in boxes) + reach for axis in range(3, 6)),
+        )
+
+    def _protect(self, shape, leave, window):
+        """(``shape`` less the op's guard, or None, and why not).
+
+        With the whole-part guard, all of ``shape``. Otherwise only its part inside
+        ``window``, less the exact guard there: nothing outside the window is touched.
+        """
+        guard, why = self._guard(leave)
+        if why is None:
+            return shape.cut(guard), None
+        if window is None:
+            return None, why
+        pieces, why = self._guard(leave, window)
+        if why is not None:
+            return None, why
+        shape = shape.common(_box_shape(window))
+        for piece in pieces:
+            shape = shape.cut(piece)
+        return shape, None
+
+    def _guard(self, leave, window=None):
         """(component-owned finished solid offset outward by ``leave``, or None, and why not).
 
         Arc joins give the exact offset; where OCC cannot build them (a drill-point apex)
         sharp intersection joins give a superset that keeps more stock. The leave stays
         stock: a valid finite solid containing the branch's protected material, or named
         debt, never the nominal solid in its place.
+
+        With a ``window`` box: the exact offset's pieces inside it, as
+        :meth:`_window_guard` builds them.
         """
         if leave == 0 or self.protected.isNull():
-            return self.protected, None
+            return (self.protected if window is None else [self.protected]), None
+        if window is not None:
+            key = (leave, tuple(window))
+            if key not in self.guards:
+                self.guards[key] = self._window_guard(leave, key[1])
+            return self.guards[key]
         if leave not in self.guards:
             errors = []
             for join in (0, 2):
                 try:
-                    guard = self.protected.makeOffsetShape(
-                        leave, 1e-6, False, False, 0, join, False
-                    )
+                    guard = _offset(self.protected, leave, join)
                     if (
                         not guard.isValid()
                         or len(guard.Solids) != len(self.protected.Solids)
@@ -2943,6 +3636,55 @@ class _Setup:
                 )
         return self.guards[leave]
 
+    def _window_guard(self, leave, window):
+        """(exact offset pieces of the protected material inside ``window``, or None, and
+        why not).
+
+        The branch's protected material (:meth:`_guard`) offset within a box equals the
+        offset of its part within the box grown by at least ``leave``, cropped to the box:
+        no point beyond the grown box is within ``leave`` of the box. Grown by twice the
+        leave, the cut faces' own offsets stay outside the box. Only arc joins, the exact
+        offset, qualify; each solid of the material within the grown box, however small,
+        must offset to one valid enclosing solid, and every positive cropped component is
+        kept. The source and containment Booleans must be valid: faces without a solid are
+        invalid, not an empty window.
+        """
+        grown = (*(v - 2 * leave for v in window[:3]), *(v + 2 * leave for v in window[3:]))
+        box = _box_shape(window)
+        pieces = []
+        try:
+            source = _valid(
+                self.protected.common(_box_shape(grown)), "the protected material in the grown box"
+            )
+            for solid in [] if source is None else source.Solids:
+                offset = _offset(solid, leave)
+                if (
+                    not offset.isValid()
+                    or len(offset.Solids) != 1
+                    or not all(math.isfinite(v) for v in _bbox(offset))
+                    or offset.Volume <= solid.Volume
+                ):
+                    raise ValueError("not a valid finite enclosing solid")
+                if solid.cut(offset).Volume > STOCK_MM3:
+                    raise ValueError("it does not contain the branch's protected material")
+                cropped = _valid(offset.common(box), "cropped to the window it")
+                if cropped is not None:
+                    pieces.extend(piece for piece in cropped.Solids if piece.Volume > 0)
+            inside = _valid(self.protected.common(box), "the protected material in the window")
+            for piece in pieces:
+                if inside is not None:
+                    inside = _valid(inside.cut(piece), "the part in the window less the guard")
+            if inside is not None and inside.Volume > STOCK_MM3:
+                raise ValueError(
+                    "cropped to the window it does not contain the branch's protected material"
+                )
+        except Exception as exc:
+            return None, (
+                f"protected finished material offset by its {_r(leave)} mm rough_allowance_mm "
+                f"leave within [{', '.join(_r(v) for v in window)}] failed (arc joins: {exc})"
+            )
+        return pieces, None
+
     def _slabs(self, valid, leave, carried):
         """(unclaimed neighbours of claimed lateral faces thickened past ``carried``, the
         lateral faces, and why not) when ``carried`` exceeds this op's ``leave``."""
@@ -2962,8 +3704,7 @@ class _Setup:
             key = (index, thickness)
             if key not in self.slabs:
                 try:
-                    face = self.faces[index]
-                    slab = face.makeOffsetShape(thickness, 1e-6, False, False, 0, 0, True)
+                    slab = _offset(self.faces[index], thickness, fill=True)
                     if slab.Volume <= HIT_MM3 or not slab.isValid():
                         raise ValueError("empty or invalid thickened face")
                     self.slabs[key] = (slab, None)
@@ -2979,35 +3720,119 @@ class _Setup:
             slabs.append(slab)
         return slabs, lateral, None
 
-    def _band(self, stock, valid, to_z, leave, carried):
-        """(lineage leave a lower-leave op cuts off its claimed lateral faces, or None, and
-        why not).
+    def _band(self, stock, valid, to_z, leave, carried, window):
+        """(connected groups of lineage leave pieces a lower-leave op cuts off its claimed
+        lateral faces, or None, and why not).
 
         Stock within the ``carried`` leave of the finished part but outside this op's own
-        guard, less its unclaimed neighbours thickened past that leave, in pieces bordering
+        guard, less its unclaimed neighbours thickened past that leave, in groups bordering
         a claimed lateral face: convex wedges between claimed faces go, unclaimed faces keep
-        their skin, and raw stock beyond the leave stays for :meth:`_covered`.
+        their skin, and raw stock beyond the leave stays for :meth:`_covered`. Where the
+        whole part does not offset by ``carried``, that leave near the claims is the exact
+        union of their :meth:`_skin` primitives, cut piece by piece and joined by contact,
+        never fused; own guard within ``window``. Neighbour slabs are cut one by one. Every
+        positive fragment is kept, however small, in every group that borders a claimed
+        lateral face; no kept piece may overlap a slab or the finished part.
         """
         slabs, lateral, why = self._slabs(valid, leave, carried)
         if why is not None or not lateral or carried <= leave:
             return None, why
         outer, why = self._guard(carried)
-        if why is not None:
-            return None, why
-        band = stock.common(outer).cut(self._guard(leave)[0])
-        if slabs:
-            band = band.cut(slabs[0].fuse(slabs[1:]) if len(slabs) > 1 else slabs[0])
-        if to_z is not None:
-            band = band.common(self._above(to_z))
-        pieces = [
-            piece
-            for piece in band.Solids
-            if piece.Volume > HIT_MM3
-            and any(_distance(piece, self.faces[i])[0] < leave + STOCK_TOL for i in lateral)
+        if why is None:
+            parts = [stock.common(outer)]
+        else:
+            parts, skin_why = self._skin(valid, carried)
+            if skin_why is not None:
+                return None, f"{why}; {skin_why}"
+            parts = [stock.common(primitive) for primitive in parts]
+        solids = []
+        try:
+            for part in parts:
+                part = _material(part, "stock within the lineage leave")
+                if part is not None:
+                    part, why = self._protect(part, leave, window)
+                    if why is not None:
+                        return None, why
+                    part = _material(part, "that stock outside the op's guard")
+                for slab in slabs:
+                    if part is not None:
+                        part = _material(part.cut(slab), "that stock less a neighbour's skin")
+                if to_z is not None and part is not None:
+                    part = _material(part.common(self._above(to_z)), "that stock above to_z")
+                if part is not None:
+                    solids.extend(piece for piece in part.Solids if piece.Volume > 0)
+        except ValueError as exc:
+            return None, f"the {_r(carried)} mm lineage leave band is not derivable ({exc})"
+        groups = [[piece] for piece in solids] if outer is not None else _touching(solids)
+        groups = [
+            group
+            for group in groups
+            if any(
+                _distance(piece, self.faces[i])[0] < leave + STOCK_TOL
+                for piece in group
+                for i in lateral
+            )
         ]
-        if not pieces:
-            return None, None
-        return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
+        for piece in (piece for group in groups for piece in group):
+            overlap = sum(piece.common(solid).Volume for solid in [self.finished, *slabs])
+            # The stock these pieces leave is checked valid and free of them in _remove.
+            if overlap > STOCK_MM3:
+                return None, (
+                    f"the {_r(carried)} mm lineage leave band overlaps the finished part or "
+                    f"an unclaimed neighbour's skin by {_r(overlap)} mm^3"
+                )
+        return (groups or None), None
+
+    def _skin(self, valid, leave):
+        """(primitives whose union is the finished part offset by ``leave`` near the claimed
+        faces and their convex shared edges, or None, and why not).
+
+        Each claimed face thickened along its normal; on each convex edge two claimed
+        faces share, a :func:`_tube` with a ball on each of its vertices, so the convex
+        wedge between claimed faces goes. Tangent and concave shared edges add nothing
+        beyond the slabs. A shared edge whose kind :func:`_dihedral` cannot prove for its
+        whole length is debt. Built per primitive and never fused, so OCC cannot silently
+        drop one.
+        """
+        key = (tuple(valid), leave)
+        if key not in self.skins:
+            primitives, vertices = [], []
+            try:
+                for index in valid:
+                    face, label = self.faces[index], self.owner.labels[index]
+                    try:
+                        slab = _offset(face, leave, fill=True)
+                        if slab.Volume <= HIT_MM3 or not slab.isValid():
+                            raise ValueError("empty or invalid thickened face")
+                    except Exception as exc:
+                        raise ValueError(f"{label} thickened: {exc}") from exc
+                    primitives.append(slab)
+                for edge, a, b in _shared_edges(self.faces, valid):
+                    labels = f"the edge {self.owner.labels[a]} shares with {self.owner.labels[b]}"
+                    kind = _dihedral(edge, self.faces[a], self.faces[b])
+                    if kind is None:
+                        raise ValueError(
+                            f"{labels} is not a line or arc both faces are invariant along, "
+                            "so its tangent, concave or convex kind is unproven"
+                        )
+                    if kind in ("tangent", "concave"):
+                        continue
+                    try:
+                        primitives.append(_tube(edge, leave))
+                    except Exception as exc:
+                        raise ValueError(f"{labels}: {exc}") from exc
+                    for vertex in edge.Vertexes:
+                        if not any(vertex.isSame(v) for v in vertices):
+                            vertices.append(vertex)
+                            primitives.append(Part.makeSphere(leave, vertex.Point))
+            except Exception as exc:
+                self.skins[key] = (
+                    None,
+                    f"claimed faces' {_r(leave)} mm lineage leave skin failed ({exc})",
+                )
+            else:
+                self.skins[key] = (primitives, None)
+        return self.skins[key]
 
     @staticmethod
     def _unproven(facts, reason):
@@ -4514,9 +5339,7 @@ class _Setup:
             return self.regions[index]
         label = self.owner.labels[index]
         try:
-            shell = Part.Shell([self.faces[index]]).makeOffsetShape(
-                -LIFT, 1e-6, False, False, 0, 0, True
-            )
+            shell = _offset(Part.Shell([self.faces[index]]), -LIFT, fill=True)
             if shell.Volume <= HIT_MM3 or not shell.isValid():
                 raise ValueError("empty or invalid offset solid")
             obstacle = self.part.cut(shell)
@@ -4682,9 +5505,7 @@ class _Setup:
                     continue
                 # This op's own bore wall is cutting material; sizing checks its diameter.
                 try:
-                    shell = Part.Shell([self.faces[index]]).makeOffsetShape(
-                        -(excess + LIFT), 1e-6, False, False, 0, 0, True
-                    )
+                    shell = _offset(Part.Shell([self.faces[index]]), -(excess + LIFT), fill=True)
                     if shell.Volume <= HIT_MM3 or not shell.isValid():
                         raise ValueError("empty or invalid offset solid")
                 except Exception as exc:
@@ -4818,28 +5639,27 @@ class _Setup:
             return None
         return columns[0].fuse(columns[1:]) if len(columns) > 1 else columns[0]
 
-    def _flute_regions(self, op, regions, hole_cut=None):
-        """The material a flute meets: the stock before this op (:meth:`_build`) less this
-        op's own removal, each region keeping its sampled face's shell out.
+    def _flute_regions(self, op, regions):
+        """The material a flute meets: the stock the builder accepted after this op
+        (:meth:`_build`), each region keeping its sampled face's shell out.
 
-        Earlier ops' material is absent only because their derived cuts removed it; later
-        cuts are never credited. A hole op's own removal is its ``hole_cut``; a milling op's
-        is the builder's removal for it, unless a claim faces away from the approach. Once
-        an earlier cut is underivable the stock before this op is unknown: only finished
-        material, present in any real stock, remains a flute obstacle. Holder obstacles and
-        reach never see this; they keep the setup-entry ``regions``.
+        Earlier ops' material is absent only because their accepted cuts removed it; later
+        cuts are never credited, nor is the cut of an op that stopped the builder: it meets
+        its whole before-op stock. A milling op with a claim facing away from the approach
+        is credited no removal either; a hole op always is. Once an earlier cut is
+        underivable the stock before this op is unknown: only finished material, present in
+        any real stock, remains a flute obstacle. Holder obstacles and reach never see this;
+        they keep the setup-entry ``regions``.
         """
         if self.stock_reason is not None:
             return regions
-        before, removal, unknown = self.cuts[id(op)]
+        before, after, unknown = self.cuts[id(op)]
         if unknown is not None:
             stock = self.finished
+        elif isinstance(op.get("hole"), dict) or not self._claims(op)[1]:
+            stock = after
         else:
-            if isinstance(op.get("hole"), dict):
-                removal = hole_cut["removal"]
-            elif self._claims(op)[1]:
-                removal = None
-            stock = before if removal is None else before.cut(removal)
+            stock = before
         if stock is self.part:
             return regions
         gone = self.part.cut(stock)
@@ -5096,12 +5916,62 @@ class _Setup:
             dx, dy = solved
             at = FreeCAD.Vector(point.x + dx, point.y + dy, point.z)
 
-    def _floor_debt(self, index, exc, facts):
-        """A floor whose tool pose cannot be derived leaves this op's measured facts unknown."""
-        reason = f"{self.owner.labels[index]}: floor tool pose is undefined ({exc})"
-        for key in self._MEASURED:
-            facts[key] = UNKNOWN
-            facts["reasons"][key] = reason
+    def _cover_axis(self, index, radius, leave):
+        """The one tool axis of a +Z planar floor the whole of which fits inside the
+        cutter disc, or None when no such axis is legal.
+
+        The axis is the area centroid of the axes covering the face (:func:`_cover_locus`,
+        cover by the actual ``radius``), or its certified single point. A rising wall's
+        concave floor edge is part of the face, so a cutter covering that edge and
+        standing ``radius + leave`` clear of the wall stands on its centre of curvature:
+        any wall with a leave and any wall that is not a concave Z circle leave no axis.
+        Else the axis is a wall centre, taken in sorted order, that meets every wall's
+        own floor bound ``|c - o| <= rho - radius`` (the tangent-circle bound of
+        :meth:`_floor_axis`, within its 1e-7 mm) and that the exact check
+        (:func:`_cover_farthest`) shows covers the face; none means no axis. With walls
+        the area locus is built only for an outer contour with other curves. No axis
+        means the face keeps its surface samples. Raises ValueError, cached per (face,
+        radius, leave), when a wall or the cover locus cannot be decided.
+        """
+        key = (index, radius, leave)
+        if key not in self.cover_axes:
+            try:
+                self.cover_axes[key] = (self._cover_axis_of(index, radius, leave), None)
+            except Exception as exc:
+                self.cover_axes[key] = (None, exc)
+        axis, exc = self.cover_axes[key]
+        if exc is not None:
+            raise ValueError(str(exc)) from exc
+        return axis
+
+    def _cover_axis_of(self, index, radius, leave):
+        face = self.faces[index]
+        walls = []
+        for edge, wall, _, _ in self._floor_edges(index):
+            curve = edge.Curve
+            if leave > 0 or not isinstance(curve, Part.Circle) or abs(curve.Axis.z) < PARALLEL:
+                return None
+            foot = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
+            normal = _normal_at(self.faces[wall], foot)
+            centre = curve.Center
+            if normal.x * (centre.x - foot.x) + normal.y * (centre.y - foot.y) <= 0:
+                return None  # an island's foot: its centre lies inside the wall
+            walls.append((centre.x, centre.y, curve.Radius))
+        points, arcs, unsupported = _cover_contour(face)
+        if not walls or unsupported:
+            # With rising walls and a line/circle contour the exact check at each wall
+            # centre decides alone: the area locus may be a sub-tolerance sliver.
+            kind, axis = _cover_locus(face, radius)
+            if kind == "empty":
+                return None
+            if not walls:
+                return axis
+        for x, y, _ in sorted(walls):
+            if _cover_farthest(points, arcs, x, y) <= radius + COVER_TOL and all(
+                math.hypot(x - ox, y - oy) <= rho - radius + COVER_GAP for ox, oy, rho in walls
+            ):
+                return x, y
+        return None
 
     def _sample_facts(self, op, indices, radius, facts):
         reasons = facts["reasons"]
@@ -5125,36 +5995,48 @@ class _Setup:
                 facts[key] = UNKNOWN
                 reasons[key] = why
             return
-        samples, sample_problems = [], []
+        # (index, point, normal, whether the point is already the face's one tool axis)
+        samples, sample_problems, undefined = [], [], {}
         for index in indices:
-            found, missed = _face_samples(self.faces[index], max(radius, 1.0))
-            if (
+            face = self.faces[index]
+            # Transient joint faces are not finished-part floors with corner topology.
+            floor = (
                 not joint
-                and isinstance(self.faces[index].Surface, Part.Plane)
-                and found
-                and found[0][1].z >= PARALLEL
-            ):
+                and isinstance(face.Surface, Part.Plane)
+                and _normal_at(face, face.Surface.Position).z >= PARALLEL
+            )
+            if floor and hole_cut is None:
+                # The whole face fits the cutter disc: one pose stands for all of it.
+                try:
+                    axis = self._cover_axis(index, radius, leave)
+                except Exception as exc:
+                    undefined[index] = exc
+                    continue
+                if axis is not None:
+                    point = FreeCAD.Vector(axis[0], axis[1], face.Surface.Position.z)
+                    samples.append((index, point, _normal_at(face, point), True))
+                    continue
+            found, missed = _face_samples(face, max(radius, 1.0))
+            if floor and found:
                 try:
                     found.extend(self._floor_corners(index))
                 except Exception as exc:
-                    self._floor_debt(index, exc, facts)
-                    return
-            samples.extend((index, point, normal) for point, normal in found)
+                    undefined[index] = exc
+                    continue
+            samples.extend((index, point, normal, False) for point, normal in found)
             if missed:
                 sample_problems.append(
                     f"{self.owner.labels[index]}: {missed} sample point(s) "
                     "had no defined surface normal"
                 )
-        sample_reason = "; ".join(sample_problems) if sample_problems else None
-        facts["sample_count"] = UNKNOWN if sample_reason else len(samples)
-        if sample_reason:
-            reasons["sample_count"] = sample_reason
         flute = _positive(op, "flute_len_mm")
         keys = ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
         holder = {key: _positive(op, key) for key in keys}
         holder_missing = sorted(key for key, value in holder.items() if value is None)
         placed = []  # (index, point, axis x, axis y, tip z, downward)
-        for index, point, normal in samples:
+        for index, point, normal, fixed in samples:
+            if index in undefined:
+                continue
             horizontal = math.hypot(normal.x, normal.y)
             ax, ay, level = point.x, point.y, point.z
             if hole_cut is not None:
@@ -5172,16 +6054,27 @@ class _Setup:
                 ay += radius * normal.y / horizontal
             elif normal.z >= PARALLEL:
                 level += leave
-                if not joint:
+                if not joint and not fixed:
                     try:
                         ax, ay = self._floor_axis(index, point, radius + leave)
                     except Exception as exc:
-                        self._floor_debt(index, exc, facts)
-                        return
+                        undefined[index] = exc
+                        continue
             # An authored to_z above the finished face is the cut's actual endpoint.
             if _number(op.get("to_z")):
                 level = max(level, op["to_z"])
             placed.append((index, point, ax, ay, level + LIFT, normal.z < -1e-3))
+        # A floor with no derivable pose drops its own poses only: every other face's
+        # certain hits stay counted while the op's measured facts become unknown.
+        placed = [entry for entry in placed if entry[0] not in undefined]
+        sample_problems.extend(
+            f"{self.owner.labels[index]}: floor tool pose is undefined ({exc})"
+            for index, exc in undefined.items()
+        )
+        sample_reason = "; ".join(sample_problems) if sample_problems else None
+        facts["sample_count"] = UNKNOWN if sample_reason else len(samples)
+        if sample_reason:
+            reasons["sample_count"] = sample_reason
         if hole_cut is not None:
             for centre in hole_cut["centres"]:
                 placed.append((indices[0], centre, centre.x, centre.y, centre.z + LIFT, False))
@@ -5223,7 +6116,7 @@ class _Setup:
             index: (self._culled_part(), None) if index in caps else self._region(index)
             for index in indices
         }
-        flute_regions = self._flute_regions(op, regions, hole_cut)
+        flute_regions = self._flute_regions(op, regions)
         # Why the stock before this op is unknown: its flute then met finished material only.
         unbuilt = None if self.stock_reason is not None else self.cuts[id(op)][2]
         region_reason = (

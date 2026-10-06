@@ -361,7 +361,17 @@ by that wall alone, and convex vertices get no corner pose. An edge the shifted
 axis comes within a radius of, or crosses into its material from the floor
 (its nearest edge, straight behind the edge), joins the bounds once (a finite
 constraint closure, not a search). This is a
-per-sample rule, not a whole-face pose. Tangency does not certify
+per-sample rule for floors that keep their samples. A +Z planar floor whose
+entire face fits inside the actual cutter disc instead gets one pose, no
+samples or corners: the area centroid of the axes covering its outer wire
+(exact for lines and Z circles, no `STOCK_TOL` widening), a certified unique
+centre when only one axis covers it, or a concave rising Z-circle wall's centre
+meeting every such wall's tangent-circle bound; a rough leave or any other rising wall
+keeps the samples, and so does a face larger than the cutter (reverse
+containment is not this rule). An undecidable floor (other outer curves, a
+failed native locus or unclassifiable edge) drops only its own poses: other
+faces' certain hits stay while the op's measured facts are `unknown`.
+Tangency does not certify
 corner radii. Floor-only claims do not certify wall/wall corners;
 `internal_corner_radius` retains its existing scope and checks a sharp
 wall/wall corner when the operation claims both walls.
@@ -370,11 +380,13 @@ to manufacture clearance.
 
 A milling or hole flute meets the stock its setup's earlier derived cuts
 leave (one pass in op order before measuring; a later cut is never credited)
-and alone excludes its op's own derivable outside-finished allowance or, for
-drill/spot/ream/bore/tap/counterbore, its own actual cutter volume to
-declared depth or explicit through extent. After an underivable earlier cut,
-later flutes keep only certain finished-material hits and their tool hits are
-unknown, deliberately, even where entry stock would read clear. Final wall
+and alone excludes its op's own accepted cut: its derivable outside-finished
+allowance or, for drill/spot/ream/bore/tap/counterbore, its own actual cutter
+volume to declared depth or explicit through extent. The op whose cut stops
+that pass is credited none of its failed clearance. After an underivable
+earlier cut, later flutes keep only certain finished-material hits and their
+tool hits are unknown, deliberately, even where entry stock would read clear.
+Final wall
 and cap debts never change a before-op stock. Turning keeps its own
 turned-profile obstacle model.
 Hole axes/centres derive from geometry-matched concave cylindrical faces
@@ -419,10 +431,13 @@ likewise its actual tip (a 0.1 mm spring pass samples there, not at the
 floor). An unknown leave is accessibility and later-stock
 debt. A failed arc-join offset may use a validated, conservative
 intersection-join offset (extra leave at convex corners), never the nominal
-solid; if both fail, the result is named offset debt. Holding, rendering,
-reach and holder obstacles still use actual setup-entry stock; a flute is
-never credited with a later op's removal. Missing surface normals or
-unresolved pose facts never become
+solid. If both fail on the whole part, each consumer of the guard uses the
+exact arc-join offset of the finished part within its own box (that box
+grown by `2a`, then cropped), and lineage bands use exact claimed-face
+skin primitives that are cut one by one. Any failure is named offset debt.
+Holding, rendering, reach and holder obstacles still use actual setup-entry
+stock; a flute is never credited with a later op's removal. Missing surface
+normals or unresolved pose facts never become
 clearance or reach passes.
 Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
 while preserving finished islands. `stock_removal_bounds` is an authored

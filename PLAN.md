@@ -592,7 +592,20 @@ wall's line; a sharp convex island corner bounds only a sample past the end of
 every wall meeting there, which moves straight away from the corner (its
 nearest boundary point) until tangent; a sample in front of or behind a wall's
 interior is bounded by that wall alone, and convex vertices get no corner
-pose. This is per sample, not a whole-face or centroid pose.
+pose. This is per sample for floors that keep their samples.
+**Whole-face floor pose (literal face-inside-cutter):** a
++Z planar floor whose entire face fits inside the actual cutter disc gets
+exactly one pose and no samples or corners: the area centroid of the convex
+set of covering axes (exact for line and Z-circle outer edges, emptiness
+proved over finitely many analytic candidates, no `STOCK_TOL` widening), the
+certified minimal enclosing centre when that set is one point, or a concave
+rising Z-circle wall's centre that meets every such wall's own tangent-circle
+floor bound and covers the face. A rough leave or any other rising wall keeps
+the samples, as does a face larger than the cutter: reverse containment (the
+Rocker OD10.2 annulus against D9.525) is not this rule. Other outer curves
+are decided only by an exact-point no-fit; otherwise, like a failed native
+locus, the floor's own poses drop and the op's measured facts are unknown
+while other faces' certain hits stay.
 Tangency is not corner-radius certification. Floor-only claims do not certify
 a wall/wall corner: `internal_corner_radius` retains its existing scope and
 checks a sharp wall/wall corner when the op claims both walls. No adjacent
@@ -614,7 +627,17 @@ own cut). An unknown leave is accessibility and later-stock
 debt. If the arc-join outward offset fails, a valid intersection-join offset
 that contains the finished solid with the same solid count may be used
 instead (conservative, extra leave at convex corners), never the nominal
-solid; if both fail, the result is named offset debt.
+solid. If both fail on the whole part, each guard consumer (clearing box above
+`to_z`, unclipped claim sweep, claimed faces grown by the wall-check reach) uses
+the exact arc-join offset of the finished part within its box grown by `2a`,
+cropped back to the box, keeping every positive component and validating every
+Boolean (faces without a solid are debt, not empty). Lineage bands then use
+claimed-face slabs plus tubes and vertex balls on convex claimed-claimed edges
+whose kind is exact along the whole edge (lines and circles both faces are
+invariant along; any other shared edge is debt), cut one by one and never
+fused; band fragments are kept as contact groups. Any failure is named offset
+debt. Offsets and pipes run on deep copies, never on faces shared with the
+finished part, whose geometry would otherwise drift with call order.
 Drill, spot, ream, bore, tap and counterbore flute stock obstacles exclude only
 that op's own actual cutter volume to declared depth or explicit through
 extent. Hole centres and axes derive from geometry-matched concave cylindrical
@@ -1248,10 +1271,11 @@ sheet.
    hole remain material.
    Current-setup cuts shape output stock and, in op order, the stock each
    later milling or hole flute of the setup meets (never a later cut's); the
-   flute also excludes its own op's derivable allowance; holder, reach,
-   holding and image facts still use setup-entry stock. After an underivable
-   earlier cut, later flutes keep only certain finished hits and their tool
-   hits are unknown; final wall/cap debts never change a before-op stock.
+   flute also excludes its own op's accepted cut, never the failed clearance of
+   the op that stops the pass; holder, reach, holding and image facts still use
+   setup-entry stock. After an underivable earlier cut, later flutes keep only
+   certain finished hits and their tool hits are unknown; final wall/cap debts
+   never change a before-op stock.
    `stock_removal_bounds` is the
    authored cleared footprint (possibly several passes), not capped to the
    claimed faces' XY bbox plus cutter radius and not a whole-toolpath proof.
@@ -1275,7 +1299,11 @@ sheet.
    interior samples are unchanged; a sample past both walls of a sharp convex
    island corner moves straight away from that corner to tangency (classified
    by the wall/wall edge rising there, not another edge the walls share), and
-   convex vertices add no corner pose. Tangency does not
+   convex vertices add no corner pose. A +Z planar floor that fits wholly inside the
+   cutter disc instead stands on one derived pose (centroid of the covering
+   axes, a certified single axis, or its R-arc walls' shared centre); an
+   undecidable one drops only its own poses and leaves the op's facts unknown.
+   Tangency does not
    certify corner radii, and floor-only claims do not certify wall/wall corners.
    `internal_corner_radius` retains its existing claimed-face scope:
    a sharp wall/wall corner is checked when the op claims both walls.
