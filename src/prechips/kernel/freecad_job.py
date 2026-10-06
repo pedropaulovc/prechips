@@ -14,22 +14,23 @@ Measurement conventions (setup frame, tool axis +Z):
   ADVANCED_FACE's (surface kind, area, optimal bbox) — never by import order.
 * Samples: a cell-centred 5x5 UV grid inside each claimed face plus points along
   every boundary edge (spacing max(r, 1 mm), 2..12 per edge).  The tool axis is
-  offset by r along the horizontal outward normal on walls. By user decision
-  2026-10-05, floor samples on or within r of any concave floor-edge (curved
-  ones included) shift along the wall's normal at the nearest edge point until
-  tangent to every such wall. Convex edges and farther samples are unchanged.
-  A +Z planar floor (outside hole ops) whose whole face fits inside the actual
-  cutter disc instead gets exactly one pose and no samples or corners: the area
-  centroid of every axis whose disc covers its outer wire (exact for line and
-  Z-circle edges; a single covering axis is certified as the unique minimal
-  enclosing centre; no STOCK_TOL widening), or, with concave rising Z-circle
-  walls only, a wall centre meeting every such wall's tangent-circle floor bound
-  |c - o| <= rho - r. A rough leave or any
-  other rising wall leaves the face on its samples. An outer contour with other
-  curves, unless exact face points prove no disc covers it, or a failed native
-  locus, makes that floor's pose undefined: its poses drop, every other face's
-  certain hits stay, and the op's measured facts become unknown with the reason.
-  This is face-inside-cutter only; a face larger than the cutter keeps samples.
+  offset by r along the horizontal outward normal on walls. Every sample of an
+  ordinary +Z planar face (not a transient joint face, not a hole op), concave
+  corners included, stands on its nearest legal centre at its actual tip height
+  z = max(face z + leave, to_z) + LIFT, computed first. Legal means outside this
+  branch's certain material (current components within their raw supply, minus
+  permitted unjoined sockets) and at least rho from its section at z, where
+  rho = r (finish) or r + leave (rough); the axis may move at most rho. A legal
+  sample keeps its axis; ties within PLANAR_EQUAL_MM (1e-7 mm, never a radius or
+  STOCK_TOL) go to the face's area centroid, then the least (x, y). No legal centre
+  within rho keeps the sample's axis and reports its genuine hit. Candidates are
+  exact offsets of nearby line and Z-circle section edges, certified natively;
+  another nearby curve, an ambiguous section or missing raw supply makes that
+  floor's pose undefined: its poses drop, every other face's certain hits stay,
+  and the op's measured facts become unknown with the reason. Only the section
+  at z steers the axis; overhangs, leave below z, future hole cores and unclaimed
+  raw do not, but the full flute (accepted after-op stock) and setup-entry
+  holder checks still meet them at the chosen axis.
   Milling tips (rough or finish) stand at their numeric to_z when above the finished
   face, and hole tools follow their geometry-matched axis to their declared depth
   or through extent. Spot/drill flutes use their point cone plus full-radius body;
@@ -47,8 +48,11 @@ Measurement conventions (setup frame, tool axis +Z):
   own bore radius is sizing, not a corner.
   Supply and earlier setups' removals determine the held stock and holder/reach
   obstacles. A rough mill op's ``rough_allowance_mm`` leave moves its poses along the unit
-  normal (floor-edge limits r + a) and stays in derived stock; authored clearing boxes
+  normal (floor clearance r + a) and stays in derived stock; authored clearing boxes
   are multipass volumes, clipped to the stock, not limited to the claims' footprint.
+  They keep unclaimed hole-bore columns for their own hole ops, except that a facing
+  op releases a column whose bore opens on a claimed +Z face above that face's cut
+  height, inside the box, guard window and its own outer-loop sweep.
 * Modelled placement only: each sample gets one prescribed tool pose, so a hit
   means that pose collides, not that no other pose reaches the face.
 * Vise: stock seated at its lowest z; jaw zone z in [seat, seat +
@@ -170,9 +174,7 @@ AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute 
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
 PARALLEL = 1 - 1e-9  # |cos| beyond which directions are parallel
-COVER_TOL = 1e-9  # mm: numerical slack of the exact whole-face cover check, never a radius
-COVER_GAP = 1e-7  # mm: boundary circles this near to touching meet at a tangent point
-COVER_ANGLE = 1e-9  # rad: support-gap slack of the whole-face singleton certificate
+PLANAR_EQUAL_MM = 1e-7  # mm: legal-centre clearance/coverage/tie equality, never a radius
 CONCAVE_PROBE = 1e-2  # mm step used to classify an edge as concave
 WALL_LEVELS = 6  # z levels of the thin-wall map
 WALL_COLUMNS = (8, 64)  # along-jaw columns of the thin-wall map (1 mm pitch, clamped)
@@ -771,377 +773,119 @@ def _concave_edge(part, edge, face_a, face_b):
     return part.isInside(probe, 1e-9, False)
 
 
-def _crossings(fx, fy, tx, ty, radius, along):
-    """Where a line through ``(fx, fy)`` along unit ``(tx, ty)``, ``along`` from a circle's
-    centre, crosses that circle of ``radius`` (one point when tangent, none when apart)."""
-    square = radius * radius - along * along
-    if square < -1e-9:
-        return ()
-    half = math.sqrt(max(square, 0.0))
-    return ((fx + half * tx, fy + half * ty), (fx - half * tx, fy - half * ty))
+def _offset_primitives(kind, data, ends, rho):
+    """(boundary primitives, cap tangent points) of the axes ``rho`` from one section edge.
 
-
-def _nearest_clear(lines, discs):
-    """The smallest axis move ``d`` meeting every bound, or None when none can.
-
-    ``lines`` are half-planes ``n·d >= rhs`` as ``(nx, ny, rhs)``: the tangent at a wall
-    edge's nearest point. ``discs`` are ``(cx, cy, rho)`` with ``|d - (cx, cy)| <= rho``:
-    the exact axes clear of a circular wall concave toward the floor, ``rho`` its radius
-    less the cutter's. The bounds are convex, so the answer is the unique projection of
-    the origin onto them: the origin, one bound's own projection or two bound
-    boundaries' intersection, and those finitely many candidates find it exactly.
+    A line edge ``(ax, ay, bx, by)`` gives its two parallel lines ``rho`` either side, as
+    ``("line", x, y, ux, uy)`` (a point and unit direction), and the points where they
+    touch its end circles, ``end ± rho n``, computed directly rather than as a tangent
+    root. A Z-circle edge ``(ox, oy, r)`` gives ``("circle", ox, oy, r + rho)``, and
+    ``r - rho`` when positive beyond PLANAR_EQUAL_MM, else, within it of zero, the single
+    axis ``("point", ox, oy)``. Every true edge end gives ``("circle", x, y, rho)``. These
+    are a superset: wrong-side lines and whole circles behind an arc's span are harmless
+    because every candidate is certified against the native section.
     """
-    candidates = [(0.0, 0.0)] + [(rhs * nx, rhs * ny) for nx, ny, rhs in lines]
-    for cx, cy, rho in discs:
-        length = math.hypot(cx, cy)
-        if length > rho:
-            candidates.append((cx - rho * cx / length, cy - rho * cy / length))
-    for i, (ax, ay, ra) in enumerate(lines):
-        for bx, by, rb in lines[i + 1 :]:
-            determinant = ax * by - ay * bx
-            if abs(determinant) > 1e-9:
-                candidates.append(
-                    ((ra * by - ay * rb) / determinant, (ax * rb - ra * bx) / determinant)
-                )
-        for cx, cy, rho in discs:
-            along = ra - (ax * cx + ay * cy)
-            candidates.extend(_crossings(cx + along * ax, cy + along * ay, -ay, ax, rho, along))
-    for i, (ax, ay, ra) in enumerate(discs):
-        for bx, by, rb in discs[i + 1 :]:
-            gap = math.hypot(bx - ax, by - ay)
-            if gap > 1e-9:
-                ux, uy = (bx - ax) / gap, (by - ay) / gap
-                along = (gap * gap + ra * ra - rb * rb) / (2 * gap)
-                candidates.extend(_crossings(ax + along * ux, ay + along * uy, -uy, ux, ra, along))
-    feasible = [
-        (dx, dy)
-        for dx, dy in candidates
-        if all(nx * dx + ny * dy >= rhs - 1e-7 for nx, ny, rhs in lines)
-        and all(math.hypot(dx - cx, dy - cy) <= rho + 1e-7 for cx, cy, rho in discs)
-    ]
-    return min(feasible, key=lambda d: d[0] ** 2 + d[1] ** 2) if feasible else None
+    primitives = [("circle", x, y, rho) for x, y in ends]
+    caps = []
+    if kind == "line":
+        ax, ay, bx, by = data
+        length = math.hypot(bx - ax, by - ay)
+        ux, uy = (bx - ax) / length, (by - ay) / length
+        nx, ny = -uy, ux
+        for side in (rho, -rho):
+            primitives.append(("line", ax + side * nx, ay + side * ny, ux, uy))
+            caps.extend(((ax + side * nx, ay + side * ny), (bx + side * nx, by + side * ny)))
+    else:
+        ox, oy, r = data
+        primitives.append(("circle", ox, oy, r + rho))
+        inner = r - rho
+        if inner > PLANAR_EQUAL_MM:
+            primitives.append(("circle", ox, oy, inner))
+        elif inner >= -PLANAR_EQUAL_MM:
+            primitives.append(("point", ox, oy))
+    return primitives, caps
 
 
-def _arc_span(curve, first, last):
-    """``(a0, a1)``, ``a0 < a1 <= a0 + 2 pi``: the directions from a Z-axis circle's centre
-    to its points between curve parameters ``first`` and ``last``, counter-clockwise about
-    +Z whatever the sign of the circle's axis or the orientation of its edge."""
-    o = curve.Center
-    start, end = curve.value(first), curve.value(last)
-    a0 = math.atan2(start.y - o.y, start.x - o.x)
-    a1 = math.atan2(end.y - o.y, end.x - o.x)
-    if last - first >= 2 * math.pi - 1e-12:
-        return a0, a0 + 2 * math.pi
-    if curve.Axis.z < 0:
-        a0, a1 = a1, a0
-    while a1 <= a0:
-        a1 += 2 * math.pi
-    return a0, a1
+def _primitive_distance(primitive, px, py):
+    """Distance from ``(px, py)`` to an :func:`_offset_primitives` primitive."""
+    if primitive[0] == "point":
+        return math.hypot(primitive[1] - px, primitive[2] - py)
+    if primitive[0] == "line":
+        _, x, y, ux, uy = primitive
+        return abs((py - y) * ux - (px - x) * uy)
+    _, x, y, s = primitive
+    return abs(math.hypot(px - x, py - y) - s)
 
 
-def _cover_contour(face):
-    """``(points, arcs, unsupported)`` of a planar face's outer wire.
+def _primitive_nearest(primitive, px, py, cx, cy):
+    """The points of a primitive nearest ``(px, py)``.
 
-    ``points`` are its vertices ``(x, y)``, exact face points; each Z-axis circle edge is
-    ``(ox, oy, r, a0, a1)`` (:func:`_arc_span`); any other non-line edge is
-    ``(type name, edge)``. Inner wires lie inside the outer wire's hull, so they never
-    change which discs cover the face.
+    A circle not centred exactly on the point has one exact radial nearest point, always
+    kept. A circle centred within PLANAR_EQUAL_MM of the point is equally near everywhere
+    within that tolerance: its tie candidates are added too, the point toward the face
+    area centroid ``(cx, cy)`` and, with the centroid within PLANAR_EQUAL_MM of the
+    centre, the circle's lowest-x point, for :meth:`_Setup._planar_axis` to rank.
     """
-    points, arcs, unsupported = [], [], []
-    for edge in face.OuterWire.Edges:
-        curve = edge.Curve
-        if isinstance(curve, Part.Circle) and abs(curve.Axis.z) >= PARALLEL:
-            span = _arc_span(curve, edge.FirstParameter, edge.LastParameter)
-            arcs.append((curve.Center.x, curve.Center.y, curve.Radius, *span))
-        elif not isinstance(curve, (Part.Line, Part.LineSegment)):
-            unsupported.append((type(curve).__name__, edge))
-        for vertex in edge.Vertexes:
-            p = (vertex.Point.x, vertex.Point.y)
-            if p not in points:
-                points.append(p)
-    return points, arcs, unsupported
+    if primitive[0] == "point":
+        return [(primitive[1], primitive[2])]
+    if primitive[0] == "line":
+        _, x, y, ux, uy = primitive
+        t = (px - x) * ux + (py - y) * uy
+        return [(x + t * ux, y + t * uy)]
+    _, x, y, s = primitive
+    found = []
+    for dx, dy in ((px - x, py - y), (cx - x, cy - y)):
+        length = math.hypot(dx, dy)
+        if length > 0:
+            found.append((x + s * dx / length, y + s * dy / length))
+        if length > PLANAR_EQUAL_MM:
+            return found
+    found.append((x - s, y))
+    return found
 
 
-def _cover_farthest(points, arcs, x, y):
-    """The exact farthest distance from axis ``(x, y)`` to a :func:`_cover_contour`: a
-    segment's farthest point is an end; an arc's is ``o + r (o - c) / |o - c|`` at
-    ``|c - o| + r`` when that direction lies in its span, else an end."""
-    far = max((math.hypot(px - x, py - y) for px, py in points), default=0.0)
-    for ox, oy, r, a0, a1 in arcs:
-        d = math.hypot(ox - x, oy - y)
-        if d <= 1e-15:
-            far = max(far, r)
-            continue
-        away = math.atan2(oy - y, ox - x)
-        while away < a0:
-            away += 2 * math.pi
-        if away <= a1:
-            far = max(far, d + r)
-    return far
-
-
-def _cover_certified(points, arcs, x, y, radius):
-    """Whether 0 lies in the convex hull of the directions ``p - c`` to the contour points
-    ``radius`` from ``c = (x, y)``: the smallest enclosing disc's optimality condition, so
-    ``c`` is its unique centre and ``radius`` its radius. Supports are angles (a vertex, an
-    arc's farthest point) or an arc's whole span when ``c`` is its centre; the origin is
-    in their hull exactly when no angular gap between them exceeds pi."""
-    spans = []
-    for px, py in points:
-        if math.hypot(px - x, py - y) >= radius - COVER_TOL:
-            angle = math.atan2(py - y, px - x)
-            spans.append((angle, angle))
-    for ox, oy, r, a0, a1 in arcs:
-        d = math.hypot(ox - x, oy - y)
-        if d <= COVER_TOL:
-            if r >= radius - COVER_TOL:
-                spans.append((a0, a1))
-            continue
-        away = math.atan2(oy - y, ox - x)
-        lifted = away
-        while lifted < a0:
-            lifted += 2 * math.pi
-        if lifted <= a1 and d + r >= radius - COVER_TOL:
-            spans.append((away, away))
-    turn = 2 * math.pi
-    if any(hi - lo >= turn - COVER_ANGLE for lo, hi in spans):
-        return True
-    if not spans:
-        return False
-    spans = sorted((lo % turn, lo % turn + hi - lo) for lo, hi in spans)
-    widest, reach = 0.0, spans[0][1]
-    for lo, hi in spans[1:]:
-        widest = max(widest, lo - reach)
-        reach = max(reach, hi)
-    widest = max(widest, spans[0][0] + turn - reach)
-    return widest <= math.pi + COVER_ANGLE
-
-
-def _circle_meets(a, b):
-    """Where circles ``a`` and ``b`` ``(x, y, rho)`` meet; circles within COVER_GAP of
-    touching meet at their tangent point."""
-    (ax, ay, ra), (bx, by, rb) = a, b
+def _primitive_meets(a, b):
+    """Where two primitives meet. Parallel or coincident lines and concentric circles
+    share no isolated point (a coincident pair's nearest point is already a candidate);
+    a pair within PLANAR_EQUAL_MM of touching meets once, at the foot of the tangency."""
+    if a[0] == "point" or b[0] == "point":
+        return []
+    if a[0] == "line" and b[0] == "line":
+        _, ax, ay, aux, auy = a
+        _, bx, by, bux, buy = b
+        cross = aux * buy - auy * bux
+        if abs(cross) <= 1e-12:
+            return []
+        t = ((bx - ax) * buy - (by - ay) * bux) / cross
+        return [(ax + t * aux, ay + t * auy)]
+    if b[0] == "line":
+        a, b = b, a
+    if a[0] == "line":
+        _, x, y, ux, uy = a
+        _, cx, cy, s = b
+        t = (cx - x) * ux + (cy - y) * uy
+        fx, fy = x + t * ux, y + t * uy
+        apart = math.hypot(cx - fx, cy - fy)
+        if apart > s + PLANAR_EQUAL_MM:
+            return []
+        if apart >= s - PLANAR_EQUAL_MM:
+            return [(fx, fy)]
+        half = math.sqrt(s * s - apart * apart)
+        return [(fx + half * ux, fy + half * uy), (fx - half * ux, fy - half * uy)]
+    (_, ax, ay, ra), (_, bx, by, rb) = a, b
     gap = math.hypot(bx - ax, by - ay)
-    if gap <= 1e-12 or gap > ra + rb + COVER_GAP or gap < abs(ra - rb) - COVER_GAP:
+    if gap <= PLANAR_EQUAL_MM:
+        return []
+    outer, inner = ra + rb, abs(ra - rb)
+    if gap > outer + PLANAR_EQUAL_MM or gap < inner - PLANAR_EQUAL_MM:
         return []
     ux, uy = (bx - ax) / gap, (by - ay) / gap
     along = (gap * gap + ra * ra - rb * rb) / (2 * gap)
-    half = math.sqrt(max(ra * ra - along * along, 0.0))
     fx, fy = ax + along * ux, ay + along * uy
+    if gap >= outer - PLANAR_EQUAL_MM or gap <= inner + PLANAR_EQUAL_MM:
+        return [(fx, fy)]
+    half = math.sqrt(max(ra * ra - along * along, 0.0))
     return [(fx - half * uy, fy + half * ux), (fx + half * uy, fy - half * ux)]
-
-
-def _ray_meets(ox, oy, angle, circle):
-    """Where the ray from ``(ox, oy)`` at ``angle`` meets ``circle`` ``(x, y, rho)``."""
-    wx, wy = math.cos(angle), math.sin(angle)
-    dx, dy = ox - circle[0], oy - circle[1]
-    b = dx * wx + dy * wy
-    square = b * b - (dx * dx + dy * dy - circle[2] ** 2)
-    if square < -COVER_GAP:
-        return []
-    root = math.sqrt(max(square, 0.0))
-    return [(ox + t * wx, oy + t * wy) for t in (-b - root, -b + root) if t >= -COVER_GAP]
-
-
-def _cover_candidates(points, arcs, radius):
-    """Finitely many axes containing every vertex of the cover locus and its singleton.
-
-    The locus boundary lies on the circles ``C(p, R)`` per contour point and ``C(o, R-r)``
-    per arc with ``R > r``: a positive-area locus has a vertex where two of them meet or
-    is the disc ``D(o, R-r)`` about an arc centre, and a single-point locus lies on two of
-    them or at an arc centre. Cone rays meeting the circles are kept too.
-    """
-    circles = [(px, py, radius) for px, py in points]
-    circles += [(ox, oy, radius - r) for ox, oy, r, _, _ in arcs if radius - r > 1e-12]
-    found = [(ox, oy) for ox, oy, _, _, _ in arcs]
-    for i, a in enumerate(circles):
-        for b in circles[i + 1 :]:
-            found.extend(_circle_meets(a, b))
-    for ox, oy, _, a0, a1 in arcs:
-        for angle in (a0 + math.pi, a1 + math.pi):
-            for circle in circles:
-                found.extend(_ray_meets(ox, oy, angle, circle))
-    return found
-
-
-def _extreme_points(face, edge):
-    """The points of ``edge`` extreme along -x, +x, -y and +y (exact Extrema solutions)."""
-    box = face.BoundBox
-    far = 10.0 + box.DiagonalLength
-    x0, x1, y0, y1 = box.XMin - far, box.XMax + far, box.YMin - far, box.YMax + far
-    found = []
-    for a, b in (
-        ((x0, y0), (x0, y1)),
-        ((x1, y0), (x1, y1)),
-        ((x0, y0), (x1, y0)),
-        ((x0, y1), (x1, y1)),
-    ):
-        line = Part.LineSegment(V(a[0], a[1], box.ZMin), V(b[0], b[1], box.ZMin)).toShape()
-        _, pairs, _ = edge.distToShape(line)
-        if not pairs:
-            raise ValueError(f"no extreme point found on its {type(edge.Curve).__name__} edge")
-        found.extend((p.x, p.y) for p, _ in pairs)
-    return found
-
-
-def _cover_disc(x, y, z, radius):
-    return Part.Face(Part.Wire(Part.makeCircle(radius, V(x, y, z))))
-
-
-def _cover_cone(ox, oy, z, a0, a1, length):
-    """The closed sector at ``(ox, oy)`` over directions ``a0..a1``, ``length`` long."""
-    if a1 - a0 >= 2 * math.pi - 1e-12:
-        return _cover_disc(ox, oy, z, length)
-    centre = V(ox, oy, z)
-    ends = [
-        V(ox + length * math.cos(a), oy + length * math.sin(a), z) for a in (a0, (a0 + a1) / 2, a1)
-    ]
-    return Part.Face(
-        Part.Wire(
-            [
-                Part.LineSegment(centre, ends[0]).toShape(),
-                Part.Arc(*ends).toShape(),
-                Part.LineSegment(ends[2], centre).toShape(),
-            ]
-        )
-    )
-
-
-def _cover_region_problem(locus, faces, points, arcs, radius):
-    """Why the native partition ``faces`` of ``locus`` is not the one convex cover locus,
-    or None.
-
-    The locus ``{c : g(c) <= radius}`` is convex and its boundary is where ``g`` reaches
-    ``radius``: arcs of ``D(p, radius)`` about the outer wire's points and, for each arc
-    ``(o, r)``, of ``D(o, radius - r)``. The partition must be valid faces that merge,
-    without overlap, into one face bounded by one wire; that wire must turn one way only
-    (arcs and corners alike, total one full turn), every edge must lie on one of those
-    circles, and every vertex and edge midpoint must have ``g`` within PLANE_TOL of
-    ``radius``. A split, an overlap, a lost corner or a foreign boundary fails.
-    """
-    area = sum(f.Area for f in faces)
-    if not locus.isValid() or not all(f.isValid() for f in faces) or area <= 0:
-        return "is not a valid native face set"
-    union = faces[0] if len(faces) == 1 else faces[0].fuse(faces[1:]).removeSplitter()
-    if len(union.Faces) != 1 or len(union.Faces[0].Wires) != 1:
-        return "is not one simply connected piece"
-    if abs(union.Area - area) > 1e-9 * max(1.0, area):
-        return "has overlapping pieces"
-    circles = [(x, y, radius) for x, y in points]
-    circles += [(ox, oy, radius - r) for ox, oy, r, _, _ in arcs if radius - r > 1e-12]
-    edges = union.Faces[0].OuterWire.OrderedEdges
-    turns, ends = [], []
-    for edge in edges:
-        first, last = edge.FirstParameter, edge.LastParameter
-        sign = -1.0 if edge.Orientation == "Reversed" else 1.0
-        start, end = (first, last) if sign > 0 else (last, first)
-        ends.append(
-            (
-                edge.valueAt(start),
-                edge.tangentAt(start) * sign,
-                edge.valueAt(end),
-                edge.tangentAt(end) * sign,
-            )
-        )
-        curve = edge.Curve
-        if not isinstance(curve, Part.Circle) or not any(
-            math.hypot(curve.Center.x - x, curve.Center.y - y) <= PLANE_TOL
-            and abs(curve.Radius - rho) <= PLANE_TOL
-            for x, y, rho in circles
-        ):
-            return "has a boundary edge on no cover circle"
-        turns.append(math.copysign(last - first, curve.Axis.z * sign))
-        mid = edge.valueAt((first + last) / 2)
-        for p in (mid, edge.valueAt(first)):
-            if abs(_cover_farthest(points, arcs, p.x, p.y) - radius) > PLANE_TOL:
-                return "has boundary off the cover circle"
-    for (_, _, p, t), (q, u, _, _) in zip(ends, ends[1:] + ends[:1], strict=True):
-        if (p - q).Length > PLANE_TOL:
-            return "has an open boundary"
-        turns.append(math.atan2(t.x * u.y - t.y * u.x, t.x * u.x + t.y * u.y))
-    total = sum(turns)
-    if abs(abs(total) - 2 * math.pi) > 1e-6 or any(t * total < -1e-6 for t in turns):
-        return "is not convex"
-    return None
-
-
-def _cover_locus(face, radius):
-    """The axes ``c`` whose cutter disc ``D(c, radius)`` holds the whole planar face.
-
-    The locus is the intersection of ``D(p, radius)`` over the face's points: convex and
-    fixed by its outer wire. A line contributes its end discs; a Z-axis arc (centre
-    ``o``, radius ``r``) its end discs and, across the cone opposite its span, ``|c - o|
-    <= radius - r``. Returns ``("empty", None)`` when no candidate axis
-    (:func:`_cover_candidates`) covers the face; ``("point", (x, y))`` for a certified
-    singleton (:func:`_cover_certified`); else ``("region", (x, y))``, the area centroid
-    of every face of the native locus, accepted only when :func:`_cover_region_problem`
-    certifies those faces as the one convex locus, the centroid covers the face and every
-    covering candidate lies on that locus. Any other
-    contour has no exact locus here: unless discs about its exact points (vertices,
-    extremes) share no point, it raises ValueError, as does a failed native locus.
-    """
-    points, arcs, unsupported = _cover_contour(face)
-    if not points:
-        raise ValueError("its outer wire has no vertex")
-    span = 2 * radius + COVER_TOL
-    if any(
-        math.hypot(ax - bx, ay - by) > span
-        for i, (ax, ay) in enumerate(points)
-        for bx, by in points[i + 1 :]
-    ):
-        return "empty", None
-    if unsupported:
-        exact = points + [p for _, edge in unsupported for p in _extreme_points(face, edge)]
-        if all(
-            _cover_farthest(exact, [], x, y) > radius + COVER_TOL
-            for x, y in _cover_candidates(exact, [], radius)
-        ):
-            return "empty", None
-        names = ", ".join(sorted({name for name, _ in unsupported}))
-        raise ValueError(f"its outer contour ({names}) has no exact whole-face cover locus")
-    feasible = [
-        (x, y)
-        for x, y in _cover_candidates(points, arcs, radius)
-        if _cover_farthest(points, arcs, x, y) <= radius + COVER_TOL
-    ]
-    if not feasible:
-        return "empty", None
-    for x, y in feasible:
-        if _cover_farthest(points, arcs, x, y) >= radius - COVER_TOL and _cover_certified(
-            points, arcs, x, y, radius
-        ):
-            if any(math.hypot(x - u, y - v) > COVER_GAP for u, v in feasible):
-                raise ValueError("its certified covering axis is not the only covering one")
-            return "point", (x, y)
-    z = face.BoundBox.ZMin
-    sx, sy = points[0]
-    locus = _cover_disc(sx, sy, z, radius)
-    for x, y in points[1:]:
-        locus = locus.common(_cover_disc(x, y, z, radius))
-    for ox, oy, r, a0, a1 in arcs:
-        # D(seed, R) already holds every surviving axis, so this length encloses them.
-        length = math.hypot(ox - sx, oy - sy) + radius + 1.0
-        cone = _cover_cone(ox, oy, z, a0 + math.pi, a1 + math.pi, length)
-        if radius - r > 1e-12:
-            cone = cone.cut(_cover_disc(ox, oy, z, radius - r))
-        locus = locus.cut(cone)
-    faces = sorted(
-        locus.Faces,
-        key=lambda f: (round(f.CenterOfMass.x, 9), round(f.CenterOfMass.y, 9), f.Area),
-    )
-    if not faces:
-        raise ValueError("its whole-face cover locus has area but the native boolean lost it")
-    problem = _cover_region_problem(locus, faces, points, arcs, radius)
-    if problem is not None:
-        raise ValueError(f"its native whole-face cover locus {problem}")
-    area = sum(f.Area for f in faces)
-    cx = sum(f.Area * f.CenterOfMass.x for f in faces) / area
-    cy = sum(f.Area * f.CenterOfMass.y for f in faces) / area
-    if _cover_farthest(points, arcs, cx, cy) > radius + COVER_TOL or any(
-        locus.distToShape(Part.Vertex(V(x, y, z)))[0] > PLANE_TOL for x, y in feasible
-    ):
-        raise ValueError("its native whole-face cover locus disagrees with the exact check")
-    return "region", (cx, cy)
 
 
 def _edge_direction(edge):
@@ -3260,9 +3004,18 @@ class _Setup:
         self.rotary_patches = {}  # floor face index -> it and its same-surface seam patches
         self.wall_corners = {}  # (a, b) -> whether faces a and b meet at a sharp concave edge
         self.floor_adjacency = None
-        self.cover_axes = {}  # (floor index, radius, leave) -> (whole-face axis or None, error)
+        # Legal planar centres: pose height -> (analytic section of ``certain`` or None,
+        # error); certain-material face boxes; (height, rho, section edge) -> its offset
+        # primitives and caps; primitive pair -> meeting points; (height, rho, x, y) ->
+        # whether that axis is certified legal.
+        self.planar_sections = {}
+        self.certain_boxes = None
+        self.planar_offsets = {}
+        self.planar_meets = {}
+        self.planar_legal = {}
         self.hole_cuts = {}  # (id(op), indices, radius) -> _hole_cut record
-        self.hole_columns = None  # finished hole-face index -> entry-stock-long bore column
+        # finished hole-face index -> (its bore-long column, faces sharing an edge with it)
+        self.hole_columns = None
         # rough leave -> (protected solid offset outward by it, or None, why); and
         # (leave, window) -> (exact offset pieces of protected material within it, or None, why)
         self.guards = {}
@@ -3770,7 +3523,8 @@ class _Setup:
         cylinder (see :meth:`_hole_cut`). Other ops remove only stock outside their guard:
         the component-owned finished solid offset by their own rough leave
         (:meth:`_protect`). An authored clearing box removes that within the box above
-        ``to_z``, leaving unclaimed hole columns to their own ops; its pieces must border a
+        ``to_z``, leaving unclaimed hole columns to their own ops (bar a facing op's opened
+        columns above its cut height, :meth:`_bounded`); its pieces must border a
         claim on the stock entering the setup, so an earlier op clearing the bridge between a
         claim and the rest of its box never strands that box. Other ops sweep direction-valid
         claims along +Z, keeping unclaimed rails, ears, webs and overstock. A lower-leave op
@@ -3812,6 +3566,7 @@ class _Setup:
                 to_z,
                 _positive(op, "radius_mm"),
                 leave,
+                op.get("do"),
             )
         else:
             removal, why = self._removal(valid, to_z, op.get("do"), leave)
@@ -4040,14 +3795,21 @@ class _Setup:
             facts["saw_reason"] = facts["reason"] = reason
             return None, facts
 
-    def _bounded(self, bounds, stock, valid, away, to_z, radius, leave):
+    def _bounded(self, bounds, stock, valid, away, to_z, radius, leave, action):
         """(stock outside the op's guard inside the declared box or None, or why not).
 
         The box is the author's multipass clearing volume, clipped to ``stock``: neither
         limited to the claims' footprint nor proof of a toolpath, but unresolved without a
         measured cutter radius. Every claim must face the approach and touch the box; every
         removed piece must border a claim across the op's ``leave``. Bores of hole-op
-        claims this op does not claim keep their stock (:meth:`_hole_columns`).
+        claims this op does not claim keep their stock (:meth:`_hole_columns`), with one
+        exception for a facing ``action``: a bore that opens on a claimed +Z planar face (a
+        native shared edge, not a closed cap inside the bore's cylinder, :meth:`_flat_cap`)
+        loses its column above that face's cut height ``max(face z + leave, to_z)`` (the
+        highest such claim's, no ``LIFT``) inside the op's own outer-loop sweep
+        (:meth:`_sweep`), because facing there removes it. Its column below that height,
+        every other bore's and anything outside the box, the guard's window or the sweep
+        stays reserved.
         """
         span, why = _clearing_span(bounds, _bbox(stock))
         if span is None:
@@ -4077,10 +3839,30 @@ class _Setup:
         removed, why = self._protect(stock.common(box), leave, window)
         if why is not None:
             return None, why
-        columns = self._hole_columns(valid)
-        if columns is not None:
-            # Not-yet-drilled hole interiors stay stock for their own hole op.
-            removed = removed.cut(columns)
+        # Not-yet-drilled hole interiors stay stock for their own hole op, except where this
+        # facing op's own sweep opens them above a claimed face's cut height.
+        floor = -math.inf if to_z is None else to_z
+        facing = action in FACING_ACTIONS
+        reserved = []
+        try:
+            columns = self._hole_columns(valid)
+        except ValueError as exc:
+            return None, f"planned-hole openings are undefined ({exc})"
+        for _, column, openings in columns:
+            levels = [
+                max(self.faces[index].Surface.Position.z + leave, floor)
+                for index in valid
+                if facing and index in openings and self._upward_plane(index)
+            ]
+            sweep = self._sweep(valid, action)[1] if levels else None
+            if sweep is not None:
+                column = column.cut(self._above(max(levels)).common(sweep))
+            if column.Volume > HIT_MM3:
+                reserved.append(column)
+        if reserved:
+            removed = removed.cut(
+                reserved[0].fuse(reserved[1:]) if len(reserved) > 1 else reserved[0]
+            )
         if to_z is not None:
             removed = removed.common(self._above(to_z))
         pieces = [piece for piece in removed.Solids if piece.Volume > HIT_MM3]
@@ -6473,16 +6255,45 @@ class _Setup:
             reach = math.sqrt(max(surface.Radius**2 - near**2, 0.0))
         return (lo, hi) if reach <= radius + BBOX_TOL else None
 
+    @staticmethod
+    def _flat_cap(face, axis, centre, radius):
+        """Whether planar ``face`` closes the bore on this axis line rather than being a face
+        it opens on: the whole face lies inside the bore's nominal cylinder, by an exact
+        native cut against that finite cylinder (its radius never widened, its length the
+        face's bounding box projected on the axis plus ``LIFT`` at each end) leaving no area
+        beyond a ``PLANAR_EQUAL_MM`` band along the face's boundary. A mouth's face, a roof
+        across a horizontal bore or a counterbore ledge extends outside it. An invalid cut
+        raises ValueError: the bore's openings are then unknown, never assumed.
+        """
+        if not isinstance(face.Surface, Part.Plane):
+            return False
+        box = face.BoundBox
+        levels = [
+            V(x, y, z).dot(axis)
+            for x in (box.XMin, box.XMax)
+            for y in (box.YMin, box.YMax)
+            for z in (box.ZMin, box.ZMax)
+        ]
+        lo, hi = min(levels) - LIFT, max(levels) + LIFT
+        start = centre + axis * (lo - centre.dot(axis))
+        rest = face.cut(Part.makeCylinder(radius, hi - lo, start, axis))
+        if not rest.isNull() and not rest.isValid():
+            raise ValueError("the native cut classifying a planar bore neighbour is invalid")
+        return rest.Area <= PLANAR_EQUAL_MM * face.Length
+
     def _hole_columns(self, claimed):
-        """Fused bore-long columns of known hole bores outside ``claimed``, or None.
+        """``(bore index, bore-long column, faces the bore opens on)`` per known hole bore
+        outside ``claimed``, in index order.
 
         Each column spans only its bore face's own axial extent and any blind cap
         (:meth:`_cap_span`) sharing an edge with it (± ``LIFT``), so stock above a hole
         mouth or beyond a horizontal blind hole's end is never reserved. Its radius stays
-        the bore's nominal radius.
+        the bore's nominal radius. The bore opens on its native shared-edge neighbours
+        except the closed caps among them: point caps and flat bottoms (:meth:`_flat_cap`).
+        A failed classification raises ValueError and caches nothing.
         """
         if self.hole_columns is None:
-            self.hole_columns = {}
+            columns = {}
             bores = []
             for index in sorted(self._hole_faces()):
                 face = self.faces[index]
@@ -6498,20 +6309,25 @@ class _Setup:
                 surface = face.Surface
                 axis, centre = surface.Axis, surface.Center
                 lo, hi = self._bore_span(face, axis)
-                for other in sorted(neighbours.get(index, ())):
+                around = neighbours.get(index, set())
+                openings = set()
+                for other in sorted(around):
                     cap = self._cap_span(self.faces[other], axis, centre, surface.Radius)
                     if cap is not None:
                         lo, hi = min(lo, cap[0]), max(hi, cap[1])
+                    elif not self._flat_cap(self.faces[other], axis, centre, surface.Radius):
+                        openings.add(other)
                 lo, hi = lo - LIFT, hi + LIFT
                 start = centre + axis * (lo - centre.dot(axis))
-                self.hole_columns[index] = Part.makeCylinder(surface.Radius, hi - lo, start, axis)
+                column = Part.makeCylinder(surface.Radius, hi - lo, start, axis)
+                columns[index] = (column, frozenset(openings))
+            self.hole_columns = columns
         claimed = set(claimed)
-        columns = [
-            column for index, column in sorted(self.hole_columns.items()) if index not in claimed
+        return [
+            (index, column, around)
+            for index, (column, around) in sorted(self.hole_columns.items())
+            if index not in claimed
         ]
-        if not columns:
-            return None
-        return columns[0].fuse(columns[1:]) if len(columns) > 1 else columns[0]
 
     def _flute_regions(self, op, regions):
         """The material a flute meets: the stock the builder accepted after this op
@@ -6546,12 +6362,12 @@ class _Setup:
         }
 
     def _floor_edges(self, index):
-        """``(edge, wall index, edge box, end points)`` per sharp concave rising wall of a
-        +Z planar floor.
+        """``(edge, wall index, edge box)`` per sharp concave rising wall of a +Z planar
+        floor.
 
         One scan of every shared edge caches each floor's walls, the edges each face pair
-        shares (for :meth:`_wall_corner` and :meth:`_wall_edge_at`) and the floors whose
-        wall edges could not be classified; asking for such a floor raises with the reason.
+        shares (for :meth:`_wall_corner`) and the floors whose wall edges could not be
+        classified; asking for such a floor raises with the reason.
         """
         if self.floor_adjacency is None:
             walls, failed, pairs = {}, {}, {}
@@ -6576,9 +6392,13 @@ class _Setup:
                             f"floor edge with {self.owner.labels[wall]} is unclassified ({exc})",
                         )
                         continue
-                    ends = [vertex.Point for vertex in edge.Vertexes]
-                    walls.setdefault(floor, []).append((edge, wall, _bbox(edge), ends))
-            self.floor_adjacency = {"walls": walls, "failed": failed, "pairs": pairs, "sharp": {}}
+                    walls.setdefault(floor, []).append((edge, wall, _bbox(edge)))
+            self.floor_adjacency = {
+                "walls": walls,
+                "failed": failed,
+                "pairs": pairs,
+                "corners": {},
+            }
         if index in self.floor_adjacency["failed"]:
             raise ValueError(self.floor_adjacency["failed"][index])
         return self.floor_adjacency["walls"].get(index, ())
@@ -6598,147 +6418,36 @@ class _Setup:
             )
         return self.wall_corners[key]
 
-    def _floor_contacts(self, index, point, reach, origin):
-        """Rising walls of floor ``index`` whose concave floor edge is on or within ``reach``.
-
-        Returns ``(wall, nx, ny, offset, circle, incident, slot)`` per edge: ``(nx, ny)`` is
-        the unit in-plane normal into the floor at the edge's nearest point, ``offset`` the
-        point's distance from that point along it (0 for an edge through the point),
-        ``circle`` ``(cx, cy, radius)`` when the edge is a circle concave toward the floor,
-        else None, and ``slot`` the edge's position in :meth:`_floor_edges`. Along an edge,
-        and at a concave wall/wall corner, that normal is the wall's. A point beyond an
-        edge's end rather than along its normal is bounded by that edge only through the
-        wall/wall edge rising from that end (:meth:`_floor_end`): at a concave corner by the
-        wall's own line; at a sharp convex corner past the end of every wall meeting there
-        by the corner itself, whose normal points from the corner to the point (the nearest
-        boundary point has no single wall normal there); past a tangent junction or a
-        split face nothing. A solved axis ``point`` away from its sample
-        ``origin`` whose nearest such edge has it behind that edge's interior stands in the
-        wall's material: it crossed that wall, which then bounds it. A sample on the floor
-        behind a farther face (a thin rib's far side) is not inside material and is not.
-        """
-        near, vertex = [], None
-        margin = max(reach, STOCK_TOL)
-        for slot, (edge, wall, box, _) in enumerate(self._floor_edges(index)):
+    def _floor_contacts(self, index, point):
+        """Rising walls of floor ``index`` whose concave floor edge passes within
+        ``STOCK_TOL`` of ``point`` and whose normal there has an in-plane part."""
+        walls, vertex = [], None
+        for edge, wall, box in self._floor_edges(index):
             if any(
-                point[axis] < box[axis] - margin or point[axis] > box[axis + 3] + margin
+                point[axis] < box[axis] - STOCK_TOL or point[axis] > box[axis + 3] + STOCK_TOL
                 for axis in range(3)
             ):
                 continue
             if vertex is None:
                 vertex = Part.Vertex(point)
-            distance, nearest, support = edge.distToShape(vertex)
-            if distance <= STOCK_TOL or distance < reach:
-                # The native nearest support: the edge's end vertex, or None inside the edge.
-                end = edge.Vertexes[support[0][1]] if support[0][0] == "Vertex" else None
-                near.append((slot, edge, wall, distance, nearest[0][0], end))
-        closest = min((entry[3] for entry in near), default=0.0)
-        moved = point.distanceToPoint(origin) > STOCK_TOL
-        contacts = []
-        for slot, edge, wall, distance, foot, _ in near:
-            incident = distance <= STOCK_TOL
-            normal = _normal_at(self.faces[wall], foot)
-            length = math.hypot(normal.x, normal.y)
-            if length < 1e-9:
+            distance, nearest, _ = edge.distToShape(vertex)
+            if distance > STOCK_TOL:
                 continue
-            nx, ny = normal.x / length, normal.y / length
-            offset, radial = 0.0, False
-            if not incident:
-                offset = nx * (point.x - foot.x) + ny * (point.y - foot.y)
-                crossed = (
-                    moved and distance <= closest + PLANE_TOL and distance + offset <= PLANE_TOL
-                )
-                if distance - offset > PLANE_TOL and not crossed:
-                    corner = self._floor_end(index, slot, point, near)
-                    if corner is None:
-                        continue
-                    if corner is not True:
-                        # The nearest boundary point is the convex corner: the axis moves
-                        # straight away from it until tangent.
-                        nx, ny = (point.x - corner.x) / distance, (point.y - corner.y) / distance
-                        offset, radial = distance, True
-            circle, curve = None, edge.Curve
-            if not radial and isinstance(curve, Part.Circle) and abs(curve.Axis.z) >= PARALLEL:
-                centre = curve.Center
-                if nx * (centre.x - foot.x) + ny * (centre.y - foot.y) > 0:
-                    circle = (centre.x, centre.y, curve.Radius)
-            contacts.append((wall, nx, ny, offset, circle, incident, slot))
-        return contacts
-
-    def _floor_end(self, index, slot, point, near):
-        """How floor edge ``slot`` of floor ``index`` bounds ``point`` beyond its end:
-        True by the wall's own line, the corner vertex's point to stand clear of, or None.
-
-        ``near`` is :meth:`_floor_contacts`'s ``(slot, edge, wall, distance, foot, end)``
-        per floor edge within reach, ``end`` the edge's end vertex when that is the native
-        nearest support (None for a foot inside the edge, however close to its end). Only
-        the wall/wall edges rising from that vertex classify the corner
-        (:meth:`_wall_edge_at`), never another edge the two faces share elsewhere. A
-        concave one makes it a corner bounded by the wall's line. A sharp convex corner
-        bounds by the vertex only when ``point`` is past the end of every other wall's
-        floor edge there too: the vertex is that edge's native nearest support and
-        ``point`` lies off its normal (``distance - offset > PLANE_TOL``), so a point in
-        front of or behind a wall's interior is bounded by that wall alone.
-        """
-        found = {entry[0]: entry for entry in near}
-        wall, end = found[slot][2], found[slot][5]
-        if end is None:
-            return None
-        others = []
-        for other_slot, (edge, other, _, _) in enumerate(self._floor_edges(index)):
-            if other_slot == slot or other == wall:
-                continue
-            if any(vertex.isSame(end) for vertex in edge.Vertexes):
-                sharp = self._wall_edge_at(wall, other, end)
-                if sharp is True:
-                    return True
-                others.append((found.get(other_slot), other, sharp))
-        if not others:
-            return None
-        for entry, other, sharp in others:
-            if sharp is not False or entry is None or entry[5] is None or not entry[5].isSame(end):
-                return None
-            _, _, _, distance, foot, _ = entry
-            normal = _normal_at(self.faces[other], foot)
-            length = math.hypot(normal.x, normal.y)
-            if length < 1e-9:
-                return None
-            offset = (normal.x * (point.x - foot.x) + normal.y * (point.y - foot.y)) / length
-            if distance - offset <= PLANE_TOL:
-                return None
-        return end.Point
-
-    def _wall_edge_at(self, a, b, vertex):
-        """:func:`_concave_edge` of the edge faces ``a`` and ``b`` share at ``vertex``:
-        True when one is concave, False when every one is convex, None when they share
-        none there or one is tangent (cached per shared edge)."""
-        key = (min(a, b), max(a, b))
-        sharp = self.floor_adjacency["sharp"]
-        verdicts = []
-        for at, edge in enumerate(self.floor_adjacency["pairs"].get(key, ())):
-            if not any(end.isSame(vertex) for end in edge.Vertexes):
-                continue
-            if (key, at) not in sharp:
-                sharp[key, at] = _concave_edge(self.finished, edge, self.faces[a], self.faces[b])
-            verdicts.append(sharp[key, at])
-        if True in verdicts:
-            return True
-        return False if verdicts and all(v is False for v in verdicts) else None
+            normal = _normal_at(self.faces[wall], nearest[0][0])
+            if math.hypot(normal.x, normal.y) >= 1e-9:
+                walls.append(wall)
+        return walls
 
     def _floor_corners(self, index):
         """(vertex, floor normal) where two rising walls meet the floor at a concave corner.
 
-        Convex island corners get no pose of their own: samples beside them stand tangent
-        to one wall, or past both walls' ends to the corner itself (:meth:`_floor_end`).
+        Convex island corners get no sample of their own. Every corner sample, like any
+        other floor sample, takes its nearest legal centre (:meth:`_planar_axis`).
         """
         face = self.faces[index]
         found = []
         for vertex in face.Vertexes:
-            walls = [
-                contact[0]
-                for contact in self._floor_contacts(index, vertex.Point, 0.0, vertex.Point)
-                if contact[5]
-            ]
+            walls = self._floor_contacts(index, vertex.Point)
             if any(
                 a != b and self._wall_corner(a, b)
                 for i, a in enumerate(walls)
@@ -6747,103 +6456,190 @@ class _Setup:
                 found.append((vertex.Point, _normal_at(face, vertex.Point)))
         return found
 
-    def _floor_axis(self, index, point, radius):
-        """User decision 2026-10-05: the nearest axis tangent to the walls bounding a sample.
+    def _upward_plane(self, index):
+        """Whether face ``index`` is planar with its outward normal along +Z."""
+        face = self.faces[index]
+        return (
+            isinstance(face.Surface, Part.Plane)
+            and _normal_at(face, face.Surface.Position).z >= PARALLEL
+        )
 
-        Every concave floor edge (curved ones included) on or within ``radius`` of the
-        sample, as :meth:`_floor_contacts` keeps it, bounds the axis offset ``d`` from the
-        sample (:func:`_nearest_clear`). Moving the axis can bring it within ``radius`` of
-        a concave edge the sample was not near (the far wall of an acute cusp), or carry it
-        across one (past an island in a narrow corner), so each such edge within
-        ``radius`` of the solved axis joins the bounds and the axis is solved again. This
-        constraint closure only ever adds an edge not yet bounding, so it ends after at
-        most one round per rising floor edge: it is not a search.
-        A sample bounded by no wall keeps its own axis, and so does one no axis can
-        clear every bounding wall from (a tool wider than its slot, gap or circle), so
-        that pose reports the real hit. A half-plane is exact for a straight edge and for
-        one convex edge alone; on a non-circular concave curve, or a circle smaller than
-        the tool, it is only the nearest point's tangent, so a pose still crossing the
-        wall reports that real hit.
+    def _certain_debt(self):
+        """Why this branch's certain material is not established, or None: a current
+        component without a derived raw supply contributes nothing to ``certain``, which
+        must not pass for free space."""
+        for component in sorted(self.state["components"]):
+            ref = "stock" if component == "stock" else "stock." + component
+            raw, why = self.owner.raw_supplies.get(ref, (None, None))
+            if raw is None:
+                return why or f"{ref} has no raw supply"
+        return None
+
+    def _planar_section(self, z):
+        """The certain material's analytic section at height ``z`` (cached), or None when
+        no certain material exists there.
+
+        ``{"edges": [(edge, kind, data, ends, box)], "shape": compound of the edges}``:
+        ``kind`` is "line" with ``data`` ``(ax, ay, bx, by)``, "circle" (a Z-axis circle
+        or arc) with ``(ox, oy, r)``, else the curve's type name with None; ``ends`` are
+        the edge's vertex points. Every positive-length edge is kept. Raises ValueError,
+        cached, when a certain face starts or ends within PLANAR_EQUAL_MM of ``z`` (a
+        coincident horizontal face or a tangent touch) or a section wire is open or
+        invalid: an ambiguous section is debt, never empty space.
         """
-        lines, discs, seen = [], [], set()
-        at, dx, dy = point, 0.0, 0.0
-        while True:
-            fresh = False
-            contacts = self._floor_contacts(index, at, radius, point)
-            for _, nx, ny, offset, circle, _, slot in contacts:
-                if slot in seen:
-                    continue
-                seen.add(slot)
-                fresh = True
-                if circle is not None and circle[2] >= radius:
-                    discs.append((circle[0] - point.x, circle[1] - point.y, circle[2] - radius))
-                else:
-                    # ``offset`` is measured from ``at``; the bound is on ``d`` from ``point``.
-                    lines.append((nx, ny, radius - offset + nx * dx + ny * dy))
-            if not fresh:
-                return at.x, at.y
-            solved = _nearest_clear(lines, discs)
-            if solved is None:
-                return point.x, point.y
-            dx, dy = solved
-            at = FreeCAD.Vector(point.x + dx, point.y + dy, point.z)
-
-    def _cover_axis(self, index, radius, leave):
-        """The one tool axis of a +Z planar floor the whole of which fits inside the
-        cutter disc, or None when no such axis is legal.
-
-        The axis is the area centroid of the axes covering the face (:func:`_cover_locus`,
-        cover by the actual ``radius``), or its certified single point. A rising wall's
-        concave floor edge is part of the face, so a cutter covering that edge and
-        standing ``radius + leave`` clear of the wall stands on its centre of curvature:
-        any wall with a leave and any wall that is not a concave Z circle leave no axis.
-        Else the axis is a wall centre, taken in sorted order, that meets every wall's
-        own floor bound ``|c - o| <= rho - radius`` (the tangent-circle bound of
-        :meth:`_floor_axis`, within its 1e-7 mm) and that the exact check
-        (:func:`_cover_farthest`) shows covers the face; none means no axis. With walls
-        the area locus is built only for an outer contour with other curves. No axis
-        means the face keeps its surface samples. Raises ValueError, cached per (face,
-        radius, leave), when a wall or the cover locus cannot be decided.
-        """
-        key = (index, radius, leave)
-        if key not in self.cover_axes:
+        if z not in self.planar_sections:
             try:
-                self.cover_axes[key] = (self._cover_axis_of(index, radius, leave), None)
+                self.planar_sections[z] = (self._planar_section_of(z), None)
             except Exception as exc:
-                self.cover_axes[key] = (None, exc)
-        axis, exc = self.cover_axes[key]
+                self.planar_sections[z] = (None, exc)
+        section, exc = self.planar_sections[z]
         if exc is not None:
             raise ValueError(str(exc)) from exc
-        return axis
+        return section
 
-    def _cover_axis_of(self, index, radius, leave):
-        face = self.faces[index]
-        walls = []
-        for edge, wall, _, _ in self._floor_edges(index):
-            curve = edge.Curve
-            if leave > 0 or not isinstance(curve, Part.Circle) or abs(curve.Axis.z) < PARALLEL:
-                return None
-            foot = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
-            normal = _normal_at(self.faces[wall], foot)
-            centre = curve.Center
-            if normal.x * (centre.x - foot.x) + normal.y * (centre.y - foot.y) <= 0:
-                return None  # an island's foot: its centre lies inside the wall
-            walls.append((centre.x, centre.y, curve.Radius))
-        points, arcs, unsupported = _cover_contour(face)
-        if not walls or unsupported:
-            # With rising walls and a line/circle contour the exact check at each wall
-            # centre decides alone: the area locus may be a sub-tolerance sliver.
-            kind, axis = _cover_locus(face, radius)
-            if kind == "empty":
-                return None
-            if not walls:
-                return axis
-        for x, y, _ in sorted(walls):
-            if _cover_farthest(points, arcs, x, y) <= radius + COVER_TOL and all(
-                math.hypot(x - ox, y - oy) <= rho - radius + COVER_GAP for ox, oy, rho in walls
+    def _planar_section_of(self, z):
+        certain = self.certain
+        if certain is None or certain.isNull() or not certain.Solids:
+            return None
+        if self.certain_boxes is None:
+            self.certain_boxes = [
+                face.optimalBoundingBox(False, False) for face in certain.Faces
+            ]
+        if any(
+            abs(box.ZMin - z) <= PLANAR_EQUAL_MM or abs(box.ZMax - z) <= PLANAR_EQUAL_MM
+            for box in self.certain_boxes
+        ):
+            raise ValueError(
+                f"certain material has a face starting or ending at pose height z={_r(z)} "
+                "(a coincident or tangent section)"
+            )
+        edges = []
+        for wire in certain.slice(Z, z):
+            if not wire.isClosed() or not wire.isValid():
+                raise ValueError(
+                    f"the certain material's section at pose height z={_r(z)} is not "
+                    "closed valid wires"
+                )
+            for edge in wire.Edges:
+                if edge.Degenerated or edge.Length <= 0:
+                    continue
+                curve = edge.Curve
+                if isinstance(curve, (Part.Line, Part.LineSegment)):
+                    a, b = edge.Vertexes[0].Point, edge.Vertexes[-1].Point
+                    kind, data = "line", (a.x, a.y, b.x, b.y)
+                elif isinstance(curve, Part.Circle) and abs(curve.Axis.z) >= PARALLEL:
+                    kind, data = "circle", (curve.Center.x, curve.Center.y, curve.Radius)
+                else:
+                    kind, data = type(curve).__name__, None
+                ends = tuple(dict.fromkeys((v.Point.x, v.Point.y) for v in edge.Vertexes))
+                edges.append((edge, kind, data, ends, _bbox(edge)))
+        if not edges:
+            return None
+        return {"edges": edges, "shape": Part.Compound([entry[0] for entry in edges])}
+
+    def _planar_legal(self, section, x, y, z, rho):
+        """Whether an axis at ``(x, y)`` is legal at height ``z``: outside every certain
+        solid (boundary counts as inside) and at least ``rho - PLANAR_EQUAL_MM`` from every
+        section edge, by native classification and distance (cached)."""
+        key = (z, rho, x, y)
+        if key not in self.planar_legal:
+            point = V(x, y, z)
+            legal = not any(solid.isInside(point, 1e-9, True) for solid in self.certain.Solids)
+            if legal:
+                distance = _distance(section["shape"], Part.Vertex(point))[0]
+                legal = distance >= rho - PLANAR_EQUAL_MM
+            self.planar_legal[key] = legal
+        return self.planar_legal[key]
+
+    def _planar_axis(self, index, point, radius, leave, z):
+        """The nearest legal tool axis ``(x, y)`` for a sample ``point`` of +Z planar face
+        ``index`` whose tip stands at actual height ``z``.
+
+        Clearance and coverage are both ``rho = radius + leave``: a finish cutter's
+        radius, a rough one's radius plus its leave. An axis is legal when it lies outside
+        this branch's certain material (``certain``: current components within their raw
+        supply, without permitted unjoined sockets) and at least ``rho`` from its section
+        at ``z`` (:meth:`_planar_section`). Only that section counts: overhangs, leave
+        below ``z`` and unclaimed raw stock never steer the axis, and the full native
+        flute, holder and reach checks still meet them at the chosen axis. A legal sample
+        keeps its own axis; else the axis is the legal one nearest the sample within
+        ``rho`` of it, ties within PLANAR_EQUAL_MM going to the one nearest the face's area
+        centroid, then the least ``(x, y)``. None within ``rho`` keeps the sample's own
+        axis, whose genuine hit the native checks report.
+
+        The nearest legal axis is the sample itself, the nearest point of one offset
+        primitive or a meeting point of two (:func:`_offset_primitives`, including the
+        exact single axes and lines of closed fits), from the section edges within
+        ``2 rho`` of the sample, the only ones that can bound an axis within ``rho`` of
+        it. Candidates are certified natively against the whole section in increasing
+        distance (:meth:`_planar_legal`), so supersets are harmless. Such a nearby edge
+        that is neither a line nor a Z-axis circle, an ambiguous section, or missing raw
+        supply raises ValueError: the floor's pose is undefined, not free.
+        """
+        why = self._certain_debt()
+        if why is not None:
+            raise ValueError(f"certain material on this branch is unknown ({why})")
+        rho = radius + leave
+        px, py = point.x, point.y
+        section = self._planar_section(z)
+        if section is None or self._planar_legal(section, px, py, z, rho):
+            return px, py
+        reach = 2 * rho + PLANAR_EQUAL_MM
+        vertex = Part.Vertex(V(px, py, z))
+        primitives, found, unsupported = set(), set(), set()
+        for slot, (edge, kind, data, ends, box) in enumerate(section["edges"]):
+            if (
+                px < box[0] - reach
+                or px > box[3] + reach
+                or py < box[1] - reach
+                or py > box[4] + reach
+                or _distance(edge, vertex)[0] > reach
             ):
-                return x, y
-        return None
+                continue
+            if data is None:
+                unsupported.add(kind)
+                continue
+            key = (z, rho, slot)
+            if key not in self.planar_offsets:
+                self.planar_offsets[key] = _offset_primitives(kind, data, ends, rho)
+            offsets, caps = self.planar_offsets[key]
+            primitives.update(offsets)
+            found.update(caps)
+        if unsupported:
+            raise ValueError(
+                f"its section at pose height z={_r(z)} has "
+                f"{', '.join(sorted(unsupported))} edge(s) within {_r(reach)} mm of a "
+                "sample, which have no exact legal-centre offset"
+            )
+        cover = rho + PLANAR_EQUAL_MM
+        centroid = self.faces[index].CenterOfMass
+        cx, cy = centroid.x, centroid.y
+        local = sorted(p for p in primitives if _primitive_distance(p, px, py) <= cover)
+        for p in local:
+            found.update(_primitive_nearest(p, px, py, cx, cy))
+        for i, a in enumerate(local):
+            for b in local[i + 1 :]:
+                if (a, b) not in self.planar_meets:
+                    self.planar_meets[a, b] = _primitive_meets(a, b)
+                found.update(self.planar_meets[a, b])
+        ranked = sorted(
+            (distance, x, y)
+            for x, y in found
+            if (distance := math.hypot(x - px, y - py)) <= cover
+        )
+        best, chosen = None, []
+        for distance, x, y in ranked:
+            if best is not None and distance > best + PLANAR_EQUAL_MM:
+                break
+            if self._planar_legal(section, x, y, z, rho):
+                best = distance if best is None else best
+                chosen.append((x, y))
+        if not chosen:
+            return px, py
+        nearest = min(math.hypot(x - cx, y - cy) for x, y in chosen)
+        return min(
+            (x, y) for x, y in chosen if math.hypot(x - cx, y - cy) <= nearest + PLANAR_EQUAL_MM
+        )
 
     def _sample_facts(self, op, indices, radius, facts):
         reasons = facts["reasons"]
@@ -6867,27 +6663,15 @@ class _Setup:
                 facts[key] = UNKNOWN
                 reasons[key] = why
             return
-        # (index, point, normal, whether the point is already the face's one tool axis)
-        samples, sample_problems, undefined = [], [], {}
+        # (index, point, normal); ``floors`` are the ordinary +Z planar faces whose samples
+        # take their nearest legal centre (:meth:`_planar_axis`).
+        samples, sample_problems, undefined, floors = [], [], {}, set()
         for index in indices:
             face = self.faces[index]
             # Transient joint faces are not finished-part floors with corner topology.
-            floor = (
-                not joint
-                and isinstance(face.Surface, Part.Plane)
-                and _normal_at(face, face.Surface.Position).z >= PARALLEL
-            )
+            floor = not joint and self._upward_plane(index)
             if floor and hole_cut is None:
-                # The whole face fits the cutter disc: one pose stands for all of it.
-                try:
-                    axis = self._cover_axis(index, radius, leave)
-                except Exception as exc:
-                    undefined[index] = exc
-                    continue
-                if axis is not None:
-                    point = FreeCAD.Vector(axis[0], axis[1], face.Surface.Position.z)
-                    samples.append((index, point, _normal_at(face, point), True))
-                    continue
+                floors.add(index)
             found, missed = _face_samples(face, max(radius, 1.0))
             if floor and found:
                 try:
@@ -6895,7 +6679,7 @@ class _Setup:
                 except Exception as exc:
                     undefined[index] = exc
                     continue
-            samples.extend((index, point, normal, False) for point, normal in found)
+            samples.extend((index, point, normal) for point, normal in found)
             if missed:
                 sample_problems.append(
                     f"{self.owner.labels[index]}: {missed} sample point(s) "
@@ -6906,12 +6690,16 @@ class _Setup:
         holder = {key: _positive(op, key) for key in keys}
         holder_missing = sorted(key for key, value in holder.items() if value is None)
         placed = []  # (index, point, axis x, axis y, tip z, downward)
-        for index, point, normal, fixed in samples:
+        for index, point, normal in samples:
             if index in undefined:
                 continue
             horizontal = math.hypot(normal.x, normal.y)
             ax, ay, level = point.x, point.y, point.z
-            if hole_cut is not None:
+            if index in floors:
+                # A classified floor sample stands on its nearest legal centre at its actual
+                # tip height, known first; no wall offset applies to it.
+                level += leave
+            elif hole_cut is not None:
                 centre = min(
                     hole_cut["centres"],
                     key=lambda centre: (centre.x - point.x) ** 2 + (centre.y - point.y) ** 2,
@@ -6926,15 +6714,15 @@ class _Setup:
                 ay += radius * normal.y / horizontal
             elif normal.z >= PARALLEL:
                 level += leave
-                if not joint and not fixed:
-                    try:
-                        ax, ay = self._floor_axis(index, point, radius + leave)
-                    except Exception as exc:
-                        undefined[index] = exc
-                        continue
             # An authored to_z above the finished face is the cut's actual endpoint.
             if _number(op.get("to_z")):
                 level = max(level, op["to_z"])
+            if index in floors:
+                try:
+                    ax, ay = self._planar_axis(index, point, radius, leave, level + LIFT)
+                except Exception as exc:
+                    undefined[index] = exc
+                    continue
             placed.append((index, point, ax, ay, level + LIFT, normal.z < -1e-3))
         # A floor with no derivable pose drops its own poses only: every other face's
         # certain hits stay counted while the op's measured facts become unknown.

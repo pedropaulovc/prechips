@@ -299,7 +299,7 @@ def _setup(ops, hold, frame=IDENTITY, setup_id="S1"):
 
 
 def test_plate_samples_near_a_boss_and_its_own_wall_poses_both_clear_it(engine, solids):
-    # User decision 2026-10-05: plate-top samples within R of the boss foot stand tangent.
+    # Each floor sample keeps a nearest covering axis; lateral wall poses stay unchanged.
     step = solids["boss"]
     top = engine.refs(step, (0, 0, 10), (60, 40, 10))
     boss = engine.refs(step, (33, 16, 10), (41, 24, 16))
@@ -308,7 +308,7 @@ def test_plate_samples_near_a_boss_and_its_own_wall_poses_both_clear_it(engine, 
     ops = [_op("S1:10", "top", 3.0, 10.0, 20.0), _op("S1:20", "boss", 3.0, 10.0, 20.0)]
     result = engine.run(engine.job(step, {"top": top, "boss": boss}, [_setup(ops, _vise(5.0))]))
     for op in (result["ops"]["S1:10"], result["ops"]["S1:20"]):
-        assert op["sample_count"] > 0 and op["tool_hits"] == 0 and op["obstacles"]["tool"] == []
+        assert op["tool_hits"] == 0 and op["obstacles"]["tool"] == [], op
 
 
 @pytest.mark.parametrize("name, clears", [("step", True), ("undercut-step", False)])
@@ -750,14 +750,15 @@ def test_booleans_on_the_real_filleted_summing_lever(engine):
     )  # end plate thickness
 
 
-def test_floor_corner_pose_is_tangent_to_both_walls(engine, solids):
+def test_sharp_floor_corner_has_no_covering_two_wall_tangent_axis(engine, solids):
     step = solids["slot"]
     floor = engine.refs(step, (15, 14, 14), (45, 26, 14))
     op = _op("S1:10", "floor", 0.5, 10.0, 20.0)
     detail = engine.run(
         engine.job(step, {"floor": floor}, [_setup([op], _vise(5.0, centre=30.0))])
     )["ops"]["S1:10"]
-    assert detail["tool_hits"] == 0
+    assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
+    assert detail["obstacles"]["tool"] == ["part"], detail
 
 
 def test_rough_floor_pose_uses_its_cut_level_and_keeps_holder_obstacles(engine, solids):

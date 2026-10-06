@@ -580,39 +580,30 @@ not exist.
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes; a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
 | joint_assembly (always required): received prepared branches satisfy actual target geometry, overlap/insertion or full internal surface contact, and final-material coverage plus permitted finite fill | STEP final solid, selected stock lineage/output completion, plan.joint_features, plan.setups.joint | M4 | "Join refused: the received branch has lost required finished material." |
 
-**Accessibility pose decision — user, 2026-10-05.** Ordinary wall samples
-keep the cutter-radius offset along the horizontal outward normal. A floor
-sample on or within one cutter radius of any concave floor/rising-wall edge,
-straight or curved (pocket walls and boss feet alike), moves its axis along
-the wall's in-plane normal at the nearest edge point until the cutter is
-tangent; every such edge bounds the axis at once, so a two-wall concave floor
-corner and samples near it stand tangent to both walls. A concave circle at
-least the cutter's radius bounds it exactly; the smallest move is one of
-finitely many analytic candidates, never a search, and a concave edge the
-shifted axis comes within a radius of, or crosses as its nearest edge, joins
-the bounds once (a finite constraint closure). A cutter wider than its
-gap or circle keeps the sample's own axis and reports the real hit. Convex
-edges and farther interior samples are unchanged. Past an edge's end, only the
-wall/wall edge rising there classifies the corner: a concave one bounds by the
-wall's line; a sharp convex island corner bounds only a sample past the end of
-every wall meeting there, which moves straight away from the corner (its
-nearest boundary point) until tangent; a sample in front of or behind a wall's
-interior is bounded by that wall alone, and convex vertices get no corner
-pose. This is per sample for floors that keep their samples.
-**Whole-face floor pose (literal face-inside-cutter):** a
-+Z planar floor whose entire face fits inside the actual cutter disc gets
-exactly one pose and no samples or corners: the area centroid of the convex
-set of covering axes (exact for line and Z-circle outer edges, emptiness
-proved over finitely many analytic candidates, no `STOCK_TOL` widening), the
-certified minimal enclosing centre when that set is one point, or a concave
-rising Z-circle wall's centre that meets every such wall's own tangent-circle
-floor bound and covers the face. A rough leave or any other rising wall keeps
-the samples, as does a face larger than the cutter: reverse containment (the
-Rocker OD10.2 annulus against D9.525) is not this rule. Other outer curves
-are decided only by an exact-point no-fit; otherwise, like a failed native
-locus, the floor's own poses drop and the op's measured facts are unknown
-while other faces' certain hits stay.
-Tangency is not corner-radius certification. Floor-only claims do not certify
+**Accessibility pose decision — nearest legal centre (supersedes the
+2026-10-05 wall-tangency and whole-face-centroid floor rules).** Ordinary wall
+samples keep the cutter-radius offset along the horizontal outward normal.
+Every sample of an ordinary +Z planar face (not a transient joint face or a
+hole op), concave floor corners included, stands on its nearest legal centre at
+its actual tip height `max(face z + a, to_z) + LIFT`, computed first. Legal
+means outside the branch's certain material (current components within their
+raw supply, without permitted unjoined sockets) and at least ρ from its section
+at that height; ρ is `r` for finishing and `r + a` for roughing, and the axis
+moves at most ρ (a rough cutter is not asked to finish a wall foot its leave
+keeps). A legal sample keeps its axis; ties within one fixed 1e-7 mm (never a
+radius or `STOCK_TOL`) go to the face's area centroid, then the least (x, y).
+No legal centre within ρ keeps the sample's axis, so the native check reports
+the genuine hit (a sharp corner is a hit, not a cleared pose at 2.83 mm for an
+R2 cutter). Candidates are the exact offsets of nearby line and Z-circle
+section edges (single axes and 2r strips included) and their meeting points,
+certified natively against the whole section; never a search, an area offset
+or a bounding box. Only the section at the tip height steers the axis:
+overhangs, leave below it, future hole cores and unclaimed raw do not, but the
+full flute (accepted after-op stock) and the holder (setup-entry stock) still
+meet them at the chosen axis. Another curve near a sample, an ambiguous section
+or missing raw supply leaves that floor's pose undefined: its own poses drop,
+other faces' certain hits stay and the op's measured facts are unknown.
+A legal centre is not corner-radius certification. Floor-only claims do not certify
 a wall/wall corner: `internal_corner_radius` retains its existing scope and
 checks a sharp wall/wall corner when the op claims both walls. No adjacent
 finished wall is removed to manufacture clearance; undercut and leaning walls
@@ -621,8 +612,8 @@ remain obstacles.
 The cutter tip is at sampled face Z except that a rough milling op's scalar
 `rough_allowance_mm` (a) is an engine-consumed leave in millimetres normal to
 the finished surface: each rough sample point moves `a` along the face's unit
-normal, then takes the ordinary cutter-radius XY shift `r`; concave floor-edge
-and corner constraints use radius `r + a`. Derived stock protects the finished
+normal, then takes the ordinary cutter-radius XY shift `r`; planar floor
+samples need legal clearance `r + a`. Derived stock protects the finished
 solid offset outward by `a`, keeping radial and axial leave on drafted faces
 too, and later finishing ops remove it as their own allowance. An explicit
 `to_z` caps that endpoint (the tip is the higher of `to_z` and floor plus
@@ -1333,7 +1324,9 @@ sheet.
    claimed faces' XY bbox plus cutter radius and not a whole-toolpath proof.
    A known cutter radius, finite bounds, intersection with the selected stock,
    protection of finished material and rough leave, exact claim/piece contact,
-   future planned-hole columns and no split of an original solid still apply;
+   future planned-hole columns and no split of an original solid still apply
+   (a bounded facing op releases only the column above its own claimed opening
+   face's cut height, inside its box, guard window and own outer-loop sweep);
    a violation is named stock debt, not an error, while genuine finished
    collisions remain errors. An unknown radius leaves the bounds `?` with a
    missing-cutter-radius reason; neither case can certify the next setup.
@@ -1342,20 +1335,15 @@ sheet.
    Invalid supply, unbound as-stock faces or a non-derivable retained
    rail/profile mask yields a named unknown and no stock picture.
 
-   The 2026-10-05 user decision replaces boundary-centred floor poses: a
-   floor sample on or within a cutter radius of any concave floor/rising-wall
-   edge, curved ones and boss feet included, shifts along the wall's in-plane
-   normal at the nearest edge point to tangency with every such wall (exact
-   for concave circles at least the cutter's radius); a cutter wider than its
-   gap keeps its own axis and reports the real hit. Convex edges and farther
-   interior samples are unchanged; a sample past both walls of a sharp convex
-   island corner moves straight away from that corner to tangency (classified
-   by the wall/wall edge rising there, not another edge the walls share), and
-   convex vertices add no corner pose. A +Z planar floor that fits wholly inside the
-   cutter disc instead stands on one derived pose (centroid of the covering
-   axes, a certified single axis, or its R-arc walls' shared centre); an
-   undecidable one drops only its own poses and leaves the op's facts unknown.
-   Tangency does not
+   The nearest-legal-centre rule replaces the 2026-10-05 tangency and
+   whole-face-centroid floor rules: every sample of an ordinary +Z planar face,
+   concave corners included, stands at its actual tip height on the nearest
+   centre outside the branch's certain material and at least ρ (`r` finishing,
+   `r + a` roughing) from its section there, moving at most ρ; ties within
+   1e-7 mm go to the face centroid, then the least (x, y). No legal centre keeps
+   the sample's axis and its genuine hit. Unsupported nearby curves, ambiguous
+   sections or missing raw supply drop only that floor's poses and leave the
+   op's facts unknown. A legal centre does not
    certify corner radii, and floor-only claims do not certify wall/wall corners.
    `internal_corner_radius` retains its existing claimed-face scope:
    a sharp wall/wall corner is checked when the op claims both walls.
@@ -1388,7 +1376,7 @@ sheet.
    neighbouring finished walls;
    undercut/leaning walls and unrelated material remain obstacles.
    Rough milling leaves its `rough_allowance_mm` normal to the finished
-   surface (`r + a` floor-edge constraints); an explicit `to_z` caps the
+   surface (`r + a` planar floor clearance); an explicit `to_z` caps the
    endpoint without a second leave, and any milling op's numeric `to_z`
    above its face is its actual tip.
    Holder obstacles, reach, holding and rendering keep actual setup-entry
@@ -1401,7 +1389,7 @@ sheet.
    normals leave the face unknown. Certain observed collisions error even with
    unknown stock/fixture/dimensions, and finished corner radii survive stock
    debt; exit 2 beats 4. Accessibility needs projection, not unused OAL.
-   Prescribed tangent/normal-offset poses screen collisions, not alternate
+   Prescribed legal-centre/normal-offset poses screen collisions, not alternate
    machinable poses or a toolpath; unresolved pose facts do not become passes.
    Corner comparisons allow 0.005 mm numeric STEP/kernel round-off, not a
    shop machining allowance: a 0.004 mm radius deficit passes, 0.006 mm errors.
