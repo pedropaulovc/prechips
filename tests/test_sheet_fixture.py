@@ -313,3 +313,65 @@ def test_fixture_numbers_print_at_policy_make_precision_and_fits_at_drawing_prec
     assert "Ø20.6 × 1.6" in table
     # The locating pad is a fit: drawing precision (3), not the make precision.
     assert "10 × 10 × 2.346" in table
+
+
+def test_separate_bought_parts_with_one_fastener_text_count_apart():
+    screw = {"supply": "bought", "fastener": "M8 SHCS"}
+    table = bridge_page(
+        cylinder("screw-a", -40, 20, 8, 20, **screw), cylinder("screw-b", 40, 20, 8, 30, **screw)
+    )
+    assert "; 2 × M8 SHCS." in table
+
+
+def test_hole_through_stacked_parts_prints_in_every_part_it_cuts():
+    lower = {"name": "lower", "shape": "box", "at_mm": [60, -5, 0], "size_mm": [10, 10, 5]}
+    upper = {"name": "upper", "shape": "box", "at_mm": [60, -5, 5], "size_mm": [10, 10, 4]}
+    hole = cylinder("pin-hole", 65, 0, 3, 9, void=True, cuts=["lower", "upper"])
+    table = bridge_page(lower, upper, hole)
+    assert table.count("with 1 × Ø3 hole: axis at X 65, Y 0; Z 0…9") == 2
+
+
+def test_unverified_primitive_prints_no_make_numbers():
+    block = {
+        "name": "gauge-block",
+        "shape": "box",
+        "at_mm": [70, -5, 0],
+        "size_mm": [12.5, 7, 3],
+        "verify": True,
+    }
+    table = bridge_page(block)
+    assert "gauge block" in table and "? not set: unverified; verify before making" in table
+    assert "12.5 × 7 × 3" not in table and "X 70" not in table
+
+
+def test_existing_and_made_parts_of_one_size_keep_separate_rows():
+    old = {
+        "name": "old",
+        "shape": "box",
+        "at_mm": [60, -5, 0],
+        "size_mm": [10, 10, 5],
+        "supply": "existing",
+    }
+    new = {"name": "new", "shape": "box", "at_mm": [80, -5, 0], "size_mm": [10, 10, 5]}
+    hole = cylinder("tap", 65, 0, 5, 5, void=True, cuts=["old"], fastener="M6 tapped")
+    table = bridge_page(old, new, hole)
+    assert "old (existing part: make the holes only)" in table
+    assert "old / new" not in table and "|new||10 × 10 × 5|" in table
+
+
+def test_renumbered_clamp_gets_its_own_table_not_a_pointer():
+    clamp = {"ref": "plate", "restraint": "press", "pose": IDENTITY}
+    first, later = sheets(
+        bundle([{"clamps": [clamp]}, {"clamps": [{"ref": "strap", "restraint": "none"}, clamp]}])
+    )
+    assert "(C1)" in first
+    assert "SHOP-MADE FIXTURE —" in later and "Setup S1 sheet 2" not in later
+
+
+def test_each_placement_of_an_item_builds_its_own_shim_stacks():
+    clamps = [
+        {"ref": "plate", "restraint": "press", "pose": IDENTITY},
+        {"ref": "plate", "restraint": "press", "pose": TURNED},
+    ]
+    page = sheets(bundle([{"clamps": clamps}]))[0]
+    assert "4 shim stacks under the rail (C1 shim R, C2 shim R, C1 shim L, C2 shim L)" in page
