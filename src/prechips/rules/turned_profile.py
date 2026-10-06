@@ -249,6 +249,16 @@ def _kernel_cite(setup, name):
     )
 
 
+def spindle_span(bundle, setup, name):
+    """(setup-frame axial span in mm, citation) of a feature the kernel measured with every
+    face an external surface of revolution about setup Z through x = y = 0, else
+    (None, why not). Reads only an already-present kernel result."""
+    fact, why = _kernel_fact(_context(bundle, setup), name)
+    if fact is None:
+        return None, why
+    return list(fact["z_mm"]), _kernel_cite(setup, name)
+
+
 def feature_span(bundle, setup, name):
     """A feature's setup-frame axial span and turned diameters, declared first, kernel next.
 
@@ -337,6 +347,76 @@ def _grooving(setup, name, bundle):
         for op in earlier["ops"]
     )
     return ("unknown" if unknown else "error"), evidence
+
+
+_STOCK_CITE = (
+    "kernel: setups.{setup}.stock_profile (least outer radius of the in-process stock "
+    "while present during the setup, about setup Z; FreeCAD B-rep)"
+)
+
+
+def _kernel_stock(bundle, setup):
+    """(well-formed kernel ``stock_profile`` rows [z_lo, z_hi, r_lo, r_hi], why none)
+    from an already-present kernel run; this never starts the kernel."""
+    kernel = record(getattr(bundle, "kernel", None))
+    if kernel.get("status") != "ok":
+        return None, "no kernel geometry is available"
+    if setup_frame(bundle, setup).get("binding") == UNKNOWN:
+        return None, "the setup frame binding is unknown"
+    facts = record(record(kernel.get("setups")).get(setup["id"]))
+    rows = facts.get("stock_profile")
+    if not isinstance(rows, list):
+        return None, str(
+            facts.get("stock_profile_reason")
+            or "the kernel reports no stock profile for this setup"
+        )
+    if not all(
+        isinstance(row, list)
+        and len(row) == 4
+        and all(number(value) for value in row)
+        and row[0] < row[1]
+        and 0 <= row[2] <= row[3]
+        for row in rows
+    ):
+        return None, "the kernel stock profile is malformed"
+    return rows, None
+
+
+def _stock_fill(bundle, setup, uncovered):
+    """(stock segments, spans still uncovered, why) for exposed spans beyond every finished
+    feature: the kernel's stock profile must cover a span end to end, and each piece takes
+    the least outer radius of its band over every in-process state that has material there
+    (entering stock, then after each removing op). Without it the span stays uncovered:
+    the stock state's od_mm cannot show that no op reduced it."""
+    if not uncovered:
+        return [], [], None
+    rows, why = _kernel_stock(bundle, setup)
+    if rows is None:
+        return [], uncovered, why
+    filled, remaining = [], []
+    for low, high in uncovered:
+        pieces, reach = [], low
+        for z0, z1, r_lo, _ in sorted(rows):
+            if z1 <= reach or same_length(z1, reach) or z0 >= high:
+                continue
+            if z0 > reach and not same_length(z0, reach):
+                break
+            top = min(z1, high)
+            pieces.append(
+                {
+                    "z_mm": [reach, top],
+                    "diameter_mm": 2 * r_lo,
+                    "features": [],
+                    "source": "kernel_stock",
+                }
+            )
+            reach = top
+        if reach >= high or same_length(reach, high):
+            filled.extend(pieces)
+        else:
+            remaining.append([low, high])
+    reason = None if not remaining else "the kernel stock profile does not cover the whole span"
+    return filled, remaining, reason
 
 
 def exposed_profile(bundle, setup):
@@ -467,15 +547,18 @@ def exposed_profile(bundle, setup):
             segments[-1]["z_mm"][1], exposure[1]
         ):
             uncovered.append([segments[-1]["z_mm"][1], exposure[1]])
+    stock_segments, uncovered, stock_reason = _stock_fill(bundle, setup, uncovered)
     complete = isinstance(exposure, list) and bool(segments) and not unresolved and not uncovered
     return {
         "names": exposed_names,
         "exposed_z_mm": exposure,
         "intervals": intervals,
         "segments": segments,
+        "stock_segments": stock_segments,
         "unresolved": unresolved,
         "unresolved_reasons": {name: reasons[name] for name in sorted(set(unresolved))},
         "uncovered_z_mm": uncovered,
+        "stock_reason": stock_reason,
         "off_axis": off_axis,
         "complete": complete,
         "cite": sorted(
@@ -490,6 +573,7 @@ def exposed_profile(bundle, setup):
                 "(revolved about another axis; FreeCAD B-rep)"
                 for name in off_axis
             }
+            | ({_STOCK_CITE.format(setup=setup["id"])} if stock_segments else set())
         ),
     }
 
