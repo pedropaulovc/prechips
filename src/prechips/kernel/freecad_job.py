@@ -4648,6 +4648,7 @@ class _Setup:
         size = max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
         tolerance = max(0.01, size / 400)
         meshes, render_debts = [], []
+        lathe = self.setup.get("machine_kind") == "lathe"
         output, removal = None, None
         if self.stock_out is not None:
             try:
@@ -4659,13 +4660,28 @@ class _Setup:
         else:
             render_debts.append("NOT SHOWN: cuts are unresolved; this is the arriving stock only.")
 
-        def mesh(shape, colour, hatch=False):
-            points, triangles = shape.tessellate(tolerance)
+        meridian = None
+        if lathe:
+            x0, _, z0, x1, _, z1 = self.box
+            vertices = [
+                V(x0 - 1, 0, z0 - 1),
+                V(x1 + 1, 0, z0 - 1),
+                V(x1 + 1, 0, z1 + 1),
+                V(x0 - 1, 0, z1 + 1),
+            ]
+            meridian = Part.Face(Part.makePolygon(vertices + [vertices[0]]))
+
+        def mesh(shape, colour, hatch=False, section=False):
+            # A lathe elevation is a meridian section: the removed annulus's
+            # outside surface must not hide the retained core behind it.
+            points, triangles = (
+                shape.common(meridian) if section else shape
+            ).tessellate(tolerance)
             meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch))
 
-        mesh(output if output is not None else self.part, _COLOURS["part"])
+        mesh(output if output is not None else self.part, _COLOURS["part"], section=lathe)
         if removal is not None and removal.Volume > STOCK_MM3:
-            mesh(removal, _COLOURS["removed"], True)
+            mesh(removal, _COLOURS["removed"], True, section=lathe)
         debts, solids, possible = [], [], []
         vise = self.hold is not None and self.hold.get("kind") == "vise"
         if not self.fixture_ready:
@@ -4725,7 +4741,6 @@ class _Setup:
             "debts": debts,
         }
         annotation = self.setup.get("render", {})
-        lathe = self.setup.get("machine_kind") == "lathe"
         view = "lathe" if lathe else "plan" if scene["fixture_kind"] == "custom" else "isometric"
         tool, tool_debt = self._render_tool(annotation, lathe)
         if tool_debt:
@@ -4779,6 +4794,8 @@ class _Setup:
             "Brown/purple: holding. Green: selected tool and approach.",
             "Dashed machine outlines: context only, not measured solids.",
         ]
+        if not lathe:
+            legend.append("Dashed blue: nominal part outline, not proof that it has been cut.")
         if removal is None:
             legend[0] = "Blue-grey: arriving stock; cuts not confirmed."
             legend.pop(1)
@@ -4790,7 +4807,7 @@ class _Setup:
             ]
             centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
             components.append(
-                {"name": name, "label": name.upper(), "role": "rest", "box_mm": box,
+                {"name": name, "label": "FOLLOW REST", "role": "rest", "box_mm": box,
                  "center_mm": centre}
             )
         clamp_labels = {
@@ -4821,6 +4838,11 @@ class _Setup:
             "preload": annotation.get("preload"),
             "legend": legend,
             "notes": notes + render_debts,
+            "nominal_outline_mm": [
+                [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                for edge in self.finished.Edges
+                if edge.Length > STOCK_TOL
+            ] if not lathe else [],
         }
         if lathe:
             spec["lathe_profiles"] = self._render_profiles(output, jaw_z)
@@ -4858,6 +4880,10 @@ class _Setup:
                     role = "pad"
                 elif local.startswith("base"):
                     label, role = "FIXTURE PLATE", "plate"
+                elif role == "fixture":
+                    # The shop view labels the assembly, not every bolt/shim
+                    # primitive. All exact solids and names stay in the scene.
+                    key, label = owner + ":body_supports", "FIXTURE BODY / SUPPORTS"
             box = component["bbox"]
             if key in grouped:
                 previous = grouped[key]["box_mm"]
@@ -4897,6 +4923,8 @@ class _Setup:
             approach = [[r + 15, 0.0, z], tip]
         elif _sawn(op) and _positive(op, "kerf_mm") is not None:
             plane = op.get("cut_plane", {})
+            if not isinstance(plane, dict):
+                return None, "STOP: saw cut plane is unresolved; do not run."
             axis = {"x": 0, "y": 1, "z": 2}.get(plane.get("axis"))
             if axis is None or not _number(plane.get("value")):
                 return None, "STOP: saw cut plane is unresolved; do not run."
@@ -4926,15 +4954,31 @@ class _Setup:
             outlines = [[[x - radius, y, z], [x + radius, y, z],
                          [x + radius, y, z + length], [x - radius, y, z + length]]]
             approach = [[x, y, z + length + 12], [x, y, self.box[5]]]
+        feed = None
+        direction = annotation.get("directions", {}).get(op_number)
+        if lathe:
+            delta = (
+                [0.0, 0.0, -12.0] if direction == "toward_chuck"
+                else [0.0, 0.0, 12.0] if direction == "from_chuck"
+                else [12.0, 0.0, 0.0] if direction == "radially_outward"
+                else [-12.0, 0.0, 0.0] if direction == "radially_inward"
+                else [-12.0, 0.0, 0.0] if op.get("do") in ("part_off", "cut_to_fit")
+                else None
+            )
+            if delta is not None:
+                start = [tip[0] + 8.0, tip[1], tip[2]]
+                feed = [start, [start[i] + delta[i] for i in range(3)]]
         return {
             "label": label, "op": op_number, "tip_mm": tip,
             "outline_mm": outlines[0], "outlines_mm": outlines, "approach_mm": approach,
+            "feed_mm": feed,
         }, None
 
     def _render_profiles(self, output, jaw_z):
         """Clipped real meridian chords for the enlarged exposed-end detail."""
         lower = jaw_z if _number(jaw_z) else self.box[2]
-        upper = self.box[5]
+        diameter = max(self.box[3] - self.box[0], self.box[4] - self.box[1])
+        upper = min(self.box[5], lower + 3 * diameter)
         profiles = []
         for label, shape, colour in (
             ("arriving stock", self.part, _COLOURS["removed"]),
