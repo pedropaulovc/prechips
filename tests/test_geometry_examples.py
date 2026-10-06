@@ -286,7 +286,7 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
     plan = examples / "rocker-arm" / "plan.toml"
     pilot_kernel_cache(plan)
     result, report, _ = traveler(plan, tmp_path / "ref")
-    assert result.returncode == 2, result.stderr
+    assert result.returncode == 0, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
     assert (
         report["step_sha256"]
@@ -295,7 +295,7 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
     assert set(report["renders"]) == {"S1", "S2", "S3", "S4"}
-    for setup, render in report["renders"].items():
+    for _setup, render in report["renders"].items():
         assert render["fixture"] == "modeled"
         assert render["scene"]["debts"] == []
         assert all(component["exact"] for component in render["scene"]["components"])
