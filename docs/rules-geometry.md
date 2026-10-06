@@ -154,6 +154,18 @@ entity references and never enter final face, source, as-is, coverage or corner
 mappings. Dimensional and operation consumers use the resolved feature mapping;
 final `coverage` and `finish_coverage` still iterate only the original manifest.
 Neither transient completion nor joint filler proves a final surface was cut.
+A joint op's analytic claims never credit an imported face. The one exception
+is measured: a finishing spigot turn whose cut the stock builder accepted
+certifies (`certified_indices`) each imported face it leaves as its own turned
+surface. The face must be an outward cylinder face whose full area lies inside
+the op's finite cut window, within 0.001 mm of the turned radius about the
+spigot axis. It must also lie inside that component's owned finished material
+and on the accepted after-op stock. Only those faces earn `coverage`, and
+`finish_coverage` too when the op is a finishing cut. A rough, unknown,
+stopped or rejected cut, a face outside or only partly inside the window, a
+face at another diameter and any transient index earn nothing. Earning
+nothing leaves the face's obligations open; it is never debt or
+`not_applicable`.
 
 
 ## Approach models

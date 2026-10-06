@@ -364,8 +364,10 @@ cannot join that material lineage twice.
 Plan-owned `joint_features` describe cylindrical sockets and spigots prepared on
 component stock for a joint, separately from the exported finished-part manifest;
 the traveler prints them as plan-only joint preparation, not drawing dimensions.
-Their operations participate in sizing, inspection and geometric clearance,
-but earn no finished STEP-face coverage. Declared fit bands must cover the
+Their operations participate in sizing, inspection and geometric clearance.
+They earn finished STEP-face coverage only where the kernel measures that an
+accepted finishing spigot turn leaves an exported face as its own surface,
+over the face's full area. Declared fit bands must cover the
 worst-case mating diameters, prepared geometry must reach the join along the
 selected stock lineage, and the kernel refuses interference outside the
 permitted fit or missing component-owned finished material at the join.
