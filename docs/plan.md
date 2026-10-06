@@ -546,8 +546,9 @@ the raw stock supplies (`stock.as_is_faces`), or a feature a cutting op in an
 earlier setup of this setup's stock lineage made. A face the setup cuts itself,
 or a later setup cuts, is not on the stock it receives. An earlier cut of
 unknown action, or unknown as-is faces, leaves it unknown. When a setup in the
-lineage omits `stock_in`, the routing is undeclared: another setup's cut may
-have made the face, so it is unknown, not an error.
+lineage omits `stock_in`, the routing is undeclared: an earlier setup's cut may
+have made the face, so it is unknown, not an error. A cut in this or a later
+setup is still an error: `stock_in` names only earlier setups.
 
 M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 `grip_mm` and `jaw_above_parallels_mm` to place the jaw solids in the setup

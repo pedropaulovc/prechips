@@ -251,13 +251,13 @@ def test_a_stop_face_that_names_nothing_is_bad_input(tmp_path):
 REASON = "test hold: a later setup clocks on a pin in this hole"
 
 
-def hold_ream(plan, band, requirement="dia", gauge="rocker-rod-limit-gauges"):
-    sid, op = find_op(plan, lambda op: op["do"] == "ream" and op.get("feature") == "rod_hole")
+def hold_ream(plan, band, requirement="dia", gauge="rocker-rod-limit-gauges", feature="rod_hole"):
+    sid, op = find_op(plan, lambda op: op["do"] == "ream" and op.get("feature") == feature)
     rewrite(
         plan,
         ("op", sid, op),
         "process_holds",
-        f'[{{ feature = "rod_hole", requirement = "{requirement}", band = {band}, '
+        f'[{{ feature = "{feature}", requirement = "{requirement}", band = {band}, '
         f'gauge = "{gauge}", reason = "{REASON}" }}]',
     )
     return sid, op
@@ -403,3 +403,90 @@ def test_undeclared_routing_leaves_a_stop_face_unknown_not_missing(tmp_path):
     # Undeclared routing does not excuse a face this setup cuts itself.
     stop_on(plan, "S2", "shoulder_north_face")
     assert evaluate("hold_fields", load_bundle(plan))["S2"].status == "error"
+    # Setups after this one are never upstream of it, routed or not.
+    stop_on(plan, "S2", None)
+    stop_on(plan, "S1", "shoulder_north_face")
+    drop_setup_key(plan, "S1", "stock_in")
+    row = evaluate("hold_fields", load_bundle(plan))["S1"]
+    assert row.status == "error" and "first cut in S2 op" in row.sentence
+
+
+# ------------------------------------------------- review regressions (PR #90, round 2)
+
+
+@pytest.mark.parametrize(
+    ("band", "status"),
+    [
+        ("[0.4, 1.6]", "pass"),  # the comparator reads 0.1-12.5 Ra
+        ("[0.0, 1.6]", "pass"),  # a zero floor needs no reading
+        ("[0.05, 1.6]", "error"),  # below what the comparator reads
+    ],
+)
+def test_a_roughness_process_hold_band_is_read_by_the_roughness_gauge(tmp_path, band, status):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = hold_ream(
+        plan, band, requirement="finish_ra", gauge="roughness-comparator", feature="pivot_bore"
+    )
+    rows = evaluate("inspection", load_bundle(plan))
+    assert rows["pivot_bore:finish_ra"].status == "pass"  # the drawing row, same gauge
+    assert rows[f"{sid}:{op}"].status == status
+
+
+def built_up(tmp_path, order=None):
+    """The cone's built-up bundle, coatings stripped, setups optionally reordered/dropped."""
+    bundle = load_bundle(copy_examples(tmp_path) / "cone-pivot-post" / "built-up.toml")
+    by_id = {setup["id"]: setup for setup in bundle.plan["setups"]}
+    for setup in by_id.values():
+        setup["ops"] = [op for op in setup["ops"] if op["do"] != "coating"]
+    if order:
+        bundle.plan["setups"] = [by_id[sid] for sid in order]
+    return bundle, by_id
+
+
+def coat(setup):
+    number = max(op["op"] for op in setup["ops"]) + 10
+    setup["ops"].append({"op": number, "do": "coating", "feature": setup["ops"][0]["feature"]})
+
+
+def test_one_coating_of_the_joined_assembly_after_its_last_cut_covers_every_component(
+    tmp_path,
+):
+    bundle, _ = built_up(tmp_path)
+    coat(bundle.plan["setups"][-1])
+    row = evaluate("finish_route", bundle)["cone-pivot-post"]
+    assert row.status == "pass", row.sentence
+
+
+# Body S1->S4->S5, cone S2, crank S3; S6 joins body+cone, S7 adds the crank; no later cut.
+JOINED = ["S1", "S2", "S4", "S5", "S3", "S6", "S7"]
+
+
+@pytest.mark.parametrize(
+    ("coated", "status", "bare"),
+    [
+        # The crank is coated after the plan's last cut; the body and cone never are.
+        (["S3"], "warn", {"S1", "S2", "S4", "S5"}),
+        (["S3", "S5"], "warn", {"S2"}),  # the cone is still bare
+        (["S2", "S3", "S5"], "pass", set()),  # each component coated before the joins
+        (["S3", "S7"], "pass", set()),  # the joined assembly coated
+        (["S6"], "warn", {"S3"}),  # the crank joins after this coating
+    ],
+)
+def test_every_component_needs_a_coating_after_its_own_last_cut(tmp_path, coated, status, bare):
+    bundle, by_id = built_up(tmp_path, JOINED)
+    assert isinstance(by_id["S6"]["stock_in"], list) and isinstance(by_id["S7"]["stock_in"], list)
+    for sid in coated:
+        coat(by_id[sid])
+    row = evaluate("finish_route", bundle)["cone-pivot-post"]
+    assert row.status == status, row.sentence
+    assert {cut.split(":")[0] for cut in row.numbers["uncoated_cuts"]} == bare
+
+
+def test_a_coating_on_undeclared_routing_leaves_the_finish_unknown(tmp_path):
+    bundle = load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml")
+    last = bundle.plan["setups"][-1]
+    last["ops"] = [op for op in last["ops"] if op["do"] != "coating"]
+    coat(last)
+    assert evaluate("finish_route", bundle)["pivot-shaft"].status == "pass"
+    del last["stock_in"]
+    assert evaluate("finish_route", bundle)["pivot-shaft"].status == "unknown"

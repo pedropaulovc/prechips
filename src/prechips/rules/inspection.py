@@ -176,12 +176,21 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums):
         elif requirement == "finish_ra":
             capability = gauge.get("ra_range", gauge.get("range_ra", "unknown"))
             nums["ra_range"] = capability
+            # The Ra limits the gauge must read: a scalar maximum, or a band's nonzero ends.
+            readings = (
+                [value]
+                if number(value)
+                else [v for v in value if v]
+                if isinstance(value, list) and len(value) == 2 and all(number(v) for v in value)
+                else None
+            )
             if (
                 isinstance(capability, list)
                 and all(number(v) for v in capability)
-                and number(value)
+                and readings is not None
             ):
-                status = "pass" if capability[0] <= value <= capability[1] else "error"
+                spans = all(capability[0] <= v <= capability[1] for v in readings)
+                status = "pass" if spans else "error"
                 message = (
                     "roughness gauge spans requirement"
                     if status == "pass"
