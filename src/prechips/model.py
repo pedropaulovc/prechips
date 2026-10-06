@@ -89,7 +89,7 @@ Dro = record(
 
 
 class StockComponent(InputModel):
-    id: Annotated[str, Field(min_length=1, pattern=r"^[A-Za-z0-9_-]+$")]
+    id: Annotated[str, Field(min_length=1)]
     form: str | Unknown = UNKNOWN
     note: str | Unknown = UNKNOWN
     dia_mm: Number = UNKNOWN
@@ -102,7 +102,7 @@ class StockComponent(InputModel):
 
     @model_validator(mode="after")
     def known_id(self) -> StockComponent:
-        if self.id == UNKNOWN:
+        if not self.id.strip() or self.id == UNKNOWN:
             raise ValueError("Stock component id must be a known identifier.")
         return self
 
@@ -286,7 +286,10 @@ class Plan(InputModel):
                 "Setup ids must be non-empty and cannot use the reserved stock namespace."
             )
         earlier = set()
+        ancestry = {"stock": {"stock"}}
+        ancestry.update({f"stock.{cid}": {f"stock.{cid}"} for cid in component_ids})
         for setup in self.setups:
+            consumed = {}
             # Omitted routing remains input debt, never an inferred linear route.
             if "stock_in" in setup.model_fields_set:
                 refs = setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in]
@@ -307,8 +310,17 @@ class Plan(InputModel):
                             else "is an unknown stock reference"
                         )
                         raise ValueError(f"{where} {reason}.")
+                    for ancestor in ancestry[ref]:
+                        if ancestor in consumed:
+                            raise ValueError(
+                                f"{where} shares ancestor {ancestor!r} with "
+                                f"{consumed[ancestor]!r}; an assembly cannot join the same "
+                                "material twice."
+                            )
+                        consumed[ancestor] = ref
             if setup.id != UNKNOWN:
                 earlier.add(setup.id)
+                ancestry[setup.id] = set(consumed) if consumed else {setup.id}
         return self
 
 

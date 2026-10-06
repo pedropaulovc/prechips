@@ -289,14 +289,26 @@ Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
 setup id, not only the previous one. A nonempty reference array joins solids by
 Boolean union in model coordinates. All supplies and outputs remain model-frame;
-assembly adds no implicit transform. Components require unique ASCII
-letter/digit/hyphen/underscore ids and their own `origin_mm`, `axis` and
-`section_axis` pose facts, with the same semantics as root stock. Each contains
+assembly adds no implicit transform. Components require known, nonempty, unique
+ids matched exactly, with no ASCII character whitelist, and their own
+`origin_mm`, `axis` and `section_axis` pose facts, with root-stock semantics. Each contains
 only its own piece, not the whole finished STEP; missing component geometry
 remains individual debt. Setup outputs subtract their own derivable removals.
+Known branches remain usable while another component's geometry is missing.
+When all component envelopes are known, their union must contain the finished
+STEP; otherwise all component references carry geometry debt.
+A nonempty root `as_is_faces` declaration needs the full joined supply exterior
+and every component envelope known, so it can withhold otherwise-known branches.
+Empty or omitted declarations add no cross-component dependency. Removal
+fragmentation is checked per input solid; deleting one piece cannot mask
+splitting another.
 Unknown or forward authored references, including `"unknown"`, are bad input
 (exit 3); omitted `stock_in` remains debt, never auto-linear. Non-derivable stock is named
 `?` and produces no misleading setup image.
+Joined references must have disjoint supply ancestry: duplicate entries and
+joining a supply with its descendant are bad input (exit 3), naming the shared
+ancestor. Independent route alternatives may restart from the same supply but
+cannot join that material lineage twice.
 Cutter exclusion is only a thin shell of the sampled face; another claimed groove wall remains an
 obstacle. Missing surface normals never become clearance or reach passes.
 Kernel-absent runs remove stale setup PNGs in the same output transaction.

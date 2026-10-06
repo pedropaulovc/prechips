@@ -751,7 +751,7 @@
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
-            "sha256": "e42013d62fc8a51960a50b1f0bac6bed18b072e1db1aa415ac73b1578a794d5f"
+            "sha256": "fdad95c6faff5e60789930afd1660fffa33f258555daf32f032f435a353852b4"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -7321,7 +7321,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "4221d082aacf3f91000d294797d0d7ae14c979abb3b12a8558b02c8e1b6e6281",
+  "hash": "d8e4e8e1166ef8794d225a3130c3cb9c044038845d27ec73b55091800f31b06e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -7337,7 +7337,7 @@
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
-      "sha256": "e42013d62fc8a51960a50b1f0bac6bed18b072e1db1aa415ac73b1578a794d5f"
+      "sha256": "fdad95c6faff5e60789930afd1660fffa33f258555daf32f032f435a353852b4"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",

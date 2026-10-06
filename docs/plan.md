@@ -168,8 +168,8 @@ provenance.
 | `cite` | `Citations` |
 
 For a built-up stock candidate, `components` lists the separately authored
-blanks. Each `StockComponent` requires a unique `id` containing only ASCII
-letters, digits, hyphens or underscores (`[A-Za-z0-9_-]+`). It accepts `form`,
+blanks. Each `StockComponent` requires a known, nonempty, unique `id`;
+references match the exact id, with no ASCII character whitelist. It accepts `form`,
 `dia_mm`, `length_mm`, `section_mm`, `origin_mm`, `axis`, `section_axis`, `note`,
 and `cite` with the same types and model-frame pose semantics as root stock.
 A round blank uses diameter and length; a rectangular blank uses two section
@@ -188,6 +188,13 @@ diameter cylinder along `axis`. Dimensions/placement describe authored material,
 not measured stock on hand. Each built-up component must contain only its own
 piece, not the full finished STEP. Missing component dimensions or placement
 remain individual stock debt; a known component does not resolve another one.
+Known component branches remain usable when another component's geometry is
+missing. When every component envelope is known, their full union must contain
+the finished STEP; failure leaves all component references with geometry debt.
+A nonempty root `as_is_faces` declaration applies to the full joined supply
+exterior and therefore requires every component envelope to be known; this
+global declaration can withhold otherwise-known branches. Empty or omitted
+`as_is_faces` adds no such cross-component dependency.
 Incompatible as-is surfaces also keep stock-dependent geometry `?` with a reason.
 `as_is_faces` never creates a stock solid by itself.
 
@@ -253,6 +260,11 @@ in model coordinates. Unknown or forward authored references are bad input
 (exit 3), including authored `"unknown"` as a source. Omitted `stock_in`
 remains stock debt; it does not infer a linear route. Every supply and setup output stays in the model frame:
 joining references never applies an implicit assembly transform.
+Array entries must have disjoint supply ancestry: repeated references or joining
+a supply with its descendant (for example `["stock", "S1"]` when S1 consumes
+stock) are bad input (exit 3), naming the shared supply ancestor. Separate route
+alternatives may start from the same supply again, but cannot join that material
+lineage twice.
 
 ## StockState
 

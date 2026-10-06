@@ -1074,11 +1074,22 @@ sheet.
    built-up component, any earlier setup id (not just the previous setup), or a
    nonempty array joined by Boolean union. Supplies and setup outputs stay in
    model coordinates; joining applies no implicit assembly transform. Components
-   require unique ASCII letter/digit/hyphen/underscore ids and accept `origin_mm`,
-   `axis` and `section_axis` with root-stock pose semantics. Each contains only
+   require known, nonempty, unique ids matched exactly, with no ASCII whitelist,
+   and accept `origin_mm`, `axis` and `section_axis` with root-stock pose semantics. Each contains only
    its own piece, not the full finished STEP. Missing component geometry remains
    individual debt. Unknown or forward authored references are bad input
    (exit 3), including `"unknown"`; omitted `stock_in` is debt, never auto-linear.
+   Array entries must have disjoint supply ancestry; duplicates or joining a
+   supply with its descendant are exit 3, naming the shared ancestor. Independent
+   forks may restart from the same supply as alternatives, not join that material
+   lineage twice. Known branches remain usable when another component's geometry
+   is missing. With all component envelopes known, their full union must contain
+   the finished STEP; otherwise all component references carry geometry debt.
+   Nonempty root `as_is_faces` checks the full joined supply exterior and needs
+   every component envelope known, potentially withholding known branches;
+   empty or omitted declarations add no cross-component dependency. Removal
+   fragmentation is checked per input solid, so deleting one assembly piece
+   cannot mask splitting another.
    Each output subtracts its setup's derivable removals from its selected input.
    Current-setup cuts shape output stock, while the flute
    alone excludes its own op's derivable allowance; holder, reach, holding and

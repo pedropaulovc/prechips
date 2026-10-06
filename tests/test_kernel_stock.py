@@ -653,7 +653,9 @@ def test_nonprevious_output_keeps_its_removal_despite_an_unresolved_other_branch
     assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(48000.0)
 
 
-def test_component_supplies_and_assembly_union_use_model_frame_without_double_counting(engine, solids):
+def test_component_supplies_and_assembly_union_use_model_frame_without_double_counting(
+    engine, solids
+):
     stock = {
         "components": {
             "body": {**BOX, "length_mm": 40.0},
@@ -740,10 +742,10 @@ def test_disconnected_assembly_keeps_both_pieces_after_derivable_clearing(engine
     top = engine.refs(step, (0, 0, 20), (60, 40, 20))
     stock = {
         "components": {
-            "left": {**BOX, "length_mm": 20.0, "section_mm": [40.0, 25.0]},
+            "left": {**BOX, "section_mm": [40.0, 25.0]},
             "right": {
                 **BOX,
-                "origin_mm": [40.0, 0.0, 0.0],
+                "origin_mm": [80.0, 0.0, 0.0],
                 "length_mm": 20.0,
                 "section_mm": [40.0, 25.0],
             },
@@ -754,6 +756,55 @@ def test_disconnected_assembly_keeps_both_pieces_after_derivable_clearing(engine
         {**_setup("S2", []), "stock_in": "S1"},
     ]
     rows = engine.run(engine.job(step, {"floor": top}, setups, stock=stock))["setups"]
-    assert rows["S1"]["stock_volume_mm3"] == pytest.approx(40000.0)
-    assert rows["S2"]["stock_volume_mm3"] == pytest.approx(32000.0)
+    assert rows["S1"]["stock_volume_mm3"] == pytest.approx(80000.0)
+    assert rows["S2"]["stock_volume_mm3"] == pytest.approx(68000.0)
     assert rows["S2"]["render_png_base64"] and "stock_reason" not in rows["S2"]
+
+
+def test_known_component_union_must_contain_the_finished_part(engine, solids):
+    stock = {
+        "components": {
+            "body": {**BOX, "length_mm": 30.0},
+            "boss": {**BOX, "origin_mm": [30.0, 0.0, 0.0], "length_mm": 20.0},
+        }
+    }
+    setups = [
+        {**_setup("S0", []), "stock_in": "stock.body"},
+        {**_setup("S1", []), "stock_in": "stock.boss"},
+        {**_setup("S2", []), "stock_in": ["S0", "S1"]},
+    ]
+    result = engine.run(engine.job(solids["block"], setups=setups, stock=stock))
+    assert "8000.0" in result["stock"]["reason"]
+    for row in result["setups"].values():
+        assert "built-up supplies" in row["stock_reason"]
+        assert "render_png_base64" not in row
+        assert row["width_mm"] == "unknown"
+
+
+def test_deleting_one_component_does_not_hide_splitting_another(engine, solids):
+    step = solids["channel"]
+    floor = engine.refs(step, (0, 5, 10), (60, 35, 10))
+    stock = {
+        "components": {
+            "body": BOX,
+            "rail": {**BOX, "origin_mm": [0.0, 0.0, 30.0], "section_mm": [40.0, 5.0]},
+            "scrap": {
+                **BOX,
+                "origin_mm": [25.0, 10.0, 50.0],
+                "length_mm": 10.0,
+                "section_mm": [5.0, 5.0],
+            },
+        }
+    }
+    clearing = _floor_op("S1:10", 10.0)
+    setups = [
+        {
+            **_setup("S1", [clearing]),
+            "stock_in": ["stock.body", "stock.rail", "stock.scrap"],
+        },
+        {**_setup("S2", []), "stock_in": "S1"},
+    ]
+    rows = engine.run(engine.job(step, {"floor": floor}, setups, stock=stock))["setups"]
+    assert rows["S1"]["stock_volume_mm3"] == pytest.approx(60250.0)
+    assert "splits an input stock piece" in rows["S2"]["stock_reason"]
+    assert "render_png_base64" not in rows["S2"]

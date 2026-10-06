@@ -677,8 +677,7 @@ class _Job:
         setups = job.get("setups", [])
         if not isinstance(setups, list):
             raise ValueError("job setups is not a list")
-        supplies = self._supplies()
-        stock, reason = self._joined(list(supplies), supplies)
+        supplies, (stock, reason) = self._supplies()
         result["stock"] = (
             {"bbox_mm": [_r(v) for v in _bbox(stock)], "volume_mm3": _r(stock.Volume)}
             if reason is None
@@ -710,15 +709,24 @@ class _Job:
                     solid,
                     f"stock.{name}: {reason}" if reason is not None else None,
                 )
+            joined, reason = self._joined(list(supplies), supplies)
+            if reason is None:
+                outside = self.solid.cut(joined).Volume
+                if outside > STOCK_MM3:
+                    reason = (
+                        f"the finished part extends {_r(outside)} mm^3 outside the joined "
+                        "built-up supplies; in-process stock cannot be derived"
+                    )
+                    return {name: (None, reason) for name in supplies}, (None, reason)
             refs = self.job.get("as_is_faces")
             if isinstance(refs, list) and refs:
-                joined, reason = self._joined(list(supplies), supplies)
                 if reason is None:
-                    _, reason = self._as_is(joined)
+                    joined, reason = self._as_is(joined)
                 if reason is not None:
-                    return {name: (None, reason) for name in supplies}
-            return supplies
-        return {"stock": self._supply(stock)}
+                    return {name: (None, reason) for name in supplies}, (None, reason)
+            return supplies, (joined, reason)
+        supplied = self._supply(stock)
+        return {"stock": supplied}, supplied
 
     def _supply(self, stock, complete=True):
         """A model-frame supply; a component need not contain the entire finished assembly."""
@@ -997,16 +1005,17 @@ class _Setup:
                     walls.append((subject, self._indices(op), to_z))
                 if removal is None:
                     continue
-                pieces = [p for p in stock.cut(removal).Solids if p.Volume > STOCK_MM3]
-                if (
-                    not pieces
-                    or len(pieces) > len(stock.Solids)
-                    or not all(piece.isValid() for piece in pieces)
-                ):
-                    return None, (
-                        f"{subject}: removing its claimed clearance leaves {len(pieces)} valid "
-                        f"stock piece(s); {where}"
-                    )
+                pieces = []
+                for original in stock.Solids:
+                    kept = [p for p in original.cut(removal).Solids if p.Volume > STOCK_MM3]
+                    if len(kept) > 1 or not all(piece.isValid() for piece in kept):
+                        return None, (
+                            f"{subject}: removing its claimed clearance splits an input "
+                            f"stock piece into {len(kept)} piece(s); {where}"
+                        )
+                    pieces.extend(kept)
+                if not pieces:
+                    return None, f"{subject}: claimed clearance leaves no stock; {where}"
                 stock = pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)
             overstock = stock.cut(self.finished)
             for subject, claimed, to_z in walls:

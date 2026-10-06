@@ -234,6 +234,10 @@ Boolean union in model coordinates. Unknown or forward authored references
 are bad input (exit 3), including authored `"unknown"` as a source. Omitted
 `stock_in` remains named stock debt, never an inferred linear route. Supplies and outputs all stay in the
 model frame; assembly does not implicitly transform a reference.
+Joined references must have disjoint supply ancestry. Duplicate entries or
+`["stock", "S1"]` when S1 consumes stock are bad input (exit 3), naming the
+shared supply ancestor. Independent forks may start from the same supply again
+as route alternatives, but cannot join that material lineage twice.
 Each setup output subtracts only that setup's derivable claimed removals from
 its selected input. Current-setup removals do not change current holding facts,
 image, reach or holder obstacles. The flute alone excludes the current op's own
@@ -255,6 +259,16 @@ they are not silently treated as the stock's global bounding-box extrema.
 Each built-up component has its own required id and model-frame pose and must
 contain only its own piece, not the full finished STEP. Missing component
 geometry remains debt for that component; another known supply cannot fill it.
+Component ids are known, nonempty and unique exact identifiers, with no ASCII
+character whitelist. Independently known branches remain usable while another
+component's geometry is missing. When all component envelopes are known, their
+full union must contain the finished STEP; otherwise all component references
+carry geometry debt.
+A nonempty root `as_is_faces` declaration checks the full joined supply exterior,
+requiring every component envelope to be known; it can therefore withhold an
+otherwise-known branch. Empty or omitted declarations add no cross-component
+dependency. Removal fragmentation is checked per input solid: deleting one
+assembly piece cannot mask splitting another.
 
 For a derivable face footprint, removal is clipped to the authored `to_z`
 endpoint and to material outside the finished solid. Every claimed face with

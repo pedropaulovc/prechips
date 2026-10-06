@@ -1,5 +1,8 @@
 """Authored material routes reject bad references before running any machining rules."""
 
+import json
+from types import SimpleNamespace
+
 import pytest
 from test_cli import run_cli
 from test_input_contracts import PLAN, bundle_files
@@ -25,8 +28,6 @@ def plan_with_routes(routes, components=None):
     ["S2", "S1", "missing", "unknown", "stock.missing", ["stock", "S2"], []],
 )
 def test_invalid_route_exits_three_without_outputs(tmp_path, source):
-    import json
-
     authored = json.dumps(source)
     text = PLAN.replace('id = "S1"', f'id = "S1"\nstock_in = {authored}')
     text += '\n[[setups]]\nid = "S2"\nstock_in = "S1"\n'
@@ -44,11 +45,11 @@ def test_invalid_route_exits_three_without_outputs(tmp_path, source):
 
 @pytest.mark.parametrize(
     "components",
-    [[{}], [{"id": "unknown"}], [{"id": "body"}, {"id": "body"}], [{"id": "bad.id"}]],
+    [[{}], [{"id": "unknown"}], [{"id": "body"}, {"id": "body"}], [{"id": " "}]],
 )
 def test_components_require_unique_known_ids(components):
     with pytest.raises(ValueError):
-        Plan.model_validate(plan_with_routes([("S1", "stock.body")], components))
+        Plan.model_validate(plan_with_routes([], components))
 
 
 def test_nonprevious_and_assembly_routes_resolve_but_root_stock_is_not_a_component():
@@ -64,20 +65,49 @@ def test_setup_ids_cannot_be_ambiguous_with_supply_refs(ids):
         Plan.model_validate(plan_with_routes([(sid, "stock") for sid in ids]))
 
 
-def test_assembly_receives_drilled_stock_for_a_later_ream(tmp_path):
-    from types import SimpleNamespace
+@pytest.mark.parametrize(
+    "second_source, third_source, status",
+    [
+        ("stock.boss", ["S1", "S2"], "pass"),
+        ("stock.boss", "S2", "error"),
+        ("S1", "S2", "pass"),
+    ],
+)
+def test_ream_requires_drilled_material_in_its_direct_or_transitive_route(
+    second_source, third_source, status
+):
 
     plan = {
         "setups": [
-            {"id": "S1", "ops": [{"op": 10, "do": "drill", "feature": "bore"}]},
-            {"id": "S2", "ops": [], "stock_in": "stock.boss"},
+            {
+                "id": "S1",
+                "stock_in": "stock.body",
+                "ops": [{"op": 10, "do": "drill", "feature": "bore"}],
+            },
+            {"id": "S2", "ops": [], "stock_in": second_source},
             {
                 "id": "S3",
-                "stock_in": ["S1", "S2"],
+                "stock_in": third_source,
+                "zero": {"transfer": {"from": "S1"}},
                 "ops": [{"op": 10, "do": "ream", "feature": "bore"}],
             },
         ]
     }
     bundle = SimpleNamespace(plan=plan, features={"features": {"bore": {}}})
     rows = {row.subject: row for row in op_order.evaluate(bundle)}
-    assert rows["S3"].status == "pass"
+    assert rows["S3"].status == status
+
+
+@pytest.mark.parametrize("refs", [["stock", "S1"], ["S0", "S1"], ["S1", "S1"]])
+def test_joining_shared_material_ancestry_exits_three(tmp_path, refs):
+    text = PLAN.replace('id = "S1"', 'id = "S0"\nstock_in = "stock"')
+    text += (
+        '\n[[setups]]\nid = "S1"\nstock_in = "S0"\n'
+        f'\n[[setups]]\nid = "S2"\nstock_in = {json.dumps(refs)}\n'
+    )
+    path = bundle_files(tmp_path, text)
+    out = tmp_path / "out"
+    result = run_cli("check", path, "--out", out)
+    assert result.returncode == 3, result.stderr
+    assert "ancestor 'stock'" in result.stderr
+    assert not out.exists() or not tuple(out.iterdir())

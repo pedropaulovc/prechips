@@ -107,7 +107,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.10: selected action/tool/holder"
       ],
-      "message": "S2:10: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:10: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -138,7 +138,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.100: selected action/tool/holder"
       ],
-      "message": "S2:100: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:100: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -164,7 +164,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.110: selected action/tool/holder"
       ],
-      "message": "S2:110: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:110: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -189,7 +189,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.20: selected action/tool/holder"
       ],
-      "message": "S2:20: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:20: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -214,7 +214,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.30: selected action/tool/holder"
       ],
-      "message": "S2:30: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:30: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -332,7 +332,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.60: selected action/tool/holder"
       ],
-      "message": "S2:60: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:60: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -363,7 +363,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.70: selected action/tool/holder"
       ],
-      "message": "S2:70: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:70: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -389,7 +389,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.80: selected action/tool/holder"
       ],
-      "message": "S2:80: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:80: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -420,7 +420,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.90: selected action/tool/holder"
       ],
-      "message": "S2:90: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:90: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -451,7 +451,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.10: selected action/tool/holder"
       ],
-      "message": "S3:10: in-process stock unknown: stock_in 'S2_integral_profile' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:10: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -490,7 +490,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.20: selected action/tool/holder"
       ],
-      "message": "S3:20: in-process stock unknown: stock_in 'S2_integral_profile' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:20: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -529,7 +529,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.30: selected action/tool/holder"
       ],
-      "message": "S3:30: in-process stock unknown: stock_in 'S2_integral_profile' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:30: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -568,7 +568,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.40: selected action/tool/holder"
       ],
-      "message": "S3:40: in-process stock unknown: stock_in 'S2_integral_profile' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:40: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -606,7 +606,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.10: selected action/tool/holder"
       ],
-      "message": "S4:10: in-process stock unknown: stock_in 'S3_finished_datum_A' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:10: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -644,7 +644,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.20: selected action/tool/holder"
       ],
-      "message": "S4:20: in-process stock unknown: stock_in 'S3_finished_datum_A' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:20: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -682,7 +682,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.30: selected action/tool/holder"
       ],
-      "message": "S4:30: in-process stock unknown: stock_in 'S3_finished_datum_A' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:30: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -1081,7 +1081,7 @@
           },
           "plan": {
             "path": "examples/cone-pivot-post/plan.toml",
-            "sha256": "695abdfc880d988b6bf2506d99dddeaaaaffc09cadb30ffa91997ecc6c30e363"
+            "sha256": "7b2ebc0058ae12a89c9ee731ae3042cdf7facb8182e063795c681412d9a2e8f9"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -5960,7 +5960,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.10: selected action/tool/holder"
       ],
-      "message": "S2:10: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:10: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -5991,7 +5991,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.100: selected action/tool/holder"
       ],
-      "message": "S2:100: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:100: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6017,7 +6017,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.110: selected action/tool/holder"
       ],
-      "message": "S2:110: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:110: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6042,7 +6042,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.20: selected action/tool/holder"
       ],
-      "message": "S2:20: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:20: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6067,7 +6067,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.30: selected action/tool/holder"
       ],
-      "message": "S2:30: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:30: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6185,7 +6185,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.60: selected action/tool/holder"
       ],
-      "message": "S2:60: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:60: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6216,7 +6216,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.70: selected action/tool/holder"
       ],
-      "message": "S2:70: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:70: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6242,7 +6242,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.80: selected action/tool/holder"
       ],
-      "message": "S2:80: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:80: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6273,7 +6273,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376",
         "plan.setups.S2.ops.90: selected action/tool/holder"
       ],
-      "message": "S2:90: in-process stock unknown: stock_in 'S1_integral_blank' is not the previous setup 'S1'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S2:90: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6304,7 +6304,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.10: selected action/tool/holder"
       ],
-      "message": "S3:10: in-process stock unknown: stock_in 'S2_integral_profile' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:10: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6343,7 +6343,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.20: selected action/tool/holder"
       ],
-      "message": "S3:20: in-process stock unknown: stock_in 'S2_integral_profile' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:20: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6382,7 +6382,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.30: selected action/tool/holder"
       ],
-      "message": "S3:30: in-process stock unknown: stock_in 'S2_integral_profile' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:30: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6421,7 +6421,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
         "plan.setups.S3.ops.40: selected action/tool/holder"
       ],
-      "message": "S3:40: in-process stock unknown: stock_in 'S2_integral_profile' is not the previous setup 'S2'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S3:40: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6459,7 +6459,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.10: selected action/tool/holder"
       ],
-      "message": "S4:10: in-process stock unknown: stock_in 'S3_finished_datum_A' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:10: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6497,7 +6497,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.20: selected action/tool/holder"
       ],
-      "message": "S4:20: in-process stock unknown: stock_in 'S3_finished_datum_A' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:20: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -6535,7 +6535,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57",
         "plan.setups.S4.ops.30: selected action/tool/holder"
       ],
-      "message": "S4:30: in-process stock unknown: stock_in 'S3_finished_datum_A' is not the previous setup 'S3'; only a linear route is derived; in-process stock cannot be derived.",
+      "message": "S4:30: in-process stock unknown: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
       "numbers": {},
       "rule": "reach",
       "status": "unknown",
@@ -10770,7 +10770,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "94c6acc36d853edaff0782c3482111097bd9724ec9a0c4c71a547b8c8e33530d",
+  "hash": "bca73f413b40160917df0a7db04d521c1a671050a664c329dbb8b5bf9df4d75b",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -10786,7 +10786,7 @@
     },
     "plan": {
       "path": "examples/cone-pivot-post/plan.toml",
-      "sha256": "695abdfc880d988b6bf2506d99dddeaaaaffc09cadb30ffa91997ecc6c30e363"
+      "sha256": "7b2ebc0058ae12a89c9ee731ae3042cdf7facb8182e063795c681412d9a2e8f9"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
