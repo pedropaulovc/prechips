@@ -235,11 +235,6 @@ class _ClipUnknown(Exception):
     """A bounded op's clip of its printed paths is unknown for the stated reason."""
 
 
-def _dro_value(value, step, decimals):
-    """``value`` rounded down onto the DRO grid of ``step``, printed at ``decimals``."""
-    return round(math.floor(value / step + 1e-6) * step, decimals)
-
-
 def _turned(op):
     return op.get("approach") == TURNING
 
@@ -6434,20 +6429,24 @@ class _Setup:
             exact = at(i, t)
             target = [exact.x / scale, exact.y / scale]
             run, end = points[i + 1] - points[i], points[i] if leaving else points[i + 1]
-            base = [_dro_value(v, step, decimals) for v in target]
-            for reach in (1, 3):
-                span = range(1 - reach, reach + 1)
-                options = [
-                    [round(base[0] + a * step, decimals), round(base[1] + b * step, decimals)]
-                    for a in span
-                    for b in span
-                ]
-                for option in sorted(options, key=lambda q: math.dist(q, target)):
-                    point = V(option[0] * scale, option[1] * scale, z0)
-                    offset = point - points[i]
-                    turn = run.x * offset.y - run.y * offset.x
-                    if side * turn >= -PLANE_TOL * run.Length and not meets(end, point):
-                        return {"after": i, "t": t, "exact_xy": target, "dro_xy": option}
+            # Grid points within two steps of the chord's legal stretch, nearest first: on a
+            # coarse grid the nearest clear one on the cutter side may lie well along it.
+            toward, near = (0.0 if leaving else 1.0), set()
+            samples = max(1, math.ceil(abs(toward - t) * run.Length / (step * scale)))
+            for k in range(samples + 1):
+                p = at(i, t + (toward - t) * k / samples)
+                gx, gy = round(p.x / scale / step), round(p.y / scale / step)
+                near.update((gx + a, gy + b) for a in range(-2, 3) for b in range(-2, 3))
+            options = sorted(
+                ([round(a * step, decimals), round(b * step, decimals)] for a, b in near),
+                key=lambda q: math.dist(q, target),
+            )
+            for option in options:
+                point = V(option[0] * scale, option[1] * scale, z0)
+                offset = point - points[i]
+                turn = run.x * offset.y - run.y * offset.x
+                if side * turn >= -PLANE_TOL * run.Length and not meets(end, point):
+                    return {"after": i, "t": t, "exact_xy": target, "dro_xy": option}
             raise _ClipUnknown(
                 f"no DRO grid point near its clip after {ids[i]} is clear and no nearer its walls"
             )
