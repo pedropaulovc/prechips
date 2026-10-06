@@ -1295,6 +1295,19 @@ sheet.
    cure and no-disturb instructions, and visible STOP debt for unknown cure.
    These synthetic engine proofs are not the complete cone pilot, a programme
    gate or physical process/first-article approval.
+   **Integrated turning precision repair:** analytic cylinder/cone meridians now
+   avoid artificial chord-sag compensation; their straight profiles meet nominal
+   end-radius extensions exactly. Curved compensation, early region unification,
+   component ownership and strict validity rejection are unchanged.
+   The preserved ordinary prejoin-turn probe produced **1508.592792 mm³** of
+   known component stock and a known **3895.889050 mm³** assembly afterward.
+   The scoped joint/multi-joint/turning/profile battery passed **114** tests in
+   **285.09 s** under required FreeCAD 1.1, preserving the original regression
+   and the cross-drilled roughing/spring-pass stock-connectivity checks.
+   On integration `0f5e703` plus this repair, the actual built-up cone `traveler`
+   exited **0**, with **372 pass**, **279 not applicable**, no unknown/error
+   findings, and all **11** setup fixtures modeled without scene/render debt.
+   These local smoke proofs do not replace the full gate or machinist review.
    **Consolidated joint-worktree gate:** locked `uv sync`, repository formatting
    (**126** files) and the example validator (**27** TOML files; twelve traveler
    bundles plus comparison) passed. The required-FreeCAD suite recorded
