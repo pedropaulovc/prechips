@@ -137,10 +137,16 @@ band, or an unknown, unlisted or unverified gauge, is `unknown`. Otherwise it is
 
 ## `finish_route`
 
-One row per part. In plan order, a coating applies the drawing `material.finish`
-only if it comes after the route's last cutting op. No such coating (none at all,
-or each one followed by a cut that removes it) is `warn` (a job-page caution).
-A coating followed only by ops of explicitly unknown action is `unknown`.
+One row per part. A coating applies the drawing `material.finish` to the cuts it
+follows, in plan order, on stock that carries them: in the same setup after the
+cut, or in a setup whose `stock_in` lineage contains the cut's setup. Every cut
+needs such a coating. So on a built-up part, each component is covered either
+by its own coating after its last cut, or by one coating of the joined assembly
+after the last cut on it. No coating at all, or a cut no coating covers (it
+removes the finish, or its component is never coated), is `warn` (a job-page
+caution). `uncoated_cuts` names those cuts. A cut covered only by a coating
+whose lineage has undeclared routing (a setup omitting `stock_in`), or an
+uncovered op of explicitly unknown action, is `unknown` (`unresolved_cuts`).
 Otherwise it is `pass`. An explicitly unknown finish is `unknown`; no declared
 finish is `not_applicable`. Whether each coating op's `process` resolves to an
 outside `services` item or in-house `consumables` is checked per op by

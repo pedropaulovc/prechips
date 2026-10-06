@@ -37,6 +37,9 @@ def stop_face(bundle, setup, name):
     lineage = _lineage(bundle.plan, setup["id"])
     earlier = lineage - {setup["id"]}
     routed = all("stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage)
+    # stock_in names only earlier setups: this setup and later ones are never upstream of it.
+    order = [other["id"] for other in bundle.plan["setups"]]
+    downstream = set(order[order.index(setup["id"]) :])
     before, pending, later = [], [], []
     for other in bundle.plan["setups"]:
         for op in other["ops"]:
@@ -48,7 +51,7 @@ def stop_face(bundle, setup, name):
             cut = f"{other['id']} op {op['op']}"
             if other["id"] in earlier:
                 (pending if action == UNKNOWN else before).append(cut)
-            elif routed or other["id"] == setup["id"]:
+            elif routed or other["id"] in downstream:
                 later.append(cut)
             else:
                 pending.append(cut)
