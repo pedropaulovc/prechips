@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket", "cone-pivot-post")
 EXPECTED_EXIT = {
-    "pivot-shaft": 4,
+    "pivot-shaft": 2,
     "rocker-arm": 2,
     "pivot-bracket": 2,
     "cone-pivot-post": 2,
@@ -485,7 +485,7 @@ def read_report(path: Path) -> dict:
         == ("checked" if report.get("expected_exit") == 0 else "planned"),
         f"{path}: unearned readiness",
     )
-    require(report.get("rules_version") == "m5-rev8", f"{path}: stale rule catalogue")
+    require(report.get("rules_version") == "m5-rev9", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]

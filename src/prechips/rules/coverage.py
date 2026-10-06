@@ -11,7 +11,7 @@ from prechips.rules.geometry_common import (
     provenance,
     unavailable,
 )
-from prechips.rules.resolution import operations, record
+from prechips.rules.resolution import SAW_OPS, operations, record
 
 
 def evaluate(bundle):
@@ -42,6 +42,9 @@ def evaluate(bundle):
     unsupported = set()
     mapping = record(facts.get("mapping"))
     for setup, op in operations(bundle):
+        if op.get("do") in SAW_OPS:
+            # A saw cut removes stock; its kerf face is not credit toward target faces.
+            continue
         action = cutting_action(op)
         if action is False:
             continue

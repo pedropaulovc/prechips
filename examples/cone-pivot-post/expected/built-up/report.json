@@ -7838,7 +7838,7 @@
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
         "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
+        "diameter_in": 0.984251968503937,
         "feed_mm_min": "unknown",
         "feed_mm_rev": "unknown",
         "flutes": "unknown",
@@ -8390,7 +8390,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8409,21 +8409,29 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8435,7 +8443,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8454,24 +8462,37 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": [
           -74.0,
           6.0
         ],
         "held_diameter_mm": 25.0,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
+        "uncovered_z_mm": [
+          [
+            -74.0,
+            6.0
+          ]
+        ],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8483,7 +8504,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8502,21 +8523,29 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8528,7 +8557,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8547,21 +8576,29 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8573,7 +8610,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -8592,21 +8629,29 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "body",
           "cone_boss",
           "crank_boss",
           "head"
         ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -10791,7 +10836,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.T1: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"
@@ -10802,9 +10847,11 @@
         "exposed_z_mm": "unknown",
         "frame": "T1",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -10813,7 +10860,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -10839,6 +10886,7 @@
         ],
         "frame": "C4",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
         "unresolved": [
@@ -10846,7 +10894,13 @@
           "cone_boss",
           "crank_boss",
           "head"
-        ]
+        ],
+        "unresolved_reasons": {
+          "body": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "cone_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "crank_boss": "no declared z_mm; kernel: the setup frame binding is unknown",
+          "head": "no declared z_mm; kernel: the setup frame binding is unknown"
+        }
       },
       "rule": "turned_profile",
       "status": "unknown",
@@ -10855,7 +10909,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.M2: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"
@@ -10866,9 +10920,11 @@
         "exposed_z_mm": "unknown",
         "frame": "M2",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -10877,7 +10933,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.J3: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279"
@@ -10888,9 +10944,11 @@
         "exposed_z_mm": "unknown",
         "frame": "J3",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -10899,7 +10957,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.C4: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
@@ -10910,9 +10968,11 @@
         "exposed_z_mm": "unknown",
         "frame": "C4",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -10937,16 +10997,27 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
-        "features.features.crank_boss_faces: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row"
+        "plan.setups[S1].stock_state.od_mm",
+        "features.features.crank_boss_faces: length acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:56-56",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "S1:10: Static deflection is unknown; needs one cited cutting-data material row, feature nominal diameter, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S1:10: Static deflection is unknown; needs one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
       "numbers": {
+        "acceptance_band_mm": [
+          71.2,
+          72.8
+        ],
+        "acceptance_field": "length",
+        "acceptance_threshold_mm": 0.7999999999999972,
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "plan.setups[S1].stock_state.od_mm",
+        "diameter_mm": 25.0,
         "doc_mm": 0.25,
         "e_gpa": "unknown",
         "e_n_per_mm2": "unknown",
@@ -10961,16 +11032,19 @@
         "material_verified": true,
         "missing_inputs": [
           "one cited cutting-data material row",
-          "feature nominal diameter",
           "kc_n_per_mm2",
-          "e_gpa",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "e_gpa"
         ],
         "operation": "face",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 80.0,
+        "span_model": "stickout",
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(length_high_mm - length_low_mm) / 2",
+        "turned_diameter_mm": 25.0
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -10982,24 +11056,22 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
-        "features.features.crank_boss: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row",
-        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
-        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
-        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
-        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
+        "features.features.crank_boss: declared nominal diameter",
+        "plan.setups[S1].ops[20].rough_allowance_mm",
+        "cutting-data aliases and unique material row"
       ],
       "message": "S1:20: Static deflection is unknown; needs one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 3,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           21.1,
           22.7
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.2,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "diameter_basis": "features.features.crank_boss: declared nominal diameter",
         "diameter_mm": 21.93,
-        "diameter_tolerance_mm": 0.7999999999999989,
         "doc_mm": 0.25,
         "e_gpa": "unknown",
         "e_n_per_mm2": "unknown",
@@ -11018,10 +11090,15 @@
           "e_gpa"
         ],
         "operation": "rough_turn",
+        "rests": [],
+        "rough_allowance_mm": 0.4,
+        "span_mm": 80.0,
+        "span_model": "stickout",
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "rough_allowance_mm / 2",
+        "turned_diameter_mm": 22.33
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -11033,7 +11110,8 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
-        "features.features.crank_boss: declared nominal diameter and dia acceptance band",
+        "features.features.crank_boss: declared nominal diameter",
+        "features.features.crank_boss: dia acceptance band",
         "cutting-data aliases and unique material row",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-49",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
@@ -11043,14 +11121,16 @@
       ],
       "message": "S1:30: Static deflection is unknown; needs one cited cutting-data material row, kc_n_per_mm2, e_gpa.",
       "numbers": {
-        "deflection_mm": "unknown",
-        "denominator_coefficient": 3,
-        "dia_band_mm": [
+        "acceptance_band_mm": [
           21.1,
           22.7
         ],
+        "acceptance_field": "dia",
+        "acceptance_threshold_mm": 0.7999999999999989,
+        "deflection_mm": "unknown",
+        "denominator_coefficient": 3,
+        "diameter_basis": "features.features.crank_boss: declared nominal diameter",
         "diameter_mm": 21.93,
-        "diameter_tolerance_mm": 0.7999999999999989,
         "doc_mm": 0.1,
         "e_gpa": "unknown",
         "e_n_per_mm2": "unknown",
@@ -11069,10 +11149,15 @@
           "e_gpa"
         ],
         "operation": "finish_turn",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 80.0,
+        "span_model": "stickout",
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2",
+        "turned_diameter_mm": 21.93
       },
       "rule": "turning_deflection",
       "status": "unknown",
@@ -11097,16 +11182,27 @@
         "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
         "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[40].doc_mm/feed_mm_rev",
-        "features.features.crank_boss_faces: declared nominal diameter and dia acceptance band",
-        "cutting-data aliases and unique material row"
+        "plan.setups[S1].stock_state.od_mm",
+        "features.features.crank_boss_faces: length acceptance band",
+        "cutting-data aliases and unique material row",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:56-56",
+        "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
+        "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
+        "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "S1:40: Static deflection is unknown; needs one cited cutting-data material row, feature nominal diameter, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa, sourced feature diameter tolerance/acceptance threshold.",
+      "message": "S1:40: Static deflection is unknown; needs one cited cutting-data material row, doc_mm, feed_mm_rev, kc_n_per_mm2, e_gpa.",
       "numbers": {
+        "acceptance_band_mm": [
+          71.2,
+          72.8
+        ],
+        "acceptance_field": "length",
+        "acceptance_threshold_mm": 0.7999999999999972,
         "deflection_mm": "unknown",
         "denominator_coefficient": 3,
-        "dia_band_mm": "unknown",
-        "diameter_mm": "unknown",
-        "diameter_tolerance_mm": "unknown",
+        "diameter_basis": "plan.setups[S1].stock_state.od_mm",
+        "diameter_mm": 25.0,
         "doc_mm": "unknown",
         "e_gpa": "unknown",
         "e_n_per_mm2": "unknown",
@@ -11121,18 +11217,21 @@
         "material_verified": true,
         "missing_inputs": [
           "one cited cutting-data material row",
-          "feature nominal diameter",
           "doc_mm",
           "feed_mm_rev",
           "kc_n_per_mm2",
-          "e_gpa",
-          "sourced feature diameter tolerance/acceptance threshold"
+          "e_gpa"
         ],
         "operation": "part_off",
+        "rests": [],
+        "rough_allowance_mm": "not_applicable",
+        "span_mm": 80.0,
+        "span_model": "stickout",
         "stickout_mm": 80.0,
         "support_status": "not_applicable",
         "supports": [],
-        "tolerance_basis": "(dia_high_mm - dia_low_mm) / 2"
+        "tolerance_basis": "(length_high_mm - length_low_mm) / 2",
+        "turned_diameter_mm": 25.0
       },
       "rule": "turning_deflection",
       "status": "unknown",

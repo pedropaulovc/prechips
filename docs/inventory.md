@@ -41,12 +41,21 @@ M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
 must resolve to actual inventory or a named machine accessory; an unconfirmed
 accessory does not certify support.
+A `follow_rest` / `steady_rest` fixture that a plan `hold.supports` table
+selects (`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`) declares its jaw
+capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or
+`_in`): the work diameters the rest can ride on, inclusive. `turning_deflection`
+uses the rest span only for an op whose ridden diameter is inside that capacity;
+an unmeasured or unverified capacity leaves deflection unknown and is listed in
+the measurement checklist. Rests have no kernel solid.
 Hold identities resolve through `fixtures`, `holders`, then `machines`, so a
-machine-mounted dividing head is not an unresolved fixture: the kernel, the
-`hold_fields`, `headroom` and `envelope` rules all read its `height` /
-`bed_height`, `length` and `width` from wherever it is declared. A dividing head
-without declared gripping capacity is `not_applicable` to the diameter screen;
-a machine or dividing head with declared collet sizes or chuck ranges is checked.
+machine-mounted dividing head is not an unresolved fixture. Its declared
+`centre_height_in` locates the spindle axis above its mounting base for the
+headroom screen; `hold.pose.origin_mm[2]` locates that axis in the setup frame.
+`height` / `length` / `width` still describe the head body; `bed_height` is not
+a substitute for the centre. A dividing head without declared gripping capacity
+is `not_applicable` to the diameter screen; a machine or dividing head with
+declared collet sizes or chuck ranges is checked.
 
 For indexing, a dividing head can live in `machines` (the example is `BS-0`) or
 `fixtures`. `worm_ratio`, `direct_index` and every `plate_holes` circle are
@@ -60,6 +69,23 @@ gauge length substitutes for projection.
 Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
+
+## Bandsaw machines and blades
+
+Both `machines.<saw>.kind` and `tools.<blade>.kind` may be `"bandsaw"`.
+The machine declares `blade_speed_sfm = [min, max]`, positive ordered feet/minute
+limits. The blade declares its `material` for cutting-data selection and a
+positive `kerf_mm` or `kerf_in`, using the ordinary `MeasuredLength` form or
+trusted nominal scalar. Declaring kerf in both units is rejected, and explicit
+fact-local verification debt withholds geometry. Illustrative example
+measurements must use the examples policy's plausible/not-measured label.
+
+Saw operations need no spindle taper, holder, shank diameter, tool OAL or
+projection. A mill/bench may host the saw operation but must also declare its
+actual blade-speed range for a sourced speed recommendation. The hold resolves
+an ordinary fixture; no machine identity silently supplies an integral vise.
+See [plan saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
+
 
 ## Kernel geometry facts (M4)
 
@@ -393,6 +419,8 @@ on hand.
 | `pieces` | `float` |
 | `angle_deg` | `float` |
 | `point_angle` | `MeasuredAngle` |
+| `blade_speed_sfm` | `[Number, Number]` (machine blade-speed limits) |
+| `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade) |
 | `flute_len` | `MeasuredLength` |
 | `oal` | `MeasuredLength` |
 | `head_in` | `float` |
@@ -440,6 +468,9 @@ on hand.
 | `width_mm` | `MeasuredLength` |
 | `width_in` | `MeasuredLength` |
 | `capacity_mm` | `float` |
+| `capacity_min_mm` / `capacity_min_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `capacity_max_mm` / `capacity_max_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `blade_width_mm` / `blade_width_in` | `MeasuredLength` (grooving/parting blade front-edge width) |
 | `bed_height_in` | `MeasuredLength` |
 | `nose_radius_mm` | `float` |
 | `reach_mm` | `float` |

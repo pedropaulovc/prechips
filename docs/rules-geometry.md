@@ -1,6 +1,6 @@
 # Geometry and workholding rules (M4, FreeCAD kernel)
 
-The eight PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
+The nine PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
 against the material present at each authored setup, using FreeCAD's bundled
 OpenCASCADE. They compare sampled intersections and B-rep measurements with
 the selected tools, holders, fixture dimensions and declared pose. This is not
@@ -19,6 +19,7 @@ that carries its own verification debt.
 | `vise` | setup id | PLAN §4.3 vise |
 | `thin_wall_under_clamp` | setup id | PLAN §4.3 thin wall under clamp |
 | `fixture_interference` | setup id | PLAN §4.3 fixture interference |
+| `saw_cut` | `setup:op` for saw cut-off | PLAN §4.2 saw cut-off |
 
 The citation list of every geometry finding starts with that PLAN row, adds
 `kernel: STEP SHA-256 <digest>; FreeCAD B-rep measurements` when the manifest
@@ -159,16 +160,35 @@ major edge at `entering_angle_deg`, minor edge closing `insert_angle_deg`, both
 `edge_len` long, feed direction from `hand`: right → −Z, left → +Z), the head
 (hull of the insert to `head_len`), the radial shank (`shank_width`, back face
 `functional_width` from the nose centre, out to the tool projection) and the
-toolpost body (holder `body_depth` radially, `body_width` along Z). Claimed
+toolpost body (holder `body_depth` radially, `body_width` along Z). A tool
+whose kind is `parting_blade` or `grooving_blade` is a blade instead: two
+`nose_radius` corners on a square front edge `blade_width` wide (inventory
+`blade_width_mm`/`blade_width_in`; job op `corners = 2`, `blade_width_mm`),
+entering angle 90°, sides running straight back to `head_len`; an unmeasured
+`blade_width` leaves the row `unknown`. Claimed
 faces must be surfaces of revolution about setup Z on the outside; other faces
 are claim errors; internal (bore) claims stay `unknown`. Samples on the
-claimed meridians are checked against the held stock minus this op's own
-turned removal plus modeled fixture obstacles, including the rotating
-envelopes of placed chuck jaws.
-Reach is the material radius within the nose's axial band; corners are concave toroid or
+claimed meridians (a dome's pole included; a `to_z` op's samples moved onto
+the `to_z` plane it leaves) are checked against the profile after the op —
+the held stock minus the turned removals of the setup's turning ops up to and
+including this one — plus modeled fixture obstacles, including the rotating
+envelopes of placed chuck jaws. Each pose is chosen on that profile's
+meridian section: an insert's nose is tangent at the sample; a blade's front
+edge lies on a floor sample anywhere along it that keeps the blade clear, so
+it sits inside its groove and floor spans narrower than the blade are swept by
+that plunge, and a wall sample is cut by the nearest corner. Where that nose or
+blade meets the profile at an exposed sample it moves to the nearest clear
+pose within twice the corner radius — tangent to both segments of a concave
+corner, offset from the wall by the nose radius (the milling floor-edge rule)
+— so a corner sharper than the nose is the corner-radius fact below, not a
+collision. Flank, head and holder hits stay hits.
+Reach is the material radius within the nose's or blade's axial extent; corners are concave toroid or
 sphere profile radii (a sharp shoulder is 0) compared with the nose radius.
 Removal is revolved: `to_z` faces a band from the innermost claimed radius to
-the stock OD; profile ops close each claimed meridian to the OD within the
+the stock OD; a facing op, `part_off` or `cut_to_fit` given `to_dia` sweeps
+from `to_dia`/2 — the axis when a `part_off` omits it — to the stock OD and the
+stock end, never leaving a core for a bore the finished part only receives
+later; profile ops close each claimed meridian to the OD within the
 declared `z_from`/`z_to` span, then cut the finished part back out. That
 in-process stock is inverse-transformed back into model coordinates and can
 feed any later setup that explicitly selects it through `stock_in`, not only
@@ -176,10 +196,12 @@ the immediately following setup. Removal checks each input solid separately:
 an existing multi-piece input is permitted, but splitting any one input piece
 into multiple retained pieces leaves the output unresolved.
 
-The turning model is a deterministic radial sampled necessary-condition screen.
-It does not prove tool paths, chip flow, insert clearance angles below centre height, boring bars or
-internal features, grooving/part-off blade geometry, or chatter. Every turning
-input must be measured and accepted; otherwise the row is `unknown`.
+The turning model is a deterministic radial sampled necessary-condition screen:
+it poses the tool at sampled meridian points only, one final-pass profile per
+op. It does not prove tool paths or roughing passes, chip flow, insert or blade
+clearance below centre height, blade side clearance or thickness, boring bars
+or internal features, cutting load, or chatter. Every turning input must be
+measured and accepted; otherwise the row is `unknown`.
 
 An explicit turning action (`turn`, `rough_turn`, `finish_turn`,
 `profile_turn`, `form_dome`, `form_relief`, `part_off`, `cut_to_fit`) off a
@@ -372,6 +394,34 @@ but provide no numeric lateral interruption mask. S2/S3 therefore name the
 unresolved S1 profile removal rather than drawing the finished arm or
 inventing rail dimensions. A known current setup remains checkable/drawable
 even when its output stock is unresolved for the next setup.
+
+### Saw cut-off
+
+`saw_cut` and `cut_off` use an authored setup-axis blade-centre `cut_plane`
+and the selected bandsaw blade's positive inventory kerf. Below retains the
+halfspace at or below `plane - kerf/2`; above retains the halfspace at or above
+`plane + kerf/2`. The native Boolean removes the kerf plus the discarded planar
+slab from the **current operation stock**, including earlier removals in that
+setup. Its retained result is available through normal `stock_in` routing.
+
+The `saw_cut` finding reports the normalized plane, kerf, retained boundary and
+before/after, kerf, offcut and removed volumes in mm/mm³. A cut into the finished
+target, an empty retained piece or an off-stock/no-op blade is an error, never
+clipped back to the target to fabricate a pass. Tangent contact with no target
+volume removed is permitted. Missing/unverified kerf, cut-plane or upstream
+stock remains named `?`; absence of FreeCAD remains kernel debt.
+Splitting one connected input stock solid into several retained pieces is also
+an error: detached pieces are not silently routed as held stock, including tiny
+retained slivers. Independently supplied components already disconnected before
+the saw may remain disconnected; the check is per input solid, not the total
+retained count. Target-loss and volume facts are computed before this refusal.
+
+`accessibility`, `reach` and `internal_corner_radius` are `not_applicable` to a
+saw operation: its blade is located by the cut plane/kerf, and the axial/turning
+tool-cylinder model does not model a saw blade. This states a model boundary,
+not certified blade/fixture clearance. Saw cuts provide no finished-face or
+surface-finish coverage credit. Holding, fixture solids and fixture-interference
+screens remain in effect, including on a dedicated bandsaw setup.
 
 ### Jaw placement
 
@@ -601,7 +651,8 @@ expand this rule's claimed-face scope.
 A concave cylinder with an off-axis axis, an oblique concave edge, or any
 other concave curved claimed surface cannot be reduced to one radius and
 makes the row `unknown` with that face/edge named. Numbers:
-`corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`.
+`corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`,
+`cad_sharp_corners` and `corner_radius_max_design_mm`.
 These are finished-solid facts, independent of unknown in-process stock;
 a known sharp corner remains an error even when reach cannot be measured.
 The comparison uses a 0.005 mm numeric tolerance: a concave radius admits the
@@ -610,6 +661,16 @@ write only 5–6 significant digits, so sub-tolerance import/kernel rounding
 must not turn a nominally equal radius into an error. This is numeric tolerance,
 not a machining allowance: a 0.004 mm deficit passes; a 0.006 mm deficit errors,
 and a genuinely sharp corner still fails.
+
+A CAD-sharp corner (modelled radius below 0.005 mm) is drawn sharp, but the
+drawing may permit a radius there. Only the operation feature's own
+`corner_radius_max_design` (explicit feature `units`; inch × 25.4) states that
+permission: the cutter is admitted when `tool_radius_mm ≤
+corner_radius_max_design` (equality passes; 0.25 admits a 0.25 mm nose, not
+0.26). A modelled non-sharp corner smaller than the cutter is never rescued by
+the allowance, and a title-block `edge_break`/`general_tolerances.edge_break_r`
+is never borrowed. Without the feature field the sharp-corner error stays, and
+the sentence names the missing `corner_radius_max_design`.
 
 - no such corners: `claimed faces have no concave edges perpendicular to the tool axis.` (not_applicable)
 - `concave corner radii admit the selected cutter.` (pass)

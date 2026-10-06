@@ -9,6 +9,7 @@ from .resolution import (
     number,
     plan_frame_cite,
     resolve,
+    saw_setup,
     setup_frame,
     uncertain,
 )
@@ -63,6 +64,19 @@ def evaluate(bundle):
     result = []
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
+        if saw_setup(setup):
+            result.append(
+                Finding(
+                    "zero_check",
+                    setup["id"],
+                    "not_applicable",
+                    {"frame": setup.get("frame", UNKNOWN)},
+                    ["PLAN.md §4.1 zero recipe", *plan_frame_cite(bundle, setup)],
+                    "A dedicated saw setup locates its cut by cut_plane; no spindle XYZ "
+                    "zero is set.",
+                )
+            )
+            continue
         frame = setup_frame(bundle, setup)
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe" or "lathe" in str(machine.get("type", "")).lower()
