@@ -25,10 +25,17 @@ tail.fuse(body).fuse(pad).removeSplitter().exportStep(out + "/padded.step")
 step = Part.makeCylinder(10, 30, V(0, 0, 0), X).fuse(Part.makeCylinder(9, 30, V(30, 0, 0), X))
 near = Part.makeBox(4, 6, 6, V(31, -3, 7))
 tail.fuse(step).fuse(near).removeSplitter().exportStep(out + "/stepped.step")
+round_near = Part.makeCylinder(3, 6, V(34, 0, 7), V(0, 0, 1))
+tail.fuse(step).fuse(round_near).removeSplitter().exportStep(out + "/stepped-boss.step")
 # A round R4 boss standing proud of the body (top z 13) at x 30: its curved wall fans
 # away from the radial sweep of the holed body face.
 boss = Part.makeCylinder(4, 6, V(30, 0, 7), V(0, 0, 1))
 tail.fuse(body).fuse(boss).removeSplitter().exportStep(out + "/bossed.step")
+# A raised shelf on the boss overhangs the wall-tangent cutter without touching
+# the floor. It must remain an obstacle inside the new posed cutting column.
+shelf = Part.makeBox(5, 2, 3, V(33, -1, 11))
+tail.fuse(body).fuse(boss).fuse(shelf).removeSplitter().exportStep(out + "/overhung.step")
+tail.fuse(Part.makeCone(10, 8, 60, V(0, 0, 0), X)).exportStep(out + "/conical.step")
 """
 
 # Head axis along setup +X, jaw face at x = -5: the jaws grip the tail at x -15..-5.
@@ -49,7 +56,7 @@ def parts(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 3, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 6, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -85,11 +92,6 @@ def test_rotary_floor_beside_an_unclaimed_proud_pad_clears_it(engine, parts):
     assert op["tool_hits"] == 0 and op["holder_hits"] == 0, op
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="open: the radial sweep of a holed face fans past a curved pad wall, so the "
-    "wall-tangent cutter meets the stock kept over the boss (cone #550/#885 shows the same)",
-)
 def test_rotary_floor_beside_a_round_boss_cuts_the_stock_over_it(engine, parts):
     # Round R15 bar: the boss keeps a fanned stock column; the cutter tangent to the boss
     # wall cuts that stock where it stands and clears the finished boss. The window runs
@@ -102,12 +104,35 @@ def test_rotary_floor_beside_a_round_boss_cuts_the_stock_over_it(engine, parts):
     op = _rotary(engine, step, body, _head(), stock, z_from=0.0, z_to=70.0)
     assert op["claim_errors"] == [] and op["sample_count"] > 25
     assert op["tool_hits"] == 0, op
+    # Restricting removal to the finished body's axial extent retains raw bar
+    # beside its convex end. That stock is an obstacle even though no finished
+    # pad or boss occupies it.
+    restricted = _rotary(engine, step, body, _head(), stock, z_from=5.0, z_to=65.0)
+    assert restricted["claim_errors"] == []
+    assert restricted["tool_hits"] > 0 and restricted["obstacles"]["tool"] == ["part"]
 
 
-def test_rotary_cutter_hits_a_pad_lying_in_its_path(engine, parts):
+def test_rotary_wall_column_preserves_a_finished_overhang(engine, parts):
+    step = parts["overhung"]
+    body = engine.refs(step, *BODY, kind="Cylinder")
+    stock = {
+        "shape": "round",
+        "dia_mm": 30.0,
+        "length_mm": 75.0,
+        "origin_mm": [-15.0, 0.0, 0.0],
+        "axis": [1.0, 0.0, 0.0],
+    }
+    op = _rotary(engine, step, body, _head(), stock, z_from=0.0, z_to=70.0)
+    assert op["claim_errors"] == []
+    assert op["tool_hits"] > 0 and op["obstacles"]["tool"] == ["part"], op
+    assert op["hit_refs"]["tool"], op
+
+
+@pytest.mark.parametrize("part", ["stepped", "stepped-boss"])
+def test_rotary_cutter_hits_a_pad_or_boss_lying_in_its_path(engine, parts, part):
     # The claimed R10 band ends at a convex step; the cutter centred on that edge
-    # reaches over the R9 step onto the pad 1 mm beyond it.
-    step = parts["stepped"]
+    # reaches over the R9 step onto the pad or round boss 1 mm beyond it.
+    step = parts[part]
     body = engine.refs(step, (0, -10, -10), (30, 10, 10), kind="Cylinder")
     assert len(body) == 1
     op = _rotary(engine, step, body, _head())
@@ -131,3 +156,21 @@ def test_head_axis_not_perpendicular_to_setup_z_is_unsupported(engine, parts):
     op = _rotary(engine, step, body, _head(upright))
     assert "not perpendicular to setup Z" in op["unsupported_reason"]
     assert op["tool_hits"] == "unknown" and op["claimed_indices"] == "unknown"
+
+
+def test_unproved_rotary_removal_does_not_count_allowance_as_certain_hits(engine, parts):
+    step = parts["conical"]
+    body = engine.refs(step, *BODY, kind="Cone")
+    assert len(body) == 1
+    stock = {
+        "shape": "round",
+        "dia_mm": 30.0,
+        "length_mm": 75.0,
+        "origin_mm": [-15.0, 0.0, 0.0],
+        "axis": [1.0, 0.0, 0.0],
+    }
+    op = _rotary(engine, step, body, _head(), stock)
+    assert op["claim_errors"] == []
+    assert op["tool_hits"] == "unknown"
+    assert "rotary removal is derived only" in op["reasons"]["tool_hits"]
+    assert op["min_hits"]["tool"] == 0

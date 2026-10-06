@@ -12,8 +12,12 @@
 
 Status: M1 local implementation and PR #5 cross-family/CodeRabbit review
 corrections completed; M2 declared-input implementation and all six PR #6
-review corrections are locally verified. Physical paper rehearsal and live
-parented farm/App Insights acceptance remain pending/unobserved. Rev 6, 2026-10-03.
+review corrections are locally verified. M4 also delivers the sampled rotary
+approach: horizontal dividing-head top-dead-centre poses and window-clipped
+radial plus wall-tangent vertical cutter-column own-removal outside the
+finished part. This is not continuous toolpath proof; its combined integration
+gate remains unobserved. Physical paper rehearsal and live parented farm/App
+Insights acceptance remain pending/unobserved. Rev 6, 2026-10-03.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial
@@ -571,7 +575,7 @@ not exist.
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default | features.faces, plan.ops.faces, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence) | features.finish_ra/faces, plan.ops.faces | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
 
-The −setup-Z approach model applies to milling and spindle-axis lathe actions
+The default −setup-Z approach model applies to milling and spindle-axis lathe actions
 (`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`). Other cutting
 actions on a resolved lathe use a radial sampled turning screen: revolved
 insert/head/shank/toolpost sections are checked against entry stock minus the
@@ -583,6 +587,18 @@ a resolved lathe remain unsupported; shared profile/form/groove actions follow
 resolved machine kind. This necessary-condition screen proves no toolpath,
 internal boring, grooving/part-off blade geometry, chip flow or chatter. See
 [geometry rules](docs/rules-geometry.md#approach-models) for the exact boundary.
+
+Delivered `approach = "rotary"` instead presents each sample on a horizontal
+dividing head at top dead centre under the vertical mill spindle.
+`z_from`/`z_to` bound distance along the head axis from the chuck pose origin;
+`angle_window_deg` bounds rotation about that axis. The setup declares
+`hold.index.rotation = "continuous"` with no index positions or angle step.
+Own-removal combines radial sweep with the vertical cutter columns at
+concave wall-tangent poses, clipped to the window and cut against the finished
+solid. Finished bosses/pads and stock outside that allowance remain obstacles;
+only the flute excludes its own allowance, not holder or reach screens.
+This is one static pose per sample, not continuous rotation, simultaneous
+rotary-plus-linear motion or a toolpath proof.
 
 ### 4.3 Workholding (geometry + inventory — needs the kernel for the solids)
 
@@ -1118,6 +1134,19 @@ sheet.
    Corner comparisons allow 0.005 mm numeric STEP/kernel round-off, not a
    shop machining allowance: a 0.004 mm radius deficit passes, 0.006 mm errors.
    The rocker's 0.99695 mm corner against a 0.997 mm cutter therefore passes.
+
+   Rotary milling is delivered through `approach = "rotary"` and
+   `hold.index.rotation = "continuous"` on a horizontal dividing head with an
+   explicit chuck pose and modeled fixture solids. Coaxial cylinder and planar
+   annulus claims are presented at top dead centre under a vertical cutter.
+   Derivable own-removal combines radial sweep with actual vertical cutter
+   columns at concave wall-offset poses; the union is clipped to
+   `z_from`/`z_to` along the head axis and `angle_window_deg`, then the finished
+   solid is cut out. Finished bosses/pads, other retained stock and
+   holder/fixture obstacles remain protected. This sampled screen establishes
+   neither a continuous toolpath nor clearance between samples. This delivery
+   description adds no combined-gate, physical-rehearsal or live-farm evidence;
+   those acceptance gates remain separately pending/unobserved.
 
    Fixture pictures use only numeric jaw/parallels dimensions and declared
    poses; a certain/possible jaw envelope is labelled unresolved. Vise

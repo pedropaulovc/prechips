@@ -413,6 +413,13 @@ even when the authored steps happen to total a whole revolution. Explicit
 with no closure. The traveler prints plate, circle, turns and hole **spaces**,
 with angles at the drawing's declared angular precision.
 
+For rotary milling, use
+`hold.index = { fixture = "<head>", rotation = "continuous" }` instead of a
+landing pattern. A verified `dividing_head` passes indexing with no landings;
+another fixture kind or simultaneous `positions`/`angle_deg` is an error,
+and an unverified head remains unknown. This declares how the head is used,
+not proof that its rotation is collision-free or its torque/locking adequate.
+
 ## Reference
 
 | Field | Type (also accepts `"unknown"`) |
@@ -519,10 +526,11 @@ unresolved claims; a known explicit list must be nonempty. Explicit refs need
 not be the feature's default refs: a drawing feature may require two broad surfaces even
 when its exported label names only one. The plan can claim the other exported
 surface without rewriting the manifest. Invalid/unmapped refs are geometry
-errors. A far-side face whose outward normal opposes the setup's +Z approach
-by more than 90° is an error naming the face and earns no coverage credit.
-Complementary setups can explicitly claim opposite sides; finishing coverage
-credits each face only to the direction-valid finishing cuts that claim it.
+errors. Under the axial milling model, a far-side face whose outward normal
+opposes the setup's +Z approach by more than 90° is an error naming the face
+and earns no coverage credit. Complementary setups can explicitly claim
+opposite sides; finishing coverage credits each face only to the
+approach-valid finishing cuts that claim it.
 
 `stock_removal_bounds` is an explicit setup-frame clearing box:
 `{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric
@@ -549,7 +557,19 @@ is turned about the head axis to top dead centre under the vertical spindle
 pose origin, and `angle_window_deg = [from, to]` is the head rotation in
 degrees, right-handed about that axis (from < to; a span of 360 or more is
 unbounded). Both bound the op's removal; a claimed sample outside them is a
-claim error. The setup's `hold.index` then declares `rotation = "continuous"`.
+claim error. Claims must be supported external surfaces of revolution about
+the head axis (coaxial cylinders or planar annuli normal to it). The setup's
+`hold.index` declares `rotation = "continuous"` without `positions` or
+`angle_deg`, and its `hold.pose`, `hold.chuck` and inventory solids establish
+the head/chuck geometry, not an inferred fixture.
+
+Own-removal combines each claimed cylinder's radial sweep with the actual
+vertical cutter columns at concave wall-tangent sample poses. Their union is
+clipped to the axial/angular window, then the finished solid is subtracted:
+finished bosses/pads and material outside that derivable allowance remain
+obstacles. Only the flute excludes its own allowance; holder and reach
+screens retain setup-entry stock. This is one top-dead-centre pose per sample,
+not a continuous toolpath or proof of clearance while rotating between poses.
 
 `doc_mm` enables the engagement screen only for an endmill-family cutter on a
 cutting operation. Omitted DOC, noncutting actions and known drills, reamers,

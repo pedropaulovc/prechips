@@ -77,10 +77,11 @@ Measurement conventions (setup frame, tool axis +Z):
   axis r along the head axis.  Tool and holder are tested against the held stock
   (flute: minus this op's rotary removal) turned with the work, against the chuck
   jaws/body turned with it, and against the head body, tailstock and other solids
-  where they stand.  Rotary removal sweeps each claimed coaxial cylinder radially
-  out past the stock (stock over unclaimed pads stays), running on at its radius
-  to the z window ends, limited to the window, minus the finished part.  This is
-  one static pose per sample: no swept toolpath, helical or simultaneous motion.
+  where they stand. Rotary removal sweeps each claimed coaxial cylinder radially
+  out past the stock, running on at its radius to the z window ends, plus the
+  vertical cutter columns at wall-offset floor poses. Both are clipped to the
+  window and exclude the finished part: finished pads and bosses remain obstacles.
+  This is one static pose per sample: no swept toolpath, helical or simultaneous motion.
 """
 
 from __future__ import annotations
@@ -1383,7 +1384,12 @@ class _Setup:
                     continue
                 pieces = []
                 for original in stock.Solids:
-                    kept = [p for p in original.cut(removal).Solids if p.Volume > STOCK_MM3]
+                    remaining = (
+                        self._cut_rotary(original, removal)
+                        if _rotary(op)
+                        else original.cut(removal)
+                    )
+                    kept = [p for p in remaining.Solids if p.Volume > STOCK_MM3]
                     if len(kept) > 1 or not all(piece.isValid() for piece in kept):
                         return None, (
                             f"{subject}: removing its claimed clearance splits an input "
@@ -2624,7 +2630,21 @@ class _Setup:
         if _rotary(op):
             removal, why = self._rotary_removal(op, valid)
             if why:
+                return {index: (None, why) for index in regions}
+            if removal is None:
                 return regions
+            try:
+                return {
+                    index: (_Culled(self._cut_rotary(region.shape, removal)), None)
+                    if region is not None
+                    else (None, reason)
+                    for index, (region, reason) in regions.items()
+                }
+            except Exception as exc:
+                return {
+                    index: (None, f"rotary allowance subtraction failed ({exc})")
+                    for index in regions
+                }
         elif "stock_removal_bounds" in op:
             removal, why = self._bounded(
                 op["stock_removal_bounds"], self.part, valid, away, to_z, radius
@@ -3367,7 +3387,7 @@ class _Setup:
             facts["reason"] = unknown[0]
         return facts
 
-    def _rotary_poses(self, indices, radius):
+    def _rotary_poses(self, indices, radius, wall_only=False):
         """(index, phi, axis x, axis y, tip z, downward) per sample turned to top dead centre.
 
         In the presented frame the sample's normal is its radial and axial components (the
@@ -3391,6 +3411,7 @@ class _Setup:
                 phi = phi or 0.0
                 presented = head.turned(point, phi)
                 ax, ay = presented.x, presented.y
+                shifted = False
                 if abs(axial) > 1e-9:
                     flat = math.hypot(head.axis.x, head.axis.y)
                     sign = 1.0 if axial > 0 else -1.0
@@ -3399,6 +3420,9 @@ class _Setup:
                 elif radial > 0:
                     dx, dy = self._rotary_floor_offset(index, point, phi, presented, radius)
                     ax, ay = ax + dx, ay + dy
+                    shifted = abs(dx) > 1e-9 or abs(dy) > 1e-9
+                if wall_only and not shifted:
+                    continue
                 poses.append((index, phi, ax, ay, presented.z + LIFT, radial < -1e-3))
         return poses, "; ".join(problems) if problems else None
 
@@ -3524,6 +3548,9 @@ class _Setup:
         region_reason = (
             "; ".join(reason for _, reason in regions.values() if reason is not None) or None
         )
+        flute_reason = (
+            "; ".join(reason for _, reason in flute_regions.values() if reason is not None) or None
+        )
         part = self._culled_part()
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
@@ -3547,7 +3574,7 @@ class _Setup:
                     continue
                 back = head.rotated(presented, -phi)
                 labels = set()
-                if region_reason is None:
+                if (flute_reason if kind == "tool" else region_reason) is None:
                     obstacle = (flute_regions if kind == "tool" else regions)[index][0]
                     common = obstacle.common_solid(back)
                     if common is not None:
@@ -3589,7 +3616,7 @@ class _Setup:
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
         for kind, missing in (
-            ("tool", "op lacks flute_len_mm" if flute is None else region_reason),
+            ("tool", "op lacks flute_len_mm" if flute is None else flute_reason),
             ("holder", holder_reason),
         ):
             key, certain = kind + "_hits", counters[kind][0]
@@ -3628,14 +3655,18 @@ class _Setup:
         return names
 
     def _rotary_removal(self, op, valid):
-        """(stock outside the finished part this rotary op removes or None, why).
+        """(independent outside-finished cutting volumes or None, why).
 
         Each claimed cylinder coaxial with the head axis sweeps radially outward past the
-        held stock (its normal offset keeps its trimmed angular and axial extent, so the
-        stock over unclaimed pads and bosses stays); planar faces normal to the axis sweep
-        nothing of their own. With ``z_from``/``z_to`` a cylinder's sweep also runs on at
-        its radius from its end arcs to the window ends, like a turned profile's end
-        radius. The sweep is limited to the op's z/angle window, minus the finished part.
+        held stock. At concave walls, posed vertical cutter columns also remove stock
+        which the trimmed face's radial fan leaves beside the wall. Planar faces normal
+        to the axis sweep nothing of their own. With ``z_from``/``z_to`` a cylinder's
+        sweep runs on at its radius from its end arcs to the window ends. All removal
+        is limited to the op's z/angle window and excludes the finished part.
+
+        Keep the overlapping volumes independent. Fusing many nearly coincident
+        wall columns with a split cylinder's radial sweeps can collapse OCC's
+        union; subtracting the same volumes sequentially preserves the set difference.
         """
         if not valid:
             return None, None
@@ -3666,18 +3697,54 @@ class _Setup:
                 pieces.append(self._radial_sweep(face, outer, label))
                 if window["z"] is not None:
                     pieces.extend(self._window_extensions(index, face, window["z"], outer))
-            if not pieces:
-                return None, None
-            removal = pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
+            radius = _positive(op, "radius_mm")
+            walls = [
+                index
+                for index in valid
+                if isinstance(self.faces[index].Surface, Part.Cylinder)
+                and self._rotary_walls(index)
+            ]
+            if radius is not None and walls:
+                poses, why = self._rotary_poses(walls, radius, wall_only=True)
+                if why:
+                    return None, why
+                # A radial offset fans out around a hole in a cylindrical floor. At
+                # its concave wall the cutter is vertical, not a radial fan: include
+                # that actual cutting column, while retaining every finished solid
+                # and all material outside the declared window below.
+                top = head.origin.z + outer
+                for _, phi, ax, ay, tip, downward in poses:
+                    if not downward and top > tip:
+                        # Enclose the checked r-LIFT flute without exact wall tangency.
+                        column = Part.makeCylinder(radius - LIFT / 2, top - tip, V(ax, ay, tip))
+                        pieces.append(head.rotated(column, -phi))
             bound = head.window_solid(window, self.box)
-            if bound is not None:
-                removal = removal.common(bound)
-            removal = removal.cut(self.finished)
+            removals = []
+            for piece in pieces:
+                if bound is not None:
+                    piece = piece.common(bound)
+                    if piece.Faces and not piece.isValid():
+                        raise ValueError("invalid window-clipped rotary cutting volume")
+                piece = piece.cut(self.finished)
+                if piece.Faces and not piece.isValid():
+                    raise ValueError("invalid clipped rotary cutting volume")
+                if piece.Volume <= HIT_MM3:
+                    continue
+                removals.append(piece)
         except Exception as exc:
             return None, f"rotary removal boolean failed ({exc})"
-        if removal.Volume <= HIT_MM3:
-            return None, None
-        return removal, None
+        return removals or None, None
+
+    @staticmethod
+    def _cut_rotary(stock, removals):
+        """Subtract independent rotary cutting volumes without an unstable tool union."""
+        for removal in removals:
+            stock = stock.cut(removal)
+            if not stock.Faces:
+                return stock
+            if not stock.isValid():
+                raise ValueError("invalid stock after rotary allowance removal")
+        return stock
 
     def _radial_sweep(self, face, outer, label):
         """Solid between a coaxial cylindrical ``face`` and its radial offset to ``outer``."""

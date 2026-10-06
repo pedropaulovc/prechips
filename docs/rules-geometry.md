@@ -215,15 +215,27 @@ where it meets a concave wall (the accessibility floor-edge convention: tangent
 to each incident wall, and to a nearer wall meeting an incident one at a
 concave corner; a sample off every wall but within the cutter radius of one it
 sees squarely is also placed tangent to it). Cutter and holder cylinders and
-the reach column are then turned back by the sample's angle and checked
-against the held stock minus this op's own rotary removal. Chuck jaws and body
-turn with the work; the head body, tailstock and clamps stay put and are
-checked at the presented pose. Removal is a radial sweep of each claimed
-coaxial cylinder out to the stock's outer radius, extended at that radius to
-the window ends and intersected with the window, then the finished part is cut
-back out. Unclaimed pads keep their stock and stay obstacles. Corners: a
-concave edge in a plane through the head axis is 0; other concave edges are
-unresolved.
+the reach column are then turned back by the sample's angle. Cutter and holder
+obstacles exclude only the sampled face's thin inward shell; only the flute
+also excludes this op's own derivable rotary removal. The holder otherwise
+retains setup-entry stock, and reach and holder-wall screens use setup-entry
+stock without the own-removal exclusion. Chuck jaws and body turn with the
+work; the head body, tailstock and clamps stay put and are checked at the
+presented pose.
+
+Own-removal combines a radial sweep of each claimed coaxial cylinder out to
+the stock's outer radius (extended at the cylinder's radius to the axial
+window ends) with the actual vertical cutter columns at concave wall-offset
+poses on those cylinders. Each column starts at its presented cutter tip,
+extends to the stock's outer top and is rotated back into the work's frame.
+These wall-tangent columns account for material a vertical cutter clears that
+a radial sweep alone leaves beside a concave wall. The combined volume is
+clipped to the op's axial/angular window, then cut against the finished solid.
+This is derivable own-removal, not merely counting intersections with finished
+faces: finished bosses and pads remain intact, stock outside the combined
+allowance stays an obstacle, and holder/fixture obstacles are not excused.
+Planar annuli sweep no removal of their own. Corners: a concave edge in a plane
+through the head axis is 0; other concave edges are unresolved.
 
 The rotary model is one static pose per sample. It does not prove a swept
 toolpath, helical or simultaneous rotary-plus-linear motion, rotation between
