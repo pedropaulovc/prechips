@@ -104,10 +104,14 @@ Ambiguous overlap or unknown range stays unresolved. No chart URL is fetched.
 
 `D_in = D_mm/25.4`; `raw_RPM = 12*sfm/(pi*D_in)`. Round the raw RPM to nearest
 50 with ties-to-even, then clamp to the actual machine limits (which need not
-be multiples of 50). Mill feed in mm/min is
-`RPM * flute_count * chip_load_mm_per_tooth`. Lathe nominal RPM can be computed
-from explicit work diameter, but lathe feed remains unknown, so this rule does
-not certify lathe starts. Verified material, tool and machine facts are needed.
+be multiples of 50; a lathe's `ranges_rpm` bands give its overall limits).
+Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
+feed in mm/min is `RPM * feed_mm_rev`, where `feed_mm_rev` comes from the same
+cited `[[cut]]` row (or the tool's cited `chart`) as `sfm`, under the same
+citation/verify rules as the mill chip load; the lathe diameter is the turned
+feature diameter (plus `rough_allowance_mm` for `rough_turn`, stock OD for a
+face). There is no op-level feed override on either machine. Lathe rows report
+`feed_mm_rev`. Verified material, tool and machine facts are needed.
 
 Exact templates:
 

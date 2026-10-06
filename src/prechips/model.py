@@ -499,7 +499,7 @@ InventoryItem = record(
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
             "diameter_in thickness_in resolution_in runout_max_in "
-            "max_shank_in sfm chip_load_mm_per_tooth "
+            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev "
             "shank_mm capacity_mm"
         ),
         "point_angle": MeasuredAngle,
@@ -694,7 +694,7 @@ Cut = record(
     {
         **texts("material_class tool_material operation"),
         "diameter_range": Vector,
-        **numbers("sfm chip_load_mm_per_tooth"),
+        **numbers("sfm chip_load_mm_per_tooth feed_mm_rev"),
         "cite": Citations,
     },
 )

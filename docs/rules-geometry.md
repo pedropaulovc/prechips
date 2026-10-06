@@ -144,33 +144,51 @@ rows `unknown` (`feature face references are unknown or unmapped`). Imported
 faces that no reference names are labelled `imported face index <n>`
 (0-based) wherever the kernel has to name them, for example in `coverage`.
 
-## Milling-only approach model
+## Approach models
 
-The engine's directional claims and prescribed cutter/holder poses approach
-along −setup Z. This is a milling model, not a radial turning approach. An
-operation whose resolved machine kind is `lathe`, or whose action is explicitly
-`turn`, `rough_turn`, `finish_turn`, `profile_turn`, `form_dome`, `form_relief`,
-`part_off` or `cut_to_fit`, has `unsupported` approach-dependent rows, with
-the reason exactly:
+**Milling (axial).** Directional claims and prescribed cutter/holder poses
+approach along −setup Z. This also applies to spindle-axis lathe actions
+(`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`) on a lathe.
 
-`lathe approach model not implemented (engine approaches along -Z only)`
+**Turning.** On a resolved `lathe`, every other cutting action uses the
+turning model: the spindle is setup Z through x = y = 0 and the work revolves,
+so the tool is drawn as a section in the XZ half-plane at centre height and
+revolved 360° about Z. The section is the insert (nose radius `nose_radius`,
+major edge at `entering_angle_deg`, minor edge closing `insert_angle_deg`, both
+`edge_len` long, feed direction from `hand`: right → −Z, left → +Z), the head
+(hull of the insert to `head_len`), the radial shank (`shank_width`, back face
+`functional_width` from the nose centre, out to the tool projection) and the
+toolpost body (holder `body_depth` radially, `body_width` along Z). Claimed
+faces must be surfaces of revolution about setup Z on the outside; other faces
+are claim errors; internal (bore) claims stay `unknown`. Samples on the
+claimed meridians are checked against the held stock minus this op's own
+turned removal plus fixture solids (chuck jaws when drawn). Reach is the
+material radius within the nose's axial band; corners are concave toroid or
+sphere profile radii (a sharp shoulder is 0) compared with the nose radius.
+Removal is revolved: `to_z` faces a band from the innermost claimed radius to
+the stock OD; profile ops close each claimed meridian to the OD within the
+declared `z_from`/`z_to` span, then cut the finished part back out. That
+in-process stock feeds later setups like milled removal.
 
-Invalid STEP face references remain `error` before this boundary; missing or
-unmapped claimed references remain `unknown`. Otherwise `accessibility`,
-`reach` and `internal_corner_radius` do not use the raw engine's lathe
-direction, collision, reach, stock-removal or corner verdicts. A raw lathe
-`claimed_indices` array never establishes cutting or finishing coverage.
-Supported milling claims and explicit as-stock faces can still establish
-coverage independently; a lathe-only claim cannot produce either a pass or a
-false far-side failure. A radial lathe approach model is a prechips follow-up,
-not harmonic-analyzer export debt.
+The turning model is a deterministic sampled screen. It does not prove tool
+paths, chip flow, insert clearance angles below centre height, boring bars or
+internal features, grooving/part-off blade geometry, or chatter. Every turning
+input must be measured and accepted; otherwise the row is `unknown`.
+
+An explicit turning action (`turn`, `rough_turn`, `finish_turn`,
+`profile_turn`, `form_dome`, `form_relief`, `part_off`, `cut_to_fit`) off a
+resolved lathe has `unsupported` approach-dependent rows, with the reason
+exactly:
+
+`turning action has no approach model off a lathe (the turning model needs a lathe spindle on setup Z)`
 
 The shared `profile`, `form`, `groove`, `rough_groove` and `finish_groove`
-actions do not alone identify turning: a resolved mill receives the normal
-milling direction verdict, not an unsupported exemption. With an unresolved
-machine kind they conservatively remain unsupported; a resolved lathe is
-always unsupported. Explicit turning actions listed above retain the boundary
-even on a missing or nonlathe machine.
+actions use milling on a resolved mill, turning on a resolved lathe, and stay
+`unsupported` with an unresolved machine kind. Invalid STEP face references
+remain `error` before this boundary; missing or unmapped claimed references
+remain `unknown`. Raw −Z facts never establish a lathe result: kernel facts
+without `approach = "turning"` leave a lathe row `unknown` (`kernel facts for
+this lathe op are not turning-model facts.`) and credit no coverage.
 
 ## Inputs the job accepts
 
@@ -449,7 +467,7 @@ finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`.
 - `finish-required faces lack a finishing cut.` (error)
 - `every finish-required face is claimed by a finishing cut.` (pass)
 - `finish face references or finishing operation claims are unresolved.` (unknown)
-- `lathe approach model not implemented (engine approaches along -Z only)` (unsupported)
+- `turning action has no approach model off a lathe (the turning model needs a lathe spindle on setup Z)` (unsupported)
 
 Unsupported turning finish cuts name possible coverage only: their raw engine
 indices never credit a finishing approach. A feature is `unsupported` when all
@@ -538,12 +556,12 @@ report and captioned is in
 
 ## Limits
 
-- Lathe setups: no chuck/collet solid exists; `vise` is `not_applicable`,
-  `thin_wall_under_clamp` is `unsupported`, and directional `accessibility`,
-  `reach` and `internal_corner_radius` are `unsupported` under the milling-only
-  approach model. A numeric frame or tool dimension cannot turn the axial
-  engine verdict into a radial lathe proof. Lathe headroom stays `unsupported`
-  as before.
+- Lathe setups: `vise` is `not_applicable`; `thin_wall_under_clamp` measures
+  the material run under each chuck jaw when chuck solids are drawn (collets
+  have none). Turning rows follow the sampled turning model above; it proves
+  no tool path. Lathe `headroom` checks stock OD and chuck body against the
+  measured swing over the bed and cross slide and stick-out plus chuck body
+  against the distance between centres; no carriage stroke is checked.
 - Only a vise whose `jaw_height` / `jaw_width` / `jaw_depth` / `opening`
   facts each resolve without their own debt is modeled, seated at the part's
   lowest Z. The exact jaw pose along the jaws and the parallel solids exist
