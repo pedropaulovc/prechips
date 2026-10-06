@@ -263,12 +263,12 @@ def _boxes_overlap(a, b):
 def _distant_box(box, other):
     """Tolerance-grown bounds prove distance > 1e-6; overlap never proves contact."""
     return (
-        box.XMax < other[0] - 1e-6
-        or box.YMax < other[1] - 1e-6
-        or box.ZMax < other[2] - 1e-6
-        or box.XMin > other[3] + 1e-6
-        or box.YMin > other[4] + 1e-6
-        or box.ZMin > other[5] + 1e-6
+        box[3] < other[0] - 1e-6
+        or box[4] < other[1] - 1e-6
+        or box[5] < other[2] - 1e-6
+        or box[0] > other[3] + 1e-6
+        or box[1] > other[4] + 1e-6
+        or box[2] > other[5] + 1e-6
     )
 
 
@@ -2705,7 +2705,7 @@ class _Setup:
         """Finished face refs bounding a hit, excluding only the sampled face itself."""
         refs = set()
         solid = None
-        common_box = common.BoundBox
+        common_box = _tolerant_box(common)
         for index, face in enumerate(self.faces):
             if index == own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
                 continue
@@ -3094,7 +3094,7 @@ class _Setup:
     def _turn_hit_refs(self, common, solid, own):
         """Finished face refs bounding a turning-tool hit, excluding the sampled face."""
         box, refs = _bbox(solid), set()
-        common_box = common.BoundBox
+        common_box = _tolerant_box(common)
         for index, face in enumerate(self.faces):
             if index == own or not _boxes_overlap(box, self.face_boxes[index]):
                 continue
