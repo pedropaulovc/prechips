@@ -1,11 +1,70 @@
-"""Declared holding completeness, not certification of fixture geometry (PLAN §4.1)."""
+"""Declared holding completeness, not certification of fixture geometry (PLAN §4.1).
+
+A declared ``hold.stop_face`` must exist on the stock as it arrives: ``"stock_end"``, a
+face the raw stock supplies as-is, or a feature an earlier setup in this setup's stock
+lineage has cut. A stop against a face cut only later is an error.
+"""
 
 from prechips.findings import Finding
-from prechips.rules.resolution import MANUAL, SAW_OPS, UNKNOWN, resolve, workholding_category
+from prechips.joint_features import _lineage
+from prechips.rules.resolution import (
+    MANUAL,
+    SAW_OPS,
+    UNKNOWN,
+    known_refs,
+    op_feature,
+    owns_feature,
+    record,
+    resolve,
+    workholding_category,
+)
 from prechips.rules.tip_endpoints import HOLE_OPS
 
 # Point/hole actions plunge on the spindle axis; every other machine cut needs a direction.
 _POINT = HOLE_OPS | {"center"}
+STOCK_END = "stock_end"
+
+
+def stop_face(bundle, setup, name):
+    """``(status, facts)`` for a stop face on this setup's arriving stock.
+
+    A lineage cut of explicitly unknown action, or undeclared as-is stock faces, may have
+    made the face: unknown. So may any other setup's cut when a setup in the lineage omits
+    ``stock_in``: undeclared routing is input debt, not a route with nothing before it.
+    """
+    if name == STOCK_END:
+        return "pass", {"face": name, "on_arriving_stock": True}
+    lineage = _lineage(bundle.plan, setup["id"])
+    earlier = lineage - {setup["id"]}
+    routed = all("stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage)
+    # stock_in names only earlier setups: this setup and later ones are never upstream of it.
+    order = [other["id"] for other in bundle.plan["setups"]]
+    downstream = set(order[order.index(setup["id"]) :])
+    before, pending, later = [], [], []
+    for other in bundle.plan["setups"]:
+        for op in other["ops"]:
+            action = op.get("do", UNKNOWN)
+            if action in MANUAL or action == "transfer":
+                continue
+            if op_feature(op) != name and not owns_feature(bundle, op, name):
+                continue
+            cut = f"{other['id']} op {op['op']}"
+            if other["id"] in earlier:
+                (pending if action == UNKNOWN else before).append(cut)
+            elif routed or other["id"] in downstream:
+                later.append(cut)
+            else:
+                pending.append(cut)
+    faces = record(bundle.feature_definitions.get(name)).get("faces", UNKNOWN)
+    as_is = record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
+    settled = known_refs(faces) and isinstance(as_is, list)
+    supplied = settled and set(faces) <= set(as_is)
+    facts = {"face": name, "cut_before": before, "cut_later": later, "as_is": supplied}
+    if before or supplied:
+        return "pass", {**facts, "on_arriving_stock": True}
+    if pending or not settled:
+        return "unknown", {**facts, "on_arriving_stock": UNKNOWN}
+    return "error", {**facts, "on_arriving_stock": False}
 
 
 def evaluate(bundle):
@@ -56,7 +115,14 @@ def evaluate(bundle):
                 }
             )
         # Fixture-specific declarations already present in the schema remain operative.
-        for key in ("supports", "support_orientation", "parallels", "jaws_along", "locate"):
+        for key in (
+            "supports",
+            "support_orientation",
+            "parallels",
+            "jaws_along",
+            "locate",
+            "stop_face",
+        ):
             if key in hold:
                 required[f"hold.{key}"] = hold[key]
         directions = {}
@@ -105,6 +171,23 @@ def evaluate(bundle):
                 "this does not approve measured fixture clearance."
             )
         )
+        face = hold.get("stop_face", UNKNOWN)
+        if face != UNKNOWN:
+            face_status, numbers["stop_face"] = stop_face(bundle, setup, face)
+            if face_status == "error":
+                later = numbers["stop_face"]["cut_later"]
+                made = f"it is first cut in {later[0]}" if later else "no operation cuts it"
+                status = "error"
+                message = (
+                    f"{setup['id']}: the hold stops on {face}, which the arriving stock does "
+                    f"not have yet; {made}." + ("" if not (absent or unresolved) else " " + message)
+                )
+            elif face_status == "unknown" and status == "pass":
+                status = "unknown"
+                message = (
+                    f"{setup['id']}: whether the arriving stock already has the stop face "
+                    f"{face} is unresolved."
+                )
         findings.append(
             Finding(
                 "hold_fields", setup["id"], status, numbers, ["PLAN.md §4.1 hold fields"], message

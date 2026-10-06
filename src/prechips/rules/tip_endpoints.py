@@ -283,7 +283,7 @@ def evaluate(bundle):
     for setup in bundle.plan["setups"]:
         for op, before, _ in stock_states(setup, features):
             name = op.get("feature")
-            if name not in features or op.get("do") not in HOLE_OPS:
+            if op.get("do") not in HOLE_OPS or name not in features:
                 continue
             feature = features[name]
             if feature.get("kind") not in {"hole", "counterbore", "thread", "threaded_hole"}:

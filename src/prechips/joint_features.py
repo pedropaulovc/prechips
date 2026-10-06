@@ -397,8 +397,9 @@ def joint_operation(bundle, op: dict, finishing: bool) -> dict | None:
     """
     from prechips.rules._envelope import measurement_item
     from prechips.rules.geometry_common import cutting_action
+    from prechips.rules.resolution import op_feature
 
-    joint = joint_of(bundle.feature_definitions.get(op.get("feature")))
+    joint = joint_of(bundle.feature_definitions.get(op_feature(op)))
     if joint is None or cutting_action(op) is False:
         return None
     target = primitive(bundle, joint["id"])

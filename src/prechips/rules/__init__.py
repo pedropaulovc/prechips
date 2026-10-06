@@ -16,6 +16,7 @@ from prechips.rules import (
     engagement,
     envelope,
     finish_coverage,
+    finish_route,
     fixture_interference,
     headroom,
     hold_fields,
@@ -74,6 +75,7 @@ RULES: list[Rule] = [
     Rule("turning_deflection", turning_deflection.evaluate),
     Rule("engagement", engagement.evaluate),
     Rule("construction", construction.evaluate),
+    Rule("finish_route", finish_route.evaluate),
     Rule("joint_fit", joints.evaluate_fit),
 ]
 

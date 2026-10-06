@@ -19,7 +19,11 @@ from .rules.resolution import (
     MANUAL,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
+    coating_process,
     inventory_category,
+    length_mm,
+    op_feature,
+    op_features,
     resolve,
     saw_setup,
     selected_references,
@@ -331,6 +335,11 @@ def _number(value, precision=None):
         return "?"
     result = f"{value:.{precision}f}" if isinstance(precision, int) else f"{round(value, 6):g}"
     return result.removeprefix("-") if float(result) == 0 else result
+
+
+def _places(value):
+    """The fewest decimals (0–6) that print ``value`` exactly."""
+    return next((d for d in range(7) if abs(round(value, d) - value) < 1e-9), 6)
 
 
 def _sentence(text):
@@ -1639,7 +1648,7 @@ class _Traveler:
         return min((ops.index(str(b)) for b in named if str(b) in ops), default=0)
 
     def endpoint(self, setup, op):
-        numbers = self.records.get(("blind_depth", op.get("feature")), {})
+        numbers = self.records.get(("blind_depth", op_feature(op)), {})
         return next(
             (
                 e
@@ -1674,41 +1683,56 @@ class _Traveler:
 
     def inspection(self, op, notes, sheet):
         rows = ["? inspection checks not set"] if op.get("checks") == "unknown" else []
-        feature = op.get("feature")
-        definition = self.features.get(feature, {})
+        names = op_features(op)
         missing = _mapping(op.get("missing_requirements"))
         methods = _mapping(op.get("inspection_methods"))
         for requirement, reference in (_mapping(op.get("checks")) | missing).items():
-            finding = next(
-                (
-                    f
-                    for f in self.findings
-                    if _field(f, "rule") == "inspection"
-                    and _field(f, "subject") == f"{feature}:{requirement}"
-                ),
-                None,
-            )
+            # One drawing limit split across several features is read once, on one row.
+            owners = [n for n in names if requirement in self.features.get(n, {})] or names
+            findings = [
+                next(
+                    (
+                        f
+                        for f in self.findings
+                        if _field(f, "rule") == "inspection"
+                        and _field(f, "subject") == f"{feature}:{requirement}"
+                    ),
+                    None,
+                )
+                for feature in owners
+            ]
             name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
             if requirement in missing:
                 target = "(no drawing limit)"
             else:
-                target = self.band(definition.get(requirement), feature, requirement)
+                bands = [
+                    self.band(self.features.get(feature, {}).get(requirement), feature, requirement)
+                    for feature in owners
+                ]
+                target = (
+                    bands[0]
+                    if len(set(bands)) == 1
+                    else " / ".join(
+                        f"{self.feature_name(feature)} {band}"
+                        for feature, band in zip(owners, bands, strict=True)
+                    )
+                )
             gauge = (
                 "no gauge chosen"
                 if reference in (None, "unknown")
                 else self.short_reference(reference, "gauges")
             )
-            unresolved = (
-                requirement in missing
-                or finding is None
-                or _status(finding)
-                in (
-                    "unknown",
-                    "unsupported",
-                )
+            unresolved = requirement in missing or any(
+                finding is None or _status(finding) in ("unknown", "unsupported")
+                for finding in findings
             )
             line = f"{'? ' if unresolved else ''}{name} {target}: {gauge}"
-            datums = definition.get("position_datums") if requirement == "position_dia" else None
+            datums = [
+                self.features.get(feature, {}).get("position_datums")
+                for feature in owners
+                if requirement == "position_dia"
+            ]
+            datums = next(filter(None, datums), None)
             if datums:
                 line += " to " + "|".join(map(_text, datums))
             method = methods.get(requirement)
@@ -1716,10 +1740,52 @@ class _Traveler:
                 notes.append(f"{self.setup['id']} op {op['op']} {name}: {self.bench(method)}")
                 line += f" [{sheet} note {len(notes)}]"
             rows.append(line)
+        for hold in op.get("process_holds", []):
+            rows.append(self.process_hold(hold))
         if op.get("inspection_note"):
             notes.append(f"{self.setup['id']} op {op['op']}: {self.bench(op['inspection_note'])}")
             rows.append(f"see {sheet} note {len(notes)}")
         return rows or ["—"]
+
+    def process_hold(self, hold):
+        """A shop limit inside the drawing band, printed apart from the drawing's own."""
+        feature, requirement = hold["feature"], hold["requirement"]
+        gauge = resolve(self.bundle, "gauges", hold["gauge"]) or {}
+        resolution = length_mm(gauge, "resolution")
+        precision = self.precision(feature, requirement)
+        places = max(
+            *(_places(limit) for limit in hold["band"]),
+            _places(resolution) if _known(resolution) and resolution > 0 else 0,
+            precision if isinstance(precision, int) else 0,
+        )
+        band = "–".join(_number(limit, places) for limit in hold["band"])
+        name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
+        return (
+            f"PROCESS HOLD — not a drawing limit: {self.bench(hold['reason'])} — "
+            f"{self.feature_name(feature)} {name} {band}: "
+            f"{self.short_reference(hold['gauge'], 'gauges')}"
+        )
+
+    def coating(self, op):
+        """A coating op's tool cell: its outside service or in-house consumables."""
+        process = op.get("process", "unknown")
+        cells = []
+        for reference in process if isinstance(process, list) else [process]:
+            category, item = coating_process(self.bundle, reference)
+            if reference == "unknown":
+                cells.append("? coating process not set")
+            elif category == "services":
+                # Name what is sent out and to whom: the service id and the coating it applies.
+                applied = _mapping(item).get("coating")
+                cells.append(
+                    f"outside: {_text(reference)}"
+                    + (f" ({_text(applied)})" if applied not in (None, "unknown") else "")
+                )
+            elif category == "consumables":
+                cells.append(f"{_text(reference)} (in-house)")
+            else:
+                cells.append(f"{_text(reference)} (not in shop list)")
+        return ", ".join(cells)
 
     def speeds(self, setup, op, saw_table):
         numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
@@ -1787,7 +1853,9 @@ class _Traveler:
                     f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}"
                 )
             reference = op.get("tool")
-            if manual and reference is None:
+            if op.get("do") == "coating":
+                tool = self.coating(op)
+            elif manual and reference is None:
                 tool = "—"
             elif reference in (None, "unknown"):
                 tool = _Box("STOP: no tool")
@@ -1869,7 +1937,7 @@ class _Traveler:
                     (
                         _text(op["op"]),
                         ", ".join(action),
-                        self.feature_label(feature)
+                        ", ".join(map(self.feature_label, op_features(op)))
                         if feature is not None
                         else "stock"
                         if saw
@@ -2285,7 +2353,7 @@ class _Traveler:
     # ------------------------------------------------------------------- route
     def setup_findings(self, setup):
         sid = setup["id"]
-        features = {op.get("feature") for op in setup["ops"]}
+        features = {name for op in setup["ops"] for name in op_features(op)}
         result = []
         for finding in self.findings:
             subject = _field(finding, "subject", "")

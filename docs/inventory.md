@@ -1,9 +1,14 @@
 # Shop inventory — `inventory.toml`
 
 The root groups are `machines`, `tools`, `holders`, `fixtures`, `gauges`,
-`consumables`, and `stock`; there are no legacy `workholding` or `measuring`
+`services`, `consumables`, and `stock`; there are no legacy `workholding` or `measuring`
 aliases. Category maps use authored identity keys. `members` is a recursively
 modeled InventoryItem map. `source` may be a source string or Source record.
+`services` are outside processes the shop sends work to (a coating vendor), not
+shop-owned kit; a plan `coating` op's `process` names a `services` item or a
+`consumables` entry. A `consumables` entry is an id mapping to the in-house
+product names; an unknown or empty product list, or a blank or `"unknown"`
+product, leaves that process unresolved.
 Named set members/coverage may resolve without pretending an unlisted member
 was measured or purchased. Explicit `present = false` means missing;
 an item-level `verify = true`, an unverified `source`, or explicitly unknown
@@ -370,6 +375,7 @@ not proof of geometric validity; rules perform the applicable checks.
 | `holders` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `fixtures` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `gauges` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
+| `services` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `consumables` | `dict[str, list[str] \| Unknown] \| Unknown` | Optional |
 | `stock` | `list[Stock] \| Unknown` | Optional |
 
