@@ -142,7 +142,7 @@ fixed_jaw = "not_applicable"            # scroll chuck
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "bar end flush with the jaw backs; jaw fronts at T1 Z-1.5, on the shoulder north face"  # author's choice
+stop = "push the Ø10 north stub into the jaws until the jaw fronts sit on the shoulder north face (T1 Z-1.5); about 12 mm of stub is gripped"  # author's choice
 clamp = "snug the chuck, bring up the dead centre with light quill pressure, then tighten the chuck key at all three pinions; remove key"  # author's choice
 centre_lubrication = "CRC cutting oil on dead-centre seat; replenish between cuts; back off the quill as the bar warms"  # author's choice
 stickout_mm = 167.5         # author's choice: jaw fronts Z-1.5 to plain end Z166, tailstock supported
@@ -164,9 +164,9 @@ check_jog_mm = 10.0         # author's choice: physical radial jog, +20 on diame
 face = "plain end (prepared, centre-drilled)"
 edge_mm = 166.0             # author's choice: plain end = thrust face + 166 (supply 175 - apex-to-thrust 9)
 from = "+z"
-method = "touch"                        # EL400 §9.2.1 p62: touch the end before the centre goes in, withdraw without Z motion
+method = "touch with the spindle running until the first chip shows; no paper: the plain end is waste, parted off in S3"  # EL400 §9.2.1 p62: touch the end before the centre goes in, withdraw without Z motion
 tool = "turning-tools-warner-lms-4132/AR"
-paper_mm = 0.0                          # direct contact on the faced end
+paper_mm = 0.0                          # direct touch on the waste plain end
 check_jog_mm = 10.0         # author's choice: physical axial jog, +10 on display
 retouch_after = []
 
@@ -176,8 +176,8 @@ x_method = "touch the bearing diameter just measured by micrometer; Axis Set its
 gauge = "micrometers/0-1in"
 z_face = "shoulder_thrust"
 edge_mm = 0.0
-paper_mm = 0.0              # author's choice: direct contact of the chuck-side corner on the faced thrust face
-method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
+paper_mm = 0.05            # author's choice: cigarette paper keeps the blade corner off the finished thrust face
+method = "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z; Axis Set Z +0.05"  # author's choice
 after_op = 30
 before_ops = [50]
 
@@ -205,6 +205,7 @@ to_z = 0.0                    # shoulder thrust face = T1 origin
 doc_mm = 0.2
 feed_mm_rev = 0.05
 direction = "radially_outward"  # author's choice: finish the face from the body out to the shoulder O.D.
+note = "Feed out from the Ø6.35 body to the Ø10 O.D.: the tool starts in the corner, so the face meets the body square, and the burr goes over the O.D. edge."
 
 [setups.ops.checks]
 finish_ra = "roughness-comparator"
@@ -306,7 +307,7 @@ check_jog_mm = 10.0         # author's choice: physical radial jog
 face = "north stub end"
 edge_mm = 5.0                 # nominal; enter (caliper reading thrust face → stub end) - 9.0
 from = "+z"
-method = "touch"              # EL400 §9.2.1 p62: touch, withdraw without Z motion
+method = "touch with the spindle running until the first chip shows; no paper: the stub end is waste, faced off to the apex in op 50"  # EL400 §9.2.1 p62: touch, withdraw without Z motion
 tool = "turning-tools-warner-lms-4132/AR"
 paper_mm = 0.0
 check_jog_mm = 10.0         # author's choice: physical axial jog
@@ -318,8 +319,8 @@ x_method = "touch the journal diameter just measured by micrometer; Axis Set its
 gauge = "micrometers/0-1in"
 z_face = "shoulder_north_face"
 edge_mm = -7.5
-paper_mm = 0.0              # author's choice: chuck-side corner direct on the faced shoulder
-method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
+paper_mm = 0.05            # author's choice: cigarette paper keeps the blade corner off the finished shoulder face
+method = "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z; Axis Set Z -7.45"  # author's choice
 after_op = 30
 before_ops = [40]
 
@@ -347,6 +348,7 @@ to_z = -7.5
 doc_mm = 0.2
 feed_mm_rev = 0.05
 direction = "radially_outward"  # author's choice
+note = "Feed out from the journal to the Ø10 O.D.: the tool starts in the corner, so the face meets the journal square, and the burr goes over the O.D. edge."
 
 [[setups.ops]]
 op = 30
@@ -391,7 +393,7 @@ to_z = 0.0                    # temporary face at the north apex plane
 doc_mm = 1.0                # five facing passes off the 5 mm stub
 feed_mm_rev = 0.08
 direction = "radially_inward"  # author's choice
-note = "Face the stub off down to the apex plane."
+note = "Face the stub off to the apex plane, feeding toward the centre; stop at centre height and check for a pip."
 
 [[setups.ops]]
 op = 60
@@ -429,7 +431,7 @@ length = "With spindle stopped, align outside caliper jaws axially at the dome b
 op = 71
 do = "inspect"
 feature = "shoulder_north_face"
-note = "ShoulderLength across the shoulder; the export assigns the shared length to both shoulder faces."
+note = "Shoulder length: caliper across the Ø10 shoulder, north face to thrust face."
 [setups.ops.checks]
 length = "calipers"
 
@@ -437,7 +439,7 @@ length = "calipers"
 op = 72
 do = "inspect"
 feature = "shoulder_thrust"
-note = "Same ShoulderLength caliper check, keyed to the exported south-face owner."
+note = "Same shoulder-length reading as op 71; the drawing gives the one length to both shoulder faces, so record it here too."
 [setups.ops.checks]
 length = "calipers"
 
@@ -451,6 +453,7 @@ length = "calipers"
 id = "S3"
 machine = "PM-1127VF-LB"
 frame = "T3"                 # plan.frames.T3 (author's choice)
+note = "Before S3 (assembly trial fit, off the lathe): slide the shaft through both rocker-bank ears with the shoulder pushed against the north ear; scribe a light ring on the body at the south ear's outer face, then remove the shaft. The scribe is T3 Z0, nominally 156.67 from the north apex; if it measures more than ±0.5 off that, stop and ask: the S3 numbers assume the nominal span."
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S2"
