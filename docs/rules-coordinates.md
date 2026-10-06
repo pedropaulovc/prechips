@@ -135,12 +135,34 @@ outline also supplies its line-line miter and bottom line-circle intersection,
 with mirrored sides explicit. Degenerate joins do not become invented paths.
 
 `linear_table` transforms explicit box bounds (or `sweep_bounds` in
-`sweep_frame`). Exterior rectangular paths expand by offset; pockets require an
-explicit open side and positive `step_mm`, with outside entry and finite raster
-passes. Tables are numeric nominal geometry, not cutter accessibility, fixtures,
-wall thickness or collision proof. Unknown/unverified cutter or frame binding
-keeps status unknown. M2 lathe feasibility remains unimplemented even where
-nominal stations/dome tables are displayed.
+`sweep_frame`). Exterior rectangular paths expand by offset. Pockets and faces
+are rasters and need a positive `step_mm` no wider than the cutter; a pocket
+also needs an explicit open side and enters wholly outside it, stepping
+`step_mm` toward its far wall and stopping the offset short of it. A face
+sweeps `sweep_bounds`, else its setup-frame `stock_removal_bounds`, with
+passes evenly spaced no more than `step_mm` apart centre-on-edge to
+centre-on-edge (one central pass when the area is no wider than the step),
+stepping from `open_side`, else from the low side of the shorter span. Every
+pass runs one cutter radius past both ends of the area. The cycle is one way:
+feed the pass, lift to the op's retract Z (its entry stock top plus
+`approach_mm`, unknown without it) and rapid back to the next pass's start.
+Face ops without a contour print no raster: a box raster could cross retained
+material inside the box. Tables are numeric nominal geometry, not cutter
+accessibility, fixtures, wall thickness or collision proof; raster passes are
+not kernel checkpoints. Unknown/unverified cutter or frame binding keeps status
+unknown. M2 lathe feasibility remains unimplemented even where nominal
+stations/dome tables are displayed.
+
+**Z levels.** A milling pocket, face or profile op that authors `doc_mm` (mm)
+carries `z_levels` on its `operations` entry: levels on the DRO grid, each no
+more than `doc_mm` below the one before (the first rounded up from the start
+less `doc_mm`, the rest a whole number of grid steps no deeper than `doc_mm`),
+ending at its `dro_to_z`. A wall-finishing op (`pocket`, `finish_pocket`,
+`profile`, `finish_profile`) starts at its feature's declared setup
+`entry_z`, never one an earlier op's floor advanced, else the current top,
+since its flank engages the whole wall; any other op starts at its feature's
+current entry, else the current top. The traveler prints `Z start → depth in
+N levels of doc max`.
 
 **Cutting order.** Arc rows, each join fragment and a closed `linear_table`
 outline are listed in the real traverse, judged in the setup top view (setup
@@ -161,8 +183,10 @@ coordinates finding `unknown` with
 `Cutting order is unknown: <reasons>.` appended to its message. The traveler
 says "rows in cutting order (<direction>, <rotation> spindle)" only for a known
 order and otherwise "rows NOT in an established cutting order: <reason>"; the
-setup picture draws travel arrows only on such directed paths. Raster pocket
-passes are independent cuts and claim no travel direction.
+setup picture draws travel arrows only on such directed paths. Each raster
+pass's wall normal is its open side's unit vector (the uncut stock lies ahead of
+the stepping cutter), so every pass is reversed when needed to cut the op's
+`direction`, and its record carries the same order fields.
 
 **Bounds clip.** `stock_removal_bounds` is a material footprint: an op may
 remove stock only inside that box, but its cutter may run past the box through
