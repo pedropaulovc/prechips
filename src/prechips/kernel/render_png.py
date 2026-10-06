@@ -205,6 +205,7 @@ class RenderCanvas:
             raise ValueError("viewport must have finite, positive extents")
         self.width, self.height = width, height
         self.rgb = bytearray(b"\xff") * (width * height * 3)
+        self.text_boxes = []
         self._right, self._up, self._toward = camera
         self._pixel_centre = ((left + right) / 2, (top + bottom) / 2)
         self._world_centre = (0.0, 0.0)
@@ -328,6 +329,12 @@ class RenderCanvas:
         x, y = round(x), round(y)
         for line_index, line in enumerate(_label(text).split("\n")):
             top = y + line_index * 9 * scale
+            label = line.strip(" ")
+            if label:
+                left = x + (len(line) - len(line.lstrip(" "))) * 6 * scale
+                self.text_boxes.append(
+                    (label, left, top, left + (len(label) * 6 - 1) * scale, top + 7 * scale)
+                )
             for char_index, char in enumerate(line):
                 left = x + char_index * 6 * scale
                 for row, bits in enumerate(_GLYPHS[char]):
@@ -340,6 +347,41 @@ class RenderCanvas:
                                 self._span(
                                     top + row * scale + offset, first, first + scale - 1, pixel
                                 )
+
+    def assert_text_layout(self, *, margin=8, min_gap=4):
+        """Reject text outside the inset canvas or closer than ``min_gap`` pixels.
+
+        ``text_boxes`` contains normalized, nonblank lines with exclusive right
+        and bottom bounds; surrounding spaces do not contribute to the bounds.
+        Checking is opt-in and never changes the painted pixels.
+        """
+        for index, (label, left, top, right, bottom) in enumerate(self.text_boxes):
+            if (
+                left < margin
+                or top < margin
+                or right > self.width - margin
+                or bottom > self.height - margin
+            ):
+                raise ValueError(
+                    f"Text {label!r} bounds {(left, top, right, bottom)} exceed "
+                    f"canvas bounds {(margin, margin, self.width - margin, self.height - margin)}"
+                )
+            for other_index in range(index):
+                other_label, other_left, other_top, other_right, other_bottom = self.text_boxes[
+                    other_index
+                ]
+                if (
+                    left < other_right + min_gap
+                    and other_left < right + min_gap
+                    and top < other_bottom + min_gap
+                    and other_top < bottom + min_gap
+                ):
+                    raise ValueError(
+                        f"Text {label!r} bounds {(left, top, right, bottom)} and "
+                        f"{other_label!r} bounds "
+                        f"{(other_left, other_top, other_right, other_bottom)} "
+                        f"overlap with required gap {min_gap}"
+                    )
 
     def polygon(self, points, fill, outline=None):
         """Paint a simple polygon with an even-odd fill, including concave outlines."""

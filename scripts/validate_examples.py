@@ -1317,19 +1317,27 @@ def finished_exposed_diameter(setup: dict, features: dict, plan: dict | None = N
     return min(diameters) if diameters else "unknown"
 
 
-def kernel_filled_exposed_diameter(setup: dict, plan: dict, features: dict, row: dict, held):
+def kernel_filled_exposed_diameter(
+    setup: dict, plan: dict, features: dict, row: dict, held, citations: list[str]
+):
     """Cross-check an exposed profile whose features declare no z_mm stations.
 
     The kernel spans are not recomputed here. Everything the declared inputs fix is: the
-    exposed span, gap-free coverage of it, each feature segment at that feature's declared
-    nominal diameter, stock segments no wider than the held stock, and the minimum."""
+    exposed span, gap-free coverage, declared feature diameters, stock width, and the minimum.
+    A nominal-less dome must match the base derived independently from its declared radius
+    and height; its kernel span must be cited. Other missing or contradictory nominals stay
+    unresolved rather than trusting a diameter repeated by the report.
+    """
     definitions = feature_definitions(plan, features)
+    units = features.get("units")
+    scale = 1 if units == "mm" else 25.4 if units == "in" else None
     state = setup.get("stock_state", {})
     length = setup.get("hold", {}).get("stickout_mm")
     ends = [state.get("north_end_z"), state.get("south_end_z")]
     segments = row.get("segments")
     if (
         any("z_mm" in feature for feature in definitions.values())
+        or scale is None
         or not numeric(held)
         or not numeric(length)
         or length <= 0
@@ -1357,22 +1365,57 @@ def kernel_filled_exposed_diameter(setup: dict, plan: dict, features: dict, row:
         reach = high
         names = segment["features"]
         if names:
-            declared = [
-                next(
-                    (
-                        definitions.get(name, {})[key]
-                        for key in ("dia_nominal", "nominal_dia")
-                        if key in definitions.get(name, {})
-                    ),
-                    "unknown",
+            for name in names:
+                definition = definitions.get(name)
+                if not isinstance(definition, dict):
+                    return "unknown"
+                if definition.get("kind") not in {"cylinder", "boss", "shaft", "groove", "dome"}:
+                    return "unknown"
+                key = next(
+                    (key for key in ("dia_nominal", "nominal_dia", "dia") if key in definition),
+                    None,
                 )
-                for name in names
-            ]
-            if not all(
-                numeric(value) and math.isclose(value, diameter, rel_tol=1e-10, abs_tol=1e-8)
-                for value in declared
-            ):
-                return "unknown"
+                if key is not None:
+                    nominal = definition[key]
+                    if not numeric(nominal) or not math.isclose(
+                        nominal * scale, diameter, rel_tol=1e-10, abs_tol=1e-8
+                    ):
+                        return "unknown"
+                    if definition.get("kind") != "dome":
+                        continue
+                if definition.get("kind") != "dome":
+                    return "unknown"
+                radius = definition.get("base_radius")
+                if numeric(radius) and radius > 0:
+                    expected_base = 2 * radius * scale
+                else:
+                    radius = definition.get("sphere_radius")
+                    height = next(
+                        (
+                            definition[key]
+                            for key in ("height_nominal", "nominal_height", "height")
+                            if key in definition
+                        ),
+                        "unknown",
+                    )
+                    if not (numeric(radius) and numeric(height) and 0 < height <= 2 * radius):
+                        return "unknown"
+                    cap = min(height, radius)
+                    expected_base = 2 * math.sqrt(cap * (2 * radius - cap)) * scale
+                base = segment.get("base_diameter_mm")
+                reference = f"kernel: setups.{setup['id']}.revolved.{name} ("
+                cited = any(
+                    isinstance(citation, str) and citation.startswith(reference)
+                    for citation in citations
+                )
+                if not (
+                    numeric(base)
+                    and math.isclose(base, diameter, rel_tol=1e-10, abs_tol=1e-8)
+                    and math.isclose(expected_base, diameter, rel_tol=1e-10, abs_tol=1e-8)
+                    and 0 < diameter <= held + 1e-6
+                    and cited
+                ):
+                    return "unknown"
         elif segment.get("source") != "kernel_stock" or not 0 < diameter <= held + 1e-6:
             return "unknown"
         diameters.append(diameter)
@@ -1388,7 +1431,7 @@ def check_stickout(setup: dict, plan: dict, features: dict, policy: dict, findin
         held = "unknown"
     diameter = finished_exposed_diameter(setup, features, plan)
     if diameter == "unknown":
-        diameter = kernel_filled_exposed_diameter(setup, plan, features, row, held)
+        diameter = kernel_filled_exposed_diameter(setup, plan, features, row, held, finding["cite"])
     length = setup["hold"].get("stickout_mm", "unknown")
     near(row["held_diameter_mm"], held, "stick-out held diameter evidence")
     near(row["diameter_mm"], diameter, "stick-out finished exposed diameter")
