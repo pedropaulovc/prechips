@@ -106,7 +106,7 @@ stop_fixture = "rocker-vise-stop"
 stop_pose = { origin_mm = [-79.3369, 37.0, -4.68295], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # magnetic base against the fixed jaw's left end
 stop = "switch on the magnetic fixed-jaw end stop and bring the left blank end gently against its nose; positioning contact only, no cutting load"
 clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # author's choice
-note = "Grip the full-thickness rails on matched narrow risers plus 1/2 in parallels. The 64 mm risers fit between the 65 mm closed jaws and fully carry both parallels. Keep the cutter's whole swept diameter inside the clearing bounds, not just its centre. Use light conventional cuts at the outboard tips; stop and resolve chatter before deepening the cut."
+note = "Grip the full-thickness rails on matched narrow risers plus 1/2 in parallels. The 64 mm risers fit between the 65 mm closed jaws and fully carry both parallels. Remove material only inside the operation's authorized clearing bounds. A cutter centre inside a box is not proof of clearance: the whole cutter and holder must clear retained rails, ears and fixturing; any cutter reach beyond a clearing box must be in already cleared air. Use light conventional cuts at the outboard tips; stop and resolve chatter before deepening the cut."
 
 [setups.zero]
 tool_touches = [] # one Z touch per tool change, listed in retouch_after
@@ -136,8 +136,8 @@ check_jog_mm = 10.0 # author's choice
 retouch_after = [5, 10, 20, 25, 50, 60] # op 10 makes the hub face Z0; each op listed is followed by a tool change
 
 # Op 5 and op 10 face only the internal field between the retained rails and
-# inside the ears: the lower rail is Y -28..-20, the upper rail Y 31.7..37 and
-# the ears lie outside X ±160. The whole cutter diameter stays inside the field.
+# inside the ears: the lower rail is Y -28..-20 and the upper rail Y 31.7..37.
+# Remove material only inside the field; the whole cutter must clear retained stock.
 [[setups.ops]]
 op = 5
 do = "rough_face"
@@ -227,7 +227,7 @@ note = "Bottom arc, radial lands and tapered ends; rails and ears stay continuou
 # The complete 9.525 mm cutter sweep round the upper land corners reaches
 # frame-A Y26.9581; authorize Y27 inside the already planned upper pocket.
 # The lower rail remains Y-28..-20, the upper rail Y31.7..37, and the ears
-# outside X ±160. Keep the whole cutter inside these bounds and retain the
+# outside X ±160. Remove material only within these bounds and retain the
 # central 0.40 mm web; no depth, normal allowance or support stock changes.
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 27.0], z = [-3.32825, 5.0] }
 
@@ -354,7 +354,7 @@ retouch_after = [5, 10, 15, 20, 28, 30, 32, 33, 34] # retouch before each change
 
 # Frame B reverses Y: op 5 and op 10 face only the internal field between the
 # lower rail Y 20..28 and the upper rail Y -37..-31.7, inside the ears outside
-# X ±160. The whole cutter diameter stays inside the field.
+# X ±160. Remove material only inside the field; keep retained rails untouched.
 [[setups.ops]]
 op = 5
 do = "rough_face"

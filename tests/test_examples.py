@@ -8,7 +8,7 @@ from test_cli import copy_examples, traveler
     ("part", "plan_filename", "expected_subdir", "exit_code"),
     [
         ("pivot-shaft", "plan.toml", "expected", 0),
-        ("rocker-arm", "plan.toml", "expected", 2),
+        ("rocker-arm", "plan.toml", "expected", 0),
         ("pivot-bracket", "plan.toml", "expected", 2),
         ("cone-pivot-post", "built-up.toml", "expected/built-up", 0),
     ],

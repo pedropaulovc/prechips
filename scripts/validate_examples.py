@@ -32,7 +32,7 @@ EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket")
 EXPECTED_EXIT = {
     "pivot-shaft": 0,
-    "rocker-arm": 2,
+    "rocker-arm": 0,
     "pivot-bracket": 0,
     "cone-pivot-post/built-up.toml": 0,
 }
