@@ -136,6 +136,22 @@ def test_a_drawing_finish_needs_a_coating_step_naming_a_resolvable_process(
     assert evaluate("tool_resolves", bundle)[subject].status == resolves
 
 
+def test_an_outside_coating_names_the_service_and_what_it_applies(tmp_path):
+    examples = copy_examples(tmp_path)
+    plan = examples / "pivot-shaft" / "plan.toml"
+    without_coating(plan)
+    subject = append_op(
+        plan, 'do = "coating"\nfeature = "pivot_bearing"\nprocess = "test-oxide-line"\n'
+    )
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    service = SERVICE + 'coating = "hot black oxide, matte"\n'
+    inventory.write_text(inventory.read_text(encoding="utf-8") + service, encoding="utf-8")
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    (row,) = [row for row in op_rows(html, subject.split(":")[1]) if "coating" in row]
+    # The machinist must see what is sent out and to whom, not the item kind.
+    assert "outside: test-oxide-line (hot black oxide, matte)" in row
+
+
 def test_only_a_coating_op_names_a_process(tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     append_op(plan, 'do = "inspect"\nfeature = "pivot_bearing"\nprocess = "cutting-oil"\n')
