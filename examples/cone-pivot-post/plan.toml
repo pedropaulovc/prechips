@@ -193,6 +193,7 @@ approach_mm = 5.0            # author's choice: rapid plane above the stock top
 to_z = 0.0                   # datum B, model Y0
 doc_mm = 0.25                # author's choice: light passes off the 3 mm sawn allowance (stub, 2.6 D)
 direction = "conventional"   # author's choice for a hand-fed mill
+stock_removal_bounds = { x = [-25.4, 25.4], y = [-24.0, 25.768], z = [0.0, 3.0] }   # foot disc r21.0055 + cutter r4.7625; S6 op 20 sweeps the y > 25.768 lip
 note = "Face the sawn end flat in 0.25 mm passes; this face is datum B."
 
 [setups.ops.checks]
@@ -273,7 +274,7 @@ approach_mm = 5.0
 to_z = 0.0                   # crank +Z face, model Z 50.66
 doc_mm = 0.25
 direction = "conventional"
-stock_removal_bounds = { x = [-15.7, 15.7], y = [-15.7, 15.7], z = [0.0, 1.54] }
+stock_removal_bounds = { x = [-17.315, 17.315], y = [-17.315, 17.315], z = [0.0, 1.54] }   # boss r10.965 + cutter r6.35
 
 [[setups.ops]]
 op = 20
@@ -287,7 +288,7 @@ to_z = -29.2847              # head crest, model Z 21.3753
 rough_allowance_mm = 0.3
 doc_mm = 1.5                 # author's choice: axial steps down the 29 mm boss wall, 1/2 in cutter at 3.8 D
 direction = "conventional"
-stock_removal_bounds = { x = [-15.7, 15.7], y = [-15.7, 15.7], z = [-29.2847, 0.0] }
+stock_removal_bounds = { x = [-17.315, 17.315], y = [-17.315, 17.315], z = [-29.2847, 0.0] }
 
 [[setups.ops]]
 op = 30
@@ -300,7 +301,7 @@ approach_mm = 5.0
 to_z = -29.2847
 doc_mm = 0.15
 direction = "climb"          # author's choice: light finishing pass
-stock_removal_bounds = { x = [-15.7, 15.7], y = [-15.7, 15.7], z = [-29.2847, 0.0] }
+stock_removal_bounds = { x = [-17.315, 17.315], y = [-17.315, 17.315], z = [-29.2847, 0.0] }
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
@@ -624,7 +625,7 @@ approach_mm = 5.0
 to_z = 0.0
 doc_mm = 0.5
 direction = "conventional"
-stock_removal_bounds = { x = [-13.36, 13.36], y = [-13.36, 13.36], z = [0.0, 35.459] }
+stock_removal_bounds = { x = [-14.95, 14.95], y = [-14.95, 14.95], z = [0.0, 35.459] }   # pad r8.6 + cutter r6.35
 
 [[setups.ops]]
 op = 20
@@ -637,7 +638,7 @@ approach_mm = 5.0
 to_z = -1.69
 doc_mm = 0.845
 direction = "climb"
-stock_removal_bounds = { x = [-13.36, 13.36], y = [-13.36, 13.36], z = [-1.69, 0.0] }
+stock_removal_bounds = { x = [-14.95, 14.95], y = [-14.95, 14.95], z = [-1.69, 0.0] }
 
 [setups.ops.checks]
 dia = "calipers"
@@ -740,7 +741,7 @@ approach = "rotary"
 tool = "endmills-cone/1-2in-4fl"
 holder = "r8-collets-lms-4860/1-2in"
 z_from = 40.6                # model Y59.4, the head shoulder
-z_to = 100.0                 # model Y0, datum B
+z_to = 103.0                 # model Y-3: past datum B to sweep the S1 foot lip outside the cutter reach
 angle_window_deg = [0.0, 360.0]
 stock_to_leave_mm = 0.0
 doc_mm = 0.5
