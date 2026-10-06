@@ -168,3 +168,115 @@ def test_hold_labels_locators_apart_from_clamps_and_tightens_in_declared_order()
         "the clearance; then tighten in order C3, C1: snug each in turn, then tighten each "
         "fully in the same order to 12 N·m."
     ) in page
+
+
+def cylinder(name, x, z, dia, length, **extra):
+    return {
+        "name": name,
+        "shape": "cylinder",
+        "at_mm": [x, 0, z],
+        "axis": [0, 0, 1],
+        "dia_mm": dia,
+        "length_mm": length,
+        **extra,
+    }
+
+
+def bridge_page(*extra, **policy_numbers):
+    """A shop-made two-stud bridge: a made beam and locating pad, bought studs, washers
+    and nuts, clearance holes through beam and washers, nut threads, and the machine's
+    vise jaw drawn for clearance."""
+    data = bundle([{"fixture": "bridge", "pose": IDENTITY}])
+    data.features["precision"] = 3
+    data.policy["numbers"] = policy_numbers
+    bought = {"supply": "bought"}
+    data.inventory["fixtures"]["bridge"] = {
+        "kind": "custom",
+        "solids": [
+            {"name": "beam", "shape": "box", "at_mm": [-30, -5, 0], "size_mm": [60, 10, 8.26]},
+            {
+                "name": "pad",
+                "shape": "box",
+                "at_mm": [-5, -5, -2.3456],
+                "size_mm": [10, 10, 2.3456],
+                "locates": "cap face",
+            },
+            *(
+                cylinder(f"stud-{s}", x, -30, 9.525, 50, fastener="3/8-16 x 2 in stud", **bought)
+                for s, x in (("l", -20), ("r", 20))
+            ),
+            *(
+                cylinder(f"washer-{s}", x, 8.26, 20.64, 1.6, **bought)
+                for s, x in (("l", -20), ("r", 20))
+            ),
+            *(
+                cylinder(f"nut-{s}", x, 9.86, 16.5, 8.33, fastener="3/8-16 hex nut", **bought)
+                for s, x in (("l", -20), ("r", 20))
+            ),
+            *(
+                cylinder(f"clearance-{s}", x, -1, 10.5, 12, void=True, cuts=["beam", f"washer-{s}"])
+                for s, x in (("l", -20), ("r", 20))
+            ),
+            *(
+                cylinder(f"nut-bore-{s}", x, 9.86, 9.525, 8.33, void=True, cuts=[f"nut-{s}"])
+                for s, x in (("l", -20), ("r", 20))
+            ),
+            {
+                "name": "vise-jaw",
+                "shape": "box",
+                "at_mm": [-40, 20, 0],
+                "size_mm": [80, 10, 30],
+                "supply": "existing",
+            },
+            *extra,
+        ],
+    }
+    page = sheets(data)[0]
+    return page[page.index("SHOP-MADE FIXTURE —") : page.index("CLEARANCE")]
+
+
+def test_bought_hardware_is_one_line_not_made_rows():
+    table = bridge_page()
+    assert (
+        "Bought hardware (not made): 2 × 3/8-16 x 2 in stud; 2 × washer Ø20.64 × 1.6; "
+        "2 × 3/8-16 hex nut."
+    ) in table
+    made = table[table.index("Component") : table.index("Bought hardware")]
+    for word in ("stud", "washer", "nut"):
+        assert word not in made, word
+
+
+def test_holes_print_in_the_row_of_the_part_they_are_cut_in():
+    table = bridge_page()
+    made = table[table.index("Component") : table.index("Bought hardware")]
+    beam = re.split(r"\|{4,}", made[made.index("beam") :])[0]
+    assert ("with 2 × Ø10.5 hole: axis at X -20, Y 0; Z -1…11; axis at X 20, Y 0; Z -1…11") in beam
+    # The nut threads are part of the bought nuts; no hole gets a row of its own.
+    assert "clearance" not in made and "bore" not in made and "Ø9.525" not in made
+
+
+def test_existing_shop_parts_drawn_for_clearance_are_not_made():
+    assert "vise" not in bridge_page()
+
+
+def test_existing_part_drilled_here_lists_only_its_holes():
+    plate = {
+        "name": "plate",
+        "shape": "box",
+        "at_mm": [-50, -50, -20],
+        "size_mm": [100, 100, 10],
+        "supply": "existing",
+    }
+    hole = cylinder("tap", 40, -20, 8.5, 10, void=True, cuts=["plate"], fastener="M10 tapped")
+    table = bridge_page(plate, hole)
+    assert "plate (existing part: make the holes only)" in table
+    assert "with 1 × M10 tapped: axis at X 40, Y 0; Z -20…-10" in table
+    assert "100 × 100 × 10" not in table and "vise" not in table
+
+
+def test_fixture_numbers_print_at_policy_make_precision_and_fits_at_drawing_precision():
+    table = bridge_page(fixture_make_decimals=1)
+    assert "60 × 10 × 8.3" in table
+    assert "Ø20.6 × 1.6" in table
+    # The locating pad is a fit: drawing precision (3), not the make precision.
+    assert "10 × 10 × 2.346" in table

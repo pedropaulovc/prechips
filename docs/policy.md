@@ -58,7 +58,11 @@ or unknown verification flag prevents any of them from certifying a measured
 threshold. The shipped numbers remain `"unknown"`
 rather than copying unsourced shop folklore. Required M2 physics warnings promote
 readiness to exit 4 using the existing gate; proxy warnings never invent a
-hard physical limit. Other number names are not read by any rule.
+hard physical limit. The traveler reads `fixture_make_decimals` (whole decimals)
+to print shop-made fixture sizes and positions; a fit that locates the part
+prints at the drawing precision instead, and an absent, unknown or flagged value
+falls back to the setup's DRO resolution. It is a print precision, never a
+pass condition. Other number names are not read by any rule.
 The nine geometry rule names (`accessibility`, `reach`,
 `internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,
 `thin_wall_under_clamp`, `fixture_interference`, `saw_cut`) may be required.
