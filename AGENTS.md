@@ -97,9 +97,17 @@ geometry-matched STEP `ADVANCED_FACE` reference, never from import order or
 the nearest face. M2 rules evaluate declared profile, holding, indexing and
 physics inputs; unknown K_c/E, shop limits, `thin_wall_floor_mm` and verified
 capacity remain debt. Unit tests that need kernel facts must inject a synthetic
-`bundle.kernel` result. Real geometry integration tests must request the shared
-`freecad_kernel` session fixture, use an isolated `PRECHIPS_KERNEL_CACHE`, and
-skip with `FreeCAD kernel not found` if discovery finds no executable.
+`bundle.kernel` result (CLI subprocess tests can use `SYNTHETIC_KERNEL` from
+`tests/test_cli.py`). Real geometry integration tests must request the shared
+`freecad_kernel` session fixture, which shares one temporary
+`PRECHIPS_KERNEL_CACHE` with CLI subprocesses. Pilot CLI tests also request
+`pilot_kernel_cache` and prepare their selected plan before launching the CLI:
+each distinct cold job runs under the kernel's own deadline, and later copies
+reuse it. The CLI helper's unchanged 60-second limit then covers warm-cache host
+work, not cold geometry preparation. Tests asserting cache behavior must
+request the function-scoped `kernel_cache` fixture or explicitly supply their
+own temporary cache; `run_cli` preserves those overrides. Geometry tests skip
+with `FreeCAD kernel not found` if discovery finds no executable.
 Absent-kernel tests must explicitly set `FREECAD_CMD` to a nonexistent path,
 never rely on the host lacking FreeCAD. Preserve discovery order and the
 product's unknown/exit-4 behavior.

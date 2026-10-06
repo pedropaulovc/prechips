@@ -15,7 +15,7 @@ from test_cli import copy_examples, traveler
 )
 def test_examples_match_reference_bytes_and_repeat(
     tmp_path,
-    freecad_kernel,
+    pilot_kernel_cache,
     part,
     plan_filename,
     expected_subdir,
@@ -23,6 +23,7 @@ def test_examples_match_reference_bytes_and_repeat(
 ):
     examples = copy_examples(tmp_path)
     bundle = examples / part
+    pilot_kernel_cache(bundle / plan_filename)
     outputs = []
     for run in range(2):
         out = tmp_path / f"run-{run}"

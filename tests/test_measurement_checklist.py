@@ -1,12 +1,10 @@
-"""The bench checklist names only unresolved measurements on the selected plans."""
+"""Host-only checklists name unresolved measurements using synthetic kernel facts."""
 
 import json
 import re
 
 import pytest
-from test_cli import ROOT, copy_examples, run_cli
-
-pytestmark = pytest.mark.usefixtures("kernel_cache")
+from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, run_cli
 
 SPINDLE_MIN = "machines.PM-30MV.envelope.spindle_to_table_min"
 
@@ -55,7 +53,7 @@ def measurement_ids(entries):
 
 
 def check_report(plan, out, *args):
-    result = run_cli("check", plan, "--out", out, *args)
+    result = run_cli("check", plan, "--out", out, *args, setup=SYNTHETIC_KERNEL)
     assert result.returncode in {0, 2, 4}, result.stderr
     return json.loads((out / "report.json").read_bytes())
 
@@ -86,7 +84,16 @@ def test_plan_scoped_checklist_names_report_members_and_debt_free_unknowns(tmp_p
         'tools.endmills-lms-6784.members."3-8in-4fl".projection_mm',
         '"r8-collets-lms-4860/3-8in"',
     )
-    result = run_cli("tools", "--measure", "--json", "--inventory", inventory, "--plan", plan)
+    result = run_cli(
+        "tools",
+        "--measure",
+        "--json",
+        "--inventory",
+        inventory,
+        "--plan",
+        plan,
+        setup=SYNTHETIC_KERNEL,
+    )
     assert result.returncode == 0, result.stderr
     entries = json.loads(result.stdout)
     ids = measurement_ids(entries)
@@ -107,7 +114,7 @@ def test_repeated_plans_union_measurement_debt_without_adding_lathe_holder_gauge
     lathe = examples / "pivot-shaft" / "plan.toml"
     inventory = examples / "inventory" / "pedro-shop.toml"
     common = ("tools", "--measure", "--json", "--inventory", inventory)
-    result = run_cli(*common, "--plan", mill, "--plan", lathe)
+    result = run_cli(*common, "--plan", mill, "--plan", lathe, setup=SYNTHETIC_KERNEL)
     assert result.returncode == 0, result.stderr
     entries = json.loads(result.stdout)
     ids = [entry["id"] for entry in entries]
@@ -116,7 +123,7 @@ def test_repeated_plans_union_measurement_debt_without_adding_lathe_holder_gauge
     expected |= unresolved_measurements(check_report(lathe, tmp_path / "lathe"), lathe)
     assert set(ids) == expected
     assert not any(identity.startswith("holders.qctp-") for identity in ids)
-    reversed_result = run_cli(*common, "--plan", lathe, "--plan", mill)
+    reversed_result = run_cli(*common, "--plan", lathe, "--plan", mill, setup=SYNTHETIC_KERNEL)
     assert reversed_result.returncode == 0, reversed_result.stderr
     assert reversed_result.stdout == result.stdout
 
@@ -130,7 +137,7 @@ def test_shared_setup_and_operation_ids_keep_each_plans_authoring_debt(tmp_path)
     forget_to_z(bracket, "S1", 20)
     forget_spindle_minimum(examples / "inventory" / "pedro-shop.toml")
     common = ("tools", "--measure", "--json")
-    result = run_cli(*common, "--plan", rocker, "--plan", bracket)
+    result = run_cli(*common, "--plan", rocker, "--plan", bracket, setup=SYNTHETIC_KERNEL)
     assert result.returncode == 0, result.stderr
     entries = json.loads(result.stdout)
     ids = measurement_ids(entries)
@@ -152,7 +159,9 @@ def test_shared_setup_and_operation_ids_keep_each_plans_authoring_debt(tmp_path)
         entry = by_id[f"{plan.as_posix()}:{local_id}"]
         assert entry["instruction"] == f"{plan.as_posix()}: {report_entry['instruction']}"
     assert sum(entry["id"] == SPINDLE_MIN for entry in entries) == 1
-    reversed_result = run_cli(*common, "--plan", bracket, "--plan", rocker)
+    reversed_result = run_cli(
+        *common, "--plan", bracket, "--plan", rocker, setup=SYNTHETIC_KERNEL
+    )
     assert reversed_result.returncode == 0, reversed_result.stderr
     reversed_entries = json.loads(reversed_result.stdout)
     assert measurement_ids(reversed_entries) == ids
@@ -178,7 +187,7 @@ def test_different_declared_inventories_scope_debt_unless_overridden(tmp_path, o
     inventory_args = ("--inventory", inventory) if override else ()
     common += inventory_args
     bracket_report = check_report(bracket, tmp_path / "bracket", *inventory_args)
-    result = run_cli(*common, "--plan", rocker, "--plan", bracket)
+    result = run_cli(*common, "--plan", rocker, "--plan", bracket, setup=SYNTHETIC_KERNEL)
     assert result.returncode == 0, result.stderr
     entries = json.loads(result.stdout)
     expected = unresolved_measurements(
@@ -195,7 +204,9 @@ def test_different_declared_inventories_scope_debt_unless_overridden(tmp_path, o
         for source in (inventory, other_inventory):
             entry = by_id[f"{source.as_posix()}:{SPINDLE_MIN}"]
             assert entry["instruction"].startswith(f"{source.as_posix()}: ")
-    reversed_result = run_cli(*common, "--plan", bracket, "--plan", rocker)
+    reversed_result = run_cli(
+        *common, "--plan", bracket, "--plan", rocker, setup=SYNTHETIC_KERNEL
+    )
     assert reversed_result.returncode == 0, reversed_result.stderr
     assert measurement_ids(json.loads(reversed_result.stdout)) == expected
 
@@ -231,10 +242,10 @@ def test_human_checklist_and_angle_units_match_the_current_measurement_debt(tmp_
     examples = copy_examples(tmp_path)
     plan = examples / "pivot-bracket" / "plan.toml"
     common = ("tools", "--measure", "--plan", plan)
-    result = run_cli(*common, "--json")
+    result = run_cli(*common, "--json", setup=SYNTHETIC_KERNEL)
     assert result.returncode == 0, result.stderr
     entries = json.loads(result.stdout)
-    human = run_cli(*common)
+    human = run_cli(*common, setup=SYNTHETIC_KERNEL)
     assert human.returncode == 0, human.stderr
     for entry in entries:
         assert entry["instruction"] in human.stdout
