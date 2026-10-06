@@ -14,7 +14,12 @@ from pathlib import Path
 
 from prechips.measurements import angle_fact, length_fact, record_trusted
 from prechips.rules._envelope import measurement_item, tool_projection
-from prechips.rules.geometry_common import TURNING_HOLDER_KEYS, TURNING_TOOL_KEYS
+from prechips.rules.geometry_common import (
+    TURNING_BLADE_KEYS,
+    TURNING_BLADE_KINDS,
+    TURNING_HOLDER_KEYS,
+    TURNING_TOOL_KEYS,
+)
 from prechips.rules.resolution import (
     WORKHOLDING_CATEGORIES,
     inventory_category,
@@ -77,6 +82,11 @@ def _turning_values(bundle, op):
         "holder_body_width_mm": _accepted_length(holder, "body_width"),
         "holder_body_depth_mm": _accepted_length(holder, "body_depth"),
     }
+    if record(resolve(bundle, "tools", op.get("tool"))).get("kind") in TURNING_BLADE_KINDS:
+        # A two-cornered grooving/parting blade: both corners nose_radius, front edge
+        # blade_width wide (docs/rules-geometry.md "Approach models").
+        values["corners"] = 2
+        values["blade_width_mm"] = _accepted_length(tool, "blade_width")
     missing = [
         key
         for key, value in values.items()
@@ -181,6 +191,16 @@ def op_inputs(bundle, setup, op, finishing=None):
         for key in ("z_from", "z_to"):
             if key in op:
                 result[key] = op[key] * scale if number(op[key]) and scale else UNKNOWN
+        # Facing, parting and cutting to length sweep radially to an explicit to_dia (0:
+        # the axis; a part_off omitting it parts to the axis); a bore is never inferred
+        # from the finished part, so a later-drilled bore does not leave a core behind.
+        if op.get("do") in {"face", "rough_face", "finish_face", "part_off", "cut_to_fit"} and (
+            "to_dia" in op or op.get("do") == "part_off"
+        ):
+            to_dia = op.get("to_dia", 0.0)
+            result["to_dia_mm"] = (
+                to_dia * scale if number(to_dia) and to_dia >= 0 and scale else UNKNOWN
+            )
     for key, value in values.items():
         if key not in missing and number(value) and (value > 0 or key == "feed_z"):
             result[key] = value
@@ -681,8 +701,11 @@ _ENGINE_OP = (
     "approach",
     "z_from",
     "z_to",
+    "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
+    "corners",
+    *TURNING_BLADE_KEYS,
 )
 _ENGINE_HOLD = (
     "fixed_jaw",
@@ -878,6 +901,41 @@ def _write_cache(path, result):
                 pass
 
 
+def _timing_attributes(timing, source):
+    prefix = "kernel.original_" if source == "cache" else "kernel."
+    return {
+        prefix + name: timing[name]
+        for name in ("wall_ms", "cpu_ms")
+        if name in timing
+    }
+
+
+def _export_timing(active, result, source):
+    """Export measured facts, not synthetic spans of past native execution."""
+    if active is None:
+        return
+    provenance = {"kernel.timing_source": source, "kernel.executed": source == "execution"}
+    for setup_id, timing in result.get("timing", {}).get("setups", {}).items():
+        attrs = {**provenance, **_timing_attributes(timing, source)}
+        for phase, measured in timing.get("phases", {}).items():
+            attrs.update(
+                {
+                    name.replace("kernel.", f"kernel.{phase}.", 1): value
+                    for name, value in _timing_attributes(measured, source).items()
+                }
+            )
+        with active.span("kernel.setup", setup_id=setup_id, **attrs):
+            for subject, measured in timing.get("ops", {}).items():
+                with active.span(
+                    "kernel.op",
+                    setup_id=setup_id,
+                    subject=subject,
+                    **provenance,
+                    **_timing_attributes(measured, source),
+                ):
+                    pass
+
+
 def run_geometries(bundles):
     """Prewarm all candidates in one FreeCAD batch, reusing per-job content caches."""
     from prechips import telemetry
@@ -887,7 +945,9 @@ def run_geometries(bundles):
     if not pending:
         return [bundle.kernel for bundle in bundles]
     active = telemetry.current()
-    with active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext():
+    with (
+        active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext()
+    ) as geometry_span:
         executable = discover_kernel()
         if executable is None:
             result = {
@@ -901,6 +961,7 @@ def run_geometries(bundles):
             jobs = []
             targets = []
             keys = {}
+            cached_keys = set()
             identity = None
             try:
                 executable = Path(executable)
@@ -965,20 +1026,48 @@ def run_geometries(bundles):
                     cached = _read_cache(path)
                     if cached is not None:
                         object.__setattr__(bundle, "kernel", cached)
+                        if key not in cached_keys:
+                            _export_timing(active, cached, "cache")
+                            cached_keys.add(key)
                     elif key in keys:
                         targets[keys[key]][1].append(bundle)
                     else:
                         keys[key] = len(jobs)
                         jobs.append(job)
                         targets.append((path, [bundle]))
+                if active:
+                    geometry_span.set_attributes(
+                        {
+                            "kernel.executed_jobs": len(jobs),
+                            "kernel.cached_jobs": len(cached_keys),
+                            "kernel.executed": bool(jobs),
+                            "kernel.timing_source": (
+                                "mixed"
+                                if jobs and cached_keys
+                                else "execution"
+                                if jobs
+                                else "cache"
+                                if cached_keys
+                                else "none"
+                            ),
+                        }
+                    )
                 if jobs:
                     try:
-                        response = _execute(executable, {"jobs": jobs})
+                        response = _execute(executable, {"jobs": jobs, "timing": True})
                     except (OSError, subprocess.SubprocessError) as exc:
                         response = {
                             "status": "error",
                             "reason": f"FreeCAD kernel job failed: {exc}",
                         }
+                    if active:
+                        geometry_span.set_attributes(
+                            {
+                                f"kernel.batch.{name}": value
+                                for name, value in response.get("timing", {}).items()
+                                if name in {"wall_ms", "cpu_ms"}
+                            }
+                        )
                     results = response.get("results")
                     if not isinstance(results, list) or len(results) != len(jobs):
                         error = (
@@ -993,6 +1082,7 @@ def run_geometries(bundles):
                         results = [error] * len(jobs)
                     for result, (path, consumers) in zip(results, targets, strict=True):
                         _write_cache(path, result)
+                        _export_timing(active, result, "execution")
                         for bundle in consumers:
                             object.__setattr__(bundle, "kernel", dict(result))
     return [bundle.kernel for bundle in bundles]
