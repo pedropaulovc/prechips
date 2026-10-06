@@ -94,6 +94,11 @@ and selected inventory cutter nominal diameter.
 
 ## `zero_check`
 
+A dedicated saw setup (all nonmanual ops are `saw_cut` / `cut_off`, at least one
+saw) is `not_applicable`: its setting is an authored blade-centre `cut_plane`,
+not a spindle XYZ zero. A mixed setup still checks its other machining zero
+recipes; an unknown action cannot establish the saw-only exemption.
+
 EL400 ABS Axis Set, not Preset. Approach side is independent of jog polarity.
 For edge finding, `contact=edge + side*finder_radius`, side -1 from negative
 axis and +1 from positive axis; indicated pickup uses radius 0. Paper Z uses

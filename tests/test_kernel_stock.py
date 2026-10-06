@@ -146,7 +146,6 @@ def _host_only(bundle):
     """Edits that change only host-rule inputs, never a field the engine reads."""
     setup = bundle.plan["setups"][0]
     op = setup["ops"][0]
-    yield "op do / finishing", lambda: op.update(do="rough_profile")
     yield "hold method", lambda: setup["hold"].update(method="soft_jaws")
     yield "hold grip_mm", lambda: setup["hold"].update(grip_mm=5.5)
     yield "fixture opening_mm", lambda: bundle.inventory["fixtures"]["vise"].update(opening_mm=90.0)
@@ -170,6 +169,7 @@ def _host_only(bundle):
 
 def _consumed(bundle):
     setup = bundle.plan["setups"][0]
+    yield "op do / finishing", lambda: setup["ops"][0].update(do="rough_profile")
     yield "jaw width", lambda: bundle.inventory["fixtures"]["vise"].update(jaw_width_mm=60.0)
     yield (
         "selected projection",
