@@ -398,3 +398,22 @@ def test_bought_primitives_count_together_only_when_they_touch():
     # A Ø13 head resting on the end of its shank is one screw.
     head = cylinder("screw-head", 0, 40, 13, 8, **screw)
     assert "; 1 × M8 SHCS." in bridge_page(near, head)
+
+
+def test_oblique_hole_without_cuts_withholds_the_part_it_may_cross():
+    plate = {"name": "plate", "shape": "box", "at_mm": [60, -5, 0], "size_mm": [10, 10, 0.1]}
+    hole = {
+        "name": "slant",
+        "shape": "cylinder",
+        "at_mm": [35, 0, -40],
+        "axis": [0.6, 0, 0.8],
+        "dia_mm": 1,
+        "length_mm": 100,
+        "void": True,
+    }
+    table = bridge_page(plate, hole)
+    assert "? not set: oblique hole slant may cross it; name it in cuts" in table
+    assert "X 60…70" not in table
+    # Named in cuts, the hole prints in the plate's row.
+    table = bridge_page(plate, {**hole, "cuts": ["plate"]})
+    assert "X 60…70, Y -5…5, Z 0…0.1|with 1 × Ø1 hole" in table
