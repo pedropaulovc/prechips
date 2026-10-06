@@ -4,6 +4,7 @@ from prechips.findings import Finding
 from prechips.rules.datum_consistency import _cuts
 from prechips.rules.resolution import (
     MANUAL,
+    SAW_OPS,
     WORKHOLDING_CATEGORIES,
     _citations,
     inventory_category,
@@ -44,6 +45,19 @@ TURNING_TOOL_KEYS = (
     "projection_mm",
 )
 TURNING_HOLDER_KEYS = ("holder_body_width_mm", "holder_body_depth_mm")
+# Two-cornered grooving/parting blades, by tool ``kind``: the job marks them ``corners = 2``
+# and they also need the front-edge width.
+TURNING_BLADE_KINDS = frozenset({"parting_blade", "grooving_blade"})
+TURNING_BLADE_KEYS = ("blade_width_mm",)
+SAW_TOOL_MODEL_REASON = (
+    "a saw cut is located by its cut_plane and blade kerf; this axial/turning tool-cylinder "
+    "check does not model a saw blade"
+)
+
+
+def blade_keys(inputs):
+    """A two-cornered blade op's extra turning inputs (job ``corners == 2``), else none."""
+    return TURNING_BLADE_KEYS if inputs.get("corners") == 2 else ()
 
 
 def approach(bundle, setup, op):
@@ -85,11 +99,12 @@ def cutting_action(op):
 
 def finishing_subjects(bundle):
     # Reuse the existing final datum-cut semantics, including drill→ream/bore/tap.
+    # A saw cut removes stock but never finishes a target face.
     return {
         f"{setup['id']}:{op['op']}"
         for name in bundle.features["features"]
         for _, setup, op in _cuts(bundle.plan["setups"], name)
-        if cutting_action(op) is True and op.get("do") != "coating"
+        if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
     }
 
 
@@ -232,12 +247,31 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
     for setup, op in operations(bundle):
         subject = f"{setup['id']}:{op['op']}"
         cite = provenance(bundle, rule, setup, op, op.get("feature"))
+        if op.get("do") in SAW_OPS:
+            # Before kernel availability: the tool-cylinder model never applies to a blade.
+            yield (
+                setup,
+                op,
+                facts,
+                {},
+                jobs.get(subject, {}),
+                cite,
+                Finding(
+                    rule,
+                    subject,
+                    "not_applicable",
+                    {"operation": op["do"]},
+                    cite,
+                    f"{subject}: {SAW_TOOL_MODEL_REASON}.",
+                ),
+            )
+            continue
         blocked = unavailable(bundle, rule, subject, facts, cite)
         inputs = jobs.get(subject, {})
         approach_reason = approach_model_reason(bundle, setup, op)
         model = approach(bundle, setup, op)
         turned = model == TURNING
-        keys = turning if turned and turning is not None else required
+        keys = (*turning, *blade_keys(inputs)) if turned and turning is not None else required
         # Raw -Z collision/stock/corner facts never establish turning or rotary results.
         stale = not approach_facts(bundle, facts, setup, op)
         detail = {} if approach_reason or stale else record(record(facts.get("ops")).get(subject))

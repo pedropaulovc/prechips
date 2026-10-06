@@ -14,7 +14,12 @@ from pathlib import Path
 
 from prechips.measurements import angle_fact, length_fact, record_trusted
 from prechips.rules._envelope import measurement_item, tool_projection
-from prechips.rules.geometry_common import TURNING_HOLDER_KEYS, TURNING_TOOL_KEYS
+from prechips.rules.geometry_common import (
+    TURNING_BLADE_KEYS,
+    TURNING_BLADE_KINDS,
+    TURNING_HOLDER_KEYS,
+    TURNING_TOOL_KEYS,
+)
 from prechips.rules.resolution import (
     WORKHOLDING_CATEGORIES,
     inventory_category,
@@ -77,6 +82,11 @@ def _turning_values(bundle, op):
         "holder_body_width_mm": _accepted_length(holder, "body_width"),
         "holder_body_depth_mm": _accepted_length(holder, "body_depth"),
     }
+    if record(resolve(bundle, "tools", op.get("tool"))).get("kind") in TURNING_BLADE_KINDS:
+        # A two-cornered grooving/parting blade: both corners nose_radius, front edge
+        # blade_width wide (docs/rules-geometry.md "Approach models").
+        values["corners"] = 2
+        values["blade_width_mm"] = _accepted_length(tool, "blade_width")
     missing = [
         key
         for key, value in values.items()
@@ -106,6 +116,14 @@ def op_inputs(bundle, setup, op, finishing=None):
     from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
+    if op.get("do") in {"saw_cut", "cut_off"}:
+        tool = measurement_item(bundle, "tools", op.get("tool"))
+        return {
+            "subject": subject,
+            "do": op["do"],
+            "kerf_mm": _accepted_length(tool, "kerf"),
+            "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
+        }
     model = approach(bundle, setup, op)
     turned = model == TURNING
     if turned:
@@ -183,6 +201,17 @@ def op_inputs(bundle, setup, op, finishing=None):
         for key in ("z_from", "z_to"):
             if key in op:
                 result[key] = op[key] * scale if number(op[key]) and scale else UNKNOWN
+    if turned:
+        # Facing, parting and cutting to length sweep radially to an explicit to_dia (0:
+        # the axis; a part_off omitting it parts to the axis); a bore is never inferred
+        # from the finished part, so a later-drilled bore does not leave a core behind.
+        if op.get("do") in {"face", "rough_face", "finish_face", "part_off", "cut_to_fit"} and (
+            "to_dia" in op or op.get("do") == "part_off"
+        ):
+            to_dia = op.get("to_dia", 0.0)
+            result["to_dia_mm"] = (
+                to_dia * scale if number(to_dia) and to_dia >= 0 and scale else UNKNOWN
+            )
     if model == ROTARY and "angle_window_deg" in op:
         window = op["angle_window_deg"]
         result["angle_window_deg"] = window if all(number(v) for v in window) else UNKNOWN
@@ -194,6 +223,21 @@ def op_inputs(bundle, setup, op, finishing=None):
             "Selected tool/holder dimensions unmeasured or unavailable: " + ", ".join(missing)
         )
     return result
+
+
+def saw_plane(plane, units):
+    """A blade centre plane in setup axes, normalized from feature units to mm."""
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    if scale is None:
+        return {"reason": f"cut_plane units {units!r} are not mm or in"}
+    plane = record(plane)
+    if (
+        plane.get("axis") not in ("x", "y", "z")
+        or plane.get("keep") not in ("below", "above")
+        or not number(plane.get("value"))
+    ):
+        return {"reason": "cut_plane needs axis x/y/z, numeric value and keep below/above"}
+    return {"axis": plane["axis"], "value": plane["value"] * scale, "keep": plane["keep"]}
 
 
 def removal_bounds(bounds, units):
@@ -671,6 +715,9 @@ def _stock_envelope(stock):
 
 _ENGINE_OP = (
     "subject",
+    "do",
+    "cut_plane",
+    "kerf_mm",
     "feature",
     "faces",
     "do",
@@ -687,8 +734,11 @@ _ENGINE_OP = (
     "z_from",
     "z_to",
     "angle_window_deg",
+    "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
+    "corners",
+    *TURNING_BLADE_KEYS,
 )
 _ENGINE_HOLD = (
     "fixed_jaw",
@@ -884,6 +934,41 @@ def _write_cache(path, result):
                 pass
 
 
+def _timing_attributes(timing, source):
+    prefix = "kernel.original_" if source == "cache" else "kernel."
+    return {
+        prefix + name: timing[name]
+        for name in ("wall_ms", "cpu_ms")
+        if name in timing
+    }
+
+
+def _export_timing(active, result, source):
+    """Export measured facts, not synthetic spans of past native execution."""
+    if active is None:
+        return
+    provenance = {"kernel.timing_source": source, "kernel.executed": source == "execution"}
+    for setup_id, timing in result.get("timing", {}).get("setups", {}).items():
+        attrs = {**provenance, **_timing_attributes(timing, source)}
+        for phase, measured in timing.get("phases", {}).items():
+            attrs.update(
+                {
+                    name.replace("kernel.", f"kernel.{phase}.", 1): value
+                    for name, value in _timing_attributes(measured, source).items()
+                }
+            )
+        with active.span("kernel.setup", setup_id=setup_id, **attrs):
+            for subject, measured in timing.get("ops", {}).items():
+                with active.span(
+                    "kernel.op",
+                    setup_id=setup_id,
+                    subject=subject,
+                    **provenance,
+                    **_timing_attributes(measured, source),
+                ):
+                    pass
+
+
 def run_geometries(bundles):
     """Prewarm all candidates in one FreeCAD batch, reusing per-job content caches."""
     from prechips import telemetry
@@ -893,7 +978,9 @@ def run_geometries(bundles):
     if not pending:
         return [bundle.kernel for bundle in bundles]
     active = telemetry.current()
-    with active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext():
+    with (
+        active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext()
+    ) as geometry_span:
         executable = discover_kernel()
         if executable is None:
             result = {
@@ -907,6 +994,7 @@ def run_geometries(bundles):
             jobs = []
             targets = []
             keys = {}
+            cached_keys = set()
             identity = None
             try:
                 executable = Path(executable)
@@ -971,20 +1059,48 @@ def run_geometries(bundles):
                     cached = _read_cache(path)
                     if cached is not None:
                         object.__setattr__(bundle, "kernel", cached)
+                        if key not in cached_keys:
+                            _export_timing(active, cached, "cache")
+                            cached_keys.add(key)
                     elif key in keys:
                         targets[keys[key]][1].append(bundle)
                     else:
                         keys[key] = len(jobs)
                         jobs.append(job)
                         targets.append((path, [bundle]))
+                if active:
+                    geometry_span.set_attributes(
+                        {
+                            "kernel.executed_jobs": len(jobs),
+                            "kernel.cached_jobs": len(cached_keys),
+                            "kernel.executed": bool(jobs),
+                            "kernel.timing_source": (
+                                "mixed"
+                                if jobs and cached_keys
+                                else "execution"
+                                if jobs
+                                else "cache"
+                                if cached_keys
+                                else "none"
+                            ),
+                        }
+                    )
                 if jobs:
                     try:
-                        response = _execute(executable, {"jobs": jobs})
+                        response = _execute(executable, {"jobs": jobs, "timing": True})
                     except (OSError, subprocess.SubprocessError) as exc:
                         response = {
                             "status": "error",
                             "reason": f"FreeCAD kernel job failed: {exc}",
                         }
+                    if active:
+                        geometry_span.set_attributes(
+                            {
+                                f"kernel.batch.{name}": value
+                                for name, value in response.get("timing", {}).items()
+                                if name in {"wall_ms", "cpu_ms"}
+                            }
+                        )
                     results = response.get("results")
                     if not isinstance(results, list) or len(results) != len(jobs):
                         error = (
@@ -999,6 +1115,7 @@ def run_geometries(bundles):
                         results = [error] * len(jobs)
                     for result, (path, consumers) in zip(results, targets, strict=True):
                         _write_cache(path, result)
+                        _export_timing(active, result, "execution")
                         for bundle in consumers:
                             object.__setattr__(bundle, "kernel", dict(result))
     return [bundle.kernel for bundle in bundles]

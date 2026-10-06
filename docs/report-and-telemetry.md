@@ -8,14 +8,14 @@ and, only when the kernel returned a setup render, `renders`.
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
-The current catalogue is `rules_version = "m5-rev8"`: the M5 review cutover
+The current catalogue is `rules_version = "m5-rev9"`: the M5 review cutover
 (bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
 spindle-nose Z travel, unpadded hole centres, one `envelope` machine block,
-fact-local trust, no `holder_stack` rule) combined with the eight M4 kernel
-geometry rules and their hash-bound setup renders; changing the operative rule
-catalogue changes the bound report and invalidates prior approvals. Every
-report produced from the M2 (`m2-rev6`), M4-only (`m4-rev6`) or M5-only
-(`m5-rev7`) catalogue therefore has a stale hash.
+fact-local trust, no `holder_stack` rule), dividing-head/child-centre fixes and
+nine M4 kernel geometry rules including native saw cut-off with hash-bound setup
+renders. Changing the operative catalogue changes the bound report and
+invalidates prior approvals; reports from earlier catalogues, including
+`m5-rev8`, must be regenerated and reapproved.
 A finding's `numbers.measurements` lists the exact fact ids (set member or
 tool/holder pair included) whose measurement would resolve it; `tools --measure`
 is the sorted, deduplicated union of those lists over the current plans.
@@ -230,8 +230,49 @@ local HTTP and gRPC export with correlated finding context.
 Every invocation has a `prechips.<verb>` root span (initial usage may be named
 `prechips.usage` when a global flag comes first). Inputs use `input.load`, outputs
 `output.write`, evaluations `rule.<name>` and finding records child spans. The
-single FreeCAD job of a run, including its cache lookup, runs under one
-`kernel.geometry` span opened by whichever geometry rule evaluates first.
+FreeCAD batch execution and per-job cache lookup run under one `kernel.geometry`
+span. Native timing is diagnostic only: it never enters normalized job/cache-key
+inputs, findings, reports, report hashes or render bytes. The host requests it
+with `{"jobs": [...], "timing": true}`; native requests without that opt-in retain
+their untimed output contract.
+
+The native batch response has `timing = {wall_ms, cpu_ms}`. Each job result has
+its own top-level `timing = {wall_ms, cpu_ms, setups}`, where `setups` maps setup
+ids to `{wall_ms, cpu_ms, phases, ops}`. `phases` holds measured `fixture`,
+`chuck_walls` (radial clamp-wall sampling), `render` and `stock_output` intervals
+when those paths run; `ops` maps operation subjects to
+`{wall_ms, cpu_ms}`. All measurements are milliseconds rounded to six decimal
+places: elapsed time uses a monotonic clock, while CPU time uses the FreeCAD
+process CPU clock, not host CPU or machine-wide utilization. Setup totals include
+their phases and operations; do not add those nested measurements to the totals.
+Batch measurements include orchestration and are not a sum of job measurements.
+
+The host exports `kernel.setup` spans with `setup_id`, and nested `kernel.op`
+spans with both `setup_id` and `subject`. Freshly executed work carries measured
+`kernel.wall_ms` / `kernel.cpu_ms`, `kernel.timing_source = "execution"` and
+`kernel.executed = true`. Setup phases use `kernel.<phase>.wall_ms` /
+`kernel.<phase>.cpu_ms`. These short host-side spans export native facts after
+the response arrives: their span timestamps are not backdated and their OTel
+durations do not stand in for native execution time.
+
+Successful cache entries retain the original job timing facts unchanged. On a
+disk-cache hit, setup/operation spans instead carry `kernel.original_wall_ms` /
+`kernel.original_cpu_ms`, `kernel.timing_source = "cache"` and
+`kernel.executed = false`; phase attributes likewise use
+`kernel.<phase>.original_wall_ms` / `original_cpu_ms`. They report the original
+computation, **not CPU spent replaying the cache**. Old entries without timing
+emit no setup/operation timing spans. Identical jobs within a batch emit facts
+once, not once per consuming bundle; an already-populated bundle memo emits no
+new geometry span.
+
+`kernel.geometry` records unique `kernel.executed_jobs` / `kernel.cached_jobs`
+counts and provenance (`kernel.timing_source` is `execution`, `cache`, `mixed`,
+or `none` for identified-kernel requests with no usable jobs). `kernel.executed`
+indicates whether a native batch was invoked. Actual fresh batch measurements
+are `kernel.batch.wall_ms` / `kernel.batch.cpu_ms`; a cache-only call has no such
+attributes. The geometry span's own elapsed duration includes host cache lookup
+and subprocess overhead, not just the measured native work.
+
 When no kernel is found, every geometry finding carries
 `numbers.kernel_unavailable = true`; the console prints that identical
 kernel-naming `?` sentence once per run unless `--verbose` shows the full

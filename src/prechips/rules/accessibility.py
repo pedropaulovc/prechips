@@ -5,6 +5,7 @@ from prechips.rules.geometry_common import (
     TURNING,
     TURNING_HOLDER_KEYS,
     TURNING_TOOL_KEYS,
+    blade_keys,
     fact_reason,
     op_contexts,
 )
@@ -53,7 +54,9 @@ def evaluate(bundle):
         values = {
             key: detail.get(key, "unknown") for key in ("sample_count", "tool_hits", "holder_hits")
         }
-        values.update({key: inputs[key] for key in (turning if turned else required)})
+        values.update(
+            {key: inputs[key] for key in ((*turning, *blade_keys(inputs)) if turned else required)}
+        )
         known = (
             all(
                 number(values[key]) and values[key] >= 0

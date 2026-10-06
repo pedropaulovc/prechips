@@ -5161,9 +5161,11 @@
       ],
       "message": "S2:60: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           2.286
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 2.286,
         "tool_radius_mm": 0.99
       },
@@ -5189,9 +5191,11 @@
       ],
       "message": "S2:70: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           2.286
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 2.286,
         "tool_radius_mm": 2.286
       },
@@ -5217,9 +5221,11 @@
       ],
       "message": "S2:80: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           2.286
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 2.286,
         "tool_radius_mm": 0.99
       },
@@ -5245,9 +5251,11 @@
       ],
       "message": "S2:90: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           2.286
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 2.286,
         "tool_radius_mm": 2.286
       },
@@ -5340,9 +5348,11 @@
       ],
       "message": "S3:30: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           3.25
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 3.25,
         "tool_radius_mm": 0.99
       },
@@ -5366,9 +5376,11 @@
       ],
       "message": "S3:40: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           3.25
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 3.25,
         "tool_radius_mm": 3.175
       },
@@ -5392,9 +5404,11 @@
       ],
       "message": "S3:50: a claimed internal corner is smaller than the selected cutter radius.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           3.25
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 3.25,
         "tool_radius_mm": 3.256
       },
@@ -6808,23 +6822,26 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -6836,23 +6853,26 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -6864,23 +6884,26 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
       ],
       "message": "S3: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "not_applicable",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -8744,7 +8767,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.TA: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
@@ -8755,9 +8778,11 @@
         "exposed_z_mm": "unknown",
         "frame": "TA",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -8766,7 +8791,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
@@ -8777,9 +8802,11 @@
         "exposed_z_mm": "unknown",
         "frame": "TB",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -8788,7 +8815,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.TC: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "pivot-bracket.STEP"
@@ -8799,9 +8826,11 @@
         "exposed_z_mm": "unknown",
         "frame": "TC",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",

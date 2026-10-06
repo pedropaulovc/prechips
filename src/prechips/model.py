@@ -136,7 +136,11 @@ StockState = record(
         "entry_z": dict[str, Number],
     },
 )
-Reference = record("Reference", {**texts("ref orientation note"), **numbers("height_mm")})
+# A `hold.supports` table: follow rest {ref, ops, jaw_lead_mm} or steady rest {ref, ops, at_z_mm}.
+Reference = record(
+    "Reference",
+    {**texts("ref orientation note"), **numbers("height_mm jaw_lead_mm at_z_mm"), "ops": list[int]},
+)
 # ``rotation = "continuous"``: a dividing head turned freely by its rotary ops, no plate.
 Index = record(
     "Index",
@@ -226,6 +230,10 @@ Contour = record(
         "sweep_bounds": Bounds,
     },
 )
+SawPlane = record(
+    "SawPlane",
+    {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
+)
 Operation = record(
     "Operation",
     {
@@ -249,6 +257,8 @@ Operation = record(
         # z_from/z_to are then head-axis positions and angle_window_deg its rotation span.
         "approach": Literal["rotary"],
         "angle_window_deg": Annotated[list[Number], Field(min_length=2, max_length=2)],
+        # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
+        "cut_plane": SawPlane,
     },
     indexed=("do",),
 )
@@ -617,6 +627,7 @@ InventoryItem = record(
             "shank_mm capacity_mm"
         ),
         "point_angle": MeasuredAngle,
+        "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
         **dict.fromkeys(
             (
                 "dia",
@@ -651,6 +662,8 @@ InventoryItem = record(
                 "length_in",
                 "width_mm",
                 "width_in",
+                "kerf_mm",
+                "kerf_in",
             ),
             MeasuredLength,
         ),
@@ -722,6 +735,13 @@ InventoryItem = record(
             + ("bore_dia_mm", "bore_dia_in"),
             MeasuredLength,
         ),
+        # Follow/steady rest jaw capacity: the work diameters the rest can ride on.
+        **dict.fromkeys(
+            ("capacity_min_mm", "capacity_min_in", "capacity_max_mm", "capacity_max_in"),
+            MeasuredLength,
+        ),
+        # Grooving/parting blade front-edge width (two-cornered blade): docs/rules-geometry.md.
+        **dict.fromkeys(("blade_width_mm", "blade_width_in"), MeasuredLength),
     },
 )
 InventoryItem.model_rebuild()
@@ -732,7 +752,7 @@ _INVENTORY_LENGTH_STEMS = frozenset(
     "dia oal grip gauge_len gauge_dia lead height bed_height projection flute_len "
     "jaw_height jaw_width jaw_depth opening width shank capacity max_shank "
     "nose_radius reach tip length resolution edge_len head_len shank_width functional_width "
-    "body_width body_depth".split()
+    "body_width body_depth kerf".split()
 )
 _ENVELOPE_LENGTH_STEMS = frozenset(
     (
@@ -748,6 +768,10 @@ _TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))
 
 # Chuck body dimensions (fixture solids).
 _INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
+# Follow/steady rest jaw capacity.
+_INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
+# Grooving/parting blade front-edge width.
+_INVENTORY_LENGTH_STEMS |= {"blade_width"}
 
 
 def _inventory_lengths(
@@ -820,7 +844,7 @@ Cut = record(
     {
         **texts("material_class tool_material operation"),
         "diameter_range": Vector,
-        **numbers("sfm chip_load_mm_per_tooth feed_mm_rev"),
+        **numbers("sfm chip_load_mm_per_tooth feed_mm_rev feed_mm_min"),
         "cite": Citations,
     },
 )

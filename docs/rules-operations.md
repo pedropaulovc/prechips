@@ -108,10 +108,11 @@ an unknown status is not a verified cut instruction.
 ## `speeds_feeds`
 
 One subject per `setup:op`, including explicit not-applicable manual operations
-(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`). Tool chart citation
-wins over table rows; otherwise match material alias, tool material, normalized
-action and inclusive mm diameter range. Exactly one cited row is needed.
-Ambiguous overlap or unknown range stays unresolved. No chart URL is fetched.
+(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`). For spindle cuts,
+tool chart citation wins over table rows; otherwise match material alias, tool
+material, normalized action and inclusive mm diameter range. Exactly one cited
+row is needed. Ambiguous overlap or unknown range stays unresolved. No chart
+URL is fetched.
 
 `D_in = D_mm/25.4`; `raw_RPM = 12*sfm/(pi*D_in)`. Round the raw RPM to nearest
 50 with ties-to-even, then clamp to the actual machine limits (which need not
@@ -120,9 +121,22 @@ Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
 feed in mm/min is `RPM * feed_mm_rev`, where `feed_mm_rev` comes from the same
 cited `[[cut]]` row (or the tool's cited `chart`) as `sfm`, under the same
 citation/verify rules as the mill chip load; the lathe diameter is the turned
-feature diameter (plus `rough_allowance_mm` for `rough_turn`, stock OD for a
-face). There is no op-level feed override on either machine. Lathe rows report
-`feed_mm_rev`. Verified material, tool and machine facts are needed.
+feature's `dia_nominal` (plus `rough_allowance_mm` for `rough_turn`). A dome
+uses its widest (base) diameter: `2 * base_radius`, else `2 * sqrt(h (2R - h))`
+from its declared `sphere_radius` R and nominal height h (2R once h exceeds R),
+else the kernel-measured base from `turned_profile.feature_span`. A face, cut to
+fit or part off without a feature diameter uses the setup's `stock_state.od_mm`;
+otherwise the diameter stays unknown. There is no op-level feed override on
+either machine. Lathe rows report `feed_mm_rev`. Verified material, tool and
+machine facts are needed.
+
+Saw cut-off uses only a cited canonical `operation = "saw_cut"` row (for either
+`saw_cut` or `cut_off`), keyed by material class and blade material without a
+diameter filter. Positive row `sfm` is linear blade speed, clamped to the
+machine's `blade_speed_sfm`; row `feed_mm_min` is descent feed. It has no
+spindle RPM, tooth-count calculation, tool-chart precedence or op override.
+Missing/ambiguous/uncited data and machine/blade/material debt remain unknown.
+See [cutting data](cutting-data.md) and [native saw geometry](rules-geometry.md#saw-cut-off).
 
 Exact templates:
 
