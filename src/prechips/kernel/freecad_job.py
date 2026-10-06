@@ -3375,9 +3375,13 @@ class _Setup:
             with _timed(phases, "chuck_walls"):
                 self._chuck_walls(facts)
         # Turned setups: each declared feature's faces of revolution about setup Z (finished
-        # geometry, independent of the entering stock).
+        # geometry, independent of the entering stock). Any other setup measures only the
+        # features the host asks to locate by that axis (``locate_revolved``).
+        located = self.setup.get("locate_revolved")
         if any(_turned(op) for op in self.ops):
             self._revolution_facts(facts)
+        elif isinstance(located, list) and located:
+            self._revolution_facts(facts, located)
         # The stock builder derives every op's before-op stock, the saw facts and the end stock
         # once, before measuring: a flute meets the stock this setup's earlier cuts leave, while
         # holders, reach, fixtures and the render see the stock as it enters the setup.
@@ -8668,7 +8672,7 @@ class _Setup:
         facts["min_wall_mm"] = _r(min(runs))
         reasons.pop("min_wall_mm", None)
 
-    def _revolution_facts(self, facts):
+    def _revolution_facts(self, facts, names=None):
         """revolved: each declared feature's finished faces of revolution about setup Z.
 
         ``z_mm`` is their axial extent and ``radii_mm`` the least/greatest distance from the
@@ -8681,10 +8685,14 @@ class _Setup:
         x = y = 0, is omitted with its reason under ``revolved_reasons``. When none of its
         faces is revolved about setup Z and one is a cylinder/cone/torus/surface of
         revolution whose axis is not parallel to setup Z, ``revolved_off_axis`` also gives
-        that axis: the feature is turned (if at all) about another direction.
+        that axis: the feature is turned (if at all) about another direction. ``names``
+        limits the measurement to those features (every declared feature when None).
         """
         revolved, reasons, off_axis = {}, {}, {}
-        for name, indices in sorted(self.owner.features.items()):
+        features = self.owner.features
+        if names is not None:
+            features = {name: features.get(name) for name in names}
+        for name, indices in sorted(features.items()):
             if not isinstance(indices, list) or not indices:
                 reasons[name] = "face references are unknown or unmapped"
                 continue

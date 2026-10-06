@@ -7,9 +7,10 @@ station/feature reference points use the dimension's declared drawing precision;
 a known number without one prints its own value (six significant digits) rather
 than `?`, which stays reserved for unknown values. Operation-derived rows,
 computed tip targets, Z stations and contour cutter-centre tables always print
-their own value, never rounded to a drawing dimension's display precision. No
-STEP extraction/kernel geometry is performed by these rules; contour tables use
-manifest geometry even when the M4 kernel rules run on the same bundle.
+their own value, never rounded to a drawing dimension's display precision.
+Contour tables use manifest geometry even when the M4 kernel rules run on the
+same bundle; only feature location may read an already-present kernel result
+(below), and these rules never start the kernel.
 
 ## `coordinates`
 
@@ -27,22 +28,45 @@ midpoints never define nominal geometry: explicit `*_nominal` values take
 precedence, otherwise only scalar dimensions are usable as nominal geometry.
 
 Worked holes (including threaded holes and counterbores), bosses, and features
-used by point/hole operations require a numeric three-component `at` reference
-point. An absent, `"unknown"`, two-component or partially unknown point keeps
-the setup's `coordinates` status unknown; two-component sketch locations do not
-imply Z = 0. A known point still needs a usable model-to-setup frame transform.
-Bounds-only face, rectangular profile and pocket features do not acquire an
-invented centre requirement.
+used by point/hole operations are located by a numeric three-component `at`
+reference point, found in this order (one shared locator,
+`coordinates.located_by`, which [`travel`](rules-setup.md) uses too):
 
-On a resolved lathe, such a feature without a numeric `at` is located by the
-spindle axis when the kernel measured every one of its faces as an external
-surface of revolution about setup Z through x = y = 0
-([turned profile](rules-lathe.md), kernel `revolved` facts): the rows
-`spindle axis, kernel span start` / `end` place it at setup `[0, 0, z]` for
-both ends of its kernel axial span, with its nominal diameter and X display,
-and the finding cites `kernel: setups.<id>.revolved.<feature>`. A feature the
-kernel reports revolved about another axis (a cross boss or hole), one it did
-not measure, or any feature off a lathe still needs `at`.
+1. The feature's own `at`. An explicit `at` wins even when it is `"unknown"`,
+   two-component or partially unknown; those keep the setup's `coordinates`
+   status unknown, and two-component sketch locations do not imply Z = 0.
+2. Without its own `at`, a child naming its parent hole (`hole`, else `parent`;
+   a counterbore with `parent = "mount_west"`) takes that parent's `at`
+   transformed from the parent's frame. The row records `located_by = <parent>`
+   and the finding cites `features.features.<parent>.at` with the parent's `at`
+   citations. A parent that does not exist, or has no numeric `at`, leaves the
+   row unknown; nothing falls through to the kernel.
+3. Without `at` or a parent, the kernel's faces of revolution about setup Z
+   (below).
+
+A known point still needs a usable model-to-setup frame transform. Bounds-only
+face, rectangular profile and pocket features do not acquire an invented centre
+requirement.
+
+**Kernel revolved location, any setup.** The kernel request lists, per setup,
+its located features with neither `at` nor a parent (`locate_revolved`); the
+engine measures their finished faces of revolution about setup Z in every
+setup (a setup with a turning-model operation measures every feature). Such a
+feature is located on setup Z through X0 Y0 when the kernel measured every one
+of its faces as an external surface of revolution about setup Z through
+x = y = 0 ([turned profile](rules-lathe.md), kernel `revolved` facts): the
+rows place it at setup `[0, 0, z]` for both ends of its kernel axial span, the
+model point is that setup point transformed back through the setup frame, and
+the finding cites `kernel: setups.<id>.revolved.<feature>`. On a lathe the rows
+are `spindle axis, kernel span start` / `end` and also carry the nominal
+diameter and X display; a lathe also tries this for a feature whose own `at`
+is not numeric. Off a lathe the rows are `setup Z axis, kernel span start` /
+`end`. The axis is never inferred from tolerance bands or model-frame
+assumptions. The feature stays unknown when no kernel result is present, the
+setup frame binding is unknown, the kernel reports any face not revolved about
+setup Z through the origin (off-axis, a flat, a cross boss or hole), an
+internal (bored) face, or its facts are malformed or missing; off a lathe that
+unknown row carries the kernel's `reason`.
 
 Feature reference centres are distinct from hole tool-tip endpoints (those
 belong to `blind_depth`). Lathe rows carry drawing stations, authored operation
