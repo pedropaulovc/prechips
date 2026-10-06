@@ -58,6 +58,10 @@ def bench_bundle(kind="bench", actions=("fit", "inspect"), joint=None):
         (("fit",), "weld"),
         (("fit",), None),
         (("inspect",), None),
+        # A bench finishing setup (deburr, black oxide, paint, oil) runs no machine either.
+        (("fit", "deburr"), "silver_braze"),
+        (("coating",), None),
+        (("deburr", "coating", "inspect"), None),
     ],
 )
 @pytest.mark.parametrize("screen", SCREENS)
@@ -72,7 +76,7 @@ def test_all_manual_bench_work_needs_no_dro_spindle_or_travel(screen, kind, acti
     [
         ("fit", "drill"),
         ("inspect", "face"),
-        ("fit", "deburr"),
+        ("deburr", "face"),
         ("fit", "unknown"),
         (),
     ],

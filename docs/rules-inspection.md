@@ -32,8 +32,11 @@ its capability as unknown.
 
 Loading rejects any `checks.<requirement>` absent from that operation's feature
 exported `requirements` list, including when the list is wholly unknown. A name
-exported on another feature does not establish ownership. To retain an authored
-inspection for a requirement absent from the export, declare a separate inspect
+exported on another feature does not establish ownership. An `inspect` op naming
+a feature list may check a requirement any named feature exports; it is the
+check op for each named feature that exports it, so one reading of a limit the
+drawing gives two features covers both `feature:requirement` subjects. To retain
+an authored inspection for a requirement absent from the export, declare a separate inspect
 operation with `missing_requirements = { length = "calipers" }` and its
 `inspection_methods.length` procedure. A name already exported on the selected
 feature is rejected in `missing_requirements`; actual requirements must use checks.
@@ -114,6 +117,42 @@ Evidence: requirement, limits, finishing/check op, named gauge, kind, range,
 resolution and band width where available. Citations: PLAN §4.1 inspection,
 feature requirement manifest and inventory range/resolution/verification. A pin
 size check is not a position check; a declared gauge is not first-article data.
+
+## Process holds
+
+An op's `process_holds` adds one `{setup}:{op}` inspection subject. Each hold's
+`band` must lie inside its drawing requirement band, limits included. Only a
+scalar zone or maximum (`position_dia`, `coaxiality_dia`, `angularity_dia`,
+`finish_ra`) `v` reads as [0, v]; any other scalar is a nominal with no band, so
+the hold is `unknown`. Each hold's gauge is graded like a drawing check, against
+the hold band: it must be able to measure the requirement, span the band and
+resolve its width. A hold reaching outside the drawing band is `error`
+(`process hold band outside the drawing band (…)`), and so is a gauge that cannot
+read it (`process hold gauge cannot hold the band (…)`). An unresolved drawing
+band, or an unknown, unlisted or unverified gauge, is `unknown`. Otherwise it is
+`pass`. Evidence: each hold's band, drawing band, gauge, reason,
+`inside_drawing_band`, `gauge_status` and `gauge_message`. The sheet prints it as
+`PROCESS HOLD — not a drawing limit: <reason> — <feature> <requirement> <band>:
+<gauge>`, at the hold's own digits.
+
+## `finish_route`
+
+One row per part. A coating applies the drawing `material.finish` to the cuts it
+follows, in plan order, on stock that carries them: in the same setup after the
+cut, or in a setup whose `stock_in` lineage contains the cut's setup. Every cut
+needs such a coating. So on a built-up part, each component is covered either
+by its own coating after its last cut, or by one coating of the joined assembly
+after the last cut on it. No coating at all, or a cut no coating covers (it
+removes the finish, or its component is never coated), is `warn` (a job-page
+caution). `uncoated_cuts` names those cuts. A cut covered only by a coating
+whose lineage has undeclared routing (a setup omitting `stock_in`), or an
+uncovered op of explicitly unknown action, is `unknown` (`unresolved_cuts`).
+Otherwise it is `pass`. An explicitly unknown finish is `unknown`; no declared
+finish is `not_applicable`. Whether each coating op's `process` resolves to an
+outside `services` item or in-house `consumables` is checked per op by
+`tool_resolves`: absent is `unknown`, unlisted is `error`, and a consumables
+entry whose product list is unknown, empty, or has a blank or `"unknown"`
+product is `unknown`.
 
 ## Angularity
 

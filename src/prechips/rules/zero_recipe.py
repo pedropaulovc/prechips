@@ -131,7 +131,12 @@ def evaluate(bundle):
             if not indicated and number(radius):
                 radius /= 2
             if axis == "z" and recipe.get("face") == "top":
+                # The top as the ops up to and including after_op left it, not the
+                # incoming stock top.
                 edge = mapping(setup.get("stock_state")).get("top_z", UNKNOWN)
+                for op, _, after in stock_states(setup, bundle.feature_definitions):
+                    if str(op.get("op")) == str(recipe.get("after_op")):
+                        edge = after["top_z"]
             # Only an authored radius/diameter display fixes the lathe X jog scale.
             scale = (
                 {True: 1, False: 2}.get(dro.get("radius_mode"), UNKNOWN)

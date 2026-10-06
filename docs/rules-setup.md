@@ -20,6 +20,13 @@ an explicitly unknown action without one is unknown. Missing/empty
 fields are errors; explicit unknown values are unknown. It does not compare
 all holding dimensions or certify the fixture was physically installed.
 
+A declared `hold.stop_face` must be on the stock the setup receives:
+`"stock_end"`, a raw-stock `as_is_faces` face, or a feature a cutting op in an
+earlier setup of the setup's stock lineage made. A face first cut by this setup
+or a later one is an error naming that op
+(`{setup}: the hold stops on {face}, which the arriving stock does not have yet; it is first cut in {setup} op {op}.`);
+an earlier cut of unknown action or unsettled as-is faces is unknown.
+
 Templates:
 
 - `{setup}: holding declarations need {comma-separated missing/unknown fields}.`

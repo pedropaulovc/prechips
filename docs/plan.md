@@ -298,8 +298,9 @@ setups. Unknown controller/install facts remain unresolved independently.
 | `zero` | `Zero` |
 | `ops` | `list[Operation]` |
 
-For a manual joining or inspection station, declare the inventory machine's
-`kind = "bench"` (or `"manual"`) and use only `fit` and `inspect` operations.
+For a manual joining, finishing or inspection station, declare the inventory
+machine's `kind = "bench"` (or `"manual"`) and use only `fit`, `inspect`,
+`deburr` and `coating` operations.
 `zero_check`, `coordinates` and `headroom` are then `not_applicable`: the station
 has no DRO, cutter-centre table, spindle stack or machine travel to check.
 The joint's joining method does not create machine axes. Any cutting or
@@ -488,6 +489,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |
 | `preload_direction` | `"clockwise"` / `"counterclockwise"` |
 | `stop_fixture` | `str` (inventory fixture with authored solids) |
+| `stop_face` | `str` (feature id or `"stock_end"`: the face the stop seats on) |
 | `stop_pose` | `Pose` |
 | `grip_mm_verify` | `bool` |
 | `jaw_above_parallels_mm_verify` | `bool` |
@@ -520,6 +522,17 @@ A physical stop uses `stop_fixture` plus `stop_pose`; its inventory solids
 follow the same dimension/measurement/void trust rules as other fixture bodies.
 The kernel places it, draws it and includes it in collision/interference checks.
 An unresolved stop is a named fixture gap, not a guessed point from `stop` prose.
+
+`stop_face` names the face the work seats on against the stop: a feature id or
+`"stock_end"`. An unknown id is `BadInput`. `hold_fields` errors when the
+arriving stock does not have that face yet: it must be `"stock_end"`, a face
+the raw stock supplies (`stock.as_is_faces`), or a feature a cutting op in an
+earlier setup of this setup's stock lineage made. A face the setup cuts itself,
+or a later setup cuts, is not on the stock it receives. An earlier cut of
+unknown action, or unknown as-is faces, leaves it unknown. When a setup in the
+lineage omits `stock_in`, the routing is undeclared: an earlier setup's cut may
+have made the face, so it is unknown, not an error. A cut in this or a later
+setup is still an error: `stock_in` names only earlier setups.
 
 M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 `grip_mm` and `jaw_above_parallels_mm` to place the jaw solids in the setup
@@ -699,13 +712,15 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 |---|---|
 | `op` | `int` |
 | `do` | `str` |
-| `feature` | `str` |
+| `feature` | `str`; an `inspect` op may name a list of two or more distinct features |
 | `faces` | `list[str]` |
 | `tool` | `str` |
 | `holder` | `str` |
 | `direction` | `str` |
 | `note` | `str` |
 | `inspection_note` | `str` |
+| `process` | `str \| list[str]` (`coating` only: a `services` or `consumables` id) |
+| `process_holds` | `list[ProcessHold]` |
 | `to_z` | `float` |
 | `depth_mm` | `float` |
 | `exit_mm` | `float` |
@@ -730,6 +745,29 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 | `approach` | `"rotary"` |
 | `angle_window_deg` | `[Number, Number]` |
 | `cut_plane` | `SawPlane` (saw cut-off only) |
+
+An `inspect` op may name several features (`feature = ["a", "b"]`) when one
+drawing limit is split across them: its `checks` and `inspection_methods` keys
+are requirement names, valid when any named feature exports them, and apply to
+every named feature that does. The inspection rule credits the op to each of
+those features; the sheet prints one row per requirement naming every feature.
+A list on any other action is `BadInput`.
+
+**Finishing route.** `deburr` and `coating` are manual bench actions. A
+`coating` op (black oxide, paint, oil) names its `process`: an outside
+`[services.<id>]` item or in-house `[consumables] <id>`. An absent process is
+unknown in `tool_resolves`, and an unlisted one is an error. A drawing
+`material.finish` with no `coating` op in the route is a job caution
+(`finish_route`, [inspection rules](rules-inspection.md)).
+
+A `ProcessHold` is `{ feature, requirement, band = [lo, hi], gauge, reason }`, all
+required: a shop limit tighter than the drawing, held for a stated process reason
+(a downstream fit, a pin that clocks a later setup). `requirement` must be one the
+feature exports (else `BadInput`), and `band` is in the drawing's units. The
+inspection rule errors when the band reaches outside the drawing band (limits
+included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
+inspection cell as `PROCESS HOLD — not a drawing limit: <reason>`, never as a
+drawing limit.
 
 `faces` explicitly declares this operation's cutting claims using bound STEP
 references. Omission uses the feature's default `faces`; `"unknown"` means
