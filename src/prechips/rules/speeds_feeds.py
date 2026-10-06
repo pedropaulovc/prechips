@@ -128,9 +128,7 @@ def _saw(subject, op, machine, tool, stock, material, material_class, cutting):
         descent = selected.get("feed_mm_min", UNKNOWN)
         row_unknown = uncertain(selected)
     low, high = _blade_bounds(machine)
-    speed = (
-        max(low, min(high, sfm)) if _positive(sfm) and number(low) and number(high) else UNKNOWN
-    )
+    speed = max(low, min(high, sfm)) if _positive(sfm) and number(low) and number(high) else UNKNOWN
     feed = descent if _positive(descent) else UNKNOWN
     numbers = {
         "material": material,
