@@ -564,13 +564,11 @@ class Plan(InputModel):
                 feature = features.get(name)
                 if feature is None or feature.kind != kind:
                     raise ValueError(
-                        f"{where} joint {role} {name!r} is not a plan joint feature of kind "
-                        f"{kind}."
+                        f"{where} joint {role} {name!r} is not a plan joint feature of kind {kind}."
                     )
                 if name in joined:
                     raise ValueError(
-                        f"{where} joint {role} {name!r} is already joined in setup "
-                        f"{joined[name]}."
+                        f"{where} joint {role} {name!r} is already joined in setup {joined[name]}."
                     )
                 joined[name] = setup.id
                 root = f"stock.{feature.component}"

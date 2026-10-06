@@ -110,7 +110,8 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
         joint = record(entry.get("joint"))
         cite.append(
             f"plan.joint_features.{joint['id']}: analytic transient cylinder"
-            if joint else f"features.{feature}: faces and requirements"
+            if joint
+            else f"features.{feature}: faces and requirements"
         )
         cite.extend(_citations(entry.get("cite")))
     if setup is not None:
@@ -290,7 +291,11 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                 _, away, invalid = op_claims(bundle, facts, setup, op)
                 if detail.get("joint_error"):
                     blocked = Finding(
-                        rule, subject, "error", {}, cite,
+                        rule,
+                        subject,
+                        "error",
+                        {},
+                        cite,
                         f"{subject}: {detail['joint_error']}.",
                     )
                 elif invalid:
@@ -423,7 +428,11 @@ def setup_contexts(bundle, rule):
         if blocked is None:
             if detail.get("assembly_error"):
                 blocked = Finding(
-                    rule, subject, "error", {}, cite,
+                    rule,
+                    subject,
+                    "error",
+                    {},
+                    cite,
                     f"{subject}: {detail['assembly_error']}.",
                 )
             elif inputs["kind"] == UNKNOWN:

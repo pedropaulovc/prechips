@@ -121,8 +121,7 @@ def test_joining_shared_material_ancestry_exits_three(tmp_path, refs):
     text = PLAN.replace('id = "S1"', 'id = "S0"\nstock_in = "stock"')
     text += (
         '\n[[setups]]\nid = "S1"\nstock_in = "S0"\n'
-        f'\n[[setups]]\nid = "S2"\nstock_in = {json.dumps(refs)}\n'
-        + JOINT
+        f'\n[[setups]]\nid = "S2"\nstock_in = {json.dumps(refs)}\n' + JOINT
     )
     path = bundle_files(tmp_path, text)
     out = tmp_path / "out"

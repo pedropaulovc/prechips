@@ -747,7 +747,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+            "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
@@ -8161,7 +8161,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "ad5fd7ff836be5c546ce5f4d9a3e9226adc5dda4237cd5ef1bf1c6c127d4cabb",
+  "hash": "4399d02e7f7d70593a83b52ab9227b822f7f8c9a41f97ec29de763cc6eb9cf78",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -8173,7 +8173,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+      "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
@@ -8189,7 +8189,7 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc",
   "verification": "planned"
 }

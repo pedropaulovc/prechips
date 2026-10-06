@@ -16,6 +16,7 @@ from test_arithmetic import (
 )
 from test_cli import run_cli
 
+from prechips.inputs import Bundle
 from prechips.rules import op_chain
 
 
@@ -51,14 +52,14 @@ def test_inch_shank_in_mm_collet_compares_physical_size(tmp_path, request, shank
 
 
 @pytest.mark.parametrize("drill_in,status", [("3/8", "pass"), ("13/32", "error")])
-def test_inch_tap_drill_matches_equivalent_mm_specification(drill_in, status):
-    class Bundle:
-        features = {
+def test_inch_tap_drill_matches_equivalent_mm_specification(tmp_path, drill_in, status):
+    bundle = Bundle(
+        features={
             "features": {
                 "t1": {"kind": "threaded_hole", "thread": "7/16-14", "tap_drill_mm": 9.525}
             }
-        }
-        plan = {
+        },
+        plan={
             "setups": [
                 {
                     "id": "S1",
@@ -69,10 +70,15 @@ def test_inch_tap_drill_matches_equivalent_mm_specification(drill_in, status):
                     ],
                 }
             ]
-        }
-        inventory = {"tools": {"drill": {"kind": "drill", "dia_in": drill_in, "verify": False}}}
-
-    [finding] = op_chain.evaluate(Bundle)
+        },
+        inventory={"tools": {"drill": {"kind": "drill", "dia_in": drill_in, "verify": False}}},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=tmp_path,
+    )
+    [finding] = op_chain.evaluate(bundle)
     assert finding.status == status
 
 

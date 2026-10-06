@@ -857,6 +857,7 @@
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.test-mill.envelope.travel.x",
         "inventory.machines.test-mill.envelope.travel.y"
       ],
@@ -916,8 +917,17 @@
           }
         ],
         "stock_bottom_z": 0.0,
-        "stock_extent_x_mm": 20.0,
-        "stock_extent_y_mm": "unknown",
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          -15.0,
+          -15.0,
+          0.0,
+          15.0,
+          15.0,
+          20.0
+        ],
+        "stock_extent_x_mm": 30.0,
+        "stock_extent_y_mm": 30.0,
         "stock_height_mm": 20.0,
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": 20.0,
@@ -927,13 +937,13 @@
         "travel_checks": {
           "x": {
             "fixture_mm": "unknown",
-            "part_mm": 20.0,
+            "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "fixture_mm": "unknown",
-            "part_mm": "unknown",
+            "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -949,6 +959,7 @@
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.test-mill.envelope.travel.x",
         "inventory.machines.test-mill.envelope.travel.y"
       ],
@@ -1008,8 +1019,17 @@
           }
         ],
         "stock_bottom_z": 0.0,
-        "stock_extent_x_mm": 20.0,
-        "stock_extent_y_mm": "unknown",
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          -15.0,
+          -15.0,
+          0.0,
+          15.0,
+          15.0,
+          20.0
+        ],
+        "stock_extent_x_mm": 30.0,
+        "stock_extent_y_mm": 30.0,
         "stock_height_mm": 20.0,
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": 20.0,
@@ -1019,13 +1039,13 @@
         "travel_checks": {
           "x": {
             "fixture_mm": "unknown",
-            "part_mm": 20.0,
+            "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "fixture_mm": "unknown",
-            "part_mm": "unknown",
+            "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -1582,22 +1602,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": 30.0,
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -1609,22 +1632,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": 30.0,
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -1636,22 +1662,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S3: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": 30.0,
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -2421,7 +2450,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
@@ -2429,9 +2458,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -2440,7 +2471,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
@@ -2448,9 +2479,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -2459,7 +2492,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S3: not a lathe setup.",
       "numbers": {
@@ -2467,9 +2500,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -2632,7 +2667,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "0260b8b6d431074ee8b80998bdf36b6b5eeff9b462ecf8e6c3a04489e15b9e9c",
+  "hash": "76e22fa2719625ea519a9b7913cd4ff41cdd142cc8d29370e5c332a3b39426d1",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2785,7 +2820,7 @@
       "sha256": "5174d5c76648360ba99e2e09ebec784f760c6a6bd052718364694a81ac60e0a5"
     }
   },
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac",
   "verification": "planned"
 }

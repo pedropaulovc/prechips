@@ -357,9 +357,9 @@ a joint cannot turn untouched blanks into prepared components.
 A surface joint needs no transient feature. It declares `kind = "surface"`,
 `method = "weld"` or `"silver_braze"`, nonempty `process`, `cite`, and a nonempty
 `interfaces` list. Each rectangle has model-space centre `at`, unit orthogonal
-`normal` and `x`, positive `size_mm = [width, height]`, and nonempty `cite`;
-`normal × x` is its height direction. `at` uses manifest units while `size_mm`
-is explicitly millimetres. These are author-declared internal butt interfaces,
+`normal` and `x`, positive `size_mm = [width, height]`, and nonempty `cite`.
+Both sizes are full side lengths in millimetres; `normal × x` is the height
+direction. `at` uses manifest units. These are author-declared internal butt interfaces,
 not STEP face references. `stock_in[0]` owns the negative-normal side;
 `stock_in[1]` owns the positive-normal side. Both received pieces must contact
 essentially the whole rectangle inside the final solid, with no overlapping bulk. Multiple

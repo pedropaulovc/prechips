@@ -174,12 +174,17 @@ def op_inputs(bundle, setup, op, finishing=None):
         )
     feature = record(bundle.feature_definitions.get(op.get("feature")))
     # Joint cuts use transient geometry, never the ordinary finished-face bore path.
-    if joint_cut is None and op.get("do") in HOLE_OPS and feature.get("kind") in {
-        "hole",
-        "counterbore",
-        "thread",
-        "threaded_hole",
-    }:
+    if (
+        joint_cut is None
+        and op.get("do") in HOLE_OPS
+        and feature.get("kind")
+        in {
+            "hole",
+            "counterbore",
+            "thread",
+            "threaded_hole",
+        }
+    ):
         # stock_state entry/top heights are machine-frame mm, never scaled by feature units.
         entry = UNKNOWN
         for stock_op, before, _ in stock_states(setup, bundle.feature_definitions):
@@ -940,11 +945,7 @@ def _write_cache(path, result):
 
 def _timing_attributes(timing, source):
     prefix = "kernel.original_" if source == "cache" else "kernel."
-    return {
-        prefix + name: timing[name]
-        for name in ("wall_ms", "cpu_ms")
-        if name in timing
-    }
+    return {prefix + name: timing[name] for name in ("wall_ms", "cpu_ms") if name in timing}
 
 
 def _export_timing(active, result, source):

@@ -605,9 +605,9 @@ radial_tip_end = [-10.0, -8.0, 0.0]
     (arc,) = known.numbers["arc_table"]
     # The 6 mm cutter offsets the R10 arc to R7 and the horizontal lands to Y-5.
     assert arc["cutter_centre_radius_mm"] == pytest.approx(7.0)
-    assert arc["rows"][0]["model_xy"] == pytest.approx([-24.0**0.5, -5.0])
+    assert arc["rows"][0]["model_xy"] == pytest.approx([-(24.0**0.5), -5.0])
     assert arc["rows"][-1]["model_xy"] == pytest.approx([24.0**0.5, -5.0])
-    assert arc["rows"][0]["setup_xy"] == pytest.approx([-24.0**0.5 - 5.0, -7.0])
+    assert arc["rows"][0]["setup_xy"] == pytest.approx([-(24.0**0.5) - 5.0, -7.0])
     linked = data.features["features"][linked_feature]
     if corruption == "missing":
         linked["radial_tip_end"] = "unknown"

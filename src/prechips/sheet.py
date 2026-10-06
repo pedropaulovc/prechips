@@ -428,9 +428,7 @@ class _Traveler:
             )
             stacks.setdefault(key, []).append(_text(stack.get("op")))
         for (projection, oal, holder, margin), ops in stacks.items():
-            all_ops = {
-                str(o["op"]) for o in setup["ops"] if o.get("do") not in MANUAL | SAW_OPS
-            }
+            all_ops = {str(o["op"]) for o in setup["ops"] if o.get("do") not in MANUAL | SAW_OPS}
             label = "Tools" if set(ops) == all_ops else "Ops " + ", ".join(ops)
             parts.append(
                 f"{label}: projection {projection}, OAL {oal}, holder length {holder}, "

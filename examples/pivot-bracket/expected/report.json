@@ -20,7 +20,7 @@
       "message": "S1:10: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 51
+        "certain_tool_hits": 38
       },
       "rule": "accessibility",
       "status": "error",
@@ -139,7 +139,7 @@
       "message": "S2:30: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 24
+        "certain_tool_hits": 17
       },
       "rule": "accessibility",
       "status": "error",
@@ -207,7 +207,7 @@
       ],
       "message": "S2:60: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "certain_holder_hits": 76,
+        "certain_holder_hits": 77,
         "certain_tool_hits": 0
       },
       "rule": "accessibility",
@@ -254,7 +254,7 @@
       ],
       "message": "S2:80: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "certain_holder_hits": 76,
+        "certain_holder_hits": 77,
         "certain_tool_hits": 0
       },
       "rule": "accessibility",
@@ -400,7 +400,7 @@
       "message": "S3:50: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
         "certain_holder_hits": 0,
-        "certain_tool_hits": 66
+        "certain_tool_hits": 67
       },
       "rule": "accessibility",
       "status": "error",
@@ -667,7 +667,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+            "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
@@ -4165,10 +4165,11 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S2: measured spindle stack and part/fixture travels fit.",
+      "message": "S2: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -4293,8 +4294,10 @@
           }
         ],
         "stock_bottom_z": -6.0,
-        "stock_extent_x_mm": 34.2,
-        "stock_extent_y_mm": 26.2,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_reason": "S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived",
+        "stock_extent_x_mm": "unknown",
+        "stock_extent_y_mm": "unknown",
         "stock_height_mm": 33.2,
         "stock_top_above_jaws_mm": 29.529700000000002,
         "stock_top_z": 27.2,
@@ -4304,20 +4307,20 @@
         "travel_checks": {
           "x": {
             "fixture_mm": 419.09999999999997,
-            "part_mm": 34.2,
-            "required_mm": 419.09999999999997,
+            "part_mm": "unknown",
+            "required_mm": "unknown",
             "travel_mm": 584.1999999999999
           },
           "y": {
             "fixture_mm": 177.79999999999998,
-            "part_mm": 26.2,
-            "required_mm": 177.79999999999998,
+            "part_mm": "unknown",
+            "required_mm": "unknown",
             "travel_mm": 222.25
           }
         }
       },
       "rule": "headroom",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S2"
     },
     {
@@ -4327,6 +4330,7 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
@@ -4416,8 +4420,10 @@
           }
         ],
         "stock_bottom_z": -24.2,
-        "stock_extent_x_mm": 34.2,
-        "stock_extent_y_mm": 18.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_reason": "S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived",
+        "stock_extent_x_mm": "unknown",
+        "stock_extent_y_mm": "unknown",
         "stock_height_mm": 25.2,
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": 1.0,
@@ -4427,14 +4433,14 @@
         "travel_checks": {
           "x": {
             "fixture_mm": 127.0,
-            "part_mm": 34.2,
-            "required_mm": 127.0,
+            "part_mm": "unknown",
+            "required_mm": "unknown",
             "travel_mm": 584.1999999999999
           },
           "y": {
             "fixture_mm": 101.6,
-            "part_mm": 18.0,
-            "required_mm": 101.6,
+            "part_mm": "unknown",
+            "required_mm": "unknown",
             "travel_mm": 222.25
           }
         }
@@ -5159,18 +5165,13 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:60: concave corner radii admit the selected cutter.",
+      "message": "S2:60: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          2.286
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 2.286,
+        "corner_radii_mm": [],
         "tool_radius_mm": 0.99
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S2:60"
     },
     {
@@ -5189,18 +5190,13 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:70: concave corner radii admit the selected cutter.",
+      "message": "S2:70: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          2.286
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 2.286,
+        "corner_radii_mm": [],
         "tool_radius_mm": 2.286
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S2:70"
     },
     {
@@ -5219,18 +5215,13 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:80: concave corner radii admit the selected cutter.",
+      "message": "S2:80: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          2.286
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 2.286,
+        "corner_radii_mm": [],
         "tool_radius_mm": 0.99
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S2:80"
     },
     {
@@ -5249,18 +5240,13 @@
         "inventory.tools.drill-index-115/#15: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S2:90: concave corner radii admit the selected cutter.",
+      "message": "S2:90: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          2.286
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 2.286,
+        "corner_radii_mm": [],
         "tool_radius_mm": 2.286
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S2:90"
     },
     {
@@ -5346,18 +5332,13 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:30: concave corner radii admit the selected cutter.",
+      "message": "S3:30: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          3.25
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 0.99
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S3:30"
     },
     {
@@ -5374,18 +5355,13 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:40: concave corner radii admit the selected cutter.",
+      "message": "S3:40: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          3.25
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 3.175
       },
       "rule": "internal_corner_radius",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S3:40"
     },
     {
@@ -5402,18 +5378,13 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "S3:50: a claimed internal corner is smaller than the selected cutter radius.",
+      "message": "S3:50: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "cad_sharp_corners": 0,
-        "corner_radii_mm": [
-          3.25
-        ],
-        "corner_radius_max_design_mm": "unknown",
-        "minimum_corner_radius_mm": 3.25,
+        "corner_radii_mm": [],
         "tool_radius_mm": 3.256
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:50"
     },
     {
@@ -9392,7 +9363,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "1c2372c72a0244fdb6087dcb083ebfd91d1cfb9a93902ffbdfd59967f973ba07",
+  "hash": "99c8a1033f2b87fe6f50378ee04a489e5334622597cee1d72354c17796a7664b",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -9404,7 +9375,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+      "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
@@ -9440,7 +9411,7 @@
       "sha256": "08c8952abc769500ecab074f75fae141abd94383cfa7b6adebbf789348c7ad9b"
     }
   },
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc",
   "verification": "planned"
 }

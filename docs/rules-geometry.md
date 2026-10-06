@@ -396,6 +396,11 @@ they are not approximated by a full-diameter cylindrical void. This limit
 does not change operations on exported features.
 Unsupported or unknown cutting actions leave named stock debt.
 
+Spigot shoulder/corner checks use the accumulated branch after all preceding
+turning operations, including a prior facing cut, not the original blank.
+Turning removal is limited to material still present at that operation; a
+repeat finishing pass with no remaining removal does not invalidate known stock.
+
 Rough allowances remain real material; a preparation is complete only after an
 applicable valid size-setting finishing cut and target-geometry verification.
 Completion follows the selected stock route, not chronological proximity,
@@ -424,8 +429,9 @@ straight-axis insertion sweep must be free of socket-stock obstruction;
 a captive or shouldered fit does not pass merely because its final pose fits.
 
 Surface joints use finite analytic rectangle `interfaces`, not finished STEP
-face references. Each must lie inside the final solid, with essentially full
-rectangle contact from both pieces and no bulk overlap. Plane-side ownership
+face references. Both authored sizes are full independent side lengths. Each
+must lie inside the final solid, with essentially full rectangle contact from
+both pieces and no bulk overlap. Plane-side ownership
 protects each component's final share during preparation: the first `stock_in`
 reference owns the negative-normal side, the second the positive-normal side.
 Several contact

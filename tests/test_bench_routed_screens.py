@@ -188,9 +188,7 @@ def row_for(data, sid="S3"):
         (170, 89.9, "error"),
     ],
 )
-def test_routed_travel_screen_uses_setup_entry_stock_box(
-    route, travel_x, travel_y, status
-):
+def test_routed_travel_screen_uses_setup_entry_stock_box(route, travel_x, travel_y, status):
     row = row_for(routed_bundle(route, travel_x, travel_y))
     assert row.status == status
     checks = row.numbers["travel_checks"]

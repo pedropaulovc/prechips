@@ -286,3 +286,104 @@ def test_validator_rejects_silently_dropped_or_cleared_missing_requirement(statu
     }
     with pytest.raises(ValueError, match="missing requirement inspection"):
         VALIDATOR["check_inspection_declarations"](plan, features, findings)
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        ("tool_resolves", "S4:30"),
+        ("inspection", "crank_socket:dia"),
+        ("joint_fit", "S4"),
+        ("joint_assembly", "S4"),
+    ],
+)
+def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(missing):
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    # The exported fixture's fit action has tool="unknown", but no cutting assembly.
+    VALIDATOR["check_subjects"](plan, features, findings)
+    del findings[missing]
+    with pytest.raises(ValueError, match=f"missing finding {missing[0]}:{missing[1]}"):
+        VALIDATOR["check_subjects"](plan, features, findings)
+
+
+@pytest.mark.parametrize(
+    "corruption", ["fit_pass", "missing", "socket", "assembly_pass", "branches"]
+)
+def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corruption):
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    VALIDATOR["check_joint_declarations"](plan, features, findings)
+    fit = findings["joint_fit", "S4"]
+    assembly = findings["joint_assembly", "S4"]
+    if corruption == "fit_pass":
+        fit["status"] = "pass"
+    elif corruption == "missing":
+        fit["numbers"]["missing"] = []
+    elif corruption == "socket":
+        fit["numbers"]["socket"] = fit["numbers"]["spigot"]
+    elif corruption == "assembly_pass":
+        assembly["status"] = "pass"
+    else:
+        assembly["numbers"]["stock_in"].reverse()
+    with pytest.raises(ValueError, match="joint|assembly"):
+        VALIDATOR["check_joint_declarations"](plan, features, findings)
+
+
+@pytest.mark.parametrize("corruption", ["shared_ancestor", "wrong_role", "finished_face"])
+def test_joint_identity_and_exported_face_contract_remain_strict(corruption):
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "S4")
+    if corruption == "shared_ancestor":
+        setup["stock_in"] = ["S3", "S2"]
+    elif corruption == "wrong_role":
+        setup["joint"]["socket"] = "crank_spigot"
+    else:
+        features["features"]["crank_boss"]["faces"] = ["plan.joint_features.crank_spigot"]
+    with pytest.raises(ValueError, match="ancestor|kind cylinder_bore|finished STEP faces"):
+        VALIDATOR["check_subjects"](plan, features, findings)
+
+
+@pytest.mark.parametrize("rule", ["joint_fit", "joint_assembly"])
+def test_unresolved_joint_is_required_without_shop_policy_permission(rule):
+    plan, features, _, _, _ = cone_inputs("built-up.toml")
+    report = {"findings": [{"rule": rule, "subject": "S4", "status": "unknown", "numbers": {}}]}
+    assert VALIDATOR["report_exit"](report, {"required": {}}, plan, features) == 4
+
+
+@pytest.mark.parametrize(
+    ("selector", "subject"),
+    [("holes", "crank_socket"), ("toleranced_features", "crank_spigot:dia")],
+)
+def test_required_selectors_include_transient_joint_requirements(selector, subject):
+    plan, features, _, _, _ = cone_inputs("built-up.toml")
+    finding = {"rule": "inspection", "subject": subject, "numbers": {}}
+    assert VALIDATOR["required_finding"](
+        finding, {"required": {"inspection": selector}}, plan, features
+    )
+
+
+def test_joint_checks_use_operative_requirements_without_inventing_drawing_fields():
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "S1")
+    op = {"op": 50, "feature": "crank_spigot", "checks": {"dia": "calipers"}}
+    setup["ops"].append(op)
+    VALIDATOR["check_inspection_declarations"](plan, features, findings)
+    op["missing_requirements"] = op.pop("checks")
+    with pytest.raises(ValueError, match="crank_spigot.dia is an exported requirement"):
+        VALIDATOR["check_inspection_declarations"](plan, features, findings)
+
+
+@pytest.mark.parametrize("kernel_status,status", [("unavailable", "unknown"), ("error", "error")])
+def test_joint_kernel_failure_cannot_be_approved_without_assembly_evidence(kernel_status, status):
+    plan, features, _, _, report = cone_inputs("built-up.toml")
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    assembly = findings["joint_assembly", "S4"]
+    assembly["numbers"] = {"kernel_status": kernel_status}
+    assembly["status"] = status
+    VALIDATOR["check_joint_declarations"](plan, features, findings)
+    assembly["status"] = "pass"
+    with pytest.raises(ValueError, match="unavailable kernel cannot approve"):
+        VALIDATOR["check_joint_declarations"](plan, features, findings)

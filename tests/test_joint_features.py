@@ -1,23 +1,38 @@
 """Plan-authored joint identity, tolerance extremes and consumer boundaries."""
 
+import dataclasses
 import hashlib
 import json
+import math
 import tomllib
 
 import pytest
+from test_envelope_m5 import bundle as envelope_bundle
+from test_envelope_m5 import measured
 from test_input_contracts import FEATURES, bundle_files
+from test_physics_m2 import turning_bundle
 from test_stock_routes import JOINT
 
+from prechips.findings import exit_code, is_required
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import (
+    accessibility,
+    coordinates,
     coverage,
+    envelope,
     finish_coverage,
+    geometry_common,
+    indexing,
     inspection,
     joints,
+    op_chain,
+    required_coverage,
     sizing,
     speeds_feeds,
     tip_endpoints,
+    travel,
     turned_profile,
+    turning_deflection,
 )
 
 
@@ -164,15 +179,15 @@ def test_valid_cylinders_still_need_collinear_positive_engagement(
         ('kind = "cylinder_bore"\n', ""),
         ('kind = "cylinder_bore"', 'kind = "unknown"'),
         ('cite = "AUTHOR\'S CHOICE: socket preparation"\n', ""),
-        ('cite = "AUTHOR\'S CHOICE: socket preparation"', 'cite = []'),
-        ('axis = [0, 0, 1]\n', ""),
-        ('axis = [0, 0, 1]', 'axis = [0, 0, 2]'),
-        ('dia = [10.0, 10.125]', 'dia = [10.125, 10.0]'),
-        ('nominal_dia = 10.0\n', ""),
-        ('nominal_dia = 10.0', 'nominal_dia = 11.0'),
-        ('depth = 5.0', 'depth = 0.0'),
-        ('depth = 5.0', 'depth = inf'),
-        ('thru = false', 'thru = "unknown"'),
+        ('cite = "AUTHOR\'S CHOICE: socket preparation"', "cite = []"),
+        ("axis = [0, 0, 1]\n", ""),
+        ("axis = [0, 0, 1]", "axis = [0, 0, 2]"),
+        ("dia = [10.0, 10.125]", "dia = [10.125, 10.0]"),
+        ("nominal_dia = 10.0\n", ""),
+        ("nominal_dia = 10.0", "nominal_dia = 11.0"),
+        ("depth = 5.0", "depth = 0.0"),
+        ("depth = 5.0", "depth = inf"),
+        ("thru = false", 'thru = "unknown"'),
         ('component = "body"', 'component = "missing"'),
         ('socket = "socket"', 'socket = "missing"'),
         ('socket = "socket"', 'socket = "spigot"'),
@@ -193,7 +208,9 @@ def test_malformed_joint_identity_or_known_geometry_is_bad_input(tmp_path, befor
 
 
 def test_through_socket_still_requires_finite_positive_depth(tmp_path):
-    text = _plan().replace("thru = false", "thru = true", 1).replace("depth = 5.0", "depth = -1.0", 1)
+    text = (
+        _plan().replace("thru = false", "thru = true", 1).replace("depth = 5.0", "depth = -1.0", 1)
+    )
     with pytest.raises(BadInput):
         _load(tmp_path, text)
 
@@ -201,11 +218,11 @@ def test_through_socket_still_requires_finite_positive_depth(tmp_path):
 @pytest.mark.parametrize(
     "before, after",
     [
-        ('nominal_dia = 10.0', 'nominal_dia = "unknown"'),
-        ('dia = [10.0, 10.125]', 'dia = "unknown"'),
-        ('axis = [0, 0, 1]', 'axis = "unknown"'),
-        ('depth = 5.0', 'depth = "unknown"'),
-        ('clearance_mm = [0.0, 0.25]', 'clearance_mm = "unknown"'),
+        ("nominal_dia = 10.0", 'nominal_dia = "unknown"'),
+        ("dia = [10.0, 10.125]", 'dia = "unknown"'),
+        ("axis = [0, 0, 1]", 'axis = "unknown"'),
+        ("depth = 5.0", 'depth = "unknown"'),
+        ("clearance_mm = [0.0, 0.25]", 'clearance_mm = "unknown"'),
     ],
 )
 def test_unknown_numeric_joint_geometry_is_debt_not_an_inferred_fit(tmp_path, before, after):
@@ -259,9 +276,9 @@ def test_every_array_requires_a_joint_and_exactly_two_pieces(tmp_path, source):
     [
         ('kind = "surface"', 'kind = "unknown"'),
         ('method = "weld"', 'method = "press"'),
-        ('normal = [1, 0, 0]', 'normal = [2, 0, 0]'),
-        ('x = [0, 1, 0]', 'x = [1, 0, 0]'),
-        ('size_mm = [40, 20]', 'size_mm = [40, 0]'),
+        ("normal = [1, 0, 0]", "normal = [2, 0, 0]"),
+        ("x = [0, 1, 0]", "x = [1, 0, 0]"),
+        ("size_mm = [40, 20]", "size_mm = [40, 0]"),
         ('cite = "Internal butt interface"', 'cite = ""'),
     ],
 )
@@ -300,6 +317,261 @@ def test_transient_socket_uses_real_finishing_size_limits_without_mutating_manif
     assert any("plan.joint_features.socket" in cite for cite in row.cite)
 
 
+def test_transient_socket_drives_transformed_coordinates_and_measured_mill_envelopes(tmp_path):
+    features = (
+        FEATURES.replace('frames = "unknown"\n', "")
+        + """
+[frames.model]
+origin = [0, 0, 0]
+x = [1, 0, 0]
+y = [0, 1, 0]
+z = [0, 0, 1]
+binding = "nominal"
+[frames.drill]
+origin = [1, 2, 3]
+x = [0, 1, 0]
+y = [-1, 0, 0]
+z = [0, 0, 1]
+binding = "nominal"
+"""
+    )
+    text = (
+        _plan()
+        .replace("at = [0, 0, 0]", "at = [4, 6, 8]")
+        .replace("axis = [0, 0, 1]", "axis = [0, 0, -1]")
+        .replace("depth = 5.0", "depth = 10.0")
+    )
+    bundle = _load(tmp_path, text, features)
+    fixture = envelope_bundle()
+    bundle.inventory.update(fixture.inventory)
+    bundle.inventory["tools"]["drill"] = {
+        "kind": "drill",
+        "dia_mm": measured(10.0),
+        "point_angle": measured(90.0),
+        "projection_mm": {"holder": measured(55.0)},
+        "verify": False,
+    }
+    bundle.plan["stock"].update(fixture.plan["stock"])
+    setup = bundle.plan["setups"][0]
+    setup.update(
+        machine="mill",
+        frame="drill",
+        hold={"fixture": "vise"},
+        stock_state={"top_z": 5.0, "bottom_z": -15.0},
+    )
+    setup["ops"][0].update(holder="holder", depth_mm=2.0, approach_mm=5.0)
+
+    targets = next(row for row in coordinates.evaluate(bundle) if row.subject == "B")
+    assert targets.status == "pass"
+    (target,) = targets.numbers["rows"]
+    assert target["feature"] == "socket"
+    assert target["model"] == pytest.approx([4.0, 6.0, 8.0])
+    assert target["setup"] == pytest.approx([4.0, -3.0, 5.0])
+
+    clearance = next(row for row in envelope.evaluate(bundle) if row.subject == "B")
+    assert clearance.status == "pass"
+    (stack,) = clearance.numbers["stacks"]
+    assert stack["stack_mm"] == pytest.approx(145.0)
+    assert stack["tip_z_bounds_mm"] == pytest.approx([-2.0, 10.0])
+    assert stack["spindle_nose_table_band_mm"] == pytest.approx([138.0, 150.0])
+    assert stack["lower_margin_mm"] == pytest.approx(108.0)
+    assert stack["upper_margin_mm"] == pytest.approx(50.0)
+
+    span = next(row for row in travel.evaluate(bundle) if row.subject == "B")
+    assert span.status == "pass"
+    (operation,) = span.numbers["operations"]
+    assert operation["feature"] == "socket"
+    assert operation["xy_cutter_bounds_mm"] == {"x": [4.0, 4.0], "y": [-3.0, -3.0]}
+    assert operation["z_bounds_mm"] == pytest.approx([83.0, 95.0])
+    assert operation["endpoint"]["point_mm"] == pytest.approx(5.0)
+    assert operation["endpoint"]["tip_z"] == pytest.approx(-2.0)
+    assert {
+        axis: values["required_mm"] for axis, values in span.numbers["travel_checks"].items()
+    } == pytest.approx({"x": 0.0, "y": 0.0, "z": 12.0})
+
+
+def test_joint_cylinder_chain_credits_only_final_preparation(tmp_path):
+    bundle = _load(tmp_path)
+    setup = bundle.plan["setups"][0]
+    setup["ops"].insert(0, {"op": 5, "do": "spot", "feature": "socket"})
+    setup["ops"].append({"op": 20, "do": "ream", "feature": "socket"})
+    rows = {row.subject: row for row in op_chain.evaluate(bundle)}
+    assert rows["socket"].status == "pass"
+    assert rows["socket"].numbers == {
+        "kind": "hole",
+        "ops": ["B:5", "B:10", "B:20"],
+        "chain": ["spot", "drill", "ream"],
+    }
+    assert rows["spigot"].status == "not_applicable"
+    assert rows["spigot"].numbers == {
+        "kind": "boss",
+        "ops": ["P:10"],
+        "chain": ["finish_turn"],
+    }
+    # A pilot does not finish the eventual reamed socket; the independent spigot does.
+    assert geometry_common.finishing_subjects(bundle) == {"B:20", "P:10"}
+
+
+def test_transient_socket_identity_accepts_exact_dividing_head_landing(tmp_path):
+    features = (
+        FEATURES
+        + """
+[general_tolerances]
+angular_deg = 0.02
+cite = "Scratch title block: angular tolerance"
+"""
+    )
+    bundle = _load(tmp_path, features=features)
+    bundle.plan["setups"][0]["hold"] = {
+        "index": {"fixture": "head", "feature": "socket", "positions": 1, "angle_deg": 40.0}
+    }
+    bundle.inventory["fixtures"] = {
+        "head": {
+            "kind": "dividing_head",
+            "worm_ratio": 40.0,
+            "plate_holes": {"A": [15], "B": [18]},
+            "verify": False,
+        }
+    }
+    row = next(row for row in indexing.evaluate(bundle) if row.subject == "B")
+    assert row.status == "pass"
+    assert row.numbers["feature"] == "socket"
+    assert (row.numbers["plate"], row.numbers["circle"]) == ("B", 18)
+    assert (row.numbers["turns"], row.numbers["spaces"]) == (4, 8)
+    assert row.numbers["actual_angle_deg"] == 40.0
+    assert row.numbers["position_errors_deg"] == [0.0]
+    assert row.numbers["max_position_error_deg"] == 0.0
+    assert row.numbers["tolerance_deg"] == 0.02
+
+
+@pytest.mark.parametrize(
+    "selector, required, known_diameter",
+    [
+        ("holes", {"socket"}, True),
+        ("holes", {"socket"}, False),
+        ("toleranced_features", {"socket", "spigot"}, True),
+        ("toleranced_features", {"socket", "spigot"}, False),
+    ],
+    ids=[
+        "holes-known-band",
+        "holes-numeric-unknown",
+        "toleranced-known-band",
+        "toleranced-numeric-unknown",
+    ],
+)
+def test_transient_requirement_selectors_keep_missing_inspection_as_readiness_debt(
+    tmp_path, selector, required, known_diameter
+):
+    text = _plan()
+    if not known_diameter:
+        text = text.replace("dia = [10.0, 10.125]", 'dia = "unknown"', 1)
+    bundle = _load(tmp_path, text)
+    bundle = dataclasses.replace(bundle, policy={"required": {"inspection": selector}})
+    for setup in bundle.plan["setups"][:2]:
+        setup["ops"][0]["checks"] = {"dia": "unknown"}
+    findings = inspection.evaluate(bundle)
+    rows = {row.subject: row for row in findings}
+    assert rows["socket:dia"].status == rows["spigot:dia"].status == "unknown"
+    assert rows["socket:dia"].numbers["limits"] == ([10.0, 10.125] if known_diameter else "unknown")
+    assert {
+        name
+        for name in ("socket", "spigot")
+        if is_required(rows[f"{name}:dia"], bundle.policy, bundle)
+    } == required
+    assert exit_code(findings, bundle.policy, bundle) == 4
+    missing = required_coverage(bundle, [])
+    assert {row.subject for row in missing} == required
+    assert all(row.status == "unknown" for row in missing)
+    assert required_coverage(bundle, findings) == []
+
+
+@pytest.mark.parametrize(
+    "stickout, nominal, status",
+    [(50.0, 9.875, "pass"), (100.0, 9.875, "warn"), (50.0, "unknown", "unknown")],
+    ids=["short-span", "long-span", "unknown-nominal"],
+)
+def test_transient_spigot_controls_numeric_static_deflection(tmp_path, stickout, nominal, status):
+    text = _plan().replace("nominal_dia = 9.875", f"nominal_dia = {json.dumps(nominal)}")
+    bundle = _load(tmp_path, text)
+    fixture = turning_bundle()
+    bundle.plan["stock"].update(fixture.plan["stock"])
+    bundle.cutting_data.update(fixture.cutting_data)
+    bundle.inventory["machines"].update(fixture.inventory["machines"])
+    setup = bundle.plan["setups"][1]
+    setup.update(machine="lathe", hold={"stickout_mm": stickout, "support": "none"})
+    setup["ops"][0].update(doc_mm=1.0, feed_mm_rev=0.1)
+    row = next(row for row in turning_deflection.evaluate(bundle) if row.subject == "P:10")
+    assert row.status == status
+    assert row.numbers["acceptance_band_mm"] == [9.875, 10.0]
+    assert row.numbers["acceptance_threshold_mm"] == pytest.approx(0.0625)
+    if nominal == "unknown":
+        assert row.numbers["diameter_mm"] == "unknown"
+        assert row.numbers["deflection_mm"] == "unknown"
+    else:
+        inertia = math.pi * 9.875**4 / 64
+        assert row.numbers["diameter_mm"] == 9.875
+        assert row.numbers["force_n"] == pytest.approx(100.0)
+        assert row.numbers["inertia_mm4"] == pytest.approx(inertia)
+        assert row.numbers["deflection_mm"] == pytest.approx(
+            100.0 * stickout**3 / (3 * 200_000 * inertia)
+        )
+
+
+@pytest.mark.parametrize(
+    "feature, sid, failure",
+    [
+        ("socket", "B", "mapping"),
+        ("spigot", "P", "mapping"),
+        ("socket", "B", "direction"),
+        ("spigot", "P", "direction"),
+    ],
+    ids=["socket-mapping", "spigot-mapping", "socket-direction", "spigot-direction"],
+)
+def test_analytic_joint_claim_error_precedes_unmeasured_cutting_geometry(
+    tmp_path, feature, sid, failure
+):
+    features = (
+        FEATURES.replace('frames = "unknown"\n', "")
+        + """
+[frames.model]
+origin = [0, 0, 0]
+x = [1, 0, 0]
+y = [0, 1, 0]
+z = [0, 0, 1]
+binding = "nominal"
+"""
+    )
+    bundle = _load(tmp_path, features=features)
+    for setup in bundle.plan["setups"][:2]:
+        setup["frame"] = "model"
+        setup["machine"] = "lathe" if setup["id"] == "P" else "mill"
+    bundle.inventory["machines"]["lathe"] = {"kind": "lathe", "verify": False}
+    label = f"plan.joint_features.{feature}"
+    bundle = dataclasses.replace(
+        bundle,
+        kernel={
+            "status": "ok",
+            "features": {feature: [1]},
+            "mapping_errors": {label: "analytic cylinder could not be mapped"}
+            if failure == "mapping"
+            else {},
+            "ops": {
+                f"{sid}:10": {
+                    "approach": "turning" if sid == "P" else "axial",
+                    "claimed_indices": [],
+                    "claim_errors": [label] if failure == "direction" else [],
+                }
+            },
+        },
+    )
+    if failure == "mapping":
+        # A numeric transient index must not rescue its invalid analytic target.
+        assert geometry_common.mapped_feature(bundle, bundle.kernel, feature) == (None, [label])
+    row = next(row for row in accessibility.evaluate(bundle) if row.subject == f"{sid}:10")
+    assert row.status == "error"
+    assert row.numbers == {"mapping_errors" if failure == "mapping" else "claim_errors": [label]}
+
+
 @pytest.mark.parametrize("unit, factor", [("mm", 1.0), ("in", 25.4)])
 @pytest.mark.parametrize(
     "resolution_mm, verify, measured, status",
@@ -322,8 +594,8 @@ def test_measured_gauge_resolution_preserves_capability_and_trust(
     )
     (tmp_path / "inventory.toml").write_text(
         '[gauges.gauge]\nkind = "bore_gauge"\nrange_mm = [0, 20]\nverify = false\n'
-        f'resolution_{unit} = {{value = {resolution_mm / factor}, '
-        f'verify = {json.dumps(verify)}, measured = {measurement}}}\n',
+        f"resolution_{unit} = {{value = {resolution_mm / factor}, "
+        f"verify = {json.dumps(verify)}, measured = {measurement}}}\n",
         encoding="utf-8",
     )
     bundle = load_bundle(path)
@@ -353,10 +625,9 @@ def test_transient_completion_cannot_credit_final_faces_even_with_explicit_overr
         bundle.plan["setups"][2]["ops"].append(
             {"op": 20, "do": "finish_profile", "feature": "subject"}
         )
-    object.__setattr__(
+    bundle = dataclasses.replace(
         bundle,
-        "kernel",
-        {
+        kernel={
             "status": "ok",
             "faces": [{"ref": "#1", "index": 0}],
             "mapping": {"#1": 0},
@@ -418,22 +689,24 @@ def test_inch_spigot_nominal_drives_lathe_rpm_in_physical_units(tmp_path):
     setup["ops"][0]["tool"] = "turn"
     bundle.plan["stock"]["material"] = "1018"
     bundle.inventory["machines"]["lathe"] = {
-        "kind": "lathe", "spindle": {"ranges_rpm": [[70, 2200]]}, "verify": False
+        "kind": "lathe",
+        "spindle": {"ranges_rpm": [[70, 2200]]},
+        "verify": False,
     }
-    bundle.inventory["tools"] = {
-        "turn": {"kind": "turning", "material": "HSS", "verify": False}
-    }
+    bundle.inventory["tools"] = {"turn": {"kind": "turning", "material": "HSS", "verify": False}}
     bundle.cutting_data.update(
         aliases={"1018": "low_carbon_steel"},
-        cut=[{
-            "material_class": "low_carbon_steel",
-            "tool_material": "HSS",
-            "operation": "finish_turn",
-            "diameter_range": [25.0, 26.0],
-            "sfm": 100.0,
-            "feed_mm_rev": 0.1,
-            "cite": "Test cutting table: one-inch steel turning",
-        }],
+        cut=[
+            {
+                "material_class": "low_carbon_steel",
+                "tool_material": "HSS",
+                "operation": "finish_turn",
+                "diameter_range": [25.0, 26.0],
+                "sfm": 100.0,
+                "feed_mm_rev": 0.1,
+                "cite": "Test cutting table: one-inch steel turning",
+            }
+        ],
     )
     row = next(row for row in speeds_feeds.evaluate(bundle) if row.subject == "P:10")
     assert row.status == "pass"
@@ -446,13 +719,15 @@ def test_transient_profile_exists_only_on_prepared_component_lineage(tmp_path):
     bundle = _load(tmp_path)
     preparation = bundle.plan["setups"][1]
     uncut = {
-        "id": "P0", "stock_in": "stock.boss",
+        "id": "P0",
+        "stock_in": "stock.boss",
         "ops": [{"op": 10, "do": "inspect", "feature": "subject"}],
     }
     bundle.plan["setups"].insert(0, uncut)
     preparation["stock_in"] = "P0"
     after = {
-        "id": "P1", "stock_in": "P",
+        "id": "P1",
+        "stock_in": "P",
         "ops": [{"op": 10, "do": "inspect", "feature": "subject"}],
     }
     bundle.plan["setups"].insert(3, after)
@@ -473,14 +748,17 @@ def test_transient_profile_exists_only_on_prepared_component_lineage(tmp_path):
 def test_rotated_transient_profile_uses_actual_axis_and_spindle_line(
     tmp_path, sign, at, axis, expected
 ):
-    features = FEATURES.replace('frames = "unknown"\n', "") + f'''
+    features = (
+        FEATURES.replace('frames = "unknown"\n', "")
+        + f"""
 [frames.turn]
 origin = [1, 2, 3]
 x = [0, 1, 0]
 y = [0, 0, {sign}]
 z = [{sign}, 0, 0]
 binding = "nominal"
-'''
+"""
+    )
     text = (
         _plan()
         .replace("at = [0, 0, 0]", f"at = {json.dumps(at)}")
@@ -490,13 +768,23 @@ binding = "nominal"
     bundle = _load(tmp_path, text, features)
     # Finished-STEP measurements must never override transient preparation,
     # even if a kernel fact happens to carry the same feature identity.
-    bundle.kernel = {
-        "status": "ok",
-        "setups": {"P": {"revolved": {"spigot": {
-            "z_mm": [100.0, 200.0], "radii_mm": [50.0, 50.0],
-            "end_radii_mm": [50.0, 50.0],
-        }}}},
-    }
+    bundle = dataclasses.replace(
+        bundle,
+        kernel={
+            "status": "ok",
+            "setups": {
+                "P": {
+                    "revolved": {
+                        "spigot": {
+                            "z_mm": [100.0, 200.0],
+                            "radii_mm": [50.0, 50.0],
+                            "end_radii_mm": [50.0, 50.0],
+                        }
+                    }
+                }
+            },
+        },
+    )
     span = turned_profile.feature_span(bundle, bundle.plan["setups"][1], "spigot")
     profile = turned_profile.exposed_profile(bundle, bundle.plan["setups"][1])
     if expected is None:
@@ -517,9 +805,7 @@ binding = "nominal"
 def test_nested_two_reference_assembly_cannot_hide_a_third_supply_component(tmp_path):
     text = _plan()
     start, stop = text.index("[joint_features.socket]"), text.index("[[setups]]")
-    text = (
-        text[:start] + '[[stock.components]]\nid = "third"\n' + text[stop:]
-    )
+    text = text[:start] + '[[stock.components]]\nid = "third"\n' + text[stop:]
     text = text.replace('feature = "socket"', 'feature = "subject"').replace(
         'feature = "spigot"', 'feature = "subject"'
     )

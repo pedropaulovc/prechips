@@ -1190,6 +1190,26 @@ sheet.
    numeric preparation/fit facts; the complete authored example route is separate.
    Manual-only bench setups have no zero/DRO/headroom screen, and routed mill
    headroom uses the actual setup-entry stock bbox rather than the raw blank.
+   **Scoped joint proof, 2026-10-06:** **449** affected host/native behavior
+   tests passed under FreeCAD 1.1, including finite-spigot late material loss,
+   rotated authored spans, full rectangle extents/contact and bulk-overlap refusal.
+   Actual synthetic bench `traveler` runs gave exit **0**, a passing
+   `joint_assembly` and one setup image for a known full butt interface;
+   changing its size to `"unknown"` gave exit **4**, unknown assembly and no
+   setup image. Both emitted traveler HTML. An authored 10×10 mm interface that
+   crossed the finished exterior now refused assembly (exit **2**, no image),
+   rather than being shortened to 10×2 mm and approved. The complete cone's
+   normalized native S1 prefix, with 20/25 mm grips, retained known stock after
+   its spring pass and had no tool/holder hits or false shoulder debt.
+   This is local engine evidence, not physical fixture or first-article approval.
+   **Consolidated joint-worktree gate:** locked `uv sync`, repository formatting
+   (**126** files) and the example validator (**27** TOML files; twelve traveler
+   bundles plus comparison) passed. The required-FreeCAD suite recorded
+   **1857 passed**, with one imported stale fixture-default assertion failing.
+   The repaired reference-pilot case passed after removing blanket fixture/default
+   approval assertions; its actual collision findings and authored data were not
+   changed. Remaining Ruff diagnostics are four unchanged base findings: three
+   native `zip` calls without `strict=` and one long raw FreeCAD author-script line.
    Each output subtracts its setup's derivable removals from its selected input.
    Facing's planar outer-wire sweep clears raw caps over hole mouths while
    preserving finished islands. Generic bounded clearing preserves known

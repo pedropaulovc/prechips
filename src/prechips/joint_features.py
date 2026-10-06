@@ -355,9 +355,7 @@ def setup_joint(bundle, setup: dict) -> dict | None:
         "engagement": result["engagement"],
         "fit_error": describe(result["violations"]) or None,
         "reason": (
-            f"joint geometry unknown: {', '.join(result['missing'])}"
-            if result["missing"]
-            else None
+            f"joint geometry unknown: {', '.join(result['missing'])}" if result["missing"] else None
         ),
     }
 
@@ -409,9 +407,7 @@ def joint_operation(bundle, op: dict, finishing: bool) -> dict | None:
             "features"
         )
     elif action not in _CYLINDER_CUTS[kind] | _PROFILE_CUTS[kind]:
-        reason = (
-            f"{action} has no supported physical cut profile on {label(joint['id'])} ({kind})"
-        )
+        reason = f"{action} has no supported physical cut profile on {label(joint['id'])} ({kind})"
     elif action in _TOOL_SIZED:
         tool = measurement_item(bundle, "tools", op.get("tool"))
         fact = length_fact(tool, "dia", require_measured=False)

@@ -1,7 +1,8 @@
 """Validate exported/reference bundles; this is not a machining checker.
 
 Run: uv run python scripts/validate_examples.py
-Only the standard library is used, including Python 3.11+ tomllib.
+Shared input definitions determine operation applicability and required joint debt;
+finished-face coverage still uses only the original exported manifest.
 
 Z pickups use stock_state.top_z for face = "top"; other named touch surfaces
 must supply edge_mm in the zero recipe. Report values never define the edge.
@@ -18,6 +19,12 @@ import tomllib
 from fractions import Fraction
 from html.parser import HTMLParser
 from pathlib import Path
+from types import SimpleNamespace
+
+from prechips.findings import ALWAYS_REQUIRED
+from prechips.joint_features import LABEL_PREFIX, feature_definitions, fit, label
+from prechips.model import Plan, tolerance_requirements
+from prechips.rules.resolution import MANUAL, SAW_OPS
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
@@ -72,27 +79,6 @@ SETUP_RULES = {
     "stickout",
     "stock_diameter",
     "indexing",
-}
-TOLERANCES = {
-    "dia",
-    "position_dia",
-    "angularity_dia",
-    "finish_ra",
-    "depth",
-    "length",
-    "width",
-    "height",
-    "thickness",
-    "separation",
-    "coaxiality_dia",
-    "height_above_pivot",
-    "radius",
-    "station",
-    "arc_len",
-    "bottom_radius",
-    "bottom_arc_len",
-    "tip_land",
-    "land_angle_deg",
 }
 SET_KINDS = {
     "endmill_set",
@@ -521,8 +507,13 @@ def input_paths(folder: Path, plan: dict, plan_filename: str = "plan.toml") -> d
 
 
 def required_finding(finding: dict, policy: dict, plan: dict, features: dict) -> bool:
-    """Match policy subjects, including an explicit setup's operation subjects."""
-    selector = policy["required"].get(finding["rule"])
+    """Match checker readiness, including non-waivable physical joint rules."""
+    if finding["rule"] in ALWAYS_REQUIRED:
+        return True
+    required = policy.get("required", "unknown")
+    if required == "unknown":
+        return True
+    selector = required.get(finding["rule"])
     subject = finding["subject"]
     if selector is None:
         return False
@@ -535,38 +526,20 @@ def required_finding(finding: dict, policy: dict, plan: dict, features: dict) ->
     if selector == "setups":
         return subject in {setup["id"] for setup in plan["setups"]}
     if selector in {"holes", "toleranced_features"}:
-        feature = features["features"].get(subject.split(":", 1)[0], {})
+        feature = feature_definitions(plan, features).get(subject.split(":", 1)[0], {})
         if selector == "holes":
             return feature.get("kind") in {"hole", "counterbore", "thread"}
-        requirements = feature.get("requirements", "unknown")
-        if requirements == "unknown":
-            return True
-        for requirement in requirements:
-            value = feature.get(requirement)
-            band = (
-                isinstance(value, list)
-                and len(value) == 2
-                and all(
-                    item == "unknown"
-                    or isinstance(item, (int, float))
-                    and not isinstance(item, bool)
-                    for item in value
-                )
-            )
-            if (
-                requirement == "unknown"
-                or requirement in TOLERANCES | {"groove_width", "groove_depth"}
-                or band
-            ):
-                return True
-        return False
+        return bool(tolerance_requirements(feature))
     return subject == selector or subject.startswith(selector + ":")
 
 
 def report_exit(report: dict, policy: dict, plan: dict, features: dict) -> int:
     if any(f["status"] == "error" for f in report["findings"]):
         return 2
-    if any(f["numbers"].get("kernel_unavailable") for f in report["findings"]):
+    if any(f["numbers"].get("kernel_unavailable") is True for f in report["findings"]):
+        return 4
+    required = policy.get("required", "unknown")
+    if required == "unknown":
         return 4
     if any(
         required_finding(f, policy, plan, features)
@@ -574,10 +547,15 @@ def report_exit(report: dict, policy: dict, plan: dict, features: dict) -> int:
         for f in report["findings"]
     ):
         return 4
+    if set(required) - {finding["rule"] for finding in report["findings"]}:
+        return 4
     return 0
 
 
 def check_subjects(plan: dict, features: dict, findings: dict) -> None:
+    Plan.model_validate(plan)
+    definitions = feature_definitions(plan, features)
+
     def has(rule: str, subject: str) -> None:
         require((rule, subject) in findings, f"missing finding {rule}:{subject}")
 
@@ -594,19 +572,27 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
             feature.get("faces") == "unknown" or isinstance(feature.get("faces"), list),
             f"{name}: faces must be set or unknown",
         )
+        require(
+            not isinstance(feature.get("faces"), list)
+            or all(not str(face).startswith(LABEL_PREFIX) for face in feature["faces"]),
+            f"{name}: transient joint labels cannot name finished STEP faces",
+        )
         if requirements:
             require(isinstance(feature.get("precision"), dict), f"{name}: per-dimension precision")
-        for rule in FEATURE_RULES:
+        has("datum_consistency", name)
+    for name, feature in definitions.items():
+        for rule in FEATURE_RULES - {"datum_consistency"}:
             has(rule, name)
-        tolerances = set(requirements) & TOLERANCES
-        if "unknown" in requirements:
+        requirements = feature.get("requirements", "unknown")
+        tolerances = set(tolerance_requirements(feature)) - {"unknown"}
+        if requirements == "unknown" or "unknown" in requirements:
             subject = f"{name}:unknown"
             has("inspection", subject)
             require(
                 findings["inspection", subject]["status"] == "unknown",
                 f"{subject}: unresolved requirement must remain unknown",
             )
-        if not tolerances and "unknown" not in requirements:
+        if not tolerances and requirements != "unknown" and "unknown" not in requirements:
             has("inspection", name)
         for requirement in tolerances:
             subject = f"{name}:{requirement}"
@@ -648,20 +634,27 @@ def check_subjects(plan: dict, features: dict, findings: dict) -> None:
         ops = [op["op"] for op in setup["ops"]]
         require(len(ops) == len(set(ops)), f"{sid}: duplicate operation number")
         for op in setup["ops"]:
-            require(op["feature"] in features["features"], f"{sid}: undeclared feature")
+            if op["do"] not in SAW_OPS or "feature" in op:
+                require(op.get("feature") in definitions, f"{sid}: undeclared feature")
             has("speeds_feeds", f"{sid}:{op['op']}")
             has("turning_deflection", f"{sid}:{op['op']}")
             has("engagement", f"{sid}:{op['op']}")
-            if "tool" in op:
-                require("holder" in op, f"{sid}:{op['op']}: omitted holder")
+            if op["do"] not in MANUAL:
+                if "tool" in op and op["do"] not in SAW_OPS:
+                    require("holder" in op, f"{sid}:{op['op']}: omitted holder")
                 has("tool_resolves", f"{sid}:{op['op']}")
+        if isinstance(setup.get("stock_in"), list):
+            has("joint_assembly", sid)
+            if setup["joint"]["kind"] == "cylindrical":
+                has("joint_fit", sid)
 
 
 def check_inspection_declarations(plan: dict, features: dict, findings: dict) -> None:
+    definitions = feature_definitions(plan, features)
     for setup in plan["setups"]:
         for op in setup["ops"]:
             name = op["feature"]
-            requirements = features["features"][name].get("requirements", "unknown")
+            requirements = definitions[name].get("requirements", "unknown")
             exported = set(requirements) if isinstance(requirements, list) else set()
             for requirement in op.get("checks", {}):
                 require(
@@ -680,6 +673,56 @@ def check_inspection_declarations(plan: dict, features: dict, findings: dict) ->
                     and row.get("numbers", {}).get("missing_requirement") is True,
                     f"{subject}: missing requirement inspection must remain explicitly unknown",
                 )
+
+
+def check_joint_declarations(plan: dict, features: dict, findings: dict) -> None:
+    """Keep assembly identities and unresolved joint geometry explicit in the report."""
+    bundle = SimpleNamespace(plan=plan, features=features)
+    for setup in plan["setups"]:
+        if not isinstance(setup.get("stock_in"), list):
+            continue
+        sid = setup["id"]
+        joint = setup["joint"]
+        assembly = findings["joint_assembly", sid]
+        if "kernel_status" in assembly["numbers"]:
+            expected_status = (
+                "error" if assembly["numbers"]["kernel_status"] == "error" else "unknown"
+            )
+            require(
+                assembly["status"] == expected_status,
+                f"{sid}: unavailable kernel cannot approve the assembly",
+            )
+        else:
+            require(
+                assembly["numbers"].get("joint") == joint["kind"]
+                and assembly["numbers"].get("stock_in") == setup["stock_in"],
+                f"{sid}: joint assembly identities differ from the plan",
+            )
+        if joint["kind"] != "cylindrical":
+            continue
+        result = fit(bundle, setup)
+        engagement = result["engagement"]
+        expected = {
+            "socket": label(joint["socket"]),
+            "spigot": label(joint["spigot"]),
+            "fit": joint["fit"],
+            "method": joint["method"],
+            "band_mm": result["band_mm"],
+            "guaranteed_mm": result["guaranteed_mm"],
+            "engagement_mm": engagement["depth_mm"] if engagement else "unknown",
+            "engagement_dia_mm": engagement["diameter_mm"] if engagement else "unknown",
+            "violations": result["violations"],
+            "missing": result["missing"],
+        }
+        row = findings["joint_fit", sid]
+        require(row["numbers"] == expected, f"{sid}: joint fit evidence differs from the plan")
+        status = "unknown" if result["missing"] else "error" if result["violations"] else "pass"
+        require(row["status"] == status, f"{sid}: joint fit status hides declared geometry debt")
+        if result["missing"]:
+            require(
+                assembly["status"] in {"unknown", "unsupported", "error"},
+                f"{sid}: unresolved joint geometry cannot approve the assembly",
+            )
 
 
 def check_references(plan: dict, entries: dict, findings: dict) -> list:
@@ -1432,6 +1475,7 @@ def validate_fixture(
     check_frames(features, plan)
     check_subjects(plan, features, findings)
     check_inspection_declarations(plan, features, findings)
+    check_joint_declarations(plan, features, findings)
     missing = check_references(plan, entries, findings)
     check_endpoints(plan, features, findings, entries)
     for setup in plan["setups"]:
@@ -1463,6 +1507,7 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
     folder = EXAMPLES / "geometry" / name
     plan = documents[(folder / plan_filename).resolve()]
     features = documents[(folder / plan["features"]).resolve()]
+    Plan.model_validate(plan)
     paths = input_paths(folder, plan, plan_filename)
     report = read_report(folder / expected_subdir / "report.json")
     require(plan["part"] == features["part"], f"{name}: part identity mismatch")

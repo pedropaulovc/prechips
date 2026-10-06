@@ -27,9 +27,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:10: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 26,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 26,
+        "tool_hits": 26
       },
       "rule": "accessibility",
       "status": "error",
@@ -66,9 +75,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:20: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 56,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 61,
+        "tool_hits": 56
       },
       "rule": "accessibility",
       "status": "error",
@@ -105,9 +123,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:25: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 56,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 61,
+        "tool_hits": 56
       },
       "rule": "accessibility",
       "status": "error",
@@ -143,9 +170,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:30: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 74,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 74,
+        "tool_hits": 74
       },
       "rule": "accessibility",
       "status": "error",
@@ -186,9 +222,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:40: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 139,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 193,
+        "tool_hits": 139
       },
       "rule": "accessibility",
       "status": "error",
@@ -227,9 +272,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:50: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 18,
+        "flute_len_mm": 22.2,
+        "holder_gauge_len_mm": 6.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 15.875,
+        "projection_mm": 38.5,
+        "radius_mm": 4.7625,
+        "sample_count": 53,
+        "tool_hits": 18
       },
       "rule": "accessibility",
       "status": "error",
@@ -269,12 +323,21 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:60: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 1.9,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 27.0,
+        "radius_mm": 0.99,
+        "sample_count": 126,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:60"
     },
     {
@@ -311,12 +374,21 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:70: sampled claimed faces clear the selected cutter and holder cylinders.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 0,
+        "flute_len_mm": 69.9,
+        "holder_gauge_len_mm": 95.0,
+        "holder_hits": 0,
+        "holder_radius_mm": 25.4,
+        "projection_mm": 81.0,
+        "radius_mm": 3.175,
+        "sample_count": 78,
+        "tool_hits": 0
       },
       "rule": "accessibility",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:70"
     },
     {
@@ -345,12 +417,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:10: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:10"
     },
     {
@@ -380,9 +450,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S2:20: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 1
       },
       "rule": "accessibility",
       "status": "error",
@@ -417,12 +488,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S2.ops.25: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:25: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:25"
     },
     {
@@ -455,12 +524,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:30: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:30"
     },
     {
@@ -498,12 +565,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:40: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:40"
     },
     {
@@ -539,12 +604,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:50: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:50"
     },
     {
@@ -575,12 +638,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:10: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:10"
     },
     {
@@ -615,9 +676,10 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:20: selected cutter or holder is certainly occluded by part/fixture material.",
       "numbers": {
-        "kernel_status": "error"
+        "certain_holder_hits": 0,
+        "certain_tool_hits": 71
       },
       "rule": "accessibility",
       "status": "error",
@@ -654,12 +716,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:30: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:30"
     },
     {
@@ -695,12 +755,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:40: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:40"
     },
     {
@@ -734,12 +792,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:41: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:41"
     },
     {
@@ -772,12 +828,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:42: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:42"
     },
     {
@@ -809,12 +863,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.43: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:43: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:43"
     },
     {
@@ -845,12 +897,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.44: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:44: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:44"
     },
     {
@@ -887,12 +937,10 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:50: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:50"
     },
     {
@@ -929,12 +977,10 @@
         "inventory.tools.drill-index-115/#47: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:60: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:60"
     },
     {
@@ -968,12 +1014,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.70: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:70: deburr does not cut geometry.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:70"
     },
     {
@@ -1007,12 +1051,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.80: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:80: coating does not cut geometry.",
+      "numbers": {},
       "rule": "accessibility",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:80"
     },
     {
@@ -1252,7 +1294,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+            "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
@@ -9192,12 +9234,15 @@
         "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
         "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "rocker-arm: every imported face is claimed by a cutting op or declared as-stock.",
       "numbers": {
-        "kernel_status": "error"
+        "claimed_face_count": 18,
+        "face_count": 18,
+        "unclaimed_faces": [],
+        "unclaimed_indices": []
       },
       "rule": "coverage",
-      "status": "error",
+      "status": "pass",
       "subject": "rocker-arm"
     },
     {
@@ -9913,6 +9958,7 @@
         "inventory.tools.drill-index-115/1-4in.projection_mm.drill-chuck-r8",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.frames.TA: author-declared setup frame",
         "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
@@ -9931,8 +9977,7 @@
         "plan.setups.S1.ops.70.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.70: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
-        "plan.setups.stock_state: physical supported stock height",
-        "plan.stock.section_mm/length_mm/dia_mm; plan.frames.TA setup basis"
+        "plan.setups.stock_state: physical supported stock height"
       ],
       "message": "S1: measured part, fixture and tool stacks fit between spindle-to-table minimum and maximum.",
       "numbers": {
@@ -9940,8 +9985,8 @@
         "fixture_height_mm": 111.4044,
         "measurements": [],
         "part_extents_mm": {
-          "x": 310.0,
-          "y": 45.0,
+          "x": 292.509136,
+          "y": 29.29464,
           "z": 16.0
         },
         "spindle_to_table_max_mm": 431.79999999999995,
@@ -10135,6 +10180,7 @@
         "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.frames.TB: author-declared setup frame",
         "plan.setups.S2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
@@ -10147,8 +10193,7 @@
         "plan.setups.S2.ops.50.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.50: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
-        "plan.setups.stock_state: physical supported stock height",
-        "plan.stock.section_mm/length_mm/dia_mm; plan.frames.TB setup basis"
+        "plan.setups.stock_state: physical supported stock height"
       ],
       "message": "S2: measured part, fixture and tool stacks fit between spindle-to-table minimum and maximum.",
       "numbers": {
@@ -10156,8 +10201,8 @@
         "fixture_height_mm": 111.4044,
         "measurements": [],
         "part_extents_mm": {
-          "x": 310.0,
-          "y": 45.0,
+          "x": 292.509136,
+          "y": 29.29464,
           "z": 16.0
         },
         "spindle_to_table_max_mm": 431.79999999999995,
@@ -10296,6 +10341,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
         "inventory.tools.reamers-metric/6.5mm.lead",
         "inventory.tools.reamers-metric/6.5mm.projection_mm.drill-chuck-r8",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.frames.TA: author-declared setup frame",
         "plan.setups.S3.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
@@ -10314,8 +10360,7 @@
         "plan.setups.S3.ops.60.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.60: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
-        "plan.setups.stock_state: physical supported stock height",
-        "plan.stock.section_mm/length_mm/dia_mm; plan.frames.TA setup basis"
+        "plan.setups.stock_state: physical supported stock height"
       ],
       "message": "S3: measured part, fixture and tool stacks fit between spindle-to-table minimum and maximum.",
       "numbers": {
@@ -10323,8 +10368,8 @@
         "fixture_height_mm": 17.92,
         "measurements": [],
         "part_extents_mm": {
-          "x": 310.0,
-          "y": 45.0,
+          "x": 292.509136,
+          "y": 29.29464,
           "z": 7.0565
         },
         "spindle_to_table_max_mm": 431.79999999999995,
@@ -10512,12 +10557,12 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "hub_faces: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "hub_faces"
     },
     {
@@ -10540,12 +10585,12 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "hub_od: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "hub_od"
     },
     {
@@ -10572,12 +10617,17 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
         "harmonic-analyzer/cad/scripts/_surface_finish.py:57-66"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "pivot_bore: every finish-required face is claimed by a finishing cut.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": 1.6,
+        "required_faces": [
+          1,
+          16
+        ],
+        "uncovered_faces": []
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "pass",
       "subject": "pivot_bore"
     },
     {
@@ -10604,12 +10654,12 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "profile_outer: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "profile_outer"
     },
     {
@@ -10637,12 +10687,12 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60",
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "rod_hole: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "rod_hole"
     },
     {
@@ -10665,12 +10715,12 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "strap_datum_b: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "strap_datum_b"
     },
     {
@@ -10689,12 +10739,12 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "strap_faces: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "strap_faces"
     },
     {
@@ -10718,12 +10768,12 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "tip_land_neg_x: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "tip_land_neg_x"
     },
     {
@@ -10748,12 +10798,12 @@
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "tip_land_pos_x: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "tip_land_pos_x"
     },
     {
@@ -10779,12 +10829,12 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "top_edge: drawing declares no finish requirement.",
       "numbers": {
-        "kernel_status": "error"
+        "finish_ra": "unknown"
       },
       "rule": "finish_coverage",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "top_edge"
     },
     {
@@ -10800,9 +10850,13 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1: fixture interpenetrates the work or another fixture: riser 1 blocks-123-lms-2881 spans y -18.9..31.9 mm, outside the jaw opening y -16.0..29.0 mm closed on the stock; riser 2 blocks-123-lms-2881 spans y -18.9..31.9 mm, outside the jaw opening y -16.0..29.0 mm closed on the stock.",
       "numbers": {
-        "kernel_status": "error"
+        "clashes": [
+          "riser 1 blocks-123-lms-2881 spans y -18.9..31.9 mm, outside the jaw opening y -16.0..29.0 mm closed on the stock",
+          "riser 2 blocks-123-lms-2881 spans y -18.9..31.9 mm, outside the jaw opening y -16.0..29.0 mm closed on the stock"
+        ],
+        "undrawn": []
       },
       "rule": "fixture_interference",
       "status": "error",
@@ -10821,12 +10875,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "fixture_interference",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2"
     },
     {
@@ -10840,12 +10892,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "fixture_interference",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3"
     },
     {
@@ -11007,10 +11057,11 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S2: measured spindle stack and part/fixture travels fit.",
+      "message": "S2: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -11091,8 +11142,10 @@
           }
         ],
         "stock_bottom_z": -7.0565,
-        "stock_extent_x_mm": 310.0,
-        "stock_extent_y_mm": 45.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_reason": "S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived",
+        "stock_extent_x_mm": "unknown",
+        "stock_extent_y_mm": "unknown",
         "stock_height_mm": 16.0,
         "stock_top_above_jaws_mm": 9.154699999999998,
         "stock_top_z": 4.47175,
@@ -11102,20 +11155,20 @@
         "travel_checks": {
           "x": {
             "fixture_mm": 419.09999999999997,
-            "part_mm": 310.0,
-            "required_mm": 419.09999999999997,
+            "part_mm": "unknown",
+            "required_mm": "unknown",
             "travel_mm": 584.1999999999999
           },
           "y": {
             "fixture_mm": 177.79999999999998,
-            "part_mm": 45.0,
-            "required_mm": 177.79999999999998,
+            "part_mm": "unknown",
+            "required_mm": "unknown",
             "travel_mm": 222.25
           }
         }
       },
       "rule": "headroom",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S2"
     },
     {
@@ -11125,10 +11178,11 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S3: measured spindle stack and part/fixture travels fit.",
+      "message": "S3: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
       "numbers": {
         "bed_height_mm": 17.92,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -11236,8 +11290,10 @@
           }
         ],
         "stock_bottom_z": -7.0565,
-        "stock_extent_x_mm": 310.0,
-        "stock_extent_y_mm": 45.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_reason": "S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived",
+        "stock_extent_x_mm": "unknown",
+        "stock_extent_y_mm": "unknown",
         "stock_height_mm": 7.0565,
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": 0.0,
@@ -11247,20 +11303,20 @@
         "travel_checks": {
           "x": {
             "fixture_mm": 298.0,
-            "part_mm": 310.0,
-            "required_mm": 310.0,
+            "part_mm": "unknown",
+            "required_mm": "unknown",
             "travel_mm": 584.1999999999999
           },
           "y": {
             "fixture_mm": 34.0,
-            "part_mm": 45.0,
-            "required_mm": 45.0,
+            "part_mm": "unknown",
+            "required_mm": "unknown",
             "travel_mm": 222.25
           }
         }
       },
       "rule": "headroom",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S3"
     },
     {
@@ -12017,12 +12073,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:10: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S1:10"
     },
     {
@@ -12056,12 +12113,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:20: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S1:20"
     },
     {
@@ -12095,12 +12153,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:25: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S1:25"
     },
     {
@@ -12133,12 +12192,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:30: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S1:30"
     },
     {
@@ -12176,12 +12236,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:40: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S1:40"
     },
     {
@@ -12217,12 +12278,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:50: concave corner radii admit the selected cutter.",
       "numbers": {
-        "kernel_status": "error"
+        "cad_sharp_corners": 0,
+        "corner_radii_mm": [
+          800.0
+        ],
+        "corner_radius_max_design_mm": "unknown",
+        "minimum_corner_radius_mm": 800.0,
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:50"
     },
     {
@@ -12259,12 +12326,13 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:60: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 0.99
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S1:60"
     },
     {
@@ -12301,12 +12369,13 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:70: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 3.175
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S1:70"
     },
     {
@@ -12335,12 +12404,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S2:10: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:10"
     },
     {
@@ -12370,12 +12440,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S2:20: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:20"
     },
     {
@@ -12407,12 +12478,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S2.ops.25: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:25: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:25"
     },
     {
@@ -12445,12 +12514,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S2:30: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:30"
     },
     {
@@ -12488,12 +12558,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S2:40: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:40"
     },
     {
@@ -12529,12 +12600,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S2:50: concave corner radii admit the selected cutter.",
       "numbers": {
-        "kernel_status": "error"
+        "cad_sharp_corners": 0,
+        "corner_radii_mm": [
+          800.0
+        ],
+        "corner_radius_max_design_mm": "unknown",
+        "minimum_corner_radius_mm": 800.0,
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "pass",
       "subject": "S2:50"
     },
     {
@@ -12565,12 +12642,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:10: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:10"
     },
     {
@@ -12605,12 +12683,13 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:20: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 3.256
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:20"
     },
     {
@@ -12644,12 +12723,18 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:30: concave corner radii admit the selected cutter.",
       "numbers": {
-        "kernel_status": "error"
+        "cad_sharp_corners": 0,
+        "corner_radii_mm": [
+          800.0
+        ],
+        "corner_radius_max_design_mm": "unknown",
+        "minimum_corner_radius_mm": 800.0,
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "pass",
       "subject": "S3:30"
     },
     {
@@ -12685,12 +12770,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:40: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:40"
     },
     {
@@ -12724,12 +12810,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:41: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:41"
     },
     {
@@ -12762,12 +12849,13 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:42: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.7625
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:42"
     },
     {
@@ -12799,12 +12887,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.43: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:43: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:43"
     },
     {
@@ -12835,12 +12921,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.44: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:44: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:44"
     },
     {
@@ -12877,12 +12961,13 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:50: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 0.99
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:50"
     },
     {
@@ -12919,12 +13004,13 @@
         "inventory.tools.drill-index-115/#47: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S3:60: claimed faces have no concave edges perpendicular to the tool axis.",
       "numbers": {
-        "kernel_status": "error"
+        "corner_radii_mm": [],
+        "tool_radius_mm": 0.997
       },
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:60"
     },
     {
@@ -12958,12 +13044,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.70: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:70: deburr does not cut geometry.",
+      "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:70"
     },
     {
@@ -12997,12 +13081,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.80: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:80: coating does not cut geometry.",
+      "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:80"
     },
     {
@@ -13334,12 +13416,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:10: entry-to-floor depth is within the selected flute length.",
       "numbers": {
-        "kernel_status": "error"
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 4.47175
       },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:10"
     },
     {
@@ -13373,12 +13459,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:20: entry-to-floor depth is within the selected flute length.",
       "numbers": {
-        "kernel_status": "error"
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 6.55
       },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:20"
     },
     {
@@ -13412,12 +13502,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:25: entry-to-floor depth is within the selected flute length.",
       "numbers": {
-        "kernel_status": "error"
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 6.75
       },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:25"
     },
     {
@@ -13450,12 +13544,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:30: entry-to-floor depth is within the selected flute length.",
       "numbers": {
-        "kernel_status": "error"
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 6.55
       },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:30"
     },
     {
@@ -13493,12 +13591,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:40: entry-to-floor depth is within the selected flute length.",
       "numbers": {
-        "kernel_status": "error"
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 7.8
       },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:40"
     },
     {
@@ -13534,12 +13636,16 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:50: entry-to-floor depth is within the selected flute length.",
       "numbers": {
-        "kernel_status": "error"
+        "flute_len_mm": 22.2,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.5,
+        "projection_mm": 38.5,
+        "reach_depth_mm": 7.8
       },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:50"
     },
     {
@@ -13576,12 +13682,16 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:60: depth exceeds flute length but fits OAL with the holder cylinder clear of walls.",
       "numbers": {
-        "kernel_status": "error"
+        "flute_len_mm": 1.9,
+        "holder_wall_hits": 0,
+        "oal_mm": 47.6,
+        "projection_mm": 27.0,
+        "reach_depth_mm": 4.97175
       },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:60"
     },
     {
@@ -13618,12 +13728,16 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1:70: entry-to-floor depth is within the selected flute length.",
       "numbers": {
-        "kernel_status": "error"
+        "flute_len_mm": 69.9,
+        "holder_wall_hits": 0,
+        "oal_mm": 101.6,
+        "projection_mm": 81.0,
+        "reach_depth_mm": 13.435982
       },
       "rule": "reach",
-      "status": "error",
+      "status": "pass",
       "subject": "S1:70"
     },
     {
@@ -13652,12 +13766,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:10: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:10"
     },
     {
@@ -13687,12 +13799,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:20: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:20"
     },
     {
@@ -13724,12 +13834,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S2.ops.25: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:25: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S2:25"
     },
     {
@@ -13762,12 +13870,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:30: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:30"
     },
     {
@@ -13805,12 +13911,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:40: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:40"
     },
     {
@@ -13846,12 +13950,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2:50: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2:50"
     },
     {
@@ -13882,12 +13984,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:10: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:10"
     },
     {
@@ -13922,12 +14022,10 @@
         "inventory.tools.reamers-metric/6.5mm: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:20: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:20"
     },
     {
@@ -13961,12 +14059,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:30: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:30"
     },
     {
@@ -14002,12 +14098,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:40: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:40"
     },
     {
@@ -14041,12 +14135,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:41: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:41"
     },
     {
@@ -14079,12 +14171,10 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:42: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:42"
     },
     {
@@ -14116,12 +14206,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.43: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:43: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:43"
     },
     {
@@ -14152,12 +14240,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.44: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:44: inspect does not cut geometry.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:44"
     },
     {
@@ -14194,12 +14280,10 @@
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:50: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:50"
     },
     {
@@ -14236,12 +14320,10 @@
         "inventory.tools.drill-index-115/#47: explicit-unit verified dimensions",
         "inventory.holders.drill-chuck-r8: explicit-unit verified dimensions"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:60: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3:60"
     },
     {
@@ -14275,12 +14357,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.70: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:70: deburr does not cut geometry.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:70"
     },
     {
@@ -14314,12 +14394,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "plan.setups.S3.ops.80: selected action/tool/holder"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3:80: coating does not cut geometry.",
+      "numbers": {},
       "rule": "reach",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3:80"
     },
     {
@@ -15708,14 +15786,17 @@
         "plan.frames.TA: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1: minimum wall inside the grip zone meets the shop floor.",
       "numbers": {
-        "kernel_status": "error"
+        "method": "unknown",
+        "min_wall_mm": 45.0,
+        "thin_wall_floor_mm": 1.5
       },
       "rule": "thin_wall_under_clamp",
-      "status": "error",
+      "status": "pass",
       "subject": "S1"
     },
     {
@@ -15731,12 +15812,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "thin_wall_under_clamp",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2"
     },
     {
@@ -15750,12 +15829,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "thin_wall_under_clamp",
-      "status": "error",
+      "status": "unknown",
       "subject": "S3"
     },
     {
@@ -16554,7 +16631,7 @@
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
-        "plan.stock.section_mm/length_mm/dia_mm; plan.frames.TA setup basis",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
@@ -16631,8 +16708,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "face",
@@ -16664,8 +16741,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "rough_face",
@@ -16697,8 +16774,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "finish_face",
@@ -16730,8 +16807,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "rough_profile",
@@ -16769,8 +16846,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "rough_profile",
@@ -16802,8 +16879,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "rough_profile",
@@ -16953,20 +17030,20 @@
         "travel_checks": {
           "x": {
             "located_span_mm": 9.925,
-            "lower_bound_margin_mm": 264.2749999999999,
-            "margin_mm": 264.2749999999999,
-            "minimum_required_mm": 319.925,
-            "required_mm": 319.925,
+            "lower_bound_margin_mm": 281.7658639999999,
+            "margin_mm": 281.7658639999999,
+            "minimum_required_mm": 302.434136,
+            "required_mm": 302.434136,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
             "located_span_mm": 9.925,
-            "lower_bound_margin_mm": 167.325,
-            "margin_mm": 167.325,
-            "minimum_required_mm": 54.925,
-            "required_mm": 54.925,
+            "lower_bound_margin_mm": 183.03036,
+            "margin_mm": 183.03036,
+            "minimum_required_mm": 39.21964,
+            "required_mm": 39.21964,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
@@ -17010,7 +17087,7 @@
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
-        "plan.stock.section_mm/length_mm/dia_mm; plan.frames.TB setup basis",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
@@ -17065,8 +17142,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "finish_face",
@@ -17098,8 +17175,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "finish_face",
@@ -17131,8 +17208,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "finish_profile",
@@ -17170,8 +17247,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "rough_profile",
@@ -17203,8 +17280,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 16.0
             },
             "do": "rough_profile",
@@ -17237,20 +17314,20 @@
         "travel_checks": {
           "x": {
             "located_span_mm": 9.525,
-            "lower_bound_margin_mm": 264.2749999999999,
-            "margin_mm": 264.2749999999999,
-            "minimum_required_mm": 319.925,
-            "required_mm": 319.925,
+            "lower_bound_margin_mm": 281.7658639999999,
+            "margin_mm": 281.7658639999999,
+            "minimum_required_mm": 302.434136,
+            "required_mm": 302.434136,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
             "located_span_mm": 9.525,
-            "lower_bound_margin_mm": 167.325,
-            "margin_mm": 167.325,
-            "minimum_required_mm": 54.925,
-            "required_mm": 54.925,
+            "lower_bound_margin_mm": 183.03036,
+            "margin_mm": 183.03036,
+            "minimum_required_mm": 39.21964,
+            "required_mm": 39.21964,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
@@ -17297,7 +17374,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56",
         "features.frames.model",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
-        "plan.stock.section_mm/length_mm/dia_mm; plan.frames.TA setup basis",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
@@ -17378,8 +17455,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 7.0565
             },
             "do": "finish_profile",
@@ -17476,8 +17553,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 7.0565
             },
             "do": "finish_profile",
@@ -17509,8 +17586,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 7.0565
             },
             "do": "finish_profile",
@@ -17542,8 +17619,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 7.0565
             },
             "do": "finish_profile",
@@ -17575,8 +17652,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 310.0,
-              "y": 45.0,
+              "x": 292.509136,
+              "y": 29.29464,
               "z": 7.0565
             },
             "do": "finish_profile",
@@ -17726,20 +17803,20 @@
         "travel_checks": {
           "x": {
             "located_span_mm": 137.82990213488344,
-            "lower_bound_margin_mm": 264.67499999999995,
-            "margin_mm": 264.67499999999995,
-            "minimum_required_mm": 319.525,
-            "required_mm": 319.525,
+            "lower_bound_margin_mm": 282.16586399999994,
+            "margin_mm": 282.16586399999994,
+            "minimum_required_mm": 302.034136,
+            "required_mm": 302.034136,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
             "located_span_mm": 13.218564115939024,
-            "lower_bound_margin_mm": 167.725,
-            "margin_mm": 167.725,
-            "minimum_required_mm": 54.525,
-            "required_mm": 54.525,
+            "lower_bound_margin_mm": 183.43036,
+            "margin_mm": 183.43036,
+            "minimum_required_mm": 38.81964,
+            "required_mm": 38.81964,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
@@ -18186,12 +18263,21 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
+      "message": "S1: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.",
       "numbers": {
-        "kernel_status": "error"
+        "claimed_in_jaws": [],
+        "contact_grip_mm": [
+          6.8453,
+          6.8453
+        ],
+        "opening_mm": 155.82899999999998,
+        "parallel_pair": true,
+        "parallels_height_mm": 12.7,
+        "required_grip_mm": 6.0,
+        "width_mm": 45.0
       },
       "rule": "vise",
-      "status": "error",
+      "status": "pass",
       "subject": "S1"
     },
     {
@@ -18207,12 +18293,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S2: in-process stock unknown: S1:50 stock_removal_bounds removes 9477.0 mm^3 in 1 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
       "rule": "vise",
-      "status": "error",
+      "status": "unknown",
       "subject": "S2"
     },
     {
@@ -18226,12 +18310,10 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "RuntimeError: StdFail_NotDone: ",
-      "numbers": {
-        "kernel_status": "error"
-      },
+      "message": "S3: vise has no vise grip-zone facts for custom holding.",
+      "numbers": {},
       "rule": "vise",
-      "status": "error",
+      "status": "not_applicable",
       "subject": "S3"
     },
     {
@@ -18550,7 +18632,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "2b00c0ffbd78548d52c2321f6c410e72633e96db07a45dd7a2dbf8eab75989ff",
+  "hash": "616f80a812c69c23968606f754f474b0b662b52b3316da92d36df21b5a32a1ce",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -18562,11 +18644,15 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "c2b4511757e56bb5e21db091c47985d9096f5f6f0f70be8accc6076bc9d81125"
+      "sha256": "353e97a8d771ceac15dc798d039929bb91bb91da68d034f263b3a1f33f801297"
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
       "sha256": "72418cad7e26f6d8e8fad41b21ee41875113f9def8b8f138a3afa2e1d2a3741a"
+    },
+    "render:S1": {
+      "path": "setup-S1.png",
+      "sha256": "26019cca8fd614907d15ced8bc480c24d749e0401358df36648c78653a75edee"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -18578,7 +18664,52 @@
     }
   },
   "prechips_version": "0.1",
-  "rules_version": "m5-rev8",
+  "renders": {
+    "S1": {
+      "fixture": "modeled",
+      "path": "setup-S1.png",
+      "scene": {
+        "components": [
+          {
+            "exact": true,
+            "name": "fixed_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "moving_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "parallel 1",
+            "role": "parallel"
+          },
+          {
+            "exact": true,
+            "name": "parallel 2",
+            "role": "parallel"
+          },
+          {
+            "exact": true,
+            "name": "riser 1 blocks-123-lms-2881",
+            "role": "riser"
+          },
+          {
+            "exact": true,
+            "name": "riser 2 blocks-123-lms-2881",
+            "role": "riser"
+          }
+        ],
+        "debts": [],
+        "fixture_kind": "vise",
+        "jaws": "exact",
+        "parallels": "exact"
+      },
+      "sha256": "26019cca8fd614907d15ced8bc480c24d749e0401358df36648c78653a75edee"
+    }
+  },
+  "rules_version": "m5-rev9",
   "step_sha256": "e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e",
   "verification": "planned"
 }

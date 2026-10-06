@@ -1,10 +1,11 @@
 """CAD-sharp concave corners admit a nose up to the feature's corner_radius_max_design."""
 
-from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 from test_geometry_rules import bundle, finding  # noqa: F401  (pytest fixture)
 
+from prechips.inputs import Bundle
 from prechips.rules import internal_corner_radius, sizing
 
 
@@ -46,7 +47,7 @@ def groove_bundle(nose, allowance=0.25):
     }
     if allowance is not None:
         feature["corner_radius_max_design"] = allowance
-    return SimpleNamespace(
+    return Bundle(
         plan={
             "stock": {"dia_mm": 10.0},
             "setups": [
@@ -60,6 +61,11 @@ def groove_bundle(nose, allowance=0.25):
         inventory={
             "tools": {"b": {"kind": "parting_blade", "nose_radius_mm": nose, "reach_mm": 18.0}}
         },
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
     )
 
 
