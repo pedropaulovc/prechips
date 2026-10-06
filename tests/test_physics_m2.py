@@ -292,13 +292,16 @@ def test_engagement_scope_excludes_noncutting_operations_even_with_endmill_and_d
 
 
 @pytest.mark.parametrize("projection", [40, 50])
-def test_engagement_scope_omitted_doc_is_not_applicable_even_with_endmill(projection):
+def test_engagement_omitted_doc_on_cutting_endmill_is_unknown_never_exempt(projection):
     data = milling_bundle()
     del data.plan["setups"][0]["ops"][0]["doc_mm"]
     data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = projection
     finding = engagement.evaluate(data)[0]
-    assert finding.status == "not_applicable"
-    assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 0
+    assert finding.status == "unknown"
+    assert finding.numbers["projection_ld"] == projection / 10
+    assert finding.numbers["recommended_doc_mm"] == "unknown"
+    assert "axial depth per pass" in finding.sentence
+    assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 4
 
 
 @pytest.mark.parametrize("projection", [40, 50])
