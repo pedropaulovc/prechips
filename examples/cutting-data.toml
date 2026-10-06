@@ -1,7 +1,8 @@
-# Versioned reference table. No Handbook page was available to transcribe.
-# PLAN.md's 90 sfm / 0.05 mm example is a layout sketch, not source evidence.
-# Every dependent speed/feed and physics value therefore remains unknown.
-revision = 1
+# Versioned reference table. ILLUSTRATIVE EXAMPLE DATA: every row below is a
+# plausible hobby-shop starting value for the pilot examples (AGENTS.md
+# "Examples policy"); no Handbook page was transcribed. Diameter ranges are mm,
+# inclusive at both ends, one row per diameter within a (material, tool, operation).
+revision = 2
 
 [aliases]
 "1018 CRS" = "low_carbon_steel"
@@ -13,40 +14,76 @@ revision = 1
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "face"
-diameter_range = "unknown"
-sfm = "unknown"
-chip_load_mm_per_tooth = "unknown"
-cite = "unknown"
+diameter_range = [0.0, 25.4]
+sfm = 90
+chip_load_mm_per_tooth = 0.05
+cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "profile"
-diameter_range = "unknown"
-sfm = "unknown"
-chip_load_mm_per_tooth = "unknown"
-cite = "unknown"
+diameter_range = [0.0, 25.4]
+sfm = 90
+chip_load_mm_per_tooth = 0.04
+cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "counterbore"
+diameter_range = [0.0, 25.4]
+sfm = 70
+chip_load_mm_per_tooth = 0.03
+cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "spot"
+diameter_range = [0.5, 6.5]
+sfm = 70
+chip_load_mm_per_tooth = 0.02
+cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "drill"
-diameter_range = "unknown"
-sfm = "unknown"
-chip_load_mm_per_tooth = "unknown"
-cite = "unknown"
+diameter_range = [0.5, 3.0]
+sfm = 80
+chip_load_mm_per_tooth = 0.02
+cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "drill"
+diameter_range = [3.01, 13.0]
+sfm = 80
+chip_load_mm_per_tooth = 0.05
+cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "ream"
-diameter_range = "unknown"
-sfm = "unknown"
-chip_load_mm_per_tooth = "unknown"
-cite = "unknown"
+diameter_range = [1.0, 13.0]
+sfm = 45
+chip_load_mm_per_tooth = 0.03
+cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "carbide"
+operation = "bore"
+diameter_range = [5.0, 50.0]
+sfm = 250
+chip_load_mm_per_tooth = 0.03
+cite = "illustrative example value (plausible hobby-shop starting point), not transcribed from a handbook"
 
 [[material]]
 material_class = "low_carbon_steel"
-kc_n_per_mm2 = "unknown"
-e_gpa = "unknown"
-cite = "unknown"
+kc_n_per_mm2 = 1900
+e_gpa = 200
+cite = "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"

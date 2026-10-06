@@ -611,6 +611,8 @@ InventoryItem = record(
         "ranges_in": list[str],
         "range_in": float | list[Number],
         "range_mm": float | list[Number],
+        # Roughness capability of a roughness gauge/comparator/profilometer, Ra µm [lo, hi].
+        "ra_range": Annotated[list[Number], Field(min_length=2, max_length=2)],
         "resolution_mm": Number,
         "size_in": str | list[Number],
         "nominal_dia_mm": dict[str, Number],

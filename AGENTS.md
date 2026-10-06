@@ -12,8 +12,29 @@ telemetry live beside them.
 
 ## Sources and fixtures
 
-Never invent a tool measurement, tolerance, cutting number, source page, drawing
-revision, STEP digest or first-article claim. Use the literal `"unknown"`; it is
+### Examples policy (illustrative plausible data)
+
+Everything under `examples/` (shop inventory, policy, cutting data, plans and
+example features) is **illustrative**; real shop inputs come later. The examples
+carry a plausible value for every fact the checker consumes so that each pilot
+bundle shows a complete, passing route. Every invented physical fact is labelled
+fact-locally as
+`measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "<plausible instrument>" }`;
+invented non-length facts (cutting-data rows, policy floors, gauge/identity
+confirmations) carry a cite or comment that names them as example values. Real
+measurements (for example `fixtures.vise-pm-6`, measured by Pedro Paulo Vezza
+Campos) keep their real `by`; never relabel or overwrite them. Do not revert the
+example values back to `"unknown"`, and do not copy them into a real shop file:
+they are not evidence. The checker's semantics do **not** change for examples:
+`unknown` is never a pass, missing data stays `?`, verify debt stays debt and exit
+codes are unchanged. Engine limitations are fixed in the engine, not worked around
+with example-specific special cases.
+
+### Real inputs and engine fixtures
+
+Outside the labelled example values above, never invent a tool measurement,
+tolerance, cutting number, source page, drawing revision, STEP digest or
+first-article claim. Use the literal `"unknown"`; it is
 not zero or a pass. `verify = true` means measurement/identity debt. Absence
 from a known feature `requirements` list means known absence; an unknown list
 or identity cannot establish absence. An unknown listed dimension still needs
@@ -34,12 +55,17 @@ retain concrete `measure:` instructions keyed by the exact fact consumed; an
 unresolved holder asks to be added or resolved, not measured.
 
 The shipped reference bundles are under `examples/`, with authored plans and
-shared inventory, policy and cutting data. `rocker-arm`, `pivot-shaft` and
-`cone-pivot-post` consume verbatim consumer-generated `features.toml` and their
-exact adjacent STEP files; never hand-edit those exports or add local provenance
-keys. Record delivery provenance only in [examples/README.md](examples/README.md).
-`pivot-bracket` remains hand-authored: no registered consumer drawing or STEP
-is supplied. Python citations use `file:line` (or line ranges); YAML citations
+shared inventory, policy and cutting data. `rocker-arm` and `pivot-shaft`
+consume verbatim consumer-generated `features.toml` and their exact adjacent
+STEP files; never hand-edit those exports or add local provenance keys.
+`cone-pivot-post/features.toml` is the consumer export with two user-approved
+divergences (built-up construction permitted; `mount_west` `station_nominal`
+sign fixed to 12.98, harmonic-analyzer issue #1214) and is no longer verbatim.
+`pivot-bracket/features.toml` is hand-authored against the copied consumer v39
+`pivot-bracket.STEP` (no `HAF_` labels): its face refs are geometry-matched
+`#<id>/ADVANCED_FACE[<n>]/NONE` references. Record delivery provenance and every
+divergence only in [examples/README.md](examples/README.md).
+Python citations use `file:line` (or line ranges); YAML citations
 use `file:dotted.key.path`, not unstable line numbers. Consumer citations point
 to the read-only harmonic-analyzer tree; they do not cause the checker to read
 that tree or fetch a URL. Runtime must generate reports/sheets from inputs,
