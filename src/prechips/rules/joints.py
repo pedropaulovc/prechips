@@ -36,9 +36,7 @@ def evaluate_fit(bundle):
             "missing": result["missing"],
         }
         if joint["method"] == "retaining_compound":
-            numbers.update(
-                cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"]
-            )
+            numbers.update(cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"])
         cite = [
             "PLAN.md §4.1 joint_fit",
             f"plan.setups.{sid}.joint: fit, diametral band and process",

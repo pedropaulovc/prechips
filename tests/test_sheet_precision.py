@@ -133,7 +133,6 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     assert len(set(expected)) == len(expected)
 
 
-
 MISSING_LENGTH_OP = """
 [[setups.ops]]
 op = 30

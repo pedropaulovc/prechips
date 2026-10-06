@@ -146,7 +146,6 @@ import os
 import sys
 import tempfile
 import time
-
 from contextlib import contextmanager
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1107,8 +1106,7 @@ class _Culled:
         self.box = None
         if self.boxes:
             self.box = tuple(
-                (min if index < 3 else max)(box[index] for box in self.boxes)
-                for index in range(6)
+                (min if index < 3 else max)(box[index] for box in self.boxes) for index in range(6)
             )
         self.answers = {}
         self.hit_refs = {}  # exact (cylinder, own face) -> read-only label set
@@ -2617,9 +2615,10 @@ class _Job:
                 state["completed"].update(upstream["completed"])
                 state["joined"].update(upstream["joined"])
                 state["consumed"].update(upstream["consumed"])
-            if isinstance(stock_in, list) and sum(
-                len(self.states[ref]["components"]) > 1 for ref in refs
-            ) > 1:
+            if (
+                isinstance(stock_in, list)
+                and sum(len(self.states[ref]["components"]) > 1 for ref in refs) > 1
+            ):
                 raise ValueError("a declared joint can receive at most one existing assembly")
             if setup["id"] in self.joint_setup_errors:
                 raise ValueError(self.joint_setup_errors[setup["id"]])
@@ -2743,7 +2742,8 @@ class _Job:
                 reused = sorted(name for name in names if name in used_features)
                 if reused:
                     self.joint_setup_errors[setup["id"]] = (
-                        "joint feature(s) " + ", ".join(reused)
+                        "joint feature(s) "
+                        + ", ".join(reused)
                         + " have already been consumed by a joint"
                     )
                     continue  # Invalid later reuse cannot change earlier ownership.
@@ -2876,9 +2876,7 @@ class _Job:
                     if isinstance(face.Surface, Part.Plane) and face.common(solid).Area > max(
                         AREA_ABS, face.Area * AREA_REL
                     ):
-                        raise ValueError(
-                            f"prepared through socket {name} has a blocked axial end"
-                        )
+                        raise ValueError(f"prepared through socket {name} has a blocked axial end")
         else:
             # A sleeve may already have its final bore. Its outside mating interface,
             # and all finished material owned by this component, must still be present.
@@ -3081,7 +3079,10 @@ class _Setup:
         self.leave_out = max([leave] + [a for a, _ in map(_leave, self.ops) if a is not None])
         self.reasons = {}
         self.state = state or {
-            "components": set(), "completed": {}, "joined": set(), "consumed": set()
+            "components": set(),
+            "completed": {},
+            "joined": set(),
+            "consumed": set(),
         }
         self.completed = dict(self.state["completed"])
         self.protected = None
@@ -3366,9 +3367,7 @@ class _Setup:
             raw = self.owner.raw_supplies.get(ref, (None, None))[0]
             if raw is None:
                 continue
-            piece = self.owner._component_protection(
-                component, self.state["consumed"]
-            ).common(raw)
+            piece = self.owner._component_protection(component, self.state["consumed"]).common(raw)
             if piece.Volume > HIT_MM3:
                 pieces.append(piece)
         return (
@@ -3401,9 +3400,7 @@ class _Setup:
         if cut.get("reason"):
             raise _Unknown(cut["reason"])
         if op.get("approach") == "rotary":
-            raise _Unknown(
-                f"rotary machining on plan.joint_features.{name} is not modelled"
-            )
+            raise _Unknown(f"rotary machining on plan.joint_features.{name} is not modelled")
         spec = _joint_cut_spec(cut, self.setup.get("frame"))
         cylinder = _joint_profile(spec, self.setup.get("frame"))
         at = self.matrix.multVec(V(*spec["at_mm"]))
@@ -5425,7 +5422,7 @@ class _Setup:
                 for point in points:
                     self._strap_run(point, force, span)
                 raise
-            for point, run in zip(points, self._strap_runs(points, force, span)):
+            for point, run in zip(points, self._strap_runs(points, force, span), strict=False):
                 rows.append(
                     {
                         "clamp": name,
@@ -5483,13 +5480,11 @@ class _Setup:
             rounding = PLANE_TOL / 128
 
             def trustworthy(values):
-                return all(
-                    math.isfinite(value) and math.ulp(value) <= rounding for value in values
-                )
+                return all(math.isfinite(value) and math.ulp(value) <= rounding for value in values)
 
             if not trustworthy(force) or not trustworthy((span,)) or span <= 0:
                 return None
-            force_squared = force.Length ** 2
+            force_squared = force.Length**2
             separation_squared = (4 * PLANE_TOL) ** 2 * force_squared
             if (
                 not math.isfinite(force_squared)
@@ -5503,7 +5498,10 @@ class _Setup:
                     return None
                 for other_index in range(index):
                     distance_squared = (point - points[other_index]).cross(force).Length ** 2
-                    if not math.isfinite(distance_squared) or distance_squared <= separation_squared:
+                    if (
+                        not math.isfinite(distance_squared)
+                        or distance_squared <= separation_squared
+                    ):
                         return None
 
             lines = []
@@ -5673,9 +5671,7 @@ class _Setup:
         def mesh(shape, colour, hatch=False, section=False):
             # A lathe elevation is a meridian section: the removed annulus's
             # outside surface must not hide the retained core behind it.
-            points, triangles = (
-                shape.common(meridian) if section else shape
-            ).tessellate(tolerance)
+            points, triangles = (shape.common(meridian) if section else shape).tessellate(tolerance)
             meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch))
 
         mesh(output if output is not None else self.part, _COLOURS["part"], section=lathe)
@@ -5753,6 +5749,16 @@ class _Setup:
             if self.jaws is not None
             else None
         )
+        jaw_front_oblique = False
+        if (
+            self.fixture_ready
+            and self.hold
+            and self.hold.get("kind") == "chuck"
+            and isinstance(self.hold.get("pose"), dict)
+        ):
+            pose = self.hold["pose"]
+            jaw_front_oblique = abs(pose["z"][2]) < PARALLEL
+            jaw_z = None if jaw_front_oblique else pose["origin_mm"][2]
         datums = [
             {"label": end["label"], "point_mm": [0.0, 0.0, end["z_mm"]]}
             for end in annotation.get("ends", [])
@@ -5771,6 +5777,8 @@ class _Setup:
                     }
                 )
         notes = []
+        if jaw_front_oblique:
+            notes.append("Chuck front is tilted: no single setup Z.")
         if not self.ops:
             notes.append("Holding/fit-up only: no cutting operation in this setup.")
         if removal is not None and removal.Volume <= STOCK_MM3:
@@ -5834,6 +5842,7 @@ class _Setup:
             "components": components,
             "zero_mm": [0.0, 0.0, 0.0],
             "jaw_front_z_mm": jaw_z,
+            "jaw_front_oblique": jaw_front_oblique,
             "stickout_mm": annotation.get("stickout_mm"),
             "datums": datums,
             "primary_tool": tool,
@@ -5871,6 +5880,7 @@ class _Setup:
                 "render_debts": render_debts,
                 "waypoints": spec["waypoints"],
                 "primary_op": tool.get("op") if tool else None,
+                "jaw_front_oblique": jaw_front_oblique,
             }
         )
         details = [c for c in components if c["role"] == "detail"]
@@ -5980,10 +5990,14 @@ class _Setup:
                 else:
                     at += V(*primitive["axis"]) * (primitive["length_mm"] / 2)
                 centre = matrix.multiply(at)
-                result.append({
-                    "name": primitive["name"], "label": label, "role": "detail",
-                    "center_mm": [centre.x, centre.y, centre.z],
-                })
+                result.append(
+                    {
+                        "name": primitive["name"],
+                        "label": label,
+                        "role": "detail",
+                        "center_mm": [centre.x, centre.y, centre.z],
+                    }
+                )
         return result
 
     def _render_tool(self, annotation, lathe):
@@ -6064,11 +6078,16 @@ class _Setup:
         direction = annotation.get("directions", {}).get(op_number)
         if lathe:
             delta = (
-                [0.0, 0.0, -12.0] if direction == "toward_chuck"
-                else [0.0, 0.0, 12.0] if direction == "from_chuck"
-                else [12.0, 0.0, 0.0] if direction == "radially_outward"
-                else [-12.0, 0.0, 0.0] if direction == "radially_inward"
-                else [-12.0, 0.0, 0.0] if op.get("do") in ("part_off", "cut_to_fit")
+                [0.0, 0.0, -12.0]
+                if direction == "toward_chuck"
+                else [0.0, 0.0, 12.0]
+                if direction == "from_chuck"
+                else [12.0, 0.0, 0.0]
+                if direction == "radially_outward"
+                else [-12.0, 0.0, 0.0]
+                if direction == "radially_inward"
+                else [-12.0, 0.0, 0.0]
+                if op.get("do") in ("part_off", "cut_to_fit")
                 else None
             )
             if delta is not None:
@@ -7562,9 +7581,7 @@ class _Setup:
         if certain is None or certain.isNull() or not certain.Solids:
             return None
         if self.certain_boxes is None:
-            self.certain_boxes = [
-                face.optimalBoundingBox(False, False) for face in certain.Faces
-            ]
+            self.certain_boxes = [face.optimalBoundingBox(False, False) for face in certain.Faces]
         if any(
             abs(box.ZMin - z) <= PLANAR_EQUAL_MM or abs(box.ZMax - z) <= PLANAR_EQUAL_MM
             for box in self.certain_boxes
@@ -7683,9 +7700,7 @@ class _Setup:
                     self.planar_meets[a, b] = _primitive_meets(a, b)
                 found.update(self.planar_meets[a, b])
         ranked = sorted(
-            (distance, x, y)
-            for x, y in found
-            if (distance := math.hypot(x - px, y - py)) <= cover
+            (distance, x, y) for x, y in found if (distance := math.hypot(x - px, y - py)) <= cover
         )
         best, chosen = None, []
         for distance, x, y in ranked:
@@ -8157,7 +8172,11 @@ class _Setup:
                 return None, why
             regions.append(region)
         else:
-            regions.extend(self._profile_regions(meridians, window, outer))
+            straight = [
+                isinstance(self.faces[index].Surface, (Part.Cylinder, Part.Cone))
+                for index in valid
+            ]
+            regions.extend(self._profile_regions(meridians, straight, window, outer))
         regions = [
             region
             for region in regions
@@ -8215,9 +8234,9 @@ class _Setup:
                 end = protected_end
         return _band(inner, outer, min(to_z, end), max(to_z, end)), None
 
-    def _profile_regions(self, meridians, window, outer):
+    def _profile_regions(self, meridians, straight, window, outer):
         regions, ends = [], []
-        for meridian in meridians:
+        for meridian, is_straight in zip(meridians, straight, strict=False):
             if not meridian:
                 continue
             zs = [z for (_, z), _ in meridian]
@@ -8238,11 +8257,16 @@ class _Setup:
             # cutting protected material back out keeps the region exact. The region closes
             # through the unshifted end points, so no slab survives under its ends either.
             sag = 0.0
-            for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
-                cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
-                angle = math.acos(cos)
-                sag = max(sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4))
-            sag += 1e-6
+            # Native cylinders and cones have straight meridians: their chords need
+            # no sagitta allowance or artificial inward change to the model radius.
+            if not is_straight:
+                for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
+                    cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
+                    angle = math.acos(cos)
+                    sag = max(
+                        sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4)
+                    )
+                sag += 1e-6
             points = [(r - nr * sag, z - nz * sag) for (r, z), (nr, nz) in chain]
             first, last = chain[0][0], chain[-1][0]
             polygon = []
