@@ -2852,8 +2852,11 @@ def reference_label(bundle, reference, category=None) -> str:
             _mapping(_mapping(bundle.inventory.get(raw_category)).get(root)) if raw_category else {}
         )
     record = item or raw
-    name = record.get("name", record.get("label"))
-    named_member = bool(member and item and (item.get("name") or item.get("label")))
+    # A member's display name is its own: a named kit does not name each of its pieces.
+    own = _mapping(_mapping(raw.get("members")).get(member)) if member else {}
+    named_member = bool(own.get("name") or own.get("label"))
+    named = own if member else raw or record
+    name = named.get("name", named.get("label"))
     if not name:
         if category == "machines" or root in _mapping(bundle.inventory.get("machines")):
             # A maker's model number (PM-30MV) is the machine's name; any other identity

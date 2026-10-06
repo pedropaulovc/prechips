@@ -15,6 +15,13 @@ nominal dimension enters M4 kernel geometry is decided the same fact-local
 way (see [kernel geometry facts](#kernel-geometry-facts-m4)); neither reads
 the item, set root, member container or source flags around the fact.
 
+`name` is an optional display name an item or a set member may carry; the
+traveler prints it whole in place of the name it would derive from the item's
+kind or identity key (`name = "4x6 bandsaw"`, a kit member `name = "cap bridge
+clamp"`). A member's name is its own: a named set does not name its members,
+and an unnamed member still prints as its key words and its own kind
+(`bracket bridge strap clamp`). No rule reads `name`.
+
 A consumed single-length fact is authored once per stem: an explicit `_mm`
 key, an `_in` key converted with exactly 25.4 mm/in, or a bare key with explicit
 `units = "mm"`, `"in"`, or `"inch"`; two spellings of that fact are rejected
@@ -418,6 +425,7 @@ on hand.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
+| `name` | `str` |
 | `kind` | `str` |
 | `make` | `str` |
 | `control` | `str` |
