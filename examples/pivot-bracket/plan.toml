@@ -137,6 +137,7 @@ to_z = 0.0                       # establishes the seat, frame A z = 0
 direction = "conventional"       # author's choice for a hand-fed mill
 doc_mm = 1.0                     # AUTHOR'S CHOICE: the whole 1 mm skim in one axial pass
 stock_removal_bounds = { x = [-9.0, 9.0], y = [-4.0, 22.2], z = [0.0, 1.0] } # AUTHOR'S CHOICE: face full raw top
+contour = { method = "linear_table", step_mm = 6.35 } # AUTHOR'S CHOICE: 2/3 of the 9.525 cutter per pass
 note = "Face the complete raw top, X -9..9 and Y -4..22.2, from Z +1 to Z0 before profiling the foot. Do not leave the raw overhang rails at the future finished-face boundary."
 
 [[setups.ops]]
@@ -578,6 +579,7 @@ to_z = 0.0                       # outer face, model Z = -3
 direction = "conventional"       # author's choice
 doc_mm = 1.0                     # AUTHOR'S CHOICE: the whole 1 mm skim in one axial pass
 stock_removal_bounds = { x = [-8.0, 8.0], y = [-33.2, 0.0], z = [0.0, 1.0] } # AUTHOR'S CHOICE: face full raw top
+contour = { method = "linear_table", step_mm = 6.35 } # AUTHOR'S CHOICE: 2/3 of the 9.525 cutter per pass
 note = "Face the complete top of the S4 entry stock, X -8..8 and Y -33.2..0, from Z +1 to Z0 before profiling the arch. Include the retained rectangular crown, not merely the finished outer-face outline."
 
 [[setups.ops]]
