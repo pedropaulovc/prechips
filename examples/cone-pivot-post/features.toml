@@ -4,7 +4,7 @@
 "precision" = "unknown"
 "step" = "cone-pivot-post.STEP"
 "step_sha256" = "5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b"
-"construction" = "one_piece"
+"construction" = "built_up_permitted" # example divergence (HA #1214 programme): drawing treated as permitting built-up
 "cite_root" = "harmonic-analyzer"
 "cite" = { "construction" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:352-358"], "units" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "frames" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "step_sha256" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
 
@@ -198,7 +198,7 @@
 "nominal_dia" = 7.14248
 "thru" = true
 "station" = [12.47, 13.49]
-"station_nominal" = -12.98
+"station_nominal" = 12.98 # example divergence: sign fixed, HA issue #1214
 "cite" = { "at" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:30-30", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "axis" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:116-123", "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:1269-1280", "harmonic-analyzer/cad/scripts/_drawing_common.py:1860-1874,1901,1949-1966", "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "nominal_dia" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79"], "thru" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:79-79"], "station" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100", "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "station_nominal" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:100-100"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:316-333"], "faces" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
 "precision" = { "dia" = 2, "station" = 2 }
 "faces" = ["#635/ADVANCED_FACE[18]/HAF_MOUNT_WEST__P01", "#1244/ADVANCED_FACE[31]/HAF_MOUNT_WEST__P01"]

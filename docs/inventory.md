@@ -437,6 +437,7 @@ on hand.
 | `ranges_in` | `list[str]` |
 | `range_in` | `float \| list[Number]` |
 | `range_mm` | `float \| list[Number]` |
+| `ra_range` | `list[Number]` (two items, µm Ra; roughness gauges, read by inspection finish_ra) |
 | `resolution_mm` | `Number` |
 | `size_in` | `str \| list[Number]` |
 | `nominal_dia_mm` | `dict[str, Number]` |

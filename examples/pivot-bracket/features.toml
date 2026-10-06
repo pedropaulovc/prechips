@@ -1,221 +1,139 @@
-# pivot-bracket (MHA-123) requirement manifest — hand-written for PLAN.md rev 6 (§3.2),
-# mirroring what the M3 generator will emit. Consumer: harmonic-analyzer, read-only;
-# every cite below is a current consumer file:line (verified 2026-10-02).
-#
-# NO DRAWING EXISTS for this part: cad/scripts/_drawing_registry.py carries no
-# pivot_bracket DrawingSpec and there is no cad/scripts/draw_pivot_bracket.py. So:
-# - no general tolerance, precision class or drilled-hole band is adopted (the
-#   consumer's title_block.yaml / tolerances.yaml classes exist but no sheet prints them);
-# - every size/location the spec defines is a requirement whose band is "unknown";
-# - requirements the consumer does not define (flatness, roughness, GD&T position,
-#   fit class) are absent. With no drawing that absence is asserted from the
-#   source contract only (pivot_bracket_spec.py + parts/pivot-bracket.yaml).
-# Drawing dimension count cross-check: no sheet, so there are 0 printed annotations to
-# count. Source dimension count (pivot_bracket_spec.py:21-41,96-102): FOOT_W, FOOT_H,
-# FOOT_LEN, EAR_W, EAR_T, EAR_ARCH_R, BORE_H, BORE_DIA, HOLE_DIA (two holes), HOLE_Z (two
-# stations) = 12 requirement fields below. Stale summary text in cad/config/dimensions.yaml:803
-# ("Ø4.2 holes", "× 24" foot) disagrees with the current spec (4.572, 24.2); the spec wins.
+# pivot-bracket (MHA-123) requirement manifest — HAND-AUTHORED example, not a consumer
+# export (example divergence: the other bundles are generated; this one is written by hand).
+# Geometry: pivot-bracket.STEP (harmonic-analyzer v39 STEP, mm, no HAF_ face labels, so
+# every face ref carries label NONE). Sizes: harmonic-analyzer v39 bundle. The v39 bundle
+# holds only png/pivot-bracket/pivot-bracket_isometric.png for this part — no
+# pivot-bracket_drawing.png sheet was found — so every band below is an
+# example (plausible) choice, not a printed tolerance: machined sizes ±0.10 from the
+# consumer's machined_block class (tolerances.yaml:14, parts/pivot-bracket.yaml:5),
+# drilled holes +0.10/0 (title_block.yaml:66), reamed bore 6.50/6.53 (example, plausible).
+# Face map verified against a FreeCAD dump of the STEP (16 faces). Model frame: seat
+# y = 0, foot top y = 6, ear inner face z = +3, outer face z = -3 (one plane, #103,
+# shared by the ear outer face and the foot's near end), foot free end z = 21.2.
 
 part = "pivot-bracket"
 units = "mm"
-precision = "unknown"            # no drawing, so no general precision class is adopted
-step_sha256 = "unknown"          # no STEP exported: cad/out holds only sldprt/, stl/, png/ for this part
-construction = "one_piece"       # default; no drawing note permits built-up construction
+precision = 2                    # example (plausible): two-place mm sizes
+step = "pivot-bracket.STEP"
+step_sha256 = "6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc"
+construction = "one_piece"       # no note permits built-up construction
 
 [cite]
 part = "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:1-2"
-precision = "harmonic-analyzer/cad/scripts/_drawing_registry.py (no pivot_bracket DrawingSpec); no cad/scripts/draw_pivot_bracket.py"
-construction = "PLAN.md rev 6 §3.2: absence of a permission note is one_piece"
-step_sha256 = "harmonic-analyzer/cad/out (pivot-bracket.SLDPRT, .STL, _isometric.png only)"
+step_sha256 = "harmonic-analyzer-v39 pivot-bracket.STEP (copied into this bundle)"
+precision = "example (plausible): no v39 drawing sheet for this part"
+
+[drawing]
+number = "MHA-123"
+revision = "v39"
+cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:2", "harmonic-analyzer-v39/png/pivot-bracket/pivot-bracket_isometric.png"]
+
+[material]
+spec = "Plain Carbon Steel"
+finish = "black oxide"
+cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3-4"]
+
+[general_tolerances]             # example (plausible): consumer title-block classes adopted, no sheet prints them
+linear_1pl = 0.8
+linear_2pl = 0.51
+linear_3pl = 0.13
+angular_deg = 1.0
+drilled_hole_plus = 0.1
+drilled_hole_minus = 0.0
+edge_break_r = 0.25
+chamfer_max = 0.25
+cite = ["harmonic-analyzer/cad/config/title_block.yaml:25-28,43-45,66"]
 
 [frames.model]
 origin = [0.0, 0.0, 0.0]
 x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
-note = "Part frame: seat face at y = 0, origin under the bore on the seat plane; X across foot/ear width, Y rise, Z along the foot run and the bore axis."
-cite = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:19-26"]
+note = "Part frame: seat y = 0, origin under the bore on the seat plane; X across foot/ear width, Y rise, Z along the foot run and the bore axis."
+cite = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12"]
 
-# Setup frames: numeric, in model coordinates, right-handed (x × y = z). Each is the
-# machine-aligned frame of one setup (frame x = table +X right, y = +Y away, z = +Z up).
-# binding = "unknown": the origins are sourced nominal geometry; how a real part is bound
-# to them is the zero recipe in plan.toml, not a measured fit.
-[frames.A]
-origin = [0.0, 0.0, 0.0]
-x = [1.0, 0.0, 0.0]
-y = [0.0, 0.0, 1.0]
-z = [0.0, -1.0, 0.0]
-binding = "unknown"
-note = "S1, seat up: origin on the finished seat; model (X,Y,Z) -> A (X, Z, -Y). Seat is z = 0, foot top is z = -6."
-cite = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,21-22"]
-
-[frames.B]
-origin = [0.0, 6.0, 0.0]
-x = [1.0, 0.0, 0.0]
-y = [0.0, 0.0, -1.0]
-z = [0.0, 1.0, 0.0]
-binding = "unknown"
-note = "S2, foot top up: origin on the foot top (model Y = FOOT_H = 6); model -> B (X, -Z, Y - 6). Foot top z = 0, seat z = -6, foot free end y = -21.2."
-cite = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,22,29"]
-
-[frames.C]
-origin = [0.0, 0.0, 3.0]
-x = [1.0, 0.0, 0.0]
-y = [0.0, 1.0, 0.0]
-z = [0.0, 0.0, 1.0]
-binding = "unknown"
-note = "S3, inner ear face up: origin on the ear inner face (model Z = EAR_T/2 = 3); model -> C (X, Y, Z - 3). Ear inner face z = 0, ear outer face z = -6, foot free end z = 18.2."
-cite = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12,24-25,29"]
-
-[material]
-spec = "Plain Carbon Steel"
-finish = "black oxide"
-cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3-4", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:74"]
-
-[general_tolerances]
-# Not adopted (no drawing). For the record only: title_block.yaml:25-28 (.X/.XX/.XXX ±,
-# angular) and :66 (drilled holes +0.10/0); parts/pivot-bracket.yaml:5 names
-# tolerance_class machined_block = "+/-0.10" (tolerances.yaml:14). pivot_bracket_spec.py:43-56
-# reasons about "printed bands" (.XX edges, .X stations) of a sheet that does not exist.
-linear_1pl = "unknown"
-linear_2pl = "unknown"
-linear_3pl = "unknown"
-angular_deg = "unknown"
-drilled_hole = "unknown"
-
-# ---------------------------------------------------------------- S1 features
+[datums.A]
+feature = "seat_face"
+surface = "seat plane, model y = 0"
+cite = ["example (plausible): no drawing sheet; the seat is the mounting face"]
 
 [features.seat_face]
 kind = "face"
-frame = "model"                  # every coordinate in this manifest is model-frame; setups name the cutting frame
-requirements = []                # the seat is the origin plane; no flatness/roughness is sourced
-faces = "unknown"                # awaiting the M3 export face-set mapping (swStepExportFaceEdgeProps)
-
-[features.seat_face.plane]
 frame = "model"
-axis = "y"
-value = 0.0
-
-[features.seat_face.cite]
-plane = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7"
+requirements = []                # datum plane only
+datum = "A"
+faces = ["#473/ADVANCED_FACE[16]/NONE"]
+plane = { frame = "model", axis = "y", value = 0.0 }
 
 [features.foot_profile]
 kind = "pocket"
 representation = "stock_minus_part"
 frame = "model"
 requirements = ["width", "length"]
-width = "unknown"                # no band: no drawing
-width_nominal = 16.0             # FOOT_W
-length = "unknown"
-length_nominal = 24.2            # FOOT_LEN = FOOT_Z1 - FOOT_Z0 = 21.2 - (-3)
-faces = "unknown"                # awaiting the M3 export face-set mapping
+width = [15.9, 16.1]             # example (plausible): 16 ±0.10 machined_block
+width_nominal = 16.0
+length = [24.1, 24.3]            # example (plausible): 24.2 ±0.10, outer face z=-3 to free end z=21.2
+length_nominal = 24.2
+precision = { width = 2, length = 2 }
+faces = ["#12/ADVANCED_FACE[2]/NONE", "#470/ADVANCED_FACE[15]/NONE", "#271/ADVANCED_FACE[11]/NONE"]
+bounds = { x = [-8.0, 8.0], y = [0.0, 6.0], z = [-3.0, 21.2] }
 
-[features.foot_profile.bounds]   # model frame; a rectangle boundary, no centre is claimed
-x = [-8.0, 8.0]
-y = [0.0, 6.0]
-z = [-3.0, 21.2]
-
-[features.foot_profile.precision]
-width = "unknown"
-length = "unknown"
-
-[features.foot_profile.cite]
-width = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21"
-length = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:25,29-30"
-bounds = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21-30", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:104-134"]
-
-# ---------------------------------------------------------------- S2 features
+[features.outer_face]
+kind = "face"
+frame = "model"
+requirements = []                # flat outer face, no own size beyond foot_profile length / ear thickness
+faces = ["#103/ADVANCED_FACE[8]/NONE"]
+plane = { frame = "model", axis = "z", value = -3.0 }
 
 [features.foot_top]
 kind = "face"
 frame = "model"
 requirements = ["height"]
-height = "unknown"
-height_nominal = 6.0             # FOOT_H, seat to foot top
-faces = "unknown"                # awaiting the M3 export face-set mapping
-
-[features.foot_top.plane]
-frame = "model"
-axis = "y"
-value = 6.0
-
-[features.foot_top.bounds]       # the free run outside the ear band
-x = [-8.0, 8.0]
-z = [3.0, 21.2]
-
-[features.foot_top.precision]
-height = "unknown"
-
-[features.foot_top.cite]
-height = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
-bounds = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:21,57"
+height = [5.9, 6.1]              # example (plausible): 6 ±0.10 seat to foot top
+height_nominal = 6.0
+precision = { height = 2 }
+faces = ["#28/ADVANCED_FACE[3]/NONE"]
+plane = { frame = "model", axis = "y", value = 6.0 }
+bounds = { x = [-8.0, 8.0], z = [3.0, 21.2] }
 
 [features.ear_relief]
 kind = "pocket"
 representation = "stock_minus_part"
 frame = "model"
 requirements = ["thickness"]
-thickness = "unknown"
-thickness_nominal = 6.0          # EAR_T: the relief cuts the ear inner face at model Z = +3
-faces = "unknown"                # awaiting the M3 export face-set mapping
-
-[features.ear_relief.bounds]     # model frame; removed above the foot in the free run; y_max is the part envelope
-y = [6.0, 32.2]
-z = [3.0, 21.2]
-
-[features.ear_relief.precision]
-thickness = "unknown"
-
-[features.ear_relief.cite]
-thickness = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
-bounds = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,24,29,35,57"
+thickness = [5.9, 6.1]           # example (plausible): ear 6 ±0.10
+thickness_nominal = 6.0
+precision = { thickness = 2 }
+faces = ["#96/ADVANCED_FACE[7]/NONE"]
+bounds = { y = [6.0, 32.2], z = [3.0, 21.2] }
 
 [features.ear_sides]
 kind = "pocket"
 representation = "stock_minus_part"
 frame = "model"
 requirements = ["width"]
-width = "unknown"
-width_nominal = 14.0             # EAR_W
-faces = "unknown"                # awaiting the M3 export face-set mapping
-
-[features.ear_sides.bounds]      # model frame; the retained ear block
-x = [-7.0, 7.0]
-y = [6.0, 32.2]
-z = [-3.0, 3.0]
-
-[features.ear_sides.precision]
-width = "unknown"
-
-[features.ear_sides.cite]
-width = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23"
-bounds = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22-24,35", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:136-166"]
+width = [13.9, 14.1]             # example (plausible): 14 ±0.10
+width_nominal = 14.0
+precision = { width = 2 }
+faces = ["#41/ADVANCED_FACE[4]/NONE", "#451/ADVANCED_FACE[14]/NONE"]
+bounds = { x = [-7.0, 7.0], y = [6.0, 32.2], z = [-3.0, 3.0] }
 
 [features.hold_down_a]
 kind = "hole"
 frame = "model"
-at = [0.0, 6.0, 8.2]             # model; axis meets the foot top (entry face)
-axis = [0.0, -1.0, 0.0]          # model; drilled from the foot top toward the seat
+at = [0.0, 6.0, 8.2]
+axis = [0.0, -1.0, 0.0]
 requirements = ["dia", "station", "thru"]
-dia = "unknown"                  # #8 close clearance identity; no band (no drawing adopts +0.10/0)
+drill = "#15"
+dia = [4.572, 4.672]             # #8 close clearance, drilled +0.10/0 (title_block.yaml:66)
 dia_nominal = 4.572
 hole_spec = "#8 clearance, close fit"
-station = "unknown"
-station_nominal = 8.2            # HOLE_Z[0], model Z
+station = [8.1, 8.3]             # example (plausible): 8.2 ±0.10
+station_nominal = 8.2
 thru = true
-through_thickness = 6.0          # FOOT_H material path, not the CAD cut overrun
-faces = "unknown"                # awaiting the M3 export face-set mapping
-
-[features.hold_down_a.precision]
-dia = "unknown"
-station = "unknown"
-
-[features.hold_down_a.cite]
-at = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238"]
-dia = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41", "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130"]
-station = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))"
-thru = "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238"
-through_thickness = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
+through_thickness = 6.0
+precision = { dia = 3, station = 2 }
+faces = ["#195/ADVANCED_FACE[9]/NONE", "#285/ADVANCED_FACE[12]/NONE"]
 
 [features.hold_down_b]
 kind = "hole"
@@ -223,72 +141,44 @@ frame = "model"
 at = [0.0, 6.0, 16.0]
 axis = [0.0, -1.0, 0.0]
 requirements = ["dia", "station", "thru"]
-dia = "unknown"
+drill = "#15"
+dia = [4.572, 4.672]             # #8 close clearance, drilled +0.10/0
 dia_nominal = 4.572
 hole_spec = "#8 clearance, close fit"
-station = "unknown"
-station_nominal = 16.0           # HOLE_Z[1], model Z
+station = [15.9, 16.1]           # example (plausible): 16 ±0.10
+station_nominal = 16.0
 thru = true
 through_thickness = 6.0
-faces = "unknown"                # awaiting the M3 export face-set mapping
-
-[features.hold_down_b.precision]
-dia = "unknown"
-station = "unknown"
-
-[features.hold_down_b.cite]
-at = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22,43,96-102", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238"]
-dia = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:40-41", "harmonic-analyzer/cad/scripts/_hole_spec.py:57,111-130"]
-station = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:82-102 (HOLE_Z evaluates to (8.2, 16.0))"
-thru = "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:215-238"
-through_thickness = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:22"
-
-# ---------------------------------------------------------------- S3 features
+precision = { dia = 3, station = 2 }
+faces = ["#9/ADVANCED_FACE[1]/NONE", "#93/ADVANCED_FACE[6]/NONE"]
 
 [features.ear_arch]
 kind = "pocket"
 representation = "stock_minus_part"
 frame = "model"
-at = [0.0, 25.2, 3.0]            # model; the arc centre (bore axis) on the ear inner face — a real centre, not a centroid
-axis = [0.0, 0.0, -1.0]
-arc = "upper_semicircle"         # retained convex crown about the bore, not a fillet
+at = [0.0, 25.2, -3.0]           # arc centre (bore axis) on the outer face
+axis = [0.0, 0.0, 1.0]
+arc = "upper_semicircle"
 requirements = ["radius"]
-radius = "unknown"
-radius_nominal = 7.0             # EAR_ARCH_R = EAR_W / 2
-through_thickness = 6.0          # EAR_T
-faces = "unknown"                # awaiting the M3 export face-set mapping
-
-[features.ear_arch.precision]
-radius = "unknown"
-
-[features.ear_arch.cite]
-at = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:168-191"]
-radius = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:23,34-35"
-through_thickness = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
+radius = [6.9, 7.1]              # example (plausible): R7 ±0.10
+radius_nominal = 7.0
+through_thickness = 6.0
+precision = { radius = 2 }
+faces = ["#52/ADVANCED_FACE[5]/NONE"]
 
 [features.cross_bore]
 kind = "hole"
 frame = "model"
-at = [0.0, 25.2, 3.0]            # model; the bore axis on the ear inner face (entry)
-axis = [0.0, 0.0, -1.0]
+at = [0.0, 25.2, -3.0]           # bore axis on the outer face (entry in S3)
+axis = [0.0, 0.0, 1.0]
 requirements = ["dia", "height", "thru"]
-dia = "unknown"                  # nominal only; reaming is required, no acceptance band or fit class is sourced
+dia = [6.5, 6.53]                # example (plausible): reamed 6.50/6.53 pivot fit
 dia_nominal = 6.5
-height = "unknown"
-height_nominal = 25.2            # BORE_H, bore axis above the seat
+height = [25.1, 25.3]            # example (plausible): 25.2 ±0.10 above the seat
+height_nominal = 25.2
+height_from = "seat_face"
 thru = true
-through_thickness = 6.0          # EAR_T material path, not the CAD cut overrun EAR_T + 2
+through_thickness = 6.0
 process = "ream"
-faces = "unknown"                # awaiting the M3 export face-set mapping
-
-[features.cross_bore.precision]
-dia = "unknown"
-height = "unknown"
-
-[features.cross_bore.cite]
-at = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24,31", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213"]
-dia = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:33"
-height = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:31"
-thru = "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:193-213"
-through_thickness = "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24"
-process = "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:7"
+precision = { dia = 2, height = 2 }
+faces = ["#234/ADVANCED_FACE[10]/NONE", "#445/ADVANCED_FACE[13]/NONE"]

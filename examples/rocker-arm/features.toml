@@ -203,12 +203,12 @@
 "frame" = "model"
 "requirements" = ["tip_land", "land_angle_deg"]
 "tip_land" = [5.08, 6.1]
-"land_angle_deg" = "unknown"
+"land_angle_deg" = [89.0, 91.0] # example divergence: export left this unknown; nominal 90 with title-block angular ±1° (title_block.yaml angular.value_deg)
 "land_angle_nominal_deg" = 90.0
 "radial_tip_end" = [146.25456773160636, 23.799503180135]
 "top_edge_feature" = "top_edge"
 "cite" = { "tip_land" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93", "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "land_angle_deg" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "land_angle_nominal_deg" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "radial_tip_end" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "top_edge_feature" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "precision" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "datum" = ["harmonic-analyzer/cad/scripts/draw_rocker_arm.py:530-538", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "precision.tip_land" = ["harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"], "precision.land_angle_deg" = ["harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"], "faces" = ["harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP"] }
-"precision" = { "tip_land" = 2, "land_angle_deg" = "unknown" }
+"precision" = { "tip_land" = 2, "land_angle_deg" = 0 }
 "datum" = "C"
 "faces" = ["#495/ADVANCED_FACE[13]/HAF_TIP_LAND_POS_X__P01"]
 
@@ -217,10 +217,10 @@
 "frame" = "model"
 "requirements" = ["tip_land", "land_angle_deg"]
 "tip_land" = [5.08, 6.1]
-"land_angle_deg" = "unknown"
+"land_angle_deg" = [89.0, 91.0] # example divergence: export left this unknown; nominal 90 with title-block angular ±1° (title_block.yaml angular.value_deg)
 "land_angle_nominal_deg" = 90.0
 "radial_tip_end" = [-146.25456773160636, 23.799503180135]
 "top_edge_feature" = "top_edge"
 "cite" = { "tip_land" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93", "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "land_angle_deg" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "land_angle_nominal_deg" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "radial_tip_end" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:54-54", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:44-44", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "top_edge_feature" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "precision" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "precision.tip_land" = ["harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"], "precision.land_angle_deg" = ["harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"], "faces" = ["harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP"] }
-"precision" = { "tip_land" = 2, "land_angle_deg" = "unknown" }
+"precision" = { "tip_land" = 2, "land_angle_deg" = 0 }
 "faces" = ["#483/ADVANCED_FACE[12]/HAF_TIP_LAND_NEG_X__P01"]
