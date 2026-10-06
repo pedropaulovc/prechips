@@ -7,7 +7,9 @@ listed under "Example divergences" below mean those manifests are no longer
 verbatim exports. Each candidate also consumes the three shared shop inputs.
 `pivot-bracket/` is hand-authored against the v39 consumer STEP
 (`pivot-bracket.STEP`, sha256 `6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`)
-and drawing, with geometry-matched `#id/ADVANCED_FACE[n]/NONE` face refs.
+and isometric reference, with geometry-matched `#id/ADVANCED_FACE[n]/NONE` face refs.
+There is **no dimensioned bracket drawing**: its acceptance bands are plausible
+example design intent, individually cited as such, not measured drawing facts.
 Neither export delivery nor a CAD face identity is a tooling measurement,
 clearance proof, approved route or first article.
 
@@ -28,6 +30,7 @@ unchanged: anything still `unknown` keeps its finding unknown.
 | `cone-pivot-post/features.toml` | `features.mount_west.station_nominal` | `-12.98` → `12.98` | sign bug, [HA #1214](https://github.com/pedropaulovc/harmonic-analyzer/issues/1214) |
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
+| `pivot-bracket/features.toml` | all feature bands, general tolerances and precision | no dimensioned drawing → hand-authored plausible example limits | v39 STEP defines nominal geometry only; every feature cites `example (plausible, no dimensioned drawing)` |
 
 ### M3 export delivery provenance
 
@@ -86,10 +89,10 @@ Shared inputs:
   (2.886 in). Each value carries its own `measured` record; the vendor
   nominals stay beside it as comments, and the item's `verify = true`
   identity flag is kept. The rocker and bracket plans' jaw-overlap arithmetic
-  now uses the measured jaw height (rocker 6.8453 mm above the parallels;
-  bracket 19.5453 / 3.6703 mm, still `*_verify = true`), and rocker S1/S2
-  centre the jaws on the 310 mm blank (`jaw_center_along_mm = 0.0`, author's
-  choice). The parallels are still unmeasured and declare no width.
+  now uses the measured jaw height. Bracket S1/S2 use 19.5453 / 3.6703 mm
+  engagement with labelled illustrative parallels and no stale verify flags.
+  The bracket's S2 tall narrow pair replaces the former 1-2-3-block stack:
+  a 50.8 mm-wide block cannot fit between jaws closed on a 16 mm foot.
 - `shop-policy.toml`: shop-owned, not copied into plans. The default requires
   `tool_resolves`, `sizing`, `op_chain`, `blind_depth`, `inspection`, `coordinates`
   and `zero_check` on `"*"`. Re-fixture, thin-wall and stick-out numbers and their
@@ -116,7 +119,7 @@ PLAN §8 M3.
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
 | `rocker-arm` | Three-setup route, integral hub, retained rails/ears and supported final profiling, consuming the exported datum and tip-land features. | **2**: original missing tools and supported profile fixture remain stops. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. Missing drawing contract stays explicit. | **2**: absent angle plate, R8 chuck and 6.5 mm reamer. |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: inventory and authored setup data are complete; floor/pointed-tool poses, own-bore corner classification and downstream planned-bore stock await the accessibility engine integration. |
 | `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
 
@@ -344,24 +347,23 @@ citation map for the generated exports. The bracket remains authored.
   **1.994–2.094** (`rocker_arm_spec.py:107–126`, `_hole_spec.py:82`,
   `cad/config/title_block.yaml:66`). Position is Ø0.20 to **A|B|C**, not A|B.
   Setup frames A/B are not drawing datums A/B/C.
-- **Bracket**: all nine real spec/build features survive. Nominals are sourced
-  from `cad/scripts/pivot_bracket_spec.py:21–43,82–102` and the model build. There
-  is no registered bracket drawing (`cad/scripts/_drawing_registry.py`,
-  `DRAWINGS`); its drawing dimension count, precision and tolerance adoption are
-  unknown, not “zero requirements”. The #8-close hole nominal is **4.572** at
-  `_hole_spec.py:57`. The selected #15 nominal came from the cited rev-3 route;
-  #15 is **not** pinned in the consumer's numbered-drill dictionary. It remains
-  a coverage-based, unverified tool identity, not a measured size. The consumer's
-  stale “Ø4.2 / ×24” description is not substituted for the current 4.572 / 24.2.
+- **Bracket**: ten hand-authored features map all 16 v39 STEP faces; the added
+  `outer_face` owns the single plane shared by the ear outer face and foot near
+  end. There is no registered dimensioned bracket drawing. Plausible example
+  limits are individually cited, not consumer acceptance claims. Nominal
+  geometry follows the STEP/spec: 16 mm foot width, 24.2 mm foot run, 6 mm foot
+  height/ear thickness, 14 mm ear width, R7 crown, 4.572 mm hold-down holes and
+  6.50 mm reamed cross-bore at 25.2 mm above the seat. The #15 drill and
+  1/4 in predrill have labelled illustrative dimensions in the inventory.
 
 **Historical handwritten/general-band reconciliation:** the shaft/rocker M1
 bundles used title-block numeric inch rows ×25.4: 0.762 / 0.508 / 0.127 mm.
 The M2 cone used rendered metric rows 0.8 / 0.51 / 0.13 mm. That difference was
 preserved at the time rather than rewriting earlier fixtures. M3 now consumes
 the exported metric bands for all three drawn parts. REF geometry still
-receives no invented acceptance band. The bracket does not borrow another
-part's drawing defaults, and exported revision metadata is not a physical
-verification claim.
+receives no invented acceptance band in consumer exports. Bracket bands are
+instead explicit illustrative design choices under the examples policy.
+Exported revision metadata is not a physical verification claim.
 
 ### Historical cone M2 source map and authored route
 
@@ -518,10 +520,12 @@ tool/holder, speed/feed, direction, tip and requirement checks are present or
 named unknown. No rule ids, paths or full hashes belong on the bench sheet.
 Under M4 each setup page carries a kernel figure or the explicit
 `? Kernel fixture render unavailable; holding geometry is not confirmed.`
-paragraph. The bracket remains STEP-less; the other three pilots now carry
-exports but still need derivable setup-entry stock to render. Missing fixture
-facts stay labelled unresolved. Historical rocker pictures and repeatability
-observations do not establish the current export's output contract; see PLAN
+paragraph when a kernel render cannot be produced. The bracket now carries
+the digest-bound v39 STEP and explicit setup-entry stock routing. Its S1/S2
+vises include posed parallel pairs; S3 includes the angle plate, a load-bearing
+foot-end ledge and a two-stud bridge strap pressing the foot toward the seat datum.
+Historical rocker pictures and
+repeatability observations do not establish current outputs; see PLAN
 §8 M3 for the parent gate. A browser-rendered Letter PDF is a layout smoke
 proof, **not** the physical printed paper rehearsal or a first article.
 
@@ -589,8 +593,8 @@ the numerical validator remains an independent arithmetic gate.
    measured machine range. A non-50 machine boundary is never exceeded and is
    not rounded again. Contact-side compensation and DRO jog polarity are
    independent; reversed directions exchange expected and mirrored readings.
-8. Missing bracket drawing bands/precision remain unknown, not adopted from
-   another part. Its nominal geometry does not certify drawing acceptance.
+8. Missing bracket drawing bands are not consumer drawing facts. The illustrative
+   example adopts plausible bands and labels every feature's design provenance.
 9. Unknown STEP binding is permitted as a named unresolved finding. A known
    digest requires actual matching STEP bytes. Approval is separate evidence,
    not an operative input to its own report hash; it needs a matching hash and
@@ -843,88 +847,43 @@ holders.lathe-collets.standard
 holders.lathe-collets.present
 ```
 
-### `pivot-bracket/features.toml` — 43 unknown leaves
+### `pivot-bracket/` — completed-data provenance
 
-No registered bracket drawing adopts a numeric band, precision or title-block default; sourced nominals are kept separately.
+The former 43-leaf missing-feature ledger is superseded by the v39 STEP-bound,
+hand-authored manifest. No dimensioned drawing was found, so bands are plausible
+example design intent rather than imported drawing acceptance limits.
 
-```text
-precision
-general_tolerances.linear_1pl
-general_tolerances.linear_2pl
-general_tolerances.linear_3pl
-general_tolerances.angular_deg
-general_tolerances.drilled_hole
-features.foot_profile.width
-features.foot_profile.length
-features.foot_profile.precision.width
-features.foot_profile.precision.length
-features.foot_top.height
-features.foot_top.precision.height
-features.ear_relief.thickness
-features.ear_relief.precision.thickness
-features.ear_sides.width
-features.ear_sides.precision.width
-features.hold_down_a.dia
-features.hold_down_a.station
-features.hold_down_a.precision.dia
-features.hold_down_a.precision.station
-features.hold_down_b.dia
-features.hold_down_b.station
-features.hold_down_b.precision.dia
-features.hold_down_b.precision.station
-features.ear_arch.radius
-features.ear_arch.precision.radius
-features.cross_bore.dia
-features.cross_bore.height
-features.cross_bore.precision.dia
-features.cross_bore.precision.height
-```
+S1 faces the seat and profiles only the foot-depth region, with explicit bounded
+clearance retaining the upper-ear stock for S2/S3. S2 stands the foot on one
+41.275 mm tall narrow parallel pair (not wide blocks under closed jaws).
+The open relief clears the raw free-run overhang, not merely the finished-face
+footprint. Separate outside-in left/right side-slot rasters retain the rectangular
+crown stock; the 31.75 mm long-flute cutter reaches the 26.2 mm inner wall with
+37 mm projection. The last wall pass leaves 0.1 mm on the floor for the final
+facing pass. Both hold-down holes then drill over an open central exit gap.
+A stiff 3/8 in 120-degree spotter projects 31 mm from the chuck, keeping its nose
+above the uncut ear; a 0.6 mm tip depth makes a 2.08 mm spot.
 
-No certified STEP bytes / matched drawing export supplied.
+S3 uses the angle plate's bolted foot-end ledge to resist downward cutting loads,
+with a 63.5 × 12.7 × 9.525 mm bridge strap bearing on the free foot top.
+Its two 3/8-16 studs, front/rear washers and nuts are modeled; scoped bores
+keep the studs clear of the beam and pass through the angle-plate upright.
+The strap force points toward the seat, and the foot-end ledge takes the
+downward tool load rather than relying only on clamp friction.
+The indicated transfer includes the actual `seat_face` height datum; the Y
+edge-finder pickup uses the plate front beside the part, not the thin seat lip.
+After the shared outer face is finished, S3:11 checks the final 6 mm ear thickness
+(the S2 in-process ear was still 7 mm). The R7 arch gets a radius-gauge check.
+The crown's explicit S3 clearance box removes the retained cap without using
+the earlier straight side slots to fabricate an arched form from above.
+The reamed bore uses paired metric 6.500 mm go / 6.530 mm no-go pins rather than
+inch-increment pins; after release, the seat rests on the surface plate and a
+height gauge reads the go-pin top minus half its diameter for the bore height.
 
-```text
-step_sha256
-```
+The plan and manifest use revision `example-v39` for this local illustrative
+contract, explicitly **not** a certified dimensioned drawing revision. All setup
+frames are nominal, not physical alignments already performed.
 
-Nominal numeric frame exists; actual measured part/setup or fitted-span binding does not.
-
-```text
-frames.A.binding
-frames.B.binding
-frames.C.binding
-```
-
-Export face-set names and digest-bound feature mapping are not available yet.
-
-```text
-features.seat_face.faces
-features.foot_profile.faces
-features.foot_top.faces
-features.ear_relief.faces
-features.ear_sides.faces
-features.hold_down_a.faces
-features.hold_down_b.faces
-features.ear_arch.faces
-features.cross_bore.faces
-```
-
-### `pivot-bracket/plan.toml` — 5 unknown leaves (was 71)
-
-No certified drawing/export revision or adopted drawing edge-break limit:
-
-```text
-drawing.revision
-setups[S1].deburr_mm
-setups[S2].deburr_mm
-setups[S3].deburr_mm
-```
-
-No radius/profile gauge is listed. Calipers are selected for nominal bore
-diameter and height only; absent bracket drawing tolerances remain in the manifest:
-
-```text
-setups[S3].ops[20].checks.radius
-```
 
 ### `pivot-shaft/features.toml` — 16 unknown leaves
 

@@ -87,3 +87,13 @@ material_class = "low_carbon_steel"
 kc_n_per_mm2 = 1900
 e_gpa = 200
 cite = "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
+
+# --- pivot-bracket additions ---
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "spot"
+diameter_range = [6.51, 13.0]
+sfm = 70
+chip_load_mm_per_tooth = 0.02
+cite = "example (plausible, not measured), 2026-10-05: conservative cobalt spotting start, not transcribed from a handbook"
