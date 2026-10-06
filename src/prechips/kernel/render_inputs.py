@@ -1,0 +1,146 @@
+"""Shop drawing annotations from the same nominal targets as the traveler.
+
+Only explicit setup-frame values and geometry-matched feature identities cross
+this boundary. Display annotations never certify a holding or a toolpath.
+"""
+
+from prechips.rules.resolution import number, record, resolve
+
+
+def _xy(value, scale):
+    if isinstance(value, (list, tuple)) and len(value) == 2 and all(number(v) for v in value):
+        return [v * scale for v in value]
+    return None
+
+
+def contour_annotations(numbers, scale):
+    """Paths and sparse, shared table keys: arc ends/apex and exact line corners."""
+    paths, waypoints = [], []
+
+    def add_path(op, points, candidates):
+        points = [_xy(value, scale) for value in points]
+        if any(point is None for point in points):
+            return
+        if len(points) < 2:
+            return
+        op = str(op)
+        paths.append({"op": op, "xy": points})
+        for value in candidates:
+            point = _xy(value, scale)
+            if point is None or any(
+                w["op"] == op and sum((a - b) ** 2 for a, b in zip(w["xy"], point)) < 1e-8
+                for w in waypoints
+            ):
+                continue
+            waypoints.append({"label": f"P{len(waypoints) + 1}", "op": op, "xy": point})
+
+    arc_ops = set()
+    for arc in numbers.get("arc_table", []):
+        rows = arc.get("rows", [])
+        points = [row.get("setup_xy") for row in rows]
+        if points:
+            add_path(arc.get("op"), points, [points[0], points[len(points) // 2], points[-1]])
+            arc_ops.add(arc.get("op"))
+    for line in numbers.get("line_table", []):
+        points = line.get("setup_xy", [])
+        add_path(line.get("op"), points, points)
+    for profile in numbers.get("profiles", []):
+        if profile.get("op") in arc_ops:
+            continue
+        points = profile.get("cutter_centre", [])
+        if not isinstance(points, list) or not points:
+            continue
+        if isinstance(points[0], dict):
+            points = [[point.get("x"), point.get("y")] for point in points]
+        if isinstance(points[0], list) and points[0] and isinstance(points[0][0], list):
+            # A raster table contains independent straight passes, not joins between passes.
+            for index, segment in enumerate(points):
+                add_path(
+                    profile.get("op"),
+                    segment,
+                    segment if index in (0, len(points) - 1) else [],
+                )
+        else:
+            add_path(profile.get("op"), points, points)
+    return paths, waypoints
+
+
+def _clamps(bundle, hold):
+    kinds = {
+        "shoulder_screw": "SHOULDER SCREW",
+        "locating_pin": "CLOCKING PIN",
+        "strap_clamp": "STRAP",
+        "screw_jack": "SUPPORT JACK",
+    }
+    result = []
+    clamps = hold.get("clamps", [])
+    for index, clamp in enumerate(clamps if isinstance(clamps, list) else [], start=1):
+        if not isinstance(clamp, dict):
+            continue
+        ref = clamp.get("ref", "unknown")
+        kind = record(resolve(bundle, "fixtures", ref)).get("kind")
+        label = kinds.get(kind, str(ref).split(".", 1)[-1].replace("-", " ").replace("_", " "))
+        result.append({"index": index, "owner": f"clamp {index} {ref}", "label": label})
+    return result
+
+
+def setup_annotations(bundle, setup, numbers):
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    hold, state = record(setup.get("hold")), record(setup.get("stock_state"))
+    result = {
+        "fixed_jaw_label": "FIXED JAW (" + str(hold.get("fixed_jaw", "side not declared")) + ")",
+        "stickout_mm": hold.get("stickout_mm") if number(hold.get("stickout_mm")) else None,
+        "ends": [
+            {"label": label, "z_mm": state[key]}
+            for key, label in (
+                ("north_end_z", "NORTH END"),
+                ("south_end_z", "SOUTH END"),
+                ("plain_end_z", "PLAIN END"),
+            )
+            if number(state.get(key))
+        ],
+        "datums": [
+            {
+                "label": f"DATUM {name}: {datum.get('surface', datum.get('feature', ''))}",
+                "feature": datum["feature"],
+            }
+            for name, datum in record(bundle.features.get("datums")).items()
+            if isinstance(datum, dict)
+            and isinstance(datum.get("feature"), str)
+            and datum["feature"] != "unknown"
+        ],
+        "clamp_order": hold.get("clamp_order")
+        if isinstance(hold.get("clamp_order"), list)
+        else [],
+        "clamp_order_declared": isinstance(hold.get("clamp_order"), list),
+        "preload": hold.get("preload_direction")
+        if hold.get("preload_direction") in ("clockwise", "counterclockwise")
+        else None,
+        "clamps": _clamps(bundle, hold),
+        "tools": {
+            str(op["op"]): str(op.get("tool", "tool not selected")).replace("_", " ")
+            for op in setup["ops"]
+        },
+    }
+    result["paths"], result["waypoints"] = (
+        contour_annotations(numbers, scale) if scale else ([], [])
+    )
+    result["axial_paths"] = []
+    for contour in numbers.get("contours", []):
+        rows = contour.get("rows", [])
+        points = [_xy(row.get("setup_xz"), scale) for row in rows] if scale else []
+        if len(points) < 2 or any(point is None for point in points):
+            continue
+        op = str(contour.get("op"))
+        result["axial_paths"].append(
+            {"op": op, "xz": points, "x_display": numbers.get("x_display")}
+        )
+        for index in sorted({0, len(points) // 2, len(points) - 1}):
+            result["waypoints"].append(
+                {
+                    "label": f"P{len(result['waypoints']) + 1}",
+                    "op": op,
+                    "xz": points[index],
+                }
+            )
+    return result
