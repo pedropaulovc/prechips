@@ -5,6 +5,9 @@
 "step" = "cone-pivot-post.STEP"
 "step_sha256" = "5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b"
 "construction" = "built_up_permitted" # example divergence (HA #1214 programme): drawing treated as permitting built-up
+# Example-derived geometry fact, not an upstream volume export or a physical measurement.
+"volume_mm3" = 112300.96039973569
+"volume_cite" = ["FreeCAD 1.1.4 Part.read(...).Volume of adjacent cone-pivot-post.STEP, one valid solid; SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; example STEP probe"]
 "cite_root" = "harmonic-analyzer"
 "cite" = { "construction" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:352-358"], "units" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "precision" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "frames" = ["harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10", "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395"], "step_sha256" = ["harmonic-analyzer/cad/out/features/cone_pivot_post/cone-pivot-post.STEP"] }
 

@@ -149,6 +149,26 @@ feed_mm_rev = 0.03
 cite = "illustrative example value (plausible hobby-lathe HSS parting starting point), not transcribed from a handbook"
 # --- end pivot-shaft additions ---
 
+# --- cone-pivot-post built-up additions ---
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "drill"
+diameter_range = [13.01, 25.4]
+sfm = 55
+chip_load_mm_per_tooth = 0.06
+cite = "illustrative example value: reduced-shank socket drill in 1018; conservative hobby-mill starting point, not handbook data"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "ream"
+diameter_range = [13.01, 25.4]
+sfm = 30
+chip_load_mm_per_tooth = 0.025
+cite = "illustrative example value: large straight-flute socket reamer in 1018; conservative hobby-mill starting point, not handbook data"
+# --- end cone-pivot-post built-up additions ---
+
 [[material]]
 material_class = "low_carbon_steel"
 kc_n_per_mm2 = 1900

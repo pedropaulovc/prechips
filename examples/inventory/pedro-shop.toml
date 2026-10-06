@@ -1033,6 +1033,64 @@ body_width_mm = { value = 50.0, measured = { by = "example (plausible, not measu
 body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 # --- end pivot-shaft additions ---
 
+# --- cone-pivot-post built-up additions ---
+# Illustrative purchase choices for the body/socket and separate crank sleeve.
+# The matching diameter bands and brazing procedure belong to built-up.toml.
+[tools.cone-joint-drill-21p5]
+kind = "drill"
+material = "HSS"
+present = true
+note = "example purchase: 21.5 mm reduced-shank drill, 1/2 in shank; pilot first, then drill the socket before reaming"
+dia_mm = { value = 21.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across the margins" } }
+shank_in = "1/2"
+flutes = 2
+point_angle = { value = 118.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 75.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, point to flute runout" } }
+oal_mm = { value = 150.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+projection_mm = { "drill-chuck-r8" = { value = 95.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } } }
+
+[tools.cone-joint-reamer-22p01]
+kind = "reamer"
+material = "HSS"
+present = true
+note = "example purchase: 22.01 mm straight-flute machine reamer with reduced 1/2 in shank; finish the 22.000-22.020 mm socket"
+dia_mm = { value = 22.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across opposed reamer lands" } }
+shank_in = "1/2"
+flutes = 6
+lead_mm = { value = 1.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, lead to full diameter" } }
+flute_len_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+oal_mm = { value = 140.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+projection_mm = { "drill-chuck-r8" = { value = 85.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } } }
+
+[tools.cone-braze-torch]
+kind = "joining_tool"
+present = true
+note = "AUTHOR'S CHOICE: air-acetylene brazing torch; use BAg-7 (56% silver, cadmium-free) filler with compatible white flux. Clean bare steel, preheat the complete head evenly, feed capillary joint, cool in still air, pickle/clean and re-indicate before final boring. This is an illustrative shop process, not a certified structural joint."
+cite = ["AUTHOR'S CHOICE: illustrative built-up route joining process"]
+
+
+[machines.cone-braze-bench]
+kind = "bench"
+note = "AUTHOR'S CHOICE: refractory brazing bench with extraction and fire-safe surround; no machine spindle, DRO or cutting axes. Only manual fit and inspection operations are permitted here."
+cite = ["AUTHOR'S CHOICE: illustrative built-up joining station"]
+
+[fixtures.cone-braze-cradle]
+kind = "custom"
+note = "AUTHOR'S CHOICE: refractory base carrying a bored ceramic body saddle, a raw-tail support, a foot stop and a ceramic sleeve-height button. Gravity holding only, with the hot joint free of thermal clamps; not a machining fixture. The button supports the solid sleeve's lower end during brazing so it cannot drop through the clearance socket. Local frame is model R0; post axis is +Y and crank sleeve axis +Z."
+length_mm = { value = 136.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+width_mm = { value = 80.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+height_mm = { value = 35.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, base bottom to saddle top" } }
+bed_height_mm = { value = 28.9945, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, bench to lowest post contact in saddle" } }
+solids = [
+  { name = "refractory-base", shape = "box", at_mm = [-40.0, -6.0, -50.0], size_mm = [80.0, 136.0, 10.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "body-saddle", shape = "box", at_mm = [-30.0, 10.0, -40.0], size_mm = [60.0, 10.0, 25.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "saddle-seat", shape = "cylinder", at_mm = [0.0, 9.0, 0.0], axis = [0.0, 1.0, 0.0], dia_mm = 42.011, length_mm = 12.0, void = true, cuts = ["body-saddle"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "inside micrometer and steel rule" } },
+  { name = "raw-tail-support", shape = "box", at_mm = [-30.0, 100.0, -40.0], size_mm = [60.0, 20.0, 14.6], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "foot-stop", shape = "box", at_mm = [-15.0, -6.0, -40.0], size_mm = [30.0, 6.0, 25.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  { name = "sleeve-height-button", shape = "box", at_mm = [-6.0, 66.7, -40.0], size_mm = [12.0, 12.0, 18.6247], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, base top to lower sleeve face at model Z-21.3753" } },
+]
+# --- end cone-pivot-post built-up additions ---
+
 # Preserved original inventory comments (rev-3 status vocabulary is superseded above):
 # rev-3 inventory line 1: Sample shop inventory (Pedro's shop). prechips ships no default inventory; each user supplies their own file in this schema.
 # rev-3 inventory line 2: `verify: true` marks a value taken from a vendor page, a forum, a photo or
