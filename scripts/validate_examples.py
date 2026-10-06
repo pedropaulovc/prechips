@@ -29,12 +29,23 @@ EXPECTED_EXIT = {
     "cone-pivot-post": 2,
     "cone-pivot-post/built-up.toml": 2,
 }
+# (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
+# errors on). Setups outside the modeled set must render as partial pictures with debts.
 GEOMETRY_CASES = (
-    ("rocker-jaw-occluded", "plan.toml", "expected", 2, "accessibility", "S3"),
-    ("pocket-reach", "plan.toml", "expected", 2, "reach", "S2"),
-    ("pocket-reach", "long-reach.toml", "expected/long-reach", 0, None, "S2"),
-    ("sharp-corner", "plan.toml", "expected", 2, "internal_corner_radius", "S2"),
-    ("unclaimed-face", "plan.toml", "expected", 2, "coverage", "S2"),
+    ("rocker-jaw-occluded", "plan.toml", "expected", 2, "accessibility", ("S3",), ("S3",)),
+    ("pocket-reach", "plan.toml", "expected", 2, "reach", ("S2",), ("S2",)),
+    ("pocket-reach", "long-reach.toml", "expected/long-reach", 0, None, ("S2",), ()),
+    ("sharp-corner", "plan.toml", "expected", 2, "internal_corner_radius", ("S2",), ("S2",)),
+    ("unclaimed-face", "plan.toml", "expected", 2, "coverage", ("S2",), ("S2",)),
+    (
+        "fixture-holds",
+        "plan.toml",
+        "expected",
+        2,
+        "accessibility",
+        ("S1", "S2", "S3", "S4", "S5", "S6"),
+        ("S2", "S3", "S4"),
+    ),
 )
 STATUSES = {"pass", "error", "warn", "info", "unknown", "unsupported", "not_applicable"}
 FEATURE_RULES = {"sizing", "op_chain", "blind_depth", "datum_consistency"}
@@ -1399,7 +1410,7 @@ def validate_fixture(
 
 
 def validate_geometry_fixture(case: tuple, documents: dict) -> None:
-    name, plan_filename, expected_subdir, expected_exit, failing_rule, target_sid = case
+    name, plan_filename, expected_subdir, expected_exit, failing_rule, modeled, failing = case
     folder = EXAMPLES / "geometry" / name
     plan = documents[(folder / plan_filename).resolve()]
     features = documents[(folder / plan["features"]).resolve()]
@@ -1444,16 +1455,33 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         set(report.get("renders", {})) == {setup["id"] for setup in plan["setups"]},
         f"{name}: numeric in-process stock render missing",
     )
+    holds = {setup["id"]: setup.get("hold", {}) for setup in plan["setups"]}
+    inventory = documents[paths["inventory"]]
     for sid, asset in report["renders"].items():
-        if sid == target_sid:
+        scene = asset.get("scene", {})
+        if sid in modeled:
+            # Every drawn component exact, no debt, and the scene names the held kind.
+            fixture = holds[sid].get("fixture")
+            kinds = [
+                inventory.get(category, {}).get(fixture, {}).get("kind")
+                for category in ("fixtures", "machines")
+            ]
+            components = scene.get("components", [])
             require(
                 asset.get("fixture") == "modeled"
-                and asset.get("scene") == {"jaws": "exact", "parallels": "exact", "debts": []},
-                f"{name}: authored target fixture scene is unresolved",
+                and scene.get("debts") == []
+                and scene.get("fixture_kind") in kinds
+                and components
+                and all(component.get("exact") is True for component in components)
+                and (
+                    scene.get("fixture_kind") != "vise"
+                    or (scene.get("jaws"), scene.get("parallels")) == ("exact", "exact")
+                ),
+                f"{name}: authored {sid} fixture scene is unresolved",
             )
         else:
             require(
-                asset.get("fixture") != "modeled" and asset.get("scene", {}).get("debts"),
+                asset.get("fixture") != "modeled" and scene.get("debts"),
                 f"{name}: unknown preparation holding is falsely modeled as clear",
             )
         image = (folder / expected_subdir / asset["path"]).resolve()
@@ -1470,15 +1498,19 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         "geometry exit",
     )
     if failing_rule:
+        errors = {
+            row["subject"]
+            for row in report["findings"]
+            if row["rule"] == failing_rule and row["status"] == "error"
+        }
+        expected = (
+            {plan["part"]} if failing_rule == "coverage" else {f"{sid}:10" for sid in failing}
+        )
+        # Preparation setups may show their own errors; a modeled setup errors only if named.
+        extra = {subject.split(":")[0] for subject in errors - expected - {plan["part"]}}
         require(
-            any(
-                row["rule"] == failing_rule
-                and row["status"] == "error"
-                and row["subject"]
-                == (plan["part"] if failing_rule == "coverage" else f"{target_sid}:10")
-                for row in report["findings"]
-            ),
-            f"{name}: missing discriminating {failing_rule} error",
+            expected <= errors and (failing_rule == "coverage" or not extra & set(modeled)),
+            f"{name}: discriminating {failing_rule} errors differ: {sorted(errors)}",
         )
     else:
         require(

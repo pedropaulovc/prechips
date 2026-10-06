@@ -58,11 +58,13 @@ the same `{path, sha256}` record is added to `inputs` under `render:<setup id>`.
 The render is therefore part of the hashed bundle: a different PNG changes
 the report hash and stales any approval, exactly like an edited TOML.
 `fixture` is `"modeled"` when the kernel reports `fixture_rendered = true`
-for that setup (exact jaws, exact parallels, no debts) and `"unresolved"`
-otherwise; `scene` is the kernel's `render_scene` object verbatim —
-`jaws` (`absent` / `exact` / `lateral_undeclared`), `parallels` (`absent` /
-`exact` / `not_modelled`) and `debts` (a list of sentences naming what the
-picture does not establish), empty `{}` when the kernel returned none.
+for that setup (fixture placed, every drawn component exact, no debts) and
+`"unresolved"` otherwise; `scene` is the kernel's `render_scene` object
+verbatim — `fixture_kind` (the inventory holding kind), `jaws` (`absent` /
+`exact` / `lateral_undeclared` / `not_applicable`), `parallels` (`absent` /
+`exact` / `not_modelled`), `components` (`{name, role, exact}` per drawn
+solid) and `debts` (a list of sentences naming what the picture does not
+establish), empty `{}` when the kernel returned none.
 Bytes that are not a PNG signature are
 a prechips failure (exit 1), not bad input. `check` records the same
 `renders` / `render:<setup id>` entries (its report hash matches the
@@ -185,13 +187,16 @@ station positions may be grouped while retaining all provenance; diameter-mode
 lathe station tables omit nonoperative Y. Unresolved checks are grouped for
 compact bench presentation, not hidden or waived.
 Each setup page carries one figure after the Hold block. The caption follows
-the render record: `modeled` → `Kernel view: part and declared jaws /
-parallels; sampled checks are not a toolpath.`; unresolved with
-`scene.jaws = "lateral_undeclared"` → `? Kernel view: part, certain jaw
-material and a conservative possible-jaw envelope; exact fixture pose is
-unresolved.`; unresolved with `scene.jaws = "exact"` (parallels not modelled
-or another debt) → `? Kernel view: part and declared jaws; the fixture scene
-is incomplete.`; otherwise `? Kernel part view only; fixture dimensions or
+the render record: `modeled` → `Kernel view: setup-entry stock and declared
+jaws / parallels; sampled checks are not a toolpath.` for a vise, or
+`... and declared <kind> fixture solids; ...` for any other kind; unresolved
+with `scene.jaws = "lateral_undeclared"` → `? Kernel view: setup-entry
+stock, certain jaw material and a possible-jaw envelope; exact fixture pose
+is unresolved.`; unresolved with `scene.jaws = "exact"` (parallels not
+modelled or another debt) → `? Kernel view: setup-entry stock and declared
+jaws; fixture scene incomplete.`; unresolved with drawn components →
+`? Kernel view: setup-entry stock and declared fixture solids; fixture scene
+incomplete.`; otherwise `? Kernel stock view only; fixture dimensions or
 jaw pose remain unresolved.` Every `scene.debts` sentence is appended to the
 caption. With no render the paragraph `? Kernel fixture render unavailable;
 holding geometry is not confirmed.` prints instead. The header legend states

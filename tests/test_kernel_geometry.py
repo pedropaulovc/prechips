@@ -419,11 +419,29 @@ def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(eng
         for name, hold in holds.items()
     }
     exact = scenes["exact"]
-    assert exact["render_scene"] == {"jaws": "exact", "parallels": "exact", "debts": []}
+    assert exact["render_scene"] == {
+        "fixture_kind": "vise",
+        "jaws": "exact",
+        "parallels": "exact",
+        "components": [
+            {"name": name, "role": role, "exact": True}
+            for name, role in (
+                ("fixed_jaw", "jaw"),
+                ("moving_jaw", "jaw"),
+                ("parallel 1", "parallel"),
+                ("parallel 2", "parallel"),
+            )
+        ],
+        "debts": [],
+    }
     assert exact["fixture_rendered"] is True
     undeclared = scenes["undeclared"]
     assert undeclared["render_scene"]["jaws"] == "lateral_undeclared"
     assert undeclared["render_scene"]["parallels"] == "not_modelled"
+    assert {c["name"]: c["exact"] for c in undeclared["render_scene"]["components"]} == {
+        "fixed_jaw": False,
+        "moving_jaw": False,
+    }
     debts = " ".join(undeclared["render_scene"]["debts"])
     assert "jaw_center_along_mm" in debts and "parallels_centres_mm" in debts
     assert undeclared["fixture_rendered"] is False

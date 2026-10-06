@@ -317,9 +317,25 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `stickout_mm` | `Number` |
 | `jaw_center_along_mm` | `Number` |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
+| `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
+| `riser_up` | `str` (riser dimension standing vertical: `length` / `width` / `height`) |
+| `riser_along` | `str` (riser dimension along `jaws_along`) |
+| `riser_centres_mm` | `list[[Number, Number]]` (at least one) |
+| `chuck` | `str` (the chuck a `dividing_head` carries) |
+| `pose` | `Pose` |
+| `jaw_clock_deg` | `Number` |
+| `support_tip_mm` | `[Number, Number, Number]` |
+| `quill_extension_mm` | `Number` |
+| `clamps` | `list[ClampPlacement]` |
 | `grip_mm_verify` | `bool` |
 | `jaw_above_parallels_mm_verify` | `bool` |
 | `index` | `Index` |
+
+`Pose` is `{origin_mm, x, z}`, each `[Number, Number, Number]` in setup-frame
+mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
+`ClampPlacement` is `{ref, note, pose}`: `ref` names a fixture or a
+`kit/member` such as a clamping-kit strap, and its authored `solids` are
+placed by `pose` (origin at the strap underside on the work).
 
 M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 `grip_mm` and `jaw_above_parallels_mm` to place the jaw solids in the setup
@@ -353,6 +369,21 @@ choices, while each parallel dimension has its own fact-local trust; the
 inventory item's `verify` does not taint other numeric facts. Omitting the
 optional poses does not block independent `vise` / `thin_wall_under_clamp`
 facts. Missing parallel height still leaves the fixture dimensions unknown.
+
+Other holding kinds are drawn from their own declarations, never defaulted.
+A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with
+`chuck`) is placed by `pose` (origin at the jaw-face centre, +z toward the
+work) with jaw 1 at `jaw_clock_deg` from pose x; its jaws close on the
+setup-entry stock inside `grip_mm` behind the jaw face. A `dead_centre`
+`support` is drawn from its tip at `support_tip_mm`, its quill
+`quill_extension_mm` beyond the centre shank. An angle plate, custom fixture
+or dividing head draws its inventory `solids` placed by `pose`, and each
+`clamps` entry draws its member's `solids` at its own pose; a strap must bear
+on the stock top. `riser`, `riser_up`, `riser_along` and `riser_centres_mm`
+stand a vise's parallels on riser blocks (a `blocks_123` `supports` item is
+the riser when `riser` is absent). Non-vise holds that declare no jaws set
+`fixed_jaw = "not_applicable"`; one without a gripped depth also sets
+`grip_mm = "not_applicable"`.
 
 ## Index
 

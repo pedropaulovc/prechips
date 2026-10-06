@@ -18059,7 +18059,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "8bc045dcea90587c2692433a6ce198c76ed37dd751ee6642a5d4d788c690bcd7",
+  "hash": "d0edce0a01efd238cb9df935165c291835c17ec3c6d14af4d6cbe12bec1ee2a9",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -18096,9 +18096,24 @@
       "fixture": "unresolved",
       "path": "setup-S1.png",
       "scene": {
-        "debts": [
-          "parallels not drawn: parallels_width_mm, parallels_centres_mm undeclared"
+        "components": [
+          {
+            "exact": true,
+            "name": "fixed_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "moving_jaw",
+            "role": "jaw"
+          }
         ],
+        "debts": [
+          "parallels not drawn: parallels_width_mm, parallels_centres_mm undeclared",
+          "riser blocks not drawn: blocks-123-lms-2881 length, blocks-123-lms-2881 width, blocks-123-lms-2881 height, riser_up / riser_along (two different block edges), riser_centres_mm undeclared",
+          "supports 'blocks-123-lms-2881' has no fixture solid model"
+        ],
+        "fixture_kind": "vise",
         "jaws": "exact",
         "parallels": "not_modelled"
       },

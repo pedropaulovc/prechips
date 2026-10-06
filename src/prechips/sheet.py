@@ -1207,10 +1207,15 @@ class _Traveler:
         if not render:
             return _p("? Kernel fixture render unavailable; holding geometry is not confirmed.")
         scene = render.get("scene", {})
+        kind = scene.get("fixture_kind", "vise")
         if render["fixture"] == "modeled":
+            held = (
+                "declared jaws / parallels"
+                if kind == "vise"
+                else f"declared {kind.replace('_', ' ')} fixture solids"
+            )
             caption = (
-                "Kernel view: setup-entry stock and declared jaws / parallels; "
-                "sampled checks are not a toolpath."
+                f"Kernel view: setup-entry stock and {held}; sampled checks are not a toolpath."
             )
         elif scene.get("jaws") == "lateral_undeclared":
             caption = (
@@ -1220,6 +1225,11 @@ class _Traveler:
         elif scene.get("jaws") == "exact":
             caption = (
                 "? Kernel view: setup-entry stock and declared jaws; fixture scene incomplete."
+            )
+        elif scene.get("components"):
+            caption = (
+                "? Kernel view: setup-entry stock and declared fixture solids; "
+                "fixture scene incomplete."
             )
         else:
             caption = "? Kernel stock view only; fixture dimensions or jaw pose remain unresolved."

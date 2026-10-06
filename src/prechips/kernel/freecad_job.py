@@ -477,6 +477,43 @@ def _vertical(face, axis):
     return not skipped and all(abs(normal.dot(axis)) < 1e-9 for _, normal in samples)
 
 
+# --------------------------------------------------------------------------- fixtures
+
+
+# Engine hold kind -> the _Setup method that places it (None = placed, else why not).
+_PLACERS = {"vise": "_place", "chuck": "_place_chuck", "solids": "_place_solids"}
+# Vise grip-zone facts; other holdings leave them unknown with the placement reason.
+_VISE_FACTS = ("parallel_pair", "width_mm", "contact_grip_mm", "claimed_in_jaws", "min_wall_mm")
+# Components whose interpenetration with the entering stock is a declaration error.
+_SOLID_ROLES = frozenset(("chuck_jaw", "chuck_body", "head", "centre", "fixture", "clamp", "riser"))
+
+
+def _pose_matrix(pose):
+    """Fixture-local -> setup-frame matrix of a host-validated orthonormal pose."""
+    x, z = V(*pose["x"]), V(*pose["z"])
+    y = z.cross(x)
+    origin = pose["origin_mm"]
+    return FreeCAD.Matrix(
+        x.x, y.x, z.x, origin[0], x.y, y.y, z.y, origin[1], x.z, y.z, z.z, origin[2], 0, 0, 0, 1
+    )
+
+
+def _fixture_kind(hold):
+    """The inventory holding kind a hold declares (engine kinds are coarser), or None."""
+    if not isinstance(hold, dict):
+        return None
+    kind = hold.get("fixture_kind", hold.get("kind"))
+    return kind if isinstance(kind, str) and kind != UNKNOWN else None
+
+
+def _primitive(spec):
+    """A fixture-local box (min corner, size) or cylinder (base centre, axis, dia, length)."""
+    at = V(*spec["at_mm"])
+    if spec["shape"] == "box":
+        return Part.makeBox(*spec["size_mm"], at)
+    return Part.makeCylinder(spec["dia_mm"] / 2, spec["length_mm"], at, V(*spec["axis"]))
+
+
 # --------------------------------------------------------------------------- PNG
 
 
@@ -492,6 +529,13 @@ _COLOURS = {
     "fixed_jaw_possible": (214, 204, 194),  # where the undeclared rest of the jaw may lie
     "moving_jaw_possible": (230, 220, 208),
     "parallel": (96, 120, 104),
+    "riser": (84, 108, 128),
+    "chuck_jaw": (112, 92, 72),
+    "chuck_body": (132, 128, 120),
+    "head": (104, 112, 124),
+    "centre": (150, 122, 92),
+    "fixture": (120, 104, 136),
+    "clamp": (164, 132, 64),
 }
 
 
@@ -864,8 +908,16 @@ class _Setup:
         self.box = None  # bounding box of the stock as held (seat, top)
         # certain jaw boxes {"fixed", "moving"} plus "possible": [(fixed side?, box)] once placed
         self.jaws = None
-        self.hold = None  # the vise hold, once it is declared without a reason
+        self.hold = None  # the declared hold, once it is declared without a reason
         self.fixture_reason = None
+        # Placed fixture components: {name, role, solid, bbox, box, rotating}; their union is
+        # the fixture obstacle. ``possible`` are (name, box) regions a jaw may also occupy.
+        self.fixture = []
+        self.fixture_possible = []
+        self.fixture_ready = False  # the holding itself is placed, so hit counts can be made
+        self.fixture_debts = []  # scene-only debts (supports below the seat, poses to check)
+        self.fixture_gaps = []  # undrawn components that could be obstacles
+        self.chuck = None  # placed chuck geometry for the turning model, else None
         self.regions = {}
         self.culled_part = None
         self.directions = {}  # finished face index -> direction verdict cache
@@ -916,7 +968,7 @@ class _Setup:
             self.box = _bbox(self.part)
             facts["stock_bbox_mm"] = [_r(v) for v in self.box]
             facts["stock_volume_mm3"] = _r(self.part.Volume)
-            self._vise(facts)
+            self._fixture(facts)
         else:
             # Finished material is a subset of any real stock: hits on it stay sound, but
             # nothing measured on it may pass or be drawn as the held part.
@@ -943,7 +995,9 @@ class _Setup:
             png, scene = self._render()
             facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
             facts["render_scene"] = scene
-            facts["fixture_rendered"] = scene["jaws"] != "absent" and not scene["debts"]
+            facts["fixture_rendered"] = (
+                self.fixture_ready and bool(scene["components"]) and not scene["debts"]
+            )
             self.stock_out, self.stock_out_reason = self._output()
         if self.fixture_reason is not None:
             facts["fixture_reason"] = self.fixture_reason
@@ -1290,7 +1344,8 @@ class _Setup:
             return None, "claimed faces unresolved for " + "; ".join(missing)
         return sorted(indices), None
 
-    def _vise(self, facts):
+    def _fixture(self, facts):
+        """Place the declared holding, then its accessories; record what stays undrawn."""
         hold = self.setup.get("hold")
         reasons = facts["reasons"]
         reason = None
@@ -1298,22 +1353,262 @@ class _Setup:
             reason = "holding inputs are unknown"
         elif hold.get("reason"):
             reason = str(hold["reason"])
-        elif hold.get("kind") != "vise":
+        elif hold.get("kind") not in _PLACERS:
             reason = "Fixture solids are not declared for this holding kind."
         else:
             self.hold = hold
-            reason = self._place(hold, facts)
-        if reason is not None:
+            reason = getattr(self, _PLACERS[hold["kind"]])(hold, facts)
+        if reason is None:
+            self.fixture_ready = True
+            if hold["kind"] == "vise":
+                for side in ("fixed", "moving"):
+                    self._add(side + "_jaw", "jaw", _box_shape(self.jaws[side]), self.jaws[side])
+                self.fixture_possible = [
+                    (("fixed" if fixed else "moving") + "_jaw_possible", box)
+                    for fixed, box in self.jaws["possible"]
+                ]
+            else:
+                reason = f"vise grip-zone facts do not apply to {hold.get('fixture_kind')} holding"
+        else:
             self.fixture_reason = reason
-            for key in (
-                "parallel_pair",
-                "width_mm",
-                "contact_grip_mm",
-                "claimed_in_jaws",
-                "min_wall_mm",
-            ):
+        if self.hold is not None:
+            self._accessories()
+        if reason is not None:
+            for key in _VISE_FACTS:
                 if facts[key] == UNKNOWN:
                     reasons.setdefault(key, reason)
+
+    def _add(self, name, role, solid, box=None, swept=None):
+        """Record one placed setup-frame fixture component (``box`` when it is that AABB)."""
+        component = {
+            "name": name,
+            "role": role,
+            "solid": solid,
+            "box": box,
+            "bbox": box if box is not None else _bbox(solid),
+            "envelope": swept if swept is not None else solid,
+        }
+        component["envelope_bbox"] = (
+            component["bbox"] if swept is None else _bbox(component["envelope"])
+        )
+        self.fixture.append(component)
+        return component
+
+    def _add_local(self, name, role, shape, matrix, swept=None):
+        """Place a fixture-local shape (and its revolved envelope) into the setup frame."""
+        placed = shape.copy()
+        placed.transformShape(matrix)
+        envelope = None
+        if swept is not None:
+            envelope = swept.copy()
+            envelope.transformShape(matrix)
+        return self._add(name, role, placed, swept=envelope)
+
+    def _place_chuck(self, hold, facts):
+        """Jaws close on the stock's extremes along each jaw inside the grip zone.
+
+        Chuck frame: origin at the jaw-face centre, +z out of the jaws toward the work,
+        jaw 1 along +x rotated by ``jaw_clock_deg``. Jaws are boxes ``jaw_height``
+        radially outward from their contact, ``jaw_width`` wide and ``jaw_depth`` long
+        behind the face; the body is a bored cylinder behind them. A dividing head's
+        declared body solids hang from its spindle nose, the body's back face.
+        """
+        matrix = _pose_matrix(hold["pose"])
+        local = self.part.copy()
+        local.transformShape(matrix.inverse())
+        depth, height, width = (hold[k] for k in ("jaw_depth_mm", "jaw_height_mm", "jaw_width_mm"))
+        grip = min(hold["grip_mm"], depth)
+        lb = _bbox(local)
+        zone = local.common(
+            Part.makeBox(lb[3] - lb[0] + 2, lb[4] - lb[1] + 2, grip, V(lb[0] - 1, lb[1] - 1, -grip))
+        )
+        if zone.Volume <= HIT_MM3:
+            return (
+                f"no stock lies within the chuck jaws ({_r(grip)} mm behind the jaw face at the "
+                "pose origin), so jaw positions are undefined"
+            )
+        count = hold["jaws"]
+        angles = [(hold["jaw_clock_deg"] + 360.0 * i / count) % 360.0 for i in range(count)]
+        radii = []
+        for angle in angles:
+            turned = zone.copy()
+            turned.rotate(V(0, 0, 0), Z, -angle)
+            radii.append(_bbox(turned)[3])
+        if min(radii) <= PLANE_TOL:
+            return "the chuck axis does not pass through the gripped stock; jaws cannot close on it"
+        lathe = self.setup.get("machine_kind") == "lathe" and hold.get("fixture_kind") != (
+            "dividing_head"
+        )
+        for index, (angle, radius) in enumerate(zip(angles, radii, strict=True), start=1):
+            jaw = Part.makeBox(height, width, depth, V(radius, -width / 2, -depth))
+            jaw.rotate(V(0, 0, 0), Z, angle)
+            swept = None
+            if lathe:
+                outer = math.hypot(radius + height, width / 2)
+                swept = Part.makeCylinder(outer, depth, V(0, 0, -depth)).cut(
+                    Part.makeCylinder(radius, depth, V(0, 0, -depth))
+                )
+            self._add_local(f"chuck jaw {index}", "chuck_jaw", jaw, matrix, swept)
+        length = hold["body_length_mm"]
+        back = V(0, 0, -depth - length)
+        body = Part.makeCylinder(hold["body_dia_mm"] / 2, length, back).cut(
+            Part.makeCylinder(hold["bore_dia_mm"] / 2, length, back)
+        )
+        self._add_local("chuck body", "chuck_body", body, matrix, body if lathe else None)
+        if hold.get("head_solids"):
+            nose = FreeCAD.Matrix()
+            nose.move(back)
+            nose = matrix.multiply(nose)
+            for spec in hold["head_solids"]:
+                self._add_local(spec["name"], "head", _primitive(spec), nose)
+        if hold.get("centre"):
+            self._place_centre(hold["centre"], hold["pose"], lathe)
+        if hold.get("fixture_kind") == "chuck_3jaw" and max(radii) - min(radii) > COVER_MM:
+            self.fixture_debts.append(
+                "scroll-chuck jaws close at unequal radii "
+                f"{[_r(r) for r in radii]} mm: the stock is not centred on the declared chuck axis"
+            )
+        origin, axis = V(*hold["pose"]["origin_mm"]), V(*hold["pose"]["z"])
+        x_axis = V(*hold["pose"]["x"])
+        y_axis = axis.cross(x_axis)
+        directions = [
+            x_axis * math.cos(math.radians(a)) + y_axis * math.sin(math.radians(a)) for a in angles
+        ]
+        entry = origin - axis * grip
+        self.chuck = {
+            "grip_z": tuple(sorted((entry.z, origin.z))),
+            "jaw_angles_deg": [math.degrees(math.atan2(d.y, d.x)) % 360.0 for d in directions],
+            "contact_radii": radii,
+            "contact_radius": min(radii),
+            "axis_origin": tuple(origin),
+            "axis": tuple(axis),
+        }
+        facts["chuck"] = {
+            "jaw_angles_deg": [_r(a) for a in self.chuck["jaw_angles_deg"]],
+            "contact_radii_mm": [_r(r) for r in radii],
+            "grip_in_jaws_mm": _r(grip),
+        }
+        facts["grip_zone_z_mm"] = [_r(v) for v in self.chuck["grip_z"]]
+        claimed, reason = self._claimed()
+        if claimed is None:
+            facts["reasons"]["claimed_in_jaws"] = reason
+        else:
+            jaws = [c["solid"] for c in self.fixture if c["role"] == "chuck_jaw"]
+            facts["claimed_in_jaws"] = sorted(
+                self.owner.labels[index]
+                for index in claimed
+                if any(self.faces[index].distToShape(jaw)[0] < STOCK_TOL for jaw in jaws)
+            )
+        return None
+
+    def _place_centre(self, centre, pose, lathe):
+        """A tailstock dead centre pointing back along -pose.z, plus its exposed quill."""
+        tip, axis = V(*centre["tip_mm"]), V(*pose["z"])
+        radius, length = centre["dia_mm"] / 2, centre["length_mm"]
+        half = math.radians(centre["point_angle_deg"] / 2)
+        cone = min(length, radius / math.tan(half))
+        point = Part.makeCone(0, cone * math.tan(half), cone, tip, axis)
+        if length - cone > PLANE_TOL:
+            point = point.fuse(Part.makeCylinder(radius, length - cone, tip + axis * cone, axis))
+        name = f"dead centre {centre['name']}"
+        self._add(name, "centre", point, swept=point if lathe else None)
+        if centre["quill_extension_mm"] > 0:
+            quill = Part.makeCylinder(
+                centre["quill_dia_mm"] / 2,
+                centre["quill_extension_mm"],
+                tip + axis * length,
+                axis,
+            )
+            self._add("tailstock quill", "centre", quill, swept=quill if lathe else None)
+        if point.distToShape(self.part)[0] > STOCK_TOL:
+            self.fixture_debts.append(f"{name} tip does not reach the stock")
+
+    def _place_solids(self, hold, facts):
+        """An authored fixture body (angle plate, custom nest) at its declared pose."""
+        matrix = _pose_matrix(hold["pose"])
+        for spec in hold.get("solids", []):
+            self._add_local(spec["name"], "fixture", _primitive(spec), matrix)
+        if not self.fixture:
+            return "no fixture solid is declared free of measurement debt"
+        if all(c["solid"].distToShape(self.part)[0] > STOCK_TOL for c in self.fixture):
+            self.fixture_debts.append(
+                f"{hold.get('fixture_kind')} fixture solids do not touch the stock at the "
+                "declared pose"
+            )
+        return None
+
+    def _accessories(self):
+        """Parallels, riser blocks and clamps of a declared hold, plus host-side debts."""
+        hold = self.hold
+        parallels, debt = self._parallels()
+        if debt is not None:
+            self.fixture_debts.append(debt)
+        for index, box in enumerate(parallels or (), start=1):
+            self._add(f"parallel {index}", "parallel", _box_shape(box), box)
+            for side in ("fixed", "moving") if self.jaws is not None else ():
+                if _boxes_overlap(box, self.jaws[side]):
+                    centre = [_r((box[0] + box[3]) / 2), _r((box[1] + box[4]) / 2)]
+                    self.fixture_debts.append(
+                        f"declared parallel centred at {centre} intersects the {side} jaw"
+                    )
+        riser = hold.get("riser")
+        if riser:
+            top = self.box[2] - (hold.get("parallels_height_mm") or 0.0)
+            along, across, up = riser["size_mm"]
+            dx, dy = (along, across) if hold.get("jaws_along") == "x" else (across, along)
+            for index, (x, y) in enumerate(riser["centres_mm"], start=1):
+                box = (x - dx / 2, y - dy / 2, top - up, x + dx / 2, y + dy / 2, top)
+                self._add(f"riser {index} {riser['name']}", "riser", _box_shape(box), box)
+        clamps = []
+        for clamp in hold.get("clamps", []):
+            matrix = _pose_matrix(clamp["pose"])
+            parts = [
+                self._add_local(spec["name"], "clamp", _primitive(spec), matrix)["solid"]
+                for spec in clamp["solids"]
+            ]
+            clamps.append((clamp["name"], parts))
+        self.fixture_debts.extend(str(debt) for debt in hold.get("debts", []))
+        self.fixture_gaps.extend(str(gap) for gap in hold.get("gaps", []))
+        if hold.get("kind") == "vise":
+            return
+        for component in self.fixture:
+            if component["role"] not in _SOLID_ROLES:
+                continue
+            common = component["solid"].common(self.part)
+            if common.Volume > STOCK_MM3:
+                self.fixture_debts.append(
+                    f"{component['name']} intersects the setup-entry stock "
+                    f"({_r(common.Volume)} mm^3) at the declared pose"
+                )
+        for name, parts in clamps:
+            if all(part.distToShape(self.part)[0] > STOCK_TOL for part in parts):
+                self.fixture_debts.append(f"{name} does not bear on the stock at its pose")
+
+    def _fixture_hits(self, solid):
+        """Names of placed fixture components (revolved on a lathe) that ``solid`` meets."""
+        box = _bbox(solid)
+        names = set()
+        for component in self.fixture:
+            if not _boxes_overlap(box, component["envelope_bbox"]):
+                continue
+            if solid.common(component["envelope"]).Volume > HIT_MM3:
+                names.add(component["name"])
+        return sorted(names)
+
+    def _fixture_cylinder_hits(self, cylinder):
+        """Names of placed fixture components a vertical (x, y, r, z0, z1) cylinder meets."""
+        ax, ay, radius, z0, z1 = cylinder
+        names, tool = set(), None
+        for component in self.fixture:
+            if not _cylinder_hits_box(*cylinder, component["envelope_bbox"]):
+                continue
+            if component["box"] is None:
+                if tool is None:
+                    tool = Part.makeCylinder(radius, z1 - z0, V(ax, ay, z0))
+                if tool.common(component["envelope"]).Volume <= HIT_MM3:
+                    continue
+            names.add(component["name"])
+        return names
 
     def _place(self, hold, facts):
         along = hold.get("jaws_along")
@@ -1483,15 +1778,12 @@ class _Setup:
         section = zone.section(Part.makePlane(size, size, V(*corner), normal, xdir))
         return [(_bbox(edge)[2], _bbox(edge)[5]) for edge in section.Edges]
 
-    def _jaw_shapes(self):
-        return [(side + "_jaw", _box_shape(self.jaws[side])) for side in ("fixed", "moving")]
-
     def _in_jaws(self, claimed):
         inside = []
-        jaws = self._jaw_shapes()
+        jaws = [_box_shape(self.jaws[side]) for side in ("fixed", "moving")]
         for index in claimed:
             face = self.faces[index]
-            for _, jaw in jaws:
+            for jaw in jaws:
                 if face.BoundBox.intersect(jaw.BoundBox) and face.common(jaw).Area > CONTACT_MM2:
                     inside.append(self.owner.labels[index])
                     break
@@ -1556,12 +1848,14 @@ class _Setup:
             points, triangles = face.tessellate(tolerance)
             colour = "claimed" if self._source(face) in claimed else "part"
             meshes.append((points, triangles, _COLOURS[colour]))
-        debts, solids = [], []
-        if self.jaws is None:
+        debts, solids, possible = [], [], []
+        vise = self.hold is not None and self.hold.get("kind") == "vise"
+        if not self.fixture_ready:
             jaws = "absent"
-            debts.append(f"jaws not drawn: {self.fixture_reason}")
+            debts.append(f"{'jaws' if vise else 'fixture'} not drawn: {self.fixture_reason}")
+        elif not vise:
+            jaws = "exact" if self.hold.get("kind") == "chuck" else "not_applicable"
         else:
-            solids += self._jaw_shapes()
             jaws = "exact" if self.clamp["exact"] else "lateral_undeclared"
             if jaws != "exact":
                 clamp = self.clamp
@@ -1573,29 +1867,38 @@ class _Setup:
                     f"{_r(extent)} mm grip-zone extent; light strips show where the "
                     f"other {_r(width - extent)} mm of each {_r(width)} mm jaw may lie"
                 )
-                solids += [
-                    (("fixed" if fixed else "moving") + "_jaw_possible", _box_shape(box))
-                    for fixed, box in self.jaws["possible"]
+                possible = [
+                    (name, _box_shape(box), _COLOURS[name]) for name, box in self.fixture_possible
                 ]
-        parallels, debt = self._parallels()
-        if debt is not None:
-            debts.append(debt)
-        for box in parallels or ():
-            solids.append(("parallel", _box_shape(box)))
-            for side in ("fixed", "moving") if self.jaws is not None else ():
-                if _boxes_overlap(box, self.jaws[side]):
-                    centre = [_r((box[0] + box[3]) / 2), _r((box[1] + box[4]) / 2)]
-                    debts.append(f"declared parallel centred at {centre} intersects the {side} jaw")
-        for label, shape in solids:
+        debts += self.fixture_debts
+        debts += [f"not drawn: {gap}" for gap in self.fixture_gaps]
+        # Jaws, then the possible-jaw strips, then the rest: the z-buffer keeps first-drawn ties.
+        for component in sorted(self.fixture, key=lambda c: c["role"] != "jaw"):
+            colour = _COLOURS.get(component["name"]) or _COLOURS[component["role"]]
+            solids.append((component["name"], component["solid"], colour))
+            if component["name"] == "moving_jaw":
+                solids += possible
+                possible = []
+        for _, shape, colour in solids + possible:
             points, triangles = shape.tessellate(tolerance)
-            meshes.append((points, triangles, _COLOURS[label]))
+            meshes.append((points, triangles, colour))
+        parallels = any(c["role"] == "parallel" for c in self.fixture)
         scene = {
+            "fixture_kind": _fixture_kind(self.setup.get("hold")),
             "jaws": jaws,
             "parallels": "absent"
-            if self.hold is None
+            if self.hold is None or (not vise and "parallels_ref" not in self.hold)
             else "exact"
             if parallels
             else "not_modelled",
+            "components": [
+                {
+                    "name": c["name"],
+                    "role": c["role"],
+                    "exact": jaws == "exact" or c["role"] != "jaw",
+                }
+                for c in self.fixture
+            ],
             "debts": debts,
         }
         return _render(meshes), scene
@@ -1603,7 +1906,8 @@ class _Setup:
     def _parallels(self):
         """Parallel boxes from declared dimensions and centres, or the debt that prevents them."""
         hold = self.hold
-        if hold is None:
+        vise = hold is not None and hold.get("kind") == "vise"
+        if hold is None or not (vise or "parallels_ref" in hold):
             return None, None
         dims = {
             key: _positive(hold, key)
@@ -1620,9 +1924,9 @@ class _Setup:
             )
         ):
             missing.append("parallels_centres_mm")
-        along = hold.get("jaws_along")
+        along = hold.get("jaws_along") if vise else hold.get("parallels_along")
         if along not in ("x", "y"):
-            missing.append("jaws_along")
+            missing.append("jaws_along" if vise else "parallels_along")
         if missing:
             return None, "parallels not drawn: " + ", ".join(missing) + " undeclared"
         seat = self.box[2]
@@ -1911,15 +2215,15 @@ class _Setup:
                 if common is not None:
                     labels.add("part")
                     counter[3].update(self._hit_refs(common, cylinder, index))
-                if self.jaws is not None:
-                    for side in ("fixed", "moving"):
-                        if _cylinder_hits_box(*cylinder, self.jaws[side]):
-                            labels.add(side + "_jaw")
+                if self.fixture_ready:
+                    labels.update(self._fixture_cylinder_hits(cylinder))
                 if labels:
                     counter[0] += 1
                     counter[2].update(labels)
-                elif self.jaws is None or any(
-                    _cylinder_hits_box(*cylinder, box) for _, box in self.jaws["possible"]
+                elif (
+                    not self.fixture_ready
+                    or self.fixture_gaps
+                    or any(_cylinder_hits_box(*cylinder, box) for _, box in self.fixture_possible)
                 ):
                     counter[1] += 1
         facts["obstacles"] = {kind: sorted(counters[kind][2]) for kind in counters}
@@ -1941,11 +2245,17 @@ class _Setup:
             elif not ready:
                 facts[key] = UNKNOWN
                 reasons[key] = missing
-            elif self.jaws is None:
+            elif not self.fixture_ready:
                 facts[key] = UNKNOWN
                 reasons[key] = (
                     f"fixture solids unresolved ({self.fixture_reason}); "
                     f"{certain} sample(s) hit part material"
+                )
+            elif uncertain and self.fixture_gaps:
+                facts[key] = UNKNOWN
+                reasons[key] = (
+                    f"undrawn fixture components ({'; '.join(self.fixture_gaps)}); "
+                    f"{certain} sample(s) certainly hit"
                 )
             elif uncertain:
                 facts[key] = UNKNOWN

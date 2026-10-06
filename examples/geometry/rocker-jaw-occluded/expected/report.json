@@ -248,7 +248,7 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "8f70e674c4d999686d6b41bd7d70a3be4eab0ac51434f0784779f6bf16578749"
+            "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
           },
           "plan": {
             "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
@@ -3246,7 +3246,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "bd63c41d5c3f59040f19a6a6292579b8c7043f43f7273f59ecf700f88e75b7b1",
+  "hash": "6ea81916424a236012ea569723d17e501ca526c34d67f5d019e6e5809812707e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3258,7 +3258,7 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "8f70e674c4d999686d6b41bd7d70a3be4eab0ac51434f0784779f6bf16578749"
+      "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
     },
     "plan": {
       "path": "examples/geometry/rocker-jaw-occluded/plan.toml",
@@ -3291,9 +3291,11 @@
       "fixture": "unresolved",
       "path": "setup-S1.png",
       "scene": {
+        "components": [],
         "debts": [
-          "jaws not drawn: Fixture solids are not declared for this holding kind."
+          "fixture not drawn: Fixture solids are not declared for this holding kind."
         ],
+        "fixture_kind": null,
         "jaws": "absent",
         "parallels": "absent"
       },
@@ -3303,9 +3305,11 @@
       "fixture": "unresolved",
       "path": "setup-S2.png",
       "scene": {
+        "components": [],
         "debts": [
-          "jaws not drawn: Fixture solids are not declared for this holding kind."
+          "fixture not drawn: Fixture solids are not declared for this holding kind."
         ],
+        "fixture_kind": null,
         "jaws": "absent",
         "parallels": "absent"
       },
@@ -3315,7 +3319,30 @@
       "fixture": "modeled",
       "path": "setup-S3.png",
       "scene": {
+        "components": [
+          {
+            "exact": true,
+            "name": "fixed_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "moving_jaw",
+            "role": "jaw"
+          },
+          {
+            "exact": true,
+            "name": "parallel 1",
+            "role": "parallel"
+          },
+          {
+            "exact": true,
+            "name": "parallel 2",
+            "role": "parallel"
+          }
+        ],
         "debts": [],
+        "fixture_kind": "vise",
         "jaws": "exact",
         "parallels": "exact"
       },
