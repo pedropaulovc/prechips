@@ -33,7 +33,7 @@ length_mm = 340.0 # author's choice: 10 mm retained ears beyond X ±160
 origin_mm = [-170.0, -20.0, -8.0] # author's model-frame blank corner
 axis = [1.0, 0.0, 0.0] # length direction
 section_axis = [0.0, 1.0, 0.0] # 65 mm section direction; axis × section_axis is 16 mm Z
-note = "Illustrative prepared blank: model X -170..170, Y -20..45, Z -8..8. Full-thickness rails are outside frame-A Y -20..31.7 and ears outside X ±160, beyond the full 9.525 mm cutter sweep plus clearance. Retain a 0.40 mm connecting web between opposed rough-profile depths. Integral hub from the bar; no brazed boss, loose bushing, rod tap or counterbore. These are authored example dimensions, not stock on hand."
+note = "Illustrative prepared 340 x 65 x 16 mm blank, length left-to-right with the future rod-hole end at +X. Relative to Setup S1 zero, the raw blank is X -170..170, Y -28..37, Z -11.52825..4.47175. Retain the full-thickness lower rail at Y -28..-20, upper rail at Y 31.7..37 and end ears outside X ±160, clear of the whole 9.525 mm cutter sweep. Keep a 0.40 mm web connecting the opposed rough pockets. Make the hub integral with the bar; no brazed boss, loose bushing, rod tap or counterbore. These are authored example dimensions, not stock on hand."
 as_is_faces = [] # every finished face is cut
 
 [dro]
@@ -56,7 +56,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal" # S1: Z0 is the faced upper hub face; S3: indicated on the reamed pilot
-note = "AUTHOR'S CHOICE: export frame A (upper hub face, pivot axis), bound by the S1 op 10 touch and the S3 indicated pilot"
+note = "AUTHOR'S CHOICE: Setup S1/S3 zero is the upper hub face at the pivot axis, established by the S1 op 10 touch and the S3 indicated pilot."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"]
 
 [frames.TB]
@@ -65,7 +65,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal" # S2: X/Y indicated on the S1 pilot, Z0 the faced lower hub face
-note = "AUTHOR'S CHOICE: export frame B (lower hub face, flipped about X), bound by the indicated S1 pilot and the S2 op 10 touch"
+note = "AUTHOR'S CHOICE: Setup S2 zero is the lower hub face at the pivot axis. Roll the blank over about its length, keeping the rod-hole end at +X; indicate the S1 pilot and touch the S2 op 10 faced hub."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"]
 
 # ---------------------------------------------------------------- S1
@@ -77,7 +77,7 @@ coolant = "cutting_oil_brush" # author's choice; brush-on cutting oil, supply/su
 deburr_mm = 0.25 # title block: break edges R0.25 or chamfer 0.25 max
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "stock"
-note = "Upper side: qualify the upper hub face (frame A Z0), finish the upper strap face, rough the hub, top edge and outer profile, spot and drill the pivot pilot. Keep the rails and ears continuous. Contour tables are nominal boundary offsets: interrupt at clamped rails/ears, preserve the 0.40 mm web, and confirm actual cutter access before using any checkpoint."
+note = "Upper side: qualify the upper hub face as Setup S1 Z0, finish the upper strap face, rough the hub, top edge and outer profile, spot and drill the pivot pilot. Keep the rails and ears continuous. Contour tables are nominal boundary offsets: interrupt at clamped rails/ears, preserve the 0.40 mm web, and confirm actual cutter access before using any checkpoint."
 
 [setups.stock_state]
 top_feature = "hub_faces" # the Z-touch face is the upper hub face; strap face ops do not move it
@@ -102,7 +102,9 @@ grip_on = "full-thickness rectangular rails"
 grip_mm = 6.0 # author's choice, minimum vertical jaw engagement on the full-thickness retained rails
 jaw_above_parallels_mm = 6.8453 # nominal stack: 44.9453 measured jaw - 25.4 example riser - 12.7 example parallel
 jaw_center_along_mm = 0.0 # author's choice: jaws centred on the 340 mm blank
-stop = "left blank end against fixed-jaw stop" # author's choice
+stop_fixture = "rocker-vise-stop"
+stop_pose = { origin_mm = [-79.3369, 37.0, -4.68295], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # magnetic base against the fixed jaw's left end
+stop = "switch on the magnetic fixed-jaw end stop and bring the left blank end gently against its nose; positioning contact only, no cutting load"
 clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # author's choice
 note = "Grip the full-thickness rails on matched narrow risers plus 1/2 in parallels. The 64 mm risers fit between the 65 mm closed jaws and fully carry both parallels. Keep the cutter's whole swept diameter inside the clearing bounds, not just its centre."
 
@@ -247,7 +249,7 @@ coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S1"
-note = "Lower side, flipped about model X: indicate the S1 pilot, qualify the lower hub face, and rough before finishing the lower strap face and hub OD. Adjust the two support jacks to just bear on the S1-finished strap without lifting the rail frame from its parallels. Spot, drill and ream the rod hole before opening the outer pockets; then rough the opposed pockets leaving the 0.40 mm web. Final A|B|C position inspection follows S4 land finishing."
+note = "Lower side: roll the blank over about its length, keeping the rod-hole end at +X. Indicate the S1 pilot, qualify the lower hub face, and rough before finishing the lower strap face and hub OD. Adjust the two support jacks to just bear on the S1-finished strap without lifting the rail frame from its parallels. Spot, drill and ream the rod hole before opening the outer pockets; then rough the opposed pockets leaving the 0.40 mm web. Final A|B|C position inspection follows S4 land finishing."
 
 [setups.stock_state]
 top_feature = "hub_faces" # the Z-touch face is the lower hub face; strap face ops do not move it
@@ -280,11 +282,14 @@ clamps = [
   { ref = "rocker-s2-support-jack", pose = { origin_mm = [40.0, -1.0, -4.77825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, -1.0] }, note = "passive upward-bearing support jack, not a clamp; adjust to touch the finished strap without lifting the rail frame, then lock the jack" },
   { ref = "rocker-s2-support-jack", pose = { origin_mm = [-40.0, -1.0, -4.77825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, -1.0] }, note = "mirrored support jack, adjusted and locked independently without preload" },
 ]
+clamp_order = [] # the jack entries are passive supports, not tightening actions
 grip_on = "full-thickness rectangular rails and ears"
 grip_mm = 6.0 # author's choice, minimum vertical jaw engagement on the full-thickness retained rails/ears
 jaw_above_parallels_mm = 6.8453 # nominal stack: 44.9453 measured jaw - 25.4 example riser - 12.7 example parallel
 jaw_center_along_mm = 0.0 # author's choice: jaws centred on the 340 mm blank
-stop = "left blank end against fixed-jaw stop; indicate pilot to transfer datum" # author's choice
+stop_fixture = "rocker-vise-stop"
+stop_pose = { origin_mm = [-79.3369, 28.0, -4.68295], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+stop = "switch on the magnetic fixed-jaw end stop and bring the left blank end gently against its nose; then indicate the pilot to transfer datum"
 clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # author's choice
 note = "Seat the retained rails, not the thin strap or a hub rim."
 
@@ -364,7 +369,7 @@ thickness = "micrometers/0-1in"
 op = 25
 do = "inspect"
 feature = "strap_datum_b"
-note = "Same strap-thickness micrometer check after both sides are finished; export names the upper datum face separately."
+note = "Check the 2.50 mm strap thickness with a micrometer after finishing both sides; measure clear of the hub, support contacts and edge burrs."
 [setups.ops.checks]
 thickness = "micrometers/0-1in"
 
@@ -472,7 +477,7 @@ coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S2"
-note = "Strap-held hub setup: indicate the empty plate bore before loading, then seat the lower strap face on its pads, coarsely align the arms, match the rail-rest shims, and indicate the D pilot. Confirm the pilot-to-plate-axis offset is no more than 0.20 mm radial before tightening; then re-indicate the pilot as working A. Finish the upper hub OD and ream the pivot without relocating. Remote studs and stepped straps clear the raw rails; do not profile across these straps. S4 reloads onto the bore screw and clocking stop."
+note = "Strap-held hub setup: indicate the empty plate bore before loading. Lower the blank straight down over the permanent rod-hole diamond pin onto the lower-strap support pads, then match the rail-rest shims without lifting the part. Indicate the D pilot and confirm its centre is within 0.20 mm radial of the empty plate-bore reference before tightening. If the rod hole will not drop over the pin with the pilot inside 0.20 mm, stop and inspect S2 hole spacing; do not force it. Re-indicate the pilot as working A, then finish the upper hub OD and ream without relocating. Remote studs and stepped straps clear the raw rails; do not profile across these straps. The pin stays fitted for S4."
 
 [setups.stock_state]
 top_feature = "hub_faces" # Z touches the upper hub face
@@ -496,8 +501,10 @@ pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 clamps = [
   { ref = "rocker-hub-strap", pose = { origin_mm = [70.0, 3.27, -2.27825], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "rod-side supported toe; bridge clears the raw rail and the stud is outside the blank at Y45" },
   { ref = "rocker-hub-strap", pose = { origin_mm = [-70.0, 3.27, -2.27825], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored supported toe and remote stud" },
+  { ref = "rocker-rod-diamond-pin", pose = { origin_mm = [133.06740213488345, 8.456064115939025, -4.77825], x = [0.9979869699018047, 0.06341930231573287, 0.0], z = [0.0, 0.0, -1.0] }, note = "permanently fitted rod-hole pin, unchanged for S4; no clamp or lift load" },
 ]
-locate = "first indicate the empty plate bore and retain its X/Y reference; set the lower strap face on the pads, coarsely align the arms with the pad layout, and indicate the D pilot"
+clamp_order = [1, 2] # only the two hub straps tighten; the permanent pin is a locator
+locate = "first indicate the empty plate bore and retain its X/Y reference; lower the blank straight down over the permanent rod-hole pin onto the pads and indicate the D pilot"
 supports = "not_applicable" # the fixture's own support pads carry the strap
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
@@ -506,7 +513,7 @@ grip_mm = "not_applicable" # author's choice, supported plate/strap contacts, no
 jaw_above_parallels_mm = "not_applicable"
 stop = "before tightening the straps, confirm the indicated pilot is within 0.20 mm radial of the empty plate-bore reference; then re-indicate the pilot as working datum A" # author's clearance control, not a drawing tolerance
 clamp = "two stepped padded straps on upper datum face B, remote studs outside the retained rail frame; supported toes, no stud through the part"
-note = "Coarse rotational alignment only keeps the arms over the twelve support pads and the strap toes on face B; it does not establish datum C. Seat the lower strap face first, then match the shimmed rail rests to the actual raw rails without lifting the part from the pads. The 8 mm stand relief clears the reamer after the 0.20 mm placement check."
+note = "The permanent pin and coarse arm alignment keep the part over its twelve support pads and the strap toes on face B; they do not establish datum C. Seat the lower strap face first, then match the shimmed rail rests to the actual raw rails without lifting the part. The 8 mm stand relief clears the reamer after the 0.20 mm placement check."
 
 [setups.zero]
 tool_touches = [] # one Z touch per tool change, listed in retouch_after
@@ -583,7 +590,7 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S3"
-note = "Remove the S3 part straps and reload onto the shoulder screw and rod-hole diamond pin. Seat the lower strap face on the pads, then match each shimmed rail rest to the actual raw rail without lifting the part. Rotate the part counterclockwise viewed from above (looking down setup -Z) to preload the rod hole against the closing-cut side of the pin, then tighten the shoulder screw and washer. Indicate the ground screw head after tightening to establish the fixture axis; the head is coaxial with the shoulder, not an exposed part-bore touch. Clamp the scrap rails independently. Touch Z on an unobstructed upper strap patch, not the washer-covered hub. Finish the outline with light conventional passes."
+note = "Remove the S3 straps, lift the blank clear of the permanent rod-hole pin and reload onto the same pin and support pads. Fit the shoulder screw and washer through the reamed pivot bore. Match each shimmed rail rest to the actual raw rail without lifting the part. Rotate the part counterclockwise viewed from above (looking down setup -Z) to preload the rod hole against the closing-cut side of the pin, then tighten the shoulder screw and washer. Indicate the ground screw head after tightening to establish the fixture axis; the head is coaxial with the shoulder, not an exposed part-bore touch. Clamp the scrap rails independently. Touch Z on an unobstructed upper strap patch, not the washer-covered hub. Finish the outline with light conventional passes."
 
 [setups.stock_state]
 top_feature = "hub_faces"
@@ -603,6 +610,8 @@ clamps = [
   { ref = "rocker-rail-clamp", pose = { origin_mm = [70.0, -25.5, 4.47175], x = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "lower scrap rail held on its own rest; stud outside the blank" },
   { ref = "rocker-rail-clamp", pose = { origin_mm = [-70.0, -25.5, 4.47175], x = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "mirrored lower scrap rail hold-down" },
 ]
+clamp_order = [1, 3, 4, 5, 6] # shoulder screw first, then the four scrap hold-downs; pin 2 never tightens
+preload_direction = "counterclockwise" # viewed from above, looking down setup -Z
 locate = "reamed bore A on the shoulder screw, lower strap face on support pads, rod hole on the diamond clocking pin"
 supports = "not_applicable"
 fixed_jaw = "not_applicable"
@@ -712,7 +721,7 @@ note = "Close the outline with a light conventional pass along the negative-X la
 op = 43
 do = "inspect"
 feature = "tip_land_pos_x"
-note = "Each-end land checks after ops 41/42, keyed to the exported rod-side land."
+note = "After ops 41/42, check the rod-hole-end land width and its 90° angle to the drawing's title-block ±1° limit."
 [setups.ops.checks]
 tip_land = "calipers" # author's choice
 land_angle_deg = "rocker-profile-template" # 90° land template against the drawing's title-block ±1° band
@@ -721,7 +730,7 @@ land_angle_deg = "rocker-profile-template" # 90° land template against the draw
 op = 44
 do = "inspect"
 feature = "tip_land_neg_x"
-note = "Same each-end land checks, keyed to the separately exported opposite land."
+note = "Check the opposite end land to the same width and 90° angle limits; inspect both ends separately."
 [setups.ops.checks]
 tip_land = "calipers"
 land_angle_deg = "rocker-profile-template"

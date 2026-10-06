@@ -943,7 +943,8 @@ height_mm = { value = 25.4, measured = { by = "example (plausible, not measured)
 # Tapped holes are voids at the thread major diameter plus a small clearance so a
 # threaded engagement reads as mating, not interference. The Y-60/+65 hold-down
 # pitch (125 mm) is the example's assumed T-slot pair: confirm on the PM-30MV table
-# before making the plate. The S4 diamond pin is a separate item, posed only in S4.
+# before making the plate. The diamond pin is a separate item, permanently fitted in
+# the plate's rod-pin hole and posed at the same pose in both S3 and S4.
 [fixtures.rocker-profile-fixture]
 kind = "custom"
 note = "illustrative example shop-made fixture: 360 x 145 x 12.7 mm ground plate, twelve strap pads, relieved hub stand, four 3.0 mm rail rests with per-blank shim stacks, shoulder-screw locating bore, rod-pin hole, stud and hold-down holes"
@@ -1056,21 +1057,22 @@ solids = [
   { name = "thread", shape = "cylinder", at_mm = [0.0, 0.0, -27.2], axis = [0.0, 0.0, 1.0], dia_mm = 5.0, length_mm = 7.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M5x0.8 thread ring gauge; calipers, thread length" } },
 ]
 
-# S4 rod-hole diamond locating pin (illustrative example rocker-only item, one
+# S3/S4 rod-hole diamond locating pin (illustrative example rocker-only item, one
 # owner). Frame: origin on the rod-hole axis at the collar face (the lower strap
 # face), +x radial from the pivot to the rod hole, +z DOWN into the plate (the
 # collar is a support reacting upward, so its bearing face lies along -pose.z).
-# S4 pose: origin [133.067402, 8.456064, -4.77825], x = [0.997987, 0.063419, 0],
+# S3 and S4 pose (same, permanently fitted in the plate): origin [133.067402,
+# 8.456064, -4.77825], x = [0.997987, 0.063419, 0],
 # z = [0, 0, -1]. The custom-ground 1.9875 working tip has flats 1.76 across along
 # the radial line: the full 1.9875 width clocks rotation about datum A in the reamed
 # 2.000-2.010 rod hole (0.0125-0.0225 diametral clearance); the flats tolerate the
 # rod hole's radial position. Tip ends at Z-2.4, below the upper strap face. The
 # collar's underside seats on the plate top (Z-15); its 3.0 m6 shank is a standard
 # location fit in the plate's 3.0 H7 hole, both drawn at the nominal 3.000 fit
-# envelope. The pin is a positive clock stop for the closing profile pass (op 42)
-# only, after the retained web is cut (the web reacts the earlier passes). Before
-# tightening, the part is preloaded CCW (viewed from above, looking down -Z) against
-# it. It is never a clamp or lift.
+# envelope. It is the positive clock stop for the S4 closing profile pass (op 42)
+# only, after the retained web is cut (the web reacts the earlier passes); in S3 the
+# straps react the loads. Before tightening, the part is preloaded CCW (viewed from
+# above, looking down -Z) against it. It is never a clamp or lift.
 [fixtures.rocker-rod-diamond-pin]
 kind = "locating_pin"
 note = "illustrative example shop-made diamond pin: custom-ground 1.9875 working tip (1.76 across flats) on a 4.5 mm collar seated on the plate, 3.0 m6 shank in a 3.0 H7 plate hole; positive clock stop for the closing profile pass only, not a clamp"
@@ -1102,6 +1104,34 @@ solids = [
   { name = "locknut-thread", void = true, cuts = ["locknut"], shape = "cylinder", at_mm = [0.0, 0.0, 7.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.1, length_mm = 3.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 thread plug gauge; drawn at major dia + 0.1" } },
   { name = "body", shape = "cylinder", at_mm = [0.0, 0.0, 10.45], axis = [0.0, 0.0, 1.0], dia_mm = 16.0, length_mm = 9.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, base OD; height gauge, ground base height" } },
   { name = "body-thread", void = true, cuts = ["body"], shape = "cylinder", at_mm = [0.0, 0.0, 10.2], axis = [0.0, 0.0, 1.0], dia_mm = 6.1, length_mm = 9.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 thread plug gauge; drawn at major dia + 0.1" } },
+]
+
+# S1/S2 blank-end position stop (illustrative example rocker-only assembly, one
+# owner): a switchable rare-earth magnetic base on the fixed (rear) jaw's external
+# left end face carries a rigid steel arm. The arm runs left, behind the rear jaw's
+# inner plane, to a finger outside the blank's left end. The finger's hardened nose
+# gently touches the raw left end face (the full-height ear) at X-170. It only
+# positions the blank along X before the jaws close: no cutting or clamping load.
+# The Pedro vise is unmodified. Frame: origin at the fixed jaw's left end, on its
+# inner (gripping) plane at the jaw top, i.e. [-jaw_width/2, rear inner Y, jaw top]
+# = [-79.3369, Y, -4.68295] (jaw_width 6.247 in = 158.6738 mm), x = setup +X,
+# z = up. The base's mating face is local x = 0 and the base stays below the jaw top.
+# The nose face is at local x = -90.6631 (= -170 + 79.3369), centred at local y
+# -32.5 (blank centre) and Z-5. Poses (x = [1, 0, 0], z = [0, 0, 1]):
+# S1 [-79.3369, 37, -4.68295] (nose at Y4.5); S2 [-79.3369, 28, -4.68295] (nose
+# at Y-4.5). The arm stays >= 3.5 mm behind the rear jaw plane (outside the blank)
+# and the finger and nose at X <= -170, so no steel enters the cutter-clear region
+# (X >= -160 inside the rails). The base clears the risers by 1.59 mm and the
+# parallels by 3.44 mm.
+[fixtures.rocker-vise-stop]
+kind = "work_stop"
+note = "illustrative example shop-made magnetic end stop: 30 x 17 x 24 mm switchable rare-earth magnetic base on the fixed jaw's left end face, 11 x 10 mm steel arm, 8 x 14 mm finger, 6 mm hardened nose; gentle positioning contact only, no cutting or clamping load"
+solids = [
+  { name = "base", shape = "box", at_mm = [-30.0, 0.5, -25.0], size_mm = [30.0, 17.0, 24.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, magnetic base body" } },
+  { name = "switch", shape = "cylinder", at_mm = [-15.0, 17.5, -13.0], axis = [0.0, 1.0, 0.0], dia_mm = 12.0, length_mm = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, on/off knob dia and projection" } },
+  { name = "arm", shape = "box", at_mm = [-94.6631, 3.5, -11.0], size_mm = [64.6631, 11.0, 10.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule, arm section and length" } },
+  { name = "finger", shape = "box", at_mm = [-102.6631, -36.5, -11.0], size_mm = [8.0, 51.0, 14.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule, finger section and reach" } },
+  { name = "nose", shape = "cylinder", at_mm = [-94.6631, -32.5, -0.31705], axis = [1.0, 0.0, 0.0], dia_mm = 6.0, length_mm = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, nose dia; calipers, base mating face to nose face (90.6631)" } },
 ]
 
 # Hub coaxiality inspection: a precision 6.5 mm pin in the reamed bore rolled in
