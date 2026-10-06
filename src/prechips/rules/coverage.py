@@ -6,9 +6,7 @@ from prechips.rules.geometry_common import (
     ROTARY,
     approach,
     approach_model_reason,
-    claim_refs,
     cutting_action,
-    known_refs,
     op_claims,
     provenance,
     rotary_debt_text,
@@ -16,7 +14,7 @@ from prechips.rules.geometry_common import (
     rotary_union,
     unavailable,
 )
-from prechips.rules.resolution import SAW_OPS, operations, record
+from prechips.rules.resolution import SAW_OPS, claim_refs, known_refs, operations, record
 
 
 def evaluate(bundle):

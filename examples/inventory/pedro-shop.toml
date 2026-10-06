@@ -38,6 +38,7 @@ rpm_max = 3000
 hp = 2
 drive = "belt_bldc"
 two_ranges = true
+rotation = { value = "cw", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "visual check of forward spindle rotation with right-hand cutters, viewed from above" } }
 
 
 [machines.PM-30MV.leadscrew]
