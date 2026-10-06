@@ -119,7 +119,7 @@ PLAN §8 M3.
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
 | `rocker-arm` | Three-setup route, integral hub, retained rails/ears and supported final profiling, consuming the exported datum and tip-land features. | **2**: original missing tools and supported profile fixture remain stops. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. Missing drawing contract stays explicit. | **2**: absent angle plate, R8 chuck and 6.5 mm reamer. |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: inventory and authored setup data are complete; floor/pointed-tool poses, own-bore corner classification and downstream planned-bore stock await the accessibility engine integration. |
 | `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
 
