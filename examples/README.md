@@ -123,7 +123,7 @@ PLAN §8 M3.
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4**: no errors; required unknowns remain. |
 | `rocker-arm` | Three-setup route, integral hub, retained rails/ears and supported final profiling, consuming the exported datum and tip-land features. | **2**: original missing tools and supported profile fixture remain stops. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: inventory and authored setup data are complete; floor/pointed-tool poses, own-bore corner classification and downstream planned-bore stock await the accessibility engine integration. |
-| `cone-pivot-post/plan.toml` | Four setups from an encompassing one-piece blank; integral bosses, mounting pattern, BS-0 journal yaw and A/B transfer. | **2**: exported `mount_west` nominal is outside its band, and S2:40/50 boss-face claims include faces pointing away from the milling approach; required unknowns also remain. |
+| `cone-pivot-post/plan.toml` | Eight setups from one 76.2 × 50.8 × 140 mm bar with a sacrificial chucking tail: vise facing, BS-0 four-jaw indexed boss/land/pad milling and crank boring, continuous-rotary head and body milling, bandsaw cut-off, then the foot-up mounting pattern. | **2**: the finish-profile walls that end on the convex body (S2:30, S3:20, S4:20, S5:20) are posed at the sample height rather than at their `to_z`, and the S2:20 rough-leave guard cannot offset the whole finished part; required unknowns also remain. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: one-piece-only construction, the `mount_west` nominal conflict, and S2:50 far-side cone-boss claims. |
 
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats
@@ -156,6 +156,27 @@ retain `part = "cone-pivot-post"` and distinguish `plan.toml` from `built-up.tom
 there is no generated plan-text file. Plans do not request external coordinate
 files: machine-readable numbers are in the report and bench coordinates are on
 the sheet. No operative asset lies outside the bundle.
+
+### One-piece cone route provenance
+
+`cone-pivot-post/plan.toml` is the authored one-piece route. Like the built-up
+route, its stock, cutters, saw and holding choices are illustrative and labelled
+`example (plausible, not measured)`. They are not stock on hand or first-article
+evidence. The blank is 76.2 × 50.8 × 140 mm flat bar. Model Y86–137 is a
+sacrificial tail. The BS-0 four-jaw grips Y117–137, so its 32 mm jaws stay
+clear of the 1/2 in collet while the crank boss (out to Y83.7) is milled.
+
+S1 faces foot B in the vise. S2–S5 index the same chucking on the BS-0 head to
+mill the crank boss, the -Z land and both inclined cone pads, and to drill and
+ream the crank and journal bores. S6 turns the head continuously for rotary
+milling of the head and body diameters between the finished bosses and pads.
+S6 needs the rotary-approach engine. S7 bandsaws the tail off with the blade
+1.75 mm above the head top; the 1.5 mm kerf leaves 1 mm. S8 sits foot B down in
+the vise, faces the sawn end to the head top, and cuts the mounting pattern.
+The 3/8 in stub and 1/2 in four-flute cutters were chosen for stick-out
+(2.6 D and 3.8 D), not by halving depth of cut. Face heights and pose offsets
+use the kernel's STEP face values (50.6591, −21.3753, 21.0055), so the
+in-process stock derives from one setup to the next without rounding gaps.
 
 ### Built-up cone route provenance
 
