@@ -908,6 +908,14 @@ class SpindleRotation(InputModel):
     verify: bool | Unknown = UNKNOWN
 
 
+class Contouring(InputModel):
+    """A labelled contouring capability: only its own measured/verify qualify it."""
+
+    value: Literal["mdi", "jog"]
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+
 Spindle = record(
     "Spindle",
     {
@@ -1075,6 +1083,9 @@ InventoryItem = record(
         "standard_accessories": list[str],
         "included": list[str],
         "spindle": Spindle,
+        # How a mill moves off a single axis: ``mdi`` types each arc or diagonal row as one
+        # coordinated move; ``jog`` steps it one handwheel axis at a time.
+        "contouring": Literal["mdi", "jog"] | Contouring | Unknown,
         "leadscrew": LeadScrew,
         "capacity_in": float | list[Number] | Capacity,
         "tailstock": Tailstock,

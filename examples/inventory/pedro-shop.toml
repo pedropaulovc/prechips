@@ -21,6 +21,10 @@ operation_mode = "manual_with_digital_positioning"
 headstock_tilt_deg = 90
 # The DRO grid the sheet prints and the kernel checks (docs/rules-coordinates.md).
 resolution_mm = { value = 0.005, measured = { by = "example (plausible, not measured)", date = "2026-10-06", instrument = "glass-scale DRO readout, 5 um scales typical of this mill class" } }
+# AUTHOR'S CHOICE (example): the cncjs/grbl-class control above takes typed G1/G2/G3 MDI
+# moves, so arc and diagonal contour rows print one MDI move each (docs/inventory.md).
+# Decision A in the ReviewLoop triage; pending Main's confirmation.
+contouring = "mdi"
 note = "CNC conversion replaces leadscrews/dials; envelope and travel below are illustrative example values (vendor numbers relabelled), not grbl soft limits."
 
 [machines.PM-30MV.envelope]
