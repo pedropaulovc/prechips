@@ -2565,6 +2565,25 @@ class _Traveler:
             f"; plan breaks edges {' / '.join(planned)} mm max" if planned else ""
         )
 
+    def setup_edge_break(self, setup):
+        """A setup's own edge-break limit, when it is not the drawing's: the job page
+        carries the drawing's once, so only a different (tighter) setup limit prints."""
+        deburr = setup.get("deburr_mm")
+        if not _known(deburr) or float(deburr) <= 0:
+            return ""
+        general = _mapping(self.bundle.features.get("general_tolerances"))
+        drawing = [general.get("edge_break_r"), general.get("chamfer_max")]
+        drawing = [float(v) for v in drawing if _known(v) and float(v) > 0]
+        if drawing and abs(float(deburr) - min(drawing)) < 1e-9:
+            return ""
+        # The author's reason reads at the machine; a source-file cite does not.
+        cite = setup.get("deburr_cite")
+        cites = cite if isinstance(cite, list) else [cite]
+        why = "; ".join(self.bench(c) for c in cites if isinstance(c, str) and " " in c.strip())
+        text = f"Break edges {self.operative(deburr)} mm max in this setup"
+        text += f", not the drawing's {self.value(min(drawing))}" if drawing else ""
+        return _p(text + (f": {why.rstrip('.')}" if why.strip() else "") + ".")
+
     def drawing_revision(self):
         revision = self.plan.get("drawing", {}).get("revision", "unknown")
         return revision if isinstance(revision, str) and revision != "unknown" else None
@@ -2736,6 +2755,7 @@ class _Traveler:
         status += self.stock_state(setup)
         steps, hold_below = self.hold(setup)
         coolant = "" if bench else _p(f"Coolant: {self.bench(setup.get('coolant'))}.")
+        coolant += self.setup_edge_break(setup)
         # The full-size picture is on sheet 2; the front sheet keeps the HOLD steps wide.
         unpictured = (
             ""

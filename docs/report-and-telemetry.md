@@ -304,8 +304,10 @@ Front sheet (sheet 1), in this order:
    it, a small table of grip length, stickout, jaw-front Z and, on a lathe,
    centre tip Z and quill extension. Pose vectors and planner field names are
    not printed.
-3. Coolant (not on bench setups). The edge break is the drawing's, printed
-   once on the job page.
+3. Coolant (not on bench setups). The drawing's edge break prints once on the
+   job page; a setup whose `deburr_mm` differs from it prints its own limit
+   with the author's reason (`Break edges 0.100 mm max in this setup, not the
+   drawing's 0.25: small socket edge break keeps the bonded length.`).
 4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
    QCTP station and the ops that use it. Op rows carry only the `T#`.
 5. **DRO ZERO** (not on bench setups — a machine of kind `bench` or `manual`

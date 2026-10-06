@@ -279,6 +279,25 @@ def test_bench_and_saw_setups_print_no_machine_zero_or_clearance(tmp_path):
         assert "DRO ZERO" in pages[sid] and "CLEARANCE" in pages[sid], sid
 
 
+def test_a_setup_edge_break_tighter_than_the_drawing_prints_on_its_own_sheet(tmp_path):
+    # The job page carries the drawing's edge break once; a setup that must break its
+    # edges smaller (a bonded socket mouth) says so on its own sheet, and a setup on the
+    # drawing's limit does not repeat it.
+    plan = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    authored = tomllib.loads(plan.read_text(encoding="utf-8"))
+    pages = setup_pages(html)
+    tighter = [s["id"] for s in authored["setups"] if 0 < s.get("deburr_mm", 0) < 0.25]
+    drawing = [s["id"] for s in authored["setups"] if s.get("deburr_mm") == 0.25]
+    assert tighter and drawing
+    for sid in tighter:
+        assert re.search(
+            r"Break edges 0\.10* mm max in this setup, not the drawing's 0\.25", text(pages[sid])
+        ), sid
+    for sid in drawing:
+        assert "Break edges" not in text(pages[sid]), sid
+
+
 def test_a_named_inventory_item_prints_its_name_not_its_kind_or_slug(tmp_path):
     # The shop names what it owns; the traveler prints that name, not the item's kind or
     # identity key. A member's name is its own: naming the kit does not rename a piece.
