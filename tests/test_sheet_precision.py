@@ -108,8 +108,11 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     )
     page = next(page for page in sections(html, "CONTOURS") if "south dome" in page)
     table = page[page.index("<table", page.index("south dome")) :]
+    headings = re.findall(r"<th>([^<]*)</th>", table[: table.index("</thead>")])
+    # A compensated dome also prints tool X/Z; the stations are the surface Z column.
+    column = headings.index("surface Z" if "surface Z" in headings else "Z")
     rows = re.findall(r"<tr>((?:<td>[^<]*</td>)+)</tr>", table)
-    stations = [float(re.findall(r"<td>([^<]*)</td>", row)[-1]) for row in rows]
+    stations = [float(re.findall(r"<td>([^<]*)</td>", row)[column]) for row in rows]
     expected = [round(r["z_mm"], 2) for r in dome["rows"]]
     assert stations[: len(expected)] == expected
     assert len(set(expected)) == len(expected)
@@ -183,14 +186,22 @@ def test_hold_text_has_no_pose_vectors(tmp_path):
 
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
-    # The job page is read first; it must never look clear over a stopped setup.
-    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    # The job page is read first; it must never look clear over a stopped setup. Each
+    # shaft setup parts or grooves with the blade; unselecting it stops all three.
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    authored = plan.read_text(encoding="utf-8")
+    unselected = authored.replace(
+        'tool = "parting-blade-lms-1728"\nholder', 'tool = "unknown"\nholder'
+    )
+    assert unselected != authored
+    plan.write_text(unselected, encoding="utf-8")
+    _, _, html = traveler(plan, tmp_path / "out")
     stopped = [
         re.match(r"\s*SETUP (\S+)", page)[1]
         for page in html.split("<h2>")[1:]
         if page.startswith("SETUP ") and '<div class="stop">' in page
     ]
-    assert stopped
+    assert len(set(stopped)) == 3
     job = sections(html, "JOB STATUS")[0]
     box = job[job.index('<div class="stop">') :]
     box = box[: box.index("</div>")]
