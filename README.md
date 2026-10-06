@@ -73,12 +73,11 @@ uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-p
 ```
 
 Current expected consumer CLI exits are **shaft 0 / rocker 2 / bracket 2 / cone
-built-up 2**. Inspection choices follow the exported feature owners. Missing
+built-up 0**. Inspection choices follow the exported feature owners. Missing
 tooling, holding and inspection capability keep their stops. The cone example
-carries explicitly labelled construction and signed-station divergences from
-the upstream export; these are not claims that the original drawing or export
-was corrected. Known frames can expose far-side face claims requiring an
-authored route and claim correction.
+carries explicitly labelled construction, signed-station, step-corner and copied
+length/height-band divergences from the upstream export; these are not claims
+that the original drawing or export was corrected.
 Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
 spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
 Only the consumer side of M3 is done; the HA follow-ups and the combined gate
@@ -92,12 +91,16 @@ No verified cutting-table numbers are supplied; unknown RPM/feed cells stay
 unknown. See [examples/README.md](examples/README.md) for export provenance,
 source-contract changes and the separate synthetic geometry fixtures.
 
-The cone keeps a single authored **built-up** candidate. The one-piece plan and
-its example comparison are retired by the 2026-10-06 user decision. Drawing
-permission alone does not prepare or assemble material: temporary socket/spigot
-features, physical joint preparation and assembly remain checked. No shaft
-cross-hole is invented, and unknown physical or cutting facts are never
-numerical machining claims.
+The cone keeps a single authored **built-up** candidate; the one-piece plan and
+its example comparison are retired by the 2026-10-06 user decision. It is a
+**bonded-sleeve** route, not route generation or a recommendation: a turned body
+and head, a cone sleeve bonded in a cross-bore and a crank sleeve bonded in a
+head socket with retaining compound, both running bores reamed after cure.
+Drawing permission alone does not prepare or assemble material: temporary
+socket/spigot features, each joint's clearance band and cure, and assembly
+remain checked. Its 12.5182° settings print BS-0 plate/circle, turns and
+spaces. No shaft cross-hole is invented, and unknown physical or cutting facts
+are never numerical machining claims.
 
 ## CLI: five noninteractive verbs
 

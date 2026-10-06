@@ -152,12 +152,12 @@ cite = "illustrative example value (plausible hobby-lathe HSS parting starting p
 # --- cone-pivot-post built-up additions ---
 [[cut]]
 material_class = "low_carbon_steel"
-tool_material = "carbide"
-operation = "profile"
-diameter_range = [0.0, 4.8]
-sfm = 90
-chip_load_mm_per_tooth = 0.01
-cite = "illustrative example value: short-projection 3/16 in carbide cutter with light radial passes beside the cone-pad walls in 1018; conservative hobby-mill starting point, not handbook data"
+tool_material = "M2"
+operation = "finish_turn"
+diameter_range = [0.0, 125.0]
+sfm = 70
+feed_mm_rev = 0.02
+cite = "illustrative example value: light HSS parting-blade corner pass forming a small shoulder radius in 1018, slower than parting; plausible hobby-lathe starting point, not transcribed from a handbook"
 
 [[cut]]
 material_class = "low_carbon_steel"

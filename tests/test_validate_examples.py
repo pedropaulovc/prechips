@@ -48,13 +48,41 @@ def cone_inputs():
     folder = ROOT / "examples" / "cone-pivot-post"
     plan = tomllib.loads((folder / "built-up.toml").read_text(encoding="utf-8"))
     features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
+    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
     policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
     report = json.loads((folder / "expected" / "built-up" / "report.json").read_bytes())
-    return plan, features, policy, report
+    return plan, features, inventory, policy, report
+
+
+@pytest.mark.parametrize("corruption", ["nearest", "spaces", "basic_band", "closure"])
+def test_rejects_cone_indexing_arithmetic_even_when_unverified(corruption):
+    plan, features, inventory, _, report = cone_inputs()
+    setup = next(s for s in plan["setups"] if s["id"] == "S5")
+    finding = next(
+        f for f in report["findings"] if f["rule"] == "indexing" and f["subject"] == "S5"
+    )
+    entries = VALIDATOR["entries_for"](inventory)
+    VALIDATOR["check_indexing"](setup, features, entries, finding)
+    corrupted = copy.deepcopy(finding)
+    row = corrupted["numbers"]
+    if corruption == "nearest":
+        # A plausible actual setting on another declared circle, but not the
+        # nearest one. Matching its own signed error must not legitimize it.
+        row.update(plate="C", circle=41, turns=1, spaces=16, actual_angle_deg=513 / 41)
+        error = 513 / 41 - 12.5182
+        row.update(position_errors_deg=[error], max_position_error_deg=abs(error))
+    elif corruption == "spaces":
+        row["spaces"] += 1
+    elif corruption == "basic_band":
+        row["tolerance_deg"] = 1.0
+    else:
+        row["closure"] = {"error_deg": 0.0, "within_tolerance": True}
+    with pytest.raises(ValueError):
+        VALIDATOR["check_indexing"](setup, features, entries, corrupted)
 
 
 def test_rejects_unsourced_finished_diameter_in_unbound_profile():
-    plan, features, policy, report = cone_inputs()
+    plan, features, _, policy, report = cone_inputs()
     setup = next(s for s in plan["setups"] if s["id"] == "S1")
     finding = next(
         f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1"
@@ -167,31 +195,46 @@ def test_validator_rejects_silently_dropped_or_cleared_missing_requirement(statu
 @pytest.mark.parametrize(
     "missing",
     [
-        ("tool_resolves", "S4:30"),
+        ("tool_resolves", "S4:40"),
         ("inspection", "crank_socket:dia"),
-        ("joint_fit", "S4"),
-        ("joint_assembly", "S4"),
+        ("joint_fit", "S7"),
+        ("joint_assembly", "S7"),
     ],
 )
 def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(missing):
-    plan, features, _, _, report = cone_inputs("built-up.toml")
+    plan, features, inventory, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     # The exported fixture's fit action has tool="unknown", but no cutting assembly.
-    VALIDATOR["check_subjects"](plan, features, findings)
+    VALIDATOR["check_subjects"](plan, features, findings, inventory)
     del findings[missing]
     with pytest.raises(ValueError, match=f"missing finding {missing[0]}:{missing[1]}"):
-        VALIDATOR["check_subjects"](plan, features, findings)
+        VALIDATOR["check_subjects"](plan, features, findings, inventory)
 
 
 @pytest.mark.parametrize(
     "corruption", ["fit_pass", "missing", "socket", "assembly_pass", "branches"]
 )
 def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corruption):
-    plan, features, _, _, report = cone_inputs("built-up.toml")
+    plan, features, _, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     VALIDATOR["check_joint_declarations"](plan, features, findings)
-    fit = findings["joint_fit", "S4"]
-    assembly = findings["joint_assembly", "S4"]
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "S7")
+    fit = findings["joint_fit", "S7"]
+    assembly = findings["joint_assembly", "S7"]
+    if corruption in {"fit_pass", "missing", "assembly_pass"}:
+        # The shipped joint resolves, so declare numeric debt in the plan: the
+        # report must then carry it and neither row may approve.
+        setup["joint"]["clearance_mm"] = "unknown"
+        result = VALIDATOR["fit"](SimpleNamespace(plan=plan, features=features), setup)
+        fit["numbers"].update(
+            band_mm="unknown",
+            guaranteed_mm="unknown",
+            engagement_mm="unknown",
+            engagement_dia_mm="unknown",
+            missing=result["missing"],
+        )
+        fit["status"], assembly["status"] = "unknown", "unknown"
+        VALIDATOR["check_joint_declarations"](plan, features, findings)
     if corruption == "fit_pass":
         fit["status"] = "pass"
     elif corruption == "missing":
@@ -208,23 +251,23 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
 
 @pytest.mark.parametrize("corruption", ["shared_ancestor", "wrong_role", "finished_face"])
 def test_joint_identity_and_exported_face_contract_remain_strict(corruption):
-    plan, features, _, _, report = cone_inputs("built-up.toml")
+    plan, features, inventory, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    setup = next(setup for setup in plan["setups"] if setup["id"] == "S4")
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "S7")
     if corruption == "shared_ancestor":
-        setup["stock_in"] = ["S3", "S2"]
+        setup["stock_in"] = ["S6", "S4"]
     elif corruption == "wrong_role":
         setup["joint"]["socket"] = "crank_spigot"
     else:
         features["features"]["crank_boss"]["faces"] = ["plan.joint_features.crank_spigot"]
     with pytest.raises(ValueError, match="ancestor|kind cylinder_bore|finished STEP faces"):
-        VALIDATOR["check_subjects"](plan, features, findings)
+        VALIDATOR["check_subjects"](plan, features, findings, inventory)
 
 
 @pytest.mark.parametrize("rule", ["joint_fit", "joint_assembly"])
 def test_unresolved_joint_is_required_without_shop_policy_permission(rule):
-    plan, features, _, _, _ = cone_inputs("built-up.toml")
-    report = {"findings": [{"rule": rule, "subject": "S4", "status": "unknown", "numbers": {}}]}
+    plan, features, _, _, _ = cone_inputs()
+    report = {"findings": [{"rule": rule, "subject": "S7", "status": "unknown", "numbers": {}}]}
     assert VALIDATOR["report_exit"](report, {"required": {}}, plan, features) == 4
 
 
@@ -233,7 +276,7 @@ def test_unresolved_joint_is_required_without_shop_policy_permission(rule):
     [("holes", "crank_socket"), ("toleranced_features", "crank_spigot:dia")],
 )
 def test_required_selectors_include_transient_joint_requirements(selector, subject):
-    plan, features, _, _, _ = cone_inputs("built-up.toml")
+    plan, features, _, _, _ = cone_inputs()
     finding = {"rule": "inspection", "subject": subject, "numbers": {}}
     assert VALIDATOR["required_finding"](
         finding, {"required": {"inspection": selector}}, plan, features
@@ -241,10 +284,10 @@ def test_required_selectors_include_transient_joint_requirements(selector, subje
 
 
 def test_joint_checks_use_operative_requirements_without_inventing_drawing_fields():
-    plan, features, _, _, report = cone_inputs("built-up.toml")
+    plan, features, _, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    setup = next(setup for setup in plan["setups"] if setup["id"] == "S1")
-    op = {"op": 50, "feature": "crank_spigot", "checks": {"dia": "calipers"}}
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "S3")
+    op = {"op": 60, "feature": "crank_spigot", "checks": {"dia": "calipers"}}
     setup["ops"].append(op)
     VALIDATOR["check_inspection_declarations"](plan, features, findings)
     op["missing_requirements"] = op.pop("checks")
@@ -254,9 +297,9 @@ def test_joint_checks_use_operative_requirements_without_inventing_drawing_field
 
 @pytest.mark.parametrize("kernel_status,status", [("unavailable", "unknown"), ("error", "error")])
 def test_joint_kernel_failure_cannot_be_approved_without_assembly_evidence(kernel_status, status):
-    plan, features, _, _, report = cone_inputs("built-up.toml")
+    plan, features, _, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    assembly = findings["joint_assembly", "S4"]
+    assembly = findings["joint_assembly", "S7"]
     assembly["numbers"] = {"kernel_status": kernel_status}
     assembly["status"] = status
     VALIDATOR["check_joint_declarations"](plan, features, findings)

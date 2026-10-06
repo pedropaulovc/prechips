@@ -62,8 +62,13 @@ the patched manifests are not verbatim exports. The rocker example permits
 source-backed land-angle limits `[89.0, 91.0]` with whole-degree display
 precision `0`, material thickness `2.5` from drawing note 2, and plan revision
 `v40`; these are source bindings, not measured shop facts or release approval.
-The cone permits built-up construction and fixes `mount_west` `station_nominal`
-to `12.98` (harmonic-analyzer issue #1214). Keep other source facts and citations.
+The cone permits built-up construction, fixes `mount_west` `station_nominal`
+to `12.98` (harmonic-analyzer issue #1214), applies the title-block R0.25 limit to
+the CAD-sharp body/head step corner, and copies the cap-to-cap length and
+foot-to-top height bands onto the second face that terminates each dimension
+without adding a requirement (harmonic-analyzer issue #1215). The validator pins
+each copied band to its exported source band. Keep other source facts and
+citations.
 `pivot-bracket/features.toml` is hand-authored on the copied consumer v39
 `pivot-bracket.STEP` (SHA
 `6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`,
@@ -137,7 +142,7 @@ FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
 The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
 outputs correctly stop with 2 or 4. Current expected M3 CLI exits are
-4 / 2 / 2 / 2 (shaft / rocker / bracket / cone built-up).
+4 / 2 / 2 / 0 (shaft / rocker / bracket / cone built-up).
 Approved source-backed example corrections must retain their documented
 provenance, not erase requirements to recover an exit. Migrate existing
 inspection choices to the exact exported feature owners rather than dropping
@@ -147,7 +152,8 @@ unknown. Only the consumer side of M3 is done. Consult PLAN §8 M3 for the open
 HA items and the combined gate.
 Use the CLI examples in [README.md](README.md) and isolated output directories
 to exercise behavior.
-The cone's built-up candidate also remains PLANNED. Indexing uses one angular
+The cone's built-up candidate (turned body with two bonded sleeves) also remains
+PLANNED. Indexing uses one angular
 setting for the inclined journal, never a fictional
 shaft cross-hole. Closure is checked only for a full pattern: `positions >= 2`
 with `angle_deg` omitted (step exactly `360 / positions`). Authored angles are
