@@ -184,8 +184,10 @@ path that leaves and re-enters legality leaves each piece as a `fragment`
 reconnected, so the setup's coordinates finding is `unknown`. A path with no
 legal part, no kernel result, a kernel clip that is unknown or a clip that does
 not match the printed table prints nothing and is unknown, never the unclipped
-path. The traveler notes "path clipped at the cutter's first contact with
-stock outside stock removal bounds" and "separate piece k of n". The sheet's
+path. The traveler names the printed point a clipped table starts or stops at
+("stops at P7: the stock past it is outside this op's area") and "piece k of
+n: no cut links the pieces, so the stock between them is not cleared by this
+op". The sheet's
 tables, this check, the kernel's row check and the setup picture's waypoints
 all use these clipped rows and their ids; the op's removal stays its box.
 
