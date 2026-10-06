@@ -282,11 +282,13 @@ north-end stations and stick-out are numeric.
 The shaft route (example plan) is: S1 grips the north stub in the three-jaw
 chuck, with the MT3 dead centre in the centre-drilled plain end and the follow rest
 riding the 26:1 body. It roughs and finishes the bearing toward the chuck,
-faces the thrust shoulder, skims the Ø10 shoulder and plunges the south DIN 509
-relief with the 1/16 in HSS parting blade. S2 reverses onto the finished body
-to turn the journal, face the shoulder's north face, plunge the north relief and
-form the north dome with the 60° E tool. S3 parts the plain end to the 1.5–2.0
-past-scribe band with the blade and forms the south dome on the parted face.
+faces the thrust shoulder, mics the Ø10 shoulder left as cold-finished bar and
+plunges the south DIN 509 relief with the 1/16 in HSS parting blade. S2 reverses
+onto the finished body with the thrust face seated on the jaw fronts to turn the
+journal, face the shoulder's north face, plunge the north relief and form the
+north dome with the 93° AR tool (the 60° E gouges near the apex). S3 grips 8 mm
+north of the scribe, parts the plain end to the 1.5–2.0 past-scribe band with
+the blade and forms the south dome on the parted face with the AR tool.
 
 The shaft export's `pivot_bearing` has only the `CUT TO FIT` note and
 `length_ref = 156.67`, with no cut-to-fit length requirement. The plan therefore
