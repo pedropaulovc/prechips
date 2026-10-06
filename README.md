@@ -15,9 +15,15 @@ toolpaths.
 
 The local M1 implementation, PR #5 review corrections, M2 declared-input
 feasibility rules, M3 consumer-export bundles, M4 kernel rules and M5
-measured-inventory screens are present. Physical paper rehearsal and live
-prechips farm/App Insights acceptance remain pending; exported CAD inputs
-are not evidence of either.
+measured-inventory screens are present. M4 also delivers `approach = "rotary"`:
+horizontal dividing-head samples presented at top dead centre to a vertical
+cutter, with window-bounded radial and wall-tangent cutter-column removal
+outside the finished part. Op windows may claim part of a face; coverage and
+finish coverage need the exact union of the claiming windows to cover the
+whole face. This is sampled geometry, not continuous toolpath
+proof. The combined integration gate remains unobserved for this delivery;
+physical paper rehearsal and live prechips farm/App Insights acceptance remain
+pending. Exported CAD inputs are not evidence of those gates.
 See [PLAN.md](PLAN.md) for milestone status and unobserved acceptance work.
 
 ## Install and check
@@ -130,8 +136,10 @@ package version. `--json` and `--verbose` default off.
   deduplicated by exact report id, set members and tool/holder pairs included,
   each with what to measure, instrument, units and citation. It is not an
   inventory-wide field walk: nothing no rule reads is listed, and it adds no
-  tool purchases or unlisted set members. `--plan` is only valid with
-  `--measure`.
+  tool purchases or unlisted set members. It evaluates only the host-side
+  measurement rules (headroom, envelope and travel) and never launches FreeCAD;
+  referenced inputs and STEP hashes are still validated.
+  `--plan` is only valid with `--measure`.
 - **compare** writes `compare.json` and a side-by-side table (JSON with `--json`):
   candidate identity, part, setup count, required fixtures, waste ratio, findings
   and construction permission. Waste is `(stock volume - finished volume) /
@@ -271,7 +279,7 @@ kernel failure is `✗`. Successful facts are cached locally under
 `PRECHIPS_KERNEL_CACHE` (default `%LOCALAPPDATA%\prechips\geometry`) keyed by
 the STEP digest, consumed geometry inputs, engine source and kernel binary.
 Feature and explicit per-op `faces` are matched by each STEP `ADVANCED_FACE`'s
-own geometry, never import order; invalid or far-side cutting claims are `✗`.
+own geometry, never import order; invalid or approach-invalid cutting claims are `✗`.
 Fixture solids come only from explicit inventory dimensions and plan poses:
 a vise's `jaw_height` / `jaw_width` / `jaw_depth` / `opening`, the parallels'
 `height` (plus `length` / `width` for their solids) and riser blocks, with the
@@ -479,8 +487,25 @@ with vise, chuck, dividing-head, centre, angle-plate, clamp and custom
 fixture solids drawn only from explicit dimensions and poses; collets have no
 solid. Lathe setups keep `vise` not applicable; `thin_wall_under_clamp` samples
 material under modeled chuck jaws. Turning accessibility is a radial sampled
-necessary-condition screen, not a toolpath, carriage-stroke or chatter proof;
-undrawn obstacles and unresolved inputs retain unknowns. Only the authored bracket lacks STEP bytes.
+necessary-condition screen, not a toolpath, carriage-stroke or chatter proof.
+Rotary milling uses `approach = "rotary"` with
+`hold.index.rotation = "continuous"` on a horizontal dividing head.
+`z_from`/`z_to` run along the head axis from the chuck pose origin;
+`angle_window_deg` bounds the head rotation. The window is a partial-face
+claim: only the part of each claimed face inside it is sampled and removed,
+and a window holding none of a claimed face is a claim error. Each sample is
+checked at top dead centre, including wall-tangent cutter poses at concave
+edges, curved pad perimeters included. Own-removal
+combines radial sweep with those vertical cutter columns, clipped to the
+window and cut against the finished solid; finished bosses/pads, retained
+stock and holder/fixture obstacles are not waived. A face counts for
+`coverage` (or, from finishing ops only, `finish_coverage`) when the exact
+B-rep union of its window portions, across cutters, ops and setups, covers it;
+a remaining gap is an error naming its spans, an undecided union stays `?`,
+and a whole-face milling claim or (for `coverage` only) as-stock declaration
+still covers the face. This does not prove motion
+between samples or safe continuous rotation. Undrawn obstacles and unresolved
+inputs retain unknowns. Only the authored bracket lacks STEP bytes.
 Shaft, rocker and cone preserve their consumer-exported face sets and exact
 adjacent STEP files; exported face identities do not establish operation
 coverage. The rocker's S1 upper strap operations explicitly claim the exported

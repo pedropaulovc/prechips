@@ -104,6 +104,32 @@ Measurement conventions (setup frame, tool axis +Z):
   radius).  Chuck grip-zone walls are radial lines through each jaw: the
   material run starting at the jaw contact.  The result is a deterministic
   sampled screen: it proves no tool path, chip flow, cutting load or chatter.
+* Rotary (mill ops with ``approach = "rotary"``; dividing-head setups): the head
+  axis is the chuck pose z through its origin and must be perpendicular to setup Z
+  (otherwise the op is unsupported). Claimable portions are the positive-area
+  intersections of actual faces with optional ``z_from``/``z_to`` (axial mm from
+  the pose origin) and ``angle_window_deg`` (head rotation, right-hand about the
+  axis). Their normals must lie in their meridian plane within ``REVOLVED_TOL``
+  and none point toward the axis beyond ``AWAY``; empty/away portions are claim
+  errors. Samples include the new clipping edges, not points outside the window.
+  Each sample is turned to top dead centre and gets the vertical-cutter pose there:
+  radial normals are floors (concave floor-edge samples shift tangent to the walls
+  of their original face and of its seam patches on the same surface), axial
+  components offset the axis r along the head axis.
+  Tool and holder are tested against the Obstacles stock turned with the work (the
+  flute's is the builder's accepted after-op stock, like any milling op's), against
+  jaws/body turned with it, and against stationary head/fixture solids. Rotary
+  removal sweeps clipped coaxial cylinder portions radially past stock, running on
+  at their radius to the z window ends, plus wall-offset cutter columns. Its
+  independent removal volumes stay window-clipped, exclude the finished part
+  (finished pads and bosses remain obstacles) and are cut from the stock one by one
+  in order, never fused.
+  ``rotary_coverage`` separately proves cut/finish coverage by sequential exact
+  model-frame face subtraction across setups, not samples or interval bounds.
+  Only host ``finishing = true`` ops contribute finish portions. Gap spans have
+  exact BRep axial bounds and conservative enclosing angular bounds; those bounds
+  never decide coverage. This is one static pose per sample: no swept toolpath,
+  helical or simultaneous motion, and coverage is not a clearance verdict.
 """
 
 from __future__ import annotations
@@ -164,9 +190,15 @@ TOOL_DROP_MM = 1000.0
 STOCK_AZIMUTHS = 6  # meridian sections (0..150 deg) that must agree for a stock profile
 STOCK_ROUND_MM = 2e-3  # mm: radius disagreement between them that still counts as round
 TURNING = "turning"
+ROTARY = "rotary"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
+# Fixture roles that turn with a dividing head's spindle; the head body, tailstock and
+# other solids stay put while the work turns.
+HEAD_ROTATING = frozenset(("chuck_jaw", "chuck_body"))
+HEAD_TILT = 1e-6  # |head axis . setup Z| above which a rotary head axis is not horizontal
+ANGLE_TOL = 1e-6  # degrees: a sample on a rotary angle-window end lies inside it
 V = FreeCAD.Vector
 Z = V(0, 0, 1)
 
@@ -193,6 +225,10 @@ class _Unknown(Exception):
 
 def _turned(op):
     return op.get("approach") == TURNING
+
+
+def _rotary(op):
+    return op.get("approach") == ROTARY
 
 
 def _sawn(op):
@@ -1467,6 +1503,20 @@ class _Culled:
         except Exception:
             return False
 
+    def common_solid(self, solid):
+        """The solid's material inside an arbitrarily oriented cutter ``solid``, or None."""
+        box = _bbox(solid)
+        if not any(_boxes_touch(box, face) for face in self.boxes):
+            # No face reaches the cutter's box, so it lies wholly inside or wholly outside.
+            return solid if self.shape.isInside(solid.CenterOfMass, 1e-9, False) else None
+        common = self.shape.common(solid)
+        return common if common.Volume > HIT_MM3 else None
+
+
+def _boxes_touch(a, b):
+    """Whether two (min, max) boxes meet, touching included (conservative culling)."""
+    return all(a[i] <= b[i + 3] and b[i] <= a[i + 3] for i in range(3))
+
 
 def _pointed_cutter(x, y, tip, radius, slope, length):
     """Solid a pointed tool on vertical axis (x, y) fills from ``tip`` up ``length`` mm.
@@ -2058,6 +2108,148 @@ def _pose_matrix(pose):
     )
 
 
+class _HeadAxis:
+    """A horizontal dividing-head axis in the setup frame.
+
+    A rotation ``phi`` (degrees, right-hand about the axis) turns the work; the head
+    frame has z along the axis and x along setup +Z, so a point at head-frame angle
+    ``alpha`` is presented at top dead centre under the vertical spindle by
+    ``phi = -alpha``.
+    """
+
+    def __init__(self, origin, axis):
+        self.origin, self.axis = origin, axis
+        up = Z - axis * axis.dot(Z)
+        up.normalize()
+        self.matrix = _pose_matrix(
+            {"origin_mm": [origin.x, origin.y, origin.z], "x": list(up), "z": list(axis)}
+        )
+
+    def polar(self, point, normal=None):
+        """(axial z, radius, phi presenting the point or None on the axis, (radial,
+        tangential, axial) normal components or None)."""
+        offset = point - self.origin
+        z = offset.dot(self.axis)
+        radial = offset - self.axis * z
+        rho = radial.Length
+        if rho <= AXIS_TOL:
+            # On the axis any rotation presents the point; only an axial normal is revolved.
+            if normal is None:
+                return z, rho, None, None
+            across = (normal - self.axis * normal.dot(self.axis)).Length
+            return z, rho, None, (0.0, across, normal.dot(self.axis))
+        phi = math.degrees(math.atan2(self.axis.dot(radial.cross(Z)), radial.dot(Z)))
+        if normal is None:
+            return z, rho, phi, None
+        unit = radial * (1 / rho)
+        tangent = self.axis.cross(unit)
+        return z, rho, phi, (normal.dot(unit), normal.dot(tangent), normal.dot(self.axis))
+
+    def turned(self, point, phi):
+        """``point`` after the work turns by ``phi`` degrees."""
+        return self.origin + FreeCAD.Rotation(self.axis, phi).multVec(point - self.origin)
+
+    def rotated(self, shape, phi):
+        moved = shape.copy()
+        moved.rotate(self.origin, self.axis, phi)
+        return moved
+
+    def extent(self, box):
+        """(min axial z, max axial z, radius beyond every point) of a setup-frame box."""
+        corners = [V(x, y, z) for x in box[0::3] for y in box[1::3] for z in box[2::3]]
+        polar = [self.polar(corner) for corner in corners]
+        return (
+            min(p[0] for p in polar) - 1.0,
+            max(p[0] for p in polar) + 1.0,
+            max(p[1] for p in polar) + 1.0,
+        )
+
+    def window_solid(self, window, box):
+        """Setup-frame solid of the op's z/angle window around the axis, or None if unbounded."""
+        if window["z"] is None and window["angle"] is None:
+            return None
+        low, high, outer = self.extent(box)
+        low, high = window["z"] or (low, high)
+        if window["angle"] is None:
+            solid = Part.makeCylinder(outer, high - low, V(0, 0, low))
+        else:
+            start, end = window["angle"]
+            corners = [V(0, 0, low), V(outer, 0, low), V(outer, 0, high), V(0, 0, high)]
+            profile = Part.Face(Part.makePolygon([*corners, corners[0]]))
+            # Head angle alpha = -phi: the window's material spans alpha -end..-start.
+            solid = profile.revolve(V(0, 0, 0), Z, end - start)
+            solid.rotate(V(0, 0, 0), Z, -end)
+        solid.transformShape(self.matrix)
+        return solid
+
+
+def _in_window(window, z, phi):
+    """Whether a sample at axial ``z`` presented by ``phi`` lies in a rotary op's window."""
+    if window["z"] is not None and not (
+        window["z"][0] - STOCK_TOL <= z <= window["z"][1] + STOCK_TOL
+    ):
+        return False
+    if window["angle"] is None or phi is None:
+        return True
+    start, end = window["angle"]
+    turn = (phi - start) % 360
+    return turn <= end - start + ANGLE_TOL or turn >= 360 - ANGLE_TOL
+
+
+def _floor_patches(faces, boxes, index):
+    """``index`` and every face continuing its surface across shared (seam) edges.
+
+    A floor exported as several patches of one surface (a cylinder as two halves) is one
+    floor: a wall's floor edge runs on across the seam, so the nearest edge point of a
+    sample beside the seam may lie on the neighbouring patch.
+    """
+    surface = faces[index].Surface
+    found, pending = {index}, [index]
+    while pending:
+        current = pending.pop()
+        neighbours = [
+            other
+            for other, box in enumerate(boxes)
+            if other not in found and _boxes_touch(boxes[current], box)
+        ]
+        for _, a, b in _shared_edges(faces, [current, *neighbours]):
+            other = b if a == current else a if b == current else None
+            if other is None or other in found:
+                continue
+            samples = _face_samples(faces[other], 1.0, interior_only=True)[0]
+            if samples and all(
+                (surface.value(*surface.parameter(point)) - point).Length <= STOCK_TOL
+                for point, _ in samples
+            ):
+                found.add(other)
+                pending.append(other)
+    return sorted(found)
+
+
+def _tangent_offset(limits):
+    """Smallest in-plane axis offset ``d`` with ``n.d >= rhs`` for every ``(nx, ny, rhs)``.
+
+    The floor-pose convention (user decision 2026-10-05): a floor sample on concave walls
+    stands with its cutter tangent to all of them, at the nearest such axis.
+    """
+    candidates = [(0.0, 0.0)] + [(rhs * nx, rhs * ny) for nx, ny, rhs in limits]
+    for i, (ax, ay, ra) in enumerate(limits):
+        for bx, by, rb in limits[i + 1 :]:
+            determinant = ax * by - ay * bx
+            if abs(determinant) > 1e-9:
+                candidates.append(
+                    ((ra * by - ay * rb) / determinant, (ax * rb - ra * bx) / determinant)
+                )
+    feasible = [
+        (dx, dy)
+        for dx, dy in candidates
+        if all(nx * dx + ny * dy >= rhs - 1e-7 for nx, ny, rhs in limits)
+    ]
+    if not feasible:
+        raise ValueError("no floor-axis pose is tangent to all bounding concave walls")
+    return min(feasible, key=lambda delta: delta[0] ** 2 + delta[1] ** 2)
+
+
 def _fixture_kind(hold):
     """The inventory holding kind a hold declares (engine kinds are coarser), or None."""
     if not isinstance(hold, dict):
@@ -2241,6 +2433,14 @@ class _Job:
         )
         outputs = dict(supplies)
         leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
+        rotary = any(
+            _rotary(op)
+            for setup in setups
+            if isinstance(setup, dict)
+            for op in setup.get("ops", [])
+            if isinstance(op, dict)
+        )
+        self.rotary_portions = {"cut": {}, "finish": {}} if rotary else None
         for setup in setups:
             held, held_reason, state, assembly_error = self._held(setup, outputs)
             if held_reason is None:
@@ -2266,7 +2466,146 @@ class _Job:
                 "joined": state["joined"],
             }
             leaves[sid] = runner.leave_out
+            if rotary:
+                self._collect_rotary_portions(runner)
+        if rotary:
+            result["rotary_coverage"] = {
+                category: self._rotary_coverage(portions)
+                for category, portions in self.rotary_portions.items()
+            }
         return result
+
+    def _collect_rotary_portions(self, runner):
+        """Retain known portions and unresolved contributions; empty/away claims add neither."""
+        inverse = runner.matrix.inverse() if runner.matrix is not None else None
+        for op in runner.ops:
+            if not _rotary(op):
+                continue
+            indices = runner._indices(op)
+            claim_reason = None
+            if not isinstance(indices, list):
+                refs, _ = runner._claim_refs(op)
+                indices = (
+                    sorted(
+                        {
+                            self.mapping[ref]
+                            for ref in refs
+                            if isinstance(ref, str) and ref in self.mapping
+                        }
+                    )
+                    if isinstance(refs, list)
+                    else []
+                )
+                claim_reason = "claimed face references are unknown or unmapped"
+            if inverse is None:
+                claim_reason = runner.stock_out_reason or "setup frame is unusable"
+            for index in indices:
+                model, why, accepted = None, claim_reason, False
+                head = None
+                if why is None:
+                    valid, away, undefined, why = runner._rotary_claims(op, [index])
+                    if away:
+                        continue
+                    if undefined:
+                        why = runner._undefined(undefined)
+                    if valid:
+                        accepted = True
+                        portion, why = runner._rotary_portion(op, index)
+                        try:
+                            if why is not None or portion is None:
+                                raise ValueError(why or "valid claim has no rotary face portion")
+                            model = portion.copy()
+                            model.transformShape(inverse)
+                            if not model.isValid():
+                                raise ValueError("invalid model-frame rotary face portion")
+                        except Exception as exc:
+                            model, why = None, f"rotary portion frame transform failed ({exc})"
+                    head = runner._head()[0]
+                if model is None and why is None:
+                    why = "rotary face portion is unresolved"
+                if why is not None:
+                    why = f"{runner._subject(op)}: {why}"
+                # The final marker distinguishes a valid portion with a transform
+                # failure from an unresolved-only claimant. Only the former (or
+                # another valid op's portion) admits the face into this category.
+                record = (model, why, str(runner.setup.get("id")), runner.matrix, head, accepted)
+                self.rotary_portions["cut"].setdefault(index, []).append(record)
+                if op.get("finishing") is True:
+                    self.rotary_portions["finish"].setdefault(index, []).append(record)
+
+    def _rotary_coverage(self, portions):
+        """Exact union coverage as sequential face differences; no fused volume or UV proxy."""
+        facts = {"complete_indices": [], "gaps": [], "unknown": []}
+        for index, records in sorted(portions.items()):
+            if not any(accepted for _, _, _, _, _, accepted in records):
+                continue
+            ref = self.labels[index]
+            remaining = self.solid.Faces[index]
+            reasons = []
+            try:
+                for portion, why, _, _, _, _ in records:
+                    if why is not None:
+                        reasons.append(why)
+                        continue
+                    remaining = remaining.cut(portion)
+                    if remaining.Faces and not remaining.isValid():
+                        raise ValueError("invalid rotary face difference")
+                    if remaining.Area <= CONTACT_MM2:
+                        break
+                if remaining.Area <= CONTACT_MM2:
+                    facts["complete_indices"].append(index)
+                elif reasons:
+                    facts["unknown"].append(
+                        {"index": index, "ref": ref, "reason": "; ".join(sorted(set(reasons)))}
+                    )
+                else:
+                    spans, seen = [], set()
+                    for _, _, sid, matrix, head, _ in records:
+                        if sid in seen:
+                            continue
+                        seen.add(sid)
+                        head_frame = remaining.copy()
+                        head_frame.transformShape(matrix)
+                        head_frame.transformShape(head.matrix.inverse())
+                        for face in head_frame.Faces:
+                            box = _bbox(face)
+                            spans.append(
+                                {
+                                    "setup": sid,
+                                    "z_mm": [_r(box[2]), _r(box[5])],
+                                    "angle_deg": self._rotary_angle_bounds(box),
+                                }
+                            )
+                    facts["gaps"].append(
+                        {"index": index, "ref": ref, "area_mm2": _r(remaining.Area), "spans": spans}
+                    )
+            except Exception as exc:
+                facts["unknown"].append(
+                    {
+                        "index": index,
+                        "ref": ref,
+                        "reason": f"rotary coverage boolean failed ({exc})",
+                    }
+                )
+        return facts
+
+    @staticmethod
+    def _rotary_angle_bounds(box):
+        """Conservative presenting-angle enclosure of an exact head-frame face bbox."""
+        if box[0] <= 0 <= box[3] and box[1] <= 0 <= box[4]:
+            return [-180.0, 180.0]
+        angles = sorted(
+            -math.degrees(math.atan2(y, x)) % 360
+            for x in (box[0], box[3])
+            for y in (box[1], box[4])
+        )
+        gaps = [(angles[(i + 1) % len(angles)] - angle) % 360 for i, angle in enumerate(angles)]
+        end = max(range(len(gaps)), key=gaps.__getitem__)
+        low = angles[(end + 1) % len(angles)]
+        high = low + 360 - gaps[end]
+        if low >= 180:
+            low, high = low - 360, high - 360
+        return [_r(low), _r(high)]
 
     def _supplies(self):
         """Each separately authored supply is independent of other branches' geometry debt."""
@@ -2780,6 +3119,13 @@ class _Setup:
         self.revolutions = {}  # finished face index -> turning verdict cache
         # Turning op subject -> (profile after it, or None, and (failing op, why) or None).
         self.turn_obstacles = {}
+        self.head = None  # (dividing-head axis frame for rotary ops or None, why, status)
+        self.rotary_faces = {}  # (op identity, original face index) -> clipped rotary verdict
+        self.rotary_windows = {}  # op identity -> (window solid or None, why)
+        self.rotary_portions = {}  # (op identity, original face index) -> (clipped face shape, why)
+        self.concave_walls = {}  # face index -> [(edge, wall index, edge box)] (concave)
+        self.rotary_patches = {}  # floor face index -> it and its same-surface seam patches
+        self.wall_corners = {}  # (a, b) -> whether faces a and b meet at a sharp concave edge
         self.floor_adjacency = None
         self.cover_axes = {}  # (floor index, radius, leave) -> (whole-face axis or None, error)
         self.hole_cuts = {}  # (id(op), indices, radius) -> _hole_cut record
@@ -3240,13 +3586,13 @@ class _Setup:
     @staticmethod
     def _remove(original, own, groups):
         """(the stock solid ``original`` less one op's cut, as its kept pieces, or None, and
-        why that is not one valid piece free of the cut's band).
+        why that is not one valid piece free of the claimed cutting volumes).
 
-        Its own clearance goes first, then each connected band group, piece by piece and
-        never fused. A group the cuts before it already cleared (:func:`_cleared`) is not
-        cut again. Only the end is judged, so a fragment one piece splits off may still go
+        Its own clearance goes first, then each cut group, piece by piece and never
+        fused. A group the cuts before it already cleared (:func:`_cleared`) is not cut
+        again. Only the end is judged, so a fragment one piece splits off may still go
         with a later piece: at most one piece above ``STOCK_MM3`` may remain, valid and
-        holding no more than ``STOCK_MM3`` of the band.
+        holding no more than ``STOCK_MM3`` of the grouped cutting volumes.
         """
         rest, applied = original, []
         if own is not None:
@@ -3261,7 +3607,7 @@ class _Setup:
             for piece in group:
                 if rest.Solids:
                     rest = rest.cut(piece)
-                    applied.append((f"lineage band group {number}", piece))
+                    applied.append((f"cut group {number}", piece))
         kept = [piece for piece in rest.Solids if piece.Volume > STOCK_MM3]
         if len(kept) > 1:
             return None, (
@@ -3275,7 +3621,7 @@ class _Setup:
             )
         left = sum(piece.common(cut).Volume for piece in kept for group in groups for cut in group)
         if left > STOCK_MM3:
-            return None, f"{_r(left)} mm^3 of its lineage leave band survived its removal"
+            return None, f"{_r(left)} mm^3 of its claimed cutting volume survived its removal"
         return kept, None
 
     def _cut(self, op, stock):
@@ -3283,8 +3629,10 @@ class _Setup:
 
         A cut is ``(own clearance or None, connected band groups)``, each group a list of
         solids; ``(None, [])`` removes nothing. A joint op (``joint_cut``) removes its
-        analytic transient cylinder (:meth:`_joint_removal`), a turning op its revolved stock
-        (:meth:`_turn_removal`) and a hole op (``hole`` metadata) its geometry-located bore
+        analytic transient cylinder (:meth:`_joint_removal`) and a turning op its revolved
+        stock (:meth:`_turn_removal`); a rotary op its independent window-clipped cutting
+        volumes (:meth:`_rotary_removal`), each its own one-volume group cut in order and
+        never fused; a hole op (``hole`` metadata) its geometry-located bore
         cylinder (see :meth:`_hole_cut`). Other ops remove only stock outside their guard:
         the component-owned finished solid offset by their own rough leave
         (:meth:`_protect`). An authored clearing box removes that within the box above
@@ -3306,6 +3654,11 @@ class _Setup:
         if _turned(op):
             removal, why = self._turn_removal(op, valid, stock)
             return (None, why) if why is not None else ((removal, []), None)
+        if _rotary(op):
+            removals, why = self._rotary_removal(op, valid)
+            if why is not None:
+                return None, why
+            return (None, [[volume] for volume in removals]), None
         if isinstance(op.get("hole"), dict):
             cut = self._hole_cut(op, valid, _positive(op, "radius_mm"))
             if cut["reason"] is not None:
@@ -3341,10 +3694,11 @@ class _Setup:
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
 
         Judged once on the builder's end stock, after every op is measured; neither debt
-        changes any op's before-op stock. Every face an unbounded milling op claims with a
-        horizontal normal component must be clear of overstock beyond its op's guard at its
-        interior (:meth:`_protect` within the claims' reach, the guard's derivable window);
-        merely sweeping a sliver from a drafted wall does not prove it cleared.
+        changes any op's before-op stock. Every face an unbounded +Z milling op (not a
+        rotary one) claims with a horizontal normal component must be clear of overstock
+        beyond its op's guard at its interior (:meth:`_protect` within the claims' reach,
+        the guard's derivable window); merely sweeping a sliver from a drafted wall does
+        not prove it cleared.
         Each complete-form hole op's own claimed caps (``cap_completion`` in its ``ops``
         facts) must likewise be clear of it, even when its cut removes nothing new; touched
         caps are named there and make the output stock debt.
@@ -3359,6 +3713,7 @@ class _Setup:
                     isinstance(op.get("joint_cut"), dict)
                     or _sawn(op)
                     or _turned(op)
+                    or _rotary(op)
                     or isinstance(op.get("hole"), dict)
                     or "stock_removal_bounds" in op
                 ):
@@ -4166,7 +4521,11 @@ class _Setup:
             return UNKNOWN, [], "claimed face references are unknown or unmapped"
         labels = self.owner.labels
         internal = []
-        if _turned(op):
+        if _rotary(op):
+            valid, away, undefined, why = self._rotary_claims(op, indices)
+            if why is not None:
+                return UNKNOWN, [], why
+        elif _turned(op):
             valid, away, undefined, internal = self._turn_split(indices)
         else:
             valid, away, undefined = self._split(indices)
@@ -5330,6 +5689,8 @@ class _Setup:
         facts = {"reason": reason, "reasons": {}}
         if _turned(op):
             facts["approach"] = TURNING
+        elif _rotary(op):
+            facts["approach"] = ROTARY
         for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm"):
             facts[key] = UNKNOWN
             facts["reasons"][key] = reason
@@ -5468,6 +5829,8 @@ class _Setup:
                 if facts["reasons"] and "reason" not in facts:
                     facts["reason"] = next(iter(facts["reasons"].values()))
             return facts
+        if _rotary(op):
+            return self._rotary_op(op, indices)
         valid, away, undefined = self._split(indices)
         facts = {"reasons": {}}
         reasons = facts["reasons"]
@@ -5989,13 +6352,7 @@ class _Setup:
                         continue
                     ends = [vertex.Point for vertex in edge.Vertexes]
                     walls.setdefault(floor, []).append((edge, wall, _bbox(edge), ends))
-            self.floor_adjacency = {
-                "walls": walls,
-                "failed": failed,
-                "pairs": pairs,
-                "corners": {},
-                "sharp": {},
-            }
+            self.floor_adjacency = {"walls": walls, "failed": failed, "pairs": pairs, "sharp": {}}
         if index in self.floor_adjacency["failed"]:
             raise ValueError(self.floor_adjacency["failed"][index])
         return self.floor_adjacency["walls"].get(index, ())
@@ -6003,13 +6360,17 @@ class _Setup:
     def _wall_corner(self, a, b):
         """Whether faces ``a`` and ``b`` meet at a sharp concave shared edge (cached)."""
         key = (min(a, b), max(a, b))
-        corners = self.floor_adjacency["corners"]
-        if key not in corners:
-            corners[key] = any(
-                _concave_edge(self.finished, edge, self.faces[a], self.faces[b]) is True
-                for edge in self.floor_adjacency["pairs"].get(key, ())
+        if key not in self.wall_corners:
+            edges = (
+                self.floor_adjacency["pairs"].get(key, ())
+                if self.floor_adjacency is not None
+                else (edge for edge, _, _ in _shared_edges(self.faces, key))
             )
-        return corners[key]
+            self.wall_corners[key] = any(
+                _concave_edge(self.finished, edge, self.faces[a], self.faces[b]) is True
+                for edge in edges
+            )
+        return self.wall_corners[key]
 
     def _floor_contacts(self, index, point, reach, origin):
         """Rising walls of floor ``index`` whose concave floor edge is on or within ``reach``.
@@ -7347,6 +7708,675 @@ class _Setup:
         for edge, a, b in _shared_edges(faces, indices):
             if _concave_edge(part, edge, faces[a], faces[b]):
                 radii.add(0.0)
+        if problems:
+            extra = f" (+{len(problems) - 3} more)" if len(problems) > 3 else ""
+            return "; ".join(problems[:3]) + extra
+        return sorted(radii)
+
+    # ------------------------------------------------------------------ rotary
+
+    def _head(self):
+        """(head axis or None, why not, "unknown" | "unsupported" | None) for rotary ops.
+
+        The axis is the dividing-head chuck pose z through its origin; it must be
+        perpendicular to setup Z so every sample can be turned under the vertical spindle.
+        """
+        if self.head is None:
+            hold = self.setup.get("hold")
+            kind = _fixture_kind(hold)
+            pose = hold.get("pose") if isinstance(hold, dict) else None
+            if kind is None:
+                self.head = None, "the holding is unknown, so the head axis is unknown", UNKNOWN
+            elif kind != "dividing_head":
+                self.head = (
+                    None,
+                    f"the rotary approach turns the work in a dividing head; this setup "
+                    f"holds it in a {kind}",
+                    "unsupported",
+                )
+            elif not isinstance(pose, dict):
+                self.head = None, "the dividing-head chuck pose (head axis) is undeclared", UNKNOWN
+            else:
+                axis = V(*pose["z"])
+                axis.normalize()
+                if abs(axis.z) > HEAD_TILT:
+                    self.head = (
+                        None,
+                        "the dividing-head axis is not perpendicular to setup Z "
+                        f"(|axis . Z| = {_r(abs(axis.z))}); rotary milling under the vertical "
+                        "spindle needs a horizontal head axis",
+                        "unsupported",
+                    )
+                else:
+                    self.head = _HeadAxis(V(*pose["origin_mm"]), axis), None, None
+        return self.head
+
+    @staticmethod
+    def _rotary_window(op):
+        """({"z": (lo, hi) or None, "angle": (from, to) or None}, None) or (None, why)."""
+        window = {"z": None, "angle": None}
+        if "z_from" in op or "z_to" in op:
+            ends = (op.get("z_from"), op.get("z_to"))
+            if not all(_number(end) for end in ends):
+                return None, "z_from/z_to is unknown"
+            window["z"] = (min(ends), max(ends))
+            if window["z"][1] - window["z"][0] <= PLANE_TOL:
+                return None, "z_from and z_to span no length"
+        if "angle_window_deg" in op:
+            span = op["angle_window_deg"]
+            if not (isinstance(span, list) and len(span) == 2 and all(map(_number, span))):
+                return None, "angle_window_deg is unknown"
+            if span[1] <= span[0]:
+                return None, "angle_window_deg must run from a smaller to a larger angle"
+            if span[1] - span[0] < 360:
+                window["angle"] = (span[0], span[1])
+        return window, None
+
+    def _rotary_bound(self, op):
+        """Cached setup-frame window solid, or why its geometry is unresolved."""
+        key = id(op)
+        if key not in self.rotary_windows:
+            head, why, _ = self._head()
+            window = None
+            if head is not None:
+                window, why = self._rotary_window(op)
+            bound = None
+            if window is not None:
+                try:
+                    bound = head.window_solid(window, self.box)
+                    if bound is not None and not bound.isValid():
+                        raise ValueError("invalid rotary window solid")
+                except Exception as exc:
+                    why = f"rotary window geometry failed ({exc})"
+            self.rotary_windows[key] = bound, why
+        return self.rotary_windows[key]
+
+    def _rotary_portion(self, op, index):
+        """Actual face/window common in setup coordinates; None without area is an empty claim."""
+        key = id(op), index
+        if key not in self.rotary_portions:
+            bound, why = self._rotary_bound(op)
+            portion = None
+            if why is None:
+                try:
+                    face = self.faces[index]
+                    common = face if bound is None else face.common(bound)
+                    faces = common.Faces
+                    if faces and common.Area > CONTACT_MM2:
+                        portion = faces[0] if len(faces) == 1 else Part.makeCompound(faces)
+                        if not portion.isValid():
+                            raise ValueError("invalid window-clipped rotary face")
+                except Exception as exc:
+                    portion, why = None, f"rotary face clipping failed ({exc})"
+            self.rotary_portions[key] = portion, why
+        return self.rotary_portions[key]
+
+    def _rotary_points(self, op, index, spacing):
+        """Sample clipped interiors and every new boundary, with the original outward normal."""
+        portion, why = self._rotary_portion(op, index)
+        if why is not None:
+            raise ValueError(why)
+        if portion is None:
+            return [], 0
+        window = self._rotary_window(op)[0]
+        head = self._head()[0]
+        found, skipped = [], 0
+        for face in portion.Faces:
+            samples, missed = _face_samples(face, spacing)
+            skipped += missed
+            for point, _ in samples:
+                z, _, phi, _ = head.polar(point)
+                if not _in_window(window, z, phi):
+                    continue
+                try:
+                    found.append((point, _normal_at(self.faces[index], point)))
+                except Exception:
+                    skipped += 1
+        return found, skipped
+
+    def _rotary_face(self, op, index):
+        """(verdict, undefined normals) of a clipped face portion.
+
+        "external": every sampled normal lies in its meridian plane through the head axis
+        (within ``REVOLVED_TOL``) and none points toward the axis beyond ``AWAY``, so the
+        head can turn each sample under the cutter; otherwise "away".
+        """
+        key = id(op), index
+        if key not in self.rotary_faces:
+            head = self._head()[0]
+            found, skipped = self._rotary_points(op, index, 1.0)
+            verdict = "external"
+            for point, normal in found:
+                _, _, _, (radial, tangential, _) = head.polar(point, normal)
+                if abs(tangential) > REVOLVED_TOL or radial < AWAY:
+                    verdict = "away"
+                    break
+            self.rotary_faces[key] = (verdict, skipped if found else max(skipped, 1))
+        return self.rotary_faces[key]
+
+    def _rotary_claims(self, op, indices):
+        """(cuttable portions, away/empty claims, undefined normals, why unknown)."""
+        _, why = self._rotary_bound(op)
+        if why is not None:
+            return [], [], [], why
+        valid, away, undefined = [], [], []
+        for index in indices:
+            portion, why = self._rotary_portion(op, index)
+            if why is not None:
+                return valid, away, undefined, why
+            if portion is None:
+                away.append(index)
+                continue
+            verdict, skipped = self._rotary_face(op, index)
+            if verdict == "away":
+                away.append(index)
+            elif skipped:
+                undefined.append((index, skipped))
+            else:
+                valid.append(index)
+        return valid, away, undefined, None
+
+    def _rotary_op(self, op, indices):
+        """Rotary dividing-head milling facts for an op (module docstring: Rotary)."""
+        labels = self.owner.labels
+        facts = {"approach": ROTARY, "reasons": {}}
+        reasons = facts["reasons"]
+        valid, away, undefined, why = self._rotary_claims(op, indices)
+        facts["claim_errors"] = sorted(labels[index] for index in away)
+        if why is not None:
+            if self._head()[2] == "unsupported":
+                facts["unsupported_reason"] = why
+            for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm"):
+                facts[key] = UNKNOWN
+                reasons[key] = why
+            facts["reason"] = why
+            return facts
+        if undefined:
+            facts["claimed_indices"] = UNKNOWN
+            reasons["claimed_indices"] = self._undefined(undefined)
+        else:
+            facts["claimed_indices"] = sorted(valid)
+        sampled = sorted(valid + [index for index, _ in undefined])
+        if not sampled:
+            reason = (
+                "no claimed face is an external surface of revolution about the dividing-head "
+                "axis inside the op's rotary window: " + ", ".join(facts["claim_errors"])
+            )
+            for key in (*self._MEASURED, "corner_radii_mm"):
+                facts[key] = UNKNOWN
+                reasons[key] = reason
+        else:
+            corner = (
+                self._rotary_corners(op, sampled) if not undefined else reasons["claimed_indices"]
+            )
+            facts["corner_radii_mm"] = corner if isinstance(corner, list) else UNKNOWN
+            if not isinstance(corner, list):
+                reasons["corner_radii_mm"] = corner
+            radius = _positive(op, "radius_mm")
+            if radius is None:
+                for key in self._MEASURED:
+                    facts[key] = UNKNOWN
+                    reasons[key] = "op lacks a measured cutter radius_mm"
+            else:
+                self._rotary_samples(op, sampled, radius, facts)
+                if undefined:
+                    for key in self._MEASURED:
+                        if facts.get(key) != UNKNOWN:
+                            facts[key] = UNKNOWN
+                            reasons[key] = reasons["claimed_indices"]
+        unknown = [
+            reasons[key]
+            for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm")
+            if key in reasons
+        ]
+        if unknown:
+            facts["reason"] = unknown[0]
+        return facts
+
+    def _rotary_poses(self, op, indices, radius, wall_only=False):
+        """(index, phi, axis x, axis y, tip z, downward) per sample turned to top dead centre.
+
+        In the presented frame the sample's normal is its radial and axial components (the
+        tangential one is below ``REVOLVED_TOL`` on claimable faces): a radial normal is a
+        floor (the concave floor-edge convention of :func:`_tangent_offset`), an axial
+        component offsets the axis r along the axis like any wall pose.
+        """
+        head = self._head()[0]
+        poses, problems = [], []
+        for index in indices:
+            found, missed = self._rotary_points(op, index, max(radius, 1.0))
+            if isinstance(self.faces[index].Surface, Part.Cylinder):
+                portion = self._rotary_portion(op, index)[0]
+                found.extend(self._rotary_vertices(index, portion))
+            if missed:
+                problems.append(
+                    f"{self.owner.labels[index]}: {missed} sample point(s) "
+                    "had no defined surface normal"
+                )
+            for point, normal in found:
+                _, _, phi, (radial, _, axial) = head.polar(point, normal)
+                phi = phi or 0.0
+                presented = head.turned(point, phi)
+                ax, ay = presented.x, presented.y
+                shifted = False
+                if abs(axial) > 1e-9:
+                    flat = math.hypot(head.axis.x, head.axis.y)
+                    sign = 1.0 if axial > 0 else -1.0
+                    ax += radius * sign * head.axis.x / flat
+                    ay += radius * sign * head.axis.y / flat
+                elif radial > 0:
+                    dx, dy = self._rotary_floor_offset(index, point, phi, presented, radius)
+                    ax, ay = ax + dx, ay + dy
+                    shifted = abs(dx) > 1e-9 or abs(dy) > 1e-9
+                if wall_only and not shifted:
+                    continue
+                poses.append((index, phi, ax, ay, presented.z + LIFT, radial < -1e-3))
+        return poses, "; ".join(problems) if problems else None
+
+    def _rotary_walls(self, index):
+        """``(edge, wall index, edge box)`` per sharp concave edge of finished face ``index``."""
+        if index not in self.concave_walls:
+            box = self.face_boxes[index]
+            neighbours = [
+                other
+                for other, other_box in enumerate(self.face_boxes)
+                if other != index and _boxes_touch(box, other_box)
+            ]
+            walls = []
+            for edge, a, b in _shared_edges(self.faces, [index, *neighbours]):
+                if index not in (a, b):
+                    continue
+                wall = b if a == index else a
+                if _concave_edge(self.finished, edge, self.faces[index], self.faces[wall]):
+                    walls.append((edge, wall, _bbox(edge)))
+            self.concave_walls[index] = walls
+        return self.concave_walls[index]
+
+    def _rotary_vertices(self, index, portion):
+        """(vertex, normal) where two concave walls of a claimed floor meet each other concavely.
+
+        Convex island corners get no pose of their own: their edge samples already stand
+        tangent to one wall each.
+        """
+        face, found = self.faces[index], []
+        for vertex in portion.Vertexes:
+            walls = [
+                wall
+                for edge, wall, _ in self._rotary_walls(index)
+                if edge.distToShape(vertex)[0] <= STOCK_TOL
+            ]
+            if any(
+                a != b and self._wall_corner(a, b)
+                for i, a in enumerate(walls)
+                for b in walls[i + 1 :]
+            ):
+                found.append((vertex.Point, _normal_at(face, vertex.Point)))
+        return found
+
+    def _rotary_floor_offset(self, index, point, phi, presented, radius):
+        """Presented-frame axis offset of a floor sample (user decision 2026-10-05).
+
+        The floor's walls are the sharp concave edges of its face and of the patches
+        continuing its surface across seams (:func:`_floor_patches`): a wall whose floor
+        edge crosses a seam is measured to its true nearest edge point from either patch.
+        Each concave wall through the sample constrains the offset ``d`` by ``n.d >= r``
+        (``n`` its horizontal normal into the floor once turned by ``phi``); a wall whose
+        edge is nearer than r adds ``n.d >= r - offset`` where it meets an incident wall at
+        a concave corner. Beyond that convention, a sample off every wall but nearer than r
+        to one seen squarely (perpendicular to its edge at the nearest point, not past an
+        edge end) stands tangent to it as well: the shift stays below r, so the cutter end
+        still covers the sample. Other samples keep their own axis.
+        """
+        head = self._head()[0]
+        turn = FreeCAD.Rotation(head.axis, phi)
+        if index not in self.rotary_patches:
+            self.rotary_patches[index] = _floor_patches(self.faces, self.face_boxes, index)
+        edges = [
+            found for patch in self.rotary_patches[index] for found in self._rotary_walls(patch)
+        ]
+        incident, near, vertex = [], [], None
+        margin = max(radius, STOCK_TOL)
+        for edge, wall, box in edges:
+            if any(
+                point[axis] < box[axis] - margin or point[axis] > box[axis + 3] + margin
+                for axis in range(3)
+            ):
+                continue
+            if vertex is None:
+                vertex = Part.Vertex(point)
+            distance, nearest, _ = edge.distToShape(vertex)
+            if distance > STOCK_TOL and distance >= radius:
+                continue
+            foot = nearest[0][0]
+            normal = turn.multVec(_normal_at(self.faces[wall], foot))
+            length = math.hypot(normal.x, normal.y)
+            if length < 1e-9:
+                continue
+            nx, ny = normal.x / length, normal.y / length
+            if distance <= STOCK_TOL:
+                incident.append((wall, nx, ny))
+            else:
+                shifted = head.turned(foot, phi)
+                offset = nx * (presented.x - shifted.x) + ny * (presented.y - shifted.y)
+                tangent = edge.tangentAt(edge.Curve.parameter(foot))
+                square = abs(tangent.dot(point - foot)) <= 1e-4 * distance * tangent.Length
+                near.append((wall, nx, ny, offset, square))
+        walls = {wall for wall, _, _ in incident}
+        limits = [(nx, ny, radius) for _, nx, ny in incident] + [
+            (nx, ny, radius - offset)
+            for wall, nx, ny, offset, square in near
+            if wall not in walls
+            and ((square and not incident) or any(self._wall_corner(wall, o) for o in walls))
+        ]
+        return _tangent_offset(limits) if limits else (0.0, 0.0)
+
+    def _rotary_samples(self, op, indices, radius, facts):
+        reasons = facts["reasons"]
+        head = self._head()[0]
+        try:
+            placed, sample_reason = self._rotary_poses(op, indices, radius)
+        except Exception as exc:
+            reason = f"rotary floor tool pose is undefined ({exc})"
+            for key in self._MEASURED:
+                facts[key] = UNKNOWN
+                reasons[key] = reason
+            return
+        facts["sample_count"] = UNKNOWN if sample_reason else len(placed)
+        if sample_reason:
+            reasons["sample_count"] = sample_reason
+        flute = _positive(op, "flute_len_mm")
+        keys = ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
+        holder = {key: _positive(op, key) for key in keys}
+        holder_missing = sorted(key for key, value in holder.items() if value is None)
+        regions = {index: self._region(index) for index in indices}
+        flute_regions = self._flute_regions(op, regions)
+        # Why the stock before this op is unknown: its flute then met finished material only.
+        unbuilt = None if self.stock_reason is not None else self.cuts[id(op)][2]
+        region_reason = (
+            "; ".join(reason for _, reason in regions.values() if reason is not None) or None
+        )
+        flute_reason = (
+            "; ".join(reason for _, reason in flute_regions.values() if reason is not None) or None
+        )
+        part = self._culled_part()
+        counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
+        uncertain = {"tool": 0, "holder": 0}
+        wall_hits = 0
+        for index, phi, ax, ay, tip, downward in placed:
+            solids = {}
+            if flute is not None:
+                solids["tool"] = Part.makeCylinder(radius - LIFT, flute, V(ax, ay, tip))
+            if not holder_missing:
+                solids["holder"] = Part.makeCylinder(
+                    holder["holder_radius_mm"] - LIFT,
+                    holder["holder_gauge_len_mm"],
+                    V(ax, ay, tip + holder["projection_mm"]),
+                )
+            for kind, presented in solids.items():
+                counter = counters[kind]
+                if downward:
+                    if kind == "tool":
+                        counter[0] += 1
+                        counter[1].add("part")
+                    continue
+                back = head.rotated(presented, -phi)
+                labels = set()
+                if (flute_reason if kind == "tool" else region_reason) is None:
+                    obstacle = (flute_regions if kind == "tool" else regions)[index][0]
+                    common = obstacle.common_solid(back)
+                    if common is not None:
+                        labels.add("part")
+                        counter[2].update(self._turn_hit_refs(common, back, index))
+                if kind == "holder" and part.common_solid(back) is not None:
+                    wall_hits += 1
+                if self.fixture_ready:
+                    labels.update(self._rotary_fixture_hits(presented, back))
+                if labels:
+                    counter[0] += 1
+                    counter[1].update(labels)
+                elif not self.fixture_ready or self.fixture_gaps:
+                    uncertain[kind] += 1
+        # Reach: highest material within r + band of the tool axis above each sample.
+        top = head.origin.z + head.extent(self.box)[2]
+        reach = 0.0
+        for _, phi, ax, ay, tip, downward in sorted(placed, key=lambda item: item[4]):
+            if downward:
+                continue
+            if top - (tip - LIFT) <= reach:
+                break
+            column = Part.makeCylinder(radius + REACH_BAND, top + 1.0 - tip, V(ax, ay, tip))
+            common = part.common_solid(head.rotated(column, -phi))
+            if common is not None:
+                reach = max(reach, _bbox(head.rotated(common, phi))[5] - (tip - LIFT))
+        facts["reach_depth_mm"] = UNKNOWN if sample_reason else _r(reach)
+        if sample_reason:
+            reasons["reach_depth_mm"] = sample_reason
+        holder_reason = (
+            ("op lacks " + ", ".join(holder_missing)) if holder_missing else region_reason
+        )
+        if holder_missing or sample_reason:
+            facts["holder_wall_hits"] = UNKNOWN
+            reasons["holder_wall_hits"] = sample_reason or holder_reason
+        else:
+            facts["holder_wall_hits"] = wall_hits
+        facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
+        facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
+        facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
+        for kind, missing in (
+            ("tool", "op lacks flute_len_mm" if flute is None else flute_reason),
+            ("holder", holder_reason),
+        ):
+            key, certain = kind + "_hits", counters[kind][0]
+            if sample_reason or missing:
+                facts[key] = UNKNOWN
+                reasons[key] = sample_reason or missing
+            elif kind == "tool" and unbuilt is not None:
+                facts[key] = UNKNOWN
+                reasons[key] = (
+                    f"the stock before this op is unknown ({unbuilt}); "
+                    f"{certain} sample(s) certainly hit finished or fixture material"
+                )
+            elif not self.fixture_ready:
+                facts[key] = UNKNOWN
+                reasons[key] = (
+                    f"fixture solids unresolved ({self.fixture_reason}); "
+                    f"{certain} sample(s) hit part material"
+                )
+            elif uncertain[kind] and self.fixture_gaps:
+                facts[key] = UNKNOWN
+                reasons[key] = (
+                    f"undrawn fixture components ({'; '.join(self.fixture_gaps)}); "
+                    f"{certain} sample(s) certainly hit"
+                )
+            else:
+                facts[key] = certain
+
+    def _rotary_fixture_hits(self, presented, back):
+        """Placed fixture components a posed rotary cutter meets.
+
+        Chuck jaws and body turn with the work, so they meet the cutter turned back into the
+        work's setup orientation; the head body, tailstock and other solids stay put.
+        """
+        pairs = {False: (presented, _bbox(presented)), True: (back, _bbox(back))}
+        names = set()
+        for component in self.fixture:
+            solid, box = pairs[component["role"] in HEAD_ROTATING]
+            if not _boxes_overlap(box, component["envelope_bbox"]):
+                continue
+            if solid.common(component["envelope"]).Volume > HIT_MM3:
+                names.add(component["name"])
+        return names
+
+    def _rotary_removal(self, op, valid):
+        """(independent outside-finished cutting volumes, or None, and why not).
+
+        Each claimed cylinder coaxial with the head axis sweeps radially outward past the
+        held stock. At concave walls, posed vertical cutter columns also remove stock
+        which the trimmed face's radial fan leaves beside the wall. Planar faces normal
+        to the axis sweep nothing of their own. With ``z_from``/``z_to`` a cylinder's
+        sweep runs on at its radius from its end arcs to the window ends. All removal
+        is limited to the op's z/angle window and excludes the finished part.
+
+        The volumes stay independent and in order: fusing many nearly coincident wall
+        columns with a split cylinder's radial sweeps can collapse OCC's union, so
+        :meth:`_cut` makes each its own group, cut from the stock in turn (:meth:`_remove`).
+        """
+        if not valid:
+            return [], None
+        head, why, _ = self._head()
+        window = None
+        if head is not None:
+            window, why = self._rotary_window(op)
+        if window is None:
+            return None, why
+        outer = head.extent(self.box)[2]
+        pieces = []
+        try:
+            for index in valid:
+                face, label = self.faces[index], self.owner.labels[index]
+                surface = face.Surface
+                if isinstance(surface, Part.Plane) and abs(surface.Axis.dot(head.axis)) >= PARALLEL:
+                    continue
+                if not (
+                    isinstance(surface, Part.Cylinder)
+                    and abs(surface.Axis.dot(head.axis)) >= PARALLEL
+                    and head.polar(surface.Center)[1] <= STOCK_TOL
+                ):
+                    return None, (
+                        "rotary removal is derived only for claimed cylinders coaxial with the "
+                        f"head axis and planes normal to it; {label} is a "
+                        f"{type(surface).__name__}"
+                    )
+                portion, why = self._rotary_portion(op, index)
+                if why is not None or portion is None:
+                    return None, why or f"{label} has no positive-area rotary window portion"
+                for clipped in portion.Faces:
+                    pieces.append(self._radial_sweep(clipped, outer, label))
+                    if window["z"] is not None:
+                        pieces.extend(self._window_extensions(index, clipped, window["z"], outer))
+            radius = _positive(op, "radius_mm")
+            walls = [
+                index
+                for index in valid
+                if isinstance(self.faces[index].Surface, Part.Cylinder)
+                and self._rotary_walls(index)
+            ]
+            if radius is not None and walls:
+                poses, why = self._rotary_poses(op, walls, radius, wall_only=True)
+                if why:
+                    return None, why
+                # A radial offset fans out around a hole in a cylindrical floor. At
+                # its concave wall the cutter is vertical, not a radial fan: include
+                # that actual cutting column, while retaining every finished solid
+                # and all material outside the declared window below.
+                top = head.origin.z + outer
+                for _, phi, ax, ay, tip, downward in poses:
+                    if not downward and top > tip:
+                        # Enclose the checked r-LIFT flute without exact wall tangency.
+                        column = Part.makeCylinder(radius - LIFT / 2, top - tip, V(ax, ay, tip))
+                        pieces.append(head.rotated(column, -phi))
+            bound, why = self._rotary_bound(op)
+            if why is not None:
+                return None, why
+            removals = []
+            for piece in pieces:
+                if bound is not None:
+                    piece = piece.common(bound)
+                    if piece.Faces and not piece.isValid():
+                        raise ValueError("invalid window-clipped rotary cutting volume")
+                piece = piece.cut(self.finished)
+                if piece.Faces and not piece.isValid():
+                    raise ValueError("invalid clipped rotary cutting volume")
+                if piece.Volume <= HIT_MM3:
+                    continue
+                removals.append(piece)
+        except Exception as exc:
+            return None, f"rotary removal boolean failed ({exc})"
+        return removals, None
+
+    def _radial_sweep(self, face, outer, label):
+        """Solid between a coaxial cylindrical ``face`` and its radial offset to ``outer``."""
+        head = self._head()[0]
+        found = _face_samples(face, 1.0, interior_only=True)[0] or _face_samples(face, 1.0)[0]
+        if not found:
+            raise ValueError(f"{label} has no evaluable normal")
+        point, normal = found[0]
+        _, rho, _, (radial, _, _) = head.polar(point, normal)
+        distance = (outer - rho) if radial > 0 else (rho - outer)
+        sweep = _offset(Part.Shell([face]), distance, fill=True)
+        if sweep.Volume <= HIT_MM3 or not sweep.isValid():
+            raise ValueError(f"radial sweep of {label} is empty or invalid")
+        return sweep
+
+    def _window_extensions(self, index, face, window, outer):
+        """Radial sweeps of a claimed cylinder's end arcs extruded along the axis to the
+        window ends lying beyond them."""
+        head = self._head()[0]
+        original = self.faces[index].copy()
+        original.transformShape(head.matrix.inverse())
+        box = _bbox(original)
+        low, high = box[2], box[5]
+        label = self.owner.labels[index]
+        pieces = []
+        for edge in face.Edges:
+            curve = edge.Curve
+            if not isinstance(curve, Part.Circle) or abs(curve.Axis.dot(head.axis)) < PARALLEL:
+                continue
+            z, rho, _, _ = head.polar(curve.Center)
+            if rho > STOCK_TOL:
+                continue
+            for end, target in ((high, window[1]), (low, window[0])):
+                beyond = target > z + PLANE_TOL if end == high else target < z - PLANE_TOL
+                if abs(z - end) <= STOCK_TOL and beyond:
+                    strip = edge.extrude(head.axis * (target - z))
+                    pieces.append(self._radial_sweep(strip, outer, f"{label} window extension"))
+        return pieces
+
+    def _rotary_corners(self, op, indices):
+        """Sorted concave corner radii around the radial tool axis, or why they are unknown.
+
+        Claimed planes, coaxial cylinders and cones add none of their own; a sharp concave
+        edge between claims running radially is a 0 corner, one perpendicular to the radial
+        direction everywhere (a circle or an axial line) is a floor edge, not a corner.
+        """
+        head = self._head()[0]
+        bound, why = self._rotary_bound(op)
+        if why is not None:
+            return why
+        part, faces, labels = self.finished, self.faces, self.owner.labels
+        radii, problems = set(), []
+        for index in indices:
+            surface = faces[index].Surface
+            if isinstance(surface, (Part.Plane, Part.Cylinder, Part.Cone)):
+                continue
+            portion = self._rotary_portion(op, index)[0]
+            if any(_curved_concave(part, face) for face in portion.Faces):
+                problems.append(f"{labels[index]} is a concave {type(surface).__name__} surface")
+        for edge, a, b in _shared_edges(faces, indices):
+            if not _concave_edge(part, edge, faces[a], faces[b]):
+                continue
+            try:
+                segments = [edge] if bound is None else edge.common(bound).Edges
+            except Exception as exc:
+                return f"rotary corner window clipping failed ({exc})"
+            for segment in segments:
+                cosines = []
+                first, last = segment.FirstParameter, segment.LastParameter
+                for k in range(9):
+                    parameter = first + k * (last - first) / 8
+                    point = segment.valueAt(parameter)
+                    offset = point - head.origin
+                    radial = offset - head.axis * offset.dot(head.axis)
+                    if radial.Length > AXIS_TOL:
+                        tangent = segment.tangentAt(parameter)
+                        cosines.append(abs(tangent.dot(radial) / radial.Length))
+                if cosines and min(cosines) >= PARALLEL:
+                    radii.add(0.0)
+                elif cosines and max(cosines) > 1e-9:
+                    problems.append(
+                        f"concave edge between {labels[a]} and {labels[b]} "
+                        "is oblique to the rotary tool axis"
+                    )
         if problems:
             extra = f" (+{len(problems) - 3} more)" if len(problems) > 3 else ""
             return "; ".join(problems[:3]) + extra

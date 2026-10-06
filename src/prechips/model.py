@@ -147,7 +147,17 @@ Reference = record(
         "ops": list[int],
     },
 )
-Index = record("Index", {"fixture": str, "feature": str, "angle_deg": Number, "positions": int})
+# ``rotation = "continuous"``: a dividing head turned freely by its rotary ops, no plate.
+Index = record(
+    "Index",
+    {
+        "fixture": str,
+        "feature": str,
+        "angle_deg": Number,
+        "positions": int,
+        "rotation": Literal["continuous"],
+    },
+)
 type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
 # A fixture-local frame placed in the setup frame (mm): origin plus unit x and z axes.
 Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
@@ -254,6 +264,10 @@ Operation = record(
         "contour": Contour,
         # Setup-frame volume (plan units) the op clears down to the finished part.
         "stock_removal_bounds": Bounds,
+        # Mill op on a horizontal dividing head: each face sample turned under the spindle;
+        # z_from/z_to are then head-axis positions and angle_window_deg its rotation span.
+        "approach": Literal["rotary"],
+        "angle_window_deg": Annotated[list[Number], Field(min_length=2, max_length=2)],
         # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
         "cut_plane": SawPlane,
     },

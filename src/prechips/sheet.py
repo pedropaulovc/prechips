@@ -775,6 +775,16 @@ class _Traveler:
         if finding is None:
             return _p("Index: ? Plate arithmetic not computed.")
         numbers = _field(finding, "numbers", {})
+        if "rotation" in numbers:
+            glyph = _GLYPHS.get(_status(finding), "")
+            tentative = "Tentative — " if _status(finding) == "unknown" else ""
+            return _p(
+                self.bench(
+                    f"Index: {glyph} {tentative}"
+                    f"{self.short_reference(numbers.get('fixture'))}; continuous rotation "
+                    "turned by the rotary ops; no plate landings."
+                )
+            )
         feature = numbers.get("feature")
         r = _number  # Dividing-head arithmetic keeps its own digits; it is not a DRO reading.
         requested = self.value(numbers.get("requested_angle_deg"), feature, "angle_deg")

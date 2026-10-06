@@ -26,6 +26,7 @@ LATHE_APPROACH_REASON = (
     "(the turning model needs a lathe spindle on setup Z)"
 )
 TURNING = "turning"
+ROTARY = "rotary"
 CHUCK_KINDS = {"chuck_3jaw", "chuck_4jaw"}
 # Shared profile/form/groove actions also occur on mills; resolve their machine kind.
 _TURNING_ACTIONS = (
@@ -62,9 +63,13 @@ def blade_keys(inputs):
 
 
 def approach(bundle, setup, op):
-    """'turning', 'axial' (-Z cutter cylinders) or None when no approach model applies."""
+    """'turning', 'rotary' (dividing-head milling), 'axial' (-Z cutter cylinders) or None
+    when no approach model applies."""
     machine = record(resolve(bundle, "machines", setup.get("machine")))
     kind, action = machine.get("kind"), op.get("do")
+    if op.get("approach") == ROTARY and kind != "lathe" and action not in _TURNING_ACTIONS:
+        # The engine checks the hold: a horizontal dividing-head axis, else unsupported.
+        return ROTARY
     if kind == "lathe":
         return "axial" if action in _AXIAL_LATHE_ACTIONS else TURNING
     if action in _TURNING_ACTIONS or (kind != "mill" and action in PROFILE_OPS):
@@ -77,10 +82,14 @@ def approach_model_reason(bundle, setup, op):
     return LATHE_APPROACH_REASON if approach(bundle, setup, op) is None else None
 
 
-def turning_facts(bundle, facts, setup, op):
-    """Whether a lathe op's kernel facts come from the turning model, never raw -Z facts."""
+def approach_facts(bundle, facts, setup, op):
+    """Whether a turning/rotary op's kernel facts come from its own model (never raw -Z
+    facts); axial ops always do."""
+    model = approach(bundle, setup, op)
+    if model not in (TURNING, ROTARY):
+        return True
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
-    return detail.get("approach") == TURNING
+    return detail.get("approach") == model
 
 
 def cutting_action(op):
@@ -238,7 +247,7 @@ def op_claims(bundle, facts, setup, op):
         return None, [], invalid
     if approach_model_reason(bundle, setup, op):
         return None, [], []
-    if approach(bundle, setup, op) == TURNING and not turning_facts(bundle, facts, setup, op):
+    if not approach_facts(bundle, facts, setup, op):
         return None, [], []
     away = detail.get("claim_errors")
     away = sorted(ref for ref in away if isinstance(ref, str)) if isinstance(away, list) else []
@@ -248,6 +257,99 @@ def op_claims(bundle, facts, setup, op):
     ):
         return None, away, []
     return set(indices), away, []
+
+
+def _face_index(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _face_rows(rows):
+    return [
+        row
+        for row in (rows if isinstance(rows, list) else [])
+        if isinstance(row, dict) and _face_index(row.get("index"))
+    ]
+
+
+def _span(span):
+    span = record(span)
+    bounds = (span.get("z_mm"), span.get("angle_deg"))
+    if not isinstance(span.get("setup"), str) or not all(
+        isinstance(pair, list) and len(pair) == 2 and all(number(v) for v in pair)
+        for pair in bounds
+    ):
+        return None
+    return {"setup": span["setup"], "z_mm": list(bounds[0]), "angle_deg": list(bounds[1])}
+
+
+def rotary_union(facts, category, indices):
+    """Decide rotary-claimed faces from the kernel's model-frame union of window portions.
+
+    A rotary op's ``claimed_indices`` names every face its window merely intersects, so it
+    never credits a whole face by itself. ``rotary_coverage[category]`` (``"cut"``, or
+    ``"finish"`` over finishing ops only) decides each of ``indices``. Returns
+    ``(complete, gaps, unresolved)``: indices the exact union covers; ``{index: gap}``
+    with the uncovered area and its per-setup spans; ``{index: debt}`` where the union is
+    unknown or the kernel reported none for that face. Unknown outranks a gap, which
+    outranks completion, so a contradictory report never credits a face.
+    """
+    entry = record(record(facts.get("rotary_coverage")).get(category))
+    listed = entry.get("complete_indices")
+    covered = {i for i in (listed if isinstance(listed, list) else []) if _face_index(i)}
+    gaps = {row["index"]: row for row in _face_rows(entry.get("gaps"))}
+    unknown = {row["index"]: row for row in _face_rows(entry.get("unknown"))}
+    faces = facts.get("faces")
+    names = {
+        face.get("index"): face.get("ref")
+        for face in (faces if isinstance(faces, list) else [])
+        if isinstance(face, dict)
+    }
+    complete, uncovered, unresolved = set(), {}, {}
+    for index in sorted(indices):
+        name = names.get(index) or f"imported face index {index}"
+        if index in unknown:
+            reason = unknown[index].get("reason")
+            if not isinstance(reason, str) or not reason:
+                reason = "rotary window union is unresolved"
+            unresolved[index] = {"index": index, "ref": name, "reason": reason}
+        elif index in gaps:
+            gap = gaps[index]
+            spans = gap.get("spans")
+            area = gap.get("area_mm2")
+            uncovered[index] = {
+                "index": index,
+                "ref": name,
+                "area_mm2": area if number(area) else UNKNOWN,
+                "spans": [
+                    span for span in map(_span, spans if isinstance(spans, list) else []) if span
+                ],
+            }
+        elif index in covered:
+            complete.add(index)
+        else:
+            unresolved[index] = {
+                "index": index,
+                "ref": name,
+                "reason": "the kernel reported no rotary window union for it",
+            }
+    return complete, uncovered, unresolved
+
+
+def rotary_gap_text(gap):
+    """``#5 (12.5 mm² at S1 z 10..20 mm, angle 0..90°)``: the portion of a face outside
+    every claiming window; angles may be conservative enclosing bounds of that portion."""
+    spans = " and ".join(
+        f"{span['setup']} z {span['z_mm'][0]:g}..{span['z_mm'][1]:g} mm, "
+        f"angle {span['angle_deg'][0]:g}..{span['angle_deg'][1]:g}°"
+        for span in gap["spans"]
+    )
+    area = f"{gap['area_mm2']:g} mm²" if number(gap["area_mm2"]) else ""
+    detail = " at ".join(part for part in (area, spans) if part)
+    return f"{gap['ref']} ({detail})" if detail else gap["ref"]
+
+
+def rotary_debt_text(row):
+    return f"{row['ref']} ({row['reason']})"
 
 
 def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=None):
@@ -284,10 +386,11 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
         blocked = unavailable(bundle, rule, subject, facts, cite)
         inputs = jobs.get(subject, {})
         approach_reason = approach_model_reason(bundle, setup, op)
-        turned = approach(bundle, setup, op) == TURNING
+        model = approach(bundle, setup, op)
+        turned = model == TURNING
         keys = (*turning, *blade_keys(inputs)) if turned and turning is not None else required
-        # Raw -Z collision/stock/corner facts never establish lathe results.
-        stale = turned and not turning_facts(bundle, facts, setup, op)
+        # Raw -Z collision/stock/corner facts never establish turning or rotary results.
+        stale = not approach_facts(bundle, facts, setup, op)
         detail = {} if approach_reason or stale else record(record(facts.get("ops")).get(subject))
         if blocked is None:
             if cutting_action(op) is False:
@@ -362,7 +465,10 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         "unknown",
                         {},
                         cite,
-                        f"{subject}: kernel facts for this lathe op are not turning-model facts.",
+                        f"{subject}: kernel facts for this lathe op are not turning-model facts."
+                        if turned
+                        else f"{subject}: kernel facts for this rotary op are not rotary-model "
+                        "facts.",
                     )
                 elif away and turned:
                     blocked = Finding(
@@ -373,6 +479,17 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         cite,
                         f"{subject}: claimed face(s) are not surfaces of revolution about the "
                         f"spindle axis (setup Z) and cannot be turned: {', '.join(away)}.",
+                    )
+                elif away and model == ROTARY:
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "error",
+                        {"claim_errors": away},
+                        cite,
+                        f"{subject}: claimed face(s) are not external surfaces of revolution "
+                        "about the dividing-head axis inside the op's rotary window: "
+                        f"{', '.join(away)}.",
                     )
                 elif away:
                     blocked = Finding(
