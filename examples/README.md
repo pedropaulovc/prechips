@@ -164,6 +164,12 @@ halfway through a fixed setup:
   the top is +0.20 mm and the 0.05 mm paper pickup is set to +0.25 mm.
   The rocker-only rougher is inserted to a 38.0 mm projection, below the
   four-diameter engagement limit; the shared finish cutter retains 38.5 mm.
+  Before rough-contouring the end lands, open their tip-turnover pockets within
+  op 40's **Y27 / rolled Y-27** clearing corridor. The full cutter reaches
+  Y26.9581 / Y-26.9581 there, beyond the old Y24 / Y-24 limit but inside op 50's
+  already authorized top-edge pocket. Native stock proof preserves both raw
+  rails, both ears, the normal 0.20 mm allowance and the opposed 0.40 mm web;
+  moving that clearance earlier does not change the setup's final stock.
   Opposed roughing retains a 0.40 mm connecting web. The 1/2 in parallels sit
   entirely beneath the rails
   on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance

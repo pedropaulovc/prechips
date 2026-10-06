@@ -223,12 +223,13 @@ rough_allowance_mm = 0.20 # author's choice, normal allowance restored from rev 
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
-note = "Bottom arc, radial lands and tapered ends; rails and ears stay continuous. The 5.59 lands are profile lines, not chamfers."
-# Clear the bottom arc, tapers and lands round both tips. The retained lower
-# rail is frame-A Y -28..-20, beyond the full cutter sweep, and the end ears
-# are outside X ±160. Op 50 clears the upper pocket. Stop the cutter's whole
-# swept solid inside these bounds; retain the central 0.40 mm web.
-stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 24.0], z = [-3.32825, 5.0] }
+note = "Bottom arc, radial lands and tapered ends; rails and ears stay continuous. The 5.59 lands are profile lines, not chamfers. Open the upper tip-turnover pockets out to Y27 before rough-contouring the radial lands; this corridor overlaps the top-edge pocket cleared in op 50, not the retained rail at Y31.7."
+# The complete 9.525 mm cutter sweep round the upper land corners reaches
+# frame-A Y26.9581; authorize Y27 inside the already planned upper pocket.
+# The lower rail remains Y-28..-20, the upper rail Y31.7..37, and the ears
+# outside X ±160. Keep the whole cutter inside these bounds and retain the
+# central 0.40 mm web; no depth, normal allowance or support stock changes.
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 27.0], z = [-3.32825, 5.0] }
 
 [[setups.ops]]
 op = 50
@@ -502,9 +503,11 @@ rough_allowance_mm = 0.20 # author's choice, restored rev-3 allowance
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "arc_table", step_deg = 1.0 } # author's choice
-# Frame B reverses Y: lower-rail material remains Y20..28; the clearing
-# wraps around both tips while the ears remain outside X ±160.
-stock_removal_bounds = { x = [-160.0, 160.0], y = [-24.0, 20.0], z = [-3.32825, 5.0] }
+note = "Bottom arc, radial lands and tapered ends. Before rough-contouring the radial lands, open the tip-turnover pockets out to Y-27 in this rolled setup; this overlaps the top-edge pocket of op 50, still clear of the retained rail beginning at Y-31.7."
+# Frame B reverses Y: the complete upper-land cutter corridor reaches -26.9581.
+# It overlaps op 50's top-edge pocket; rails remain Y20..28 and -37..-31.7,
+# ears remain outside X ±160, and the opposed cuts retain the 0.40 mm web.
+stock_removal_bounds = { x = [-160.0, 160.0], y = [-27.0, 20.0], z = [-3.32825, 5.0] }
 
 [[setups.ops]]
 op = 50
