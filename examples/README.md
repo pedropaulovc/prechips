@@ -143,9 +143,11 @@ scrap frame from the independently clamped part. This needs
 positive-holding-aware stock derivation, not permission for uncontrolled loose
 pieces. Complete explicit-face ownership and legal cutter-centre/occluder
 correction also remain engine-owned. Senior-machinist review of the actual
-traveler additionally caught both side joins printed top-to-bottom as
-"in cutting order": the right-hand join must respect the conventional outside
-path and the CCW pin preload, not direct a climb pass on datum C.
+traveler additionally caught direction-blind contour order: S1/S4 right-hand
+joins direct a climb pass, while the rolled S2 basis requires the left-hand join
+and its outer-arc rows reversed instead. Top-edge arcs and S2 hub circles also
+need local-frame-aware conventional traversal. The source fix must honor the
+actual local outward normal and CW spindle, preserving the CCW pin preload on C.
 Fresh exit-0/all-scene output with that direction issue fixed is the acceptance
 proof; these stopped artifacts are not an approved or complete pilot.
 
