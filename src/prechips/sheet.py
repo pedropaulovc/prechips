@@ -193,6 +193,8 @@ _DUPLEX_JS = """(() => {
   addEventListener("beforeprint", run);
 })();
 """
+# Console-style status marks kept on the dividing-head index line.
+_GLYPHS = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}
 # Operative targets print at DRO display resolution; report.json keeps every digit.
 _DRO_DECIMALS = {"mm": 2, "in": 4}
 # A planned tool path ending this close to jaws, a dead centre or the jaw tops is
@@ -923,13 +925,21 @@ class _Traveler:
         if finding is None:
             return _p("Index: ? Plate arithmetic not computed.")
         numbers = _field(finding, "numbers", {})
+        if "rotation" in numbers:
+            glyph = _GLYPHS.get(_status(finding), "")
+            tentative = "Tentative — " if _status(finding) == "unknown" else ""
+            return _p(
+                self.bench(
+                    f"Index: {glyph} {tentative}"
+                    f"{self.short_reference(numbers.get('fixture'))}; continuous rotation "
+                    "turned by the rotary ops; no plate landings."
+                )
+            )
         feature = numbers.get("feature")
         r = _number  # Dividing-head arithmetic keeps its own digits; it is not a DRO reading.
         requested = self.value(numbers.get("requested_angle_deg"), feature, "angle_deg")
         actual = self.value(numbers.get("actual_angle_deg"), feature, "angle_deg")
-        glyph = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}.get(
-            _status(finding), ""
-        )
+        glyph = _GLYPHS.get(_status(finding), "")
         tentative = "Tentative — " if _status(finding) == "unknown" else ""
         positions = numbers.get("positions")
         count = "one angular setting" if positions == 1 else f"{r(positions)} positions"
@@ -1751,6 +1761,26 @@ class _Traveler:
                 return str(record.get("label", ""))
         return ""
 
+    def cut_order(self, table):
+        """Stage, then a cutting order only where coordinates established one."""
+        stage = table.get("stage")
+        text = ""
+        if stage == "rough":
+            allowance = table.get("allowance_mm", table.get("rough_allowance_mm"))
+            text = f"; stage: rough, leaves {self.operative(allowance)} mm for finish"
+        elif stage == "finish":
+            text = "; stage: finish"
+        order = table.get("cut_order")
+        if order in ("conventional", "climb"):
+            rotation = {"cw": "clockwise", "ccw": "counterclockwise"}.get(
+                table.get("spindle_rotation"), "unknown"
+            )
+            return text + f"; rows in cutting order ({order}, {rotation} spindle)"
+        if order is None:
+            return text
+        reason = table.get("cut_order_reason", "not established")
+        return text + f"; rows NOT in an established cutting order: {reason}"
+
     def contours(self, setup, tools):
         """One block per contour op; both sides of a symmetric profile print explicitly."""
         numbers = self.records.get(("coordinates", setup["id"]), {})
@@ -1791,6 +1821,7 @@ class _Traveler:
                 description += f", chord error ≤ {o(arc['max_chord_sagitta_mm'])}"
             if arc.get("interpolation"):
                 description += "; " + self.bench(arc["interpolation"])
+            description += self.cut_order(arc)
             entry["parts"].append((description, ["P", "angle °", "X", "Y", "Z"], rows))
         for line in numbers.get("line_table", []):
             entry = block(line.get("op"))
@@ -1807,7 +1838,7 @@ class _Traveler:
                     ]
                 )
             side = _text(line.get("side"))
-            description = f"Straight joins on the {side} side, in cutting order"
+            description = f"Straight joins on the {side} side" + self.cut_order(line)
             entry["parts"].append((description, ["P", "", "X", "Y", "Z"], rows))
         arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
         for profile in numbers.get("profiles", []):
@@ -1842,11 +1873,14 @@ class _Traveler:
                     rows.append(
                         [self.waypoint(waypoints, op, point[:2]), "", o(point[0]), o(point[1]), z]
                     )
-            entry["parts"].append(("Cutter-centre checkpoints", headings, rows))
+            description = "Cutter-centre checkpoints" + self.cut_order(profile)
+            entry["parts"].append((description, headings, rows))
         for contour in numbers.get("contours", []):
             if not isinstance(contour, dict) or contour.get("method") != "axial_table":
                 continue
             entry = block(contour.get("op"))
+            compensation = contour.get("tool_nose_compensation_mm")
+            compensated = _known(compensation)
             rows = [
                 [
                     self.waypoint(
@@ -1854,6 +1888,7 @@ class _Traveler:
                     ),
                     o(r.get("x_target_mm")),
                     o(r.get("z_mm")),
+                    *((o(r.get("x_tool_mm")), o(r.get("z_tool_mm"))) if compensated else ()),
                 ]
                 for r in contour.get("rows", [])
             ]
@@ -1862,13 +1897,17 @@ class _Traveler:
                 f"apex Z {o(contour.get('apex_z_mm'))} → base Z {o(contour.get('base_z_mm'))}, "
                 f"every {o(contour.get('step_mm'))} in Z"
             )
-            compensation = contour.get("tool_nose_compensation_mm")
             operation = operations.get(str(contour.get("op")), {})
             nose = _amount(
                 _mapping(resolve(self.bundle, "tools", operation.get("tool"))).get("nose_radius_mm")
             )
-            if _known(compensation):
-                description += f"; tool-nose compensation {o(compensation)} applied"
+            if compensated:
+                description += (
+                    f". Surface X (Ø) / Z are the finished dome; tool X / Z are the DRO readings "
+                    f"of the R{o(compensation)} nose's imaginary tip, touched off on an outside "
+                    "diameter and a +Z end face; feed to the tool columns"
+                )
+                headings = ["P", "surface X (Ø)", "surface Z", "tool X", "tool Z"]
             else:
                 description += (
                     ". Finished surface, X as diameter; the table is not offset for the "
@@ -1876,7 +1915,8 @@ class _Traveler:
                     + ": STOP — compensation not computed; feed to these points only with "
                     "nose-radius compensation set at the machine"
                 )
-            entry["parts"].append((description, ["P", "X (Ø)", "Z"], rows))
+                headings = ["P", "X (Ø)", "Z"]
+            entry["parts"].append((description, headings, rows))
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
         if not blocks:

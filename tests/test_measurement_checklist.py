@@ -204,7 +204,22 @@ def test_default_examples_checklist_shares_one_inventory_debt_across_default_pla
     inventory = tmp_path / "inventory.toml"
     inventory.write_bytes((ROOT / "examples" / "inventory" / "pedro-shop.toml").read_bytes())
     forget_spindle_minimum(inventory)
-    result = run_cli("tools", "--measure", "--json", "--inventory", inventory)
+    result = run_cli(
+        "tools",
+        "--measure",
+        "--json",
+        "--inventory",
+        inventory,
+        setup="""
+import sys
+
+def forbid_process(event, args):
+    if event == "subprocess.Popen":
+        raise AssertionError("A measurement checklist must not launch a geometry kernel.")
+
+sys.addaudithook(forbid_process)
+""",
+    )
     assert result.returncode == 0, result.stderr
     ids = [entry["id"] for entry in json.loads(result.stdout)]
     # One override inventory: its debt is unprefixed and listed once for every default plan.

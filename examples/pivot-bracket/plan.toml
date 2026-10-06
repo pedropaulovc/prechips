@@ -201,7 +201,7 @@ stop = "No end stop: seat the finished foot on the parallels and against the fix
 clamp = "hand plus quarter turn" # author's choice
 parallels_along = "y"
 parallels_centres_mm = [[-6.25, -9.1], [6.25, -9.1]]
-note = "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the X0 drilling line clear. Do not use 1-2-3 blocks between the jaws closed on this 16 mm foot. Stack 41.275 mm, jaw engagement 3.6703 mm and foot top 2.3297 mm above jaws. Take shallow axial passes through the open free run; relief rough/finish leaves its floor at Z +0.3/+0.1, then the floor spring pass to Z0 clears the raw overhang rails. Mill the left and right side strips separately; retain a straight rectangular crown for S3, not an arch sculpted from above. The 31.75 mm flute end mill reaches the 26.2 mm inner wall."
+note = "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the X0 drilling line clear. Do not use 1-2-3 blocks between the jaws closed on this 16 mm foot. Stack 41.275 mm, jaw engagement 3.6703 mm and foot top 2.3297 mm above jaws. Take shallow axial passes through the open free run. Rough the retained inner wall and separate left/right side strips, then finish all walls while leaving the same Z +0.1 floor skin. Only after both side strips are open, skim the whole foot-top floor and its narrow side ledges to Z0 in op 56; then spot and drill. Retain a straight rectangular crown for S3, not an arch sculpted from above. The 31.75 mm flute end mill reaches the 26.2 mm inner wall."
 
 [setups.zero.transfer]
 from = "S1"
@@ -236,13 +236,13 @@ method = "paper"
 paper_mm = 0.05                  # author's choice
 tool = "bracket-long-endmill"     # 31.75 mm flutes reach the 26.2 mm inner wall
 check_jog_mm = 10.0              # author's choice
-retouch_after = [30]             # author's choice: same end mill for 10–55; later tools touch finished foot top
+retouch_after = [56]             # author's choice: same end mill for 10–56; later tools touch the finished whole foot top
 
 [[setups.ops]]
 op = 10
 do = "rough_pocket"
 feature = "ear_relief"
-faces = ["#96/ADVANCED_FACE[7]/NONE", "#28/ADVANCED_FACE[3]/NONE"] # retained ear wall and foot-top floor
+faces = ["#96/ADVANCED_FACE[7]/NONE"] # retained inner wall only; floor skin remains, whole floor is claimed at 56
 tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
@@ -256,28 +256,14 @@ stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 27.2] } #
 op = 20
 do = "finish_pocket"
 feature = "ear_relief"
-faces = ["#96/ADVANCED_FACE[7]/NONE", "#28/ADVANCED_FACE[3]/NONE"]
+faces = ["#96/ADVANCED_FACE[7]/NONE"] # finish the retained inner wall, not the uncleared side ledges
 tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-to_z = 0.1                       # leave a floor spring pass for op 30
+to_z = 0.1                       # leave the same floor spring skin as the side-wall finish; op 56 removes it
 direction = "conventional"       # author's choice
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, 9.0], y = [6.0, 33.2], z = [3.0, 22.2] }, open_side = "-y" } # same raw blank sweep; retained ear wall at setup Y -3
 stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 27.2] }
-
-[[setups.ops]]
-op = 30
-do = "face"
-feature = "foot_top"
-tool = "bracket-long-endmill"
-holder = "r8-collets-lms-4860/3-8in"
-approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-to_z = 0.0
-direction = "conventional"       # author's choice
-stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, -3.0], z = [0.0, 0.3] } # floor spring pass clears the full XY footprint, not only the finished face
-
-[setups.ops.checks]
-height = "calipers"
 
 [[setups.ops]]
 op = 40
@@ -317,11 +303,11 @@ faces = ["#41/ADVANCED_FACE[4]/NONE"]
 tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-to_z = 0.0                       # down to the foot top
+to_z = 0.1                       # finish the wall while keeping the common floor spring skin
 direction = "conventional"       # author's choice
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, -7.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "-x" } # finish only the open left strip
 stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.0, 4.0], z = [0.0, 27.2] }
-note = "Finish the left ear side only, X -7 in this Setup; clear the narrow X -9..-7 strip down to the foot top at Z0. Preserve the straight rectangular crown for S3; do not repeat the right-side coordinates in this cut."
+note = "Finish the left ear wall only, X -7 in this Setup; clear the narrow X -9..-7 strip down to Z +0.1. Keep the floor spring skin until op 56 skims the whole foot top and both now-open side ledges. Preserve the straight rectangular crown for S3; do not repeat the right-side coordinates."
 
 [[setups.ops]]
 op = 55
@@ -331,14 +317,29 @@ faces = ["#451/ADVANCED_FACE[14]/NONE"]
 tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author's choice: rapid plane above the current stock top
-to_z = 0.0                       # down to the foot top
+to_z = 0.1                       # finish the wall while keeping the common floor spring skin
 direction = "conventional"
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [7.0, 9.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "+x" } # finish only the open right strip
 stock_removal_bounds = { x = [7.0, 9.0], y = [-3.0, 4.0], z = [0.0, 27.2] }
-note = "Finish the right ear side only, X +7 in this Setup; clear the narrow X +7..+9 strip down to the foot top at Z0. Preserve the straight rectangular crown for S3; do not repeat the left-side coordinates in this cut. Check ear width after both sides are finished."
+note = "Finish the right ear wall only, X +7 in this Setup; clear the narrow X +7..+9 strip down to Z +0.1. Keep the floor spring skin until op 56 skims the whole foot top and both now-open side ledges. Preserve the straight rectangular crown for S3; do not repeat the left-side coordinates. Check ear width after both walls are finished."
 
 [setups.ops.checks]
 width = "calipers"
+
+[[setups.ops]]
+op = 56
+do = "face"
+feature = "foot_top"
+tool = "bracket-long-endmill"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
+to_z = 0.0
+direction = "conventional"       # author's choice
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-22.2, 4.0], z = [0.0, 0.3] } # final whole-floor spring pass, after both ear-side strips are open
+note = "Skim the free-run floor and both narrow side ledges to Z0 only after the inner and side walls are finished. The preceding wall passes leave a common 0.1 mm floor skin; this is the first operation claiming the whole foot-top floor."
+
+[setups.ops.checks]
+height = "calipers"
 
 [[setups.ops]]
 op = 60

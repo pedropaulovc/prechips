@@ -151,6 +151,30 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   `cuts = ["washer"]`). Primitives of one list are one part and never checked
   against each other; each posed clamp's list must touch the stock to bear.
 
+For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
+its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
+`hold.pose` (origin at the chuck jaw-face centre, pose +z out toward the work),
+`jaw_clock_deg` and `grip_mm`. Pose z is the head axis and must be horizontal
+in the setup, perpendicular to setup Z. The head's own authored `solids`, the
+chuck body/jaws and any tailstock or clamps provide the modeled obstacles;
+indexing ratios or a vendor photograph do not supply missing solids or poses.
+The chuck rotates with the work; the head body, tailstock and clamps do not.
+Continuous rotation uses the existing plan record
+`hold.index = { fixture = "<head>", rotation = "continuous" }`, without
+`positions` or `angle_deg`; it needs a verified dividing-head identity, not a
+plate landing calculation.
+
+Rotary cutting uses the same vertical mill cutter and holder facts below:
+tool `dia`, `flute_len`, `oal`, holder `gauge_dia`, `gauge_len`, and the
+selected tool/holder projection (or the permitted OAL-minus-grip fallback).
+No lathe insert, toolpost or new rotary-specific inventory fields are implied.
+Each rotary op's own cutter and holder apply to its window, so a face may be
+covered by several ops with different cutters (for example a smaller endmill
+windowed into a shoulder); the geometry rules union their window portions.
+Missing or unresolved dimensions keep their dependent screens `?`; a modeled
+sample pose does not establish head torque, locking or collision-free motion
+between samples.
+
 A tool enters an
 op's geometry job when `dia`, `flute_len` and `oal` resolve and a holder when
 `gauge_dia` and `gauge_len` resolve; the holder cylinder uses `gauge_dia`
@@ -537,6 +561,14 @@ on hand.
 | `runout_in` | `float` |
 | `two_ranges` | `bool` |
 | `ranges_rpm` | `list[list[Number]]` |
+| `rotation` | `"cw"` / `"ccw"` / `{value, measured, verify}` |
+
+`rotation` is the spindle's cutting rotation viewed from above, looking down
+setup -Z (a right-hand cutter runs `cw`, M03). It may be bare or a labelled
+fact `{ value = "cw", measured = {by, date, instrument} }`; a labelled value
+flagged `verify = true` counts as undeclared. With an op's `direction`
+(`conventional`/`climb`) it fixes the cutting order of contour tables
+(see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
 
 ## Length and angle facts
 

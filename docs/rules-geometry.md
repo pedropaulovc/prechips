@@ -228,6 +228,88 @@ remain `unknown`. Raw −Z facts never establish a lathe result: kernel facts
 without `approach = "turning"` leave a lathe row `unknown` (`kernel facts for
 this lathe op are not turning-model facts.`) and credit no coverage.
 
+**Rotary (dividing head).** A mill op with `approach = "rotary"` on a setup held
+in a `dividing_head` turns the work about the head axis (the placed chuck's pose
+z, pointing out of the jaws) under the vertical spindle. The head axis must be
+perpendicular to setup Z (|z·Z| ≤ 1e-6); any other head pose, or a hold that is
+not a dividing head, is `unsupported` with the engine's reason. Claimed faces
+must be external surfaces of revolution about the head axis (coaxial
+cylinders, plus planar annuli normal to the axis); other faces are claim
+errors. The optional window is a partial-face claim window: `z_from`/`z_to`
+are positions along the head axis from the chuck pose origin (plan units) and
+`angle_window_deg = [from, to]` is the head rotation, right-handed about the
+head axis; a span of 360° or more is unbounded, and an op without a window
+claims whole faces. The op samples and removes only the intersection of each
+claimed face with its window; points outside the window are excluded, not
+claim errors. A window containing no positive-area portion of a claimed face
+makes that face a claim error, and invalid, away or unresolved geometry stays
+an error or debt, never a pass. A rotary op's `claimed_indices` therefore name
+faces it may cut only in part.
+
+Coverage of a rotary-claimed face is decided by the job-level
+`rotary_coverage` facts, never by one op's claim. For each face with a valid
+rotary portion the kernel transforms every claiming op's window portion from
+its setup's head frame into model coordinates and subtracts the portions in
+turn from the original model-frame face: exact B-rep face subtraction up to
+the kernel's geometric tolerance, not a sample set or scalar min/max spans, so
+the actual face's holes and trims count and portions from different cutters,
+ops and setups add up. An op without a window contributes the whole face.
+`cut` unions all rotary cutting ops; `finish` unions only finishing ops. Each
+lists `complete_indices`; `gaps`, each with `index`, `ref`, the uncovered
+`area_mm2` and `spans` (per contributing setup, the remaining portion's
+`z_mm` bounds along that head axis, exact B-rep projection bounds, and its
+`angle_deg` bounds, which may be conservative enclosing bounds and never
+decide coverage); and `unknown` faces with their `reason`. See
+[`coverage`](#coverage) and [`finish_coverage`](#finish_coverage).
+
+Each sample is turned about the head axis to top dead centre and receives the
+vertical-cutter pose there: the cutter end touches the presented sample
+(cylinder samples include their edge vertices). At any concave floor/wall
+edge, straight or curved (a round pad's or boss's perimeter included), a
+sample on that edge or within one cutter radius of it is shifted away from
+the wall along the wall's in-plane normal at the nearest edge point until the
+cutter is tangent to the wall. A continuous floor surface exported as several
+STEP faces shares one nearest concave-wall boundary across its patches: an
+export seam is not a physical wall or floor end, so a point on either side of
+it gets the same offset. True convex corners keep their existing convention.
+This is one deterministic pose per sample, not a height-aware tangency or pose
+search, and it is the rotary rule only: axial milling keeps the
+incident-wall floor-edge convention under [`accessibility`](#accessibility).
+Cutter and holder cylinders and the reach column are then turned back by the
+sample's angle. Cutter and holder obstacles exclude only the sampled face's
+thin inward shell. The flute meets the stock its setup's one op-order pass
+accepts after this op, like any milling flute (see
+[In-process stock](#in-process-stock)): a rotary removal that cannot be
+derived stops that pass, so its own flute meets all of its before-op stock and
+later flutes keep only their certain finished hits. The holder retains
+setup-entry stock, and reach and holder-wall screens use setup-entry stock.
+Chuck jaws and body turn with the work; the head body, tailstock and clamps
+stay put and are checked at the presented pose.
+
+Own-removal combines a radial sweep of each claimed coaxial cylinder out to
+the stock's outer radius (extended at the cylinder's radius to the axial
+window ends) with the actual vertical cutter columns at concave wall-offset
+poses on those cylinders. Each column starts at its presented cutter tip,
+extends to the stock's outer top and is rotated back into the work's frame.
+These wall-tangent columns account for material a vertical cutter clears that
+a radial sweep alone leaves beside a concave wall. Each volume is clipped to
+the op's axial/angular window, then cut against the finished solid; the
+volumes stay independent and are cut from the stock one by one in order, never
+fused. This is derivable own-removal, not merely counting intersections with
+finished faces: finished bosses and pads remain intact, stock outside the
+allowance stays an obstacle, and holder/fixture obstacles are not excused.
+Planar annuli sweep no removal of their own. Corners: a concave edge in a plane
+through the head axis is 0; other concave edges are unresolved.
+
+The rotary model is one static pose per sample. It does not prove a swept
+toolpath, helical or simultaneous rotary-plus-linear motion, rotation between
+samples, chip flow, the head's torque or locking, or interference while the
+head is turning. Setups that turn the head freely declare
+`hold.index = { fixture = "<head>", rotation = "continuous" }` (no `positions`
+or `angle_deg`); `indexing` then passes on a verified dividing head with no
+landings to check, errors on any other fixture kind or when positions/angles
+are also declared, and is `unknown` while the head is unverified.
+
 ### Follow and steady rests
 
 A plan `hold.supports` rest table ([plan](plan.md#reference)) puts the rest
@@ -711,11 +793,24 @@ coincident-face artefacts. A tiny group still whole, or one whose remainder
 is not valid topology, is cut. Only the end of the op's cuts is judged, so a
 fragment one piece splits off may still go with a later piece. No more than
 1e-3 mm³ of the band may survive in each input stock piece the op leaves, and
-that piece must stay one valid solid; otherwise the stock reason names the
-removal that broke it ("its own clearance" or "lineage band group N"), and the
-op that stopped the stock pass is credited none of its clearance. If any
-construction fails, the result
-is named offset debt.
+each piece it leaves must be valid. One input piece may leave several pieces
+above 1e-3 mm³ only as a **held split**: every piece must be pressed onto an
+anchored support, or the whole split is refused and no piece is dropped. A
+piece is held when a clamp declared `restraint = "press"` has a flat face
+whose outward normal is its force (pose -z, within 1e-6) within 1e-3 mm of
+the piece, and from one cell-centred sample of that face (the strap-wall grid)
+the first material run through the piece along the force starts within 1e-3
+mm of the sample and ends where the point 0.01 mm beyond lies inside an
+anchored fixture component: a fixture body, jaw, parallel, riser, chuck jaw or
+body, dividing head or centre, never a clamp, rest or other stock piece. The
+holding must be placed. `locate`, `none` and an undeclared restraint never
+hold. The op's `split_hold` lists each piece (number, volume, bbox, `held`,
+and the clamp, sample, exit point and support that hold it). Otherwise the
+stock reason names the removal that broke the stock ("its own clearance" or
+"lineage band group N"), or the split and each piece with "no press-clamp
+load path to an anchored support", and the op that stopped the stock pass is
+credited none of its clearance. If any construction fails, the result is
+named offset debt.
 Every offset and pipe is built on a deep copy of the solid, face or edge it
 starts from. OCC's offset rewrites the edge tolerances and pcurves of the
 shape it runs on, so offsetting a face shared with the finished part would
@@ -894,6 +989,27 @@ cap limits that excess; the sizing rule owns the drill or reamer diameter. A
 failed own-wall offset is named debt. A spot never widens its own bore, so a
 spot cone reaching past the finished bore mouth still meets finished material.
 
+Generic-cylinder part-hit counts may avoid a redundant stock Boolean using an
+exact positive material certificate (P6). The native classifier must place a
+candidate centre inside valid closed positive-volume stock; rigorous lower
+bounds must clear a 0.01 mm ball from every stock boundary, and the ball must
+lie strictly inside the unchanged query cylinder. Its volume exceeds the
+1e-6 mm³ hit threshold. Plane/cylinder bounds use their supporting surfaces and
+tolerance-grown face boxes; positive-weight spline surfaces use their pole
+hulls. Unsupported or failed proofs fall back to the original native Boolean.
+The bounds trust the native face enclosure and inside classifier, and native
+Boolean completeness remains a checked assumption.
+
+P6 explicitly accepts skipping a stock Boolean once the hit is mathematically
+proven, even if the avoided solve might otherwise have raised. A Boolean that
+still runs is never caught or suppressed by this optimization. Certificates
+only count hits: they never prove a miss or replace a native shape, and actual
+pointed cutters bypass them. A count-only hit skips the intersection only when
+no finished face outside the already-proven reference union can add a hit
+reference; partial reference sets never enter shared full-set caches. Every
+authored sample still contributes to the full hit count, and input or stock
+debt retains its existing unknown/error precedence.
+
 For milling, a far-side face (outward normal opposing setup +Z by more than
 90°) is an invalid cutting claim, reported as an error naming the face before
 tool-dimension debt can hide it.
@@ -951,6 +1067,16 @@ The long-tool rescue therefore requires accepted holder gauge-diameter,
 gauge-length and projection facts; an unknown holder never passes a
 beyond-flute depth.
 
+On the turning model, `reach_depth_mm` is the radial height of material beside the
+nose or blade, within its axial extent, above each sample. A single-point tool that
+faces to `to_z` (`face`, `part_off`, `cut_to_fit`) feeds radially through stock it
+has just faced. That depth is therefore measured on the profile left after the op,
+so only a shoulder beyond the faced plane counts, and the stock radius never does.
+If that profile cannot be derived, the depth is unknown. A two-cornered blade
+plunges between the part and the slug, so its depth is measured in setup-entry
+stock and reaches the bar radius. Turning and profile ops also use setup-entry
+stock.
+
 A sample without an evaluable surface normal makes the sampled face's
 accessibility and reach unresolved, with the face and missing-normal count
 named. It is never silently dropped to produce a clearance or reach pass.
@@ -1006,27 +1132,48 @@ The rule does not certify a floor fillet or bottom radius against the cutter.
 ## `coverage`
 
 One row for the whole part. Every imported face must be in the union of the
-face sets claimed by cutting operations and `stock.as_is_faces`. Numbers:
-`face_count`, `claimed_face_count`, `unclaimed_faces` (their references, or
-`imported face index <n>` when no reference names them), and
-`mapping_errors` when present.
+face sets claimed by cutting operations and `stock.as_is_faces`, where a face
+claimed through rotary windows counts only when the union of those windows
+covers it. Numbers: `face_count`, `claimed_face_count`, `unclaimed_faces`
+(their references, `null` for an unnamed face) with `unclaimed_indices`,
+`mapping_errors` when present, and `rotary_gaps` / `rotary_unresolved` when
+a rotary-claimed face is not covered (below). Sentences label an unnamed face
+`imported face index <n>`.
 
 - `invalid STEP face reference(s): …` (error)
-- `cutting claims or as-stock face references are unknown or unmapped.` (unknown: any unknown action, unmapped feature or unknown/omitted `as_is_faces`)
+- `cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown.` (unknown: any unknown action, unmapped feature, unresolved claim direction or unknown/omitted `as_is_faces`)
+- `rotary window coverage is unresolved for <face> (<reason>); …` (unknown)
 - `faces have no cutting op or as-stock claim: …` (error)
+- `rotary windows leave part of a claimed face uncut: <face> (<area> mm² at <setup> z <lo>..<hi> mm, angle <lo>..<hi>°); …` (error; joined to the previous error with `; ` when both apply)
 - `every imported face is claimed by a cutting op or declared as-stock.` (pass)
 - `Imported STEP face inventory is unresolved.` (unknown)
 
-Only supported, direction-valid milling claims are credited. If every remaining
+Only supported, direction-valid claims are credited. If every remaining
 face has a mapped cutting claim but needs the unsupported lathe approach model,
 the row is `unsupported` with the milling-only-model reason above. Known missing
-claims outside that unsupported set still error. Invalid references outrank
-unsupported; unresolved claims/as-stock references remain `unknown`.
+claims and rotary gaps outside that unsupported set still error. Invalid
+references outrank everything; unresolved claims/as-stock references, and then
+unresolved rotary unions, are `unknown` ahead of `unsupported` and errors.
 
-In a mixed error, `unclaimed_faces` names only faces with genuinely missing
-claims, while `unsupported_faces` / `unsupported_indices` separately name
-possible lathe-model coverage. An unsupported-only row's remaining-face list
-means coverage is not proved; it is not an absence-of-operation diagnosis.
+A rotary op's direction-valid `claimed_indices` name faces its window only
+intersects, so they never credit a face by themselves. For each face that
+rotary ops claim and no whole-face claim covers, the rule consumes the
+kernel's `rotary_coverage.cut` union (see [Approach models](#approach-models)):
+a face in `complete_indices` is credited; a face in `gaps` is an error naming
+its uncovered area and, per contributing setup, its axial span and enclosing
+angular span; an `unknown` union, or a rotary-claimed face the kernel reports
+nothing for, is `unknown` naming the face and reason — never whole-face
+credit. A whole-face non-rotary claim or an `as_is_faces` declaration of the
+same face supersedes its rotary gap or unknown. A gap face is not an
+unclaimed face: `unclaimed_faces` keeps only faces with no claim at all, and
+`rotary_gaps` (`index`, `ref`, `area_mm2`, `spans`) / `rotary_unresolved`
+(`index`, `ref`, `reason`) list the rest.
+
+In a mixed error, `unclaimed_faces` and `rotary_gaps` name only faces with
+genuinely missing claims or known gaps, while `unsupported_faces` /
+`unsupported_indices` separately name possible lathe-model coverage. An
+unsupported-only row's remaining-face list means coverage is not proved; it is
+not an absence-of-operation diagnosis.
 
 ## `finish_coverage`
 
@@ -1034,8 +1181,9 @@ One row per feature. A feature with a known `requirements` list that neither
 lists nor declares `finish_ra` is `not_applicable` (`drawing declares no finish
 requirement`); an unknown/omitted requirement list or an unknown `finish_ra`
 value is `unknown`. Otherwise every face of the feature must be claimed by a
-finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`, and
-`unformed_caps` when present.
+finishing cut. Numbers: `finish_ra`, `required_faces`, `uncovered_faces`,
+`rotary_gaps` / `rotary_unresolved` as in `coverage`, and `unformed_caps` when
+present.
 
 A claimed hole cap is credited only when its `complete_form` op's
 `cap_completion` measured it clear (see [accessibility](#accessibility)). This
@@ -1045,9 +1193,11 @@ unmeasured cap makes the row `unknown` unless another face already errors.
 A tap's claim never credits a cap its thread's drill left unformed.
 
 - `finish-required faces lack a finishing cut.` (error)
+- `rotary finishing windows leave part of a finish-required face unfinished: <face> (<area> mm² at <setup> z <lo>..<hi> mm, angle <lo>..<hi>°); …` (error; joined to the previous error with `; ` when both apply)
 - `finish-required hole cap(s) still touch stock after their complete-form cut's setup.` (error)
 - `every finish-required face is claimed by a finishing cut.` (pass)
 - `finish face references or finishing operation claims are unresolved.` (unknown)
+- `rotary finishing window coverage is unresolved for <face> (<reason>); …` (unknown)
 - `hole cap completion is unknown: {reason}.` (unknown)
 - `turning action has no approach model off a lathe (the turning model needs a lathe spindle on setup Z)` (unsupported)
 
@@ -1056,10 +1206,19 @@ indices never credit a finishing approach. A feature is `unsupported` when all
 of its uncovered faces have mapped turning finish claims. A genuinely unclaimed
 face still errors, and a complete set of supported milling finish claims still
 passes even when other lathe operations exist. Invalid/missing face mappings
-retain their error/unknown precedence.
+retain their error/unknown precedence, and an unresolved rotary finishing
+union is `unknown` ahead of `unsupported` and errors.
+
+Rotary finishing claims credit a face only through
+`rotary_coverage.finish`, the union of the finishing rotary ops' window
+portions; a rough rotary op contributes to `coverage` only. A whole-face
+non-rotary finishing claim supersedes a finishing gap or unknown on that
+face. `as_is_faces` never finishes a face, so an as-stock declaration that
+settles `coverage` leaves a finishing gap an error.
 
 In a mixed error, `uncovered_faces` names only genuinely missing finishing
-claims and `unsupported_faces` lists the model-dependent finishing candidates
+claims (a rotary gap face is listed under `rotary_gaps`, not there) and
+`unsupported_faces` lists the model-dependent finishing candidates
 separately. The error sentence never labels those candidates as having no cut.
 
 ## `vise`

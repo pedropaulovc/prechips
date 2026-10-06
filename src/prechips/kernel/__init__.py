@@ -122,6 +122,7 @@ def _turning_values(bundle, op):
 def op_inputs(bundle, setup, op, finishing=None, complete=None):
     from prechips.joint_features import joint_operation
     from prechips.rules.geometry_common import (
+        ROTARY,
         TURNING,
         approach,
         complete_form_subjects,
@@ -138,7 +139,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None):
             "kerf_mm": _accepted_length(tool, "kerf"),
             "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
         }
-    turned = approach(bundle, setup, op) == TURNING
+    model = approach(bundle, setup, op)
+    turned = model == TURNING
     if turned:
         values, missing = _turning_values(bundle, op)
     else:
@@ -172,8 +174,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None):
         result["joint_cut"] = joint_cut
     if "faces" in op:
         result["faces"] = op["faces"]
-    if turned:
-        result["approach"] = TURNING
+    if model in (TURNING, ROTARY):
+        result["approach"] = model
     units = bundle.features.get("units", UNKNOWN)
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     if "to_z" in op:
@@ -221,11 +223,13 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None):
             result["hole"]["point_angle_deg"] = point["value"] if point["verified"] else UNKNOWN
     if "stock_removal_bounds" in op:
         result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
-    if turned:
-        # The declared turned span (setup-frame Z) bounds and extends the revolved removal.
+    if model in (TURNING, ROTARY):
+        # Turning: the declared span on setup Z bounds and extends the revolved removal.
+        # Rotary: the span along the head axis from the chuck pose origin.
         for key in ("z_from", "z_to"):
             if key in op:
                 result[key] = op[key] * scale if number(op[key]) and scale else UNKNOWN
+    if turned:
         # Facing, parting and cutting to length sweep radially to an explicit to_dia (0:
         # the axis; a part_off omitting it parts to the axis); a bore is never inferred
         # from the finished part, so a later-drilled bore does not leave a core behind.
@@ -236,6 +240,9 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None):
             result["to_dia_mm"] = (
                 to_dia * scale if number(to_dia) and to_dia >= 0 and scale else UNKNOWN
             )
+    if model == ROTARY and "angle_window_deg" in op:
+        window = op["angle_window_deg"]
+        result["angle_window_deg"] = window if all(number(v) for v in window) else UNKNOWN
     for key, value in values.items():
         if key not in missing and number(value) and (value > 0 or key == "feed_z"):
             result[key] = value
@@ -568,7 +575,16 @@ def _clamp_inputs(bundle, hold, result, gaps):
         solids, missing = _solids(item, f"clamp {index} {reference}")
         debts.extend(missing)
         if solids:
-            placed.append({"name": f"clamp {index} {reference}", "pose": pose, "solids": solids})
+            placed.append(
+                {
+                    "name": f"clamp {index} {reference}",
+                    "pose": pose,
+                    "solids": solids,
+                    # Undeclared is no restraint; a press is credited only by the kernel's
+                    # contact and support proof, never by this label alone.
+                    "restraint": clamp.get("restraint", "none"),
+                }
+            )
     gaps.extend(debts)
     if placed:
         result["clamps"] = placed
@@ -867,6 +883,7 @@ _ENGINE_OP = (
     "feature",
     "faces",
     "joint_cut",
+    "finishing",
     "hole",
     "radius_mm",
     "flute_len_mm",
@@ -879,6 +896,7 @@ _ENGINE_OP = (
     "approach",
     "z_from",
     "z_to",
+    "angle_window_deg",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,

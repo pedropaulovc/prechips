@@ -103,6 +103,58 @@ def _candidates(item, requested, source):
     return candidates, sorted(set(unresolved)), sorted(set(invalid))
 
 
+def _continuous(bundle, setup, declaration):
+    """A dividing head turned freely by rotary ops: no plate, so no landings to check."""
+    reference = declaration.get("fixture", UNKNOWN)
+    rotation = declaration["rotation"]
+    source = f"plan.setups.{setup['id']}.hold.index"
+    cite = [_CITE, source]
+    numbers = {"fixture": reference, "rotation": rotation, "verified": False}
+    unresolved, invalid = [], []
+    if rotation == UNKNOWN:
+        unresolved.append(f"{source}.rotation")
+    elif rotation != "continuous":
+        invalid.append(f"{source}.rotation must be 'continuous'")
+    if any(key in declaration for key in ("positions", "angle_deg")):
+        invalid.append(f"{source}: continuous rotation declares no positions or angle_deg")
+    fixture, category = _fixture(bundle, reference)
+    if fixture is None:
+        if reference == UNKNOWN:
+            unresolved.append(f"{source}.fixture")
+        else:
+            invalid.append(f"{reference}: indexing fixture is not listed or present")
+    else:
+        fixture_source = f"inventory.{category}.{reference}"
+        cite.append(fixture_source)
+        cite.extend(_citations(fixture.get("cite"), "indexing"))
+        kind = fixture.get("kind", UNKNOWN)
+        if kind == UNKNOWN:
+            unresolved.append(f"{fixture_source}.kind")
+        elif kind != "dividing_head":
+            invalid.append(f"{reference}: fixture is not a dividing head")
+        numbers["verified"] = not uncertain(fixture)
+        if not numbers["verified"]:
+            unresolved.append(f"{fixture_source}.verify")
+    numbers["unresolved"] = sorted(set(unresolved))
+    numbers["invalid"] = sorted(set(invalid))
+    if invalid:
+        status, message = "error", "; ".join(numbers["invalid"]) + "."
+    elif unresolved:
+        status = "unknown"
+        message = "Indexing remains tentative: " + ", ".join(numbers["unresolved"]) + "."
+    else:
+        status = "pass"
+        message = "continuous rotation on the dividing head; no landings to check."
+    return Finding(
+        "indexing",
+        setup["id"],
+        status,
+        numbers,
+        list(dict.fromkeys(cite)),
+        f"{setup['id']}: {message}",
+    )
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
@@ -121,6 +173,9 @@ def evaluate(bundle):
             )
             continue
         declaration = record(index)
+        if "rotation" in declaration:
+            findings.append(_continuous(bundle, setup, declaration))
+            continue
         reference = declaration.get("fixture", UNKNOWN)
         feature_name = declaration.get("feature", UNKNOWN)
         positions = declaration.get("positions", UNKNOWN)

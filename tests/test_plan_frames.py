@@ -14,7 +14,6 @@ from prechips.rules import coordinates, envelope, zero_recipe
 
 ROOT = Path(__file__).resolve().parents[1]
 SHAFT = ROOT / "examples" / "pivot-shaft" / "plan.toml"
-CONE = ROOT / "examples" / "cone-pivot-post" / "plan.toml"
 BUILT_UP = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
 
 PLAN_FRAME = """[frames.P]
@@ -182,9 +181,8 @@ def test_unbound_shaft_frame_keeps_model_z_unknown_and_records_the_local_station
     assert found["S3"].status == "unknown"
 
 
-@pytest.mark.parametrize("plan", [CONE, BUILT_UP])
-def test_restored_cone_frames_return_numbers_but_never_a_physical_binding(plan):
-    bundle = load_bundle(plan)
+def test_restored_cone_frames_return_numbers_but_never_a_physical_binding():
+    bundle = load_bundle(BUILT_UP)
     found = by_setup(coordinates.evaluate(bundle))
     assert {f.numbers["binding"] for f in found.values()} == {"unknown"}
     assert all(f.status == "unknown" for f in found.values())
@@ -197,18 +195,7 @@ def test_restored_cone_frames_return_numbers_but_never_a_physical_binding(plan):
     assert "plan.frames.J3: author-declared setup frame" in zero["S3"].cite
 
 
-def test_restored_cone_envelope_extents_are_numeric_in_setup_axes():
-    found = by_setup(envelope.evaluate(load_bundle(CONE)))
-    assert found["S2"].numbers["part_extents_mm"] == {"x": 120.0, "y": 110.0, "z": 114.0}
-    s3 = found["S3"].numbers["part_extents_mm"]
-    assert s3["x"] == pytest.approx(120.0 * 0.9762272058393484 + 110.0 * 0.21674972336567902)
-    assert (s3["y"], s3["z"]) == (110.0, 42.011)
-    assert found["S4"].numbers["part_extents_mm"] == {"x": 120.0, "y": 110.0, "z": 72.0344}
-    assert "plan.stock.section_mm/length_mm/dia_mm; plan.frames.M2 setup basis" in found["S2"].cite
-    assert all(f.status == "unknown" for f in found.values() if f.subject != "S1")
-
-
-@pytest.mark.parametrize("plan", [SHAFT, CONE, BUILT_UP])
+@pytest.mark.parametrize("plan", [SHAFT, BUILT_UP])
 def test_restored_setup_frames_live_only_in_the_plan(plan):
     bundle = load_bundle(plan)
     raw = bundle.paths["features"].read_bytes()

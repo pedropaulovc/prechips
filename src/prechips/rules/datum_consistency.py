@@ -5,7 +5,7 @@ indicating an earlier pilot does not establish a later reamed datum.
 """
 
 from prechips.findings import Finding
-from prechips.rules.resolution import SAW_OPS
+from prechips.rules.resolution import MANUAL, SAW_OPS, operations
 
 _NONFINISH = {"spot", "inspect", "release", "fit", "scribe", "transfer", "deburr"} | SAW_OPS
 
@@ -18,17 +18,19 @@ def _number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _cuts(setups, feature):
-    cuts = []
-    for index, setup in enumerate(setups):
-        ops = [
-            op
-            for op in setup["ops"]
-            if op.get("feature") == feature
-            and op["do"] not in _NONFINISH
-            and not op["do"].startswith("rough")
-        ]
-        cuts.extend((index, setup, op) for op in ops)
+def _cuts(bundle, feature):
+    """Final forming cuts of a feature: its labeled ops plus ops whose explicit faces own it.
+
+    An unresolved datum (no feature name) has no cuts, never every op.
+    """
+    if not isinstance(feature, str):
+        return []
+    order = {id(setup): index for index, setup in enumerate(bundle.plan["setups"])}
+    cuts = [
+        (order[id(setup)], setup, op)
+        for setup, op in operations(bundle, feature, owned=True)
+        if op["do"] not in _NONFINISH | MANUAL and not op["do"].startswith("rough")
+    ]
     # A pilot is not the final datum when reaming happens in a later setup.
     if any(op["do"] in ("ream", "tap", "bore") for _, _, op in cuts):
         cuts = [(index, setup, op) for index, setup, op in cuts if op["do"] != "drill"]
@@ -109,7 +111,13 @@ def evaluate(bundle):
                 )
             )
         if "height_from" in feature:
-            band = feature.get("height_above_pivot", "unknown")
+            # The band measured from `height_from` is whichever height-like
+            # requirement the feature declares; the first present one is it.
+            key = next(
+                (k for k in ("height_above_pivot", "height", "separation") if k in feature),
+                None,
+            )
+            band = feature[key] if key else "unknown"
             tolerance = (
                 band[1] - band[0]
                 if isinstance(band, list) and len(band) == 2 and all(_number(v) for v in band)
@@ -134,7 +142,7 @@ def evaluate(bundle):
                 )
             )
             continue
-        feature_cuts = _cuts(setups, name)
+        feature_cuts = _cuts(bundle, name)
         numbers.update(
             {
                 "feature_ops": [_label(cut) for cut in feature_cuts],
@@ -149,7 +157,7 @@ def evaluate(bundle):
         failed = []
         cross_setup = False
         for datum_name, datum_feature, tolerance in relationships:
-            datum_cuts = _cuts(setups, datum_feature)
+            datum_cuts = _cuts(bundle, datum_feature)
             numbers["datums"][datum_name] = [_label(cut) for cut in datum_cuts]
             numbers["tolerance_mm"] = tolerance
             if "coaxial_to" in feature:
