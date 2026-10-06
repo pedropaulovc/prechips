@@ -153,8 +153,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
-from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
 from render_diagram import render_diagram  # noqa: E402
+from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
 
 UNKNOWN = "unknown"
 LIFT = 1e-3  # mm: cylinders shrink radially and lift off the sample by this clearance
@@ -711,6 +711,20 @@ def _frame_matrix(frame):
 def _normal_at(face, point):
     u, v = face.Surface.parameter(point)
     return face.normalAt(u, v)
+
+
+def _on_surface(face, point, precision):
+    """``point`` moved onto ``face``'s own surface when it lies within the face's BRep
+    precision of it, else unchanged. Boundary samples come from edge curves that need only
+    lie within their own tolerance of the surface: the approximated (spline) edges of a
+    split cylinder wander tenths of a micron about its radius, and meridians built from them
+    turn one analytic surface into a jagged, self-intersecting set of revolved bands."""
+    try:
+        surface = face.Surface
+        snapped = surface.value(*surface.parameter(point))
+    except Exception:
+        return point
+    return snapped if (snapped - point).Length <= precision else point
 
 
 def _distance(a, b):
@@ -7321,9 +7335,12 @@ class _Setup:
         with an axial normal (a dome's apex), which the grid never lands on, is one too.
         """
         if index not in self.revolutions:
-            found, skipped = _face_samples(self.faces[index], 1.0)
+            face = self.faces[index]
+            found, skipped = _face_samples(face, 1.0)
+            precision = face.getTolerance(1)
             verdict, meridian = "external", []
             for point, normal in found:
+                point = _on_surface(face, point, precision)
                 rho = math.hypot(point.x, point.y)
                 if rho <= AXIS_TOL:
                     if math.hypot(normal.x, normal.y) > REVOLVED_TOL:
@@ -7340,7 +7357,6 @@ class _Setup:
                     verdict = "internal"
                 meridian.append(((rho, point.z), (radial, normal.z)))
             if verdict == "external" and found:
-                face = self.faces[index]
                 for vertex in face.Vertexes:
                     point = vertex.Point
                     if math.hypot(point.x, point.y) > BBOX_TOL:
@@ -7421,6 +7437,11 @@ class _Setup:
         if not regions:
             return None, None
         removal = regions[0].fuse(regions[1:]) if len(regions) > 1 else regions[0]
+        # Each sampled meridian chord revolves to its own band, and the faces of one finished
+        # surface give near-identical profiles: unified, the turned surface is one face per
+        # surface, not a stack of sliver bands that booleans against the coincident finished
+        # face resolve inconsistently (wrong volumes, Null shapes, invalid pieces).
+        removal = removal.removeSplitter()
         if window is not None:
             removal = removal.common(_band(0.0, outer, *window))
         if removal.isNull() or removal.Volume <= HIT_MM3:
@@ -7428,9 +7449,19 @@ class _Setup:
         removal = stock.common(removal)
         if removal.isNull() or removal.Volume <= HIT_MM3:
             return None, None
+        precision = max(self.faces[index].getTolerance(1) for index in valid)
         if self.protected.Volume > HIT_MM3:
             removal = removal.cut(self.protected)
-        pieces = [piece for piece in removal.Solids if piece.Volume > HIT_MM3]
+            precision = max(precision, self.protected.getTolerance(1))
+        # Finished faces are located only to within their BRep precision (their largest
+        # edge or vertex tolerance; joint-ownership booleans loosen it to microns). A piece
+        # whose mean thickness is within that precision is a coincidence remnant between
+        # an earlier pass's surface and the finished one, not stock this op removes.
+        pieces = [
+            piece
+            for piece in removal.Solids
+            if piece.Volume > HIT_MM3 and 2 * piece.Volume / piece.Area > precision
+        ]
         if not pieces:
             return None, None
         if not all(piece.isValid() for piece in pieces):

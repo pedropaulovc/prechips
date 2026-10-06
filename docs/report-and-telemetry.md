@@ -146,8 +146,9 @@ rule/subject yields 4; an explicitly unknown required policy also yields 4.
 Otherwise the report has exit 0 and `verification = "checked"`.
 The implemented gate does not block required `info` or `not_applicable`. Without
 approval the traveler still prints `PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE`.
-The header line of every page ends with `prechips <version> · report <first 8 hash chars>`.
-That short id is only a paper lookup aid, never the approval's full binding.
+No hash prints on the sheet. `traveler.html` carries the full report hash and the
+prechips version in `<meta name="prechips-report">` / `<meta name="prechips-version">`
+for tools; they are a lookup, never the approval's binding.
 The renderer additionally requires the normalized approval `approved = true`,
 no approval warnings, a lowercase 64-hex report hash, and first-article text
 other than literal `unknown` (case-insensitive). These are renderer guards, not
@@ -337,8 +338,8 @@ coordinates, Z targets and DRO values print at the DRO's display
 precision (2 decimals in mm, 4 in inches); drawing limits keep the drawing's
 precision. Plan text is cleaned for the bench: author's-choice tags, face ids,
 inventory slugs, frame names and hashes are dropped, and frame `T1` reads as
-`Setup S1 zero`. Rule ids, source paths, uncertainty detail and full hashes
-stay in `report.json`; the short id in the header line is the report lookup. Print CSS is
+`Setup S1 zero`. Rule ids, source paths, uncertainty detail and hashes
+stay in `report.json` (and the page's machine-readable meta tags). Print CSS is
 not a physical dry run, and presentation never changes PLANNED readiness.
 
 
