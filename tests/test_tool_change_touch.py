@@ -107,6 +107,8 @@ def test_the_turning_tool_back_after_a_blade_touch_is_re_touched():
     assert touch["before_ops"] == [50] and touch["tool"] == "turner"
     assert (touch["z_face"], touch["edge_mm"], touch["paper_mm"]) == ("shoulder", -7.5, 0.05)
     assert touch["z_axis_set"] == pytest.approx(-7.45)
+    # The blade's own recipe ("paper", its corner) is not the turning tool's.
+    assert touch["method"] == "edge_then_set"
     assert (touch["x_face"], touch["gauge"], touch["x_axis_set"]) == (
         "journal",
         "mic",
