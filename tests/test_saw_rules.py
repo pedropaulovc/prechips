@@ -299,9 +299,7 @@ TOOL_CYLINDER_RULES = [accessibility, reach, internal_corner_radius]
 
 def add_saw(data):
     data.inventory["tools"]["blade"] = {"kind": "bandsaw", "kerf_mm": 1.0, "verify": False}
-    data.plan["setups"][0]["ops"].append(
-        {**deepcopy(SAW_OP), "feature": "pocket", "faces": ["#2"]}
-    )
+    data.plan["setups"][0]["ops"].append({**deepcopy(SAW_OP), "feature": "pocket", "faces": ["#2"]})
 
 
 @pytest.mark.parametrize("rule", TOOL_CYLINDER_RULES)

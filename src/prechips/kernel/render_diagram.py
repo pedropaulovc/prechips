@@ -47,9 +47,19 @@ class _Callout:
 def _plain(value):
     """Keep shop labels printable without exposing unsupported glyph placeholders."""
     text = str(value).replace("_", " ")
-    for old, new in (("?", "not declared"), ("−", "-"), ("–", "-"), ("—", "-"),
-                     ("×", "x"), ("Ø", "DIA "), ("ø", "DIA "), ("°", " DEG"),
-                     ("→", " TO "), ("≤", " <= "), ("≥", " >= ")):
+    for old, new in (
+        ("?", "not declared"),
+        ("−", "-"),
+        ("–", "-"),
+        ("—", "-"),
+        ("×", "x"),
+        ("Ø", "DIA "),
+        ("ø", "DIA "),
+        ("°", " DEG"),
+        ("→", " TO "),
+        ("≤", " <= "),
+        ("≥", " >= "),
+    ):
         text = text.replace(old, new)
     return " ".join(text.split()).upper()
 
@@ -62,13 +72,16 @@ def _mm(value):
 def _corners(box):
     if box is None:
         return []
-    return [(x, y, z) for x in (box[0], box[3])
-            for y in (box[1], box[4]) for z in (box[2], box[5])]
+    return [(x, y, z) for x in (box[0], box[3]) for y in (box[1], box[4]) for z in (box[2], box[5])]
 
 
 def _bounds(points):
-    return (min(p[0] for p in points), min(p[1] for p in points),
-            max(p[0] for p in points), max(p[1] for p in points))
+    return (
+        min(p[0] for p in points),
+        min(p[1] for p in points),
+        max(p[0] for p in points),
+        max(p[1] for p in points),
+    )
 
 
 def _xy_projector(bounds, centre, scales):
@@ -78,8 +91,10 @@ def _xy_projector(bounds, centre, scales):
     scale_x, scale_y = scales
 
     def project(point):
-        return (cx + (point[0] - (xmin + xmax) / 2) * scale_x,
-                cy - (point[1] - (ymin + ymax) / 2) * scale_y)
+        return (
+            cx + (point[0] - (xmin + xmax) / 2) * scale_x,
+            cy - (point[1] - (ymin + ymax) / 2) * scale_y,
+        )
 
     return project
 
@@ -180,8 +195,15 @@ def _dimension(canvas, first, second, label, colour=_INK):
         canvas.line(first, second, colour, width=2)
         for point in (first, second):
             canvas.line((point[0], point[1] - 5), (point[0], point[1] + 5), colour, width=2)
-    _text(canvas, (first[0] + second[0]) / 2, (first[1] + second[1]) / 2 - 23,
-          label, colour, align="centre", backing=True)
+    _text(
+        canvas,
+        (first[0] + second[0]) / 2,
+        (first[1] + second[1]) / 2 - 23,
+        label,
+        colour,
+        align="centre",
+        backing=True,
+    )
 
 
 class _Diagram:
@@ -195,10 +217,10 @@ class _Diagram:
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
         if self.view == "lathe":
             self.nominal = []
-        self.is_vise = any(_role(c) in ("fixed_jaw", "moving_jaw", "jaw")
-                           for c in self.components)
-        self.is_chuck = self.view == "lathe" or any(_role(c).startswith("chuck")
-                                                   for c in self.components)
+        self.is_vise = any(_role(c) in ("fixed_jaw", "moving_jaw", "jaw") for c in self.components)
+        self.is_chuck = self.view == "lathe" or any(
+            _role(c).startswith("chuck") for c in self.components
+        )
         self.callouts = []
         self.obstacles = []
         self.context_labels = []
@@ -206,13 +228,19 @@ class _Diagram:
         self.lathe_window = None
         self.off_window_keys = []
         if self.view == "lathe":
-            profile_points = [p for profile in spec.get("lathe_profiles", [])
-                              for line in profile["lines"] for p in line]
+            profile_points = [
+                p for profile in spec.get("lathe_profiles", [])
+                for line in profile["lines"] for p in line
+            ]
             if profile_points:
-                self.lathe_window = (min(p[1] for p in profile_points),
-                                     max(p[1] for p in profile_points))
-                display = {str(p["op"]): p.get("x_display", "radius")
-                           for p in spec.get("axial_paths", [])}
+                self.lathe_window = (
+                    min(p[1] for p in profile_points),
+                    max(p[1] for p in profile_points),
+                )
+                display = {
+                    str(p["op"]): p.get("x_display", "radius")
+                    for p in spec.get("axial_paths", [])
+                }
                 for waypoint in spec.get("waypoints", []):
                     if "xz" not in waypoint:
                         continue
@@ -220,7 +248,7 @@ class _Diagram:
                     if self.lathe_window[0] <= z <= self.lathe_window[1]:
                         continue
                     convention = waypoint.get(
-                        "x_display", display.get(str(waypoint.get("op")), "radius")
+                        "x_display", display.get(str(waypoint.get("op")), "radius"),
                     )
                     radius = x / 2 if convention == "diameter" else x
                     self.off_window_keys.append((waypoint["label"], (radius, 0, z)))
@@ -287,8 +315,7 @@ class _Diagram:
             if self.spec.get("stickout_mm") is None:
                 notes.append("Stickout: not declared")
         return [
-            line for note in notes
-            for line in _wrap(self.canvas, note, 720, scale=self.note_scale)
+            line for note in notes for line in _wrap(self.canvas, note, 720, scale=self.note_scale)
         ]
 
     def _legend(self):
@@ -334,8 +361,9 @@ class _Diagram:
         self._context()
         if self.nominal:
             self._nominal_overlay(self.canvas.project)
-            self.callouts.append(_Callout("NOMINAL OUTLINE",
-                                         [self.canvas.project(self.nominal[0][0])], _BLUE))
+            self.callouts.append(
+                _Callout("NOMINAL OUTLINE", [self.canvas.project(self.nominal[0][0])], _BLUE)
+            )
         self._components()
         self._origin_datums_tool()
         self._measurements()
@@ -348,8 +376,12 @@ class _Diagram:
                 if pixels:
                     exclusion = _bounds(pixels)
             self._waypoint_badges(
-                self.position_badges, lambda p: p, (278, 205, 900, 593),
-                prefix="", colour=_FIXTURE, exclusion=exclusion,
+                self.position_badges,
+                lambda p: p,
+                (278, 205, 900, 593),
+                prefix="",
+                colour=_FIXTURE,
+                exclusion=exclusion,
             )
         self._insets()
         for x, y, label, scale in self.context_labels:
@@ -372,8 +404,11 @@ class _Diagram:
         _text(c, 32, 166, "Machine context is symbolic, not modelled geometry.", _MUTED)
 
     def _component_pixels(self, components):
-        return [self.canvas.project(p) for item in components
-                for p in (_corners(item.get("box_mm")) or [item["center_mm"]])]
+        return [
+            self.canvas.project(p)
+            for item in components
+            for p in (_corners(item.get("box_mm")) or [item["center_mm"]])
+        ]
 
     def _context(self):
         c = self.canvas
@@ -383,39 +418,69 @@ class _Diagram:
                 left, top, _, bottom = _bounds(self._component_pixels(chuck))
                 x, y = left - 100, (top + bottom) / 2 - 55
                 _outline(c, [(x, y), (x + 94, y), (x + 94, y + 110), (x, y + 110)], dashed=True)
-                _outline(c, [(x - 8, y + 110), (x + 98, y + 110),
-                             (x + 98, y + 128), (x - 8, y + 128)], dashed=True)
+                _outline(
+                    c,
+                    [(x - 8, y + 110), (x + 98, y + 110), (x + 98, y + 128), (x - 8, y + 128)],
+                    dashed=True,
+                )
                 self.obstacles.append((x - 36, y - 30, x + 130, y + 130))
-                self.context_labels.extend(((x + 47, y - 26, "HEADSTOCK", 3),
-                                            (x + 47, y + 87, "SYMBOL", 2)))
+                self.context_labels.extend(
+                    ((x + 47, y - 26, "HEADSTOCK", 3), (x + 47, y + 87, "SYMBOL", 2))
+                )
             centres = [item for item in self.components if _role(item) in ("centre", "center")]
             if centres or self.stock_pixels:
                 pixels = self._component_pixels(centres) if centres else self.stock_pixels
                 _, top, right, bottom = _bounds(pixels)
                 if not centres:
-                    tool_pixels = [c.project(point) for outline in (
-                        self.tool.get("outlines_mm") or [self.tool.get("outline_mm", [])]
-                    ) for point in outline] if self.tool else []
+                    tool_pixels = (
+                        [
+                            c.project(point)
+                            for outline in (
+                                self.tool.get("outlines_mm") or [self.tool.get("outline_mm", [])]
+                            )
+                            for point in outline
+                        ]
+                        if self.tool else []
+                    )
                     right = max([right] + [point[0] for point in tool_pixels]) + 44
                 x, y = right + 8, (top + bottom) / 2 - 44
-                _outline(c, [(x, y + 20), (x + 20, y), (x + 82, y),
-                             (x + 82, y + 88), (x, y + 88)], dashed=True)
-                _outline(c, [(x - 4, y + 88), (x + 88, y + 88),
-                             (x + 88, y + 106), (x - 4, y + 106)], dashed=True)
+                _outline(
+                    c,
+                    [(x, y + 20), (x + 20, y), (x + 82, y), (x + 82, y + 88), (x, y + 88)],
+                    dashed=True,
+                )
+                _outline(
+                    c,
+                    [(x - 4, y + 88), (x + 88, y + 88), (x + 88, y + 106), (x - 4, y + 106)],
+                    dashed=True,
+                )
                 self.obstacles.append((x - 40, y - 30, x + 125, y + 110))
                 self.context_labels.extend(
-                    ((x + 41, y - 26, "TAILSTOCK", 3),
-                     (x + 41, y + 66, "SYMBOL" if centres else "NO CENTRE DRAWN", 2))
+                    (
+                        (x + 41, y - 26, "TAILSTOCK", 3),
+                        (x + 41, y + 66, "SYMBOL" if centres else "NO CENTRE DRAWN", 2),
+                    )
                 )
         elif self.is_vise:
-            jaws = [item for item in self.components
-                    if _role(item) in ("fixed_jaw", "moving_jaw", "jaw")]
+            jaws = [
+                item
+                for item in self.components
+                if _role(item) in ("fixed_jaw", "moving_jaw", "jaw")
+            ]
             left, top, right, bottom = _bounds(self._component_pixels(jaws))
             # Dashed screen-space frames provide context without inventing solids.
-            vise = [(left - 18, top - 18), (right + 18, top - 18),
-                    (right + 18, bottom + 24), (left - 18, bottom + 24)]
-            table = [(left - 45, top - 40), (right + 45, top - 40),
-                     (right + 45, bottom + 45), (left - 45, bottom + 45)]
+            vise = [
+                (left - 18, top - 18),
+                (right + 18, top - 18),
+                (right + 18, bottom + 24),
+                (left - 18, bottom + 24),
+            ]
+            table = [
+                (left - 45, top - 40),
+                (right + 45, top - 40),
+                (right + 45, bottom + 45),
+                (left - 45, bottom + 45),
+            ]
             _outline(c, table, dashed=True)
             _outline(c, vise, dashed=True)
             self.context_labels.append(((left + right) / 2, 194, "TABLE / VISE: SYMBOLS ONLY", 3))
@@ -452,8 +517,12 @@ class _Diagram:
         pads = []
         order = self.spec.get("custom_clamp_order", [])
         numbered = {}
-        role_groups = {"parallel": "PARALLELS", "riser": "RISERS",
-                       "chuck_jaw": "CHUCK JAWS", "centre": "CENTRE"}
+        role_groups = {
+            "parallel": "PARALLELS",
+            "riser": "RISERS",
+            "chuck_jaw": "CHUCK JAWS",
+            "centre": "CENTRE",
+        }
         for component in self.components:
             role = _role(component)
             label = _plain(component.get("label") or component["name"])
@@ -465,19 +534,29 @@ class _Diagram:
             elif role in role_groups:
                 label = role_groups[role]
             elif label.upper().startswith(("RAIL REST", "SHIM", "HOLD-DOWN", "HOLD DOWN")):
-                label = next(prefix for prefix in ("RAIL REST", "SHIM", "HOLD-DOWN", "HOLD DOWN")
-                             if label.upper().startswith(prefix)) + "S"
+                label = (
+                    next(
+                        prefix
+                        for prefix in ("RAIL REST", "SHIM", "HOLD-DOWN", "HOLD DOWN")
+                        if label.upper().startswith(prefix)
+                    )
+                    + "S"
+                )
             if "pad" in label.lower() and role in ("fixture", "support", "pad"):
                 pads.append(component)
                 continue
             for index, declared in enumerate(order, 1):
-                if declared in (component.get("label"), component.get("name"),
-                                component.get("clamp_label")):
+                if declared in (
+                    component.get("label"),
+                    component.get("name"),
+                    component.get("clamp_label"),
+                ):
                     code = f"C{index}"
                     declared_label = _plain(declared)
                     suffix = (
                         declared_label.split(":", 1)[1].strip()
-                        if ":" in declared_label else declared_label
+                        if ":" in declared_label
+                        else declared_label
                     )
                     label = code if suffix.upper() == code else f"{code}: {suffix}"
                     numbered[label] = code
@@ -496,11 +575,17 @@ class _Diagram:
                 code = label.removeprefix("PAD ").removeprefix("SUPPORT PAD ") or str(index)
                 if self.view == "plan" and component.get("box_mm"):
                     left, top, right, bottom = _bounds(self._component_pixels([component]))
-                    _outline(c, [(left, top), (right, top), (right, bottom), (left, bottom)],
-                             _FIXTURE, width=2, dashed=True)
+                    _outline(
+                        c,
+                        [(left, top), (right, top), (right, bottom), (left, bottom)],
+                        _FIXTURE,
+                        width=2,
+                        dashed=True,
+                    )
                 self.position_badges.append({"label": code, "xy": point})
-            self.callouts.append(_Callout("SUPPORT PADS",
-                                         [c.project(pads[0]["center_mm"])], _FIXTURE))
+            self.callouts.append(
+                _Callout("SUPPORT PADS", [c.project(pads[0]["center_mm"])], _FIXTURE)
+            )
         if self.stock_pixels:
             left, top, right, _ = _bounds(self.stock_pixels)
             self.callouts.append(_Callout("STOCK", [((left + right) / 2, top)], _INK))
@@ -518,8 +603,9 @@ class _Diagram:
             c.circle(*point, 5, fill=_WHITE, outline=_INK)
             c.circle(*point, 2, fill=_INK)
             label = _plain(datum["label"]).upper()
-            self.callouts.append(_Callout(label if label.startswith("DATUM ") else "DATUM " + label,
-                                         [point]))
+            self.callouts.append(
+                _Callout(label if label.startswith("DATUM ") else "DATUM " + label, [point])
+            )
         if self.tool:
             outlines = self.tool.get("outlines_mm") or [self.tool.get("outline_mm", [])]
             for polygon in outlines:
@@ -549,21 +635,28 @@ class _Diagram:
             return
         box = self.stock
         sizes = [box[i + 3] - box[i] for i in range(3)]
-        _text(c, 32, self.footer_top - 36,
-              f"ACTUAL STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}"
-              f"  /  Z {_mm(sizes[2])} mm")
+        _text(
+            c,
+            32,
+            self.footer_top - 36,
+            f"ACTUAL STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}"
+            f"  /  Z {_mm(sizes[2])} mm",
+        )
         axis = 2 if self.view == "lathe" else 0
         first, second = list(_centre(box)), list(_centre(box))
         first[axis], second[axis] = box[axis], box[axis + 3]
         a, b = c.project(first), c.project(second)
         c.line(a, (a[0], y), _MUTED, width=2, dashed=True)
         c.line(b, (b[0], y), _MUTED, width=2, dashed=True)
-        _dimension(c, (a[0], y), (b[0], y),
-                   f"STOCK {'XYZ'[axis]} {_mm(sizes[axis])} mm")
+        _dimension(c, (a[0], y), (b[0], y), f"STOCK {'XYZ'[axis]} {_mm(sizes[axis])} mm")
         jaw = self.spec.get("jaw_front_z_mm")
         if jaw is not None:
-            plane = [(box[0], box[1], jaw), (box[3], box[1], jaw),
-                     (box[3], box[4], jaw), (box[0], box[4], jaw)]
+            plane = [
+                (box[0], box[1], jaw),
+                (box[3], box[1], jaw),
+                (box[3], box[4], jaw),
+                (box[0], box[4], jaw),
+            ]
             pixels = [c.project(p) for p in plane]
             if self.view == "lathe":
                 x = pixels[0][0]
@@ -585,11 +678,16 @@ class _Diagram:
                 dim_y = 622
                 c.line(a, (a[0], dim_y), _BLUE, width=2, dashed=True)
                 c.line(b, (b[0], dim_y), _BLUE, width=2, dashed=True)
-                _dimension(c, (a[0], dim_y), (b[0], dim_y),
-                           f"STICKOUT {_mm(stickout)} mm", _BLUE)
+                _dimension(c, (a[0], dim_y), (b[0], dim_y), f"STICKOUT {_mm(stickout)} mm", _BLUE)
             else:
-                _text(c, 1126, self.footer_top - 36,
-                      f"STICKOUT {_mm(stickout)} mm", _BLUE, align="right")
+                _text(
+                    c,
+                    1126,
+                    self.footer_top - 36,
+                    f"STICKOUT {_mm(stickout)} mm",
+                    _BLUE,
+                    align="right",
+                )
 
     def _labels(self):
         c = self.canvas
@@ -600,8 +698,10 @@ class _Diagram:
         lane_specs = ((32, 214, 249), (928, 210, 916))
         capacities = []
         for x, width, _ in lane_specs:
-            intervals = sorted((max(202, b[1]), min(self.footer_top - 64, b[3]))
-                               for b in self.obstacles if x < b[2] and x + width > b[0])
+            intervals = sorted(
+                (max(202, b[1]), min(self.footer_top - 64, b[3]))
+                for b in self.obstacles if x < b[2] and x + width > b[0]
+            )
             blocked, end = 0, 202
             for top, bottom in intervals:
                 if bottom > max(top, end):
@@ -610,8 +710,10 @@ class _Diagram:
             capacities.append(self.footer_top - 64 - 202 - blocked)
 
         def cost(items, side):
-            return sum(len(_wrap(c, item.label, lane_specs[side][1], scale=3)) * 27 + 11
-                       for item in items)
+            return sum(
+                len(_wrap(c, item.label, lane_specs[side][1], scale=3)) * 27 + 11
+                for item in items
+            )
 
         # Balance wrapped height rather than raw label count before reducing type.
         for _ in self.callouts:
@@ -619,8 +721,10 @@ class _Diagram:
             if cost(lanes[source], source) <= capacities[source]:
                 break
             target = 1 - source
-            candidates = [item for item in lanes[source]
-                          if cost(lanes[target] + [item], target) <= capacities[target]]
+            candidates = [
+                item for item in lanes[source]
+                if cost(lanes[target] + [item], target) <= capacities[target]
+            ]
             if not candidates:
                 break
             moved = min(candidates, key=lambda item: abs(item.points[0][0] - 590))
@@ -629,8 +733,9 @@ class _Diagram:
         for side, callouts in enumerate(lanes):
             callouts.sort(key=lambda item: item.points[0][1])
             x, width, edge = lane_specs[side]
-            obstacles = sorted((b for b in self.obstacles if x < b[2] and x + width > b[0]),
-                               key=lambda b: b[1])
+            obstacles = sorted(
+                (b for b in self.obstacles if x < b[2] and x + width > b[0]), key=lambda b: b[1]
+            )
             scale = 3
             labels = [_wrap(c, item.label, width, scale=scale) for item in callouts]
 
@@ -666,17 +771,28 @@ class _Diagram:
                     c.line(elbow, (edge, target_y), item.colour, width=2)
                     c.circle(*point, 3, fill=item.colour)
                 for index, line in enumerate(lines):
-                    _text(c, x + width if side else x, row_y + index * 9 * scale,
-                          line, item.colour, scale=scale,
-                          align="right" if side else "left", backing=True)
+                    _text(
+                        c,
+                        x + width if side else x,
+                        row_y + index * 9 * scale,
+                        line,
+                        item.colour,
+                        scale=scale,
+                        align="right" if side else "left",
+                        backing=True,
+                    )
 
     def _insets(self):
         c = self.canvas
         left, right = 1174, 1568
         c.line((1157, 134), (1157, self.footer_top - 17), _RULE, width=2)
         profiles = self.spec.get("lathe_profiles", []) if self.view == "lathe" else []
-        if profiles or (self.view == "lathe" and (self.spec.get("axial_paths")
-                       or any("xz" in p for p in self.spec.get("waypoints", [])))):
+        if profiles or (
+            self.view == "lathe" and (
+                self.spec.get("axial_paths")
+                or any("xz" in p for p in self.spec.get("waypoints", []))
+            )
+        ):
             top = self._lathe_detail(left, right, profiles) + 24
             if not self.spec.get("paths") and not any(
                 "xy" in p for p in self.spec.get("waypoints", [])
@@ -688,8 +804,10 @@ class _Diagram:
             self._path_inset(left, right, 142, self.footer_top - 70)
         if self.spec.get("preload") == "counterclockwise":
             center = (left + 17, self.footer_top - 37)
-            arc = [(center[0] + 13 * math.cos(a), center[1] - 13 * math.sin(a))
-                   for a in (i * math.pi / 12 for i in range(2, 23))]
+            arc = [
+                (center[0] + 13 * math.cos(a), center[1] - 13 * math.sin(a))
+                for a in (i * math.pi / 12 for i in range(2, 23))
+            ]
             for a, b in zip(arc, arc[1:], strict=False):
                 c.line(a, b, _FIXTURE, width=2)
             c.arrow(arc[-2], arc[-1], _FIXTURE, width=2)
@@ -705,11 +823,18 @@ class _Diagram:
         def radial(point, convention):
             return (point[0] / 2 if convention == "diameter" else point[0], point[1])
 
-        paths = [(path, [radial(p, path.get("x_display", "radius")) for p in path["xz"]])
-                 for path in axial]
-        waypoints = [{"label": p["label"], "xy": radial(p["xz"],
-                      p.get("x_display", display.get(str(p.get("op")), "radius")))}
-                     for p in self.spec.get("waypoints", []) if "xz" in p]
+        paths = [
+            (path, [radial(p, path.get("x_display", "radius")) for p in path["xz"]])
+            for path in axial
+        ]
+        waypoints = [
+            {
+                "label": p["label"],
+                "xy": radial(p["xz"], p.get("x_display", display.get(str(p.get("op")), "radius"))),
+            }
+            for p in self.spec.get("waypoints", [])
+            if "xz" in p
+        ]
         points = [p for profile in profiles for line in profile["lines"] for p in line]
         if self.lathe_window:
             zmin, zmax = self.lathe_window
@@ -732,16 +857,21 @@ class _Diagram:
         window_label = f"Z {_mm(zmin)} TO {_mm(zmax)} MM"
         window_scale = 3 if c.text_width(window_label, scale=3) <= right - left else 2
         _text(c, left, 198, window_label, _MUTED, scale=window_scale)
-        scale = min((right - left - 134) / max(zmax - zmin, 1e-9),
-                    234 / max(rmax - rmin, 1e-9))
+        scale = min((right - left - 134) / max(zmax - zmin, 1e-9), 234 / max(rmax - rmin, 1e-9))
         cx, cy = (left + right) / 2, 355
 
         def project(point):
-            return (cx + (point[1] - (zmin + zmax) / 2) * scale,
-                    cy - (point[0] - (rmin + rmax) / 2) * scale)
+            return (
+                cx + (point[1] - (zmin + zmax) / 2) * scale,
+                cy - (point[0] - (rmin + rmax) / 2) * scale,
+            )
 
-        closed = [(profile, line) for profile in profiles for line in profile["lines"]
-                  if len(line) >= 4 and line[0] == line[-1]]
+        closed = [
+            (profile, line)
+            for profile in profiles
+            for line in profile["lines"]
+            if len(line) >= 4 and line[0] == line[-1]
+        ]
         for profile, line in closed:
             if profile["label"] == "arriving stock":
                 c.polygon([project(p) for p in line], _AMBER_LIGHT)
@@ -755,10 +885,20 @@ class _Diagram:
             colour = tuple(profile.get("colour", _INK))
             for line in profile["lines"]:
                 for a, b in zip(line, line[1:], strict=False):
-                    c.line(project(a), project(b), colour, width=3,
-                           dashed=profile["label"] == "arriving stock")
-            c.line((left, row + 10), (left + 25, row + 10), colour, width=3,
-                   dashed=profile["label"] == "arriving stock")
+                    c.line(
+                        project(a),
+                        project(b),
+                        colour,
+                        width=3,
+                        dashed=profile["label"] == "arriving stock",
+                    )
+            c.line(
+                (left, row + 10),
+                (left + 25, row + 10),
+                colour,
+                width=3,
+                dashed=profile["label"] == "arriving stock",
+            )
             for line in _wrap(c, profile["label"].upper(), right - left - 34, scale=3):
                 _text(c, left + 34, row, line, colour)
                 row += 30
@@ -802,21 +942,25 @@ class _Diagram:
         xmin, ymin, xmax, ymax = _bounds(points)
         ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
         key_lines = [
-            (op, line) for op in ops
-            for line in _wrap(c, op, right - left - 36, scale=3)
+            (op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)
         ]
         plot_top, plot_bottom = top + 82, bottom - 40 - 30 * len(key_lines)
-        scale = min((right - left - 74) / max(xmax - xmin, 1e-9),
-                    max(50, plot_bottom - plot_top - 28) / max(ymax - ymin, 1e-9))
+        scale = min(
+            (right - left - 74) / max(xmax - xmin, 1e-9),
+            max(50, plot_bottom - plot_top - 28) / max(ymax - ymin, 1e-9),
+        )
         cx, cy = (left + right) / 2, (plot_top + plot_bottom) / 2
 
         def project(point):
-            return (cx + (point[0] - (xmin + xmax) / 2) * scale,
-                    cy - (point[1] - (ymin + ymax) / 2) * scale)
+            return (
+                cx + (point[0] - (xmin + xmax) / 2) * scale,
+                cy - (point[1] - (ymin + ymax) / 2) * scale,
+            )
 
         if self.nominal:
-            self._nominal_overlay(lambda p: project(p[:2]),
-                                  (left, plot_top, right, plot_bottom), faint=True)
+            self._nominal_overlay(
+                lambda p: project(p[:2]), (left, plot_top, right, plot_bottom), faint=True
+            )
         palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
         colours = {op: palette[index % len(palette)] for index, op in enumerate(ops)}
         for path in paths:
@@ -842,8 +986,12 @@ class _Diagram:
             x = left + (index % columns) * (width + 12)
             y = top + (index // columns) * (height + 12)
             colour = palette[index % len(palette)]
-            _outline(c, [(x, y), (x + width, y), (x + width, y + height), (x, y + height)],
-                     _RULE, width=1)
+            _outline(
+                c,
+                [(x, y), (x + width, y), (x + width, y + height), (x, y + height)],
+                _RULE,
+                width=1,
+            )
             _text(c, x + 8, y + 5, f"OP {op}", colour)
             op_paths = [p for p in paths if str(p.get("op", "")) == op]
             op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
@@ -855,8 +1003,10 @@ class _Diagram:
             xmin, ymin, xmax, ymax = bounds
             span_x, span_y = xmax - xmin, ymax - ymin
             plot_top, plot_bottom = y + 66, y + height - 44
-            factor = min((width - 72) / max(span_x, 1e-9),
-                         max(12, plot_bottom - plot_top) / max(span_y, 1e-9))
+            factor = min(
+                (width - 72) / max(span_x, 1e-9),
+                max(12, plot_bottom - plot_top) / max(span_y, 1e-9),
+            )
             factor_y = factor
             badge_top = y + 31
             exclusion = None
@@ -872,14 +1022,11 @@ class _Diagram:
                 lower_rows = key_rows - upper_rows
                 badge_top = y + 46
                 plot_top = badge_top + 26 * upper_rows + 8 * max(0, upper_rows - 1) + 8
-                plot_bottom = (
-                    y + height - 6 - 26 * lower_rows - 8 * max(0, lower_rows - 1) - 8
-                )
+                plot_bottom = y + height - 6 - 26 * lower_rows - 8 * max(0, lower_rows - 1) - 8
                 if plot_bottom - plot_top >= 24:
                     # Limit graphic distortion even when the key bands leave ample space.
                     factor_y = min((plot_bottom - plot_top) / span_y, 4 * factor)
-                    _text(c, x + 8, y + 30, f"Y EXAG x{_mm(factor_y / factor)}",
-                          _MUTED, scale=2)
+                    _text(c, x + 8, y + 30, f"Y EXAG x{_mm(factor_y / factor)}", _MUTED, scale=2)
                     exclusion = (x + 7, plot_top, x + width - 7, plot_bottom)
                 else:
                     plot_top, plot_bottom = y + 66, y + height - 44
@@ -889,19 +1036,24 @@ class _Diagram:
 
             if self.nominal:
                 self._nominal_overlay(
-                    project, (x + 7, plot_top, x + width - 7, plot_bottom), faint=True,
+                    project, (x + 7, plot_top, x + width - 7, plot_bottom), faint=True
                 )
             direction_keys = {0, len(op_paths) // 2, len(op_paths) - 1}
             for path_index, path in enumerate(op_paths):
                 directed = path.get("directed") is True
                 self._ordered_path(
-                    [project(p) for p in path["xy"]], colour, width=2,
+                    [project(p) for p in path["xy"]],
+                    colour,
+                    width=2,
                     arrows=directed and path_index in direction_keys,
                 )
             self._waypoint_badges(
-                op_waypoints, project,
+                op_waypoints,
+                project,
                 (x + 6, badge_top, x + width - 6, y + height - 6),
-                colour=colour, perimeter=True, exclusion=exclusion,
+                colour=colour,
+                perimeter=True,
+                exclusion=exclusion,
             )
 
     def _ordered_path(self, pixels, colour, width=3, arrows=True, clip=None):
@@ -930,8 +1082,10 @@ class _Diagram:
             for a, b, length in segments:
                 if distance <= length:
                     fraction = distance / length
-                    return (a[0] + (b[0] - a[0]) * fraction,
-                            a[1] + (b[1] - a[1]) * fraction)
+                    return (
+                        a[0] + (b[0] - a[0]) * fraction,
+                        a[1] + (b[1] - a[1]) * fraction,
+                    )
                 distance -= length
             return segments[-1][1]
 
@@ -948,7 +1102,13 @@ class _Diagram:
                 c.arrow(tail, tip, colour, width=width)
 
     def _waypoint_badges(
-        self, waypoints, project, plot, prefix="P", colour=_BLUE, perimeter=False,
+        self,
+        waypoints,
+        project,
+        plot,
+        prefix="P",
+        colour=_BLUE,
+        perimeter=False,
         exclusion=None,
     ):
         """Pack disjoint cells, optionally wholly above/below projected geometry."""
@@ -957,8 +1117,10 @@ class _Diagram:
         c = self.canvas
         left, top, right, bottom = plot
         labels = [_plain(item["label"]) for item in waypoints]
-        labels = [prefix + label if prefix and not label.upper().startswith(prefix) else label
-                  for label in labels]
+        labels = [
+            prefix + label if prefix and not label.upper().startswith(prefix) else label
+            for label in labels
+        ]
         span_x, span_y = right - left, bottom - top
         for scale in (3, 2, 1):
             cell_width = max(24, max(c.text_width(label, scale=scale) for label in labels) + 12)
@@ -987,13 +1149,24 @@ class _Diagram:
                 for i in range(lower_rows)
             )
         else:
-            rows = required_rows if perimeter else max(
-                required_rows, int((span_y + 8) / (cell_height + 8))
+            rows = (
+                required_rows
+                if perimeter
+                else max(required_rows, int((span_y + 8) / (cell_height + 8)))
             )
-            ys = [top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1)
-                  for i in range(rows)] if rows > 1 else [(top + bottom) / 2]
-        xs = [left + cell_width / 2 + i * (span_x - cell_width) / (columns - 1)
-              for i in range(columns)] if columns > 1 else [(left + right) / 2]
+            ys = (
+                [top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1) for i in range(rows)]
+                if rows > 1
+                else [(top + bottom) / 2]
+            )
+        xs = (
+            [
+                left + cell_width / 2 + i * (span_x - cell_width) / (columns - 1)
+                for i in range(columns)
+            ]
+            if columns > 1
+            else [(left + right) / 2]
+        )
         available = [(x, y) for y in ys for x in xs]
         placed = []
         for item, label in zip(waypoints, labels, strict=True):
@@ -1003,11 +1176,13 @@ class _Diagram:
             available.remove(badge)
             placed.append((badge, label, point, item.get("colour", colour)))
         top_points = (
-            exclusion[1] if exclusion is not None
+            exclusion[1]
+            if exclusion is not None
             else min(point[1] for _, _, point, _ in placed)
         )
         bottom_points = (
-            exclusion[3] if exclusion is not None
+            exclusion[3]
+            if exclusion is not None
             else max(point[1] for _, _, point, _ in placed)
         )
         upper_index = lower_index = 0
@@ -1037,8 +1212,9 @@ class _Diagram:
         _text(c, 273, self.footer_top + 23, "KEY")
         legend_scale = 3 if len(self.legend_rows) <= 8 else 2
         legend_start = self.footer_top + 57
-        legend_pitch = min(30, (984 - legend_start - 7 * legend_scale)
-                           / max(1, len(self.legend_rows) - 1))
+        legend_pitch = min(
+            30, (984 - legend_start - 7 * legend_scale) / max(1, len(self.legend_rows) - 1)
+        )
         for index, (label, kind) in enumerate(self.legend_rows):
             y = legend_start + index * legend_pitch
             if kind == "stock":
@@ -1058,11 +1234,12 @@ class _Diagram:
             _text(c, 318, y, label, _MUTED if kind == "text" else _INK, scale=legend_scale)
         _text(c, 840, self.footer_top + 23, "SETUP NOTES")
         note_start = self.footer_top + 57
-        note_pitch = min(9 * self.note_scale, (984 - note_start - 7 * self.note_scale)
-                         / max(1, len(self.note_lines) - 1))
+        note_pitch = min(
+            9 * self.note_scale,
+            (984 - note_start - 7 * self.note_scale) / max(1, len(self.note_lines) - 1),
+        )
         for index, line in enumerate(self.note_lines):
-            _text(c, 840, note_start + index * note_pitch, line, _MUTED,
-                  scale=self.note_scale)
+            _text(c, 840, note_start + index * note_pitch, line, _MUTED, scale=self.note_scale)
 
     def _triad(self, x, y):
         c = self.canvas
@@ -1084,8 +1261,13 @@ class _Diagram:
             else:
                 end = (x + dx, y + dy)
                 c.arrow((x, y), end, colour, width=3)
-                _text(c, end[0] + (7 if dx >= 0 else -17),
-                      end[1] + (4 if dy >= 0 else -17), label, colour)
+                _text(
+                    c,
+                    end[0] + (7 if dx >= 0 else -17),
+                    end[1] + (4 if dy >= 0 else -17),
+                    label,
+                    colour,
+                )
         if normal_axis is not None:
             direction = "TOWARD" if toward[normal_axis] > 0 else "AWAY"
             _text(c, 32, self.footer_top + 190, f"{'XYZ'[normal_axis]} {direction}", _MUTED)

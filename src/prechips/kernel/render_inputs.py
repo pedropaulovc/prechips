@@ -37,7 +37,8 @@ def contour_annotations(numbers, scale):
         for value in candidates:
             point = _xy(value, scale)
             if point is None or any(
-                w["op"] == op and sum((a - b) ** 2 for a, b in zip(w["xy"], point)) < 1e-8
+                w["op"] == op
+                and sum((a - b) ** 2 for a, b in zip(w["xy"], point, strict=False)) < 1e-8
                 for w in waypoints
             ):
                 continue
@@ -124,9 +125,7 @@ def setup_annotations(bundle, setup, numbers):
             and isinstance(datum.get("feature"), str)
             and datum["feature"] != "unknown"
         ],
-        "clamp_order": hold.get("clamp_order")
-        if isinstance(hold.get("clamp_order"), list)
-        else [],
+        "clamp_order": hold.get("clamp_order") if isinstance(hold.get("clamp_order"), list) else [],
         "clamp_order_declared": isinstance(hold.get("clamp_order"), list),
         "preload": hold.get("preload_direction")
         if hold.get("preload_direction") in ("clockwise", "counterclockwise")

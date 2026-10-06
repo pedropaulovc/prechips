@@ -435,7 +435,10 @@ def test_render_scene_is_complete_only_for_declared_jaw_centre_and_parallels(eng
     scene = exact["render_scene"]
     assert scene["jaws"] == scene["parallels"] == "exact"
     assert {c["name"] for c in scene["components"] if c["exact"]} == {
-        "fixed_jaw", "moving_jaw", "parallel 1", "parallel 2",
+        "fixed_jaw",
+        "moving_jaw",
+        "parallel 1",
+        "parallel 2",
     }
     assert exact["fixture_rendered"] is True
     undeclared = scenes["undeclared"]
@@ -465,9 +468,7 @@ def test_dense_contour_diagram_does_not_erase_geometry_facts(engine, solids):
     for op in (10, 20, 40, 45, 50, 55):
         paths.append({"op": str(op), "xy": corners + [corners[0]]})
         for point in corners:
-            waypoints.append(
-                {"label": f"P{len(waypoints) + 1}", "op": str(op), "xy": point}
-            )
+            waypoints.append({"label": f"P{len(waypoints) + 1}", "op": str(op), "xy": point})
     setup["render"] = {"paths": paths, "waypoints": waypoints}
     result = engine.run(engine.job(step, setups=[setup]))
     assert result["status"] == "ok", result

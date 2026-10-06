@@ -190,9 +190,7 @@ class RenderCanvas:
     by ``png()``, so repeated encoding is idempotent.
     """
 
-    def __init__(
-        self, meshes, camera, viewport=(180, 160, 1420, 730), width=1600, height=1000
-    ):
+    def __init__(self, meshes, camera, viewport=(180, 160, 1420, 730), width=1600, height=1000):
         if (
             isinstance(width, bool)
             or isinstance(height, bool)
@@ -339,7 +337,9 @@ class RenderCanvas:
                         if bits & (1 << (4 - column)):
                             first = left + column * scale
                             for offset in range(scale):
-                                self._span(top + row * scale + offset, first, first + scale - 1, pixel)
+                                self._span(
+                                    top + row * scale + offset, first, first + scale - 1, pixel
+                                )
 
     def polygon(self, points, fill, outline=None):
         """Paint a simple polygon with an even-odd fill, including concave outlines."""
@@ -350,7 +350,7 @@ class RenderCanvas:
             pixel = bytes(fill)
             low = max(0, math.ceil(min(p[1] for p in points) - 0.5))
             high = min(self.height - 1, math.ceil(max(p[1] for p in points) - 0.5) - 1)
-            edges = list(zip(points, points[1:] + points[:1]))
+            edges = list(zip(points, points[1:] + points[:1], strict=False))
             for row in range(low, high + 1):
                 yc = row + 0.5
                 crossings = []
@@ -366,7 +366,7 @@ class RenderCanvas:
                         pixel,
                     )
         if outline is not None:
-            for start, end in zip(points, points[1:] + points[:1]):
+            for start, end in zip(points, points[1:] + points[:1], strict=False):
                 self.line(start, end, outline, width=1)
 
     def rect(self, x, y, w, h, fill, outline=None):
@@ -376,9 +376,7 @@ class RenderCanvas:
         if fill is not None:
             pixel = bytes(fill)
             first, last = math.ceil(x1 - 0.5), math.ceil(x2 - 0.5) - 1
-            for row in range(
-                max(0, math.ceil(y1 - 0.5)), min(self.height, math.ceil(y2 - 0.5))
-            ):
+            for row in range(max(0, math.ceil(y1 - 0.5)), min(self.height, math.ceil(y2 - 0.5))):
                 self._span(row, first, last, pixel)
         if outline is not None:
             self.polygon(((x1, y1), (x2, y1), (x2, y2), (x1, y2)), None, outline)
@@ -481,8 +479,11 @@ class RenderCanvas:
         base = (b[0] - ux * head, b[1] - uy * head)
         self.line(a, (b[0] - ux * head * 0.65, b[1] - uy * head * 0.65), colour, width)
         self.polygon(
-            (b, (base[0] - uy * wing, base[1] + ux * wing),
-             (base[0] + uy * wing, base[1] - ux * wing)),
+            (
+                b,
+                (base[0] - uy * wing, base[1] + ux * wing),
+                (base[0] + uy * wing, base[1] - ux * wing),
+            ),
             colour,
         )
 
