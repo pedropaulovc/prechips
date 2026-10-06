@@ -233,12 +233,21 @@ def fit(bundle, setup: dict) -> dict:
     ]
     if band == UNKNOWN:
         missing.append(f"setups[{setup['id']}].joint.{joint['fit']}_mm")
+    process_missing = (
+        [
+            f"setups[{setup['id']}].joint.{field}"
+            for field in ("cure_time_min", "surface_prep")
+            if joint.get(field) == UNKNOWN
+        ]
+        if joint["method"] == "retaining_compound"
+        else []
+    )
     result = {
         "fit": joint["fit"],
         "band_mm": band,
         "guaranteed_mm": UNKNOWN,
         "engagement": None,
-        "missing": missing,
+        "missing": missing + process_missing,
         "violations": [],
     }
     if missing:
@@ -315,6 +324,10 @@ def setup_joint(bundle, setup: dict) -> dict | None:
         "method": joint["method"],
         "process": joint["process"],
     }
+    if joint["method"] == "retaining_compound":
+        common.update(
+            cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"]
+        )
     if joint["kind"] == "surface":
         scale = _scale(bundle)
         interfaces, missing = [], []
@@ -343,6 +356,7 @@ def setup_joint(bundle, setup: dict) -> dict | None:
     ancestry = setup_ancestry(bundle.plan)
     result = fit(bundle, setup)
     features = bundle.plan["joint_features"]
+    facts = "facts" if joint["method"] == "retaining_compound" else "geometry"
     return {
         **common,
         "socket": joint["socket"],
@@ -355,7 +369,7 @@ def setup_joint(bundle, setup: dict) -> dict | None:
         "engagement": result["engagement"],
         "fit_error": describe(result["violations"]) or None,
         "reason": (
-            f"joint geometry unknown: {', '.join(result['missing'])}" if result["missing"] else None
+            f"joint {facts} unknown: {', '.join(result['missing'])}" if result["missing"] else None
         ),
     }
 

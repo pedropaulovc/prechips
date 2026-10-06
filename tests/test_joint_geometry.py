@@ -351,7 +351,7 @@ def _bore_setup(stock_in, subject="final-bore"):
     }
 
 
-def test_final_step_bore_removes_material_restored_by_declared_join_fill(engine, joint_solids):
+def test_final_step_bore_removes_solid_core_after_join(engine, joint_solids):
     step = joint_solids["joined"]
     job = _joint_job(engine, step)
     job["features"]["final-bore"] = engine.refs(step, (-2, -2, 0), (2, 2, 20), kind="Cylinder")
@@ -363,7 +363,7 @@ def test_final_step_bore_removes_material_restored_by_declared_join_fill(engine,
     assert bored == pytest.approx(math.pi * (100 * 10 + 4.9**2 * 10 - 2**2 * 20), abs=2e-3)
 
 
-def test_later_cut_invalidates_prepared_spigot_before_join(engine, joint_solids):
+def test_intentional_final_bore_preserves_spigot_interface_before_join(engine, joint_solids):
     step = joint_solids["joined"]
     job = _joint_job(engine, step)
     job["features"]["final-bore"] = engine.refs(step, (-2, -2, 0), (2, 2, 20), kind="Cylinder")
@@ -373,8 +373,12 @@ def test_later_cut_invalidates_prepared_spigot_before_join(engine, joint_solids)
     join["joint"]["spigot_ref"] = "damaged-spigot"
     join["joint"]["refs"] = list(join["stock_in"])
     facts = engine.run(job)
-    assert facts["setups"]["damaged-spigot"]["completed_joint_features"] == []
-    assert "assembly_error" in facts["setups"]["join"]
+    assert facts["setups"]["damaged-spigot"]["completed_joint_features"] == ["spigot"]
+    joined = facts["setups"]["join"]
+    assert "assembly_error" not in joined
+    assert joined["stock_out_volume_mm3"] == pytest.approx(
+        math.pi * (100 * 10 + 4.9**2 * 10 - 2**2 * 20), abs=2e-3
+    )
 
 
 def test_captive_shoulder_refuses_straight_axis_insertion(engine, joint_solids):

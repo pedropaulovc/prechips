@@ -340,9 +340,13 @@ but earn no finished STEP-face coverage. Declared fit bands must cover the
 worst-case mating diameters, prepared geometry must reach the join along the
 selected stock lineage, and the kernel refuses interference outside the
 permitted fit or missing component-owned finished material at the join.
-Unknown joint dimensions withhold the union and its render, rather than
-assuming a fit. Assembly is limited to exactly two component lineages, including
-nested routes. See [the plan format](docs/plan.md) for the authored fields.
+Unknown joint dimensions or retaining-compound process facts withhold the union
+and its render, rather than assuming a fit or cure. Each assembly step joins
+exactly two disjoint inputs: an existing assembly may receive one new component.
+Finite both-open cylindrical sockets accept turned sleeves; clearance joining
+fills the mating annulus, not a sleeve's intentional bore. Retaining-compound
+travelers state surface prep, cure time and do not disturb until cured.
+See [the plan format](docs/plan.md) for the authored fields.
 
 Cutter self-contact exclusion is only a thin shell of the sampled face;
 another claimed groove wall remains an obstacle. Under the user's

@@ -1398,7 +1398,12 @@ class _Job:
         supplies, (stock, reason) = self._supplies()
         self.raw_supplies = supplies
         self.states = {
-            ref: {"components": {ref.removeprefix("stock.")}, "completed": {}, "joined": set()}
+            ref: {
+                "components": {ref.removeprefix("stock.")},
+                "completed": {},
+                "joined": set(),
+                "consumed": set(),
+            }
             for ref in supplies
         }
         self._init_joints()
@@ -1436,6 +1441,7 @@ class _Job:
                 "components": state["components"],
                 "completed": runner.completed if runner.stock_out_reason is None else {},
                 "joined": state["joined"],
+                "consumed": state["consumed"],
             }
             leaves[sid] = runner.leave_out
         return result
@@ -1540,12 +1546,14 @@ class _Job:
         return solids[0].multiFuse(solids[1:]).removeSplitter(), None
 
     def _held(self, setup, sources):
-        """Resolve one exact branch, or validate and join exactly two independent branches."""
+        """Resolve one branch, or join a single component to one independent branch."""
         stock_in = setup.get("stock_in", UNKNOWN)
         refs = stock_in if isinstance(stock_in, list) else [stock_in]
-        state = {"components": set(), "completed": {}, "joined": set()}
+        state = {"components": set(), "completed": {}, "joined": set(), "consumed": set()}
         error = None
         try:
+            if isinstance(stock_in, list) and len(refs) != 2:
+                raise ValueError("a declared joint requires exactly two stock_in branches")
             for ref in refs:
                 if ref not in sources or ref not in self.states:
                     raise ValueError(
@@ -1557,6 +1565,12 @@ class _Job:
                 state["components"].update(upstream["components"])
                 state["completed"].update(upstream["completed"])
                 state["joined"].update(upstream["joined"])
+                state["consumed"].update(upstream["consumed"])
+            if isinstance(stock_in, list) and sum(
+                len(self.states[ref]["components"]) > 1 for ref in refs
+            ) > 1:
+                raise ValueError("a declared joint can receive at most one existing assembly")
+            for ref in refs:
                 if sources[ref][1] is not None:
                     raise _Unknown(sources[ref][1])
             for component in state["components"] - state["joined"]:
@@ -1566,13 +1580,24 @@ class _Job:
                     raise _Unknown(self.ownership_reasons[component])
             if not isinstance(stock_in, list):
                 return sources[refs[0]][0], None, state, None
-            if len(refs) != 2:
-                raise ValueError("a declared joint requires exactly two stock_in branches")
             joint = setup.get("joint")
             if not isinstance(joint, dict):
                 raise ValueError("every stock_in array requires a declared joint")
             if joint.get("fit_error"):
                 raise ValueError(joint["fit_error"])
+            if joint.get("method") == "retaining_compound":
+                debts = []
+                for field in ("process", "cure_time_min", "surface_prep"):
+                    value = joint.get(field)
+                    if value == UNKNOWN:
+                        debts.append(f"retaining compound {field} is unknown")
+                    elif field == "cure_time_min":
+                        if not _number(value) or value <= 0:
+                            raise ValueError("retaining compound cure_time_min must be positive")
+                    elif not isinstance(value, str) or not value.strip():
+                        raise ValueError(f"retaining compound {field} must be nonempty text")
+                if debts:
+                    raise _Unknown(joint.get("reason") or "; ".join(debts))
             if joint.get("reason"):
                 raise _Unknown(joint["reason"])
             if joint.get("kind") == "cylindrical":
@@ -1581,9 +1606,29 @@ class _Job:
                 joined = self._surface_join(refs, sources, joint)
             else:
                 raise ValueError("joint kind is not cylindrical or surface")
+            consumed = set(state["consumed"])
+            if joint.get("kind") == "cylindrical":
+                consumed.update((joint["socket"], joint["spigot"]))
             raw = [self.raw_supplies["stock." + name][0] for name in state["components"]]
             envelope = raw[0].multiFuse(raw[1:]) if len(raw) > 1 else raw[0]
-            missing = self.solid.common(envelope).cut(joined).Volume
+            protected = self.solid.common(envelope)
+            # Raw envelopes can overlap future component-owned finished material.
+            # Keep the original outside-span backstop, withholding only that ownership.
+            for name, spec in self.joint_features.items():
+                if (
+                    spec["kind"] == "cylinder_spigot"
+                    and spec["component"] not in state["components"]
+                    and name in self.joint_targets
+                ):
+                    protected = protected.cut(
+                        self.protected[spec["component"]].common(self.joint_targets[name])
+                    )
+            for component in state["components"]:
+                pending = self.protected[component].cut(
+                    self._component_protection(component, consumed)
+                )
+                protected = protected.cut(pending)
+            missing = protected.cut(joined).Volume
             if missing > STOCK_MM3:
                 raise ValueError(
                     f"assembled outputs leave {_r(missing)} mm^3 "
@@ -1592,6 +1637,7 @@ class _Job:
             if not joined.isValid() or len(joined.Solids) != 1:
                 raise ValueError("declared joint leaves disconnected or invalid material")
             state["joined"].update(state["components"])
+            state["consumed"] = consumed
             return joined, None, state, None
         except _Unknown as exc:
             return None, str(exc), state, None
@@ -1608,10 +1654,14 @@ class _Job:
             name: self.solid for state in self.states.values() for name in state["components"]
         }
         roots = {ref: state["components"] for ref, state in self.states.items()}
+        ancestors = {ref: set() for ref in self.states}
         for setup in self.job["setups"]:
             refs = setup.get("stock_in")
             refs = refs if isinstance(refs, list) else [refs]
             roots[setup["id"]] = set().union(*(roots.get(ref, set()) for ref in refs))
+            ancestors[setup["id"]] = {setup["id"]} | set().union(
+                *(ancestors.get(ref, set()) for ref in refs)
+            )
         spigots = []
         for name, spec in sorted(self.joint_features.items()):
             try:
@@ -1637,15 +1687,18 @@ class _Job:
                     continue
                 owned = self.solid.common(target)
                 components = {socket["component"], spigot["component"]}
-                for other, material, other_components in spigots:
-                    if owned.common(material).Volume > STOCK_MM3:
+                for other, material, other_components, prior_join in spigots:
+                    if owned.common(material).Volume > STOCK_MM3 and (
+                        prior_join not in ancestors[setup["id"]]
+                        or socket["component"] != self.joint_features[other]["component"]
+                    ):
                         error = (
                             "spigot ownership overlaps finished material: "
                             f"{other}, {joint['spigot']}"
                         )
                         for component in components | other_components:
                             self.ownership_errors[component] = error
-                spigots.append((joint["spigot"], owned, components))
+                spigots.append((joint["spigot"], owned, components, setup["id"]))
                 self.protected[spigot["component"]] = self.protected[spigot["component"]].common(
                     owned
                 )
@@ -1707,8 +1760,31 @@ class _Job:
             self.synthetic_faces.append(face)
         return indices
 
+    def _component_protection(self, component, consumed):
+        """Finished ownership, except gaps awaiting their own authored joint fill."""
+        protected = self.protected[component]
+        for setup in self.job["setups"]:
+            joint = setup.get("joint")
+            if (
+                not isinstance(joint, dict)
+                or joint.get("kind") != "cylindrical"
+                or joint["socket"] in consumed
+            ):
+                continue
+            socket = self.joint_features[joint["socket"]]
+            if socket["component"] != component:
+                continue
+            try:
+                engagement = _joint_engagement(socket, self.joint_features[joint["spigot"]])
+            except (_Unknown, ValueError):
+                continue
+            protected = protected.cut(_joint_cylinder(engagement, engagement["diameter_mm"]))
+        return protected
+
     def _prepared(self, solid, name, state):
         spec = self.joint_features[name]
+        if name in state.get("consumed", set()):
+            raise ValueError(f"joint feature {name} has already been consumed by a joint")
         cut = state["completed"].get(name)
         if not cut or cut.get("component") != spec["component"]:
             raise ValueError(
@@ -1718,14 +1794,37 @@ class _Job:
         if spec["kind"] == "cylinder_bore":
             if solid.common(target).Volume > STOCK_MM3:
                 raise ValueError(f"prepared socket {name} still contains material")
-        else:
-            if target.cut(solid).Volume > STOCK_MM3:
-                raise ValueError(f"prepared spigot {name} is missing target material")
-            outer = _joint_cylinder(spec, 4 * math.dist(_bbox(solid)[:3], _bbox(solid)[3:]) + 10)
-            if solid.common(outer).cut(target).Volume > STOCK_MM3:
-                raise ValueError(
-                    f"prepared spigot {name} retains exterior stock in its finite span"
+            if spec.get("thru"):
+                diameter, depth, at, axis = _joint_parameters(spec, cut["diameter_mm"])
+                low, high = _axis_extent(solid, axis)
+                start = min(low - STOCK_TOL, at.dot(axis))
+                end = max(high + STOCK_TOL, at.dot(axis) + depth)
+                passage = _joint_cylinder(
+                    spec, diameter, end - start, list(at + axis * (start - at.dot(axis)))
                 )
+                if solid.common(passage).Volume > STOCK_MM3:
+                    raise ValueError(f"prepared through socket {name} has a blocked axial end")
+        else:
+            # A sleeve may already have its final bore. Its outside mating interface,
+            # and all finished material owned by this component, must still be present.
+            for face in target.Faces:
+                if isinstance(face.Surface, Part.Cylinder) and face.cut(solid).Area > max(
+                    AREA_ABS, face.Area * AREA_REL
+                ):
+                    raise ValueError(f"prepared spigot {name} is missing its outside interface")
+            protected = self._component_protection(
+                spec["component"], state.get("consumed", set())
+            ).common(target)
+            if protected.cut(solid).Volume > STOCK_MM3:
+                raise ValueError(f"prepared spigot {name} is missing protected target material")
+            if spec["component"] not in state.get("joined", set()):
+                outer = _joint_cylinder(
+                    spec, 4 * math.dist(_bbox(solid)[:3], _bbox(solid)[3:]) + 10
+                )
+                if solid.common(outer).cut(target).Volume > STOCK_MM3:
+                    raise ValueError(
+                        f"prepared spigot {name} retains exterior stock in its finite span"
+                    )
         return cut
 
     def _cylindrical_join(self, refs, sources, joint, state):
@@ -1738,10 +1837,8 @@ class _Job:
         if socket_ref == spigot_ref or {socket_ref, spigot_ref} != set(refs):
             raise ValueError("socket and spigot must arrive on different received branches")
         for ref, spec in ((socket_ref, socket_spec), (spigot_ref, spigot_spec)):
-            if self.states[ref]["components"] != {spec["component"]}:
-                raise ValueError(
-                    "joint feature does not belong to its exact received component ancestry"
-                )
+            if spec["component"] not in self.states[ref]["components"]:
+                raise ValueError("joint feature does not belong to its received component ancestry")
         socket, spigot = sources[socket_ref][0], sources[spigot_ref][0]
         socket_cut = self._prepared(socket, socket_name, self.states[socket_ref])
         spigot_cut = self._prepared(spigot, spigot_name, self.states[spigot_ref])
@@ -1768,7 +1865,6 @@ class _Job:
         ):
             raise ValueError("joint method does not match its declared fit")
         engagement = _joint_engagement(socket_spec, spigot_spec)
-        fill = _joint_cylinder(engagement, engagement.get("diameter_mm"))
         allowed_overlap = Part.Shape()
         if fit == "interference":
             outer = _joint_cylinder(engagement, spigot_cut["diameter_mm"])
@@ -1794,6 +1890,9 @@ class _Job:
             return socket.fuse(spigot).removeSplitter()
         if not joint.get("process"):
             raise ValueError("clearance joint fill requires an authored joining process")
+        fill = _joint_cylinder(engagement, socket_cut["diameter_mm"]).cut(
+            _joint_cylinder(engagement, spigot_cut["diameter_mm"])
+        )
         return socket.multiFuse([spigot, fill]).removeSplitter()
 
     def _surface_join(self, refs, sources, joint):
@@ -1906,7 +2005,9 @@ class _Setup:
         self.leave_in = leave
         self.leave_out = max([leave] + [a for a, _ in map(_leave, self.ops) if a is not None])
         self.reasons = {}
-        self.state = state or {"components": set(), "completed": {}, "joined": set()}
+        self.state = state or {
+            "components": set(), "completed": {}, "joined": set(), "consumed": set()
+        }
         self.completed = dict(self.state["completed"])
         self.protected = None
         self.certain = None
@@ -2142,22 +2243,9 @@ class _Setup:
             raw = self.owner.raw_supplies.get(ref, (None, None))[0]
             if raw is None:
                 continue
-            piece = self.owner.protected[component].common(raw)
-            if component not in self.state["joined"]:
-                for setup in self.owner.job["setups"]:
-                    joint = setup.get("joint")
-                    if not isinstance(joint, dict) or joint.get("kind") != "cylindrical":
-                        continue
-                    socket = self.owner.joint_features[joint["socket"]]
-                    if socket["component"] != component:
-                        continue
-                    try:
-                        engagement = _joint_engagement(
-                            socket, self.owner.joint_features[joint["spigot"]]
-                        )
-                    except (_Unknown, ValueError):
-                        continue
-                    piece = piece.cut(_joint_cylinder(engagement, engagement["diameter_mm"]))
+            piece = self.owner._component_protection(
+                component, self.state["consumed"]
+            ).common(raw)
             if piece.Volume > HIT_MM3:
                 pieces.append(piece)
         return (
@@ -2319,7 +2407,7 @@ class _Setup:
         }
         model = stock.copy()
         model.transformShape(self.matrix.inverse())
-        self.owner._prepared(model, name, {"completed": {name: record}})
+        self.owner._prepared(model, name, {**self.state, "completed": {name: record}})
         self.completed[name] = record
 
     def _output(self, ops):
@@ -2460,8 +2548,10 @@ class _Setup:
             model = stock.copy()
             model.transformShape(self.matrix.inverse())
             for name in list(self.completed):
+                if name in self.state["consumed"]:
+                    continue  # Historical preparation, now occupied by a verified joint.
                 try:
-                    self.owner._prepared(model, name, {"completed": self.completed})
+                    self.owner._prepared(model, name, {**self.state, "completed": self.completed})
                 except (ValueError, _Unknown):
                     del self.completed[name]
         except Exception as exc:

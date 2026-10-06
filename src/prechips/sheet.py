@@ -12,7 +12,7 @@ import math
 import re
 from html import escape
 
-from .joint_features import TEMPORARY_LABEL
+from .joint_features import TEMPORARY_LABEL, setup_ancestry
 from .model import tolerance_requirements
 from .rules.resolution import (
     MANUAL,
@@ -174,6 +174,15 @@ def _text(value):
 
 def _known(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _supply_name(root):
+    """A root supply (``stock.<component>``, ``stock`` or an unrouted setup) in shop words."""
+    if root == "stock":
+        return "stock blank"
+    if isinstance(root, str) and root.startswith("stock."):
+        return root.removeprefix("stock.")
+    return f"Setup {_text(root)} material"
 
 
 def _amount(value):
@@ -342,18 +351,23 @@ class _Traveler:
 
     def feature_label(self, feature):
         """An exported feature prints its shop name; a transient joint feature is marked
-        temporary."""
-        joint = _mapping(self.features.get(feature, {}).get("joint"))
+        temporary. A through bore is a through-socket; a spigot is its component's exterior."""
+        definition = self.features.get(feature, {})
+        joint = _mapping(definition.get("joint"))
         if not joint:
             return self.feature_name(feature)
-        kind = {"cylinder_bore": "socket bore", "cylinder_spigot": "spigot"}[joint["kind"]]
+        if joint["kind"] == "cylinder_spigot":
+            kind = "spigot exterior"
+        else:
+            kind = "through-socket bore" if definition.get("thru") is True else "socket bore"
         return (
             f"{self.feature_name(feature)} ({kind} on {_text(joint['component'])}): "
             f"{TEMPORARY_LABEL}"
         )
 
     def joint_text(self, setup):
-        """How a two-branch setup joins: method, process and the declared fit band."""
+        """How a joint setup joins its two received branches: method, process, the declared
+        fit band and, for retaining compound, surface prep and the undisturbed cure."""
         joint = _mapping(setup.get("joint"))
         if not joint:
             return ""
@@ -361,13 +375,51 @@ class _Traveler:
         if joint["kind"] == "cylindrical":
             band = joint.get(f"{joint['fit']}_mm")
             limits = " to ".join(map(_number, band)) if isinstance(band, list) else _text(band)
+            socket = joint["socket"]
+            through = _mapping(self.features.get(socket)).get("thru") is True
             text += (
-                f": spigot {self.feature_name(joint['spigot'])} into socket "
-                f"{self.feature_name(joint['socket'])}, {joint['fit']} {limits} mm diametral"
+                f": spigot {self.feature_name(joint['spigot'])} "
+                + ("into through-socket " if through else "into socket ")
+                + f"{self.feature_name(socket)}, {joint['fit']} {limits} mm diametral"
             )
         else:
             text += f" at {len(joint['interfaces'])} declared interface(s)"
-        return text + "."
+        text += "."
+        if joint["method"] == "retaining_compound":
+            prep, cure = joint.get("surface_prep"), joint.get("cure_time_min")
+            known_prep = isinstance(prep, str) and prep.strip() and prep != "unknown"
+            text += (
+                " Surface prep: "
+                + (f"{_text(prep).rstrip('.')}." if known_prep else "? UNKNOWN (not declared).")
+                + " Apply the retaining compound, assemble, then do not disturb until cured: "
+                + (
+                    f"cure time {_number(cure)} min."
+                    if _known(cure)
+                    else "cure time ? min UNKNOWN (not declared)."
+                )
+            )
+        return text
+
+    def joint_debt(self, setup):
+        """The joint's own declared facts left unknown: the join is withheld, never assumed."""
+        joint = _mapping(setup.get("joint"))
+        if not joint:
+            return ""
+        missing = []
+        if joint["kind"] == "cylindrical" and joint.get(f"{joint['fit']}_mm") == "unknown":
+            missing.append(f"{joint['fit']} band")
+        if joint["method"] == "retaining_compound":
+            missing.extend(
+                name
+                for key, name in (("surface_prep", "surface prep"), ("cure_time_min", "cure time"))
+                if joint.get(key) == "unknown"
+            )
+        if not missing:
+            return ""
+        return (
+            f"STOP: joint facts unknown — {', '.join(missing)}. The join is not checked; "
+            "do not assemble until they are declared."
+        )
 
     def value(self, value, feature=None, dimension=None, drawing=True):
         """Format with the dimension's declared drawing precision when one exists.
@@ -1760,16 +1812,29 @@ class _Traveler:
     def arrival(self, setup):
         source = setup.get("stock_in")
         sources = source if isinstance(source, list) else [source]
-        names = []
+        ancestry = setup_ancestry(self.plan) if len(sources) > 1 else {}
+        supplies = {ref: ancestry.get(ref, frozenset((ref,))) for ref in sources}
+        # A sequential join receives one already-joined assembly plus one single component.
+        assembled = len(sources) > 1 and any(len(roots) > 1 for roots in supplies.values())
+        names, added = [], None
         for ref in sources:
+            roots = supplies[ref]
+            if assembled and len(roots) > 1:
+                parts = " + ".join(sorted(_supply_name(root) for root in roots))
+                names.append(f"the {parts} assembly (joined in Setup {ref})")
+                continue
+            if assembled:
+                added = _supply_name(next(iter(roots)))
             if ref == "stock":
                 names.append("the stock blank")
             elif isinstance(ref, str) and ref.startswith("stock."):
                 names.append(f"the {ref.removeprefix('stock.')} blank")
             elif isinstance(ref, str) and ref != "unknown":
-                names.append(f"Setup {ref}")
+                names.append(f"the {added} from Setup {ref}" if assembled else f"Setup {ref}")
             else:
                 names.append("? unknown stock")
+        if assembled:
+            return " and ".join(names) + f", joined here (adds the {added} to that assembly)"
         if len(names) > 1:
             return "parts from " + " and ".join(names) + " joined"
         name = names[0] if names else "? unknown stock"
@@ -1913,7 +1978,8 @@ class _Traveler:
         line += "." + self.joint_text(setup)
         if state.get("note"):
             line += " " + self.bench(state["note"], setup).rstrip(".") + "."
-        return _p(line)
+        debt = self.joint_debt(setup)
+        return _p(line) + (_p(debt, "stop") if debt else "")
 
     def speeds_source(self):
         cites = []

@@ -561,7 +561,7 @@ not exist.
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
 | stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
-| joint_fit (always required): worst-case diametral clearance/interference interval lies inside the matching declared band, with collinear finite cylinder engagement | plan.joint_features (component, at, axis, dia, nominal_dia, depth), plan.setups.joint (fit, band, method/process/cite), features.units | M2 | "Worst-case interference lies outside the declared fit; no union." |
+| joint_fit (always required): worst-case diametral clearance/interference interval lies inside the matching declared band, with collinear finite cylinder engagement; retaining-compound prep and positive cure time must be known | plan.joint_features (component, at, axis, dia, nominal_dia, depth), plan.setups.joint (fit, band, method/process/cite, retaining-compound surface_prep/cure_time_min), features.units | M2 | "Worst-case interference lies outside the declared fit; no union." |
 
 ### 4.2 Setup geometry (on the B-rep — needs the kernel)
 
@@ -1195,8 +1195,12 @@ sheet.
    final solid, without bulk overlap. Component-owned protection applies to all
    preparation cuts; assembly rechecks received final-material coverage plus
    authorized derived fill. Numeric unknowns withhold union/render as named debt;
-   identities and invalid ancestry are bad input. Exactly two physical component
-   lineages are supported; nested joins to a third component remain refused.
+   identities and invalid ancestry are bad input. Each join receives exactly two
+   disjoint branches, at most one an existing assembly; sequential assembly plus
+   one component is supported. Both-open finite cylindrical sockets accept
+   sleeves without inventing a core. Retaining compound requires an authored
+   clearance band, surface prep and cure time; unknown process facts retain debt,
+   and the traveler instructs do not disturb until cured. Silver braze is unchanged.
    Transient taps/counterbores are named debt, not cylindrical substitutes.
    The built-up cone's engine-branch migration deliberately keeps unresolved
    numeric preparation/fit facts; the complete authored example route is separate.

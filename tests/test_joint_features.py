@@ -802,20 +802,3 @@ binding = "nominal"
         assert "kernel" not in span["sources"].values()
 
 
-def test_nested_two_reference_assembly_cannot_hide_a_third_supply_component(tmp_path):
-    text = _plan()
-    start, stop = text.index("[joint_features.socket]"), text.index("[[setups]]")
-    text = text[:start] + '[[stock.components]]\nid = "third"\n' + text[stop:]
-    text = text.replace('feature = "socket"', 'feature = "subject"').replace(
-        'feature = "spigot"', 'feature = "subject"'
-    )
-    text = text.replace('checks = {dia = "gauge"}\n', "")
-    start, stop = text.index("[setups.joint]"), text.rindex("[[setups.ops]]")
-    text = text[:start] + JOINT + text[stop:]
-    text += (
-        '\n[[setups]]\nid = "J2"\nstock_in = ["J", "stock.third"]\n'
-        + JOINT
-        + '[[setups.ops]]\nop = 10\ndo = "fit"\nfeature = "subject"\n'
-    )
-    with pytest.raises(BadInput):
-        _load(tmp_path, text)
