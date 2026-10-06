@@ -80,11 +80,20 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
     tables = [table for table in sections(html, "FEATURE MAP") if "<table" in table]
     assert tables and all("<td>?</td>" not in table for table in tables)
     targets = text("".join(sections(html, "OPERATIONS")))
+    printed = re.findall(r"Z (-?\d+\.(\d+)) → (-?\d+\.(\d+))", targets)
+    grids = {row["subject"]: row["numbers"]["dro_grid"] for row in findings(report, "coordinates")}
     for row in findings(report, "blind_depth"):
         for endpoint in row["numbers"].get("endpoints", []):
             entry, tip = endpoint["entry_z"], endpoint["tip_z"]
             if isinstance(entry, float) and isinstance(tip, float):
-                assert f"Z {entry:.2f} → {tip:.2f}" in targets
+                # Known depths print on the setup's DRO grid, within one step of the value.
+                grid = grids[endpoint["setup"]]
+                assert any(
+                    {len(a_digits), len(b_digits)} == {grid["decimals"]}
+                    and abs(float(a) - entry) < grid["step"]
+                    and abs(float(b) - tip) < grid["step"]
+                    for a, a_digits, b, b_digits in printed
+                ), (endpoint, printed)
     # The scratch S1 deburr_mm is unknown: the sentinel survives the precision fallback.
     assert re.search(r"Break edges[^|]*\?", text(html))
 

@@ -1,10 +1,17 @@
-"""Shop annotations retain table targets without inventing connected toolpaths."""
+"""Shop annotations retain table targets without inventing connected toolpaths.
+
+Arc and line tables draw the values the DRO prints (``dro_xy``), and each of their keys
+lists the printed row ids it labels: the same ids the sheet's tables and the kernel's
+checks use. A bounded op's tables are left to the kernel, which draws only its clip.
+"""
 
 from types import SimpleNamespace
 
 import pytest
+from test_coordinates_checkpoints import finding, plan
 
 from prechips.kernel.render_inputs import contour_annotations, setup_annotations
+from prechips.rules import coordinates
 
 
 def _bundle(units="mm"):
@@ -13,6 +20,7 @@ def _bundle(units="mm"):
 
 def _setup():
     return {
+        "id": "S1",
         "hold": {"fixture": "none"},
         "stock_state": {},
         "ops": [{"op": 10, "tool": "endmill"}, {"op": 20, "tool": "turning_tool"}],
@@ -36,17 +44,17 @@ def test_arc_end_midpoint_and_line_corners_share_keys_only_within_their_operatio
     arc_points = [[-5, 0], [-3, 4], [0, 5], [3, 4], [5, 0]]
     line_points = [[-5, 0], [-5, -2], [5, -2], [5, 0]]
     numbers = {
-        "arc_table": [{"op": 10, "rows": [{"setup_xy": point} for point in arc_points]}],
+        "arc_table": [{"op": 10, "rows": [{"dro_xy": point} for point in arc_points]}],
         "line_table": [
-            {"op": 10, "setup_xy": line_points},
-            {"op": 20, "setup_xy": [[5, 0], [5, -2]]},
+            {"op": 10, "dro_xy": line_points},
+            {"op": 20, "dro_xy": [[5, 0], [5, -2]]},
         ],
         # The coordinate report also exposes an arc as a generic profile. It
         # must not become a second contour or label every chord checkpoint.
         "profiles": [{"op": 10, "cutter_centre": [{"x": x, "y": y} for x, y in arc_points]}],
     }
 
-    paths, waypoints = contour_annotations(numbers, 1.0)
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
 
     assert [path["xy"] for path in paths if path["op"] == "10"] == [arc_points, line_points]
     assert [path["xy"] for path in paths if path["op"] == "20"] == [[[5, 0], [5, -2]]]
@@ -64,12 +72,12 @@ def test_mirrored_line_points_keep_their_signed_setup_coordinates():
     east = [[7.25, 1.5], [3.5, 5.0], [1.0, 5.0]]
     numbers = {
         "line_table": [
-            {"op": 10, "setup_xy": west},
-            {"op": 10, "setup_xy": east},
+            {"op": 10, "dro_xy": west},
+            {"op": 10, "dro_xy": east},
         ]
     }
 
-    paths, waypoints = contour_annotations(numbers, 1.0)
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
 
     assert [path["xy"] for path in paths] == [west, east]
     keys = _point_keys(waypoints, 10)
@@ -80,7 +88,7 @@ def test_mirrored_line_points_keep_their_signed_setup_coordinates():
 
 
 def test_inch_contour_points_and_waypoint_keys_are_converted_to_millimetres():
-    numbers = {"line_table": [{"op": 10, "setup_xy": [[0.25, -0.5], [1.0, 0.75], [1.0, -0.5]]}]}
+    numbers = {"line_table": [{"op": 10, "dro_xy": [[0.25, -0.5], [1.0, 0.75], [1.0, -0.5]]}]}
 
     annotation = setup_annotations(_bundle("in"), _setup(), numbers)
 
@@ -100,11 +108,11 @@ def test_inch_contour_points_and_waypoint_keys_are_converted_to_millimetres():
 def test_unknown_interior_point_cannot_join_known_ends_or_claim_endpoint_keys(source, unknown):
     broken = [[0, 0], unknown, [10, 10]]
     valid = [[20, 0], [25, 5]]
-    numbers = {"line_table": [{"op": 20, "setup_xy": valid}]}
+    numbers = {"line_table": [{"op": 20, "dro_xy": valid}]}
     if source == "arc":
-        numbers["arc_table"] = [{"op": 10, "rows": [{"setup_xy": point} for point in broken]}]
+        numbers["arc_table"] = [{"op": 10, "rows": [{"dro_xy": point} for point in broken]}]
     elif source == "line":
-        numbers["line_table"].append({"op": 10, "setup_xy": broken})
+        numbers["line_table"].append({"op": 10, "dro_xy": broken})
     else:
         points = broken
         if source == "profile_rows":
@@ -114,7 +122,7 @@ def test_unknown_interior_point_cannot_join_known_ends_or_claim_endpoint_keys(so
             ]
         numbers["profiles"] = [{"op": 10, "cutter_centre": points}]
 
-    paths, waypoints = contour_annotations(numbers, 1.0)
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
 
     assert paths == [{"op": "20", "xy": valid, "directed": False}]
     assert _point_keys(waypoints, 10) == {}
@@ -130,15 +138,15 @@ def test_only_an_established_cutting_order_draws_travel_arrows(order, directed):
     table = {} if order is None else {"cut_order": order}
     points = [[0, 0], [5, 5], [10, 0]]
     numbers = {
-        "arc_table": [{"op": 10, "rows": [{"setup_xy": p} for p in points], **table}],
-        "line_table": [{"op": 20, "setup_xy": points, **table}],
+        "arc_table": [{"op": 10, "rows": [{"dro_xy": p} for p in points], **table}],
+        "line_table": [{"op": 20, "dro_xy": points, **table}],
         "profiles": [
             {"op": 30, "cutter_centre": points, **table},
             # Raster passes are independent cuts, never a travel claim.
             {"op": 40, "cutter_centre": [[[0, 0], [0, 5]], [[1, 0], [1, 5]]], **table},
         ],
     }
-    paths, _ = contour_annotations(numbers, 1.0)
+    paths, _ = contour_annotations(numbers, 1.0, "S1")
     assert {path["op"]: path["directed"] for path in paths if path["op"] != "40"} == {
         "10": directed,
         "20": directed,
@@ -154,7 +162,7 @@ def test_raster_passes_remain_independent_even_when_a_middle_pass_is_incomplete(
     last = [[0, 4], [10, 4]]
     numbers = {"profiles": [{"op": 10, "cutter_centre": [first, middle, last]}]}
 
-    paths, waypoints = contour_annotations(numbers, 1.0)
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
 
     expected = [first, last] if unknown_middle else [first, middle, last]
     assert [path["xy"] for path in paths] == expected
@@ -182,7 +190,7 @@ def test_axial_paths_and_sparse_row_keys_keep_displayed_x_targets_not_solid_radi
     ]
     numbers = {
         "x_display": x_display,
-        "line_table": [{"op": 10, "setup_xy": [[-1, 0], [1, 0]]}],
+        "line_table": [{"op": 10, "dro_xy": [[-1, 0], [1, 0]]}],
         "contours": [{"op": 20, "rows": rows}],
     }
 
@@ -220,3 +228,30 @@ def test_unknown_axial_interior_does_not_fabricate_a_profile_or_table_keys():
     assert _point_keys(annotation["waypoints"], 10, axis="xz") == {}
     assert set(_point_keys(annotation["waypoints"], 20, axis="xz")) == {(6, 10), (8, 0)}
     _assert_table_keys(annotation["waypoints"])
+
+
+def test_table_keys_list_the_printed_rows_they_label(tmp_path):
+    numbers = finding(plan(tmp_path, bounded=False)).numbers
+    (table,) = coordinates.checkpoints("S1:20", numbers, 20)
+    printed = {row_id: xy for row_id, xy, _, _ in table["rows"]}
+    ids = list(printed)
+
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
+
+    assert [path["xy"] for path in paths] == [[printed[row_id] for row_id in ids]]
+    # An arc is keyed at its ends and apex, each key at the very row it names.
+    assert [row for waypoint in waypoints for row in waypoint["rows"]] == [
+        ids[0],
+        ids[len(ids) // 2],
+        ids[-1],
+    ]
+    for waypoint in waypoints:
+        assert all(waypoint["xy"] == printed[row_id] for row_id in waypoint["rows"])
+
+
+def test_a_bounded_ops_whole_table_is_never_drawn_here(tmp_path):
+    # The kernel request's tables are whole and marked for the kernel's clip; only the
+    # kernel's clip of them may be drawn.
+    numbers = finding(plan(tmp_path), pre_kernel=True).numbers
+    assert numbers["arc_table"]
+    assert contour_annotations(numbers, 1.0, "S1") == ([], [])
