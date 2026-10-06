@@ -557,6 +557,16 @@ MachineEnvelope = record(
         ),
     },
 )
+
+
+class SpindleRotation(InputModel):
+    """A labelled spindle rotation: only its own measured/verify qualify it."""
+
+    value: Literal["cw", "ccw"]
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+
 Spindle = record(
     "Spindle",
     {
@@ -564,6 +574,8 @@ Spindle = record(
         **numbers("rpm_min rpm_max hp bore_in runout_in"),
         "two_ranges": bool,
         "ranges_rpm": list[list[Number]],
+        # Cutting rotation viewed from above, looking down setup -Z (a right-hand cutter: cw).
+        "rotation": Literal["cw", "ccw"] | SpindleRotation | Unknown,
     },
 )
 # Tool projection belongs to one (tool, holder) pair: full holder reference -> fact.

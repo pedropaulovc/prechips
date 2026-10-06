@@ -666,8 +666,9 @@ class _Diagram:
 
             direction_keys = {0, len(op_paths) // 2, len(op_paths) - 1}
             for path_index, path in enumerate(op_paths):
+                directed = path.get("directed") is True
                 self._ordered_path([project(p) for p in path["xy"]], colour, width=2,
-                                   arrows=path_index in direction_keys)
+                                   arrows=directed and path_index in direction_keys)
             self._waypoint_badges(op_waypoints, project,
                                   (x + 6, y + 31, x + width - 6, y + height - 6),
                                   colour=colour, perimeter=True)

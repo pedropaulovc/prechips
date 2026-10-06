@@ -13,18 +13,26 @@ def _xy(value, scale):
     return None
 
 
+def _directed(table):
+    return table.get("cut_order") in ("conventional", "climb")
+
+
 def contour_annotations(numbers, scale):
-    """Paths and sparse, shared table keys: arc ends/apex and exact line corners."""
+    """Paths and sparse, shared table keys: arc ends/apex and exact line corners.
+
+    A path is ``directed`` (drawn with travel arrows) only when coordinates established
+    its cutting order; otherwise its point order is geometric, not a travel claim.
+    """
     paths, waypoints = [], []
 
-    def add_path(op, points, candidates):
+    def add_path(op, points, candidates, directed):
         points = [_xy(value, scale) for value in points]
         if any(point is None for point in points):
             return
         if len(points) < 2:
             return
         op = str(op)
-        paths.append({"op": op, "xy": points})
+        paths.append({"op": op, "xy": points, "directed": directed})
         for value in candidates:
             point = _xy(value, scale)
             if point is None or any(
@@ -39,11 +47,16 @@ def contour_annotations(numbers, scale):
         rows = arc.get("rows", [])
         points = [row.get("setup_xy") for row in rows]
         if points:
-            add_path(arc.get("op"), points, [points[0], points[len(points) // 2], points[-1]])
+            add_path(
+                arc.get("op"),
+                points,
+                [points[0], points[len(points) // 2], points[-1]],
+                _directed(arc),
+            )
             arc_ops.add(arc.get("op"))
     for line in numbers.get("line_table", []):
         points = line.get("setup_xy", [])
-        add_path(line.get("op"), points, points)
+        add_path(line.get("op"), points, points, _directed(line))
     for profile in numbers.get("profiles", []):
         if profile.get("op") in arc_ops:
             continue
@@ -59,9 +72,10 @@ def contour_annotations(numbers, scale):
                     profile.get("op"),
                     segment,
                     segment if index in (0, len(points) - 1) else [],
+                    False,
                 )
         else:
-            add_path(profile.get("op"), points, points)
+            add_path(profile.get("op"), points, points, _directed(profile))
     return paths, waypoints
 
 

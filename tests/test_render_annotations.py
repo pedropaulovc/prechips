@@ -118,10 +118,35 @@ def test_unknown_interior_point_cannot_join_known_ends_or_claim_endpoint_keys(so
 
     paths, waypoints = contour_annotations(numbers, 1.0)
 
-    assert paths == [{"op": "20", "xy": valid}]
+    assert paths == [{"op": "20", "xy": valid, "directed": False}]
     assert _point_keys(waypoints, 10) == {}
     assert set(_point_keys(waypoints, 20)) == {(20, 0), (25, 5)}
     _assert_table_keys(waypoints)
+
+
+@pytest.mark.parametrize(
+    ("order", "directed"),
+    [("conventional", True), ("climb", True), ("unknown", False), (None, False)],
+)
+def test_only_an_established_cutting_order_draws_travel_arrows(order, directed):
+    table = {} if order is None else {"cut_order": order}
+    points = [[0, 0], [5, 5], [10, 0]]
+    numbers = {
+        "arc_table": [{"op": 10, "rows": [{"setup_xy": p} for p in points], **table}],
+        "line_table": [{"op": 20, "setup_xy": points, **table}],
+        "profiles": [
+            {"op": 30, "cutter_centre": points, **table},
+            # Raster passes are independent cuts, never a travel claim.
+            {"op": 40, "cutter_centre": [[[0, 0], [0, 5]], [[1, 0], [1, 5]]], **table},
+        ],
+    }
+    paths, _ = contour_annotations(numbers, 1.0)
+    assert {path["op"]: path["directed"] for path in paths if path["op"] != "40"} == {
+        "10": directed,
+        "20": directed,
+        "30": directed,
+    }
+    assert not any(path["directed"] for path in paths if path["op"] == "40")
 
 
 @pytest.mark.parametrize("unknown_middle", [False, True])

@@ -26,6 +26,12 @@ from .tip_endpoints import HOLE_OPS, stock_states
 AXES = ("x", "y", "z")
 CENTRE_OPS = HOLE_OPS | {"center"}
 LOCATED_KINDS = {"hole", "counterbore", "thread", "threaded_hole", "boss"}
+# Side-milling traverse sense. With n the cutter-side surface normal (from the cut wall
+# toward the cutter centre) and t the travel, a clockwise spindle (viewed from above,
+# looking down setup -Z) cuts conventionally when (n x t)·Z > 0 and climbs when it is < 0;
+# a counterclockwise spindle inverts both.
+_CUT_SENSE = {"conventional": 1, "climb": -1}
+_SPINDLE_SENSE = {"cw": 1, "ccw": -1}
 
 
 def mapping(value):
@@ -104,6 +110,58 @@ def _cross(a, b):
     return a[0] * b[1] - a[1] * b[0]
 
 
+def cut_order(machine, op):
+    """(required sign of (n x t)·Z or None, order record) from op direction and spindle.
+
+    Only an authored ``conventional``/``climb`` op on a machine whose spindle ``rotation``
+    is declared (bare, or a ``{value, measured}`` fact not flagged ``verify``) has a
+    cutting order; anything else keeps the order unknown.
+    """
+    direction = op.get("direction", UNKNOWN)
+    rotation = mapping(mapping(machine).get("spindle")).get("rotation", UNKNOWN)
+    flagged = isinstance(rotation, dict) and rotation.get("verify") is True
+    if isinstance(rotation, dict):
+        rotation = rotation.get("value", UNKNOWN)
+    if direction not in _CUT_SENSE:
+        reason = f"op direction {direction!r} is neither conventional nor climb"
+    elif flagged:
+        reason = "the machine spindle rotation is flagged verify"
+    elif rotation not in _SPINDLE_SENSE:
+        reason = "the machine spindle rotation is not declared"
+    else:
+        sense = _CUT_SENSE[direction] * _SPINDLE_SENSE[rotation]
+        return sense, {"cut_order": direction, "spindle_rotation": rotation}
+    return None, {"cut_order": UNKNOWN, "cut_order_reason": reason}
+
+
+def _reversal(a, b, normal, sense):
+    """Whether travel a->b (setup XY) must reverse to cut with ``sense``, or None.
+
+    ``normal`` is the cutter-side wall normal there; an unknown sense, unknown values or a
+    travel parallel to the normal cannot establish an order.
+    """
+    values = (*a, *b, *normal)
+    if sense is None or not all(number(v) for v in values):
+        return None
+    turn = _cross(normal, [b[0] - a[0], b[1] - a[1]])
+    if abs(turn) < 1e-12:
+        return None
+    return (turn > 0) != (sense > 0)
+
+
+def _ordered(record, reverse, order, keys):
+    """Reverse ``keys`` lists for the traverse and stamp the order (unknown if unproven)."""
+    if reverse is None:
+        order = {"cut_order": UNKNOWN, **{k: v for k, v in order.items() if k != "cut_order"}}
+        order.setdefault("cut_order_reason", "the traverse direction is not determined")
+    elif reverse:
+        for key in keys:
+            record[key] = list(reversed(record[key]))
+    record.update(order)
+    return record
+
+
+
 def _offset_line(a, b, offset):
     delta = [b[i] - a[i] for i in range(2)]
     norm = math.hypot(*delta)
@@ -180,7 +238,12 @@ def _xy_model(point, feature, frames):
     return model_point([point[0], point[1], 0.0], frames.get(feature.get("frame", "model")))
 
 
-def _arc(feature_name, feature, op, offset, frame, frames, features):
+def _arc(feature_name, feature, op, offset, frame, frames, features, sense, order):
+    """(arc table, join lines), each listed in cutting order for ``sense`` (see cut_order).
+
+    The cutter-side wall normal is radial: outward when the cutter centre runs outside the
+    wall radius, inward on a concave wall. A join's normal is its offset land's normal.
+    """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
     full = feature.get("kind") in {"boss", "cylinder"}
@@ -258,6 +321,14 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
             }
         )
     model_centre = model_point(centre, frames.get(feature.get("frame", "model")))
+    centre_xy = frame_point(model_centre, frame)[:2]
+    reverse = None
+    if len(rows) >= 2 and cutter_radius != radius and all(number(v) for v in centre_xy):
+        a, b = rows[len(rows) // 2 - 1]["setup_xy"], rows[len(rows) // 2]["setup_xy"]
+        outward = 1 if cutter_radius > radius else -1
+        if all(number(v) for v in (*a, *b)):
+            normal = [outward * ((a[i] + b[i]) / 2 - centre_xy[i]) for i in range(2)]
+            reverse = _reversal(a, b, normal, sense)
     interpolation = (
         "continuous circle; checkpoints are not straight-chord cuts"
         if full
@@ -269,7 +340,7 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
         "method": "arc_table",
         "step_deg": step,
         "centre_model_xy": model_centre[:2],
-        "centre_setup_xy": frame_point(model_centre, frame)[:2],
+        "centre_setup_xy": centre_xy,
         "cutter_centre_radius_mm": cutter_radius,
         "radius_mm": cutter_radius,
         "tip_z": op.get("to_z", UNKNOWN),
@@ -280,6 +351,7 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
             + "govern readiness"
         ),
     }
+    _ordered(arc, reverse, order, ("rows",))
     if number(step):
         arc["max_chord_sagitta_mm"] = cutter_radius * (
             1 - math.cos(math.radians(min(step, abs(end - start)) / 2))
@@ -287,20 +359,34 @@ def _arc(feature_name, feature, op, offset, frame, frames, features):
     lines = []
     if bottom and joins:
         sides = (-1, 1) if feature.get("mirror_symmetric") is True else (1,)
+        # _joins validated both land ends; the land's unit left normal is its cutter side.
+        top_end = mapping(features.get(feature.get("top_edge_feature")))["end"]
+        shifted, _ = _offset_line(top_end, feature["radial_tip_end"], 1.0)
+        left = [shifted[i] - top_end[i] for i in range(2)]
+
+        def setup_xy(point):
+            return frame_point(_xy_model(point, feature, frames), frame)[:2]
+
         for side in sides:
             xy = [[centre[0] + side * (p[0] - centre[0]), p[1]] for p in joins]
-            lines.append(
-                {
-                    "op": op["op"],
-                    "feature": feature_name,
-                    "side": "+X" if side == 1 else "-X",
-                    "model_xy": xy,
-                    "setup_xy": [frame_point(_xy_model(p, feature, frames), frame)[:2] for p in xy],
-                    "offset_mm": offset,
-                    "tip_z": op.get("to_z", UNKNOWN),
-                    "join_method": "line-line miter and exact line-circle intersections",
-                }
-            )
+            local = [setup_xy(p) for p in xy]
+            wall = setup_xy([xy[0][0] - side * left[0] * offset, xy[0][1] - left[1] * offset])
+            normal = [
+                local[0][i] - wall[i] if number(local[0][i]) and number(wall[i]) else UNKNOWN
+                for i in range(2)
+            ]
+            line = {
+                "op": op["op"],
+                "feature": feature_name,
+                "side": "+X" if side == 1 else "-X",
+                "model_xy": xy,
+                "setup_xy": local,
+                "offset_mm": offset,
+                "tip_z": op.get("to_z", UNKNOWN),
+                "join_method": "line-line miter and exact line-circle intersections",
+            }
+            reverse = _reversal(local[0], local[1], normal, sense)
+            lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
     return arc if rows else None, lines
 
 
@@ -507,6 +593,7 @@ def evaluate(bundle):
         frame = setup_frame(bundle, setup)
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"
+        unordered = set()  # why a contour table's cutting order is unknown
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -598,6 +685,7 @@ def evaluate(bundle):
                 if paired
                 else [("finish", 0)]
             )
+            sense, order = cut_order(machine, op)
             for stage, allowance in stages:
                 offset = radius + allowance if number(radius) and number(allowance) else UNKNOWN
                 profile = {
@@ -617,7 +705,9 @@ def evaluate(bundle):
                 }
                 generated = False
                 if contour.get("method") == "arc_table":
-                    arc, lines = _arc(name, feature, op, offset, frame, frames, features)
+                    arc, lines = _arc(
+                        name, feature, op, offset, frame, frames, features, sense, order
+                    )
                     if arc:
                         arc.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
                         numbers["arc_table"].append(arc)
@@ -625,11 +715,23 @@ def evaluate(bundle):
                             line["stage"] = stage
                         numbers["line_table"].extend(lines)
                         profile["cutter_centre"] = arc["rows"]
+                        unordered.update(
+                            item["cut_order_reason"]
+                            for item in (arc, *lines)
+                            if item["cut_order"] == UNKNOWN
+                        )
                         generated = True
                 elif contour.get("method") == "linear_table":
                     path = _linear(feature, op, offset, radius, frame, frames)
                     if path:
                         profile["cutter_centre"] = path
+                        if not isinstance(path[0][0], list):
+                            # A closed outline runs counterclockwise with the cutter outside
+                            # its walls, so (n x t)·Z > 0; rasters are independent passes.
+                            reverse = None if sense is None else sense < 0
+                            _ordered(profile, reverse, order, ("cutter_centre",))
+                            if profile["cut_order"] == UNKNOWN:
+                                unordered.add(profile["cut_order_reason"])
                         generated = True
                 elif contour.get("method") == "axial_table" and (not paired or stage == "finish"):
                     dome = _dome(name, feature, op, dro.get("radius_mode") is True)
@@ -642,7 +744,7 @@ def evaluate(bundle):
                 unknown |= not generated or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
-        status = "unknown" if unknown else "pass"
+        status = "unknown" if unknown or unordered else "pass"
         sentence = (
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
             "nominal geometry and authored allowance."
@@ -651,6 +753,8 @@ def evaluate(bundle):
             sentence += (
                 " Missing geometry or unverified tool/frame binding prevents a cleared toolpath."
             )
+        if unordered:
+            sentence += " Cutting order is unknown: " + "; ".join(sorted(unordered)) + "."
         result.append(
             Finding(
                 "coordinates",

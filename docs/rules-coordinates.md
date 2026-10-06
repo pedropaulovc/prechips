@@ -88,6 +88,28 @@ wall thickness or collision proof. Unknown/unverified cutter or frame binding
 keeps status unknown. M2 lathe feasibility remains unimplemented even where
 nominal stations/dome tables are displayed.
 
+**Cutting order.** Arc rows, each join fragment and a closed `linear_table`
+outline are listed in the real traverse, judged in the setup top view (setup
+XY after the model-to-setup transform, so a part turned over between setups
+swaps which mirrored side runs which way). With `n` the cutter-side wall
+normal (from the cut wall toward the cutter centre: outward for a convex arc
+or outside outline, inward for a concave arc, the offset side of a land) and
+`t` the travel, a clockwise spindle (machine `spindle.rotation = "cw"`, viewed
+from above looking down setup -Z) cuts `conventional` when `(n × t)·Z > 0`
+and `climb` when it is negative; `ccw` inverts both. Each table is reversed
+when its geometric order disagrees with the op's `direction`, so the −X join
+fragment, the bottom arc and the +X fragment chain end to start. Each record
+carries `cut_order` (the authored direction) and `spindle_rotation`. An op
+`direction` other than `conventional`/`climb`, an undeclared spindle rotation,
+unknown setup points or a degenerate witness set `cut_order = "unknown"` with
+`cut_order_reason`, keep the geometric order, and make the setup's
+coordinates finding `unknown` with
+`Cutting order is unknown: <reasons>.` appended to its message. The traveler
+says "rows in cutting order (<direction>, <rotation> spindle)" only for a known
+order and otherwise "rows NOT in an established cutting order: <reason>"; the
+setup picture draws travel arrows only on such directed paths. Raster pocket
+passes are independent cuts and claim no travel direction.
+
 Exact message:
 
 `Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance.`
