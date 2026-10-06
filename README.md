@@ -133,8 +133,10 @@ package version. `--json` and `--verbose` default off.
   deduplicated by exact report id, set members and tool/holder pairs included,
   each with what to measure, instrument, units and citation. It is not an
   inventory-wide field walk: nothing no rule reads is listed, and it adds no
-  tool purchases or unlisted set members. `--plan` is only valid with
-  `--measure`.
+  tool purchases or unlisted set members. It evaluates only the host-side
+  measurement rules (headroom, envelope and travel) and never launches FreeCAD;
+  referenced inputs and STEP hashes are still validated.
+  `--plan` is only valid with `--measure`.
 - **compare** writes `compare.json` and a side-by-side table (JSON with `--json`):
   candidate identity, part, setup count, required fixtures, waste ratio, findings
   and construction permission. Waste is `(stock volume - finished volume) /
