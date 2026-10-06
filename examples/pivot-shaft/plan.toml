@@ -138,7 +138,7 @@ fixture = "chuck-3jaw-6-d1-4"
 # body would deflect ~0.47 mm under the 0.5 mm cut); its jaws are set on each new diameter at
 # Z152, in the end length that S3 cuts off, so the dwell mark never reaches the finished body.
 support = "dead_centre_tailstock_mt3"
-supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]
+supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned", engage_at_z_mm = 152.0 }]  # AUTHOR'S CHOICE: jaws go on once the tool passes Z152, clear of the dead centre
 grip_on = "north end of the plain Ø10 bar: the 12.5 mm between the rule mark and the north end"
 grip_mm = 12.5             # author's choice: jaw fronts Z-1.5 to the north end Z-14; the dead centre carries the far end
 fixed_jaw = "not_applicable"            # scroll chuck
