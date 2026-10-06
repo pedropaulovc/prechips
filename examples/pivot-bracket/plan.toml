@@ -653,9 +653,55 @@ height = "height-gauge"
 [setups.ops.inspection_methods]
 height = "After release, seat datum A on the surface plate with the 6.500 mm go pin in the bore. Measure the pin top and subtract half the pin diameter; accept the 25.1-25.3 mm centre height."
 
+# ======================================================================= S5
+# Finishing is bench work off the mill: no spindle, holder, DRO or zero recipe.
+[[setups]]
+id = "S5"
+machine = "finishing-bench"
+frame = "TB"                     # seat down on the rest plate, foot top up
+stock_in = "S4"
+coolant = "none: bench finishing"
+deburr_mm = 0.25                 # example (plausible): title-block edge break
+note = "AUTHOR'S CHOICE: off the mill, break the edges, clean the part and send it out for black oxide with nothing masked; re-gauge the bore when it comes back."
+
+[setups.stock_state]             # frame B, the finished part
+top_z = 26.2                     # ear crown: bore axis (model Y 25.2) + R7, after S4 op 20
+bottom_z = -6.0                  # finished seat
+
+[setups.hold]
+fixture = "finishing-rest-plate"
+support = "none"
+grip_on = "AUTHOR'S CHOICE: gravity only; the finished seat rests flat on the plate, nothing clamps the part"
+grip_mm = "not_applicable"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+pose = { origin_mm = [0.0, -9.0, -6.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # author's choice: plate top under the seat
+stop = "AUTHOR'S CHOICE: none; the part is free on the plate for hand work"
+clamp = "none"
+
 [[setups.ops]]
-op = 60
+op = 10
+do = "deburr"
+feature = "foot_profile"
+note = "Break every machined edge R0.25 or 0.25 chamfer max with a file and stone, including both cross-bore mouths and the hold-down hole entries; do not touch the reamed bore wall. Wipe off chips and oil with solvent."
+
+[[setups.ops]]
+op = 20
 do = "coating"
 feature = "foot_profile"         # the whole part goes out; the outer L profile names it on the sheet
 process = "black-oxide-vendor"
-note = "After release, the edge break and the bore and height checks, send the part out for black oxide as the drawing calls for. The finish adds about 1 µm or less, well inside the 0.03 mm bore band."
+note = "Send the part out for black oxide as the drawing calls for. Leave every face open to the bath; the finish adds about 1 µm or less, well inside the 0.03 mm bore band. Ask the vendor for the oil dip after blackening."
+
+[[setups.ops]]
+op = 30
+do = "inspect"
+feature = "cross_bore"
+note = "On return from black oxide: wipe excess oil from the bore and re-gauge it before release."
+
+[setups.ops.checks]
+dia = "bracket-cross-bore-pins"
+
+[setups.ops.inspection_methods]
+dia = "The 6.500 GO pin enters the bore from either side; the 6.530 NO-GO pin does not."
