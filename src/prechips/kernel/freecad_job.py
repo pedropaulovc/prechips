@@ -3069,7 +3069,7 @@ class _Setup:
             ]
             centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
             components.append(
-                {"name": name, "label": name.upper(), "role": "rest", "box_mm": box,
+                {"name": name, "label": "FOLLOW REST", "role": "rest", "box_mm": box,
                  "center_mm": centre}
             )
         clamp_labels = {
@@ -3138,8 +3138,6 @@ class _Setup:
                     label, role = annotation.get("fixed_jaw_label", "FIXED JAW"), "fixed_jaw"
                 elif name == "moving_jaw":
                     label, role = "MOVING JAW", "moving_jaw"
-                elif role in ("follow_rest", "steady_rest"):
-                    label = role.replace("_", " ").upper()
                 elif local.startswith("pad"):
                     role = "pad"
                 elif local.startswith("base"):

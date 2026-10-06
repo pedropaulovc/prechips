@@ -118,6 +118,8 @@ Exact posed fixture solids remain the only basis for `fixture = "modeled"`.
 Dashed table, vise-body and machine-context outlines are clearly marked
 schematic and do not enter geometry checks. A stop is drawn from a selected
 inventory fixture and declared `stop_pose`, never guessed from a holding note.
+Lathe views also show the right-side tailstock context when no centre is drawn;
+that symbol does not claim a selected or verified support.
 Unknown incoming stock produces no figure. See
 [geometry rules](rules-geometry.md#renders).
 

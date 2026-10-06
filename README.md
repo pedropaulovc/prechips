@@ -315,6 +315,8 @@ pretending that incoming stock already has the finished shape. Cutter captions
 reuse the traveler's human tool names, with a separate declared feed-direction
 arrow when available. Missing saw-plane data stays a STOP/stock debt, not a
 renderer crash.
+A tailstock context symbol without a drawn centre is not a selected or verified
+support.
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
 setup id, not only the previous one. A nonempty reference array joins solids by
