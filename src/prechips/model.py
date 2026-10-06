@@ -967,7 +967,7 @@ InventoryItem = record(
     "InventoryItem",
     {
         **texts(
-            "kind make control operation_mode note coating material coverage by standards "
+            "name kind make control operation_mode note coating material coverage by standards "
             "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in hand "
             "standard series chart units taper"
         ),

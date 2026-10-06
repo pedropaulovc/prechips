@@ -255,9 +255,10 @@ def setup_pages(html):
     return pages
 
 
-def test_bench_setups_print_no_machine_zero_or_clearance(tmp_path):
-    # A bench fit/inspect setup has no spindle, DRO or axes: its sheets carry no DRO
-    # ZERO table and no machine CLEARANCE, while the machine setups keep both.
+def test_bench_and_saw_setups_print_no_machine_zero_or_clearance(tmp_path):
+    # A bench fit/inspect setup has no spindle, DRO or axes, and a saw cut-off is located
+    # by its cut plane: their sheets carry no DRO ZERO and no CLEARANCE, while the
+    # machine setups keep both.
     plan = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     authored = tomllib.loads(plan.read_text(encoding="utf-8"))
@@ -269,12 +270,41 @@ def test_bench_setups_print_no_machine_zero_or_clearance(tmp_path):
     }
     pages = setup_pages(html)
     bench = [sid for sid, kind in kinds.items() if kind == "bench"]
+    saws = [sid for sid, kind in kinds.items() if kind == "bandsaw"]
     mills = [sid for sid, kind in kinds.items() if kind == "mill"]
-    assert bench and mills
-    for sid in bench:
+    assert bench and saws and mills
+    for sid in bench + saws:
         assert "DRO ZERO" not in pages[sid] and "CLEARANCE" not in pages[sid], sid
     for sid in mills:
         assert "DRO ZERO" in pages[sid] and "CLEARANCE" in pages[sid], sid
+
+
+def test_a_named_inventory_item_prints_its_name_not_its_kind_or_slug(tmp_path):
+    # The shop names what it owns; the traveler prints that name, not the item's kind or
+    # identity key. A member's name is its own: naming the kit does not rename a piece.
+    examples = copy_examples(tmp_path)
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    named = inventory.read_text(encoding="utf-8")
+    for header, name in (
+        ("[machines.bandsaw-4x6]", "4x6 bandsaw"),
+        ("[fixtures.cone-cap-bridge]", "cap bridge clamp"),
+        ("[fixtures.clamping-kit-lms-1144]", "LMS 58-piece clamping kit"),
+    ):
+        assert named.count(f"\n{header}\n") == 1, header
+        named = named.replace(f"\n{header}\n", f'\n{header}\nname = "{name}"\n')
+    inventory.write_text(named, encoding="utf-8")
+    _, _, cone = traveler(
+        examples / "cone-pivot-post" / "built-up.toml", tmp_path / "cone", setup=SYNTHETIC_KERNEL
+    )
+    sheets = text(cone)
+    assert re.search(r"SETUP S\d+ — 4x6 bandsaw · sheet 1", sheets)
+    assert "Clamp 1: cap bridge clamp —" in sheets
+    assert "bandsaw-4x6" not in sheets and "cone-cap-bridge" not in sheets
+    _, _, bracket = traveler(
+        examples / "pivot-bracket" / "plan.toml", tmp_path / "bracket", setup=SYNTHETIC_KERNEL
+    )
+    assert "Clamp 1: bracket bridge strap clamp —" in text(bracket)
+    assert "LMS 58-piece clamping kit" not in text(bracket)
 
 
 def test_job_status_lists_stock_to_obtain_before_the_first_setup(tmp_path):
