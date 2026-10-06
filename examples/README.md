@@ -131,11 +131,14 @@ The illustrative rocker plan binds the exported `v40` drawing revision and
 uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
 a clean checker exit is released-plan approval or a measured first article.
 
-The checked-in rocker artifacts are regenerated from the actual required-kernel
-CLI with integration `f5c8182` and the revised route below. They honestly retain
-exit **2**: 189 passes, 165 not-applicable findings, eleven accessibility errors
-and one unresolved datum-transfer finding, with no warnings or unsupported
-findings. All four fixtures are modeled with exact components and no fixture
+The checked-in rocker artifacts are the last actual required-kernel CLI
+snapshot, generated with integration `f5c8182` before the positive-restraint
+declarations and corrected tip-turnover corridors below. They are stale against
+those newer inputs and must be regenerated after the engine contracts land.
+That stopped snapshot records exit **2**: 189 passes, 165 not-applicable
+findings, eleven accessibility errors and one unresolved datum-transfer finding,
+with no warnings or unsupported findings. All four fixtures are modeled with
+exact components and no fixture
 debts; S1/S2/S3 have no render debts. S4 still explicitly shows arriving stock
 only because the current stock-split guard rejects separating the retained
 scrap frame from the independently clamped part. This needs
@@ -164,11 +167,14 @@ halfway through a fixed setup:
   The rocker-only rougher is inserted to a 38.0 mm projection, below the
   four-diameter engagement limit; the shared finish cutter retains 38.5 mm.
   Before rough-contouring the end lands, open their tip-turnover pockets within
-  op 40's **Y27 / rolled Y-27** clearing corridor. The full cutter reaches
-  Y26.9581 / Y-26.9581 there, beyond the old Y24 / Y-24 limit but inside op 50's
-  already authorized top-edge pocket. Native stock proof preserves both raw
-  rails, both ears, the normal 0.20 mm allowance and the opposed 0.40 mm web;
-  moving that clearance earlier does not change the setup's final stock.
+  op 40's **Y27 / rolled Y-27** clearing corridor. The native wall-normal
+  roughing samples reach Y26.9581 / Y-26.9581 with the full cutter, beyond the old
+  Y24 / Y-24 limit but inside op 50's already authorized top-edge pocket.
+  Native bounded-removal proof preserves both raw rails, both ears, the normal
+  0.20 mm allowance and the opposed 0.40 mm web; moving that clearance earlier
+  does not change the setup's final stock. This does not certify the current
+  emitted offset-join checkpoints: their extended upper joins nick the retained
+  rails and require an engine-owned finite-path fix and native point validation.
   Opposed roughing retains a 0.40 mm connecting web. The 1/2 in parallels sit
   entirely beneath the rails
   on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance
