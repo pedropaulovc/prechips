@@ -24,6 +24,7 @@ bundle is read where the repository keeps it, ``examples/rocker-arm``.
 import base64
 import hashlib
 import json
+import math
 import struct
 import subprocess
 import tomllib
@@ -108,8 +109,8 @@ def save(name, shape):
 def vertical_edges(shape):
     return [e for e in shape.Edges if abs(e.tangentAt(e.FirstParameter).z) > 0.99]
 
-# 60x40x10 plate with an R4 boss 6 tall at (45, 20).
-save("boss", Part.makeBox(60, 40, 10).fuse(Part.makeCylinder(4, 6, V(45, 20, 10))).removeSplitter())
+# 60x40x10 plate with an R4 boss 6 tall at (37, 20), near an interior floor sample.
+save("boss", Part.makeBox(60, 40, 10).fuse(Part.makeCylinder(4, 6, V(37, 20, 10))).removeSplitter())
 # 60x40x20 block, +X half stepped down to z=10: floor x 30..60 and its wall at x=30.
 save("step", Part.makeBox(60, 40, 20).cut(Part.makeBox(31, 42, 11, V(30, -1, 10))))
 # U channel: 60 long (x), rails y 0..5 and 35..40 up to z=20, floor z=10.
@@ -142,8 +143,16 @@ solid = Part.Solid(Part.Shell(shell.Faces))
 if solid.Volume < 0:
     solid.reverse()
 save("split-top", solid)
+# Same step, but its wall leans 5 mm into the floor opening as it rises.
+p = [V(30, 0, 10), V(35, 0, 20), V(61, 0, 20), V(61, 0, 10), V(30, 0, 10)]
+save("undercut-step", Part.makeBox(60, 40, 20).cut(Part.Face(Part.makePolygon(p)).extrude(V(0, 40, 0))))
+# A planned 6.5 mm through hole, before drilling the supplied rectangular blank.
+save("hole", Part.makeBox(60, 40, 20).cut(Part.makeCylinder(3.25, 22, V(30, 20, -1))))
+# A blind cylindrical opening with an unclaimed neighbouring boss inside it.
+opening = Part.makeBox(60, 40, 20).cut(Part.makeCylinder(4, 19, V(30, 20, 2)))
+save("hole-boss", opening.fuse(Part.makeCylinder(0.8, 10, V(31.8, 20, 2))).removeSplitter())
 """
-_AUTHORED = 9
+_AUTHORED = 12
 
 
 def _run(payload, directory, executable):
@@ -286,11 +295,11 @@ def _setup(ops, hold, frame=IDENTITY, setup_id="S1"):
     return {"id": setup_id, "frame": frame, "hold": hold, "ops": ops}
 
 
-def test_boss_occludes_a_face_but_its_own_side_wall_does_not(engine, solids):
+def test_interior_floor_pose_keeps_boss_while_its_own_wall_pose_clears(engine, solids):
     step = solids["boss"]
     top = engine.refs(step, (0, 0, 10), (60, 40, 10))
-    boss = engine.refs(step, (41, 16, 10), (49, 24, 16))
-    side = engine.refs(step, (41, 16, 10), (49, 24, 16), kind="Cylinder")
+    boss = engine.refs(step, (33, 16, 10), (41, 24, 16))
+    side = engine.refs(step, (33, 16, 10), (41, 24, 16), kind="Cylinder")
     assert len(top) == 1 and len(boss) == 2 and len(side) == 1
     ops = [_op("S1:10", "top", 3.0, 10.0, 20.0), _op("S1:20", "boss", 3.0, 10.0, 20.0)]
     result = engine.run(engine.job(step, {"top": top, "boss": boss}, [_setup(ops, _vise(5.0))]))
@@ -300,18 +309,20 @@ def test_boss_occludes_a_face_but_its_own_side_wall_does_not(engine, solids):
     assert own["sample_count"] > 0 and own["tool_hits"] == 0 and own["obstacles"]["tool"] == []
 
 
-def test_floor_edge_pose_keeps_adjacent_wall_even_when_the_wall_is_claimed(engine, solids):
-    step = solids["step"]
+@pytest.mark.parametrize("name, clears", [("step", True), ("undercut-step", False)])
+def test_floor_edge_tangent_pose_clears_a_wall_but_not_an_undercut(engine, solids, name, clears):
+    step = solids[name]
     floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
-    wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
+    wall = engine.refs(step, (30, 0, 10), (35 if not clears else 30, 40, 20))
     assert len(floor) == 1 and len(wall) == 1
-    ops = [_op("S1:10", "floor_and_wall", 4.0, 15.0, 20.0), _op("S1:20", "floor", 4.0, 15.0, 20.0)]
-    features = {"floor_and_wall": floor + wall, "floor": floor}
-    result = engine.run(engine.job(step, features, [_setup(ops, _vise(5.0))]))
-    together, alone = result["ops"]["S1:10"], result["ops"]["S1:20"]
-    for detail in (together, alone):
-        assert detail["tool_hits"] > 0 and wall[0] in detail["hit_refs"]["tool"]
-        assert floor[0] not in detail["hit_refs"]["tool"]
+    op = _op("S1:10", "floor", 1.0, 15.0, 20.0)
+    detail = engine.run(
+        engine.job(step, {"floor": floor}, [_setup([op], _vise(5.0, centre=30.0))])
+    )["ops"]["S1:10"]
+    assert (detail["tool_hits"] == 0) is clears
+    if not clears:
+        assert wall[0] in detail["hit_refs"]["tool"]
+    assert floor[0] not in detail["hit_refs"]["tool"]
 
 
 def test_corner_samples_keep_claimed_walls_and_unclaimed_pin_as_obstacles(engine, solids):
@@ -669,21 +680,18 @@ def test_booleans_on_the_real_filleted_summing_lever(engine):
     def near(a, b):
         return abs(a - b) < 1e-6
 
-    # Model +Y up: the web's upper face, two of its through holes, the hub beside it.
+    # Model +Y up: the web's upper face and two of its through holes.
     web = where("Plane", lambda b: near(b[1], 2.54) and near(b[4], 2.54) and b[0] > 0)
     holes = where(
         "Cylinder", lambda b: near(b[1], -2.54) and near(b[4], 2.54) and b[0] > 30 and b[2] > 59
     )
-    hub = where("Cylinder", lambda b: b[1] >= 0 and near(b[3], web[0]["bbox_mm"][0]))
     # End plates: full-height planes across model Z; the outermost pair meets the jaws.
     seat, top = min(face["bbox_mm"][1] for face in faces), max(face["bbox_mm"][4] for face in faces)
     across = where("Plane", lambda b: b[2] == b[5] and near(b[1], seat) and near(b[4], top))
     outer = max(abs(face["bbox_mm"][2]) for face in across)
     ends = [face for face in across if near(abs(face["bbox_mm"][2]), outer)]
     inner = [face for face in across if not near(abs(face["bbox_mm"][2]), outer)]
-    assert (
-        len(web) == 1 and len(holes) == 4 and len(hub) == 2 and len(ends) == 2 and len(inner) == 2
-    )
+    assert len(web) == 1 and len(holes) == 4 and len(ends) == 2 and len(inner) == 2
     hole_radius = (
         holes[0]["bbox_mm"][3] - holes[0]["bbox_mm"][0]
     )  # half-cylinder patch: width = radius
@@ -697,8 +705,6 @@ def test_booleans_on_the_real_filleted_summing_lever(engine):
     op, setup = result["ops"]["S1:10"], result["setups"]["S1"]
     assert "tool_hits" not in op["reasons"]  # offsets and booleans on the filleted solid succeeded
     assert op["corner_radii_mm"] == [pytest.approx(hole_radius, abs=1e-5)]
-    hits = set(op["hit_refs"]["tool"])
-    assert {face["ref"] for face in hub} <= hits
     assert setup["width_mm"] == pytest.approx(2 * outer)
     assert setup["parallel_pair"] is True and setup["contact_grip_mm"] == [8.0, 8.0]
     assert sorted(setup["contact_faces"]["fixed"] + setup["contact_faces"]["moving"]) == sorted(
@@ -707,3 +713,161 @@ def test_booleans_on_the_real_filleted_summing_lever(engine):
     assert setup["min_wall_mm"] == pytest.approx(
         outer - abs(inner[0]["bbox_mm"][2])
     )  # end plate thickness
+
+
+def test_floor_corner_pose_is_tangent_to_both_walls(engine, solids):
+    step = solids["slot"]
+    floor = engine.refs(step, (15, 14, 14), (45, 26, 14))
+    op = _op("S1:10", "floor", 0.5, 10.0, 20.0)
+    detail = engine.run(
+        engine.job(step, {"floor": floor}, [_setup([op], _vise(5.0, centre=30.0))])
+    )["ops"]["S1:10"]
+    assert detail["tool_hits"] == 0
+
+
+def test_rough_floor_pose_uses_its_cut_level_and_keeps_holder_obstacles(engine, solids):
+    step = solids["step"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
+    op = {**_op("S1:10", "floor", 1.0, 15.0, 20.0), "do": "rough_pocket", "to_z": 14.0}
+    setup = _setup([op], _vise(5.0, centre=30.0))
+    detail = engine.run(engine.job(step, {"floor": floor}, [setup], stock=HOLE_BLANK))["ops"][
+        "S1:10"
+    ]
+    assert detail["tool_hits"] == 0
+    assert detail["reach_depth_mm"] == pytest.approx(6.0)
+    op["projection_mm"] = 4.0
+    low = engine.run(engine.job(step, {"floor": floor}, [setup], stock=HOLE_BLANK))["ops"]["S1:10"]
+    assert low["tool_hits"] == 0 and low["holder_hits"] > 0
+
+
+HOLE_BLANK = {
+    "shape": "box",
+    "origin_mm": [0.0, 0.0, 0.0],
+    "axis": [1.0, 0.0, 0.0],
+    "section_axis": [0.0, 1.0, 0.0],
+    "length_mm": 60.0,
+    "section_mm": [40.0, 20.0],
+}
+
+
+@pytest.mark.parametrize("action", ["drill", "spot", "ream", "bore", "tap", "counterbore"])
+def test_hole_operation_excludes_its_own_cut_not_its_holder_obstacles(engine, solids, action):
+    step = solids["hole"]
+    hole = engine.refs(step, (26.75, 16.75, 0), (33.25, 23.25, 20), kind="Cylinder")
+    radius = 3.256 if action == "ream" else 3.25
+    op = {
+        **_op("S1:10", "hole", radius, 25.0, 30.0),
+        "do": action,
+        "hole": {"thru": action != "spot", "depth_mm": 0.5, "entry_z_mm": 20.0},
+    }
+    if action == "spot":
+        op["hole"]["point_angle_deg"] = 90.0
+    setup = _setup([op], _vise(5.0, centre=30.0))
+    detail = engine.run(engine.job(step, {"hole": hole}, [setup], stock=HOLE_BLANK))["ops"]["S1:10"]
+    assert detail["tool_hits"] == 0
+    assert detail["corner_radii_mm"] == []
+    if action == "drill":
+        op["projection_mm"] = 5.0
+        low = engine.run(engine.job(step, {"hole": hole}, [setup], stock=HOLE_BLANK))["ops"][
+            "S1:10"
+        ]
+        assert low["tool_hits"] == 0 and low["holder_hits"] > 0
+
+
+@pytest.mark.parametrize("action", ["spot", "tap"])
+def test_depth_limited_hole_op_on_through_feature_does_not_cut_full_stock(engine, solids, action):
+    step = solids["hole"]
+    hole = engine.refs(step, (26.75, 16.75, 0), (33.25, 23.25, 20), kind="Cylinder")
+    op = {
+        **_op("S1:10", "hole", 3.25, 25.0, 30.0),
+        "do": action,
+        "hole": {"thru": True, "depth_mm": 0.5, "entry_z_mm": 20.0},
+    }
+    if action == "spot":
+        op["hole"]["point_angle_deg"] = 90.0
+    first = {**_setup([op], _vise(5.0, centre=30.0)), "stock_in": "stock"}
+    later = {
+        **_setup([], _vise(5.0, centre=30.0)),
+        "id": "S2",
+        "stock_in": "S1",
+    }
+    result = engine.run(engine.job(step, {"hole": hole}, [first, later], stock=HOLE_BLANK))
+    assert result["ops"]["S1:10"]["tool_hits"] == 0
+    assert result["ops"]["S1:10"]["reach_depth_mm"] == pytest.approx(0.5)
+    removed = math.pi * 0.5**2 * 0.5 / 3.0 if action == "spot" else math.pi * 3.25**2 * 0.5
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(48000.0 - removed)
+
+
+def test_missing_blind_hole_depth_keeps_access_and_later_stock_unknown(engine, solids):
+    step = solids["hole"]
+    hole = engine.refs(step, (26.75, 16.75, 0), (33.25, 23.25, 20), kind="Cylinder")
+    op = {
+        **_op("S1:10", "hole", 3.25, 25.0, 30.0),
+        "do": "drill",
+        "hole": {"thru": False, "depth_mm": "unknown", "entry_z_mm": 20.0},
+    }
+    first = {**_setup([op], _vise(5.0, centre=30.0)), "stock_in": "stock"}
+    later = {
+        **_setup([], _vise(5.0, centre=30.0)),
+        "id": "S2",
+        "stock_in": "S1",
+    }
+    result = engine.run(engine.job(step, {"hole": hole}, [first, later], stock=HOLE_BLANK))
+    assert result["ops"]["S1:10"]["tool_hits"] == "unknown"
+    assert result["ops"]["S1:10"]["reach_depth_mm"] == "unknown"
+    assert result["setups"]["S2"]["width_mm"] == "unknown"
+
+
+def test_hole_own_cylinder_does_not_delete_an_unclaimed_neighbouring_boss(engine, solids):
+    step = solids["hole-boss"]
+    pin = engine.refs(step, (31, 19.2, 2), (32.6, 20.8, 12), kind="Cylinder")
+    hole = [
+        ref
+        for ref in engine.refs(step, (26, 16, 2), (34, 24, 20), kind="Cylinder")
+        if ref not in pin
+    ]
+    op = {
+        **_op("S1:10", "hole", 3.0, 25.0, 30.0),
+        "do": "drill",
+        "hole": {"thru": False, "entry_z_mm": 20.0, "depth_mm": 18.0},
+    }
+    detail = engine.run(
+        engine.job(step, {"hole": hole}, [_setup([op], _vise(5.0, centre=30.0))], stock=HOLE_BLANK)
+    )["ops"]["S1:10"]
+    assert detail["tool_hits"] > 0 and pin[0] in detail["hit_refs"]["tool"]
+
+
+def test_facing_clears_hole_mouth_pins_but_profile_clearing_leaves_holes_for_drilling(
+    engine, solids
+):
+    step = solids["hole"]
+    top = engine.refs(step, (0, 0, 20), (60, 40, 20), kind="Plane")
+    hole = engine.refs(step, (26.75, 16.75, 0), (33.25, 23.25, 20), kind="Cylinder")
+    face = {**_op("S1:10", "top", 1.5, 15.0, 30.0), "do": "face", "to_z": 20.0}
+    profile = {
+        **_op("S2:10", "top", 1.5, 15.0, 30.0),
+        "do": "rough_profile",
+        "stock_removal_bounds": {"x": [0.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 20.0]},
+    }
+    drill = {
+        **_op("S3:10", "hole", 3.25, 25.0, 30.0),
+        "do": "drill",
+        "hole": {"thru": True, "entry_z_mm": 20.0},
+    }
+    setups = [
+        _setup([face], _vise(5.0, centre=30.0), setup_id="S1"),
+        _setup([profile], _vise(5.0, centre=30.0), setup_id="S2"),
+        _setup([drill], _vise(5.0, centre=30.0), setup_id="S3"),
+        _setup([], _vise(5.0, centre=30.0), setup_id="S4"),
+    ]
+    rows = engine.run(
+        engine.job(
+            step,
+            {"top": top, "hole": hole},
+            setups,
+            stock={**HOLE_BLANK, "section_mm": [40.0, 22.0]},
+        )
+    )["setups"]
+    assert rows["S2"]["stock_volume_mm3"] == pytest.approx(48000.0)
+    assert rows["S3"]["stock_volume_mm3"] == pytest.approx(48000.0)
+    assert rows["S4"]["stock_volume_mm3"] == pytest.approx(48000.0 - math.pi * 3.25**2 * 20)

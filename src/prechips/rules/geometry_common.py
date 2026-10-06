@@ -259,15 +259,6 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True):
                         f"{subject}: claimed face(s) point away from the setup approach and "
                         f"cannot be cut from it: {', '.join(away)}.",
                     )
-                elif detail.get("stock_removal_error"):
-                    blocked = Finding(
-                        rule,
-                        subject,
-                        "error",
-                        {},
-                        cite,
-                        f"{subject}: {detail['stock_removal_error']}.",
-                    )
                 elif stock and detail.get("stock_reason"):
                     blocked = Finding(
                         rule,

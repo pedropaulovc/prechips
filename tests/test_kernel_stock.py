@@ -145,8 +145,6 @@ def _bundle(tmp_path):
 def _host_only(bundle):
     """Edits that change only host-rule inputs, never a field the engine reads."""
     setup = bundle.plan["setups"][0]
-    op = setup["ops"][0]
-    yield "op do / finishing", lambda: op.update(do="rough_profile")
     yield "hold method", lambda: setup["hold"].update(method="soft_jaws")
     yield "hold grip_mm", lambda: setup["hold"].update(grip_mm=5.5)
     yield "fixture opening_mm", lambda: bundle.inventory["fixtures"]["vise"].update(opening_mm=90.0)
@@ -170,6 +168,8 @@ def _host_only(bundle):
 
 def _consumed(bundle):
     setup = bundle.plan["setups"][0]
+    yield "operation action", lambda: setup["ops"][0].update(do="rough_profile")
+    yield "rough allowance", lambda: setup["ops"][0].update(rough_allowance_mm=0.2)
     yield "jaw width", lambda: bundle.inventory["fixtures"]["vise"].update(jaw_width_mm=60.0)
     yield (
         "selected projection",
@@ -509,7 +509,7 @@ def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids)
         assert op["tool_hits"] == "unknown" and reason in op["stock_reason"]
 
 
-def test_rocker_s1_holds_the_raw_blank_and_s2_names_the_missing_profile_footprint(
+def test_rocker_rough_reach_uses_raw_entry_stock_and_its_own_cut_level(
     tmp_path, monkeypatch, freecad_kernel
 ):
     from prechips.inputs import load_bundle
@@ -517,32 +517,20 @@ def test_rocker_s1_holds_the_raw_blank_and_s2_names_the_missing_profile_footprin
     monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
     bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
     result = kernel.run_geometry(bundle)
-    first, second = result["setups"]["S1"], result["setups"]["S2"]
+    first = result["setups"]["S1"]
     # Frame A sees the authored 310x45x16 blank, rails and ears included.
     assert first["stock_bbox_mm"] == [-155.0, -16.0, -11.52825, 155.0, 29.0, 4.47175]
-    assert first["render_png_base64"] and "stock_reason" not in first
-    # The upper strap face is measured under the raw blank top, not the finished hub face.
-    assert result["ops"]["S1:20"]["reach_depth_mm"] == pytest.approx(4.47175 + 2.27825)
-    # Rough-profile walls sweep nothing along +Z and no interrupted-profile footprint is
-    # authored, so the stock S1 leaves (and everything measured on it) is unknown.
-    reason = second["stock_reason"]
-    assert "S1:40" in reason and "HAF_TOP_EDGE" in reason and "interrupted profile" in reason
-    assert "render_png_base64" not in second and second["width_mm"] == "unknown"
-    assert all(
-        result["ops"][subject]["stock_reason"] == reason
-        for subject in result["ops"]
-        if not subject.startswith("S1:")
-    )
+    assert first["stock_volume_mm3"] == pytest.approx(310 * 45 * 16)
+    # Reach is to the rough op's authored cut plane, not to the lower finished face.
+    tip = next(op["to_z"] for op in bundle.plan["setups"][0]["ops"] if op["op"] == 20)
+    assert result["ops"]["S1:20"]["reach_depth_mm"] == pytest.approx(4.47175 - tip)
 
 
-@pytest.mark.parametrize("radius", [3.0, None])
-def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearance(
-    engine, solids, radius
-):
+def test_authored_clearing_without_cutter_radius_keeps_later_stock_unknown(engine, solids):
     step = solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
     wide = {"x": [0.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 22.0]}
-    op = {**_clearing(wide), "radius_mm": radius}
+    op = {**_clearing(wide), "radius_mm": None}
     target = _op("S2:10", "wall", 3.0, 10.0, 10.5, holder_radius=6.0, gauge=10.0)
     result = engine.run(
         engine.job(
@@ -553,14 +541,10 @@ def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearan
         )
     )
     first = result["ops"]["S1:10"]
-    if radius is None:
-        assert "stock_removal_error" not in first
-        reason = first["reasons"]["stock_removal_bounds"]
-        assert "cutter radius" in reason
-        assert first["tool_hits"] == "unknown"
-    else:
-        reason = first["stock_removal_error"]
-        assert "stock_removal_bounds extends" in reason and "claimed faces" in reason
+    assert "stock_removal_error" not in first
+    reason = first["reasons"]["stock_removal_bounds"]
+    assert "cutter radius" in reason
+    assert first["tool_hits"] == "unknown"
     second = result["setups"]["S2"]
     assert reason in second["stock_reason"]
     assert "stock_volume_mm3" not in second and "render_png_base64" not in second

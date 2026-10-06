@@ -532,21 +532,18 @@ def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
 
 
 @pytest.mark.parametrize("rule", [accessibility, internal_corner_radius])
-@pytest.mark.parametrize("context", ["invalid", "away", "bounds"])
+@pytest.mark.parametrize("context", ["invalid", "away"])
 def test_context_errors_take_precedence_over_finished_facts(bundle, rule, context):
     detail = bundle.kernel["ops"]["S1:10"]
     detail.update(min_hits={"tool": 4}, corner_radii_mm=[0.0], stock_reason="unknown stock")
     bundle.inventory["tools"]["em"]["flute_len_mm"] = "unknown"
     if context == "invalid":
         bundle.kernel["mapping_errors"]["#1"] = "invalid face"
-    elif context == "away":
-        detail["claim_errors"] = ["#1"]
     else:
-        detail["stock_removal_error"] = "bounds extend beyond claimed faces"
+        detail["claim_errors"] = ["#1"]
     row = finding(rule, bundle)
     assert row.status == "error"
-    assert "certainly occluded" not in row.sentence
-    assert "smaller than" not in row.sentence
+    assert row.numbers == {"mapping_errors" if context == "invalid" else "claim_errors": ["#1"]}
 
 
 @pytest.mark.parametrize(
