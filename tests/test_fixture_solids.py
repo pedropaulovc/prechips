@@ -153,6 +153,19 @@ def test_chuck_without_stock_in_its_jaws_is_unresolved_not_drawn(engine, parts):
     assert setup["fixture_rendered"] is False
 
 
+def test_dividing_head_chuck_wall_is_sampled_along_its_horizontal_axis(engine, parts):
+    # Setup z is model X, so the R10 bar (model Z) lies along setup x in the head's chuck.
+    frame = {"origin": [0, 0, 0], "x": [0, 0, 1], "y": [0, -1, 0], "z": [1, 0, 0]}
+    hold = _chuck(
+        fixture_kind="dividing_head",
+        pose={"origin_mm": [10.0, 0.0, 0.0], "x": [0.0, 0.0, 1.0], "z": [1.0, 0.0, 0.0]},
+    )
+    setup = _scene(engine.run(engine.job(parts["bar"], setups=[_setup([], hold, frame)])))
+    assert setup["chuck"]["contact_radii_mm"] == [10.0, 10.0, 10.0]
+    # A solid bar's run under each jaw crosses the axis: its full diameter.
+    assert setup["min_wall_mm"] == pytest.approx(20.0, abs=1e-6)
+
+
 def test_cutter_beside_the_gripped_bar_hits_a_chuck_jaw(engine, parts):
     step = parts["bar"]
     side = engine.refs(step, (-10, -10, 0), (10, 10, 30), kind="Cylinder")

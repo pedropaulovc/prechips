@@ -42,7 +42,9 @@ M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 must resolve to actual inventory or a named machine accessory; an unconfirmed
 accessory does not certify support.
 Hold identities resolve through `fixtures`, `holders`, then `machines`, so a
-machine-mounted dividing head is not an unresolved fixture. A dividing head
+machine-mounted dividing head is not an unresolved fixture: the kernel, the
+`hold_fields`, `headroom` and `envelope` rules all read its `height` /
+`bed_height`, `length` and `width` from wherever it is declared. A dividing head
 without declared gripping capacity is `not_applicable` to the diameter screen;
 a machine or dividing head with declared collet sizes or chuck ranges is checked.
 

@@ -934,6 +934,7 @@
         "features.frames.model; features.frames.A",
         "inventory.holders.r8-collet-8mm.gauge_len",
         "inventory.holders.r8-collet-8mm.grip",
+        "inventory.machines.test-head.height",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
         "inventory.machines.test-mill.envelope.spindle_to_table_min",
         "inventory.tools.em-8-std.oal",
@@ -943,19 +944,11 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S4: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for test-head in inventory and author plan.setups.S4.hold.fixture; measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
+      "message": "S4: spindle envelope remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-head record height, steel rule or calipers, mm; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
         "measurements": [
-          {
-            "cite": [
-              "inventory.fixtures.test-head"
-            ],
-            "id": "fixtures.test-head.resolve",
-            "instruction": "resolve: add or select an owned fixture for test-head in inventory and author plan.setups.S4.hold.fixture",
-            "units": "identity"
-          },
           {
             "cite": [
               "inventory.holders.r8-collet-8mm.gauge_len"
@@ -970,6 +963,14 @@
             ],
             "id": "holders.r8-collet-8mm.grip",
             "instruction": "measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.test-head.height"
+            ],
+            "id": "machines.test-head.height",
+            "instruction": "measure: test-head record height, steel rule or calipers, mm",
             "units": "mm"
           },
           {
@@ -1564,7 +1565,7 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
-        "fixture_verify": "missing",
+        "fixture_verify": false,
         "holder_gauge_len_mm": 60.0,
         "insertion_mm": 25,
         "jaw_obstruction": {
@@ -3169,12 +3170,17 @@
         "PLAN.md §4.3 thin_wall_under_clamp",
         "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
         "plan.setups.S4: frame and hold",
-        "inventory.machines.test-head: declared dimensions"
+        "inventory.machines.test-head: declared dimensions",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "S4: thin_wall_under_clamp has no vise grip-zone facts for dividing_head holding.",
-      "numbers": {},
+      "message": "S4: minimum wall inside the grip zone meets the shop floor.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 30.0,
+        "thin_wall_floor_mm": 2.0
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unsupported",
+      "status": "pass",
       "subject": "S4"
     },
     {
@@ -4886,7 +4892,7 @@
       "subject": "S6"
     }
   ],
-  "hash": "e71f179c4f035bd99d2ceb1f730994daeeb940bade43cf1c9710130c0b59e0f9",
+  "hash": "44f5078aef57beabb51f69e9a89db6ff48e3525a6b47418377c4d4905a4032e7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

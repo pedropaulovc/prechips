@@ -1626,10 +1626,9 @@ class _Setup:
         self.chuck = {
             "grip_z": tuple(sorted((entry.z, origin.z))),
             "jaw_angles_deg": [math.degrees(math.atan2(d.y, d.x)) % 360.0 for d in directions],
-            "contact_radii": radii,
-            "contact_radius": min(radii),
-            "axis_origin": tuple(origin),
-            "axis": tuple(axis),
+            "matrix": matrix,
+            "local_angles_deg": angles,
+            "grip": grip,
         }
         facts["chuck"] = {
             "jaw_angles_deg": [_r(a) for a in self.chuck["jaw_angles_deg"]],
@@ -2934,25 +2933,25 @@ class _Setup:
     def _chuck_walls(self, facts):
         """min_wall_mm: the shortest material run under a chuck jaw, from its contact inward.
 
-        Sampled on the radial line through every jaw at ``WALL_LEVELS`` heights of the
-        grip zone; a solid bar's run crosses the axis (a full diameter), a tube's is its wall.
+        Sampled in the chuck frame on the radial line through every jaw at ``WALL_LEVELS``
+        depths of the grip zone, so a lathe chuck on setup Z and a dividing head's chuck on
+        a horizontal axis are measured alike; a solid bar's run crosses the axis (a full
+        diameter), a tube's is its wall.
         """
         chuck = self.chuck
         reasons = facts["reasons"]
-        ox, oy, _ = chuck["axis_origin"]
-        ax, ay, az = chuck["axis"]
-        if math.hypot(ox, oy) > AXIS_TOL or math.hypot(ax, ay) > 1e-9 or az <= 0:
-            reasons["min_wall_mm"] = "the chuck axis is not setup Z through x = y = 0"
-            return
-        z0, z1 = chuck["grip_z"]
-        outer = self._outer()
+        local = self.part.copy()
+        local.transformShape(chuck["matrix"].inverse())
+        x0, y0, _, x1, y1, _ = _bbox(local)
+        outer = math.hypot(max(abs(x0), abs(x1)), max(abs(y0), abs(y1))) + 1.0
+        grip = chuck["grip"]
         runs = []
-        for angle in chuck["jaw_angles_deg"]:
+        for angle in chuck["local_angles_deg"]:
             dx, dy = math.cos(math.radians(angle)), math.sin(math.radians(angle))
             for k in range(WALL_LEVELS):
-                z = z0 + (z1 - z0) * (k + 0.5) / WALL_LEVELS
+                z = -grip * (k + 0.5) / WALL_LEVELS
                 line = Part.makeLine(V(dx * outer, dy * outer, z), V(-dx * outer, -dy * outer, z))
-                pieces = self.part.common(line).Edges
+                pieces = local.common(line).Edges
                 if pieces:
                     first = max(
                         pieces,
