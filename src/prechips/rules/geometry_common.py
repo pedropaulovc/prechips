@@ -379,9 +379,14 @@ def setup_contexts(bundle, rule):
                     rule, subject, "unknown", {}, cite, f"{subject}: holding identity is unknown."
                 )
             elif inputs["kind"] != "vise" and not (
-                # Chuck jaws and posed straps both load sampled stock material runs.
+                # Chuck jaws (a lathe chuck or the chuck a dividing head carries) and posed
+                # straps all load sampled stock material runs.
                 rule == "thin_wall_under_clamp"
-                and (inputs["kind"] in CHUCK_KINDS or strap_clamped(inputs))
+                and (
+                    inputs["kind"] in CHUCK_KINDS
+                    or (inputs["kind"] == "dividing_head" and head_chuck(setup))
+                    or strap_clamped(inputs)
+                )
             ):
                 status = "not_applicable" if rule == "vise" else "unsupported"
                 blocked = Finding(
@@ -418,6 +423,11 @@ def setup_contexts(bundle, rule):
 def strap_clamped(inputs):
     """A posed-solids hold that declares clamps (drawn or with named clamp debts)."""
     return "solids" in inputs and bool(inputs.get("clamps") or inputs.get("clamp_debts"))
+
+
+def head_chuck(setup):
+    """A dividing-head hold that declares the chuck it carries (``hold.chuck``)."""
+    return record(setup.get("hold")).get("chuck") not in (None, "none", "not_applicable")
 
 
 def fact_reason(detail, fields, fallback):

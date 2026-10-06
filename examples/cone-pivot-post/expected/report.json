@@ -2742,7 +2742,9 @@
         "features.features.journal_bore.bounds/at",
         "features.frames.model; plan.frames.J3",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
         "https://www.precisionmatthews.com/products/pm-30mv",
+        "inventory.machines.BS-0.height",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
@@ -2758,19 +2760,11 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S3: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
+      "message": "S3: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: BS-0 record height, steel rule or calipers, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
         "measurements": [
-          {
-            "cite": [
-              "inventory.fixtures.BS-0"
-            ],
-            "id": "fixtures.BS-0.resolve",
-            "instruction": "resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture",
-            "units": "identity"
-          },
           {
             "cite": [
               "inventory.holders.unknown"
@@ -2778,6 +2772,14 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder",
             "units": "identity"
+          },
+          {
+            "cite": [
+              "inventory.machines.BS-0.height"
+            ],
+            "id": "machines.BS-0.height",
+            "instruction": "measure: BS-0 record height, steel rule or calipers, mm",
+            "units": "mm"
           },
           {
             "cite": [
@@ -3654,7 +3656,7 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
-        "fixture_verify": "missing",
+        "fixture_verify": false,
         "holder_gauge_len_mm": "unknown",
         "insertion_mm": 25,
         "jaw_obstruction": {
@@ -10626,7 +10628,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "4bae61fa14a8d1fe6777e52a2a8d733139664f1460d782a4917de8b4b8d79758",
+  "hash": "8eb4961ae503e023535ac0e07f02fa49720a6aeec2af5e028187078704d921cb",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

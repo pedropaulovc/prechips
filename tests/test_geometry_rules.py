@@ -550,6 +550,33 @@ def test_machine_inventory_workholding_identity_is_not_misclassified_as_unknown(
     assert finding(thin_wall_under_clamp, bundle).status == "unsupported"
 
 
+@pytest.mark.parametrize(
+    "wall,method,status", [(2.0, "hard_jaws", "pass"), (1.9, "hard_jaws", "error")]
+)
+def test_dividing_head_chuck_jaws_load_the_thin_wall_floor(bundle, wall, method, status):
+    bundle.inventory["machines"]["BS-0"] = {"kind": "dividing_head", "verify": False}
+    bundle.inventory["fixtures"]["head-chuck"] = {
+        "kind": "chuck_3jaw",
+        "body_dia_mm": 127.0,
+        "body_length_mm": 60.0,
+        "bore_dia_mm": 30.0,
+        "jaw_width_mm": 14.0,
+        "jaw_height_mm": 30.0,
+        "jaw_depth_mm": 20.0,
+        "verify": False,
+    }
+    bundle.plan["setups"][0]["hold"] = {
+        "fixture": "BS-0",
+        "chuck": "head-chuck",
+        "pose": {"origin_mm": [0.0, 10.0, 5.0], "x": [0.0, 1.0, 0.0], "z": [1.0, 0.0, 0.0]},
+        "jaw_clock_deg": 0.0,
+        "grip_mm": 10.0,
+        "method": method,
+    }
+    bundle.kernel["setups"]["S1"]["min_wall_mm"] = wall
+    assert finding(thin_wall_under_clamp, bundle).status == status
+
+
 @pytest.mark.parametrize("rule", [vise, thin_wall_under_clamp])
 @pytest.mark.parametrize("debt", ["units", "frame", "origin", "axis"])
 def test_setup_geometry_cannot_certify_facts_without_numeric_frame(bundle, rule, debt):
