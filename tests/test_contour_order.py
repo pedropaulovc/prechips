@@ -186,6 +186,37 @@ def test_z_levels_start_on_an_earlier_floor_only_where_its_bounds_cover_the_op(t
     assert inside["start_z"] == -8.8 and inside["levels"] == [-9.0]
 
 
+def test_z_levels_credit_another_features_floor_only_if_it_holds_the_whole_surface(tmp_path):
+    def feature(name, x):
+        return (
+            f"[features.{name}]\nframe = 'model'\nrequirements = []\nkind = 'plane'\n"
+            f"bounds = {{ x = {x}, y = [-1.0, 11.0], z = [0.0, 1.0] }}\n"
+        )
+
+    ops = "".join(
+        # Double-quoted feature names: coordinate_bundle adds no second holder key.
+        f'[[setups.ops]]\nop = {op}\ndo = "{do}"\nfeature = "{name}"\ntool = "cutter"\n'
+        f'holder = "unknown"\nto_z = {to_z}\ndoc_mm = {doc}\ndirection = "conventional"\n'
+        "stock_removal_bounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [-10.0, 1.0] }\n"
+        for op, do, name, to_z, doc in (
+            (10, "rough_face", "strip", -5.0, 3.0),  # holds only half of 'target'
+            (20, "finish_face", "target", -6.0, 3.0),
+            (30, "rough_face", "field", -7.0, 3.0),  # holds all of 'target'
+            (40, "finish_face", "target", -7.5, 0.5),
+        )
+    )
+    features = SLAB + feature("strip", [-1.0, 10.0]) + feature("field", [-1.0, 21.0])
+    plan = coordinate_bundle(tmp_path, features, ops)
+    text = plan.read_text(encoding="utf-8")
+    plan.write_text(text.replace("top_z = 0.0\n", "top_z = 0.0\ntop_feature = 'hub'\n"), "utf-8")
+    row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
+    levels = {entry["op"]: entry.get("z_levels") for entry in row.numbers["operations"]}
+    # Op 10's box holds op 20's, but its face holds only part of 'target': no credit.
+    assert levels[20]["start_z"] == 0.0 and levels[20]["levels"] == [-3.0, -6.0]
+    # Op 30's face holds all of 'target': op 40 starts on its floor.
+    assert levels[40]["start_z"] == -7.0 and levels[40]["levels"] == [-7.5]
+
+
 def rocker_profile_chains(bundle):
     """(setup, op, stage, bottom arc rows, join fragments) for each rocker outline pass."""
     for row in coordinates.evaluate(bundle):
