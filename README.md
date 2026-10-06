@@ -60,19 +60,15 @@ From the repository root (the plans name their shared inputs):
 uv run prechips traveler examples/pivot-shaft/plan.toml --out out/pivot-shaft
 uv run prechips traveler examples/rocker-arm/plan.toml --out out/rocker-arm
 uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracket
-uv run prechips traveler examples/cone-pivot-post/plan.toml --out out/cone-pivot-post
-uv run prechips compare examples/cone-pivot-post/plan.toml examples/cone-pivot-post/built-up.toml --out out/cone-comparison
+uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
 ```
 
 Current expected consumer CLI exits are **shaft 4 / rocker 2 / bracket 2 / cone
-one-piece 2 / cone built-up 2**. Existing inspection choices follow the exported
+built-up 2**. Existing inspection choices follow the exported
 feature owners without inventing methods or changing gauges. The shaft keeps
-required unknowns. Missing tooling/fixtures and one-piece-only construction keep
-their stops. The one-piece cone stops on an exported inconsistency:
-`mount_west.station_nominal = -12.98` lies outside its own `station` band
-[12.47, 13.49]. That is an HA export follow-up, not a sign the consumer may fix.
-Restored milling frames also expose far-side boss-face claims (one-piece S2:40/50,
-built-up S2:50); those remain errors requiring an authored route/claim correction.
+required unknowns. Missing tooling/fixtures keep their stops.
+Restored milling frames also expose far-side boss-face claims (built-up S2:50);
+those remain errors requiring an authored route/claim correction.
 Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
 spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
 Only the consumer side of M3 is done; the HA follow-ups and the combined gate
@@ -86,14 +82,12 @@ No verified cutting-table numbers are supplied; unknown RPM/feed cells stay
 unknown. See [examples/README.md](examples/README.md) for export provenance,
 source-contract changes and the separate synthetic geometry fixtures.
 
-The cone candidates are authored **full-envelope one-piece blank** and **block
-plus pressed boss** alternatives, not route generation or a recommendation. The
-built-up route is marked `✗ drawing permits one-piece only`: no drawing note
-permits assembly. Its single 12.5182° journal setting prints BS-0 plate/circle,
+The cone candidate is an authored **block plus pressed boss** route, not route
+generation or a recommendation. Its single 12.5182° journal setting prints BS-0 plate/circle,
 turns and spaces; inventory verification remains due. No shaft cross-hole is
 invented. Cutting-data K_c/E remains `"unknown"`, so deflection is not a
 numerical machining claim. The current exported cone manifest supplies no
-finished volume: comparison must leave net volume and waste unknown, rather
+finished volume: net volume and waste stay unknown, rather
 than transplanting the former hand-authored analytic-volume fact into the export.
 
 ## CLI: five noninteractive verbs

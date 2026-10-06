@@ -206,7 +206,7 @@ def test_exported_nominal_contradiction_survives_unknown_applicability(tmp_path)
 
 def test_west_mount_station_sign_error_is_a_nominal_band_contradiction():
     """The pre-correction export sign (-12.98 against a +12.47..13.49 station band) is an error."""
-    bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "plan.toml")
+    bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
     west = bundle.features["features"]["mount_west"]
     west["station"] = [12.47, 13.49]
     west["station_nominal"] = -12.98

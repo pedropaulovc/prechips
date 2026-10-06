@@ -8,7 +8,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from test_cli import copy_examples
 
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
@@ -45,149 +44,26 @@ def test_rejects_self_consistent_wrong_z_edge(part, setup_id):
         VALIDATOR["check_zero"](setup, corrupted, entries, plan["dro"])
 
 
-def cone_inputs(plan_filename="plan.toml"):
+def cone_inputs():
     folder = ROOT / "examples" / "cone-pivot-post"
-    plan = tomllib.loads((folder / plan_filename).read_text(encoding="utf-8"))
+    plan = tomllib.loads((folder / "built-up.toml").read_text(encoding="utf-8"))
     features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
-    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
     policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
-    expected = "expected" if plan_filename == "plan.toml" else "expected/built-up"
-    report = json.loads((folder / expected / "report.json").read_bytes())
-    return plan, features, inventory, policy, report
+    report = json.loads((folder / "expected" / "built-up" / "report.json").read_bytes())
+    return plan, features, policy, report
 
 
-@pytest.mark.parametrize("corruption", ["nearest", "spaces", "basic_band", "closure"])
-def test_rejects_cone_indexing_arithmetic_even_when_unverified(corruption):
-    plan, features, inventory, _, report = cone_inputs()
-    setup = next(s for s in plan["setups"] if s["id"] == "S4")
-    finding = next(
-        f for f in report["findings"] if f["rule"] == "indexing" and f["subject"] == "S4"
-    )
-    entries = VALIDATOR["entries_for"](inventory)
-    VALIDATOR["check_indexing"](setup, features, entries, finding)
-    corrupted = copy.deepcopy(finding)
-    row = corrupted["numbers"]
-    if corruption == "nearest":
-        # A plausible actual setting on another declared circle, but not the
-        # nearest one. Matching its own signed error must not legitimize it.
-        row.update(plate="C", circle=41, turns=1, spaces=16, actual_angle_deg=513 / 41)
-        error = 513 / 41 - 12.5182
-        row.update(position_errors_deg=[error], max_position_error_deg=abs(error))
-    elif corruption == "spaces":
-        row["spaces"] += 1
-    elif corruption == "basic_band":
-        row["tolerance_deg"] = 1.0
-    else:
-        row["closure"] = {"error_deg": 0.0, "within_tolerance": True}
-    with pytest.raises(ValueError):
-        VALIDATOR["check_indexing"](setup, features, entries, corrupted)
-
-
-@pytest.mark.parametrize("plan_filename", ["plan.toml", "built-up.toml"])
-def test_rejects_unsourced_finished_diameter_in_unbound_profile(plan_filename):
-    plan, features, _, policy, report = cone_inputs(plan_filename)
+def test_rejects_unsourced_finished_diameter_in_unbound_profile():
+    plan, features, policy, report = cone_inputs()
     setup = next(s for s in plan["setups"] if s["id"] == "S1")
     finding = next(
         f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1"
     )
     VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
     corrupted = copy.deepcopy(finding)
-    corrupted["numbers"]["diameter_mm"] = 42.011 if plan_filename == "plan.toml" else 21.93
+    corrupted["numbers"]["diameter_mm"] = 21.93
     with pytest.raises(ValueError):
         VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted)
-
-
-def test_stickout_verified_policy_cannot_certify_an_unbound_finished_profile():
-    plan, features, _, policy, report = cone_inputs()
-    setup = next(s for s in plan["setups"] if s["id"] == "S1")
-    finding = copy.deepcopy(
-        next(f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1")
-    )
-    # This is a synthetic unit-test policy, not new fixture/shop evidence.
-    policy["numbers"]["stickout_ld_max"] = 3.0
-    policy["numbers_cite"]["stickout_ld_max"] = "synthetic test-policy citation"
-    policy["numbers_verify"]["stickout_ld_max"] = False
-    finding["numbers"]["stickout_ld_max"] = 3.0
-    VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
-
-    for field, value in (("unsupported_limit_mm", 330.0), ("diameter_mm", 42.011)):
-        corrupted = copy.deepcopy(finding)
-        corrupted["numbers"][field] = value
-        with pytest.raises(ValueError):
-            VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted)
-    finding["status"] = "pass"
-    with pytest.raises(ValueError):
-        VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
-
-
-@pytest.mark.parametrize("corruption", ["waste", "joint_permission"])
-def test_comparison_rejects_bad_arithmetic_and_hidden_built_up_intent(tmp_path, corruption):
-    examples = copy_examples(tmp_path)
-    folder = examples / "cone-pivot-post"
-    documents = {
-        path.resolve(): tomllib.loads(path.read_text(encoding="utf-8"))
-        for path in examples.rglob("*.toml")
-    }
-    VALIDATOR["check_comparison"](folder, documents)
-    path = folder / "expected" / "compare.json"
-    rows = json.loads(path.read_bytes())
-    if corruption == "waste":
-        rows[0]["waste_ratio"] = 0.1
-    else:
-        built_up = next(row for row in rows if row["plan"] == "built-up.toml")
-        built_up["construction"] = "one_piece"
-    path.write_bytes(VALIDATOR["canonical"](rows))
-    with pytest.raises(ValueError):
-        VALIDATOR["check_comparison"](folder, documents)
-
-
-@pytest.mark.parametrize("corruption", ["tip", "depth", "guard", "cone"])
-def test_blind_counterbore_uses_authored_depth_without_through_allowance(corruption):
-    plan, features, inventory, _, report = cone_inputs()
-    findings = {(f["rule"], f["subject"]): f for f in report["findings"]}
-    entries = VALIDATOR["entries_for"](inventory)
-    VALIDATOR["check_endpoints"](plan, features, findings, entries)
-    corrupted = copy.deepcopy(findings)
-    row = corrupted["blind_depth", "mount_west_counterbore"]["numbers"]["endpoints"][0]
-    if corruption == "tip":
-        row["tip_z"] -= 0.5
-    elif corruption == "depth":
-        # Still under the printed guard, and self-consistent internally, but
-        # not the cutting depth authored in S8 op60.
-        row["depth_mm"] += 0.5
-        row["total_depth_mm"] += 0.5
-        row["tip_z"] -= 0.5
-    elif corruption == "guard":
-        row["depth_limit_mm"] += 1.0
-    else:
-        # A counterbore has no drill cone even with an unidentified cutter.
-        row["point_mm"] = 0.2
-        row["total_depth_mm"] += 0.2
-        row["tip_z"] -= 0.2
-    with pytest.raises(ValueError):
-        VALIDATOR["check_endpoints"](plan, features, corrupted, entries)
-
-
-@pytest.mark.parametrize("corruption", ["tip", "cone"])
-def test_through_bore_endpoint_has_zero_drill_cone(corruption):
-    plan, features, inventory, _, report = cone_inputs()
-    # The authored final bore is the S4 op50 reamer. Its endpoint has a known
-    # flat-end axial lead rather than a drill cone.
-    findings = {(f["rule"], f["subject"]): copy.deepcopy(f) for f in report["findings"]}
-    row = next(
-        row
-        for row in findings["blind_depth", "journal_bore"]["numbers"]["endpoints"]
-        if row["setup"] == "S4" and row["op"] == 50
-    )
-    entries = VALIDATOR["entries_for"](inventory)
-    VALIDATOR["check_endpoints"](plan, features, findings, entries)
-    if corruption == "tip":
-        row["tip_z"] -= 0.25
-    else:
-        row["point_mm"] = 0.25
-        row["tip_z"] -= 0.25
-    with pytest.raises(ValueError):
-        VALIDATOR["check_endpoints"](plan, features, findings, entries)
 
 
 @pytest.mark.parametrize("action", ["tap", "ream", "drill"])

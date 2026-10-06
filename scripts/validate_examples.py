@@ -21,12 +21,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
-PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket", "cone-pivot-post")
+PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket")
 EXPECTED_EXIT = {
     "pivot-shaft": 0,
     "rocker-arm": 2,
     "pivot-bracket": 2,
-    "cone-pivot-post": 2,
     "cone-pivot-post/built-up.toml": 2,
 }
 # (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
@@ -1311,134 +1310,8 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         all("AUTHOR'S CHOICE" in p["cite"] for p in pieces),
         "blank dimensions lack author provenance",
     )
-    if plan["construction"] == "one_piece":
-        # The blank must contain the body/head cylinders over the post height and
-        # the integral crank boss from its -Z land to its far +Z face. This is
-        # nominal stock coverage, not a cutter sweep or verified jaw/tool clearance.
-        stock = plan["stock"]
-        ends = geometry["crank_boss_faces"]
-        radius = max(geometry["body"]["dia_nominal"], geometry["head"]["dia_nominal"]) / 2
-        boss_z = (-ends["station_nominal"], ends["length_nominal"] - ends["station_nominal"])
-        if stock["form"] == "flat_bar":
-            lo, hi = blank_box(stock)
-            require(
-                lo[1] <= 0.0 and hi[1] >= geometry["body"]["height_nominal"],
-                "one-piece blank excludes body height",
-            )
-            require(lo[0] <= -radius and hi[0] >= radius, "one-piece blank excludes the body")
-            require(
-                lo[2] <= min(-radius, boss_z[0]) and hi[2] >= max(radius, boss_z[1]),
-                "one-piece blank excludes crank boss",
-            )
-        else:
-            boss = geometry["crank_boss"]
-            radial_bound = math.hypot(boss_z[1], boss["dia_nominal"] / 2)
-            require(stock["dia_mm"] / 2 >= radial_bound, "one-piece blank excludes crank boss")
-            require(
-                stock["length_mm"] >= geometry["body"]["height_nominal"],
-                "one-piece blank excludes body height",
-            )
-    else:
-        require(len(pieces) == 2, "built-up candidate must declare its two real leaf blanks")
-        require(plan["stock"]["form"] == "built_up", "built-up blank form lost candidate identity")
-
-
-def blank_box(piece: dict):
-    """Model-frame bounds of a rectangular bar from its corner, axis and section axis."""
-    axis, across = piece["axis"], piece["section_axis"]
-    third = [
-        axis[1] * across[2] - axis[2] * across[1],
-        axis[2] * across[0] - axis[0] * across[2],
-        axis[0] * across[1] - axis[1] * across[0],
-    ]
-    a, b = piece["section_mm"]
-    corners = [
-        [
-            o + i * piece["length_mm"] * u + j * a * v + k * b * w
-            for o, u, v, w in zip(piece["origin_mm"], axis, across, third, strict=True)
-        ]
-        for i in (0, 1)
-        for j in (0, 1)
-        for k in (0, 1)
-    ]
-    return [min(c[n] for c in corners) for n in range(3)], [
-        max(c[n] for c in corners) for n in range(3)
-    ]
-
-
-def blank_volume(piece: dict):
-    length = piece.get("length_mm")
-    if piece["form"] in {"round", "round_bar"} and numeric(piece.get("dia_mm")) and numeric(length):
-        return math.pi * (piece["dia_mm"] / 2) ** 2 * length
-    section = piece.get("section_mm")
-    if (
-        piece["form"] in {"rectangular_blank", "flat_bar"}
-        and isinstance(section, list)
-        and len(section) == 2
-        and all(numeric(v) for v in [*section, length])
-    ):
-        return math.prod([*section, length])
-    return "unknown"
-
-
-def check_comparison(folder: Path, documents: dict) -> None:
-    path = folder / "expected" / "compare.json"
-    rows = json.loads(path.read_bytes())
-    require(path.read_bytes() == canonical(rows), "comparison is not canonical JSON")
-    require(
-        len(rows) == 2 and {row["plan"] for row in rows} == {"plan.toml", "built-up.toml"},
-        "same-part candidates must be distinguished by separate plan filenames",
-    )
-    features = documents[folder / "features.toml"]
-    for row in rows:
-        plan = documents[folder / row["plan"]]
-        expected_subdir = "expected" if row["plan"] == "plan.toml" else "expected/built-up"
-        report = read_report(folder / expected_subdir / "report.json")
-        require(row["part"] == plan["part"] == features["part"], "comparison changed part identity")
-        require(row["construction"] == plan["construction"], "comparison hid built-up construction")
-        require(row["setups"] == len(plan["setups"]), "comparison setup count is not authored")
-        pieces = plan["stock"].get("components", [plan["stock"]])
-        volumes = [blank_volume(piece) for piece in pieces]
-        stock = sum(volumes) if all(numeric(v) for v in volumes) else "unknown"
-        near(row["stock_volume_mm3"], stock, "comparison leaf blank volume")
-        source = features.get("volume_cite", [])
-        source = [source] if isinstance(source, str) and source != "unknown" else source
-        source = [] if source == "unknown" else source
-        net = features.get("volume_mm3", "unknown") if source else "unknown"
-        near(row["net_volume_mm3"], net, "comparison sourced net volume")
-        waste = 1 - net / stock if numeric(net) and numeric(stock) else "unknown"
-        near(row["waste_ratio"], waste, "comparison waste ratio")
-        evidence = row["volume_evidence"]["stock_components"]
-        require(len(evidence) == len(pieces), "comparison omitted a leaf blank")
-        for piece, volume, observed in zip(pieces, volumes, evidence, strict=True):
-            require(observed["form"] == piece["form"], "comparison changed blank form")
-            near(observed["length_mm"], piece["length_mm"], "comparison leaf blank length")
-            if "dia_mm" in piece:
-                near(observed["dia_mm"], piece["dia_mm"], "comparison leaf blank diameter")
-            if "section_mm" in piece:
-                require(observed["section_mm"] == piece["section_mm"], "comparison changed section")
-            near(observed["volume_mm3"], volume, "comparison leaf volume evidence")
-            require("AUTHOR'S CHOICE" in observed["cite"], "comparison lost blank choice citation")
-        require(row["volume_evidence"]["net_cite"] == source, "comparison lost net-volume source")
-        holds = [setup["hold"] for setup in plan["setups"]]
-        fixtures = selected_refs(holds)
-        if any(
-            hold.get(key) == "unknown"
-            for hold in holds
-            for key in ("fixture", "support", "supports", "parallels", "riser")
-        ):
-            fixtures.add("unknown")
-        require(row["fixtures"] == sorted(fixtures), "comparison fixture inventory is incomplete")
-        require(
-            row["rule_findings"] == report["findings"], "comparison lost complete rule evidence"
-        )
-        counts = {
-            status: sum(f["status"] == status for f in report["findings"])
-            for status in {f["status"] for f in report["findings"]}
-        }
-        require(row["findings"] == counts, "comparison finding counts mismatch")
-        require(row["inputs"] == report["inputs"], "comparison rebound candidate inputs")
-        require(row["exit"] == report["expected_exit"], "comparison hid candidate readiness")
+    require(len(pieces) == 2, "built-up candidate must declare its two real leaf blanks")
+    require(plan["stock"]["form"] == "built_up", "built-up blank form lost candidate identity")
 
 
 def validate_fixture(
@@ -1657,7 +1530,6 @@ def main() -> int:
             f"cone-pivot-post/built-up.toml: expected exit {code}; named missing: "
             f"{', '.join(missing) or 'none'}"
         )
-        check_comparison(EXAMPLES / "cone-pivot-post", documents)
         for case in GEOMETRY_CASES:
             validate_geometry_fixture(case, documents)
             print(f"geometry/{case[0]}/{case[1]}: expected exit {case[3]}")
