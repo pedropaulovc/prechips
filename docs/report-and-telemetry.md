@@ -280,6 +280,9 @@ union: once a label is proven, later poses need not rediscover it. Partial new
 reference sets stay local to that monotonically growing union; a stock-region
 cache shared by operations stores only complete reference sets. Pointed cutters
 keep their actual cone/body geometry in stock and fixture intersections.
+A cylinder touching no stock-face bound has constant material membership. Its
+midpoint can be rejected beyond the tolerance-grown stock envelope; all other
+midpoints retain the native material classifier and the existing shape type.
 
 When no kernel is found, every geometry finding carries
 `numbers.kernel_unavailable = true`; the console prints that identical

@@ -674,6 +674,12 @@ class _Culled:
     def __init__(self, shape):
         self.shape = shape
         self.boxes = [_tolerant_box(face) for face in shape.Faces]
+        self.box = None
+        if self.boxes:
+            self.box = tuple(
+                (min if index < 3 else max)(box[index] for box in self.boxes)
+                for index in range(6)
+            )
         self.answers = {}
         self.hit_refs = {}  # exact (cylinder, own face) -> read-only label set
         self.kept = 0
@@ -691,7 +697,16 @@ class _Culled:
             return self.answers[key]
         if not any(_cylinder_hits_box(cx, cy, radius, z0, z1, box, True) for box in self.boxes):
             # No face reaches the cylinder, so it lies wholly inside or wholly outside.
-            if not self.shape.isInside(V(cx, cy, (z0 + z1) / 2), 1e-9, False):
+            middle = (z0 + z1) / 2
+            outside = self.box is not None and (
+                cx < self.box[0] - 1e-6
+                or cy < self.box[1] - 1e-6
+                or middle < self.box[2] - 1e-6
+                or cx > self.box[3] + 1e-6
+                or cy > self.box[4] + 1e-6
+                or middle > self.box[5] + 1e-6
+            )
+            if outside or not self.shape.isInside(V(cx, cy, middle), 1e-9, False):
                 answer = None
             else:
                 answer = (
