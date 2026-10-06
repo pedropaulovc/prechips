@@ -1278,17 +1278,34 @@ class _Traveler:
         rows = []
         for (label, *_), members in groups.items():
             names = [_solid_name(solid.get("name", "?")) for solid in members]
+            # Names differing in one word ("pad R1" / "pad L1", "left front nut" / "right
+            # front nut") print once as "pad ×2", each position tagged by that word.
+            words = [name.split() for name in names]
+            varying = [
+                i
+                for i in range(len(words[0]))
+                if len({len(w) for w in words}) == 1 and len({w[i] for w in words}) > 1
+            ]
+            common = len(members) > 1 and len(varying) == 1 and len(words[0]) > 1
+            component = " / ".join(names)
+            if common:
+                stem = [w for i, w in enumerate(words[0]) if i != varying[0]]
+                component = f"{' '.join(stem)} ×{len(members)}"
             positions = []
-            for solid, name in zip(members, names, strict=True):
+            for solid, name, split in zip(members, names, words, strict=True):
+                tag_name = split[varying[0]] if common else name
                 for tag, axes in placed:
-                    parts = (tag if len(placed) > 1 else None, name if len(members) > 1 else None)
+                    parts = (
+                        tag if len(placed) > 1 else None,
+                        tag_name if len(members) > 1 else None,
+                    )
                     prefix = " ".join(part for part in parts if part)
                     where = self.solid_position(solid, axes)
                     positions.append(f"{prefix}: {where}" if prefix else where)
             first = members[0]
             rows.append(
                 [
-                    self.bench(label) if label else " / ".join(names),
+                    self.bench(label) if label else component,
                     self.solid_size(first),
                     positions,
                     self.bench(first["locates"]) if first.get("locates") else "—",
