@@ -34,13 +34,13 @@ form = "flat_bar"
 material = "1018 low-carbon steel"   # AUTHOR'S CHOICE within LOW-CARBON STEEL OR GRAY IRON (parts/_defaults.yaml ferrous_noncritical)
 material_cite = ["harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:cone-pivot-post.material_family", "harmonic-analyzer/cad/config/parts/_defaults.yaml:material_families.ferrous_noncritical.material"]
 section_mm = [50.8, 76.2]            # AUTHOR'S CHOICE: 2 x 3 in cold-rolled flat bar
-length_mm = 123.0                    # AUTHOR'S CHOICE: foot allowance 3 + post 86 + tail 34 (sawn)
-origin_mm = [-25.4, -3.0, 52.2]      # blank corner: model X -25.4..25.4, Y -3..120, Z 52.2..-24
+length_mm = 140.0                    # AUTHOR'S CHOICE: foot allowance 3 + post 86 + tail 51 (sawn)
+origin_mm = [-25.4, -3.0, 52.2]      # blank corner: model X -25.4..25.4, Y -3..137, Z 52.2..-24
 axis = [0.0, 1.0, 0.0]               # length along the post axis (model Y)
 section_axis = [1.0, 0.0, 0.0]       # 50.8 along model X; axis x section_axis = -Z carries the 76.2
 on_hand = false                      # inventory stock = []: known none on hand; no procurement claimed
 as_is_faces = []                     # every finished face is cut
-note = "AUTHOR'S CHOICE: the 76.2 side runs model Z -24..52.2 so the crank boss (Z to 50.66) and the -Z land (Z -21.38) sit inside the bar with 1.5 and 2.6 mm to clean up. Model Y86..120 is a sacrificial rectangular tail: the BS-0 four-jaw grips Y100..120, S7 saws the tail off at Y87 and S8 faces the head top."
+note = "AUTHOR'S CHOICE: the 76.2 side runs model Z -24..52.2 so the crank boss (Z to 50.66) and the -Z land (Z -21.38) sit inside the bar with 1.5 and 2.6 mm to clean up. Model Y86..137 is a sacrificial rectangular tail: the BS-0 four-jaw grips Y117..137, which keeps its 32 mm jaws clear of the holder while the crank boss wall (to Y83.9) is milled; S7 saws the tail off at Y87 and S8 faces the head top."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67"]
 
 [dro]
@@ -65,7 +65,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 0.0, 1.0]
 z = [0.0, -1.0, 0.0]
 binding = "nominal"          # Z0 is the foot faced by S1 op 10
-note = "AUTHOR'S CHOICE: S1 bar upright in the vise, foot up; model (X,Y,Z) -> (X, Z, -Y). Raw foot z = 3, tail end z = -120."
+note = "AUTHOR'S CHOICE: S1 bar upright in the vise, foot up; model (X,Y,Z) -> (X, Z, -Y). Raw foot z = 3, tail end z = -137."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33"]
 
 [frames.C0]
@@ -110,7 +110,7 @@ x = [0.0, -1.0, 0.0]
 y = [1.0, 0.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"          # X from the foot (B), Y and Z on the head axis
-note = "AUTHOR'S CHOICE: S6 BS-0 at head angle 0 (crank boss up), head turned continuously; origin on the head axis at datum B. Chuck jaw mouth at x = -100."
+note = "AUTHOR'S CHOICE: S6 BS-0 at head angle 0 (crank boss up), head turned continuously; origin on the head axis at datum B. Chuck jaw mouth at x = -117."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33"]
 
 [frames.B7]
@@ -119,7 +119,7 @@ x = [0.0, -1.0, 0.0]
 y = [0.0, 0.0, -1.0]
 z = [1.0, 0.0, 0.0]
 binding = "nominal"          # the saw cut is set to a scribed line, not a DRO zero
-note = "AUTHOR'S CHOICE: S7 post on its side in the bandsaw vise; model (X,Y,Z) -> (86 - Y, -Z, X). Head top x = 0, tail end x = -34, foot x = 86."
+note = "AUTHOR'S CHOICE: S7 post on its side in the bandsaw vise; model (X,Y,Z) -> (86 - Y, -Z, X). Head top x = 0, tail end x = -51, foot x = 86."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33"]
 
 [frames.V8]
@@ -143,7 +143,7 @@ stock_in = "stock"
 
 [setups.stock_state]
 top_z = 3.0                  # raw sawn foot end
-bottom_z = -120.0            # raw tail end on the parallels
+bottom_z = -137.0            # raw tail end on the parallels
 
 [setups.stock_state.local_thickness]   # S1 drills nothing
 
@@ -159,7 +159,7 @@ grip_mm = 32.245             # jaw height 1.7695 in - 1/2 in parallels, x 25.4
 jaw_above_parallels_mm = 32.245
 stop = "none: the bar stands on the parallels"   # author's choice
 clamp = "hand plus quarter turn; tap the bar down on the parallels"   # author's choice
-note = "Bar upright, tail down on 1/2 in parallels, 32 mm in the jaws and 91 mm standing above them. Light facing passes only."
+note = "Bar upright, tail down on 1/2 in parallels, 32 mm in the jaws and 108 mm standing above them. Light facing passes only; take the first pass at 0.1 mm and check for chatter."
 
 [setups.zero.x]
 edge = "bar_left"
@@ -219,11 +219,11 @@ crank_bore = 74.66           # faced +Z boss face through the raw -Z bar face
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
-pose = { origin_mm = [-27.3, 0.0, -50.66], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-44.3, 0.0, -50.66], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0          # jaw 1 on the +Z bar face
-grip_mm = 20.0               # author's choice: model Y100..120 in the jaws
+grip_mm = 20.0               # author's choice: model Y117..137 in the jaws
 support = "none"             # the foot end is free; the BS-0 tailstock would block the foot face
-grip_on = "raw rectangular tail, model Y100..120"
+grip_on = "raw rectangular tail, model Y117..137"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
@@ -231,7 +231,7 @@ jaw_above_parallels_mm = "not_applicable"
 stop = "bar end against the jaw steps"   # author's choice
 clamp = "four-jaw: set the body axis on the spindle (model Z offset 14.1 from the bar centre) with a dial on the raw faces, then tighten opposite pairs; remove key"   # author's choice
 jaw_protection = "none: the tail is scrap"
-stickout_mm = 100.0          # jaw face model Y100 to datum B at Y0
+stickout_mm = 117.0          # jaw face model Y117 to datum B at Y0
 note = "BS-0 horizontal, spindle axis along table X, chuck on the left. Head locked at 0 deg (crank boss up) for this setup."
 
 [setups.zero.transfer]
@@ -288,7 +288,7 @@ to_z = -29.2847              # head crest, model Z 21.3753
 rough_allowance_mm = 0.3
 doc_mm = 1.5                 # author's choice: axial steps down the 29 mm boss wall, 1/2 in cutter at 3.8 D
 direction = "conventional"
-stock_removal_bounds = { x = [-17.315, 17.315], y = [-17.315, 17.315], z = [-29.2847, 0.0] }
+stock_removal_bounds = { x = [-25.0, 25.0], y = [-25.4, 25.4], z = [-29.2847, 1.54] }   # clear the bar above the head crest, model Y47.7..97.7, so the cutter walks round the boss in open air
 
 [[setups.ops]]
 op = 30
@@ -301,7 +301,7 @@ approach_mm = 5.0
 to_z = -29.2847
 doc_mm = 0.15
 direction = "climb"          # author's choice: light finishing pass
-stock_removal_bounds = { x = [-17.315, 17.315], y = [-17.315, 17.315], z = [-29.2847, 0.0] }
+stock_removal_bounds = { x = [-25.0, 25.0], y = [-25.4, 25.4], z = [-29.2847, 1.54] }
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
@@ -358,11 +358,11 @@ bottom_z = -73.58            # faced crank +Z face
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
-pose = { origin_mm = [-27.3, 0.0, -21.38], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-44.3, 0.0, -21.38], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 180.0        # same chucking turned 180 deg: jaw 1 now on the bottom face
 grip_mm = 20.0
 support = "none"
-grip_on = "raw rectangular tail, model Y100..120 (unchanged chucking)"
+grip_on = "raw rectangular tail, model Y117..137 (unchanged chucking)"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
@@ -452,11 +452,11 @@ journal_bore = 42.011        # pad to pad along the journal axis after S5
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
-pose = { origin_mm = [-66.632, 0.0, -21.0055], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-83.632, 0.0, -21.0055], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 192.5182
 grip_mm = 20.0
 support = "none"
-grip_on = "raw rectangular tail, model Y100..120 (unchanged chucking)"
+grip_on = "raw rectangular tail, model Y117..137 (unchanged chucking)"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
@@ -574,11 +574,11 @@ bottom_z = -49.9404
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
-pose = { origin_mm = [-66.632, 0.0, -21.0055], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-83.632, 0.0, -21.0055], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 grip_mm = 20.0
 support = "none"
-grip_on = "raw rectangular tail, model Y100..120 (unchanged chucking)"
+grip_on = "raw rectangular tail, model Y117..137 (unchanged chucking)"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
@@ -671,16 +671,16 @@ bottom_z = -24.0             # raw bar face, model Z -24
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
-pose = { origin_mm = [-100.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-117.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0
 grip_mm = 20.0
 support = "none"
-grip_on = "raw rectangular tail, model Y100..120 (unchanged chucking)"
+grip_on = "raw rectangular tail, model Y117..137 (unchanged chucking)"
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stickout_mm = 100.0
+stickout_mm = 117.0
 stop = "unchanged chucking"
 clamp = "unlock the spindle and disengage the index plunger; turn the head by the crank for each traverse, taking up worm backlash in one direction"
 note = "Same chucking as S2-S5, head turned by the crank: rotary-mill the head and body cylinders between the finished bosses and pads."
@@ -720,8 +720,8 @@ faces = ["#738/ADVANCED_FACE[22]/HAF_HEAD__P01", "#1096/ADVANCED_FACE[29]/HAF_HE
 approach = "rotary"
 tool = "endmills-cone/1-2in-4fl"
 holder = "r8-collets-lms-4860/1-2in"
-z_from = 6.0                 # model Y94: past the cutter radius beyond the Y86 head top
-z_to = 51.0                  # model Y49: past the cutter radius below the Y59.4 shoulder
+z_from = 23.0                # model Y94: past the cutter radius beyond the Y86 head top
+z_to = 68.0                  # model Y49: past the cutter radius below the Y59.4 shoulder
 angle_window_deg = [0.0, 360.0]
 stock_to_leave_mm = 0.0
 doc_mm = 0.5
@@ -740,8 +740,8 @@ faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BOD
 approach = "rotary"
 tool = "endmills-cone/1-2in-4fl"
 holder = "r8-collets-lms-4860/1-2in"
-z_from = 40.6                # model Y59.4, the head shoulder
-z_to = 103.0                 # model Y-3: past datum B to sweep the S1 foot lip outside the cutter reach
+z_from = 57.6                # model Y59.4, the head shoulder
+z_to = 120.0                 # model Y-3: past datum B to sweep the S1 foot lip outside the cutter reach
 angle_window_deg = [0.0, 360.0]
 stock_to_leave_mm = 0.0
 doc_mm = 0.5
@@ -773,7 +773,7 @@ fixture = "vise-bandsaw-4x6"
 jaws_along = "x"             # jaws close across the 76.2 tail faces (model Z)
 fixed_jaw = "rear"           # author's choice
 parallels = "none"
-jaw_center_along_mm = -60.0  # 110 mm jaws end 2.5 mm short of the kerf: model Y91..120 of the neck and tail in the jaws
+jaw_center_along_mm = -60.0  # 110 mm jaws end 2.5 mm short of the kerf: model Y91..137 of the neck and tail in the jaws
 grip_mm = 50.8               # full tail thickness in the 60 mm jaws
 jaw_above_parallels_mm = 60.0
 stop = "none: set the blade to the scribed line 1.75 mm above the head top"
