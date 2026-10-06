@@ -32,7 +32,7 @@ PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket")
 EXPECTED_EXIT = {
     "pivot-shaft": 0,
     "rocker-arm": 2,
-    "pivot-bracket": 2,
+    "pivot-bracket": 0,
     "cone-pivot-post/built-up.toml": 2,
 }
 # (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule

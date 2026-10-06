@@ -122,7 +122,7 @@ PLAN §8 M3.
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
 | `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (last CLI proof)**: all four native fixtures are modeled without fixture debts. Exit-0 still needs complete explicit-face ownership and legal cutter poses; S4's cut-state render is separately blocked by the engine's blanket stock-split guard despite independently held part and scrap. Checked-in goldens remain stale. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: physical inventory and authored setup data are complete; all three native fixture scenes are modeled without debts. Legal planar cutter poses, the finish-floor cut plane and preceding-operation stock clearance remain engine-owned accessibility stops. |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all three native fixture scenes are modeled with no fixture or render debts. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: the `mount_west` nominal conflict and S2:50 far-side cone-boss claims. |
 
 ### Rocker-arm supported route
@@ -998,8 +998,9 @@ The former 43-leaf missing-feature ledger is superseded by the v39 STEP-bound,
 hand-authored manifest. No dimensioned drawing was found, so bands are plausible
 example design intent rather than imported drawing acceptance limits.
 
-S1 faces the seat and profiles only the foot-depth region, with explicit bounded
-clearance retaining the upper-ear stock for S2/S3. S2 stands the foot on one
+S1 faces the whole actual raw top, including its overhang rails, then profiles
+only the foot-depth region with bounded clearance retaining the upper-ear stock
+for S2/S3. S2 stands the foot on one
 41.275 mm tall narrow parallel pair (not wide blocks under closed jaws).
 Both vise holds use no longitudinal end stop: each blank is clamped, then
 edge-found against the raw faces for its own DRO zero. No unmodeled stop is
@@ -1028,8 +1029,10 @@ Datum A is labelled "finished seat face" at the bench, not by a CAD-frame coordi
 The two setup transfers use an authored 0.001 in (0.0254 mm) TIR limit, two
 divisions of the existing 0.0005 in test indicator; this is an alignment target,
 not a claim that the setup has already been measured.
-After the shared outer face is finished, S3:11 checks the final 6 mm ear thickness
-(the S2 in-process ear was still 7 mm). The R7 arch gets a radius-gauge check.
+S3 likewise faces the full actual entry top, including the retained rectangular
+crown, before profiling the arch. After the shared outer face is finished,
+S3:11 checks the final 6 mm ear thickness (the S2 in-process ear was still 7 mm).
+The R7 arch gets a radius-gauge check.
 The crown's explicit S3 clearance box removes the retained cap without using
 the earlier straight side slots to fabricate an arched form from above.
 The reamed bore uses paired metric 6.500 mm go / 6.530 mm no-go pins rather than
