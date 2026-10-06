@@ -346,6 +346,9 @@ def _solids(item, owner):
             continue
         at, shape = solid.get("at_mm"), solid.get("shape")
         primitive = {"name": f"{owner}:{name}", "local": name, "shape": shape, "at_mm": at}
+        caption = solid.get("label")
+        if isinstance(caption, str) and caption.strip() and caption != UNKNOWN:
+            primitive["label"] = caption.strip()
         if void:
             primitive["void"] = True
             if cuts is not None:

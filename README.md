@@ -310,6 +310,10 @@ order and posed inventory stops are shown explicitly. Dashed machine-context
 outlines are schematic, not measured fixture geometry, and unresolved drawing
 items remain plain-language warnings. The image is hashed into `report.json`
 with its scene record so an approval binds to it; it is not a toolpath.
+Shallow contour insets explicitly label Y-only graphic magnification; their
+coordinate tables and the setup view remain unchanged. Custom-fixture pad and
+clamp badges sit outside the projected fixture and part outline, with leaders
+to their actual positions. Optional authored void labels identify mounting holes.
 The lathe's filled meridian section keeps the retained core visible inside the
 removed annulus; its jaw-end inset magnifies nearby shoulders and reliefs.
 Dashed nominal part outlines locate mill/custom-fixture targets without

@@ -107,12 +107,27 @@ X is the declared radius/diameter DRO target and whose Z is the table station.
 The same `P1`, `P2`, … keys annotate the profile inset and traveler coordinate
 rows. Both mirrored sides remain explicit. Dense mill sketches use separate
 operation panels so repeated corners keep every coordinate key legible.
+Shallow contour panels label their Y-only graphic magnification (`Y EXAG X…`);
+the declared coordinate values, waypoint identities and setup-view axes do not
+change. The faint nominal underlay uses that same labelled panel scale.
+Direction arrows are spaced along the drawn path, including subpixel chords,
+rather than disappearing when an arc is sampled finely.
+Lathe inset paths and their keys locate the nominal finished surface; they
+are not compensated tool-tip feed targets. If the contour table also gives
+tool X/Z columns, those columns control the feed, not the drawn surface line.
 Numbered custom-clamp badges follow authored `hold.clamp_order`, not an order
 inferred from prose; an explicit empty list means no accessory tightening
 actions. Holding/fit-up-only setups show no invented cutter.
 Fixture construction primitives remain visible as geometry and individually
 named in `scene.components`; printed callouts group body/support hardware so
 bolt and shim details do not force the pad, pin and clamp labels into tiny text.
+Custom-fixture badge boxes remain outside the projected stock, fixture plate,
+other fixture components and nominal part outline; leaders return to the
+unchanged physical component centres. A trusted, explicitly labelled fixture
+void gets a shop-caption leader at its posed centre, with `{name, label, role,
+center_mm}` recorded separately in `scene.fixture_detail_labels`. These
+annotations do not create solids, change geometry checks or resolve measurement
+debt.
 
 Exact posed fixture solids remain the only basis for `fixture = "modeled"`.
 Dashed table, vise-body and machine-context outlines are clearly marked

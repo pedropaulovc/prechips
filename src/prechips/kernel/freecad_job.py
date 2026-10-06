@@ -5536,6 +5536,9 @@ class _Setup:
             "shows": shows, "legend": legend, "render_debts": render_debts,
             "waypoints": spec["waypoints"], "primary_op": tool.get("op") if tool else None,
         })
+        details = [c for c in components if c["role"] == "detail"]
+        if details:
+            scene["fixture_detail_labels"] = details
         return render_diagram(meshes, spec), scene
 
     def _render_components(self, annotation):
@@ -5579,7 +5582,26 @@ class _Setup:
         for component in grouped.values():
             box = component["box_mm"]
             component["center_mm"] = [(box[i] + box[i + 3]) / 2 for i in range(3)]
-        return list(grouped.values())
+        result = list(grouped.values())
+        if self.hold and any(c["owner"] == "fixture" for c in self.fixture):
+            matrix = None
+            for primitive in self.hold.get("solids", []):
+                label = primitive.get("label")
+                if not primitive.get("void") or not label:
+                    continue
+                if matrix is None:
+                    matrix = _pose_matrix(self.hold["pose"])
+                at = V(*primitive["at_mm"])
+                if primitive["shape"] == "box":
+                    at += V(*primitive["size_mm"]) * 0.5
+                else:
+                    at += V(*primitive["axis"]) * (primitive["length_mm"] / 2)
+                centre = matrix.multiply(at)
+                result.append({
+                    "name": primitive["name"], "label": label, "role": "detail",
+                    "center_mm": [centre.x, centre.y, centre.z],
+                })
+        return result
 
     def _render_tool(self, annotation, lathe):
         """Selected primary cutter's actual silhouette at an illustrative approach pose."""

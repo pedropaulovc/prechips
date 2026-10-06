@@ -150,6 +150,11 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   slot void (`cuts = ["beam"]`), stud, heel, nut and washer (washer bore with
   `cuts = ["washer"]`). Primitives of one list are one part and never checked
   against each other; each posed clamp's list must touch the stock to bear.
+- A trusted void in the holding fixture may carry an optional shop-caption
+  `label = "Strap stud holes"`. The setup render places its leader at the void's
+  centre after applying `hold.pose`, and records the label and posed centre in
+  `scene.fixture_detail_labels`. The caption neither creates geometry nor
+  overrides the void's measurement or verification debt.
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
