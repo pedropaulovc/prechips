@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 
 from prechips.measurements import nominal_angle_deg
 
@@ -12,6 +13,8 @@ from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
 HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore", "bore"}
+# Plan units of float residue within which two authored Zs are one surface.
+SAME_Z = 1e-9
 
 
 def mapping(value):
@@ -38,17 +41,19 @@ def _subtract(*values):
     return values[0] - sum(values[1:]) if all(number(v) for v in values) else UNKNOWN
 
 
-def _operative(row, grid):
+def _operative(row, bundle, setup, face):
     """Add the endpoint as the DRO shows it, every Z on the setup's grid (``dro_z``):
-    ``dro_entry_z`` is the entry surface (the ``dro_to_z`` of the op that faced it),
-    ``dro_exit_face`` the exit face. The tip keeps its analytical distance below the
-    surface it is worked from (the entry; a through hole's exit face), then rounds up,
-    never deeper than worked. ``dro_depth_mm`` is the depth that leaves below the entry;
+    ``dro_entry_z`` is the entry surface ``face`` as its producer cut it
+    (:func:`operative_z`), ``dro_exit_face`` the exit face. The tip keeps its analytical
+    distance below the surface it is worked from (the entry; a through hole's exit face),
+    then rounds up, never deeper than worked. ``dro_depth_mm`` is the depth that leaves
+    below the entry, held to ``depth_floor_mm`` (unknown unless a band end is authored);
     ``dro_exit_mm`` the break-through it leaves below the nominal exit face, the lower."""
-    from .coordinates import dro_z
+    from .coordinates import dro_grid, dro_z
 
+    grid = dro_grid(bundle, setup)
     through = row["exit_face"] != "not_applicable"
-    row["dro_entry_z"] = dro_z(row["entry_z"], grid)
+    row["dro_entry_z"] = operative_z(bundle, setup, row["entry_z"], face, source=row["entry_from"])
     if through:
         row["dro_exit_face"] = dro_z(row["exit_face"], grid)
     surface, worked = ("dro_exit_face", "exit_face") if through else ("dro_entry_z", "entry_z")
@@ -60,6 +65,7 @@ def _operative(row, grid):
         row["dro_exit_mm"] = _subtract(row["exit_face"], lead, row["dro_tip_z"])
     elif "depth_mm" in row:
         row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
+        row.setdefault("depth_floor_mm", UNKNOWN)
 
 
 def _feature_depth_mm(feature, field, units, end=1):
@@ -157,16 +163,93 @@ def stock_states(setup, features=None):
         yield op, before, after
 
 
-def evaluate(bundle):
-    from .coordinates import dro_grid
+def lineage(bundle, setup):
+    """The setups whose output ``setup`` receives, oldest first: its ``stock_in`` chain
+    (each branch of a joint), as the geometry kernel builds the stock; supplies end it."""
+    by_id = {s.get("id"): s for s in bundle.plan.get("setups", [])}
+    chain, seen = [], {setup.get("id")}
 
+    def walk(current):
+        refs = current.get("stock_in")
+        for ref in refs if isinstance(refs, list) else [refs]:
+            if isinstance(ref, str) and ref in by_id and ref not in seen:
+                seen.add(ref)
+                walk(by_id[ref])
+                chain.append(by_id[ref])
+
+    walk(setup)
+    return chain
+
+
+def operative_z(bundle, setup, value, face=False, done=0, source=None):
+    """One printed Z for the surface at nominal ``value`` in ``setup``: the ``dro_to_z``
+    of the op that produced it, on that op's own setup grid, then as this setup's DRO
+    shows it (``dro_z``: rounded up on its grid; a value on both grids stays); with no
+    producer, ``dro_z`` of ``value``. An unknown stays unknown.
+
+    The producer is the op ``source`` names in this setup (``"S2 op 20 to_z"``,
+    :func:`stock_states`). Else, for the stock ``"top"``, the op that last faced it in
+    this setup's first ``done`` ops (:func:`stock_states`). Else the last facing or
+    pocketing op on ``face`` in the same-frame setups of this setup's :func:`lineage`
+    (and, for a feature or ``None``, this setup's first ``done`` ops), when it cut it to
+    ``value``: ``"top"`` matches facing ops on ``top_feature`` (any, if none is named), a
+    feature the ops on it or whose footprint covers it, ``None`` any op. ``False``
+    names no producer."""
+    from .coordinates import dro_grid, dro_z
+
+    if not number(value):
+        return value
+    producer = _producer(bundle, setup, value, face, done, source)
+    if producer:
+        value = dro_z(producer[1]["to_z"], dro_grid(bundle, producer[0]))
+    return dro_z(value, dro_grid(bundle, setup))
+
+
+def _producer(bundle, setup, value, face, done, source):
+    ops = setup.get("ops", [])
+    features = bundle.feature_definitions
+    if source is None and face == "top" and done:
+        states = list(stock_states(setup, features))[:done]
+        source = states[-1][2]["top_from"] if states else None
+    match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
+    if match and match[1] == setup.get("id"):
+        return next(((setup, op) for op in ops if str(op.get("op")) == match[2]), None)
+    if face is False:
+        return None
+    frame = setup.get("frame")
+    cuts = [
+        (earlier, op)
+        for earlier in lineage(bundle, setup)
+        if frame not in (None, UNKNOWN) and earlier.get("frame") == frame
+        for op in earlier.get("ops", [])
+    ]
+    if face != "top":
+        cuts += [(setup, op) for op in ops[:done]]
+    top = mapping(setup.get("stock_state")).get("top_feature")
+    for cut_setup, op in reversed(cuts):
+        name, to_z = op.get("feature"), op.get("to_z")
+        if op.get("do") not in FACING | POCKETING or not number(to_z):
+            continue
+        same = abs(to_z - value) <= SAME_Z
+        if face == "top":
+            hit = op["do"] in FACING and top in (None, name)
+        elif face is None:
+            hit = same
+        else:
+            cut, target = mapping(features.get(name)), mapping(features.get(face))
+            hit = name == face or _covers(cut, target)
+        if hit:
+            return (cut_setup, op) if same else None
+    return None
+
+
+def evaluate(bundle):
     features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
     errors = set()
     negative_exit = set()
     for setup in bundle.plan["setups"]:
-        grid = dro_grid(bundle, setup)
         for op, before, _ in stock_states(setup, features):
             name = op.get("feature")
             if name not in features or op.get("do") not in HOLE_OPS:
@@ -199,8 +282,13 @@ def evaluate(bundle):
             elif action == "tap":
                 depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 flute = length_mm(tool, "flute_len")
+                # The thread depth band a tap's depth answers to (hole_depth_mm's field).
+                band = "thread_depth" if "thread_depth" in feature else "depth"
                 row.update(
                     depth_mm=depth,
+                    depth_floor_mm=_feature_depth_mm(
+                        feature, band, bundle.features.get("units"), 0
+                    ),
                     flute_len_mm=flute,
                     tip_z=_subtract(entry, depth),
                     exit_face="not_applicable",
@@ -260,7 +348,8 @@ def evaluate(bundle):
                     errors.add(name)
             if row.get("tip_z") == UNKNOWN or not tool or uncertain(tool):
                 unresolved.add(name)
-            _operative(row, grid)
+            face = name if name in before["entry_z"] else "top"
+            _operative(row, bundle, setup, face)
             endpoints[name].append(row)
     result = []
     for name, feature in features.items():
