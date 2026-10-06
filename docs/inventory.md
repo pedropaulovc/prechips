@@ -94,9 +94,14 @@ projection is the selected pair's entry in `tools.<tool>.projection_mm` /
 only when that pair has no entry is it `oal` minus the selected holder's
 `grip`, each from its own accepted fact. Any missing dimension or fact-local
 debt is named in the job's reason text and the dependent geometry rules stay
-`?`. The shipped example vise declares no `jaw_depth`, so no shipped example
-produces a modeled fixture solid; its item-level `verify = true` is identity
-debt elsewhere, not a geometry veto. See
+`?`. The shipped example vise (`fixtures.vise-pm-6`) records shop-measured
+`jaw_height_in`, `jaw_width_in`, `jaw_depth_in`, `opening_in` and
+`bed_height_in` (2026-10-05, each with its own `measured` record and the
+vendor nominal kept beside it as a comment), so a shipped vise setup with a
+STEP and a complete pose draws jaw solids; its item-level `verify = true` is
+identity debt elsewhere, not a geometry veto. The shipped parallels declare
+no `width` and no shipped plan declares `parallels_centres_mm`, so no shipped
+setup draws parallel solids. See
 [geometry rules](rules-geometry.md).
 
 ## Measured envelopes and installed tool stacks (M5)

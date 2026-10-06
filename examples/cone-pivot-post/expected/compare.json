@@ -35,7 +35,7 @@
       },
       "inventory": {
         "path": "examples/inventory/pedro-shop.toml",
-        "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
+        "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
       },
       "plan": {
         "path": "examples/cone-pivot-post/plan.toml",
@@ -1130,7 +1130,7 @@
             },
             "inventory": {
               "path": "examples/inventory/pedro-shop.toml",
-              "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
+              "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
             },
             "plan": {
               "path": "examples/cone-pivot-post/plan.toml",
@@ -10885,7 +10885,7 @@
       },
       "inventory": {
         "path": "examples/inventory/pedro-shop.toml",
-        "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
+        "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
       },
       "plan": {
         "path": "examples/cone-pivot-post/built-up.toml",
@@ -12080,7 +12080,7 @@
             },
             "inventory": {
               "path": "examples/inventory/pedro-shop.toml",
-              "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
+              "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
             },
             "plan": {
               "path": "examples/cone-pivot-post/built-up.toml",

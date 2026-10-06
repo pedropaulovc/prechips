@@ -311,11 +311,12 @@ adjacent STEP files; exported face identities do not establish operation
 coverage. The rocker's S1 upper strap operations explicitly claim the exported
 datum-B face in the plan. Its whole-outline operations S1:50, S2:50 and S3:40
 explicitly claim `profile_outer` plus both separately exported radial-land
-faces, preserving the authored whole-outline intent. The shipped vise
-declares no `jaw_depth`
-(its item-level `verify = true` no longer withholds the jaw dimensions it
-does declare), and an unknown `thin_wall_floor_mm`, so their setup rows are
-`?`. Contour tables use
+faces, preserving the authored whole-outline intent. The shipped vise records
+measured jaw height/width/depth, opening and bed height (its item-level
+`verify = true` no longer withholds those jaw dimensions from the kernel), and
+the rocker plan centres its jaws on the blank, so rocker S1 draws exact jaws
+and its `vise` row passes on nominal geometry; parallels stay undrawn and the
+unknown `thin_wall_floor_mm` keeps `thin_wall_under_clamp` `?`. Contour tables use
 explicit manifest geometry, not extracted STEP faces. Holding completeness and
 nominal clearance arithmetic are not a physical setup certification. No
 measured runtime target, printed-page rehearsal or live farm trace is claimed

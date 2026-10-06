@@ -159,7 +159,6 @@ def test_default_examples_checklist_has_no_unread_spec_measurements():
     entries = json.loads(result.stdout)
     ids = measurement_ids(entries)
     assert "machines.PM-30MV.envelope.spindle_to_table_min" in ids
-    assert "fixtures.vise-pm-6.bed_height" in ids
     assert not any(
         term in identity
         for identity in ids

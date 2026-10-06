@@ -58,7 +58,18 @@ Shared inputs:
   collet/QCTP sets → `holders`. No missing chuck, reamer or fixture was purchased
   on paper. Rule-readable tool geometry and holder lengths are explicitly unknown
   where the old inventory did not supply them. The centre-drill's 60° centre-seat
-  angle is **not** a drill-point angle.
+  angle is **not** a drill-point angle. Only the PM 6 in vise carries shop
+  measurements: on 2026-10-05 Pedro Paulo Vezza Campos measured its jaw
+  height (1.7695 in), jaw width (6.247 in), jaw-plate depth (0.7005 / 0.7010 in;
+  the larger is recorded, which jaw gave which reading was not noted), maximum
+  opening (6.135 in) and table-to-bed height without the swivel base
+  (2.886 in). Each value carries its own `measured` record; the vendor
+  nominals stay beside it as comments, and the item's `verify = true`
+  identity flag is kept. The rocker and bracket plans' jaw-overlap arithmetic
+  now uses the measured jaw height (rocker 6.8453 mm above the parallels;
+  bracket 19.5453 / 3.6703 mm, still `*_verify = true`), and rocker S1/S2
+  centre the jaws on the 310 mm blank (`jaw_center_along_mm = 0.0`, author's
+  choice). The parallels are still unmeasured and declare no width.
 - `shop-policy.toml`: shop-owned, not copied into plans. The default requires
   `tool_resolves`, `sizing`, `op_chain`, `blind_depth`, `inspection`, `coordinates`
   and `zero_check` on `"*"`. Re-fixture, thin-wall and stick-out numbers and their
@@ -131,7 +142,9 @@ debt; the former top-level `spindle_to_table_max_in`, `[travel_in]` and
 trusted source, and the unread table size, T-slot pitch, spindle taper and
 spindle-stack entries are not modeled at all (the taper remains vendor
 identity under `[machines.PM-30MV.spindle]`). Minimum spindle clearance
-(`spindle_to_table_min_mm`) and the vise `bed_height_mm` are `"unknown"`.
+(`spindle_to_table_min_mm`) and, at that cutover, the vise `bed_height_mm`
+were `"unknown"`; the vise bed height is now the measured `bed_height_in`
+described under shared inputs above.
 Every holder carries `gauge_len_mm = "unknown"` and `grip_mm = "unknown"`
 (one spelling each; the suffixless `gauge_len` and the holder-level
 `projection_mm` keys are gone), and no tool carries a `projection_mm` map yet:
@@ -140,7 +153,7 @@ measured. No measured operator/date/instrument record is fabricated anywhere.
 
 The `envelope` and `travel` findings add concrete `measure:` instructions to
 the before-you-start lines, keyed by the exact fact consumed (set member or
-tool/holder pair). The vise stack uses the unmeasured bed height, never jaw
+tool/holder pair). The vise stack uses the vise bed height, never jaw
 height; Z travel is the per-op spindle-nose span (`tip + gauge + projection`),
 so it also waits on holder gauges and tool projections; hole and point
 centres carry no cutter-radius padding. Mill travel/envelope additionally

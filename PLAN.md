@@ -440,10 +440,11 @@ above the table, jaw height above the bed; parallels: heights; collet set: sizes
 head: `worm_ratio`, `direct_index.positions`, `plate_holes` per plate —
 the sample's BS-0 carries all three, circles `verify = true`). A value copied from a vendor page is
 `verify = true` and anything that depends on it is a `?` on the sheet, never
-a silent pass. The sample inventory already carries the PM 6 in vise
-(`jaw_height_in = 1.825`, `opening_in = 6`, `bed_height_mm = "unknown"`) and
-the PM-30MV envelope (`envelope.travel_in`, `envelope.spindle_to_table_max_in`),
-all `verify = true`.
+a silent pass. The sample inventory carries the PM 6 in vise with
+shop-measured `jaw_height_in`, `jaw_width_in`, `jaw_depth_in`, `opening_in`
+and `bed_height_in` (2026-10-05; item-level `verify = true` kept as identity
+debt) and the PM-30MV envelope (`envelope.travel_in`,
+`envelope.spindle_to_table_max_in`), still `verify = true`.
 
 M5's shipped inventory shape makes `machines.<id>.envelope` the only home for
 the mill limits any rule reads: X/Y/Z travel and spindle-nose-to-table max/min.
@@ -1202,14 +1203,43 @@ sheet.
    deduplicated by scoped report id: plan inputs identify their plan, and
    separate inventories cannot collapse identical item/fact ids.
    Pending in the shop, none invented: PM-30MV usable X/Y/Z travel and spindle
-   nose to table at full Z-up and Z-down with `measured` records; PM 6 in vise
-   bed height; each selected holder's mounted gauge length and grip; each
+   nose to table at full Z-up and Z-down with `measured` records; each
+   selected holder's mounted gauge length and grip; parallels and 1-2-3
+   block heights; each
    selected tool's OAL and its projection in the holder it is used in (or
    OAL/grip); cutter diameters, drill point angles and reamer leads the
    examples select. Per-operation safe `approach_mm` and incomplete authored
    extents remain plan-input debt, not shop measurements. Until those land,
    envelope/travel rows stay `?` with measure/how instructions. The default
    policy is unchanged; shops may require envelope/travel on `"*"`.
+
+   **First shop measurements, recorded 2026-10-05.** Pedro Paulo Vezza Campos
+   measured the PM 6 in vise (`fixtures.vise-pm-6`): jaw height 1.7695 in,
+   jaw width 6.247 in, jaw depth 0.7005 / 0.7010 in (larger kept; jaw
+   attribution not recorded), opening 6.135 in and bed height 2.886 in without
+   the swivel base. Each is a fact-local `measured` record; vendor nominals
+   stay as comments and the item's identity `verify = true` is kept. The
+   rocker S1/S2 and bracket S1/S2 jaw-overlap arithmetic now uses the measured
+   jaw height, and rocker S1/S2 author `jaw_center_along_mm = 0.0` (jaws
+   centred on the 310 mm blank). Regenerated with
+   `PRECHIPS_REQUIRE_KERNEL=1`, an isolated `PRECHIPS_KERNEL_CACHE` and
+   FreeCAD 1.1 via the README `prechips traveler` / `compare` commands: exits
+   stay **4 / 2 / 2 / 2 / 2**, comparison 2. Rocker S1 `vise` changes `?` →
+   pass (opening 155.829 mm vs 45 mm width, contact 6.8453 mm on both jaws vs
+   6.0 mm grip); its render scene changes from `jaws: absent` (missing
+   `jaw_depth_mm`) to `jaws: exact`, parallels still `not_modelled`
+   (no width or `parallels_centres_mm`). S1 `thin_wall_under_clamp` now
+   reaches the unknown shop floor (min wall 45 mm) and S1 `accessibility`
+   stops on unmeasured tool/holder dimensions instead of jaw depth. Rocker
+   and bracket `headroom` now carry bed 73.3044 mm and jaw 44.9453 mm (rocker
+   jaw top Z −4.68295, so no cut ends below the jaws); they stay `?` on other
+   debt. `fixtures.vise-pm-6.bed_height` leaves `tools --measure`. Shaft and
+   cone changed only their inventory digest. Gate on this change: `uv sync
+   --locked`, `uv run ruff check .`, `uv run ruff format --check .`,
+   `uv run pytest -q` (**1282 passed**, 644 s) and
+   `uv run python scripts/validate_examples.py` (24 TOML files, all bundles
+   validate) exited 0 with `FREECAD_CMD` set to FreeCAD 1.1. Parallels,
+   blocks, holders, tools and the PM-30MV envelope remain unmeasured.
 
 ## 9. Decisions from review
 

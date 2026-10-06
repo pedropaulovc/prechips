@@ -428,13 +428,21 @@ kind = "vise"
 make = "Precision Matthews"
 sku = "VISE-6in-HIGHPREC"
 source = "https://www.precisionmatthews.com/products/vise-6in-highprec"
-jaw_width_in = 6
-opening_in = 6
-jaw_height_in = 1.825
+# Jaw length along the clamp face. Vendor page: 6 in; vendor drawing B1 = 158 mm.
+jaw_width_in = { value = 6.247, measured = { by = "Pedro Paulo Vezza Campos", date = "2026-10-05", instrument = "large calipers or steel rule (as reported; exceeds 6 in caliper range)" } }
+# Maximum opening, jaws inside. Vendor page: 6 in; vendor drawing L1 = 150 mm.
+opening_in = { value = 6.135, measured = { by = "Pedro Paulo Vezza Campos", date = "2026-10-05", instrument = "calipers" } }
+# Bed slideway to jaw top. Vendor page: approx 1.825 in.
+jaw_height_in = { value = 1.7695, measured = { by = "Pedro Paulo Vezza Campos", date = "2026-10-05", instrument = "calipers" } }
+# Jaw plate thickness normal to the gripping face. Readings 0.7005 in and 0.7010 in,
+# one per jaw (which jaw gave which reading was not recorded); the schema has one
+# jaw_depth for both jaws, so the larger reading is kept (conservative for collision).
+jaw_depth_in = { value = 0.7010, measured = { by = "Pedro Paulo Vezza Campos", date = "2026-10-05", instrument = "calipers" } }
 jaw_bolt = "M10x1.5"
 swivel_base = true
 verify = true
-bed_height_mm = "unknown"
+# Mill table to vise bed (where parallels/part sit), measured with the swivel base off.
+bed_height_in = { value = 2.886, measured = { by = "Pedro Paulo Vezza Campos", date = "2026-10-05", instrument = "calipers" } }
 
 [fixtures.chuck-3jaw-6-d1-4]
 kind = "chuck_3jaw"
