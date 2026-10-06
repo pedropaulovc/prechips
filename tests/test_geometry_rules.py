@@ -15,6 +15,7 @@ from prechips.rules import (
     accessibility,
     coverage,
     finish_coverage,
+    fixture_interference,
     internal_corner_radius,
     reach,
     thin_wall_under_clamp,
@@ -391,6 +392,33 @@ def test_holds_without_clamps_stay_unsupported(bundle):
     _strap_hold(bundle)
     bundle.plan["setups"][0]["hold"].pop("clamps")
     assert finding(thin_wall_under_clamp, bundle).status == "unsupported"
+
+
+@pytest.mark.parametrize(
+    "clashes,debts,status",
+    [
+        ([], [], "pass"),  # drawn components only touch
+        (["clamp 1 kit/strap:stud interpenetrates the setup-entry stock (12.5 mm^3)"], [], "error"),
+        ([], ["supports 'jack' has no fixture solid model"], "unknown"),
+        # An undrawn component cannot undo a certain interpenetration.
+        (["riser 1 blocks spans y -5..25 mm"], ["supports 'jack' has no fixture solid"], "error"),
+    ],
+)
+def test_fixture_interference_errors_on_any_clash_and_names_undrawn_components(
+    bundle, clashes, debts, status
+):
+    _strap_hold(bundle)
+    bundle.kernel["setups"]["S1"].update(fixture_clashes=clashes, fixture_clash_debts=debts)
+    row = finding(fixture_interference, bundle)
+    assert row.status == status
+    assert all(text in row.sentence for text in [*clashes, *(debts if not clashes else [])])
+
+
+def test_fixture_interference_without_engine_facts_stays_unknown(bundle):
+    reason = "holding inputs are unknown"
+    bundle.kernel["setups"]["S1"]["reasons"] = {"fixture_clashes": reason}
+    row = finding(fixture_interference, bundle)
+    assert row.status == "unknown" and reason in row.sentence
 
 
 def test_missing_physical_jaw_depth_is_not_invented_from_jaw_width(bundle):

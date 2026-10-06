@@ -1,6 +1,6 @@
 # Geometry and workholding rules (M4, FreeCAD kernel)
 
-The seven PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
+The eight PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
 against the material present at each authored setup, using FreeCAD's bundled
 OpenCASCADE. They compare sampled intersections and B-rep measurements with
 the selected tools, holders, fixture dimensions and declared pose. This is not
@@ -18,6 +18,7 @@ that carries its own verification debt.
 | `finish_coverage` | one subject per manifest feature | PLAN §4.2 finish coverage |
 | `vise` | setup id | PLAN §4.3 vise |
 | `thin_wall_under_clamp` | setup id | PLAN §4.3 thin wall under clamp |
+| `fixture_interference` | setup id | PLAN §4.3 fixture interference |
 
 The citation list of every geometry finding starts with that PLAN row, adds
 `kernel: STEP SHA-256 <digest>; FreeCAD B-rep measurements` when the manifest
@@ -37,7 +38,7 @@ authored stock envelope and `stock.as_is_faces`, setup order/frames/stock chain,
 hold geometry and cutting dimensions/endpoints), sends every job that is
 not already cached to **one** `freecadcmd.exe <freecad_job.py> -- INPUT_JSON
 OUTPUT_JSON` subprocess as a batch (`compare` therefore spawns one process for
-all its candidates), and memoizes each result on its bundle so the seven rules
+all its candidates), and memoizes each result on its bundle so the eight rules
 read the same facts. The subprocess has a 300 s limit, reads its input file,
 writes its output file and prints nothing. No network activity is involved;
 the STEP is the bundle's own file.
@@ -53,7 +54,7 @@ message `FreeCAD kernel unavailable; install FreeCAD or set FREECAD_CMD.`,
 `numbers.kernel_status = "unknown"` and `numbers.kernel_unavailable = true`.
 That flag alone forces exit 4 even when no policy requires a geometry rule, and
 the console collapses the repeated sentence to one `?` line (`--verbose` shows
-every row). The report keeps all seven rows. Checked readiness therefore needs
+every row). The report keeps all eight rows. Checked readiness therefore needs
 a kernel; absence is unresolved, never a pass.
 
 The STEP must be bound before the kernel is called: an unknown `step_sha256`,
@@ -239,8 +240,10 @@ fields are listed in the job's reason text and the dependent rules are `?`.
     fixture, clamping-kit member): each `box` (`at_mm` min corner,
     `size_mm`) or `cylinder` (`at_mm`, unit `axis`, `dia_mm`, `length_mm`)
     in the item frame, placed by `hold.pose`; `clamps = [{ref, pose}]` place
-    clamp members the same way. A primitive with its own `verify = true` or
-    an unmeasured dimension is not drawn and becomes a debt.
+    clamp members the same way. A `void = true` primitive is cut from the
+    same list's other primitives (or those named in its `cuts`), never drawn.
+    A primitive with its own `verify = true` or an unmeasured dimension is not
+    drawn and becomes a debt; an unresolved void withholds what it cuts.
   - Any other kind (collet, a support without a `dead_centre` model) carries
     `Fixture solids are not declared for this holding kind.` or, for an
     undrawn support beside drawn solids, a gap: clear samples stay `unknown`
@@ -331,8 +334,9 @@ The parallels add solids only when the hold declares `parallels_centres_mm`
 and the selected parallels row's `height`, `length` and `width` facts are accepted: two
 boxes `length` along `jaws_along` × `width` along the clamp axis × `height`
 down, tops at the part seat. They lie below every tool and holder cylinder,
-so they never enter hit counts; they exist for the picture and for the
-`declared parallel centred at [x, y] intersects the <side> jaw` debt. With
+so they never enter hit counts; they exist for the picture, for the
+`declared parallel centred at [x, y] intersects the <side> jaw` debt and for
+the jaw-opening check of [`fixture_interference`](#fixture_interference). With
 any of those inputs missing the scene records `parallels not drawn: … undeclared`.
 
 ## `accessibility`
@@ -549,6 +553,44 @@ true or unknown makes the floor unknown. Numbers: `min_wall_mm`,
 
 The shipped policy keeps `thin_wall_floor_mm = "unknown"` with
 `numbers_verify = true`, so this rule stays `?` until the shop measures a floor.
+
+## `fixture_interference`
+
+One row per setup, for every holding kind the kernel draws (vise, chucks,
+dividing head, dead centre, angle plate, custom fixture, clamps). With the
+fixture's components placed on the setup-entry stock, the kernel checks:
+
+1. every drawn component against the entry stock;
+2. every pair of drawn components from different owners. An owner is one
+   authored `solids` list (a fixture's, a clamp member's, a dividing head's,
+   with its `void`s cut away), the generated chuck (jaws and body), the
+   tailstock (centre and quill), each vise jaw, each parallel and each riser
+   block. Vise jaws against parallels and risers are left to check 3;
+3. for a vise, each parallel and riser block lies inside the jaw opening
+   closed on the stock (the gripped extent along the clamp axis, within
+   0.001 mm).
+
+Contact is allowed: a clash in checks 1 and 2 is common volume above
+0.001 mm³, so a part on its parallels, blocks on parallels, a strap on the
+stock and on its heel, or a stud in a modelled clearance or tapped-hole
+void stays a contact. A stud with no hole drawn in the plate it enters is a
+clash; model the hole as a `void`. Numbers: `clashes` and `undrawn`.
+
+- any clash: `fixture interpenetrates the work or another fixture: <clashes>.`
+  (error, even with undrawn components). Each clash names
+  `<a> interpenetrates the setup-entry stock (<v> mm^3)`,
+  `<a> interpenetrates <b> (<v> mm^3)` or `<accessory> spans <axis> <lo>..<hi>
+  mm, outside the jaw opening <axis> <lo>..<hi> mm closed on the stock`.
+- no clash but an undrawn component (an unposed or unverified clamp,
+  unmeasured solids or supports, undrawn parallels or riser blocks, an
+  unplaced holding or vise jaws, a component reaching a possible-jaw strip):
+  `drawn fixture components only touch; unresolved: <debts>.` (unknown)
+- otherwise `every fixture component only touches the stock and the other
+  components.` (pass)
+
+Unknown in-process stock, frame or hold inputs stay `?` as for `vise`. The
+rule checks declared geometry only: it does not prove the clamp sequence,
+torque, or that the shop's real fixture matches its record.
 
 ## Renders
 

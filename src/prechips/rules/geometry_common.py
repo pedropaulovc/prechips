@@ -54,7 +54,8 @@ def finishing_subjects(bundle):
 
 
 def provenance(bundle, rule, setup=None, op=None, feature=None):
-    cite = [f"PLAN.md §{'4.3' if rule in {'vise', 'thin_wall_under_clamp'} else '4.2'} {rule}"]
+    section = "4.3" if rule in {"vise", "thin_wall_under_clamp", "fixture_interference"} else "4.2"
+    cite = [f"PLAN.md §{section} {rule}"]
     digest = bundle.features.get("step_sha256", UNKNOWN)
     if digest != UNKNOWN:
         cite.append(f"kernel: STEP SHA-256 {digest}; FreeCAD B-rep measurements")
@@ -314,7 +315,10 @@ def setup_contexts(bundle, rule):
                 )
             elif inputs["kind"] != "vise" and not (
                 # Posed straps load the stock: the engine measures their footprint runs.
-                rule == "thin_wall_under_clamp" and strap_clamped(inputs)
+                rule == "thin_wall_under_clamp"
+                and strap_clamped(inputs)
+                # Every drawn holding is checked against the work and itself.
+                or rule == "fixture_interference"
             ):
                 status = "not_applicable" if rule == "vise" else "unsupported"
                 blocked = Finding(

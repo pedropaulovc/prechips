@@ -14,6 +14,7 @@ _GEOMETRY_RULES = {
     "finish_coverage",
     "vise",
     "thin_wall_under_clamp",
+    "fixture_interference",
 }
 
 

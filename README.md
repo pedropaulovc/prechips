@@ -4,7 +4,7 @@ Checks before chips: a deterministic, offline checker and printable traveler for
 an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
 plan, workholding, indexing and physics rule families, write a canonical findings
 report, and render Letter-portrait HTML with setup pages and contour continuations.
-M4 adds seven geometry and workholding rules measured on the bundle's STEP by a
+M4 adds eight geometry and workholding rules measured on the bundle's STEP by a
 local FreeCAD kernel, plus a deterministic setup render on the sheet. M5 adds
 measured machine/holder inventory, envelope/travel screens and a machine
 measurement checklist. It checks declared facts and sampled B-rep measurements,
@@ -255,9 +255,9 @@ length, not held bar OD; unknown exposed geometry remains unresolved.
 ## Geometry on the FreeCAD kernel
 
 `accessibility`, `reach`, `internal_corner_radius`, `coverage`,
-`finish_coverage`, `vise` and `thin_wall_under_clamp` run one
-`freecadcmd.exe` job per check/traveler run on the bundle's STEP, found through
-`FREECAD_CMD`, the installed FreeCAD 1.1, then `PATH`. No kernel means all seven
+`finish_coverage`, `vise`, `thin_wall_under_clamp` and `fixture_interference`
+run one `freecadcmd.exe` job per check/traveler run on the bundle's STEP, found
+through `FREECAD_CMD`, the installed FreeCAD 1.1, then `PATH`. No kernel means all eight
 rows are `?` with one kernel-naming sentence on the console and exit 4; a
 kernel failure is `✗`. Successful facts are cached locally under
 `PRECHIPS_KERNEL_CACHE` (default `%LOCALAPPDATA%\prechips\geometry`) keyed by
