@@ -3,7 +3,15 @@
 from prechips.findings import Finding
 from prechips.measurements import length_fact
 from prechips.rules.geometry_common import unavailable
-from prechips.rules.resolution import SAW_OPS, UNKNOWN, number, operations, record, resolve, uncertain
+from prechips.rules.resolution import (
+    SAW_OPS,
+    UNKNOWN,
+    number,
+    operations,
+    record,
+    resolve,
+    uncertain,
+)
 
 
 _FACTS = (
@@ -78,5 +86,7 @@ def evaluate(bundle):
                 else "blade kerf and discarded slab remove only excess stock; "
                 "the retained piece preserves the finished target"
             )
-        findings.append(Finding("saw_cut", subject, status, numbers, cite, f"{subject}: {message}."))
+        findings.append(
+            Finding("saw_cut", subject, status, numbers, cite, f"{subject}: {message}.")
+        )
     return findings

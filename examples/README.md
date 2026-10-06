@@ -31,6 +31,7 @@ unchanged: anything still `unknown` keeps its finding unknown.
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
 | `pivot-bracket/features.toml` | all feature bands, general tolerances and precision | no dimensioned drawing → hand-authored plausible example limits | v39 STEP defines nominal geometry only; every feature cites `example (plausible, no dimensioned drawing)` |
+| `pivot-shaft/features.toml` | `features.north_relief.corner_radius_max_design`, `features.south_relief.corner_radius_max_design` | absent → `0.25` | design intent `pivot_shaft_spec.py:55-73` (`CORNER_RADIUS_MAX`, the title block's R0.25 MAX corner left by the grooving tool); the export omits the groove sizing limit |
 
 ### M3 export delivery provenance
 
@@ -277,22 +278,26 @@ physical readiness remain separate debt.
 The shaft and cone exports carry `frames.setup = "unknown"`. Their plans restore
 the former shaft T1/T2/T3 and cone/built-up lathe and M2/J3/C4 transforms as
 plan-authored `[frames.<name>]` tables. These are **author's choices** with plan
-citations, not CAD facts, and the verbatim exports are not edited. The plan
-frames restore coordinate/DRO, turned-profile, stick-out and envelope numbers
-only where the exported geometry supports them. The exports have no turned-feature
-axial extents (`z_mm`) and no dome `base_radius`. Segments that need `z_mm`
-therefore stay unknown, and so does the shaft S2:20/S3:20 dome `diameter_in`.
+citations, not CAD facts. The shaft's T3 binding is `nominal`: the example
+assumes the fit-up scribe landed at the REF span 156.67, so the S3 plain-end and
+north-end stations and stick-out are numeric.
 
-The rocker exports `top_edge_feature = "top_edge"` on `profile_outer` and on
-both tip lands. The coordinate rule examines every linked feature, so the R800
-top-edge cutter-centre tables in S1 op 40, S2 op 40 and S3 op 30 are restored.
+The shaft route (example plan) is: S1 grips the north stub in the three-jaw
+chuck, with the MT3 dead centre in the centre-drilled plain end and the follow rest
+riding the 26:1 body. It roughs and finishes the bearing toward the chuck,
+faces the thrust shoulder, mics the Ø10 shoulder left as cold-finished bar and
+plunges the south DIN 509 relief with the 1/16 in HSS parting blade. S2 reverses
+onto the finished body with the thrust face seated on the jaw fronts to turn the
+journal, face the shoulder's north face, plunge the north relief and form the
+north dome with the 93° AR tool (the 60° E gouges near the apex). S3 grips 8 mm
+north of the scribe, parts the plain end to the 1.5–2.0 past-scribe band with
+the blade and forms the south dome on the parted face with the AR tool.
 
 The shaft export's `pivot_bearing` has only the `CUT TO FIT` note and
-`length_ref = 156.67`. It has no cut-to-fit length requirement or end-past-scribe
-band. The plan declares the calipers check as an explicit
-`missing_requirements = { length = "calipers" }` on a `pivot_bearing` inspect op.
-The report therefore keeps an unknown `pivot_bearing:length` row with
-`missing_requirement = true` and does not drop the inspection.
+`length_ref = 156.67`, with no cut-to-fit length requirement. The plan therefore
+checks the cut-to-fit band through S3 op 10's `inspection_note` (caliper depth
+rod from the actual scribe) and does not claim a `pivot_bearing:length`
+inspection.
 
 The cone's indexing feature is now `crank_bore`, which owns
 `land_angle_nominal_deg = 12.5182` and the BASIC relationship. Its omitted
@@ -928,33 +933,18 @@ features.south_dome.at
 features.plain_end.length
 ```
 
-### `pivot-shaft/plan.toml` — 10 unknown leaves (was 71)
+### `pivot-shaft/plan.toml` — 1 unknown leaf (was 10, originally 71)
 
-No certified drawing/export revision or confirmed lathe DRO installation:
+No certified drawing/export revision:
 
 ```text
 drawing.revision
-dro.controller
 ```
 
-No roughness comparator in the inventory; no drawing runout limit to borrow:
-
-```text
-setups[S1].ops[30].checks.finish_ra
-setups[S1].ops[50].checks.finish_ra
-setups[S1].ops[60].checks.finish_ra
-setups[S2].zero.transfer.runout_limit_mm
-setups[S3].zero.transfer.runout_limit_mm
-```
-
-Actual scribe/installed-ear binding is unmeasured. Local cut and dome targets
-are chosen, but incoming end stations and stick-out cannot be inferred:
-
-```text
-setups[S3].stock_state.plain_end_z
-setups[S3].stock_state.north_end_z
-setups[S3].hold.stickout_mm
-```
+The other nine leaves now hold example values (examples policy). These are the
+EL400 lathe DRO, which is noted on `machines.PM-1127VF-LB.control`; the
+roughness-comparator `finish_ra` checks; 0.02 mm transfer runout limits; and the
+nominal-scribe S3 stations and stick-out.
 
 ### `rocker-arm/features.toml` — 16 unknown leaves
 
