@@ -1184,7 +1184,8 @@ class _Traveler:
                 line += " with the " + self.reference(gauge)
             limit = transfer.get("runout_limit_mm")
             line += (
-                f"; tap true to {o(limit)} mm total indicator reading or less, then re-check"
+                # A limit is never rounded: 0.0254 printed as 0.03 would loosen it.
+                f"; tap true to {_number(limit)} mm total indicator reading or less, then re-check"
                 if _known(limit)
                 else "; runout limit not set — ? confirm the allowed runout"
             )
@@ -1357,7 +1358,8 @@ class _Traveler:
         if "exit_mm" in op:
             parts.append(f"exit {o(op['exit_mm'])}")
         if isinstance(op.get("to_z_band"), list):
-            parts.append(f"allowed {o(op['to_z_band'][0])} to {o(op['to_z_band'][-1])}")
+            low, high = op["to_z_band"][0], op["to_z_band"][-1]
+            parts.append(f"allowed {_number(low)} to {_number(high)}")
         for key in ("z_from", "z_to"):
             if key in op and not ("z_from" in op and "z_to" in op):
                 parts.append(f"{'from' if key == 'z_from' else 'to'} Z {o(op[key])}")
