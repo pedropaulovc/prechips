@@ -54,7 +54,7 @@ cite = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12"]
 
 [datums.A]
 feature = "seat_face"
-surface = "seat plane, model y = 0"
+surface = "finished seat face"
 cite = ["example (plausible): no drawing sheet; the seat is the mounting face"]
 
 [features.seat_face]
