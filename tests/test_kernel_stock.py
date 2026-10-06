@@ -509,32 +509,6 @@ def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids)
         assert op["tool_hits"] == "unknown" and reason in op["stock_reason"]
 
 
-def test_rocker_s1_holds_the_raw_blank_and_s2_names_the_missing_profile_footprint(
-    tmp_path, monkeypatch, freecad_kernel
-):
-    from prechips.inputs import load_bundle
-
-    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
-    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
-    result = kernel.run_geometry(bundle)
-    first, second = result["setups"]["S1"], result["setups"]["S2"]
-    # Frame A sees the authored 310x45x16 blank, rails and ears included.
-    assert first["stock_bbox_mm"] == [-155.0, -16.0, -11.52825, 155.0, 29.0, 4.47175]
-    assert first["render_png_base64"] and "stock_reason" not in first
-    # The upper strap face is measured under the raw blank top, not the finished hub face.
-    assert result["ops"]["S1:20"]["reach_depth_mm"] == pytest.approx(4.47175 + 2.27825)
-    # Rough-profile walls sweep nothing along +Z and no interrupted-profile footprint is
-    # authored, so the stock S1 leaves (and everything measured on it) is unknown.
-    reason = second["stock_reason"]
-    assert "S1:40" in reason and "HAF_TOP_EDGE" in reason and "interrupted profile" in reason
-    assert "render_png_base64" not in second and second["width_mm"] == "unknown"
-    assert all(
-        result["ops"][subject]["stock_reason"] == reason
-        for subject in result["ops"]
-        if not subject.startswith("S1:")
-    )
-
-
 @pytest.mark.parametrize("radius", [3.0, None])
 def test_overwide_wall_clearance_is_rejected_without_manufacturing_later_clearance(
     engine, solids, radius

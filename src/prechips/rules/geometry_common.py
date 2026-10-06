@@ -85,7 +85,8 @@ def finishing_subjects(bundle):
 
 
 def provenance(bundle, rule, setup=None, op=None, feature=None):
-    cite = [f"PLAN.md §{'4.3' if rule in {'vise', 'thin_wall_under_clamp'} else '4.2'} {rule}"]
+    section = "4.3" if rule in {"vise", "thin_wall_under_clamp", "fixture_interference"} else "4.2"
+    cite = [f"PLAN.md §{section} {rule}"]
     digest = bundle.features.get("step_sha256", UNKNOWN)
     if digest != UNKNOWN:
         cite.append(f"kernel: STEP SHA-256 {digest}; FreeCAD B-rep measurements")
@@ -379,9 +380,17 @@ def setup_contexts(bundle, rule):
                     rule, subject, "unknown", {}, cite, f"{subject}: holding identity is unknown."
                 )
             elif inputs["kind"] != "vise" and not (
-                # Chuck jaws and posed straps both load sampled stock material runs.
-                rule == "thin_wall_under_clamp"
-                and (inputs["kind"] in CHUCK_KINDS or strap_clamped(inputs))
+                # Every drawn holding is checked against the work and itself. Chuck jaws
+                # (including a dividing head's chuck) and straps also load material runs.
+                rule == "fixture_interference"
+                or (
+                    rule == "thin_wall_under_clamp"
+                    and (
+                        inputs["kind"] in CHUCK_KINDS
+                        or (inputs["kind"] == "dividing_head" and head_chuck(setup))
+                        or strap_clamped(inputs)
+                    )
+                )
             ):
                 status = "not_applicable" if rule == "vise" else "unsupported"
                 blocked = Finding(
@@ -418,6 +427,11 @@ def setup_contexts(bundle, rule):
 def strap_clamped(inputs):
     """A posed-solids hold that declares clamps (drawn or with named clamp debts)."""
     return "solids" in inputs and bool(inputs.get("clamps") or inputs.get("clamp_debts"))
+
+
+def head_chuck(setup):
+    """A dividing-head hold that declares the chuck it carries (``hold.chuck``)."""
+    return record(setup.get("hold")).get("chuck") not in (None, "none", "not_applicable")
 
 
 def fact_reason(detail, fields, fallback):

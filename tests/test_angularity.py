@@ -204,13 +204,18 @@ def test_exported_nominal_contradiction_survives_unknown_applicability(tmp_path)
     assert inspection_finding(bundle, "length").status == "error"
 
 
-def test_west_mount_export_reports_its_nominal_band_contradiction():
+def test_west_mount_station_sign_error_is_a_nominal_band_contradiction():
+    """The pre-correction export sign (-12.98 against a +12.47..13.49 station band) is an error."""
     bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "plan.toml")
+    west = bundle.features["features"]["mount_west"]
+    west["station"] = [12.47, 13.49]
+    west["station_nominal"] = -12.98
     row = next(row for row in inspection.evaluate(bundle) if row.subject == "mount_west:station")
     assert row.status == "error"
     assert row.numbers["nominal_field"] == "station_nominal"
     assert row.numbers["nominal"] == -12.98
     assert row.numbers["limits"] == [12.47, 13.49]
+    assert "exported nominal is outside" in row.sentence
 
 
 @pytest.mark.parametrize("band", ['"unknown"', '[5.0, "unknown"]', "5.5"])

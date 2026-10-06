@@ -230,6 +230,23 @@ def test_below_jaw_target_is_separate_unresolved_path_check():
     assert finding.numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(-2.6)
 
 
+def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_travel():
+    data = bundle()
+    data.plan["setups"][0]["hold"] = {"fixture": "head"}
+    data.inventory["machines"]["head"] = {
+        "kind": "dividing_head",
+        "bed_height_mm": 20,
+        "length_mm": 450,
+        "width_mm": 80,
+    }
+    finding = evaluate(data)[0]
+    assert finding.numbers["fixture_verify"] is False
+    assert finding.numbers["sum_mm"] == pytest.approx(146)
+    assert finding.numbers["travel_checks"]["x"]["fixture_mm"] == 450
+    assert finding.status == "error"
+    assert finding.sentence == "S1: part/fixture envelope exceeds X travel."
+
+
 def test_part_and_fixture_envelope_must_fit_travel():
     data = bundle()
     data.inventory["machines"]["mill"]["envelope"]["travel_mm"]["x"] = measured(140)
@@ -448,27 +465,45 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         )
 
 
-@pytest.mark.parametrize(("setup_id", "op_id"), [("S1", 40), ("S2", 40), ("S3", 30)])
-def test_exported_rocker_top_edge_keeps_cutter_table_with_all_linked_features(setup_id, op_id):
-    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
-    finding = next(row for row in coordinates.evaluate(data) if row.subject == setup_id)
-    arc = next(
-        (
-            arc
-            for arc in finding.numbers["arc_table"]
-            if arc["feature"] == "top_edge" and arc["op"] == op_id
-        ),
-        None,
-    )
-    assert arc is not None
-    top = next(
-        profile
-        for profile in finding.numbers["profiles"]
-        if profile["feature"] == "top_edge" and profile["op"] == op_id
-    )
-    assert arc["cutter_centre_radius_mm"] == pytest.approx(800.0 - top["offset_mm"])
-    assert arc["rows"][0]["model_xy"][0] == pytest.approx(-arc["rows"][-1]["model_xy"][0])
-    assert arc["rows"][0]["model_xy"][1] == pytest.approx(arc["rows"][-1]["model_xy"][1])
+ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
+
+
+def top_edge_arc_ops(data):
+    """Every planned top-edge arc-table op, whatever setup layout the pilot currently uses."""
+    ops = [
+        (setup["id"], op["op"])
+        for setup in data.plan["setups"]
+        for op in setup.get("ops", [])
+        if op.get("feature") == "top_edge"
+        and isinstance(op.get("contour"), dict)
+        and op["contour"].get("method") == "arc_table"
+    ]
+    assert ops, "the exported rocker top edge needs a planned arc-table op"
+    return ops
+
+
+def test_exported_rocker_top_edge_keeps_cutter_table_with_all_linked_features():
+    data = load_bundle(ROCKER)
+    findings = {row.subject: row for row in coordinates.evaluate(data)}
+    for setup_id, op_id in top_edge_arc_ops(data):
+        finding = findings[setup_id]
+        arc = next(
+            (
+                arc
+                for arc in finding.numbers["arc_table"]
+                if arc["feature"] == "top_edge" and arc["op"] == op_id
+            ),
+            None,
+        )
+        assert arc is not None, (setup_id, op_id)
+        top = next(
+            profile
+            for profile in finding.numbers["profiles"]
+            if profile["feature"] == "top_edge" and profile["op"] == op_id
+        )
+        assert arc["cutter_centre_radius_mm"] == pytest.approx(800.0 - top["offset_mm"])
+        assert arc["rows"][0]["model_xy"][0] == pytest.approx(-arc["rows"][-1]["model_xy"][0])
+        assert arc["rows"][0]["model_xy"][1] == pytest.approx(arc["rows"][-1]["model_xy"][1])
 
 
 @pytest.mark.parametrize("corruption", ["missing", "inconsistent"])
@@ -476,17 +511,19 @@ def test_exported_rocker_top_edge_keeps_cutter_table_with_all_linked_features(se
 def test_top_edge_does_not_ignore_missing_or_conflicting_linked_geometry(
     linked_feature, corruption
 ):
-    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
+    data = load_bundle(ROCKER)
     linked = data.features["features"][linked_feature]
     if corruption == "missing":
         linked["radial_tip_end"] = "unknown"
     else:
         linked["radial_tip_end"][1] += 1.0
-    finding = coordinates.evaluate(data)[0]
-    assert not any(arc["feature"] == "top_edge" for arc in finding.numbers["arc_table"])
-    top = next(
-        profile
-        for profile in finding.numbers["profiles"]
-        if profile["feature"] == "top_edge" and profile["op"] == 40
-    )
-    assert top["cutter_centre"] == "unknown"
+    findings = {row.subject: row for row in coordinates.evaluate(data)}
+    for setup_id, op_id in top_edge_arc_ops(data):
+        finding = findings[setup_id]
+        assert not any(arc["feature"] == "top_edge" for arc in finding.numbers["arc_table"])
+        top = next(
+            profile
+            for profile in finding.numbers["profiles"]
+            if profile["feature"] == "top_edge" and profile["op"] == op_id
+        )
+        assert top["cutter_centre"] == "unknown"

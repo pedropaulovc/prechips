@@ -20,7 +20,14 @@ from fractions import Fraction
 
 from prechips.findings import Finding
 from prechips.measurements import length_fact, measurement_entry
-from prechips.rules.resolution import MANUAL, length_mm, resolve, setup_frame, uncertain
+from prechips.rules.resolution import (
+    MANUAL,
+    length_mm,
+    resolve,
+    setup_frame,
+    uncertain,
+    workholding_category,
+)
 
 _UNKNOWN = "unknown"
 
@@ -81,7 +88,8 @@ def evaluate(bundle):
         ]
         hold = _mapping(setup.get("hold"))
         state = _mapping(setup.get("stock_state"))
-        fixture = resolve(bundle, "fixtures", hold.get("fixture")) or {}
+        fixture_ref = hold.get("fixture")
+        fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
         parallels_ref = hold.get("parallels")
         parallels = resolve(bundle, "fixtures", parallels_ref) or {}
         parallel_height = (
@@ -294,7 +302,8 @@ def _lathe(bundle, setup, machine, machine_ref):
     ]
     hold = _mapping(setup.get("hold"))
     state = _mapping(setup.get("stock_state"))
-    fixture = resolve(bundle, "fixtures", hold.get("fixture")) or {}
+    fixture_ref = hold.get("fixture")
+    fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     od = state.get("od_mm", _UNKNOWN)
     north, south = state.get("north_end_z"), state.get("south_end_z")

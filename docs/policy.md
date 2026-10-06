@@ -59,9 +59,9 @@ threshold. The shipped numbers remain `"unknown"`
 rather than copying unsourced shop folklore. Required M2 physics warnings promote
 readiness to exit 4 using the existing gate; proxy warnings never invent a
 hard physical limit. Other number names are not read by any rule.
-The seven geometry rule names (`accessibility`, `reach`,
+The eight geometry rule names (`accessibility`, `reach`,
 `internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,
-`thin_wall_under_clamp`) may be required; a missing FreeCAD kernel yields exit
+`thin_wall_under_clamp`, `fixture_interference`) may be required; a missing FreeCAD kernel yields exit
 4 whether or not they are, because its `?` rows carry `kernel_unavailable`.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2

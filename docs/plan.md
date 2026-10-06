@@ -19,7 +19,7 @@ Plan-declared shared paths must stay inside
 the bundle root; explicit CLI/environment shop paths may be external. STEP references are read and hashed, contained
 inside the bundle, and checked against a known `step_sha256`. M4 geometry rules
 hand that STEP, once its bytes match the manifest digest, to one FreeCAD job per
-run; an unknown digest, a missing `step`, or mismatched bytes keeps all seven
+run; an unknown digest, a missing `step`, or mismatched bytes keeps all eight
 geometry rules `?`. See [geometry rules](rules-geometry.md).
 
 Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in

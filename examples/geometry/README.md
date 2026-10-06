@@ -1,8 +1,8 @@
 # M4 geometry fixtures
 
-Discriminating bundles for the seven geometry rules (`accessibility`, `reach`,
+Discriminating bundles for the eight geometry rules (`accessibility`, `reach`,
 `internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,
-`thin_wall_under_clamp`) on the FreeCAD kernel. Every traveler remains
+`thin_wall_under_clamp`, `fixture_interference`) on the FreeCAD kernel. Every traveler remains
 **PLANNED**. These are authored test processes, not measured shop inventory,
 approved toolpaths or drawing requirements.
 
@@ -35,7 +35,8 @@ supply itself adds no XY cutter allowance.
 | `pocket-reach/long-reach.toml` | synthetic `pocket-block.STEP` | 0 | same prepared pocket, holder and claims; the 100 mm OAL cutter clears the holder and passes target accessibility and reach |
 | `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | 2 | `internal_corner_radius S2:10` error: sharp claimed corners against the 1/4 in cutter's 3.175 mm radius |
 | `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | 2 | `coverage step-block` error naming `#185/ADVANCED_FACE[6]/`, claimed by no operation and not supplied as-stock |
-| `fixture-holds/plan.toml` | synthetic `fixture-puck.STEP` | 2 | every setup's scene is `modeled` with only exact components: vise + parallels on riser blocks (S1), angle plate + strap (S2), custom nest + strap (S3), dividing head + chuck + dead centre (S4), 4-jaw (S5) and 3-jaw (S6) chucks; `accessibility` errors exactly on S2:10, S3:10 (strap over the top face) and S4:10 (dead centre on it); S1, S5 and S6 clear. `vise S1` errors because a round puck has no parallel gripped pair. `thin_wall_under_clamp` S2/S3 pass on the 20 mm run under each strap footprint |
+| `fixture-holds/plan.toml` | synthetic `fixture-puck.STEP` | 2 | every setup's scene is `modeled` with only exact components: vise + parallels on riser blocks (S1), angle plate + strap (S2), custom nest + strap (S3), dividing head + chuck + dead centre (S4), 4-jaw (S5) and 3-jaw (S6) chucks; `accessibility` errors exactly on S2:10, S3:10 (strap over the top face) and S4:10 (dead centre on it); S1, S5 and S6 clear. `vise S1` errors because a round puck has no parallel gripped pair. `thin_wall_under_clamp` S2/S3 pass on the 20 mm run under each strap footprint; `fixture_interference` passes on every setup |
+| `fixture-holds/clash.toml` | synthetic `fixture-puck.STEP` | 2 | `fixture_interference` errors on S1 (riser blocks turned so their 60 mm edge spans y −30..30 across the y −15..15 jaw opening) and S2 (a stud-and-heel strap's stud enters the puck and the tapped plate where it has no hole) and passes on S3 (the same strap with its stud through the plate's tapped-hole void and the beam's slot void, heel on the plate). S1 and S3 scenes are `modeled`; S2's carries the stud-in-stock debt |
 
 The short/long pocket pair differs only in the target cutter. Its target
 claims the vertical pocket walls and corners, while preparation claims the
@@ -50,6 +51,10 @@ puck itself (both side and bottom are as-is faces), so every setup's entry
 stock is known without preparation and every scene can be complete. Every
 fixture is a synthetic test item in `inventory.toml` (`verify = false`);
 none is a measurement of the shop's own chucks, head or clamps.
+`clash.toml` reuses that puck to discriminate `fixture_interference`. Its
+`test-tapped-plate` and `test-clamp-kit/stud-strap` items exercise `void`
+primitives: the plate's tapped hole cuts the floor, and the strap's slot
+names `cuts = ["beam"]` so its stud, in the same assembly, stays whole.
 
 ## Shared inputs
 
@@ -233,6 +238,7 @@ FreeCAD installed:
 ```
 uv run prechips traveler examples/geometry/<bundle>/plan.toml --out examples/geometry/<bundle>/expected
 uv run prechips traveler examples/geometry/pocket-reach/long-reach.toml --out examples/geometry/pocket-reach/expected/long-reach
+uv run prechips traveler examples/geometry/fixture-holds/clash.toml --out examples/geometry/fixture-holds/expected/clash
 ```
 
 Run each twice and confirm the bytes repeat before committing;

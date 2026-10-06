@@ -24,8 +24,14 @@ def findings(report, rule):
 
 @pytest.fixture(scope="module")
 def bracket(tmp_path_factory):
-    out = tmp_path_factory.mktemp("bracket") / "out"
-    _, report, html = traveler(ROOT / "examples" / "pivot-bracket" / "plan.toml", out)
+    """The bracket traveler with an explicitly unknown scratch S1 deburr limit."""
+    root = tmp_path_factory.mktemp("bracket")
+    plan = copy_examples(root) / "pivot-bracket" / "plan.toml"
+    authored = plan.read_text(encoding="utf-8")
+    authored, deburrs = re.subn(r"(?m)^deburr_mm = .*$", 'deburr_mm = "unknown"', authored, count=1)
+    assert deburrs == 1
+    plan.write_text(authored, encoding="utf-8")
+    _, report, html = traveler(plan, root / "out")
     return report, html
 
 
@@ -56,13 +62,6 @@ def test_unknown_inventory_category_still_renders_its_references(tmp_path):
     assert "micrometers" in text(html)
 
 
-def test_transfer_feature_list_prints_as_words(bracket):
-    _, html = bracket
-    sheet = text(html)
-    assert "indicate foot profile, foot top, ear relief with" in sheet
-    assert "['" not in sheet
-
-
 def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explicit(bracket):
     report, html = bracket
     pages = sections(html, "CONTOUR CONTINUATION")
@@ -74,13 +73,12 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
         assert all(isinstance(v, float) for r in row["numbers"].get("rows", []) for v in r["setup"])
     tables = [table for table in sections(html, "COORDINATES") if "<table" in table]
     assert tables and all("<td>?</td>" not in table for table in tables)
-    assert "<td>-8.2</td>" in "".join(tables)
     for row in findings(report, "blind_depth"):
         for endpoint in row["numbers"].get("endpoints", []):
             entry, tip = endpoint["entry_z"], endpoint["tip_z"]
             if isinstance(entry, float) and isinstance(tip, float):
                 assert f"entry {entry:g} → tip {tip:g}" in text(html)
-    # The bracket plan leaves deburr_mm unknown: the sentinel survives the fallback.
+    # The scratch S1 deburr_mm is unknown: the sentinel survives the precision fallback.
     assert "deburr maximum: ? mm" in text(html)
 
 

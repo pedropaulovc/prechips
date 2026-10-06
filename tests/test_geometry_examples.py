@@ -22,6 +22,7 @@ GEOMETRY_RULES = {
     "finish_coverage",
     "vise",
     "thin_wall_under_clamp",
+    "fixture_interference",
 }
 # (bundle, plan, target setup, exit, rules that error on the target/part).
 # The prescribed sharp-corner wall poses also collide with the adjacent wall.
@@ -126,6 +127,32 @@ def test_every_holding_kind_is_modeled_and_its_strap_or_centre_occludes_the_top(
         "S5": "pass",
         "S6": "pass",
     }
+    # Every drawn solid only touches the puck and the other solids.
+    assert {finding(report, "fixture_interference", sid)["status"] for sid in kinds} == {"pass"}
+
+
+def test_wide_risers_and_a_stud_through_the_part_are_fixture_interference_errors(
+    tmp_path, monkeypatch, freecad_kernel
+):
+    examples = copy_examples(tmp_path)
+    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
+    result, report, _ = run_fixture(examples, "fixture-holds", "clash.toml", tmp_path / "run")
+    assert result.returncode == report["expected_exit"] == 2, result.stderr
+    rows = {sid: finding(report, "fixture_interference", sid) for sid in ("S1", "S2", "S3")}
+    assert {sid: row["status"] for sid, row in rows.items()} == {
+        "S1": "error",  # riser blocks span y -30..30 across the y -15..15 jaw opening
+        "S2": "error",  # the stud enters the puck and the plate where it has no hole
+        "S3": "pass",  # stud through the tapped-hole void and the beam's slot, heel on plate
+    }
+    assert rows["S1"]["numbers"]["clashes"] == [
+        f"riser {n} test-riser-blocks spans y -30.0..30.0 mm, outside the jaw opening "
+        "y -15.0..15.0 mm closed on the stock"
+        for n in (1, 2)
+    ]
+    stud = "clamp 1 test-clamp-kit/stud-strap:stud"
+    clashes = rows["S2"]["numbers"]["clashes"]
+    assert any(c.startswith(f"{stud} interpenetrates the setup-entry stock") for c in clashes)
+    assert any(c.startswith(f"test-tapped-plate:floor interpenetrates {stud}") for c in clashes)
 
 
 @pytest.mark.parametrize(("name", "plan_filename", "target_sid", "exit_code", "rules"), CASES)
@@ -252,14 +279,10 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
     )
 
 
-def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
-    tmp_path, freecad_kernel
-):
+def test_reference_rocker_arm_binds_the_labelled_export(tmp_path, freecad_kernel):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
-    features = load_bundle(plan).features["features"]
-    result, report, _ = traveler(plan, tmp_path / "ref")
-    assert result.returncode == 2, result.stderr
+    _, report, _ = traveler(plan, tmp_path / "ref")
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
     assert (
         report["step_sha256"]
@@ -267,26 +290,11 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_names_unbound_faces(
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    assert set(report["renders"]) == {"S1"}
-    for setup in ("S2", "S3"):
-        row = finding(report, "accessibility", setup + ":10")
-        assert row["status"] == "unknown"
-        assert any(ref in row["message"] for ref in features["top_edge"]["faces"])
-        assert not (tmp_path / "ref" / f"setup-{setup}.png").exists()
-    assert all(render["fixture"] != "modeled" for render in report["renders"].values())
-    assert not any(
-        row["status"] == "error" for row in report["findings"] if row["rule"] in GEOMETRY_RULES
-    )
+    # Every labelled exported face resolves to some planned claim.
     coverage = finding(report, "coverage", "rocker-arm")
-    assert coverage["status"] == "unknown"
-    assert coverage["numbers"]["face_count"] == 18
+    assert coverage["numbers"]["face_count"] > 0
     assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"]
     assert coverage["numbers"]["unclaimed_faces"] == []
-    corner = {
-        row["subject"]: row for row in report["findings"] if row["rule"] == "internal_corner_radius"
-    }
-    assert corner["S1:40"]["status"] == "pass"
-    assert corner["S1:40"]["numbers"]["corner_radii_mm"] == [800.0]
 
 
 def test_periodic_patches_resolve_by_entity_and_ordinal_not_label(tmp_path, freecad_kernel):

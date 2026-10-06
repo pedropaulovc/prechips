@@ -11,7 +11,7 @@ severity). No clock timestamp enters the report.
 The current catalogue is `rules_version = "m5-rev8"`: the M5 review cutover
 (bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
 spindle-nose Z travel, unpadded hole centres, one `envelope` machine block,
-fact-local trust, no `holder_stack` rule) combined with the seven M4 kernel
+fact-local trust, no `holder_stack` rule) combined with the eight M4 kernel
 geometry rules and their hash-bound setup renders; changing the operative rule
 catalogue changes the bound report and invalidates prior approvals. Every
 report produced from the M2 (`m2-rev6`), M4-only (`m4-rev6`) or M5-only
