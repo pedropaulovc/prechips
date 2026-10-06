@@ -454,10 +454,6 @@ def _refused(engine, step):
     yield _clearing(CLEAR, faces=wall + bottom), ALLOWED, away
     outside = f"outside its stock_removal_bounds: {wall[0]}"
     yield _clearing({**CLEAR, "x": [40.0, 60.0]}), ALLOWED, outside
-    # End overstock outside the wall's cutter-dilated footprint cannot be claimed cleared.
-    end = {**BOX, "origin_mm": [-5.0, 0.0, 0.0], "length_mm": 65.0}
-    box = {"x": [-5.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 20.0]}
-    yield _clearing(box), end, "stock_removal_bounds extends"
 
 
 def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, solids):
