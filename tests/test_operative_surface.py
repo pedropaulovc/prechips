@@ -8,10 +8,16 @@ dials is on its own grid.
 
 import re
 from html import unescape
+from pathlib import Path
 
 import pytest
 from test_cli import SYNTHETIC_KERNEL, traveler
 from test_headroom import coordinate_bundle
+
+from prechips.inputs import Bundle
+from prechips.model import Features, Inventory, Plan
+from prechips.rules import coordinates, tip_endpoints, zero_recipe
+from prechips.sheet import _Traveler
 
 NOMINAL = -2.27825
 STEP = 0.005
@@ -170,6 +176,108 @@ def test_pickup_follows_the_stock_it_received(tmp_path, detour):
         for row in finding["numbers"]["endpoints"]
     }
     assert endpoints["S3"]["dro_entry_z"] == -2.27
+
+
+FRAME = {"origin": [0.0] * 3, "x": [1.0, 0, 0], "y": [0, 1.0, 0], "z": [0, 0, 1.0]}
+
+
+def turned_from(tmp_path, cut, shaft_xy):
+    """S1 on a 0.010 mill ``cut``-s (finish_face ``target``, x 0..20 y 0..10, or
+    finish_pocket ``other``, x/y 10..20) to Z -2.27825; L2, a 0.005 lathe receiving S1's
+    stock in the same frame, turns ``shaft`` (X/Y footprint ``shaft_xy``, or none) from
+    that Z. Returns L2's (start Z of the op row, feature map text)."""
+    plane = {"kind": "plane", "frame": "model", "requirements": []}
+    shaft = {"kind": "shaft", "frame": "model", "dia": 6.0, "z_mm": [NOMINAL, -10.0]}
+    if shaft_xy:
+        shaft["bounds"] = {"x": shaft_xy, "y": shaft_xy, "z": [-10.0, NOMINAL]}
+    features = {
+        "target": {**plane, "bounds": {"x": [0.0, 20.0], "y": [0.0, 10.0], "z": [NOMINAL, 0.0]}},
+        "other": {**plane, "bounds": {"x": [10.0, 20.0], "y": [10.0, 20.0], "z": [NOMINAL, 0.0]}},
+        "shaft": {**shaft, "requirements": []},
+    }
+    do, feature = cut
+    setups = [
+        {
+            "id": "S1",
+            "stock_in": "stock",
+            "machine": "coarse",
+            "frame": "A",
+            "stock_state": {"top_z": 0.0},
+            "ops": [{"op": 10, "do": do, "feature": feature, "tool": "cutter", "to_z": NOMINAL}],
+        },
+        {
+            "id": "L2",
+            "stock_in": "S1",
+            "machine": "fine",
+            "frame": "A",
+            "stock_state": {"top_z": NOMINAL},
+            "ops": [
+                {
+                    "op": 10,
+                    "do": "finish_turn",
+                    "feature": "shaft",
+                    "tool": "cutter",
+                    "z_from": NOMINAL,
+                    "z_to": -10.0,
+                }
+            ],
+        },
+    ]
+    direction = {"x": "right", "y": "away", "z": "up"}
+    dro = {"controller": "EL400", "mode": "abs", "radius_mode": False, "direction": direction}
+    machines = {
+        "coarse": {"kind": "mill", "resolution_mm": 2 * STEP},
+        "fine": {"kind": "lathe", "resolution_mm": STEP},
+    }
+    tools = {"cutter": {"kind": "endmill", "dia_mm": 6.0, "nose_radius_mm": 0.0}}
+    frames = {"A": {**FRAME, "binding": "nominal"}, "model": {**FRAME, "binding": "nominal"}}
+    bundle = Bundle(
+        Plan.model_validate(
+            {"part": "p", "features": "features.toml", "dro": dro, "setups": setups}
+        ).model_dump(exclude_unset=True),
+        Features.model_validate(
+            {"part": "p", "units": "mm", "frames": frames, "features": features}
+        ).model_dump(exclude_unset=True),
+        Inventory.model_validate({"machines": machines, "tools": tools}).model_dump(
+            exclude_unset=True
+        ),
+        {},
+        {},
+        {},
+        {},
+        Path(tmp_path),
+    )
+    findings = [
+        *coordinates.evaluate(bundle),
+        *tip_endpoints.evaluate(bundle),
+        *zero_recipe.evaluate(bundle),
+    ]
+    sheet = _Traveler(bundle, findings, {}, {})
+    lathe = bundle.plan["setups"][1]
+    sheet.setup = lathe
+    (row,) = sheet.tip(lathe, lathe["ops"][0])
+    start = re.fullmatch(r"Z (-?\d+\.\d+) → -10\.000", row)[1]
+    mapped = re.search(
+        r"\|shaft\|+Ø6\|+(-?\d+\.\d+)\|+-10\.000\|",
+        unescape(re.sub(r"<[^>]+>", "|", sheet.feature_map(lathe))),
+    )[1]
+    return start, mapped
+
+
+@pytest.mark.parametrize(
+    "cut,shaft_xy,printed",
+    [
+        (("finish_face", "target"), [2.0, 8.0], "-2.270"),
+        (("finish_pocket", "other"), [2.0, 8.0], "-2.275"),
+        (("finish_face", "target"), None, "-2.275"),
+    ],
+)
+def test_turned_start_links_only_a_cut_that_covers_it(tmp_path, cut, shaft_xy, printed):
+    """A turned surface starts on S1's coarse as-cut -2.270 only when S1's cut covers its
+    X/Y footprint; a disjoint pocket at the same nominal Z, or a shaft with no footprint
+    to prove it, starts on the nominal as L2's 0.005 DRO shows it. Its op row and the
+    feature map print the same value."""
+    assert turned_from(tmp_path, cut, shaft_xy) == (printed, printed)
 
 
 @pytest.mark.parametrize("exit_mm,stopped", [(0.0, True), (STEP, False)])

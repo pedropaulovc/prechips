@@ -181,7 +181,7 @@ def lineage(bundle, setup):
     return chain
 
 
-def operative_z(bundle, setup, value, face=False, done=0, source=None):
+def operative_z(bundle, setup, value, face=None, done=0, source=None):
     """One printed Z for the surface at nominal ``value`` in ``setup``: the ``dro_to_z``
     of the op that produced it, on that op's own setup grid, then as this setup's DRO
     shows it (``dro_z``: rounded up on its grid; a value on both grids stays); with no
@@ -190,11 +190,12 @@ def operative_z(bundle, setup, value, face=False, done=0, source=None):
     The producer is the op ``source`` names in this setup (``"S2 op 20 to_z"``,
     :func:`stock_states`). Else, for the stock ``"top"``, the op that last faced it in
     this setup's first ``done`` ops (:func:`stock_states`). Else the last facing or
-    pocketing op on ``face`` in the same-frame setups of this setup's :func:`lineage`
-    (and, for a feature or ``None``, this setup's first ``done`` ops), when it cut it to
-    ``value``: ``"top"`` matches facing ops on ``top_feature`` (any, if none is named), a
-    feature the ops on it or whose footprint covers it, ``None`` any op. ``False``
-    names no producer."""
+    pocketing op proven to cut feature ``face`` in the same-frame setups of this setup's
+    :func:`lineage` (and, for a feature, this setup's first ``done`` ops), when it cut it
+    to ``value``: for ``"top"`` a facing op on ``top_feature`` (any, if none is named),
+    for a feature an op on it or whose feature's XY footprint covers it
+    (:func:`_covers_xy`). An equal Z alone is never proof; no ``face`` names no
+    producer."""
     from .coordinates import dro_grid, dro_z
 
     if not number(value):
@@ -203,6 +204,13 @@ def operative_z(bundle, setup, value, face=False, done=0, source=None):
     if producer:
         value = dro_z(producer[1]["to_z"], dro_grid(bundle, producer[0]))
     return dro_z(value, dro_grid(bundle, setup))
+
+
+def _covers_xy(cut, target):
+    """``cut``'s explicit footprint, its X/Y bounds, covers ``target`` (:func:`_covers`);
+    a surface it leaves at Z only touches the surfaces that start there."""
+    bounds = {k: v for k, v in mapping(cut.get("bounds")).items() if k in ("x", "y")}
+    return _covers({**cut, "bounds": bounds}, target)
 
 
 def _producer(bundle, setup, value, face, done, source):
@@ -214,7 +222,7 @@ def _producer(bundle, setup, value, face, done, source):
     match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
     if match and match[1] == setup.get("id"):
         return next(((setup, op) for op in ops if str(op.get("op")) == match[2]), None)
-    if face is False:
+    if not isinstance(face, str):
         return None
     frame = setup.get("frame")
     cuts = [
@@ -230,16 +238,14 @@ def _producer(bundle, setup, value, face, done, source):
         name, to_z = op.get("feature"), op.get("to_z")
         if op.get("do") not in FACING | POCKETING or not number(to_z):
             continue
-        same = abs(to_z - value) <= SAME_Z
         if face == "top":
             hit = op["do"] in FACING and top in (None, name)
-        elif face is None:
-            hit = same
         else:
-            cut, target = mapping(features.get(name)), mapping(features.get(face))
-            hit = name == face or _covers(cut, target)
+            hit = name == face or _covers_xy(
+                mapping(features.get(name)), mapping(features.get(face))
+            )
         if hit:
-            return (cut_setup, op) if same else None
+            return (cut_setup, op) if abs(to_z - value) <= SAME_Z else None
     return None
 
 

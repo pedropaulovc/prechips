@@ -202,15 +202,21 @@ value. Every table carries `dro_tip_z`, and each profile and operation
 `dro_to_z`: the authored depth rounded up, never deeper (−2.07825 prints −2.078
 on the default grid). The op rows and contour table headers print the same
 value, and so does every later Z printed for that face: a start Z, a Z zero and
-its Axis Set and jog readings, a hole entry, a tip's height over the jaw tops.
+its Axis Set and jog readings, a hole entry, a feature map end, a tip's height
+over the jaw tops.
 One provenance source (`tip_endpoints.operative_z`) picks the op that produced
 that face. It looks first among the setup's own ops scheduled before the reading.
 For a Z zero's `top`, those are the ops up to and including its `after_op`,
 never a later recut. It then walks the selected stock ancestry: the setup's
 `stock_in` chain, the same one the kernel builds, joint branches included, and
 same-frame setups only. A setup outside that chain never counts, even if it cut
-the same nominal face. The producer is the facing or pocketing op that last cut
-the face to that Z, or the op that advanced a stock-state top or entry. Its
+the same nominal face. The producer is the op that advanced a stock-state top
+or entry, or the facing or pocketing op that last cut the face proven to be the
+one read: for `top`, a facing op on `top_feature`; for a feature (a zero face, an
+op's own feature for its start and end Z, a feature map row), an op on that
+feature or one whose feature's X/Y `bounds` cover it (`_covers`). An equal Z
+alone is never proof, and with no footprint to prove it there is no producer.
+It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other
 surface Z prints on the grid by `dro_z`. Hole endpoints

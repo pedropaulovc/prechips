@@ -1193,16 +1193,16 @@ class _Traveler:
 
     def path_zs(self, setup, op):
         """The Z ends of an op's path as its op row prints them."""
-        # A start or end Z on a plane an earlier op cut to it is that op's as-cut Z.
-        done = self.ops_done(setup, before=op.get("op"))
-        zs = [
-            self.surface_z(setup, op[k], face=None, done=done)
-            for k in ("z_from", "z_to")
-            if _known(op.get(k))
-        ]
+        zs = [self.op_z(setup, op, k) for k in ("z_from", "z_to") if _known(op.get(k))]
         if _known(op.get("to_z")):
             zs.append(self.dro_to_z(setup, op))
         return [z for z in zs if _known(z)]
+
+    def op_z(self, setup, op, key):
+        """``op``'s ``key`` Z (``z_from``/``z_to``) on its feature's surface as the op that
+        cut that feature before it left it (:meth:`surface_z`)."""
+        done = self.ops_done(setup, before=op.get("op"))
+        return self.surface_z(setup, op.get(key), face=op.get("feature"), done=done)
 
     def crash_boxes(self, setup, op):
         boxes = []
@@ -1485,7 +1485,12 @@ class _Traveler:
                 x = record.get("x_target_mm")
                 if not _known(x) or not _known(coordinates[2]):
                     continue
-                entry = grouped.setdefault(feature, {"dia": x, "z": []})
+                # Its ends as its ops print them: cut before its first op (:meth:`op_z`).
+                first = [
+                    op.get("op") for op in setup.get("ops", []) if op.get("feature") == feature
+                ]
+                done = self.ops_done(setup, before=first)
+                entry = grouped.setdefault(feature, {"dia": x, "z": [], "done": done})
                 entry["z"].append(coordinates[2])
             elif all(_known(v) for v in coordinates):
                 grouped.setdefault((feature, tuple(coordinates)), {})
@@ -1497,8 +1502,8 @@ class _Traveler:
                 (
                     self.feature_name(feature),
                     "Ø" + self.value(entry["dia"], feature, "dia"),
-                    o(self.surface_z(setup, max(entry["z"]))),
-                    o(self.surface_z(setup, min(entry["z"]))),
+                    o(self.surface_z(setup, max(entry["z"]), face=feature, done=entry["done"])),
+                    o(self.surface_z(setup, min(entry["z"]), face=feature, done=entry["done"])),
                 )
                 for feature, entry in grouped.items()
             ]
@@ -1582,10 +1587,7 @@ class _Traveler:
                 parts.append(_Box("STOP: drill point length unknown"))
             return parts
         parts = []
-        done = self.ops_done(setup, before=op.get("op"))
-        start, end = (
-            self.surface_z(setup, op.get(key), face=None, done=done) for key in ("z_from", "z_to")
-        )
+        start, end = (self.op_z(setup, op, key) for key in ("z_from", "z_to"))
         if "z_from" in op and "z_to" in op:
             parts.append(f"Z {o(start)} → {o(end)}")
         elif "to_z" in op:
@@ -1614,7 +1616,7 @@ class _Traveler:
                 return entry.get("dro_to_z", "unknown")
         return dro_z(op.get("to_z", "unknown"), dro_grid(self.bundle, setup))
 
-    def surface_z(self, setup, value, source=None, face=False, done=0):
+    def surface_z(self, setup, value, source=None, face=None, done=0):
         """One surface, one printed Z (:func:`operative_z`): the checked depth of the op
         that produced it, on its own setup's grid, as this setup's DRO shows it; else
         ``value`` on this grid, rounded up. An unknown stays unknown."""
@@ -2373,7 +2375,7 @@ class _Traveler:
             if key == "top_z" and state.get("top_feature"):
                 name = f"top ({self.feature_name(state['top_feature'])})"
             # Each arriving surface as the DRO shows it, as every other line prints it.
-            value = self.surface_z(setup, value, face="top" if key == "top_z" else False)
+            value = self.surface_z(setup, value, face="top" if key == "top_z" else None)
             parts.append(f"{name} at Z {o(value)}" if _known(value) else f"{name} Z ? not set")
         line = f"Starts from: {self.arrival(setup)}"
         if parts:
