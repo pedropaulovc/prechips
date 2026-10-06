@@ -116,9 +116,10 @@ measured setup transform. Setup transforms the CAD export does not carry are
 authored in the plan's `frames` table ([plan format](plan.md#frames)); they are
 never written back into, merged with or allowed to shadow the exported manifest.
 
-For travel-centre placement, a child feature with `parent` or `hole` and no
-authored `at` inherits the named parent's `at`, transformed from the parent's
-source frame. An authored child `at` takes precedence; explicit `"unknown"`
+For travel-centre and `coordinates` placement (one shared locator), a child
+feature with `parent` or `hole` and no authored `at` inherits the named
+parent's `at`, transformed from the parent's source frame. An authored child
+`at` takes precedence; explicit `"unknown"`
 does not request inheritance. Missing parents/locations/frames remain debt;
 dimensions and face claims are not borrowed as a side effect of locating the
 child. Saw stock cuts may omit a feature entirely and never establish coverage

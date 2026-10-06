@@ -761,6 +761,7 @@ def hold_inputs(bundle, setup):
 def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
     from prechips.rules.coordinates import evaluate as coordinate_findings
+    from prechips.rules.coordinates import revolved_located
     from prechips.rules.geometry_common import (
         complete_form_subjects,
         cutting_action,
@@ -799,6 +800,10 @@ def build_job(bundle):
                 "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
                     "kind", UNKNOWN
                 ),
+                # Located features with neither ``at`` nor a parent locator: the engine
+                # measures their faces of revolution about setup Z in any setup (a turning
+                # setup measures every feature) so the axis through X0 Y0 can locate them.
+                "locate_revolved": revolved_located(setup, bundle.feature_definitions),
             }
         )
     return {
@@ -1004,6 +1009,7 @@ def engine_job(job):
                 "stock_in": setup["stock_in"],
                 "joint": setup.get("joint"),
                 "machine_kind": setup["machine_kind"],
+                "locate_revolved": setup["locate_revolved"],
                 "render": setup.get("render", {}),
             }
             for setup in job["setups"]
