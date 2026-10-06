@@ -164,7 +164,11 @@ as exported dimensions (socket as hole, spigot as boss), but may prepare them
 only on their own pre-assembly component ancestry. The original manifest and
 STEP hashes remain unchanged. Findings cite `plan.joint_features.<id>` and the
 author's citations, not invented exported faces. Completing a transient cut
-never earns finished STEP coverage or final finish coverage.
+earns no finished STEP coverage or final finish coverage by itself. A finishing
+spigot turn earns both only for the exported faces the kernel measures it
+leaves as its own turned surface, over their full area inside its finite
+window (see [geometry rules](rules-geometry.md#face-identity)). A separate
+pass on the exported feature is then unnecessary.
 Inspection, fitting and other noncutting actions do not prepare or invalidate
 a joint feature. Socket drill/ream/bore and spigot turning actions derive their
 actual removal; spotting does not complete a socket. Transient `tap` and
