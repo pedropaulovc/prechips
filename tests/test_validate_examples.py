@@ -19,7 +19,7 @@ VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
     ("part", "setup_id"),
     [
         ("pivot-bracket", "S2"),  # Raw top, not the finished foot top.
-        ("pivot-bracket", "S3"),  # Ear inner face, not the raised stock top.
+        ("pivot-bracket", "S4"),  # Ear inner face, not the raised stock top.
         ("pivot-shaft", "S2"),  # Named shoulder face, not the blank end.
     ],
 )
