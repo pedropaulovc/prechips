@@ -199,8 +199,15 @@ the stock OD; a facing op, `part_off` or `cut_to_fit` given `to_dia` sweeps
 from `to_dia`/2 — the axis when a `part_off` omits it — to the stock OD and the
 stock end, never leaving a core for a bore the finished part only receives
 later; profile ops close each claimed meridian to the OD within the
-declared `z_from`/`z_to` span, then cut the finished part back out. That
-in-process stock is inverse-transformed back into model coordinates and can
+declared `z_from`/`z_to` span, then cut the finished part back out. Meridian
+samples lie on the claimed face's own surface. A boundary sample from an edge
+curve is moved onto that surface when it lies within the face's BRep precision,
+which is its largest edge or vertex tolerance. An exporter's approximated
+(spline) split edges may stray tenths of a micron off a cylinder. Snapping
+them keeps every face of one analytic surface on the same radius, so the faces'
+revolved regions and a later spring pass over them stay coincident instead of
+leaving jagged slivers or invalid booleans. That in-process stock is
+inverse-transformed back into model coordinates and can
 feed any later setup that explicitly selects it through `stock_in`, not only
 the immediately following setup. Removal checks each input solid separately:
 splitting any one input piece into multiple retained pieces leaves the output
