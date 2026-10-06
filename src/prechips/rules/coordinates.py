@@ -876,6 +876,59 @@ def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
     return contour
 
 
+def _dome_stair(name, feature, op, radius_mode, allowance):
+    """The rough stair under a convex dome's finish table, apex toward +Z.
+
+    One facing row per finish-table Z below the apex: from outside the work at that Z, face
+    in to the X where the sphere grown by half the diametral ``allowance`` crosses it. The
+    imaginary tip of a tool touched off on an outside diameter and a +Z end face reads the
+    stair corner exactly, and every corner lies on the grown sphere, so the whole stair
+    stays at least ``allowance / 2`` off the finished dome. Rows at or past the base
+    radius (the diameter the dome caps) cut nothing and are dropped. None when the stair
+    is not established."""
+    sphere = feature.get("sphere_radius", UNKNOWN)
+    apex, base = op.get("z_from", UNKNOWN), op.get("z_to", UNKNOWN)
+    step = mapping(op.get("contour")).get("step_mm", UNKNOWN)
+    values = (sphere, apex, base, step, allowance)
+    if not all(number(v) for v in values) or min(sphere, step) <= 0 or allowance <= 0:
+        return None
+    if apex <= base:
+        return None  # facing rows come in from +Z: an apex toward the chuck has no stair
+    centre = apex - sphere
+    grown = sphere + allowance / 2
+    work = math.sqrt(max(0.0, sphere * sphere - (base - centre) ** 2))
+    display = 1 if radius_mode else 2
+    rows = []
+    count = math.ceil((apex - base) / step)
+    for i in range(1, count + 1):
+        z = base if i == count else apex - i * step
+        radius = math.sqrt(max(0.0, grown * grown - (z - centre) ** 2))
+        if radius >= work - 1e-9:
+            break
+        rows.append(
+            {
+                "z_mm": z,
+                "radius_mm": radius,
+                "x_target_mm": display * radius,
+                "setup_xz": [display * radius, z],
+            }
+        )
+    return {
+        "feature": name,
+        "op": op["op"],
+        "stage": "rough",
+        "method": "stair_table",
+        "rows": rows,
+        "allowance_mm": allowance,
+        "sphere_radius_mm": sphere,
+        "apex_z_mm": apex,
+        "base_z_mm": base,
+        "work_radius_mm": work,
+        "step_mm": step,
+        "tool_reference": "imaginary tip: X touched on an outside diameter, Z on a +Z end face",
+    }
+
+
 def _edge_facts(bundle, op):
     """The selected turning insert's hand and accepted entering/insert angles (degrees)."""
     from ._envelope import measurement_item
@@ -886,6 +939,62 @@ def _edge_facts(bundle, op):
         fact = angle_fact(item, field, require_measured=False)
         angles[field] = fact["value"] if fact["verified"] else UNKNOWN
     return {"hand": mapping(item).get("hand", UNKNOWN), **angles}
+
+
+def _plunges(bundle, op, feature):
+    """The plunges of a grooving/parting blade over its op's ``z_from``..``z_to`` groove,
+    or None when the op is not a blade groove op.
+
+    The DRO reads the blade corner its Z touch-off set: a right-hand blade's chuck-side
+    (-Z) corner, a left-hand blade's +Z corner. Plunges start flush with the chuck-side
+    groove wall and step evenly, never more than a blade width, until the last plunge is
+    flush with the far wall; a blade at least as wide as the groove plunges once. The
+    groove they leave (first plunge's chuck-side face to the last one's far face) is
+    checked against the feature's declared ``width`` band."""
+    from .geometry_common import TURNING_BLADE_KINDS
+    from .turned_profile import GROOVE_OPS, nominal_diameter
+
+    tool = resolve(bundle, "tools", op.get("tool")) or {}
+    ends = (op.get("z_from"), op.get("z_to"))
+    if op.get("do") not in GROOVE_OPS or tool.get("kind") not in TURNING_BLADE_KINDS:
+        return None
+    if not all(number(z) for z in ends):
+        return None
+    low, high = sorted(ends)
+    blade = UNKNOWN if uncertain(tool) else length_mm(tool, "blade_width")
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    band = feature.get("width")
+    dia = feature.get("dia")
+    result = {
+        "op": op["op"],
+        "feature": op.get("feature", UNKNOWN),
+        "blade_width_mm": blade,
+        "reading_corner": {"right": "chuck_side", "left": "free_end_side"}.get(
+            tool.get("hand"), UNKNOWN
+        ),
+        "diameter_mm": nominal_diameter(bundle, feature),
+        "dia_band_mm": [v * scale for v in dia] if scale and _band(dia) else "not_applicable",
+        "width_band_mm": [v * scale for v in band] if scale and _band(band) else "not_applicable",
+    }
+    if not number(blade) or blade <= 0 or result["reading_corner"] == UNKNOWN:
+        result.update(corner_z_mm=UNKNOWN, groove_z_mm=UNKNOWN, width_mm=UNKNOWN)
+        return result
+    span = high - low
+    count = 1 if span <= blade + 1e-9 else math.ceil((span - blade) / blade - 1e-9) + 1
+    step = (span - blade) / (count - 1) if count > 1 else 0.0
+    faces = [low + k * step for k in range(count)]
+    lift = blade if result["reading_corner"] == "free_end_side" else 0.0
+    width = max(span, blade)
+    result.update(
+        corner_z_mm=[face + lift for face in faces],
+        groove_z_mm=[low, low + width],
+        width_mm=width,
+    )
+    return result
+
+
+def _band(value):
+    return isinstance(value, list) and len(value) == 2 and all(number(v) for v in value)
 
 
 # A printed row's id (:func:`row_id`) is its table's name, ``FRAGMENT_FORMAT`` for a piece
@@ -1235,6 +1344,22 @@ def evaluate(bundle, *, pre_kernel=False):
                 for op in setup["ops"]
                 if "tool" in op
             )
+        plunge_errors = []  # blade plunges leaving a groove outside its drawing width
+        for op in setup["ops"]:
+            name = op.get("feature")
+            feature = mapping(features.get(name)) if isinstance(name, str) else {}
+            plunges = _plunges(bundle, op, feature)
+            if plunges is None:
+                continue
+            numbers.setdefault("plunges", []).append(plunges)
+            width, band = plunges["width_mm"], plunges["width_band_mm"]
+            if not number(width):
+                unknown = True
+            elif _band(band) and not min(band) - 1e-9 <= width <= max(band) + 1e-9:
+                plunge_errors.append(
+                    f"op {op['op']} plunges leave a groove {width:g} wide, outside the "
+                    f"drawing width {min(band):g} to {max(band):g}"
+                )
         names = list(_op_names(setup))
         located_names = set(_located_names(setup, features))
         revolved_names = set(revolved_located(setup, features))
@@ -1366,7 +1491,14 @@ def evaluate(bundle, *, pre_kernel=False):
                             if profile["cut_order"] == UNKNOWN:
                                 unordered.add(profile["cut_order_reason"])
                         generated = True
-                elif contour.get("method") == "axial_table" and (not paired or stage == "finish"):
+                elif contour.get("method") == "axial_table" and stage == "rough":
+                    stair = _dome_stair(
+                        name, feature, op, dro.get("radius_mode") is True, allowance
+                    )
+                    if stair:
+                        numbers.setdefault("stair_tables", []).append(stair)
+                        generated = True
+                elif contour.get("method") == "axial_table":
                     nose = length_mm(tool, "nose_radius") if tool and not uncertain(tool) else None
                     dome = _dome(
                         name,
@@ -1387,7 +1519,11 @@ def evaluate(bundle, *, pre_kernel=False):
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
         status = (
-            "error" if residuals else "unknown" if unknown or unordered or clip_debts else "pass"
+            "error"
+            if residuals or plunge_errors
+            else "unknown"
+            if unknown or unordered or clip_debts
+            else "pass"
         )
         sentence = (
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
@@ -1404,6 +1540,8 @@ def evaluate(bundle, *, pre_kernel=False):
         if residuals:
             numbers["dro_z_residual_errors"] = residuals
             sentence += " DRO depth rounding error: " + "; ".join(residuals) + "."
+        if plunge_errors:
+            sentence += " Relief plunge error: " + "; ".join(plunge_errors) + "."
         result.append(
             Finding(
                 "coordinates",

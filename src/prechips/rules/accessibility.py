@@ -138,6 +138,32 @@ def evaluate(bundle):
                 "selected cutter or holder is certainly occluded by part/fixture material",
             )
         values.update(checkpoints)
+        windows = detail.get("window_poses")
+        if isinstance(windows, list) and windows:
+            values["window_poses"] = windows
+            standing = [
+                f"standing at its {w.get('end')} Z{w.get('z_mm')} it meets "
+                + ", ".join(w.get("meets", []))
+                for w in windows
+                if w.get("meets")
+            ]
+            if standing and status == "error":
+                message += " (" + "; ".join(standing) + ")"
+        engage = detail.get("rest_engagement")
+        if isinstance(engage, list) and engage:
+            values["rest_engagement"] = engage
+            if status == "pass":
+                status = "warn"
+                message = "; ".join(
+                    f"{e.get('rest')} jaws set on the work with the tool at its start "
+                    f"Z{e.get('start_z_mm')} meet {', '.join(e.get('meets', []))}: "
+                    + (
+                        f"set them only once the tool has passed Z{e['engage_z_mm']:.3f}"
+                        if number(e.get("engage_z_mm"))
+                        else "no clear jaw position before the cut is established"
+                    )
+                    for e in engage
+                )
         if checkpoint_hit:
             message = checkpoint_hit if status != "error" else f"{message}; {checkpoint_hit}"
             status = "error"

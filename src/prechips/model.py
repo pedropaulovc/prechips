@@ -188,6 +188,9 @@ Hold = record(
         "jaw_clock_deg": Number,
         "support_tip_mm": Point3,
         "quill_extension_mm": Number,
+        # The countersink mouth of the work's centre hole at its end face: the dead centre
+        # seats in a cone of its own point angle that opens to this diameter.
+        "centre_hole_dia_mm": Number,
         "clamps": list[ClampPlacement],
         # Diagram annotations: action order references the 1-based clamps array.
         "clamp_order": list[Annotated[int, Field(gt=0)]],

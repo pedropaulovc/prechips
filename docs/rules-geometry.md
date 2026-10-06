@@ -325,6 +325,20 @@ or `angle_deg`); `indexing` then passes on a verified dividing head with no
 landings to check, errors on any other fixture kind or when positions/angles
 are also declared, and is `unknown` while the head is unverified.
 
+### Window ends
+
+A single-point turning op with numeric `z_from`/`z_to` is also posed where it
+starts and stops: the nose's leading extreme at that Z (the DRO reading after a
++Z end-face touch) on the turned diameter of the claimed cylinder sample
+nearest it, relieved to the nearest clear pose within twice the nose radius as
+a cut sample is. Those poses count in `tool_hits`/`holder_hits`, so an air start
+into the dead centre or an overtravel into the chuck jaws is an accessibility
+error. `window_poses` records each end's Z, diameter, what it meets and the
+nearest placed fixture component with its clearance. Served follow rests are
+not set at a window end: when their jaws, set on the work with the tool at
+`z_from`, would meet a fixture component, `rest_engagement` gives the cut Z
+from which they clear it and accessibility warns to set them only after it.
+
 ### Follow and steady rests
 
 A plan `hold.supports` rest table ([plan](plan.md#reference)) puts the rest
