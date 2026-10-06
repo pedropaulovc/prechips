@@ -1577,7 +1577,7 @@ class _Traveler:
         if "z_from" in op and "z_to" in op:
             parts.append(f"Z {o(start)} → {o(end)}")
         elif "to_z" in op:
-            parts.append(f"Z → {o(self.dro_to_z(setup, op))}")
+            parts.append(self.z_target(setup, op))
         if "depth_mm" in op:
             parts.append(f"depth {o(op['depth_mm'])}")
         if "exit_mm" in op:
@@ -1601,6 +1601,23 @@ class _Traveler:
             if isinstance(entry, dict) and str(entry.get("op")) == str(op.get("op")):
                 return entry.get("dro_to_z", "unknown")
         return dro_z(op.get("to_z", "unknown"), dro_grid(self.bundle, setup))
+
+    def z_target(self, setup, op):
+        """``Z → depth``, or the axial levels coordinates stepped an op authoring ``doc_mm``
+        down in: ``Z start → depth in N levels of doc max``."""
+        o = self.operative
+        numbers = self.records.get(("coordinates", setup["id"]), {})
+        operations = numbers.get("operations") if isinstance(numbers, dict) else None
+        for entry in operations if isinstance(operations, list) else []:
+            levels = entry.get("z_levels") if isinstance(entry, dict) else None
+            if str(entry.get("op")) == str(op.get("op")) and isinstance(levels, dict):
+                count = levels.get("count")
+                return (
+                    f"Z {o(levels.get('dro_start_z'))} → {o(levels.get('dro_to_z'))} in "
+                    f"{_text(count)} level{'' if count == 1 else 's'} of "
+                    f"{o(levels.get('doc_mm'))} max"
+                )
+        return f"Z → {o(self.dro_to_z(setup, op))}"
 
     def surface_z(self, setup, value, source=None):
         """One surface, one printed Z: the checked :meth:`dro_to_z` of the op ``source``
@@ -2113,6 +2130,14 @@ class _Traveler:
                         [self.waypoint(waypoints, op, point[:2]), "", o(point[0]), o(point[1]), z]
                     )
             description = "Cutter-centre checkpoints" + self.cut_order(profile)
+            raster = profile.get("raster")
+            if isinstance(raster, dict):
+                description = (
+                    f"One-way raster, {_text(raster.get('passes'))} passes, stepover ≤ "
+                    f"{o(raster.get('step_mm'))} mm: feed each pass from → to, lift to Z "
+                    f"{o(raster.get('lift_z'))}, rapid back to the next pass's start"
+                    + self.cut_order(profile)
+                )
             entry["parts"].append((order(entry), description, headings, rows))
         for contour in numbers.get("contours", []):
             if not isinstance(contour, dict) or contour.get("method") != "axial_table":

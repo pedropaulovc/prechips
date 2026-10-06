@@ -64,7 +64,8 @@ A name already in that feature's exported requirements is `BadInput` in
 `to_z_band` is a range, not a substitute for measured setup binding. An
 `arc_table` contour needs explicit nominal geometry and positive angular steps;
 finite bounds come from that geometry, not an invented full circle. Linear
-pockets may declare `sweep_bounds`, `sweep_frame`, and `open_side`.
+pockets and faces may declare `sweep_bounds`, `sweep_frame`, and `open_side`;
+their rasters need `step_mm` (see [rules-coordinates](rules-coordinates.md)).
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
