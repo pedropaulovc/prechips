@@ -155,6 +155,13 @@ position against A|B|C with face B seated and the finished rod-side land C
 squared. Fixture dimensions and primitive solids in the rocker additions
 block carry `example (plausible, not measured)` labels; these are authored
 example clearances, not approved CAM toolpaths or actual shop measurements.
+The letter-D pilot leaves about 0.264 mm diametral reaming stock. Custom metric
+GO/NO-GO plugs verify the 6.500..6.530 bore; a separate 2.010 mm process NO-GO
+limits diamond-pin clocking clearance within the unchanged rod-hole drawing
+band. A 1 µm test indicator records pilot-to-ream centre shift against the
+0.020 mm radial process limit, and the final rod-position check uses a 1 µm
+digital height gauge. The diamond pin clocks only: hub-screw friction takes
+cutting torque and the support pads carry the strap.
 
 
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats

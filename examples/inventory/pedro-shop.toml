@@ -952,6 +952,26 @@ note = "illustrative example item: three custom calibrated plug gauges for the r
 range_mm = [1.994, 2.094]
 resolution_mm = 0.001
 
+# Rocker-only 1 µm test indicator for the 0.020 mm pilot -> ream centre control
+# (the shared 0.0005 in DTI is too coarse for that budget and stays as is).
+[gauges.rocker-datum-indicator]
+kind = "dial_test_indicator"
+note = "illustrative example item: 1 µm (0.001 mm) lever-type test indicator, 0-0.8 mm, for the 0.020 mm pilot-to-ream centre control"
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer head comparison" } (range_mm is a plain number list in the schema)
+range_mm = [0.0, 0.8]
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer head comparison" } (resolution_mm is a plain number in the schema)
+resolution_mm = 0.001
+
+# Rocker-only digital height gauge on the granite plate for the rod hole's
+# Ø0.20 A|B|C position check (the shared 0.001 in height gauge stays as is).
+[gauges.rocker-position-height-gauge]
+kind = "height_gauge"
+note = "illustrative example item: 0-300 mm digital height gauge reading 0.001 mm, used on the granite surface plate for the Ø0.20 A|B|C rod-hole position inspection"
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "gauge block comparison" } (range_mm is a plain number list in the schema)
+range_mm = [0.0, 300.0]
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "gauge block comparison" } (resolution_mm is a plain number in the schema)
+resolution_mm = 0.001
+
 # Letter D jobber drill (0.246 in) from the 115-pc index: the 6.5 reamer's pilot.
 [tools.drill-index-115.members."D"]
 dia_mm = { value = 6.2484, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }

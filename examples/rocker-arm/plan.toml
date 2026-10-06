@@ -294,12 +294,12 @@ tool_touches = [] # one Z touch per tool change, listed in retouch_after
 [setups.zero.transfer]
 from = "S1"
 indicate = "pivot_bore" # the S1 pilot
-tool = "dti"
+tool = "rocker-datum-indicator"
 
 [setups.zero.x]
 edge = "pivot_bore_axis"
 from = "indicated"
-tool = "dti"
+tool = "rocker-datum-indicator"
 edge_mm = 0.0 # frame B origin is on the pivot axis
 radius_mm = 0.0 # indicated centre, no finder radius
 check_jog_mm = 10.0 # author's choice
@@ -307,7 +307,7 @@ check_jog_mm = 10.0 # author's choice
 [setups.zero.y]
 edge = "pivot_bore_axis"
 from = "indicated"
-tool = "dti"
+tool = "rocker-datum-indicator"
 edge_mm = 0.0
 radius_mm = 0.0
 check_jog_mm = 10.0 # author's choice
@@ -506,12 +506,12 @@ tool_touches = [] # one Z touch per tool change, listed in retouch_after
 [setups.zero.transfer]
 from = "S2"
 indicate = "pivot_bore"
-tool = "dti"
+tool = "rocker-datum-indicator"
 
 [setups.zero.x]
 edge = "pivot_bore_axis"
 from = "indicated"
-tool = "dti"
+tool = "rocker-datum-indicator"
 edge_mm = 0.0
 radius_mm = 0.0
 check_jog_mm = 10.0 # author's choice
@@ -519,7 +519,7 @@ check_jog_mm = 10.0 # author's choice
 [setups.zero.y]
 edge = "pivot_bore_axis"
 from = "indicated"
-tool = "dti"
+tool = "rocker-datum-indicator"
 edge_mm = 0.0
 radius_mm = 0.0
 check_jog_mm = 10.0 # author's choice
@@ -612,12 +612,12 @@ tool_touches = []
 [setups.zero.transfer]
 from = "S3"
 indicate = "pivot_bore"
-tool = "dti"
+tool = "rocker-datum-indicator"
 
 [setups.zero.x]
 edge = "pivot_bore_axis"
 from = "indicated"
-tool = "dti"
+tool = "rocker-datum-indicator"
 edge_mm = 0.0
 radius_mm = 0.0
 check_jog_mm = 10.0
@@ -625,7 +625,7 @@ check_jog_mm = 10.0
 [setups.zero.y]
 edge = "pivot_bore_axis"
 from = "indicated"
-tool = "dti"
+tool = "rocker-datum-indicator"
 edge_mm = 0.0
 radius_mm = 0.0
 check_jog_mm = 10.0
@@ -724,7 +724,7 @@ do = "inspect"
 feature = "rod_hole"
 note = "Final position verification after datum-C lands are finished and after removing the part from the fixture."
 [setups.ops.checks]
-position_dia = "height-gauge"
+position_dia = "rocker-position-height-gauge"
 [setups.ops.inspection_methods]
 position_dia = "Seat upper datum face B against an angle plate and square the rod-side land C to the surface plate. Fit a 6.5 mm pin in datum bore A and the largest calibrated go pin that fits the rod hole; measure over both pins with the height gauge in two orthogonal orientations, subtract pin radii, and compare the centre offsets to the basic drawing coordinates within the Ø0.20 zone."
 
