@@ -571,17 +571,18 @@ not exist.
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default | features.faces, plan.ops.faces, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence) | features.finish_ra/faces, plan.ops.faces | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
 
-The −setup-Z approach model in this section applies to milling only. A resolved
-`lathe` machine or a known turning/forming/grooving action (including `part_off`
-and `cut_to_fit`) makes approach-dependent geometry `unsupported`, with reason
-exactly `lathe approach model not implemented (engine approaches along -Z only)`.
-Invalid STEP face references still error first; missing/unmapped references
-remain unknown. Raw lathe direction arrays never credit cutting or finishing
-coverage. Coverage is unsupported when its remaining faces depend only on mapped
-lathe claims; complete supported milling/as-stock coverage may still pass,
-and genuinely missing milling claims remain errors.
-The generic `profile` action is also used by milling routes and follows resolved
-machine kind, not the action-only turning fallback.
+The −setup-Z approach model applies to milling and spindle-axis lathe actions
+(`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`). Other cutting
+actions on a resolved lathe use a radial sampled turning screen: revolved
+insert/head/shank/toolpost sections are checked against entry stock minus the
+op's own removal and modeled fixture obstacles, including rotating chuck-jaw
+envelopes. Turning-model facts, not raw axial direction arrays, establish
+turning coverage. Invalid STEP references still error first; missing/unmapped
+references and unresolved inputs remain unknown. Explicit turning actions off
+a resolved lathe remain unsupported; shared profile/form/groove actions follow
+resolved machine kind. This necessary-condition screen proves no toolpath,
+internal boring, grooving/part-off blade geometry, chip flow or chatter. See
+[geometry rules](docs/rules-geometry.md#approach-models) for the exact boundary.
 
 ### 4.3 Workholding (geometry + inventory — needs the kernel for the solids)
 
@@ -979,18 +980,19 @@ sheet.
       [12.47, 13.49] use the same sign (`cad/scripts/export_features.py:566`).
       This clears the cone's `mount_west:station` error.
 
-   **Prechips follow-up (separate from the HA export list):** implement a radial
-   lathe approach model. The current engine approaches only along −setup Z, so
-   turning direction, cutter/holder geometry and dependent cutting/finish
-   coverage remain `unsupported` rather than a false far-side failure or pass.
-   The reason is `lathe approach model not implemented (engine approaches along -Z only)`.
-   Restoring authored shaft spindle frames does not make that milling model
-   applicable to lathe cuts; no change to the delivered exports can supply it.
+   **Prechips integration status (separate from the HA export list):** the
+   radial sampled turning approach is implemented, including modeled chuck
+   obstacles and jaw thin-wall facts. Lathe headroom checks measured swing and
+   between-centres limits. Derived turning and milling stock outputs stay in
+   model coordinates and can feed explicitly selected nonprevious setups;
+   fragmentation is checked per input piece. These are necessary-condition
+   screens, not physical setup or toolpath certification; unresolved inputs
+   remain unknown. The dated gate evidence below predates this integration.
    Restored cone milling frames also expose real directional claim errors:
    one-piece S2:40 (`crank_boss`) and S2:50 (`cone_boss`), and built-up S2:50
    (`cone_boss`), claim entire cylindrical face sets including faces pointing
-   away from the milling approach. These remain `error`, not the lathe
-   `unsupported` case. Resolving the authored milling route/face claims is
+   away from the milling approach. These remain directional-claim `error`
+   findings. Resolving the authored milling route/face claims is
    a separate prechips planning follow-up; fixing HA's station sign alone
    does not clear these machining stops.
 

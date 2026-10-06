@@ -1,4 +1,4 @@
-"""Mill stack and nominal jaw/travel checks; unmeasured geometry never passes.
+"""Mill stack and nominal jaw/travel checks; lathe swing and length; unmeasured never passes.
 
 The 25 mm insertion allowance is PLAN §4.1's tool-change allowance, not
 holder grip. Jaw height is an obstruction, never a spindle-stack layer.
@@ -7,6 +7,13 @@ travel screens read; a vendor number without a complete local measurement
 keeps its nominal value in the numbers but can neither pass nor fail.
 An authored tool/holder projection stays unknown when explicitly declared
 unknown; OAL minus grip applies only when the selected pair has no entry.
+
+A lathe setup's envelope is its swing and length: the stock and chuck body
+diameters against swing over the bed, the stock against swing over the cross
+slide (the carriage passes under the whole turned length), and the stick-out
+plus chuck body length against the distance between centres.  It is a
+necessary-condition screen: it proves no tool path, carriage stroke or
+tailstock quill extension.
 """
 
 from fractions import Fraction
@@ -64,16 +71,7 @@ def evaluate(bundle):
         machine_ref = setup["machine"]
         machine = resolve(bundle, "machines", machine_ref) or {}
         if machine.get("kind") == "lathe":
-            findings.append(
-                Finding(
-                    "headroom",
-                    setup["id"],
-                    "unsupported",
-                    {},
-                    ["PLAN.md §4.1 headroom"],
-                    "Lathe headroom is outside the mill-only M1 envelope rule.",
-                )
-            )
+            findings.append(_lathe(bundle, setup, machine, machine_ref))
             continue
         debts = {}
         cite = [
@@ -284,3 +282,78 @@ def evaluate(bundle):
             )
         )
     return findings
+
+
+def _lathe(bundle, setup, machine, machine_ref):
+    """Swing over bed/cross slide and length between centres for a lathe setup."""
+    debts = {}
+    cite = [
+        "PLAN.md §4.1 headroom",
+        "inventory: lathe swing/between-centres facts and chuck body dimensions",
+        "plan: stock_state od_mm/north_end_z/south_end_z and hold stickout_mm",
+    ]
+    hold = _mapping(setup.get("hold"))
+    state = _mapping(setup.get("stock_state"))
+    fixture = resolve(bundle, "fixtures", hold.get("fixture")) or {}
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    od = state.get("od_mm", _UNKNOWN)
+    north, south = state.get("north_end_z"), state.get("south_end_z")
+    length = (
+        (north - south) * scale
+        if _numeric(north) and _numeric(south) and scale is not None
+        else _UNKNOWN
+    )
+    stickout = hold.get("stickout_mm", _UNKNOWN)
+    exposed = stickout if _numeric(stickout) else length
+    body_dia = length_mm(fixture, "body_dia")
+    body_length = length_mm(fixture, "body_length")
+    bed = _limit(machine, machine_ref, "envelope.swing_over_bed", debts, cite)
+    slide = _limit(machine, machine_ref, "envelope.swing_over_cross_slide", debts, cite)
+    centres = _limit(machine, machine_ref, "envelope.between_centres", debts, cite)
+    required = _sum(exposed, body_length)
+    numbers = {
+        "stock_od_mm": od,
+        "stock_length_mm": length,
+        "stickout_mm": stickout,
+        "chuck_body_dia_mm": body_dia,
+        "chuck_body_length_mm": body_length,
+        "fixture_verify": uncertain(fixture) if fixture else "missing",
+        "swing_over_bed_mm": bed["value"],
+        "swing_over_cross_slide_mm": slide["value"],
+        "between_centres_mm": centres["value"],
+        "required_length_mm": required,
+        "clearance_basis": (
+            "measured swing over bed/cross slide and distance between centres against the "
+            "declared stock OD, stick-out (else stock length) and nominal chuck body; no "
+            "tool path, carriage stroke or tailstock extension is checked"
+        ),
+    }
+    checks = (
+        (od, bed, "stock OD exceeds the swing over the bed"),
+        (body_dia, bed, "chuck body diameter exceeds the swing over the bed"),
+        (od, slide, "stock OD exceeds the swing over the cross slide"),
+        (required, centres, "stick-out plus chuck body exceeds the distance between centres"),
+    )
+    errors, unknown = [], not machine or not fixture or bool(uncertain(fixture))
+    for value, limit, message in checks:
+        if not (_numeric(value) and value > 0) or not limit["verified"]:
+            unknown = True
+        elif value > limit["value"]:
+            errors.append(message)
+    numbers["measurements"] = [debts[key] for key in sorted(debts)]
+    status = "error" if errors else "unknown" if unknown else "pass"
+    message = (
+        "; ".join(errors)
+        if errors
+        else "lathe swing, chuck body or between-centres length remains unmeasured or unresolved"
+        if unknown
+        else "stock and chuck fit the measured swing and between-centres length"
+    )
+    return Finding(
+        "headroom",
+        setup["id"],
+        status,
+        numbers,
+        list(dict.fromkeys(cite)),
+        f"{setup['id']}: {message}.",
+    )

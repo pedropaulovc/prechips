@@ -39,6 +39,31 @@ Measurement conventions (setup frame, tool axis +Z):
   Parallels are drawn only from declared length/width/height and two XY
   centres, top at the seat; they lie below every tool and holder cylinder, so
   they never enter hit counts.
+* Turning (ops with ``approach = "turning"``; lathe setups): the spindle axis is
+  setup Z through x = y = 0, +Z from the chuck toward the free end.  Claimable
+  faces are surfaces of revolution about it (every sampled normal lies in its
+  meridian plane, within ``REVOLVED_TOL``); a face whose normals point toward
+  the axis is internal turning (boring bar), which is not modelled.  Samples
+  collapse to distinct (r, z) meridian points.  The tool is its centre-height
+  (y = 0) section in the XZ half-plane, revolved 360 degrees about Z because the
+  work turns: an insert (nose circle radius r_e lifted ``LIFT`` off the sample
+  along the meridian normal, major edge at the entering angle to the feed,
+  minor edge closing the insert angle, both edge_len long), a head (convex hull
+  of insert and shank start head_len out from the nose centre), a radial shank
+  shank_width wide whose back face lies functional_width from the nose centre
+  against the feed, out to projection, and the toolpost body behind it
+  (body_depth radially, body_width from the shank's leading face against the
+  feed).  Insert/holder thickness above and below centre height is not
+  modelled.  Obstacles are the held stock minus this op's own revolved removal
+  (its final-pass state; roughing passes are not simulated) plus placed fixture
+  solids.  Turned removal sweeps each claimed meridian radially outward (facing
+  actions: along +Z, bounded by to_z), extended at the profile's end radius over
+  the declared z_from..z_to span and limited to it, minus the finished part.
+  Reach depth is the material radius beside the nose (z within the nose circle,
+  r beyond its centre) above the sample.  Concave profile corners are sharp
+  concave edges between claimed faces (0) and concave tori/spheres (their
+  profile radius).  Chuck grip-zone walls are radial lines through each jaw:
+  the material run starting at the jaw contact.
 """
 
 from __future__ import annotations
@@ -77,6 +102,12 @@ PARALLEL = 1 - 1e-9  # |cos| beyond which directions are parallel
 CONCAVE_PROBE = 1e-2  # mm step used to classify an edge as concave
 WALL_LEVELS = 6  # z levels of the thin-wall map
 WALL_COLUMNS = (8, 64)  # along-jaw columns of the thin-wall map (1 mm pitch, clamped)
+REVOLVED_TOL = 1e-5  # tangential normal component above which a face is not revolved about Z
+AXIS_TOL = 1e-6  # mm: sample radius treated as on the spindle axis
+NOSE_ARC = 12  # chords approximating the insert nose arc (inscribed: never enlarges it)
+TURNING = "turning"
+# Facing-type turning actions sweep their claims along +Z (toward the free end).
+AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
 WIDTH, HEIGHT = 640, 480
 V = FreeCAD.Vector
 Z = V(0, 0, 1)
@@ -84,6 +115,99 @@ Z = V(0, 0, 1)
 
 class _Unknown(Exception):
     """The whole job's facts are unknown for the stated reason."""
+
+
+def _turned(op):
+    return op.get("approach") == TURNING
+
+
+def _internal_reason(labels, internal):
+    return "internal turning (boring bar inside a bore) is not modelled: " + ", ".join(
+        sorted(labels[index] for index in internal)
+    )
+
+
+def _hull(points):
+    """Convex hull (counter-clockwise, Andrew's monotone chain) of 2-D points."""
+    points = sorted(set(points))
+    if len(points) < 3:
+        return points
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower, upper = [], []
+    for point in points:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], point) <= 0:
+            lower.pop()
+        lower.append(point)
+    for point in reversed(points):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], point) <= 0:
+            upper.pop()
+        upper.append(point)
+    return lower[:-1] + upper[:-1]
+
+
+def _clip_axis(polygon):
+    """The part of an (r, z) polygon with r >= 0 (Sutherland-Hodgman against the axis)."""
+    result = []
+    for k, current in enumerate(polygon):
+        previous = polygon[k - 1]
+        inside, was_inside = current[0] >= 0, previous[0] >= 0
+        if inside != was_inside:
+            t = previous[0] / (previous[0] - current[0])
+            result.append((0.0, previous[1] + t * (current[1] - previous[1])))
+        if inside:
+            result.append(current)
+    return result
+
+
+def _revolved_side(polygon):
+    """Solid swept by the r >= 0 part of an (r, z) polygon turning once about Z, or None."""
+    polygon = _clip_axis(polygon)
+    if len(polygon) < 3:
+        return None
+    area = sum(
+        polygon[k - 1][0] * polygon[k][1] - polygon[k][0] * polygon[k - 1][1]
+        for k in range(len(polygon))
+    )
+    if abs(area) < 1e-9:
+        return None
+    points = [V(r, 0, z) for r, z in polygon]
+    face = Part.Face(Part.makePolygon(points + points[:1]))
+    return face.revolve(V(0, 0, 0), Z, 360)
+
+
+def _revolved(polygon):
+    """Solid a turning section sweeps about Z, or None: a part beyond the axis (r < 0) is
+    mirrored, because the work turns past both sides of a section that crosses it."""
+    pieces = [
+        piece
+        for piece in (
+            _revolved_side(polygon),
+            _revolved_side([(-r, z) for r, z in reversed(polygon)]),
+        )
+        if piece is not None
+    ]
+    if not pieces:
+        return None
+    return pieces[0].fuse(pieces[1]) if len(pieces) == 2 else pieces[0]
+
+
+def _band(r0, r1, z0, z1):
+    """Revolved annulus r0..r1 x z0..z1 (r0 may be 0), or None when it is empty."""
+    if r1 - r0 <= PLANE_TOL or z1 - z0 <= PLANE_TOL:
+        return None
+    band = Part.makeCylinder(r1, z1 - z0, V(0, 0, z0))
+    return band if r0 <= PLANE_TOL else band.cut(Part.makeCylinder(r0, z1 - z0, V(0, 0, z0)))
+
+
+def _max_radius(shape):
+    """Largest distance from Z over a shape's sampled edges (16 points per edge)."""
+    return max(
+        (math.hypot(p.x, p.y) for edge in shape.Edges for p in edge.discretize(16)),
+        default=0.0,
+    )
 
 
 def _r(value, digits=6):
@@ -921,6 +1045,8 @@ class _Setup:
         self.regions = {}
         self.culled_part = None
         self.directions = {}  # finished face index -> direction verdict cache
+        self.revolutions = {}  # finished face index -> turning verdict cache
+        self.turn_obstacles = {}  # op subject -> (held stock minus its own turned removal, why)
 
     # ------------------------------------------------------------------ setup facts
 
@@ -983,6 +1109,10 @@ class _Setup:
                 "min_wall_mm",
             ):
                 facts["reasons"][key] = self.stock_reason
+        # Lathe chucks grip radially: their thin-wall fact is the run of material under each
+        # jaw. ``chuck`` is set only once the fixture-solid model has placed a chuck.
+        if self.stock_reason is None and self.chuck is not None:
+            self._chuck_walls(facts)
         # Every op and the render see the stock as it enters the setup; this setup's own
         # removals only shape the stock handed to the next one.
         ops = {}
@@ -1043,7 +1173,11 @@ class _Setup:
                 to_z = op.get("to_z")
                 if to_z is not None and not _number(to_z):
                     return None, f"{subject} to_z is unknown; {where}"
-                if "stock_removal_bounds" in op:
+                if _turned(op):
+                    removal, why = self._turn_removal(op, valid)
+                    if why is not None:
+                        return None, f"{subject} {why}; {where}"
+                elif "stock_removal_bounds" in op:
                     removal, why = self._bounded(
                         op["stock_removal_bounds"],
                         stock,
@@ -1325,10 +1459,16 @@ class _Setup:
         indices = self._indices(op)
         if indices == UNKNOWN:
             return UNKNOWN, [], "claimed face references are unknown or unmapped"
-        valid, away, undefined = self._split(indices)
         labels = self.owner.labels
+        internal = []
+        if _turned(op):
+            valid, away, undefined, internal = self._turn_split(indices)
+        else:
+            valid, away, undefined = self._split(indices)
         if undefined:
             return UNKNOWN, sorted(labels[i] for i in away), self._undefined(undefined)
+        if internal:
+            return UNKNOWN, sorted(labels[i] for i in away), _internal_reason(labels, internal)
         return sorted(valid), sorted(labels[i] for i in away), None
 
     def _claimed(self):
@@ -1958,6 +2098,8 @@ class _Setup:
 
     def _op_unknown(self, op, reason):
         facts = {"reason": reason, "reasons": {}}
+        if _turned(op):
+            facts["approach"] = TURNING
         for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm"):
             facts[key] = UNKNOWN
             facts["reasons"][key] = reason
@@ -1984,6 +2126,8 @@ class _Setup:
         indices = self._indices(op)
         if indices == UNKNOWN:
             return self._op_unknown(op, f"{what}: face references are unknown")
+        if _turned(op):
+            return self._turn_op(op, indices)
         valid, away, undefined = self._split(indices)
         facts = {"reasons": {}}
         reasons = facts["reasons"]
@@ -2295,6 +2439,446 @@ class _Setup:
             if common.distToShape(face)[0] < 1e-6 and face.common(solid).Area > CONTACT_MM2:
                 refs.add(self.owner.labels[index])
         return refs
+
+    # ------------------------------------------------------------------ turning
+
+    _TURN_TOOL = (
+        "radius_mm",
+        "insert_angle_deg",
+        "entering_angle_deg",
+        "edge_len_mm",
+        "head_len_mm",
+        "shank_width_mm",
+        "functional_width_mm",
+    )
+    _TURN_HOLDER = ("projection_mm", "holder_body_width_mm", "holder_body_depth_mm")
+
+    def _revolution(self, index):
+        """(verdict, meridian samples, undefined normals) of a finished face about setup Z.
+
+        ``verdict`` is "external", "internal" (a normal points toward the axis: boring) or
+        "away" (a normal leaves its meridian plane: not a surface of revolution about the
+        spindle axis). Meridian samples are ((r, z), (n_r, n_z)) pairs.
+        """
+        if index not in self.revolutions:
+            found, skipped = _face_samples(self.faces[index], 1.0)
+            verdict, meridian = "external", []
+            for point, normal in found:
+                rho = math.hypot(point.x, point.y)
+                if rho <= AXIS_TOL:
+                    if math.hypot(normal.x, normal.y) > REVOLVED_TOL:
+                        verdict = "away"
+                        break
+                    meridian.append(((0.0, point.z), (0.0, normal.z)))
+                    continue
+                ex, ey = point.x / rho, point.y / rho
+                if abs(normal.y * ex - normal.x * ey) > REVOLVED_TOL:
+                    verdict = "away"
+                    break
+                radial = normal.x * ex + normal.y * ey
+                if radial < -REVOLVED_TOL:
+                    verdict = "internal"
+                meridian.append(((rho, point.z), (radial, normal.z)))
+            self.revolutions[index] = (verdict, meridian, skipped if found else max(skipped, 1))
+        return self.revolutions[index]
+
+    def _turn_split(self, indices):
+        """Claimed indices: turnable, not revolved, (index, undefined normals), internal."""
+        valid, away, undefined, internal = [], [], [], []
+        for index in indices:
+            verdict, _, skipped = self._revolution(index)
+            if verdict == "away":
+                away.append(index)
+            elif skipped:
+                undefined.append((index, skipped))
+            elif verdict == "internal":
+                internal.append(index)
+            else:
+                valid.append(index)
+        return valid, away, undefined, internal
+
+    def _outer(self):
+        """A radius beyond every point of the held stock."""
+        x0, y0, _, x1, y1, _ = self.box
+        return math.hypot(max(abs(x0), abs(x1)), max(abs(y0), abs(y1))) + 1.0
+
+    def _turn_removal(self, op, valid):
+        """(revolved stock outside the finished part this turning op removes or None, why).
+
+        A ``to_z`` op faces: everything beyond the plane on its claims' axial side, outside
+        their innermost radius, up to the finished part's end on that side (a shoulder) or
+        the stock end when nothing finished lies beyond (an end face). Other ops cut down to
+        each claimed meridian; with ``z_from``/``z_to`` the profile is extended at its end
+        radii and its axial faces swept along their normals to the window, then limited to
+        it. Without a window removal stays within the claimed faces' own z extent.
+        """
+        if not valid:
+            return None, None
+        meridians = [self._revolution(index)[1] for index in valid]
+        outer = self._outer()
+        window = None
+        if "z_from" in op or "z_to" in op:
+            ends = (op.get("z_from"), op.get("z_to"))
+            if not all(_number(end) for end in ends):
+                return None, "z_from/z_to is unknown"
+            window = (min(ends), max(ends))
+            if window[1] - window[0] <= PLANE_TOL:
+                return None, "z_from and z_to span no length"
+        regions = []
+        if op.get("to_z") is not None:
+            region, why = self._facing_region(meridians, op["to_z"], outer)
+            if why is not None:
+                return None, why
+            regions.append(region)
+        else:
+            regions.extend(self._profile_regions(meridians, window, outer))
+        regions = [region for region in regions if region is not None]
+        if not regions:
+            return None, None
+        removal = regions[0].fuse(regions[1:]) if len(regions) > 1 else regions[0]
+        if window is not None:
+            removal = removal.common(_band(0.0, outer, *window))
+        removal = removal.cut(self.finished)
+        if removal.Volume <= HIT_MM3:
+            return None, None
+        return removal, None
+
+    def _facing_region(self, meridians, to_z, outer):
+        samples = [sample for meridian in meridians for sample in meridian]
+        sides = {1 if nz > 0 else -1 for _, (_, nz) in samples if abs(nz) > REVOLVED_TOL}
+        if len(sides) != 1:
+            return None, "to_z facing needs every claimed face to face one axial side"
+        side = sides.pop()
+        inner = min(r for (r, _), _ in samples)
+        x0, y0, z0, x1, y1, z1 = _bbox(self.finished)
+        finished_end = z1 if side > 0 else z0
+        stock_end = self.box[5] + 1.0 if side > 0 else self.box[2] - 1.0
+        beyond = (finished_end - to_z) * side > PLANE_TOL
+        end = finished_end if beyond else stock_end
+        return _band(inner, outer, min(to_z, end), max(to_z, end)), None
+
+    def _profile_regions(self, meridians, window, outer):
+        regions, ends = [], []
+        for meridian in meridians:
+            if not meridian:
+                continue
+            zs = [z for (_, z), _ in meridian]
+            if max(zs) - min(zs) <= PLANE_TOL:
+                # An axial face: swept along its normal to the window, else nothing.
+                nz = max((n for _, (_, n) in meridian), key=abs)
+                if window is None or abs(nz) <= REVOLVED_TOL:
+                    continue
+                z = zs[0]
+                inner = min(r for (r, _), _ in meridian)
+                end = window[1] if nz > 0 else window[0]
+                regions.append(_band(inner, outer, min(z, end), max(z, end)))
+                continue
+            chain = sorted({(r, z): (nr, nz) for (r, z), (nr, nz) in meridian}.items())
+            chain.sort(key=lambda item: (item[0][1], item[0][0]))
+            # Chords of a concave meridian run through air: push every point into the
+            # material by the largest chord sagitta, so no sliver of overstock survives;
+            # cutting the finished part back out keeps the region exact.
+            sag = 0.0
+            for ((r0, z0), n0), ((r1, z1), n1) in zip(chain, chain[1:], strict=False):
+                cos = max(-1.0, min(1.0, n0[0] * n1[0] + n0[1] * n1[1]))
+                angle = math.acos(cos)
+                sag = max(sag, math.hypot(r1 - r0, z1 - z0) / 2 * math.tan(min(angle, 3.0) / 4))
+            sag += 1e-6
+            points = [(r - nr * sag, z - nz * sag) for (r, z), (nr, nz) in chain]
+            first, last = points[0], points[-1]
+            regions.append(_revolved_side([*points, (outer, last[1]), (outer, first[1])]))
+            ends.append((chain[0][0][1], chain[0][0][0], chain[-1][0][1], chain[-1][0][0]))
+        if window is not None and ends:
+            low = min(ends, key=lambda end: end[0])
+            high = max(ends, key=lambda end: end[2])
+            regions.append(_band(low[1], outer, window[0], low[0]))
+            regions.append(_band(high[3], outer, high[2], window[1]))
+        return regions
+
+    def _turn_obstacle(self, op):
+        """(held stock minus this op's own turned removal, or None, and why not)."""
+        subject = self._subject(op)
+        if subject not in self.turn_obstacles:
+            valid, _, why = self._claims(op)
+            to_z = op.get("to_z")
+            if not isinstance(valid, list):
+                result = None, why
+            elif to_z is not None and not _number(to_z):
+                result = None, "to_z is unknown"
+            else:
+                try:
+                    removal, why = self._turn_removal(op, valid)
+                    obstacle = self.part if removal is None else self.part.cut(removal)
+                except Exception as exc:
+                    removal, why = None, f"turned removal boolean failed ({exc})"
+                result = (None, why) if why is not None else (obstacle, None)
+            if result[1] is not None:
+                result = None, f"this op's turned removal cannot be derived: {result[1]}"
+            self.turn_obstacles[subject] = result
+        return self.turn_obstacles[subject]
+
+    @classmethod
+    def _turn_tool(cls, op):
+        """(turning-tool values, missing insert/head/shank keys, missing holder keys)."""
+        tool = {key: _positive(op, key) for key in (*cls._TURN_TOOL, *cls._TURN_HOLDER)}
+        tool["feed_z"] = op.get("feed_z") if op.get("feed_z") in (-1, 1) else None
+        missing = sorted(key for key in (*cls._TURN_TOOL, "feed_z") if tool[key] is None)
+        if not missing and tool["insert_angle_deg"] + tool["entering_angle_deg"] >= 180:
+            missing.append("insert_angle_deg + entering_angle_deg below 180")
+        holder = sorted(key for key in cls._TURN_HOLDER if tool[key] is None)
+        if not holder and tool["projection_mm"] < tool["head_len_mm"]:
+            holder.append("projection_mm at least head_len_mm")
+        return tool, missing, holder
+
+    @staticmethod
+    def _turn_sections(tool, point, normal, holder):
+        """(insert + head polygon, [shank, toolpost body] polygons or None) in (r, z)."""
+        nose = tool["radius_mm"]
+        cr, cz = point[0] + normal[0] * nose, point[1] + normal[1] * nose
+        inner = nose - LIFT
+        points = [
+            (
+                cr + inner * math.cos(2 * math.pi * k / NOSE_ARC),
+                cz + inner * math.sin(2 * math.pi * k / NOSE_ARC),
+            )
+            for k in range(NOSE_ARC)
+        ]
+        feed, length = tool["feed_z"], tool["edge_len_mm"]
+        entering = math.radians(tool["entering_angle_deg"])
+        for angle in (entering, entering + math.radians(tool["insert_angle_deg"])):
+            dr, dz = math.sin(angle), feed * math.cos(angle)
+            er, ez = cr + dr * length, cz + dz * length
+            points += [(er - dz * inner, ez + dr * inner), (er + dz * inner, ez - dr * inner)]
+        against = -feed
+        back = cz + against * tool["functional_width_mm"]
+        lead = back - against * tool["shank_width_mm"]
+        start = cr + tool["head_len_mm"]
+        section = _hull(points + [(start, lead), (start, back)])
+        if not holder:
+            return section, None
+        end = cr + tool["projection_mm"]
+        far = end + tool["holder_body_depth_mm"]
+        side = lead + against * tool["holder_body_width_mm"]
+        return section, [
+            [(start, lead), (end, lead), (end, back), (start, back)],
+            [(end, lead), (far, lead), (far, side), (end, side)],
+        ]
+
+    def _turn_fixture(self, solid):
+        """Names of placed fixture solids a revolved tool meets; None while none are placed."""
+        if not self.fixture_ready:
+            return None
+        return self._fixture_hits(solid)
+
+    def _turn_op(self, op, indices):
+        """Revolved turning-tool facts for an op (module docstring: Turning)."""
+        labels = self.owner.labels
+        valid, away, undefined, internal = self._turn_split(indices)
+        facts = {"approach": TURNING, "reasons": {}}
+        reasons = facts["reasons"]
+        facts["claim_errors"] = sorted(labels[index] for index in away)
+        if internal:
+            facts["unsupported_reason"] = _internal_reason(labels, internal)
+        if undefined:
+            facts["claimed_indices"] = UNKNOWN
+            reasons["claimed_indices"] = self._undefined(undefined)
+        elif internal:
+            facts["claimed_indices"] = UNKNOWN
+            reasons["claimed_indices"] = facts["unsupported_reason"]
+        else:
+            facts["claimed_indices"] = sorted(valid)
+        sampled = sorted(valid + [index for index, _ in undefined])
+        if not sampled:
+            reason = facts.get("unsupported_reason") or (
+                "no claimed face is a surface of revolution about the spindle axis: "
+                + ", ".join(facts["claim_errors"])
+            )
+            for key in (*self._MEASURED, "corner_radii_mm"):
+                facts[key] = UNKNOWN
+                reasons[key] = reason
+        else:
+            corner = self._turn_corners(sampled) if not undefined else reasons["claimed_indices"]
+            facts["corner_radii_mm"] = corner if isinstance(corner, list) else UNKNOWN
+            if not isinstance(corner, list):
+                reasons["corner_radii_mm"] = corner
+            tool, missing, holder_missing = self._turn_tool(op)
+            if missing:
+                for key in self._MEASURED:
+                    facts[key] = UNKNOWN
+                    reasons[key] = "op lacks " + ", ".join(missing)
+            else:
+                self._turn_samples(op, sampled, tool, holder_missing, facts)
+                if undefined or internal:
+                    for key in self._MEASURED:
+                        if facts.get(key) != UNKNOWN:
+                            facts[key] = UNKNOWN
+                            reasons[key] = reasons["claimed_indices"]
+        unknown = [
+            reasons[key]
+            for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm")
+            if key in reasons
+        ]
+        if unknown:
+            facts["reason"] = unknown[0]
+        return facts
+
+    def _turn_samples(self, op, indices, tool, holder_missing, facts):
+        reasons = facts["reasons"]
+        meridian = {}
+        for index in indices:
+            for point, normal in self._revolution(index)[1]:
+                key = (round(point[0], 6), round(point[1], 6))
+                meridian.setdefault(key, (index, point, normal))
+        samples = [meridian[key] for key in sorted(meridian)]
+        facts["sample_count"] = len(samples)
+        obstacle, obstacle_reason = self._turn_obstacle(op)
+        # Without this op's own removal only finished material is a certain obstacle.
+        part = obstacle if obstacle is not None else self.finished
+        part_box = _bbox(part)
+        placed = self.fixture_ready
+        outer = self._outer()
+        nose = tool["radius_mm"]
+        counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
+        uncertain = {"tool": 0, "holder": 0}
+        reach, wall_hits = 0.0, 0
+        for index, point, normal in samples:
+            section, pieces = self._turn_sections(tool, point, normal, not holder_missing)
+            solids = {"tool": _revolved(section)}
+            if pieces is not None:
+                parts = [solid for solid in map(_revolved, pieces) if solid is not None]
+                solids["holder"] = parts[0].fuse(parts[1:]) if len(parts) > 1 else parts[0]
+            for kind, solid in solids.items():
+                if solid is None:
+                    continue
+                labels = set()
+                if _boxes_overlap(_bbox(solid), part_box):
+                    common = solid.common(part)
+                    if common.Volume > HIT_MM3:
+                        labels.add("part")
+                        counters[kind][2].update(self._turn_hit_refs(common, solid, index))
+                        wall_hits += kind == "holder"
+                labels.update(self._turn_fixture(solid) or ())
+                if labels:
+                    counters[kind][0] += 1
+                    counters[kind][1].update(labels)
+                elif self.fixture_gaps or any(
+                    _boxes_overlap(_bbox(solid), box) for _, box in self.fixture_possible
+                ):
+                    uncertain[kind] += 1
+            # Reach: material radius beside the nose (within its axial band) beyond the sample.
+            centre_z = point[1] + normal[1] * nose
+            band = _band(point[0], outer, centre_z - nose, centre_z + nose)
+            if band is not None:
+                common = band.common(self.part)
+                if common.Volume > HIT_MM3:
+                    reach = max(reach, _max_radius(common) - point[0])
+        facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
+        facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
+        facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
+        facts["reach_depth_mm"] = _r(reach)
+        holder_reason = ("op lacks " + ", ".join(holder_missing)) if holder_missing else None
+        if holder_reason or obstacle_reason:
+            facts["holder_wall_hits"] = UNKNOWN
+            reasons["holder_wall_hits"] = holder_reason or obstacle_reason
+        else:
+            facts["holder_wall_hits"] = wall_hits
+        for kind in counters:
+            key, certain = kind + "_hits", counters[kind][0]
+            if kind == "holder" and holder_reason:
+                facts[key] = UNKNOWN
+                reasons[key] = holder_reason
+            elif obstacle_reason:
+                facts[key] = UNKNOWN
+                reasons[key] = f"{obstacle_reason}; {certain} sample(s) hit finished material"
+            elif not placed:
+                facts[key] = UNKNOWN
+                reasons[key] = (
+                    f"fixture solids unresolved ({self.fixture_reason}); "
+                    f"{certain} sample(s) hit part material"
+                )
+            elif uncertain[kind] and self.fixture_gaps:
+                facts[key] = UNKNOWN
+                reasons[key] = (
+                    f"undrawn fixture components ({'; '.join(self.fixture_gaps)}); "
+                    f"{certain} sample(s) certainly hit"
+                )
+            elif uncertain[kind]:
+                facts[key] = UNKNOWN
+                reasons[key] = (
+                    f"{uncertain[kind]} sample(s) clear of placed solids reach undeclared "
+                    f"fixture extents; {certain} sample(s) certainly hit"
+                )
+            else:
+                facts[key] = certain
+
+    def _turn_hit_refs(self, common, solid, own):
+        """Finished face refs bounding a turning-tool hit, excluding the sampled face."""
+        box, refs = _bbox(solid), set()
+        for index, face in enumerate(self.faces):
+            if index == own or not _boxes_overlap(box, self.face_boxes[index]):
+                continue
+            if common.distToShape(face)[0] < 1e-6 and face.common(solid).Area > CONTACT_MM2:
+                refs.add(self.owner.labels[index])
+        return refs
+
+    def _turn_corners(self, indices):
+        """Sorted concave meridian corner radii between/inside claims, or why unknown."""
+        part, faces, labels = self.finished, self.faces, self.owner.labels
+        radii, problems = set(), []
+        for index in indices:
+            face = faces[index]
+            surface = face.Surface
+            if isinstance(surface, (Part.Plane, Part.Cylinder, Part.Cone)):
+                continue  # straight meridians have no concave corner of their own
+            if not _curved_concave(part, face):
+                continue
+            if isinstance(surface, Part.Toroid):
+                radii.add(_r(surface.MinorRadius))
+            elif isinstance(surface, Part.Sphere):
+                radii.add(_r(surface.Radius))
+            else:
+                problems.append(f"{labels[index]} is a concave {type(surface).__name__} surface")
+        for edge, a, b in _shared_edges(faces, indices):
+            if _concave_edge(part, edge, faces[a], faces[b]):
+                radii.add(0.0)
+        if problems:
+            extra = f" (+{len(problems) - 3} more)" if len(problems) > 3 else ""
+            return "; ".join(problems[:3]) + extra
+        return sorted(radii)
+
+    def _chuck_walls(self, facts):
+        """min_wall_mm: the shortest material run under a chuck jaw, from its contact inward.
+
+        Sampled on the radial line through every jaw at ``WALL_LEVELS`` heights of the
+        grip zone; a solid bar's run crosses the axis (a full diameter), a tube's is its wall.
+        """
+        chuck = self.chuck
+        reasons = facts["reasons"]
+        ox, oy, _ = chuck["axis_origin"]
+        ax, ay, az = chuck["axis"]
+        if math.hypot(ox, oy) > AXIS_TOL or math.hypot(ax, ay) > 1e-9 or az <= 0:
+            reasons["min_wall_mm"] = "the chuck axis is not setup Z through x = y = 0"
+            return
+        z0, z1 = chuck["grip_z"]
+        outer = self._outer()
+        runs = []
+        for angle in chuck["jaw_angles_deg"]:
+            dx, dy = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+            for k in range(WALL_LEVELS):
+                z = z0 + (z1 - z0) * (k + 0.5) / WALL_LEVELS
+                line = Part.makeLine(V(dx * outer, dy * outer, z), V(-dx * outer, -dy * outer, z))
+                pieces = self.part.common(line).Edges
+                if pieces:
+                    first = max(
+                        pieces,
+                        key=lambda e: max(v.Point.x * dx + v.Point.y * dy for v in e.Vertexes),
+                    )
+                    runs.append(first.Length)
+        if not runs:
+            reasons["min_wall_mm"] = "no held material lies under the chuck jaws in the grip zone"
+            return
+        facts["min_wall_mm"] = _r(min(runs))
+        reasons.pop("min_wall_mm", None)
 
 
 def main(argv):

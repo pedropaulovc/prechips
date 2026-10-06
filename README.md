@@ -71,8 +71,8 @@ their stops. The one-piece cone stops on an exported inconsistency:
 [12.47, 13.49]. That is an HA export follow-up, not a sign the consumer may fix.
 Restored milling frames also expose far-side boss-face claims (one-piece S2:40/50,
 built-up S2:50); those remain errors requiring an authored route/claim correction.
-Lathe approach-dependent geometry is explicitly unsupported until a radial
-lathe approach model exists; the engine's −Z-only milling model is not a lathe test.
+Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
+spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
 Only the consumer side of M3 is done; the HA follow-ups and the combined gate
 evidence are in PLAN §8 M3. Outputs are still written for exits 2 and 4.
 All example plans remain **authored** and their sheets **PLANNED**. The shaft,
@@ -325,16 +325,18 @@ Nothing here is a toolpath or a certification of the physical setup. See
 ## Limits
 
 M2 checks declared profile, stock holding, indexing and physics arithmetic;
-they do not confirm a measured setup. Lathe headroom remains `unsupported`,
-trial-cut measurements and example cutting data remain unknown. The
+they do not confirm a measured setup. Lathe headroom checks stock/chuck swing
+and between-centres length; trial-cut measurements and example cutting data remain unknown. The
 consumer's labelled manifests and adjacent STEP exports are consumed for all
 three drawn pilot parts (M3); pivot-bracket remains authored. Export delivery
 does not establish live prechips farm/trace acceptance or physical readiness.
 M4 geometry is sampled B-rep measurement
 with vise, chuck, dividing-head, centre, angle-plate, clamp and custom
 fixture solids drawn only from explicit dimensions and poses; collets have no
-solid, and lathe setups keep `vise` not applicable, `thin_wall_under_clamp`
-unsupported and accessibility unresolved. Only the authored bracket lacks STEP bytes.
+solid. Lathe setups keep `vise` not applicable; `thin_wall_under_clamp` samples
+material under modeled chuck jaws. Turning accessibility is a radial sampled
+necessary-condition screen, not a toolpath, carriage-stroke or chatter proof;
+undrawn obstacles and unresolved inputs retain unknowns. Only the authored bracket lacks STEP bytes.
 Shaft, rocker and cone preserve their consumer-exported face sets and exact
 adjacent STEP files; exported face identities do not establish operation
 coverage. The rocker's S1 upper strap operations explicitly claim the exported

@@ -522,6 +522,18 @@ MachineEnvelope = record(
             ),
             MeasuredLength,
         ),
+        # Lathe envelope: swing diameters and the headstock-to-tailstock centre distance.
+        **dict.fromkeys(
+            (
+                "swing_over_bed_mm",
+                "swing_over_bed_in",
+                "swing_over_cross_slide_mm",
+                "swing_over_cross_slide_in",
+                "between_centres_mm",
+                "between_centres_in",
+            ),
+            MeasuredLength,
+        ),
     },
 )
 Spindle = record(
@@ -572,7 +584,7 @@ InventoryItem = record(
     {
         **texts(
             "kind make control operation_mode note coating material coverage by standards "
-            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in "
+            "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in hand "
             "standard series chart units taper"
         ),
         "sku": str | int,
@@ -583,8 +595,8 @@ InventoryItem = record(
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
             "diameter_in thickness_in resolution_in runout_max_in "
-            "max_shank_in sfm chip_load_mm_per_tooth "
-            "shank_mm capacity_mm nose_radius_mm reach_mm"
+            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev "
+            "shank_mm capacity_mm"
         ),
         "point_angle": MeasuredAngle,
         **dict.fromkeys(
@@ -624,6 +636,30 @@ InventoryItem = record(
             ),
             MeasuredLength,
         ),
+        # Turning tools (insert holder) and toolpost holder bodies: docs/rules-lathe.md.
+        **dict.fromkeys(
+            (
+                "nose_radius_mm",
+                "nose_radius_in",
+                "reach_mm",
+                "reach_in",
+                "edge_len_mm",
+                "edge_len_in",
+                "head_len_mm",
+                "head_len_in",
+                "shank_width_mm",
+                "shank_width_in",
+                "functional_width_mm",
+                "functional_width_in",
+                "body_width_mm",
+                "body_width_in",
+                "body_depth_mm",
+                "body_depth_in",
+            ),
+            MeasuredLength,
+        ),
+        "insert_angle_deg": MeasuredAngle,
+        "entering_angle_deg": MeasuredAngle,
         "projection_mm": ProjectionMap,
         "projection_in": ProjectionMap,
         "envelope": MachineEnvelope,
@@ -677,9 +713,19 @@ InventoryItem.model_rebuild()
 _INVENTORY_LENGTH_STEMS = frozenset(
     "dia oal grip gauge_len gauge_dia lead height bed_height projection flute_len "
     "jaw_height jaw_width jaw_depth opening width shank capacity max_shank "
-    "nose_radius reach tip length resolution".split()
+    "nose_radius reach tip length resolution edge_len head_len shank_width functional_width "
+    "body_width body_depth".split()
 )
-_ENVELOPE_LENGTH_STEMS = frozenset(("spindle_to_table_max", "spindle_to_table_min", "travel"))
+_ENVELOPE_LENGTH_STEMS = frozenset(
+    (
+        "spindle_to_table_max",
+        "spindle_to_table_min",
+        "travel",
+        "swing_over_bed",
+        "swing_over_cross_slide",
+        "between_centres",
+    )
+)
 _TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))
 
 # Chuck body dimensions (fixture solids).
@@ -756,7 +802,7 @@ Cut = record(
     {
         **texts("material_class tool_material operation"),
         "diameter_range": Vector,
-        **numbers("sfm chip_load_mm_per_tooth"),
+        **numbers("sfm chip_load_mm_per_tooth feed_mm_rev"),
         "cite": Citations,
     },
 )

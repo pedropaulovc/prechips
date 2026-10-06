@@ -1,7 +1,12 @@
-"""B-rep entry-to-floor depth; beyond flute needs OAL and proven holder clearance."""
+"""B-rep entry-to-floor depth; beyond flute needs OAL and proven holder clearance.
+
+Turning ops: the depth is the wall beside the insert nose, the "flute" the radial
+span of the cutting edge (or declared reach) and the "OAL" the nose-to-toolpost-body
+projection; holder clearance is the shank and toolpost body clear of remaining walls.
+"""
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import fact_reason, op_contexts
+from prechips.rules.geometry_common import TURNING, TURNING_HOLDER_KEYS, fact_reason, op_contexts
 from prechips.rules.resolution import number, same_length
 
 
@@ -24,10 +29,12 @@ def evaluate(bundle):
             "projection_mm": inputs.get("projection_mm", "unknown"),
             "holder_wall_hits": hits,
         }
-        holder_known = all(
-            number(inputs.get(key))
-            for key in ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
+        holder_keys = (
+            (*TURNING_HOLDER_KEYS, "projection_mm", "shank_width_mm", "head_len_mm")
+            if inputs.get("approach") == TURNING
+            else ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
         )
+        holder_known = all(number(inputs.get(key)) for key in holder_keys)
         status, message = (
             "unknown",
             fact_reason(
