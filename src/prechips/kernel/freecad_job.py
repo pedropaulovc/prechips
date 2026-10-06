@@ -5753,6 +5753,16 @@ class _Setup:
             if self.jaws is not None
             else None
         )
+        jaw_front_oblique = False
+        if (
+            self.fixture_ready
+            and self.hold
+            and self.hold.get("kind") == "chuck"
+            and isinstance(self.hold.get("pose"), dict)
+        ):
+            pose = self.hold["pose"]
+            jaw_front_oblique = abs(pose["z"][2]) < PARALLEL
+            jaw_z = None if jaw_front_oblique else pose["origin_mm"][2]
         datums = [
             {"label": end["label"], "point_mm": [0.0, 0.0, end["z_mm"]]}
             for end in annotation.get("ends", [])
@@ -5771,6 +5781,8 @@ class _Setup:
                     }
                 )
         notes = []
+        if jaw_front_oblique:
+            notes.append("Chuck front is tilted: no single setup Z.")
         if not self.ops:
             notes.append("Holding/fit-up only: no cutting operation in this setup.")
         if removal is not None and removal.Volume <= STOCK_MM3:
@@ -5834,6 +5846,7 @@ class _Setup:
             "components": components,
             "zero_mm": [0.0, 0.0, 0.0],
             "jaw_front_z_mm": jaw_z,
+            "jaw_front_oblique": jaw_front_oblique,
             "stickout_mm": annotation.get("stickout_mm"),
             "datums": datums,
             "primary_tool": tool,
@@ -5871,6 +5884,7 @@ class _Setup:
                 "render_debts": render_debts,
                 "waypoints": spec["waypoints"],
                 "primary_op": tool.get("op") if tool else None,
+                "jaw_front_oblique": jaw_front_oblique,
             }
         )
         details = [c for c in components if c["role"] == "detail"]

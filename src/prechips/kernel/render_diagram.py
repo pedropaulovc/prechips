@@ -281,6 +281,14 @@ class _Diagram:
             self.note_scale = 2
             self.note_lines = self._notes()
         self.legend_rows = self._legend()
+        self.legend_scale = 3 if len(self.legend_rows) <= 8 else 2
+        self.legend_pitch = 30 if self.legend_scale == 3 else 22
+        footer_height = 57 + max(
+            max(0, len(self.legend_rows) - 1) * self.legend_pitch + 7 * self.legend_scale,
+            max(0, len(self.note_lines) - 1) * 9 * self.note_scale + 7 * self.note_scale,
+        )
+        self.footer_top = min(self.footer_top, 984 - footer_height)
+        self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
         viewport = (278, 225, 900, self.scene_bottom)
         if self.view == "plan" and (
             spec.get("custom_clamp_order")
@@ -310,7 +318,10 @@ class _Diagram:
         if self.nominal:
             notes.append("NOMINAL OUTLINE IS NOT A CUT-PART MODEL.")
         if self.is_chuck:
-            if self.spec.get("jaw_front_z_mm") is None:
+            if (
+                self.spec.get("jaw_front_z_mm") is None
+                and not self.spec.get("jaw_front_oblique")
+            ):
                 notes.append("Jaw-front Z: not declared")
             if self.spec.get("stickout_mm") is None:
                 notes.append("Stickout: not declared")
@@ -387,6 +398,7 @@ class _Diagram:
         for x, y, label, scale in self.context_labels:
             _text(self.canvas, x, y, label, _MUTED, scale=scale, align="centre", backing=True)
         self._footer()
+        self.canvas.assert_text_layout()
         return self.canvas.png()
 
     def _header(self):
@@ -682,7 +694,7 @@ class _Diagram:
             else:
                 _text(
                     c,
-                    1126,
+                    1568,
                     self.footer_top - 36,
                     f"STICKOUT {_mm(stickout)} mm",
                     _BLUE,
@@ -926,25 +938,26 @@ class _Diagram:
         _text(c, left, top, "PROFILE SKETCH / XY")
         _text(c, left, top + 30, "NO PATH SIMULATION", _MUTED)
         if self.nominal:
-            _text(c, left, top + 54, "NOMINAL OUTLINE UNDERLAY", _MUTED, scale=2)
+            _text(c, left, top + 58, "NOMINAL OUTLINE UNDERLAY", _MUTED, scale=2)
+        content_top = top + (92 if self.nominal else 68)
         paths = self.spec.get("paths", [])
         waypoints = [p for p in self.spec.get("waypoints", []) if "xy" in p]
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
         if len(ops) > 1:
-            self._operation_panels(left, right, top + 68, bottom - 34, ops, paths, waypoints)
+            self._operation_panels(left, right, content_top, bottom - 34, ops, paths, waypoints)
             _text(c, left, bottom - 21, "ARROWS: POINT ORDER", _MUTED)
             return
         points = [point for path in paths for point in path["xy"]]
         points.extend(item["xy"] for item in waypoints)
         if not points:
-            _text(c, left, top + 69, "Paths not declared.", _MUTED)
+            _text(c, left, content_top + 1, "Paths not declared.", _MUTED)
             return
         xmin, ymin, xmax, ymax = _bounds(points)
         ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
         key_lines = [
             (op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)
         ]
-        plot_top, plot_bottom = top + 82, bottom - 40 - 30 * len(key_lines)
+        plot_top, plot_bottom = content_top + 14, bottom - 40 - 30 * len(key_lines)
         scale = min(
             (right - left - 74) / max(xmax - xmin, 1e-9),
             max(50, plot_bottom - plot_top - 28) / max(ymax - ymin, 1e-9),
@@ -1208,13 +1221,11 @@ class _Diagram:
     def _footer(self):
         c = self.canvas
         c.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
-        self._triad(112, self.footer_top + 125)
+        self._triad(112, self.footer_top + 139)
         _text(c, 273, self.footer_top + 23, "KEY")
-        legend_scale = 3 if len(self.legend_rows) <= 8 else 2
+        legend_scale = self.legend_scale
         legend_start = self.footer_top + 57
-        legend_pitch = min(
-            30, (984 - legend_start - 7 * legend_scale) / max(1, len(self.legend_rows) - 1)
-        )
+        legend_pitch = self.legend_pitch
         for index, (label, kind) in enumerate(self.legend_rows):
             y = legend_start + index * legend_pitch
             if kind == "stock":
@@ -1234,10 +1245,7 @@ class _Diagram:
             _text(c, 318, y, label, _MUTED if kind == "text" else _INK, scale=legend_scale)
         _text(c, 840, self.footer_top + 23, "SETUP NOTES")
         note_start = self.footer_top + 57
-        note_pitch = min(
-            9 * self.note_scale,
-            (984 - note_start - 7 * self.note_scale) / max(1, len(self.note_lines) - 1),
-        )
+        note_pitch = 9 * self.note_scale
         for index, line in enumerate(self.note_lines):
             _text(c, 840, note_start + index * note_pitch, line, _MUTED, scale=self.note_scale)
 
@@ -1270,11 +1278,11 @@ class _Diagram:
                 )
         if normal_axis is not None:
             direction = "TOWARD" if toward[normal_axis] > 0 else "AWAY"
-            _text(c, 32, self.footer_top + 190, f"{'XYZ'[normal_axis]} {direction}", _MUTED)
+            _text(c, 32, self.footer_top + 211, f"{'XYZ'[normal_axis]} {direction}", _MUTED)
         else:
-            c.circle(37, self.footer_top + 197, 6, fill=_WHITE, outline=_MUTED)
-            c.circle(37, self.footer_top + 197, 2, fill=_MUTED)
-            _text(c, 49, self.footer_top + 190, "VIEW NORMAL", _MUTED)
+            c.circle(37, self.footer_top + 218, 6, fill=_WHITE, outline=_MUTED)
+            c.circle(37, self.footer_top + 218, 2, fill=_MUTED)
+            _text(c, 49, self.footer_top + 211, "VIEW NORMAL", _MUTED)
 
 
 def render_diagram(meshes, spec):
