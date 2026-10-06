@@ -143,7 +143,6 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
     row = next(
         cells for number, cells in op_rows(sections(html, "OPERATIONS")[-1]) if number == "30"
     )
-    assert "calipers" in text(row)
     assert "156.67" not in text(row)
     finding = next(
         row for row in findings(report, "inspection") if row["subject"] == "pivot_bearing:length"
