@@ -8,6 +8,7 @@ hidden: they print as plain STOP lines, op-row boxes or a "not verified" line.
 
 from __future__ import annotations
 
+import functools
 import math
 import re
 from html import escape
@@ -443,6 +444,64 @@ def _solid_name(name):
     )
 
 
+def _name_group(names):
+    """``(stem, tags)``: names differing in exactly one word ("pad R1" / "pad L1", "left
+    front nut" / "right front nut") share the stem ("pad") and are tagged by that word;
+    otherwise the stem is None and each name is its own tag."""
+    words = [name.split() for name in names]
+    if len(names) > 1 and len({len(w) for w in words}) == 1 and len(words[0]) > 1:
+        varying = [i for i in range(len(words[0])) if len({w[i] for w in words}) > 1]
+        if len(varying) == 1:
+            stem = " ".join(w for i, w in enumerate(words[0]) if i != varying[0])
+            return stem, [w[varying[0]] for w in words]
+    return None, list(names)
+
+
+def _supply(solid):
+    """A fixture primitive is ``made`` with its fixture unless declared ``bought``
+    (hardware) or ``existing`` (already in the shop, such as a machine's vise jaw)."""
+    return solid.get("supply", "made")
+
+
+def _inside(solid, point):
+    """Whether a local point lies in a box or cylinder primitive (owner frame)."""
+    at = solid.get("at_mm")
+    if not (isinstance(at, list) and len(at) == 3 and all(_known(v) for v in at)):
+        return False
+    rel = [point[i] - at[i] for i in range(3)]
+    size, axis = solid.get("size_mm"), solid.get("axis")
+    if solid.get("shape") == "box" and isinstance(size, list) and len(size) == 3:
+        return all(-1e-6 <= rel[i] <= size[i] + 1e-6 for i in range(3) if _known(size[i]))
+    dia, length = solid.get("dia_mm"), solid.get("length_mm")
+    if solid.get("shape") == "cylinder" and isinstance(axis, list) and len(axis) == 3:
+        if not (_known(dia) and _known(length) and all(_known(v) for v in axis)):
+            return False
+        along = sum(rel[i] * axis[i] for i in range(3))
+        radial = math.dist(rel, [along * axis[i] for i in range(3)])
+        return -1e-6 <= along <= length + 1e-6 and radial <= dia / 2 + 1e-6
+    return False
+
+
+def _void_parent(void, solids, made):
+    """The solid a hole is cut in (made, or an existing part machined here): the first
+    such solid its ``cuts`` names, else the first holding its centre, else the first. A
+    hole cut only in bought hardware (a nut's thread) has no parent and is not listed."""
+    cuts = void.get("cuts")
+    if isinstance(cuts, list) and cuts:
+        named = {solid.get("name"): solid for solid in solids}
+        return next((named[n] for n in cuts if n in named and named[n] in made), None)
+    at, size, axis, length = (void.get(k) for k in ("at_mm", "size_mm", "axis", "length_mm"))
+    if not (isinstance(at, list) and len(at) == 3):
+        return None
+    if isinstance(size, list) and len(size) == 3:
+        centre = [at[i] + size[i] / 2 for i in range(3)]
+    elif isinstance(axis, list) and len(axis) == 3 and _known(length):
+        centre = [at[i] + axis[i] * length / 2 for i in range(3)]
+    else:
+        return None
+    return next((solid for solid in made if _inside(solid, centre)), made[0] if made else None)
+
+
 def _status(finding):
     status = finding.status
     return getattr(status, "value", status)
@@ -661,6 +720,16 @@ class _Traveler:
         self.contour_ops = set()
         # (shop-made reference, its poses) -> the setup whose sheet 2 prints its table.
         self.shop_made_homes = {}
+        # Shop policy decimals for making and setting fixtures; a verify flag withholds it.
+        decimals = _mapping(bundle.policy.get("numbers")).get("fixture_make_decimals")
+        verify = bundle.policy.get("numbers_verify", False)
+        if isinstance(verify, dict):
+            verify = verify.get("fixture_make_decimals", False)
+        self.make_decimals = (
+            int(decimals)
+            if verify is False and _known(decimals) and decimals >= 0 and decimals == int(decimals)
+            else None
+        )
 
     # ------------------------------------------------------------------ numbers
     def precision(self, feature=None, dimension=None):
@@ -1182,15 +1251,16 @@ class _Traveler:
         where = "sheet 2" if home == setup["id"] else f"Setup {home} sheet 2"
         return f" (shop-made: SHOP-MADE FIXTURE table, {where})"
 
-    def fact(self, value):
-        """A fixture size or position: authored values of up to four decimals print as
-        authored; computed residue prints at DRO resolution."""
+    def fixture_number(self, value, fit=False):
+        """A fixture size or position at the shop policy's make precision
+        (``numbers.fixture_make_decimals``); a fit that locates the part at the drawing's
+        precision. Either undeclared: DRO resolution. No trailing zeros: a make sheet."""
         if not _known(value):
             return "?"
-        rounded = round(value, 6)
-        if abs(rounded - round(rounded, 4)) < 1e-9:
-            return _number(rounded)
-        return self.operative(value)
+        decimals = self.general_precision if fit else self.make_decimals
+        if not isinstance(decimals, int) or isinstance(decimals, bool) or decimals < 0:
+            decimals = self.decimals
+        return _number(round(value, decimals))
 
     def fixture_setting(self, setup, hold, uses):
         """Placement of a posed angle plate or shop-made fixture body: the base on the
@@ -1209,12 +1279,15 @@ class _Traveler:
         boxes = [
             (solid, _solid_extents(solid, axes))
             for solid in solids
-            if isinstance(solid, dict) and solid.get("shape") == "box" and not solid.get("void")
+            if isinstance(solid, dict)
+            and solid.get("shape") == "box"
+            and not solid.get("void")
+            and _supply(solid) != "bought"
         ]
         boxes = [(solid, extents) for solid, extents in boxes if extents]
         if not boxes:
             return []
-        f = self.fact
+        f = self.fixture_number
         base, (low, _) = min(boxes, key=lambda pair: pair[1][0][2])
         surface = _FIXTURE_SURFACES.get(self.machine(setup).get("kind"))
         level = _setup_axis(_place(axes, [0.0, 0.0, 1.0], translate=False)) == (2, 1)
@@ -1251,7 +1324,7 @@ class _Traveler:
                     if solid.get("shape") == "box" and isinstance(size, list) and len(size) == 3
                     else solid.get("length_mm")
                 )
-                key = (self.fact(thickness), solid.get("locates"))
+                key = (self.fixture_number(thickness, fit=True), solid.get("locates"))
                 stacks.setdefault(key, []).append(_solid_name(solid.get("name", "?")))
         steps = []
         for (thickness, locates), names in stacks.items():
@@ -1302,23 +1375,24 @@ class _Traveler:
             text = f"{seat}; then {text[:1].lower()}{text[1:]}"
         return text + "."
 
-    def solid_size(self, solid):
-        f = self.fact
+    def solid_size(self, solid, fit=False):
+        f = functools.partial(self.fixture_number, fit=fit)
         void = solid.get("void") is True
         if solid.get("shape") == "box" and isinstance(solid.get("size_mm"), list):
             size = " × ".join(f(v) for v in solid["size_mm"])
             return f"cut-out {size}" if void else size
         if solid.get("shape") == "cylinder":
-            size = f"Ø{f(solid.get('dia_mm'))} × {f(solid.get('length_mm'))}"
-            return f"hole {size}" if void else size
+            if void:
+                return f"Ø{f(solid.get('dia_mm'))} hole"
+            return f"Ø{f(solid.get('dia_mm'))} × {f(solid.get('length_mm'))}"
         return "?"
 
-    def solid_position(self, solid, axes):
+    def solid_position(self, solid, axes, fit=False):
         """Setup-frame position: a box's X/Y/Z extents, a cylinder's axis."""
         extents = _solid_extents(solid, axes) if axes else None
         if extents is None:
             return "? not posed"
-        f = self.fact
+        f = functools.partial(self.fixture_number, fit=fit)
         first, second = extents
         if solid.get("shape") == "box":
             return ", ".join(f"{a} {f(first[i])}…{f(second[i])}" for i, a in enumerate("XYZ"))
@@ -1351,57 +1425,89 @@ class _Traveler:
         )
 
     def shop_made_table(self, setup, reference, placements):
-        """The item's solids as make-and-set rows: identical solids share a row (an
-        authored ``label`` names the group), each row lists every setup-frame position."""
+        """The item's made solids as make-and-set rows; identical solids share a row (an
+        authored ``label`` names the group), each row lists every setup-frame position
+        and the holes cut in it. Bought hardware is one line under the table; solids
+        already in the shop (``supply = "existing"``, such as machine vise jaws drawn
+        for clearance) are not listed."""
         sid = setup["id"]
         item = self.shop_made(reference)
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
         placed = [(label, _pose_axes(pose)) for label, pose in placements]
+        # Made solids, and existing parts (a bought angle plate) only for holes cut here.
+        made = [s for s in solids if not s.get("void") and _supply(s) != "bought"]
+        holes = {}
+        for void in (s for s in solids if s.get("void") and _supply(s) == "made"):
+            parent = _void_parent(void, solids, made)
+            if parent is not None:
+                holes.setdefault(id(parent), []).append(void)
+        # A locating solid's fit is the bore cut in it, else the solid itself.
+        fits = set()
+        for solid in (s for s in made if s.get("locates")):
+            fits.update(id(v) for v in holes.get(id(solid), [solid]))
         groups = {}
-        for solid in solids:
+        for solid in made:
+            if _supply(solid) == "existing" and id(solid) not in holes:
+                continue
             key = (
                 solid.get("label"),
                 solid.get("shape"),
                 repr(solid.get("size_mm")),
                 solid.get("dia_mm"),
                 solid.get("length_mm"),
-                solid.get("void") is True,
                 solid.get("locates"),
                 solid.get("fastener"),
             )
             groups.setdefault(key, []).append(solid)
+
+        def prefixed(tag, name, count, where):
+            parts = (tag if len(placed) > 1 else None, name if count > 1 else None)
+            prefix = " ".join(part for part in parts if part)
+            return f"{prefix}: {where}" if prefix else where
+
         rows = []
         for (label, *_), members in groups.items():
             names = [_solid_name(solid.get("name", "?")) for solid in members]
-            # Names differing in one word ("pad R1" / "pad L1", "left front nut" / "right
-            # front nut") print once as "pad ×2", each position tagged by that word.
-            words = [name.split() for name in names]
-            varying = [
-                i
-                for i in range(len(words[0]))
-                if len({len(w) for w in words}) == 1 and len({w[i] for w in words}) > 1
-            ]
-            common = len(members) > 1 and len(varying) == 1 and len(words[0]) > 1
-            component = " / ".join(names)
-            if common:
-                stem = [w for i, w in enumerate(words[0]) if i != varying[0]]
-                component = f"{' '.join(stem)} ×{len(members)}"
-            positions = []
-            for solid, name, split in zip(members, names, words, strict=True):
-                tag_name = split[varying[0]] if common else name
-                for tag, axes in placed:
-                    parts = (
-                        tag if len(placed) > 1 else None,
-                        tag_name if len(members) > 1 else None,
-                    )
-                    prefix = " ".join(part for part in parts if part)
-                    where = self.solid_position(solid, axes)
-                    positions.append(f"{prefix}: {where}" if prefix else where)
+            stem, tags = _name_group(names)
+            component = f"{stem} ×{len(members)}" if stem else " / ".join(names)
+            component = self.bench(label) if label else component
+            if _supply(members[0]) == "existing":
+                component += " (existing part: make the holes only)"
             first = members[0]
+            fit = id(first) in fits
+            positions = [
+                prefixed(tag, name, len(members), self.solid_position(solid, axes, fit))
+                for solid, name in zip(members, tags, strict=True)
+                for tag, axes in placed
+            ]
+            cut = [
+                (void, name)
+                for solid, name in zip(members, tags, strict=True)
+                for void in holes.get(id(solid), [])
+            ]
+            kinds = {}
+            for void, name in cut:
+                key = (
+                    void.get("fastener"),
+                    void.get("shape"),
+                    void.get("dia_mm"),
+                    repr(void.get("size_mm")),
+                )
+                kinds.setdefault(key, []).append((void, name))
+            for (fastener, *_), voids in kinds.items():
+                void_fit = id(voids[0][0]) in fits
+                what = self.bench(fastener) if fastener else self.solid_size(voids[0][0], void_fit)
+                count = len(voids) * len(placed)
+                spots = "; ".join(
+                    prefixed(tag, name, len(members), self.solid_position(void, axes, void_fit))
+                    for void, name in voids
+                    for tag, axes in placed
+                )
+                positions.append(f"with {count} × {what}: {spots}")
             rows.append(
                 [
-                    self.bench(label) if label else component,
-                    self.solid_size(first),
+                    component,
+                    self.solid_size(first, fit) if _supply(first) == "made" else "—",
                     positions,
                     self.bench(first["locates"]) if first.get("locates") else "—",
                     self.bench(first["fastener"]) if first.get("fastener") else "—",
@@ -1409,7 +1515,11 @@ class _Traveler:
             )
         if not solids:
             dims = [_amount(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")]
-            size = " × ".join(self.fact(v) for v in dims) if None not in dims else "? not declared"
+            size = (
+                " × ".join(self.fixture_number(v) for v in dims)
+                if None not in dims
+                else "? not declared"
+            )
             rows.append(["body", size, ["? not posed"], "—", "—"])
         headings = [
             "Component",
@@ -1433,15 +1543,47 @@ class _Traveler:
             str(_mapping(s.get("measured")).get("by", "")).startswith("example") for s in solids
         ):
             intro += " Example dimensions (plausible, not measured): confirm before making."
+        hardware = self.hardware(
+            [s for s in solids if not s.get("void") and _supply(s) == "bought"], len(placed)
+        )
         return (
             f"<h2>{escape(title)}</h2>"
             + _p(intro)
-            + _table(
-                [headings[c] for c in keep],
-                [[row[c] for c in keep] for row in rows],
-                widths=widths,
+            + (
+                _table(
+                    [headings[c] for c in keep],
+                    [[row[c] for c in keep] for row in rows],
+                    widths=widths,
+                )
+                if rows
+                else ""
             )
+            + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
         )
+
+    def hardware(self, solids, uses):
+        """Bought solids as ``2 × 3/8-16 stud; 2 × washer Ø20.6 × 1.6``: the declared
+        ``fastener`` names a part, else its name and size do."""
+        groups = {}
+        for solid in solids:
+            key = (
+                solid.get("fastener"),
+                solid.get("shape"),
+                repr(solid.get("size_mm")),
+                solid.get("dia_mm"),
+                solid.get("length_mm"),
+            )
+            groups.setdefault(key, []).append(solid)
+        parts = []
+        for (fastener, *_), members in groups.items():
+            if fastener:
+                what = self.bench(fastener)
+            else:
+                names = [_solid_name(solid.get("name", "?")) for solid in members]
+                stem, _ = _name_group(names)
+                what = f"{stem or ' / '.join(dict.fromkeys(names))} {self.solid_size(members[0])}"
+            parts.append(f"{len(members) * uses} × {what}")
+        return "; ".join(parts)
 
     def jaw_front_z(self, setup):
         """A lathe chuck's pose origin is the jaw-face centre on the spindle axis."""
