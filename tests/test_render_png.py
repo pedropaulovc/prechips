@@ -6,7 +6,7 @@ import zlib
 
 import pytest
 
-from prechips.kernel.render_diagram import _Diagram
+from prechips.kernel.render_diagram import _Diagram, render_diagram
 from prechips.kernel.render_png import RenderCanvas
 
 _FRONT = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
@@ -252,6 +252,71 @@ def test_typographic_label_equivalents_and_unknown_characters_are_deterministic(
     assert typographic.text_width(source, scale=2) == equivalent.text_width(normalized, scale=2)
     assert typographic.text_width("", scale=2) == 0
     assert typographic.text_width("A\nABC", scale=2) == typographic.text_width("ABC", scale=2)
+
+
+@pytest.mark.parametrize("failure", ["clipping", "overlap"])
+def test_setup_png_refuses_unreadable_annotations(failure):
+    spec = {
+        "setup_id": "S1",
+        "view": "lathe",
+        "stock_box": [-1, -1, -1, 1, 1, 1],
+        "zero_mm": [0, 0, 0],
+        "jaw_front_z_mm": -1,
+        "stickout_mm": 2,
+        "datums": [{"label": "END", "point_mm": [0, 0, 1]}],
+    }
+    width, height, _ = _decode_png(render_diagram([], spec))
+    assert (width, height) == (1600, 1000)
+    if failure == "clipping":
+        spec["setup_id"] = "LONG-NAME-" * 30
+    else:
+        spec["datums"] = [
+            {"label": f"DATUM {index}", "point_mm": [0, 0, 1]}
+            for index in range(80)
+        ]
+    with pytest.raises(ValueError):
+        render_diagram([], spec)
+
+
+@pytest.mark.parametrize("position", [(10, 10), (30, 10), (10, 20)])
+def test_text_layout_rejects_overlap_and_insufficient_clearance(position):
+    canvas = _canvas()
+    canvas.text(10, 10, "badge", scale=1)
+    canvas.text(*position, "axis", scale=1)
+    # Generic canvas callers can still draw and encode unchecked annotations.
+    encoded = canvas.png()
+    with pytest.raises(ValueError):
+        canvas.assert_text_layout()
+    assert canvas.png() == encoded
+
+
+@pytest.mark.parametrize("position", [(7, 8), (8, 7), (64, 8), (8, 66)])
+def test_text_layout_rejects_labels_outside_any_inset_canvas_edge(position):
+    canvas = _canvas(width=100, height=80)
+    canvas.text(*position, "footer", scale=1)
+    with pytest.raises(ValueError):
+        canvas.assert_text_layout()
+
+
+def test_text_layout_accepts_normalized_multiline_space_and_rounding_boundaries():
+    canvas = _canvas(width=76, height=84)
+    canvas.assert_text_layout()
+    canvas.text(-4.5, 8.5, " A B\u0378  \n C \n   \n D ", scale=2)
+    canvas.text(58.5, 8.5, "E", scale=2)
+    canvas.text(-100, -100, "  \n", scale=2)
+    assert canvas.text_boxes == [
+        ("A B?", 8, 8, 54, 22),
+        ("C", 8, 26, 18, 40),
+        ("D", 8, 62, 18, 76),
+        ("E", 58, 8, 68, 22),
+    ]
+    encoded = canvas.png()
+    canvas.assert_text_layout()
+    assert canvas.png() == encoded
+    with pytest.raises(ValueError):
+        canvas.assert_text_layout(min_gap=5)
+    with pytest.raises(ValueError):
+        canvas.assert_text_layout(margin=9)
 
 
 def test_annotation_primitives_are_clipped_and_overlays_are_not_depth_tested():

@@ -316,6 +316,12 @@ order and posed inventory stops are shown explicitly. Dashed machine-context
 outlines are schematic, not measured fixture geometry, and unresolved drawing
 items remain plain-language warnings. The image is hashed into `report.json`
 with its scene record so an approval binds to it; it is not a toolpath.
+Before encoding, every setup diagram checks its rounded bitmap-text bounds:
+labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels.
+An overlap or clipped annotation refuses the render rather than shipping an
+unreadable picture. Footer space is reserved for every legend and note row.
+A posed chuck front that is tilted relative to setup Z is labelled as a tilted
+plane, not reported as a missing single jaw-front Z.
 Shallow contour insets explicitly label Y-only graphic magnification; their
 coordinate tables and the setup view remain unchanged. Custom-fixture pad and
 clamp badges sit outside the projected fixture and part outline, with leaders
