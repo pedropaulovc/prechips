@@ -2015,24 +2015,44 @@ class _Traveler:
             sequence = table.get("sequence")
             return (stage, sequence if isinstance(sequence, int) else -1, len(entry["parts"]))
 
+        def moves(op):
+            """(row) -> the typed MDI move or handwheel axis reaching that row, if any."""
+            speeds = self.records.get(("speeds_feeds", f"{setup['id']}:{op}"), {})
+            rate = speeds.get("feed_mm_min") if isinstance(speeds, dict) else None
+            rate = _number(rate, 0) if _known(rate) else "?"
+
+            def move(mdi, jog, xy, first):
+                if isinstance(mdi, dict):
+                    word = f"{_text(mdi.get('g'))} X{o(xy[0])} Y{o(xy[1])}"
+                    if "i" in mdi:
+                        word += f" I{o(mdi['i'])} J{o(mdi['j'])}"
+                    return word + f" F{rate}"
+                return _text(jog) if jog in ("X", "Y") and not first else ""
+
+            return move
+
         for arc in (
             numbers.get("arc_table", []) if isinstance(numbers.get("arc_table"), list) else []
         ):
             entry = block(arc.get("op"))
             rows = []
             subject = f"{setup['id']}:{arc.get('op')}"
+            move = moves(arc.get("op"))
+            stepped = arc.get("contouring") == "jog"
             for index, record in enumerate(arc.get("rows", [])):
                 printed = record.get("dro_xy") or ["unknown", "unknown"]
                 z = record.get("dro_tip_z", arc.get("dro_tip_z"))
                 entry["z"].add(o(z))
                 key = row_id(subject, "arc_table", arc, index)
+                angle = record.get("angle_deg")
                 rows.append(
                     [
                         self.waypoint(waypoints, arc.get("op"), None, key),
-                        self.angle(record.get("angle_deg")),
+                        "" if stepped and not _known(angle) else self.angle(angle),
                         o(printed[0]),
                         o(printed[1]),
                         o(z),
+                        move(record.get("mdi"), record.get("jog"), printed, index == 0),
                     ]
                 )
             centre = arc.get("centre_setup_xy") or ["unknown", "unknown"]
@@ -2042,14 +2062,15 @@ class _Traveler:
             )
             if _known(arc.get("step_deg")):
                 description += f"; checkpoints every {_number(arc['step_deg'])}°"
-            if _known(arc.get("max_chord_sagitta_mm")):
-                description += f", chord error ≤ {o(arc['max_chord_sagitta_mm'])}"
             if arc.get("interpolation"):
                 description += "; " + self.bench(arc["interpolation"])
+            if _known(arc.get("stair_cusp_mm")):
+                cusp = _number(arc["stair_cusp_mm"], self.decimals + 1)
+                description += f"; the stair leaves ≤ {cusp} on the wall"
             description += self.cut_order(arc) + self.clip(
                 arc, [row.get("clipped_at") for row in arc.get("rows", [])]
             )
-            headings = ["P", "angle °", "X", "Y", "Z"]
+            headings = ["P", "angle °", "X", "Y", "Z", "handwheel" if stepped else "MDI"]
             entry["parts"].append((order(entry, arc), description, headings, rows))
         for line in numbers.get("line_table", []):
             entry = block(line.get("op"))
@@ -2059,6 +2080,9 @@ class _Traveler:
             proven = proven.get("checkpoint_overshoot_ok") if isinstance(proven, dict) else None
             proven = set(proven) if isinstance(proven, list) else set()
             printed, flags = line.get("dro_xy") or [], line.get("overshoot") or []
+            move = moves(line.get("op"))
+            stepped = line.get("contouring") == "jog"
+            words, axes = line.get("mdi") or [], line.get("jog") or []
             for index in range(len(line.get("setup_xy", []))):
                 dro = printed[index] if index < len(printed) else ["unknown", "unknown"]
                 key = row_id(subject, "line_table", line, index)
@@ -2071,12 +2095,22 @@ class _Traveler:
                         o(dro[0]),
                         o(dro[1]),
                         o(line.get("dro_tip_z")),
+                        move(
+                            words[index] if index < len(words) else None,
+                            axes[index] if index < len(axes) else None,
+                            dro,
+                            index == 0,
+                        ),
                     ]
                 )
             side = _text(line.get("side"))
             description = f"Straight joins on the {side} side" + self.cut_order(line)
             description += self.clip(line, line.get("clipped_at") or [])
-            entry["parts"].append((order(entry, line), description, ["P", "", "X", "Y", "Z"], rows))
+            if stepped and _known(line.get("stair_cusp_mm")):
+                cusp = _number(line["stair_cusp_mm"], self.decimals + 1)
+                description += f"; one handwheel axis per row, the stair leaves ≤ {cusp}"
+            headings = ["P", "", "X", "Y", "Z", "handwheel" if stepped else "MDI"]
+            entry["parts"].append((order(entry, line), description, headings, rows))
         arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
         for profile in numbers.get("profiles", []):
             op = str(profile.get("op"))
@@ -2086,13 +2120,15 @@ class _Traveler:
             entry = block(op)
             if not isinstance(points, list) or not points:
                 entry.setdefault("unresolved", True)
-                if profile.get("clip_reason"):
-                    entry["stops"].append(_text(profile["clip_reason"]))
+                for reason in ("clip_reason", "stair_reason"):
+                    if profile.get(reason):
+                        entry["stops"].append(_text(profile[reason]))
                 continue
             z = o(profile.get("dro_to_z", profile.get("to_z")))
             entry["z"].add(z)
             rows = []
-            headings = ["P", "angle °", "X", "Y", "Z"]
+            headings = ["P", "angle °", "X", "Y", "Z", "MDI"]
+            move, words = moves(op), profile.get("mdi") or []
             for point in points:
                 if isinstance(point, dict):
                     xy = [point.get("x"), point.get("y")]
@@ -2103,14 +2139,23 @@ class _Traveler:
                             o(xy[0]),
                             o(xy[1]),
                             z,
+                            "",
                         ]
                     )
                 elif len(point) == 2 and all(isinstance(p, list) for p in point):
                     headings = ["pass", "X from", "Y from", "X to", "Y to", "Z"]
                     rows.append([str(len(rows) + 1), *(o(v) for p in point for v in p), z])
                 else:
+                    word = words[len(rows)] if len(rows) < len(words) else None
                     rows.append(
-                        [self.waypoint(waypoints, op, point[:2]), "", o(point[0]), o(point[1]), z]
+                        [
+                            self.waypoint(waypoints, op, point[:2]),
+                            "",
+                            o(point[0]),
+                            o(point[1]),
+                            z,
+                            move(word, None, point, not rows),
+                        ]
                     )
             description = "Cutter-centre checkpoints" + self.cut_order(profile)
             entry["parts"].append((order(entry), description, headings, rows))

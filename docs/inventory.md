@@ -545,6 +545,7 @@ on hand.
 | `standard_accessories` | `list[str]` |
 | `included` | `list[str]` |
 | `spindle` | `Spindle` |
+| `contouring` | `"mdi"` / `"jog"` / `{value, measured, verify}` (a machine's way of cutting an arc or diagonal contour row: `mdi` types one coordinated `G1`/`G2`/`G3` MDI move per row at the op's feed; `jog` moves one handwheel axis at a time, so the sheet prints single-axis stair rows and a finish stair must leave no more than the feature's band. Absent, `"unknown"` or `verify = true` leaves every arc and diagonal row unproven, never pass: [rules-coordinates](rules-coordinates.md)) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |

@@ -124,15 +124,49 @@ rocker arcs derive endpoint angles.
 Internal/top arcs subtract offset; outside/bottom arcs add it. Samples include
 exact endpoints and angular grid checkpoints. `start_deg`/`end_deg` are accepted
 schema fields but the current rule derives bounds from geometry rather than
-using those fields to override the arc. A full circle needs continuous
-interpolation; its checkpoints are not straight-chord cuts. Finite arc records
-include sagitta `R*(1-cos(min(step,span)/2))` and exact offset joins. Every
-feature linked through `top_edge_feature` contributes its upper land's
-line-circle intersection: an outline and separately exported tip lands can
+using those fields to override the arc. Finite arc records include exact offset
+joins. Every feature linked through `top_edge_feature` contributes its upper
+land's line-circle intersection: an outline and separately exported tip lands can
 share that top arc. Mirrored −X/+X lands must agree after reflection; an
 unknown or inconsistent linked join leaves the top table unknown. The lower
 outline also supplies its line-line miter and bottom line-circle intersection,
 with mirrored sides explicit. Degenerate joins do not become invented paths.
+
+**Machine contouring.** A row reached by an arc or a diagonal move (both axes
+at once) is cut the way the setup machine's inventory `contouring` says
+([inventory](inventory.md)):
+
+- `mdi`: each printed row carries the one MDI move that reaches it (`mdi`),
+  printed beside the row with the op's `speeds_feeds` feed: `G1 X.. Y.. F..` to
+  a table's first row, to and from a kernel clip point and along each join or
+  outline edge; between arc rows `G2` (clockwise in the setup top view) or `G3`
+  (counterclockwise) `X.. Y.. I.. J.. F..`, with I and J the arc centre less
+  the previous printed row. Only an `mdi` full circle is called a continuous
+  circle.
+- `jog`: one handwheel axis per row. Arc rows add each angle at which the arc
+  is tangent to a setup axis, so every step between rows is monotone, and a
+  corner row (no angle) between two rows that differ on both axes turns one
+  axis, then the other: `(b.x, a.y)` or `(a.x, b.y)`, whichever keeps both legs
+  no nearer any wall than the cutter-centre offset (or than the rows it joins,
+  if nearer) and lies farther from the walls; neither keeping clear leaves the
+  stage unknown and unprinted. Each row names the axis moved to reach it
+  (`jog`). The record's `stair_cusp_mm` is the most material a point of the
+  stage's target surface (its allowance off a wall, never past a wall's end)
+  keeps from the stepped cutter; a diagonal join steps once per printed point,
+  so a long join leaves a large cusp. A finish stage holds its largest cusp,
+  arc or join, to the arc feature's band on the material side
+  (`stair_band_mm`): `dia` (halved) for a full circle, `bottom_radius` or
+  `radius` otherwise, from nominal to the upper limit when the cutter runs
+  outside the wall radius, else to the lower limit. More than the band is an
+  error and withholds the stage's rows; no numeric band leaves it unknown. A
+  rough stage's cusp is recorded but not held: its finish pass removes it.
+  Single-axis stairs along a diagonal `linear_table` outline edge are not
+  computed and stay unknown.
+- absent, `"unknown"` or `verify = true`: the rows are checkpoints only and
+  the finding is unknown, never pass.
+
+Rasters and outlines whose edges are all axis-parallel need no declared
+contouring.
 
 `linear_table` transforms explicit box bounds (or `sweep_bounds` in
 `sweep_frame`). Exterior rectangular paths expand by offset; pockets require an
@@ -251,11 +285,25 @@ A finish depth the DRO leaves above its face past the feature's band appends:
 
 ` DRO depth rounding error: op {op} prints Z {dro} for to_z {to_z}: … .`
 
+An arc stage, or a closed outline with a diagonal edge, on a machine whose
+`contouring` is not proven (or a diagonal outline on a `jog` machine), a `jog`
+arc whose rows cannot be stepped, or a `jog` finish stair with no numeric band
+appends (unknown):
+
+` Moves between rows are unproven: op {op} {stage} {reason}.` (`;`-joined)
+
+A `jog` finish stair that leaves more than the feature's band appends (error;
+the stage's rows are withheld and its `stair_reason` prints as the contour
+STOP):
+
+` Single-axis stair error: op {op} finish: single-axis steps leave {cusp} on {feature}, more than its {band} band.`
+
 Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
 manifest frames/nominal geometry, plan-owned setup frames, authored contour
 steps/targets/allowances,
-and selected inventory cutter nominal diameter.
+and selected inventory cutter nominal diameter; with any arc or diagonal
+contour, the inventory machine's `contouring`.
 
 ## `zero_check`
 
