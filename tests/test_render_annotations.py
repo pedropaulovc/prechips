@@ -80,9 +80,7 @@ def test_mirrored_line_points_keep_their_signed_setup_coordinates():
 
 
 def test_inch_contour_points_and_waypoint_keys_are_converted_to_millimetres():
-    numbers = {
-        "line_table": [{"op": 10, "setup_xy": [[0.25, -0.5], [1.0, 0.75], [1.0, -0.5]]}]
-    }
+    numbers = {"line_table": [{"op": 10, "setup_xy": [[0.25, -0.5], [1.0, 0.75], [1.0, -0.5]]}]}
 
     annotation = setup_annotations(_bundle("in"), _setup(), numbers)
 
