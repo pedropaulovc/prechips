@@ -186,6 +186,10 @@ construction permission above. Its twelve stages keep an integral body and
 inclined pads in one 50.8 mm square by 123 mm blank, and turn the separate crank
 sleeve from 25 mm diameter by 110 mm bar. These are illustrative purchase and
 process choices, not stock-on-hand or first-article evidence.
+The sleeve chucking grips 25 mm of the sacrificial end, leaving 85 mm exposed:
+below the 87.72 mm four-diameter limit at the finished 21.930 mm OD. The blade
+and turning tools clear the modeled chuck in the native geometry probe; the
+finished parting plane is 6.9656 mm ahead of the jaw fronts.
 
 The pre-join socket and spigot are plan-owned joint features, not invented STEP
 faces: the 22.000–22.020 mm socket and 21.924–21.936 mm spigot give
