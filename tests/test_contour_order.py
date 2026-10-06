@@ -161,22 +161,29 @@ def test_face_raster_clears_its_box_edge_to_edge_no_wider_than_its_step(tmp_path
     assert profile["raster"]["cycle"] == "one_way" and profile["raster"]["lift_z"] == 5.0
 
 
-def test_z_levels_step_doc_down_from_where_the_feature_was_left(tmp_path):
+def test_z_levels_start_on_an_earlier_floor_only_where_its_bounds_cover_the_op(tmp_path):
     ops = "".join(
         f"[[setups.ops]]\nop = {op}\ndo = '{do}'\nfeature = 'target'\ntool = 'cutter'\n"
         f"to_z = {to_z}\ndoc_mm = {doc}\ndirection = 'conventional'\n"
-        for op, do, to_z, doc in ((10, "rough_face", -8.8, 3.0), (20, "finish_face", -9.0, 0.2))
+        f"stock_removal_bounds = {{ x = {x}, y = [0.0, 10.0], z = [-10.0, 1.0] }}\n"
+        for op, do, to_z, doc, x in (
+            (10, "rough_face", -8.8, 3.0, [0.0, 10.0]),  # the left strip
+            (20, "finish_face", -9.0, 3.0, [10.0, 20.0]),  # the right strip, still at Z 0
+            (30, "finish_face", -9.0, 0.2, [2.0, 8.0]),  # inside the left strip
+        )
     )
     plan = coordinate_bundle(tmp_path, SLAB, ops)
     # Another feature stays the setup's top surface, so facing 'target' never moves the top.
     text = plan.read_text(encoding="utf-8")
     plan.write_text(text.replace("top_z = 0.0\n", "top_z = 0.0\ntop_feature = 'hub'\n"), "utf-8")
     row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
-    rough, finish = (entry["z_levels"] for entry in row.numbers["operations"])
+    left, right, inside = (entry["z_levels"] for entry in row.numbers["operations"])
     # From the setup top Z 0: levels on the DRO grid no more than 3.0 apart, ending at -8.8.
-    assert rough["levels"] == [-3.0, -6.0, -8.8] and rough["count"] == 3
-    # The finish face starts where the rough face of the same feature left it.
-    assert finish["start_z"] == -8.8 and finish["levels"] == [-9.0]
+    assert left["levels"] == [-3.0, -6.0, -8.8] and left["count"] == 3
+    # Op 10 never cut the right strip: op 20 starts at the top, never at op 10's floor.
+    assert right["start_z"] == 0.0 and right["levels"] == [-3.0, -6.0, -9.0]
+    # Op 10's box covers op 30's: it starts on op 10's floor.
+    assert inside["start_z"] == -8.8 and inside["levels"] == [-9.0]
 
 
 def rocker_profile_chains(bundle):

@@ -788,27 +788,46 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
     return _ordered(record, None if reverse is None else False, order, ()), None
 
 
-def _z_levels(op, before, declared, reached, grid, units):
+def _xy_box(op):
+    """An op's setup-frame stock_removal_bounds X and Y spans, or None."""
+    box = mapping(op.get("stock_removal_bounds"))
+    spans = [box.get(axis) for axis in ("x", "y")]
+    if all(isinstance(s, list) and len(s) == 2 and all(number(v) for v in s) for s in spans):
+        return spans
+    return None
+
+
+def _cleared_floor(op, cleared):
+    """The lowest floor an earlier face or pocket op of the setup cleared over all of
+    ``op``'s stock_removal_bounds in XY (``cleared``: their XY boxes and ``to_z``), or None
+    when none covers it or ``op`` has no box."""
+    region = _xy_box(op)
+    floors = [
+        to_z
+        for box, to_z in cleared
+        if region and all(box[i][0] <= region[i][0] and region[i][1] <= box[i][1] for i in range(2))
+    ]
+    return min(floors) if floors else None
+
+
+def _z_levels(op, before, declared, cleared, grid, units):
     """The axial Z levels of a milling op that authors ``doc_mm``, else None.
 
     Levels step from the op's start surface down to its DRO depth, each on the DRO grid and
-    no more than ``doc_mm`` below the one before; the last is the DRO depth itself. A
-    wall-finishing op starts at its feature's declared setup ``entry_z`` (never one an
-    earlier op's floor advanced), else the current top, as its flank engages the whole
-    wall; any other op starts where an earlier face or pocket op of its own feature left
-    it (``reached``), else at its feature's current entry, else the current top.
+    no more than ``doc_mm`` below the one before; the last is the DRO depth itself. Each
+    starts at its feature's declared setup ``entry_z``, else the current top. A
+    wall-finishing op keeps that start, as its flank engages the whole wall; any other op
+    starts lower where an earlier face or pocket op's stock_removal_bounds cover all of its
+    own in XY (:func:`_cleared_floor`), as that op cleared the stock above its floor there.
     """
     if op.get("do") not in _LEVEL_OPS or "doc_mm" not in op or "to_z" not in op:
         return None
     name, top = op.get("feature"), before["top_z"]
-    if op["do"] in _WALL_OPS:
-        start = declared.get(name, top)
-        basis = "declared entry_z" if name in declared else "setup top_z"
-    elif name in reached:
-        start, basis = reached[name], "earlier op of the feature"
-    else:
-        start = before["entry_z"].get(name, top)
-        basis = "entry_z" if name in before["entry_z"] else "setup top_z"
+    start = declared.get(name, top)
+    basis = "declared entry_z" if name in declared else "setup top_z"
+    floor = None if op["do"] in _WALL_OPS else _cleared_floor(op, cleared)
+    if floor is not None and number(start) and floor < start:
+        start, basis = floor, "floor of an earlier op whose bounds cover this op's"
     end, doc = dro_z(op["to_z"], grid), op["doc_mm"]
     record = {"start_z": start, "start_basis": basis, "dro_start_z": dro_z(start, grid)}
     record.update(dro_to_z=end, doc_mm=doc)
@@ -1338,16 +1357,16 @@ def evaluate(bundle, *, pre_kernel=False):
         grid = dro_grid(bundle, setup)
         numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
-        states, reached = stock_states(setup, features), {}
+        states, cleared = stock_states(setup, features), []
         for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)
-            levels = None if lathe else _z_levels(op, before, declared, reached, grid, units)
+            levels = None if lathe else _z_levels(op, before, declared, cleared, grid, units)
             if levels is not None:
                 entry["z_levels"] = levels
-            if op.get("do") in RASTER_OPS and number(op.get("to_z")):
-                reached[op.get("feature")] = op["to_z"]
+            if op.get("do") in RASTER_OPS and number(op.get("to_z")) and _xy_box(op):
+                cleared.append((_xy_box(op), op["to_z"]))
         residuals = _z_residuals(bundle, setup, grid, features)
         unknown = not frame or frame.get("binding") == UNKNOWN
         if lathe:
