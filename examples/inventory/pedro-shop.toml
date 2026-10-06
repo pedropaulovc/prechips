@@ -216,6 +216,42 @@ oal_mm = { value = 88.9, measured = { by = "example (plausible, not measured)", 
 
 [tools.endmills-long.members."3-8in-4fl-long".projection_mm]
 "r8-collets-lms-4860/3-8in" = { value = 64.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
+
+# Example purchase: short cutters so every cone-post setup stays inside 4 x D
+# projection (PLAN §4.4) instead of halving DOC on long, whippy tools.
+[tools.endmills-cone]
+kind = "endmill_set"
+material = "HSS"
+coating = "TiN"
+center_cutting = true
+note = "illustrative example item: 3/8 in four-flute stub and 1/2 in four-flute regular-length HSS end mills"
+
+[tools.endmills-cone.members."3-8in-4fl-stub"]
+dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
+shank_in = "3/8"
+flutes = 4
+flute_len_mm = { value = 12.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 50.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.endmills-cone.members."3-8in-4fl-stub".projection_mm]
+"r8-collets-lms-4860/3-8in" = { value = 25.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
+
+[tools.endmills-cone.members."1-2in-4fl"]
+dia_mm = { value = 12.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
+shank_in = "1/2"
+flutes = 4
+flute_len_mm = { value = 31.75, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 82.55, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.endmills-cone.members."1-2in-4fl".projection_mm]
+"r8-collets-lms-4860/1-2in" = { value = 48.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
+
+# Example purchase: bi-metal blade for the 4 x 6 bandsaw.
+[tools.bandsaw-blade-10-14]
+kind = "bandsaw"
+material = "M42"
+note = "illustrative example item: 64-1/2 x 1/2 x 0.025 in bi-metal M42 blade, 10/14 variable pitch"
+kerf_mm = { value = 1.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers across a test kerf in scrap" } }
 # --- end cone-pivot-post additions ---
 
 [tools.endmills-tin-10pc]
@@ -735,6 +771,24 @@ bore_dia_mm = { value = 30.0, measured = { by = "example (plausible, not measure
 jaw_width_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 jaw_height_mm = { value = 32.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, grip step to jaw outer end" } }
 jaw_depth_mm = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw face to body face" } }
+
+# Example purchase: 4 x 6 in horizontal bandsaw for sawing stock and cut-offs
+# (the cone post's sacrificial tail). Its own swivel vise holds the work.
+[machines.bandsaw-4x6]
+kind = "bandsaw"
+blade_speed_sfm = [80, 200]   # illustrative example belt steps (80/120/200 ft/min), not measured
+verify = false
+note = "illustrative example item: 4 x 6 in horizontal/vertical metal-cutting bandsaw, 64-1/2 x 1/2 in blade"
+
+[fixtures.vise-bandsaw-4x6]
+kind = "vise"
+fits = "bandsaw-4x6"
+note = "illustrative example item: the bandsaw's own swivel vise; the blade passes beside its fixed jaw"
+jaw_width_mm = { value = 110.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, along the jaw face" } }
+opening_mm = { value = 152.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, jaws fully open" } }
+jaw_height_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, saw bed to jaw top" } }
+jaw_depth_mm = { value = 12.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, jaw plate thickness" } }
+bed_height_mm = { value = 0.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "the work sits on the saw bed" } }
 # --- end cone-pivot-post additions ---
 
 [fixtures.faceplate-d1-4]

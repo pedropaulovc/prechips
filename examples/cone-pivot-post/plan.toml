@@ -7,8 +7,10 @@
 #       (180 deg, direct), S4 north cone pad and the journal bore (+12.5182 deg,
 #       plate B/23), S5 south cone pad (+180 deg, direct).
 #   S6  same chucking, head crank free: rotary-mill the body and head cylinders.
-#   S7  vise, foot down on parallels: mill off the tail to the head top, then
-#       spot, drill and counterbore the two mounting holes.
+#   S7  4 x 6 bandsaw, tail in the saw vise: saw the scrap tail off 1 mm above
+#       the head top.
+#   S8  vise, foot down on parallels: face the head top, then spot, drill and
+#       counterbore the two mounting holes; final inspection.
 # Blank, allowances, holding, zero recipes, feeds and depths are example choices
 # (plausible, not measured). Invented shop facts live in inventory with
 # measured.by = "example (plausible, not measured)".
@@ -38,7 +40,7 @@ axis = [0.0, 1.0, 0.0]               # length along the post axis (model Y)
 section_axis = [1.0, 0.0, 0.0]       # 50.8 along model X; axis x section_axis = -Z carries the 76.2
 on_hand = false                      # inventory stock = []: known none on hand; no procurement claimed
 as_is_faces = []                     # every finished face is cut
-note = "AUTHOR'S CHOICE: the 76.2 side runs model Z -24..52.2 so the crank boss (Z to 50.66) and the -Z land (Z -21.38) sit inside the bar with 1.5 and 2.6 mm to clean up. Model Y86..120 is a sacrificial rectangular tail: the BS-0 four-jaw grips Y100..120 and S7 mills the tail off to the head top."
+note = "AUTHOR'S CHOICE: the 76.2 side runs model Z -24..52.2 so the crank boss (Z to 50.66) and the -Z land (Z -21.38) sit inside the bar with 1.5 and 2.6 mm to clean up. Model Y86..120 is a sacrificial rectangular tail: the BS-0 four-jaw grips Y100..120, S7 saws the tail off at Y87 and S8 faces the head top."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-67"]
 
 [dro]
@@ -102,13 +104,22 @@ binding = "nominal"
 note = "AUTHOR'S CHOICE: BS-0 index 12.5182 deg, south cone pad up; origin on the journal axis at the south pad. Foot x = 33.368, head axis z = -21.0055."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67"]
 
-[frames.V7]
+[frames.B7]
+origin = [0.0, 86.0, 0.0]
+x = [0.0, -1.0, 0.0]
+y = [0.0, 0.0, -1.0]
+z = [1.0, 0.0, 0.0]
+binding = "nominal"          # the saw cut is set to a scribed line, not a DRO zero
+note = "AUTHOR'S CHOICE: S7 post on its side in the bandsaw vise; model (X,Y,Z) -> (86 - Y, -Z, X). Head top x = 0, tail end x = -34, foot x = 86."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33"]
+
+[frames.V8]
 origin = [0.0, 86.0, 0.0]
 x = [1.0, 0.0, 0.0]
 y = [0.0, 0.0, -1.0]
 z = [0.0, 1.0, 0.0]
-binding = "nominal"          # Z0 is the head top faced by S7 op 10
-note = "AUTHOR'S CHOICE: S7 foot down in the vise; model (X,Y,Z) -> (X, -Z, Y - 86). Foot z = -86, crank boss toward -y."
+binding = "nominal"          # Z0 is the head top faced by S8 op 10
+note = "AUTHOR'S CHOICE: S8 foot down in the vise; model (X,Y,Z) -> (X, -Z, Y - 86). Foot z = -86, crank boss toward -y."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,100"]
 
 # ======================================================================= S1
@@ -159,7 +170,7 @@ check_jog_mm = 10.0          # author's choice
 face = "top"
 method = "paper"
 paper_mm = 0.05              # author's choice
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-cone/3-8in-4fl-stub"
 check_jog_mm = 10.0          # author's choice
 retouch_after = [10]
 
@@ -167,11 +178,11 @@ retouch_after = [10]
 op = 10
 do = "face"
 feature = "foot_seat"
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-cone/3-8in-4fl-stub"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0            # author's choice: rapid plane above the stock top
 to_z = 0.0                   # datum B, model Y0
-doc_mm = 0.25                # author's choice: light passes off the 3 mm sawn allowance (4 D projection)
+doc_mm = 0.25                # author's choice: light passes off the 3 mm sawn allowance (stub, 2.6 D)
 direction = "conventional"   # author's choice for a hand-fed mill
 note = "Face the sawn end flat in 0.25 mm passes; this face is datum B."
 
@@ -238,7 +249,7 @@ check_jog_mm = 10.0
 face = "top"
 method = "paper"
 paper_mm = 0.05
-tool = "endmills-long/3-8in-4fl-long"
+tool = "endmills-cone/1-2in-4fl"
 check_jog_mm = 10.0
 retouch_after = [10]
 
@@ -247,8 +258,8 @@ op = 10
 do = "face"
 feature = "crank_boss_faces"
 faces = ["#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02"]
-tool = "endmills-long/3-8in-4fl-long"
-holder = "r8-collets-lms-4860/3-8in"
+tool = "endmills-cone/1-2in-4fl"
+holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
 to_z = 0.0                   # crank +Z face, model Z 50.66
 doc_mm = 0.25
@@ -260,12 +271,12 @@ op = 20
 do = "rough_profile"
 feature = "crank_boss"
 faces = ["#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02", "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02"]
-tool = "endmills-long/3-8in-4fl-long"
-holder = "r8-collets-lms-4860/3-8in"
+tool = "endmills-cone/1-2in-4fl"
+holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
 to_z = -29.2847              # head crest, model Z 21.3753
 rough_allowance_mm = 0.3
-doc_mm = 1.5                 # author's choice: axial steps down the boss, long cutter at 6.7 D
+doc_mm = 1.5                 # author's choice: axial steps down the 29 mm boss wall, 1/2 in cutter at 3.8 D
 direction = "conventional"
 stock_removal_bounds = { x = [-15.7, 15.7], y = [-15.7, 15.7], z = [-29.2847, 0.0] }
 
@@ -274,8 +285,8 @@ op = 30
 do = "finish_profile"
 feature = "crank_boss"
 faces = ["#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02", "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02"]
-tool = "endmills-long/3-8in-4fl-long"
-holder = "r8-collets-lms-4860/3-8in"
+tool = "endmills-cone/1-2in-4fl"
+holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
 to_z = -29.2847
 doc_mm = 0.15
@@ -374,7 +385,7 @@ check_jog_mm = 10.0
 face = "top"
 method = "paper"
 paper_mm = 0.05
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-cone/3-8in-4fl-stub"
 check_jog_mm = 10.0
 retouch_after = [10]
 
@@ -383,7 +394,7 @@ op = 10
 do = "face"
 feature = "crank_boss_faces"
 faces = ["#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"]
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-cone/3-8in-4fl-stub"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0
 to_z = 0.0                   # crank -Z land, model Z -21.38
@@ -400,7 +411,7 @@ op = 20
 do = "finish_profile"
 feature = "crank_boss"
 faces = ["#356/ADVANCED_FACE[10]/HAF_CRANK_BOSS__P01", "#950/ADVANCED_FACE[28]/HAF_CRANK_BOSS__P01", "#503/ADVANCED_FACE[15]/HAF_CRANK_BOSS__P03"]
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-cone/3-8in-4fl-stub"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0
 to_z = -3.03                 # land walls run down to model Z -18.35 at the head flanks
@@ -468,7 +479,7 @@ check_jog_mm = 10.0
 face = "top"
 method = "paper"
 paper_mm = 0.05
-tool = "endmills-lms-6784/3-8in-2fl"
+tool = "endmills-cone/3-8in-4fl-stub"
 check_jog_mm = 10.0
 retouch_after = [10]
 
@@ -476,7 +487,7 @@ retouch_after = [10]
 op = 10
 do = "face"
 feature = "cone_boss_north_face"
-tool = "endmills-lms-6784/3-8in-2fl"
+tool = "endmills-cone/3-8in-4fl-stub"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0
 to_z = 0.0
@@ -492,7 +503,7 @@ op = 20
 do = "finish_profile"
 feature = "cone_boss"
 faces = ["#643/ADVANCED_FACE[19]/HAF_CONE_BOSS__P01", "#1271/ADVANCED_FACE[32]/HAF_CONE_BOSS__P01", "#1357/ADVANCED_FACE[34]/HAF_CONE_BOSS__P02"]
-tool = "endmills-lms-6784/3-8in-2fl"
+tool = "endmills-cone/3-8in-4fl-stub"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0
 to_z = -1.69                 # pad stands 1.69 proud of the body at its corners
@@ -590,7 +601,7 @@ check_jog_mm = 10.0
 face = "top"
 method = "paper"
 paper_mm = 0.05
-tool = "endmills-long/3-8in-4fl-long"
+tool = "endmills-cone/1-2in-4fl"
 check_jog_mm = 10.0
 retouch_after = [10]
 
@@ -598,8 +609,8 @@ retouch_after = [10]
 op = 10
 do = "face"
 feature = "cone_boss_south_face"
-tool = "endmills-long/3-8in-4fl-long"
-holder = "r8-collets-lms-4860/3-8in"
+tool = "endmills-cone/1-2in-4fl"
+holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
 to_z = 0.0
 doc_mm = 0.5
@@ -611,8 +622,8 @@ op = 20
 do = "finish_profile"
 feature = "cone_boss"
 faces = ["#598/ADVANCED_FACE[17]/HAF_CONE_BOSS__P03", "#712/ADVANCED_FACE[21]/HAF_CONE_BOSS__P03", "#4/ADVANCED_FACE[1]/HAF_CONE_BOSS__P04"]
-tool = "endmills-long/3-8in-4fl-long"
-holder = "r8-collets-lms-4860/3-8in"
+tool = "endmills-cone/1-2in-4fl"
+holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
 to_z = -1.69
 doc_mm = 0.845
@@ -634,15 +645,51 @@ length = "calipers"
 # ======================================================================= S7
 [[setups]]
 id = "S7"
-machine = "PM-30MV"
-frame = "V7"
-coolant = "CRC cutting oil brushed on"
+machine = "bandsaw-4x6"
+frame = "B7"
+coolant = "none: dry cut"    # author's choice
 deburr_mm = 0.25
 deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
 stock_in = "S5"
 
 [setups.stock_state]
-top_z = 34.0                 # raw tail end, model Y120
+top_z = 25.4                 # raw tail face, model X 25.4
+bottom_z = -25.4             # raw tail face on the saw bed
+
+[setups.stock_state.local_thickness]   # S7 drills nothing
+
+[setups.hold]
+fixture = "vise-bandsaw-4x6"
+jaws_along = "x"             # jaws close across the 76.2 tail faces (model Z)
+fixed_jaw = "rear"           # author's choice
+parallels = "none"
+jaw_center_along_mm = -58.0  # jaw end 3 mm short of the blade: model Y89..120 of the tail in the jaws
+grip_mm = 50.8               # full tail thickness in the 60 mm jaws
+jaw_above_parallels_mm = 60.0
+stop = "none: set the blade to the scribed line 1.75 mm above the head top"
+clamp = "tail flat on the saw bed, post overhanging the blade side; tighten the vise"
+jaw_protection = "none: the tail is scrap"
+note = "Post lies on its side: the scrap tail in the bandsaw vise, the finished post overhanging past the blade. Support the post by hand as the cut breaks through."
+
+[[setups.ops]]
+op = 10
+do = "saw_cut"
+tool = "bandsaw-blade-10-14"
+cut_plane = { axis = "x", value = -1.75, keep = "above" }   # blade centre model Y87.75: keeps Y <= 87.0
+note = "Saw the scrap tail off; leaves 1.0 mm on the head top for S8 to face."
+
+# ======================================================================= S8
+[[setups]]
+id = "S8"
+machine = "PM-30MV"
+frame = "V8"
+coolant = "CRC cutting oil brushed on"
+deburr_mm = 0.25
+deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
+stock_in = "S7"
+
+[setups.stock_state]
+top_z = 1.0                  # sawn face, model Y87
 bottom_z = -86.0             # datum B on the parallels
 
 [setups.stock_state.local_thickness]
@@ -690,7 +737,7 @@ check_jog_mm = 10.0
 face = "top"
 method = "paper"
 paper_mm = 0.05
-tool = "endmills-long/3-8in-4fl-long"
+tool = "endmills-cone/1-2in-4fl"
 check_jog_mm = 10.0
 retouch_after = [10]
 
@@ -699,13 +746,13 @@ op = 10
 do = "face"
 feature = "head"
 faces = ["#431/ADVANCED_FACE[12]/HAF_HEAD__P02"]
-tool = "endmills-long/3-8in-4fl-long"
-holder = "r8-collets-lms-4860/3-8in"
+tool = "endmills-cone/1-2in-4fl"
+holder = "r8-collets-lms-4860/1-2in"
 approach_mm = 5.0
 to_z = 0.0                   # head top, model Y86
-doc_mm = 1.0                 # author's choice: mill the 34 mm tail off in 1 mm steps (6.7 D cutter)
+doc_mm = 0.5                 # author's choice: two passes off the 1 mm saw allowance
 direction = "conventional"
-note = "Mill the scrap tail off down to the head top in 1 mm steps; last pass 0.2 mm."
+note = "Face the sawn end down to the head top in two 0.5 mm passes."
 
 [setups.ops.checks]
 height = "calipers"

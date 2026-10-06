@@ -174,3 +174,13 @@ material_class = "low_carbon_steel"
 kc_n_per_mm2 = 1900
 e_gpa = 200
 cite = "illustrative example value (plausible specific cutting force and modulus for 1018), not transcribed"
+
+# --- cone-pivot-post additions ---
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "saw_cut"
+sfm = 80
+feed_mm_min = 25.0
+cite = "illustrative example value (plausible 4 x 6 bandsaw blade speed and descent feed for 2 x 3 in mild steel), not transcribed from a handbook"
+# --- end cone-pivot-post additions ---
