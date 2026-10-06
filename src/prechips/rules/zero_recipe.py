@@ -43,9 +43,7 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
     return {
         "axis_set": shown,
         "check_reading": shown + increment if number(shown) and number(increment) else UNKNOWN,
-        "mirrored_reading": shown - increment
-        if number(shown) and number(increment)
-        else UNKNOWN,
+        "mirrored_reading": shown - increment if number(shown) and number(increment) else UNKNOWN,
         "sign": sign,
     }
 
