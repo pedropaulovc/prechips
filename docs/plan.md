@@ -2,10 +2,12 @@
 
 `part`, `features`, and `setups` are required. The loader additionally requires
 a nonempty setup list, known unique setup ids, a nonempty operation list per
-setup, known unique operation numbers within each setup, and every operation's
-feature in the manifest or in plan-owned `joint_features`. Plan and manifest part
-names must agree; a known setup frame must name an exported manifest frame or a
-plan-owned frame in [`frames`](#frames). A literal `"unknown"` setup frame stays unresolved.
+setup and known unique operation numbers within each setup. A saw stock cut may
+omit `feature`; every authored feature must be in the manifest or in plan-owned
+`joint_features`, and inspection checks need a named feature. Plan and manifest
+part names must agree; a known setup frame must name an exported manifest frame
+or a plan-owned frame in [`frames`](#frames). A literal `"unknown"` setup frame
+stays unresolved.
 Execution follows authored array order, not numeric sorting of operation ids.
 
 `features` is relative to the plan; it must stay inside the bundle root. The
@@ -626,6 +628,7 @@ rests"). Example:
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 | `stock_removal_bounds` | `Bounds` |
+| `cut_plane` | `SawPlane` (saw cut-off only) |
 
 `faces` explicitly declares this operation's cutting claims using bound STEP
 references. Omission uses the feature's default `faces`; `"unknown"` means
@@ -693,3 +696,43 @@ the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inve
 | `x` | `Vector` |
 | `y` | `Vector` |
 | `z` | `Vector` |
+
+## Saw cut-off
+
+`do = "saw_cut"` and `do = "cut_off"` remove a sacrificial end/slab with a
+`tools.<blade>` whose `kind = "bandsaw"`. The setup machine may be a `mill`,
+`bench` or `bandsaw`; a lathe uses its separate `part_off` action, not this model.
+The operation requires no spindle holder, direction or finished-face claim.
+If a feature is authored it must resolve normally; checks cannot be attached to
+an omitted feature.
+
+```toml
+[[setups.ops]]
+op = 10
+do = "saw_cut"
+tool = "metal-blade"
+cut_plane = { axis = "y", value = 87.75, keep = "below" }
+```
+
+`SawPlane` has `axis = "x" | "y" | "z"`, numeric `value` in the manifest/plan
+units, and `keep = "below" | "above"` (each may be `"unknown"`). The plane is the
+**blade centre**, in setup coordinates. The blade's inventory `kerf` straddles
+it: below retains `coordinate <= value - kerf/2`; above retains
+`coordinate >= value + kerf/2`. For a 1.5 mm kerf, the example retains Y ≤ 87 mm,
+not Y ≤ 87.75 mm. The kernel removes the kerf and the discarded offcut, checks
+that no finished target is removed, and hands the retained stock to later setups.
+
+An all-saw setup (possibly with manual inspection/deburring) needs no `zero`
+recipe or mill envelope; `zero_check`, `headroom`, `envelope` and `travel` state
+why they are not applicable. Mixed setups still check their other machining ops.
+Holding declarations, `stock_state.top_z/bottom_z`, the bound frame and routing
+remain operative. Use an ordinary declared fixture (for example a saw vise with
+the usual jaw/parallels fields) to obtain a modeled fixture; a bandsaw machine
+identity does not invent integral-vise geometry.
+
+The traveler prints blade-centre setting, retained edge in mm, blade speed in
+sfm and descent feed in mm/min. These starting numbers come only from the cited
+[`saw_cut` cutting-data row](cutting-data.md), never op-level RPM/feed overrides.
+Blade-centre settings, retained edges and sourced blade speed/feed keep their
+own numeric digits; a coarse drawing print class does not round machine settings.
+

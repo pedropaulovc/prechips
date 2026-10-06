@@ -143,7 +143,9 @@ def test_join_backstop_refuses_lost_final_material_outside_finite_spigot(engine,
     step = joint_solids["joined"]
     job = _joint_job(engine, step)
     job["joint_features"]["spigot"]["depth_mm"] = 10.0
-    job["setups"][1]["ops"][0]["joint_cut"]["depth_mm"] = 10.0
+    job["setups"][1]["ops"][0]["joint_cut"].update(
+        depth_mm=10.0, z_from=0.0, z_to=20.0
+    )
     job["features"]["top"] = engine.refs(
         step, (-4.9, -4.9, 20), (4.9, 4.9, 20), kind="Plane"
     )
@@ -158,14 +160,18 @@ def test_join_backstop_refuses_lost_final_material_outside_finite_spigot(engine,
     join = job["setups"][3]
     join["stock_in"][1] = "lost-cap"
     join["joint"].update(spigot_ref="lost-cap", refs=list(join["stock_in"]))
+    intact = copy.deepcopy(job)
+    intact["setups"][2]["ops"][0]["to_z"] = 20.0
+    supplied = engine.run(intact)["setups"]["join"]
+    assert supplied["stock_out_volume_mm3"] == pytest.approx(
+        math.pi * (100 * 10 + 4.9**2 * 10), abs=1e-3
+    )
     facts = engine.run(job)
     cap = facts["setups"]["lost-cap"]
     # Preparation remains intact at z=0..10, but z=15..20 finished boss material
     # has been faced away outside that finite protected spigot cylinder.
     assert cap["completed_joint_features"] == ["spigot"]
-    assert cap["stock_out_volume_mm3"] == pytest.approx(
-        math.pi * (4.9**2 * 10 + 6**2 * 5), abs=1e-3
-    )
+    assert cap["stock_out_volume_mm3"] == pytest.approx(math.pi * 4.9**2 * 15, abs=1e-3)
     assert "assembly_error" in facts["setups"]["join"]
     assert "stock_out_volume_mm3" not in facts["setups"]["join"]
     assert "render_png_base64" not in facts["setups"]["join"]

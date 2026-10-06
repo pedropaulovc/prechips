@@ -2,6 +2,9 @@
 
 Located cutter envelopes are unioned in setup axes. Unlocated broad cuts use
 conservative stock spans without inventing where that stock sits in the frame.
+A child feature (``hole``/``parent``) without its own ``at`` is located at its
+parent's ``at`` in the parent's frame; it inherits no parent bounds.
+Saw cuts drive no spindle cutter and are skipped.
 """
 
 from prechips.findings import Finding
@@ -22,10 +25,12 @@ from prechips.rules._envelope import (
 from prechips.rules.coordinates import AXES, CENTRE_OPS
 from prechips.rules.resolution import (
     MANUAL,
+    SAW_OPS,
     UNKNOWN,
     _citations,
     record,
     same_length,
+    saw_setup,
     setup_frame_ref,
 )
 
@@ -42,6 +47,19 @@ def _include(bands, band):
 
 def _span(bands):
     return max(band[1] for band in bands) - min(band[0] for band in bands) if bands else UNKNOWN
+
+
+def _located(features, name, feature):
+    """The feature whose ``at`` locates ``name``, that feature's frame name and its name.
+
+    An explicit ``at`` (even ``unknown``) wins; otherwise a child names its
+    parent hole and is located at that parent's ``at`` in the parent's frame.
+    """
+    parent = feature.get("hole", feature.get("parent"))
+    if "at" in feature or not isinstance(parent, str):
+        return feature, feature.get("frame", "model"), name
+    owner = record(features.get(parent))
+    return owner, owner.get("frame", "model"), parent
 
 
 def evaluate(bundle):
@@ -69,6 +87,19 @@ def evaluate(bundle):
                 )
             )
             continue
+        if saw_setup(setup):
+            findings.append(
+                Finding(
+                    "travel",
+                    setup["id"],
+                    "not_applicable",
+                    {},
+                    cite,
+                    f"{setup['id']}: saw cuts drive no spindle cutter, so mill XYZ "
+                    "cutter travel does not apply.",
+                )
+            )
+            continue
         debts, missing, errors, operations = {}, [], [], []
         bands = {axis: [] for axis in AXES}
         scalar_spans = {axis: [] for axis in AXES}
@@ -86,7 +117,7 @@ def evaluate(bundle):
         invalid_stock = [field for field, value in dimensions if _known(value) and value <= 0]
         manifest_mm = bundle.features.get("units") == "mm"
         for op, before, _ in tip_endpoints.stock_states(setup, features):
-            if op.get("do") in MANUAL:
+            if op.get("do") in MANUAL or op.get("do") in SAW_OPS:
                 continue
             label = f"plan.setups.{setup['id']}.ops.{op['op']}"
             name = op.get("feature", UNKNOWN)
@@ -113,7 +144,17 @@ def evaluate(bundle):
                 if manifest_mm
                 else UNKNOWN
             )
-            point = _point(feature, source, target) if manifest_mm else UNKNOWN
+            locator, locator_frame, locator_name = _located(features, name, feature)
+            locator_source = record(frames.get(locator_frame))
+            if locator_name != name:
+                cite.extend(
+                    [
+                        f"features.features.{locator_name}.at",
+                        *_citations(locator.get("cite"), "at"),
+                    ]
+                )
+                cite.extend(_input_cite(locator_source, f"features.frames.{locator_frame}"))
+            point = _point(locator, locator_source, target) if manifest_mm else UNKNOWN
             if op.get("do") in CENTRE_OPS:
                 extent = point
             action = op.get("do", UNKNOWN)

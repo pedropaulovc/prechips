@@ -7,6 +7,12 @@ Cutting-table diameter_range is in millimetres, inclusive at both ends; an
 ambiguous overlapping pair of rows is unresolved rather than first-row wins.
 Mill feed is RPM x flutes x chip load; lathe feed is RPM x the same row's (or
 chart's) feed per revolution. Neither has an op-level override.
+
+A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
+``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
+feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
+override; the sourced speed is clamped to the machine's inclusive
+``blade_speed_sfm`` range and no RPM is derived.
 """
 
 from __future__ import annotations
@@ -14,7 +20,17 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
-from .resolution import MANUAL, UNKNOWN, length_mm, manifest_mm, number, resolve, uncertain
+from .resolution import (
+    MANUAL,
+    SAW_OPS,
+    UNKNOWN,
+    _citations,
+    length_mm,
+    manifest_mm,
+    number,
+    resolve,
+    uncertain,
+)
 from .tip_endpoints import mapping, records
 from .turned_profile import feature_span
 
@@ -88,6 +104,90 @@ def _diameter(bundle, setup, op, tool, lathe):
     return diameter
 
 
+def _positive(value):
+    return number(value) and math.isfinite(value) and value > 0
+
+
+def _blade_bounds(machine):
+    band = machine.get("blade_speed_sfm", UNKNOWN)
+    if isinstance(band, list) and len(band) == 2 and all(_positive(v) for v in band):
+        if band[0] <= band[1]:
+            return band[0], band[1]
+    return UNKNOWN, UNKNOWN
+
+
+def _saw(subject, op, machine, tool, stock, material, material_class, cutting):
+    """Blade speed and descent feed straight from one cited saw row; no spindle maths."""
+    tool_material = tool.get("material", UNKNOWN)
+    # An unresolved material, class or blade material never matches a row that spells
+    # "unknown" itself: unknown identities select nothing and stay debt.
+    identities = (material, material_class, tool_material)
+    known = all(isinstance(v, str) and v.strip() and v != UNKNOWN for v in identities)
+    matching = [
+        row
+        for row in records(cutting.get("cut"))
+        if known
+        and (row.get("material_class"), row.get("tool_material"), row.get("operation"))
+        == (material_class, tool_material, "saw_cut")
+    ]
+    sfm = descent = source = UNKNOWN
+    row_unknown = len(matching) != 1
+    # Blank or "unknown" citation entries are discarded; only surviving citations source.
+    citations = _citations(matching[0].get("cite")) if len(matching) == 1 else []
+    if citations:
+        selected = matching[0]
+        source = citations[0] if isinstance(selected["cite"], str) else citations
+        sfm = selected.get("sfm", UNKNOWN)
+        descent = selected.get("feed_mm_min", UNKNOWN)
+        row_unknown = uncertain(selected)
+    low, high = _blade_bounds(machine)
+    speed = (
+        max(low, min(high, sfm)) if _positive(sfm) and number(low) and number(high) else UNKNOWN
+    )
+    feed = descent if _positive(descent) else UNKNOWN
+    numbers = {
+        "material": material,
+        "material_class": material_class,
+        "material_verify": stock.get("material_verify", False),
+        "operation": "saw_cut",
+        "action": op["do"],
+        "tool_material": tool_material,
+        "sfm": sfm,
+        "blade_speed_min_sfm": low,
+        "blade_speed_max_sfm": high,
+        "blade_speed_sfm": speed,
+        "feed_mm_min": feed,
+        "matching_rows": len(matching),
+        "cutting_data_row": source,
+        "blade_speed_range_verify": uncertain(machine),
+    }
+    unknown = (
+        speed == UNKNOWN
+        or feed == UNKNOWN
+        or row_unknown
+        or uncertain(tool)
+        or uncertain(machine)
+        or stock.get("material_verify", False)
+    )
+    cite = [
+        "PLAN.md §3.5 sourced cutting data; saw_cut row sfm = blade linear speed, "
+        "feed_mm_min = descent feed",
+        "inventory machine blade_speed_sfm [min, max], inclusive clamp",
+        "cutting-data aliases and rows",
+    ]
+    cite.extend(citations)
+    sentence = (
+        "Blade speed/descent feed cannot be certified: the single cited saw_cut row, "
+        "blade, material or machine blade-speed range is missing, ambiguous or unverified."
+        if unknown
+        else "Blade speed and descent feed are sourced from the saw_cut row; the blade speed "
+        "is clamped to the machine's blade-speed range."
+    )
+    return Finding(
+        "speeds_feeds", subject, "unknown" if unknown else "pass", numbers, cite, sentence
+    )
+
+
 def evaluate(bundle):
     result = []
     stock = mapping(bundle.plan.get("stock"))
@@ -112,6 +212,12 @@ def evaluate(bundle):
                         ["PLAN.md §4.1 speeds/feeds"],
                         "This manual operation has no cutting speed or feed.",
                     )
+                )
+                continue
+            if op["do"] in SAW_OPS:
+                tool = resolve(bundle, "tools", op.get("tool")) or {}
+                result.append(
+                    _saw(subject, op, machine, tool, stock, material, material_class, cutting)
                 )
                 continue
             tool = resolve(bundle, "tools", op.get("tool")) or {}

@@ -1,6 +1,6 @@
 # Geometry and workholding rules (M4, FreeCAD kernel)
 
-The eight PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
+The nine PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
 against the material present at each authored setup, using FreeCAD's bundled
 OpenCASCADE. They compare sampled intersections and B-rep measurements with
 the selected tools, holders, fixture dimensions and declared pose. This is not
@@ -19,6 +19,7 @@ that carries its own verification debt.
 | `vise` | setup id | PLAN §4.3 vise |
 | `thin_wall_under_clamp` | setup id | PLAN §4.3 thin wall under clamp |
 | `fixture_interference` | setup id | PLAN §4.3 fixture interference |
+| `saw_cut` | `setup:op` for saw cut-off | PLAN §4.2 saw cut-off |
 
 The citation list of every geometry finding starts with that PLAN row, adds
 `kernel: STEP SHA-256 <digest>; FreeCAD B-rep measurements` when the manifest
@@ -490,6 +491,34 @@ but provide no numeric lateral interruption mask. S2/S3 therefore name the
 unresolved S1 profile removal rather than drawing the finished arm or
 inventing rail dimensions. A known current setup remains checkable/drawable
 even when its output stock is unresolved for the next setup.
+
+### Saw cut-off
+
+`saw_cut` and `cut_off` use an authored setup-axis blade-centre `cut_plane`
+and the selected bandsaw blade's positive inventory kerf. Below retains the
+halfspace at or below `plane - kerf/2`; above retains the halfspace at or above
+`plane + kerf/2`. The native Boolean removes the kerf plus the discarded planar
+slab from the **current operation stock**, including earlier removals in that
+setup. Its retained result is available through normal `stock_in` routing.
+
+The `saw_cut` finding reports the normalized plane, kerf, retained boundary and
+before/after, kerf, offcut and removed volumes in mm/mm³. A cut into the finished
+target, an empty retained piece or an off-stock/no-op blade is an error, never
+clipped back to the target to fabricate a pass. Tangent contact with no target
+volume removed is permitted. Missing/unverified kerf, cut-plane or upstream
+stock remains named `?`; absence of FreeCAD remains kernel debt.
+Splitting one connected input stock solid into several retained pieces is also
+an error: detached pieces are not silently routed as held stock, including tiny
+retained slivers. Independently supplied components already disconnected before
+the saw may remain disconnected; the check is per input solid, not the total
+retained count. Target-loss and volume facts are computed before this refusal.
+
+`accessibility`, `reach` and `internal_corner_radius` are `not_applicable` to a
+saw operation: its blade is located by the cut plane/kerf, and the axial/turning
+tool-cylinder model does not model a saw blade. This states a model boundary,
+not certified blade/fixture clearance. Saw cuts provide no finished-face or
+surface-finish coverage credit. Holding, fixture solids and fixture-interference
+screens remain in effect, including on a dedicated bandsaw setup.
 
 ### Jaw placement
 

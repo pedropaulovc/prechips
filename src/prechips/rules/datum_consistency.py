@@ -5,8 +5,9 @@ indicating an earlier pilot does not establish a later reamed datum.
 """
 
 from prechips.findings import Finding
+from prechips.rules.resolution import SAW_OPS
 
-_NONFINISH = {"spot", "inspect", "release", "fit", "scribe", "transfer", "deburr"}
+_NONFINISH = {"spot", "inspect", "release", "fit", "scribe", "transfer", "deburr"} | SAW_OPS
 
 
 def _mapping(value):

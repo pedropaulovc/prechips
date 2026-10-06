@@ -27,6 +27,7 @@ SET_KINDS = {
     "lathe_tool_bits",
 }
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"}
+SAW_OPS = frozenset({"saw_cut", "cut_off"})
 _INVENTORY_CATEGORIES = ("machines", "tools", "holders", "fixtures", "gauges")
 WORKHOLDING_CATEGORIES = ("fixtures", "holders", "machines")
 
@@ -364,6 +365,16 @@ def operations(bundle, feature=None):
         for op in setup["ops"]
         if feature is None or op.get("feature") == feature
     ]
+
+
+def saw_setup(setup):
+    """A dedicated saw setup: at least one saw op and every non-manual op is a saw op.
+
+    An explicitly unknown action is not a saw op, so it keeps the setup assessed.
+    """
+    actions = [op.get("do", UNKNOWN) for op in setup.get("ops", [])]
+    cutting = [action for action in actions if action not in MANUAL]
+    return bool(cutting) and all(action in SAW_OPS for action in cutting)
 
 
 def candidate_refs(inventory):

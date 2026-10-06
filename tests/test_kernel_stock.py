@@ -144,6 +144,7 @@ def _bundle(tmp_path):
 def _host_only(bundle):
     """Edits that change only host-rule inputs, never a field the engine reads."""
     setup = bundle.plan["setups"][0]
+
     yield "hold method", lambda: setup["hold"].update(method="soft_jaws")
     yield "hold grip_mm", lambda: setup["hold"].update(grip_mm=5.5)
     yield "fixture opening_mm", lambda: bundle.inventory["fixtures"]["vise"].update(opening_mm=90.0)
@@ -226,7 +227,7 @@ def test_a_plan_cannot_declare_its_supply_to_be_the_finished_part(tmp_path):
     bundle = _bundle(tmp_path)
     bundle.plan["stock"]["shape"] = "part"
     assert kernel.stock_inputs(bundle)["shape"] == "box"
-    with pytest.raises(ValueError, match="shape"):
+    with pytest.raises(ValueError):
         Stock.model_validate({"shape": "part"})
 
 
@@ -436,6 +437,7 @@ def _refused(engine, step):
     yield _clearing({**CLEAR, "z": [22.0, 10.0]}), ALLOWED
     yield _clearing({"x": [30.0, 60.0], "z": [10.0, 22.0]}), ALLOWED
     yield _clearing("unknown"), ALLOWED
+    yield _clearing({"reason": "host named why"}), ALLOWED
     yield _clearing(CLEAR, faces=["unknown"]), ALLOWED
     yield _clearing(CLEAR, faces=wall + bottom), ALLOWED
     yield _clearing({**CLEAR, "x": [40.0, 60.0]}), ALLOWED

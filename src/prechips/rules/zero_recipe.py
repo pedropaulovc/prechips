@@ -10,6 +10,7 @@ from .resolution import (
     number,
     plan_frame_cite,
     resolve,
+    saw_setup,
     setup_frame,
     uncertain,
 )
@@ -68,6 +69,19 @@ def evaluate(bundle):
         if bench is not None:
             result.append(
                 not_applicable("zero_check", setup, bench, "zero recipe", "DRO zero to set")
+            )
+            continue
+        if saw_setup(setup):
+            result.append(
+                Finding(
+                    "zero_check",
+                    setup["id"],
+                    "not_applicable",
+                    {"frame": setup.get("frame", UNKNOWN)},
+                    ["PLAN.md §4.1 zero recipe", *plan_frame_cite(bundle, setup)],
+                    "A dedicated saw setup locates its cut by cut_plane; no spindle XYZ "
+                    "zero is set.",
+                )
             )
             continue
         frame = setup_frame(bundle, setup)

@@ -21,6 +21,12 @@ mismatch conclusions and stay unknown. A missing item's error is owned by its
 reference finding; its assembly finding stays unknown.
 An explicitly unknown operation action also makes its assembly fit unknown.
 
+Saw cut-off resolves the selected bandsaw blade and a `mill` / `bench` /
+`bandsaw` machine instead of a spindle/holder/shank assembly. No holder is
+required; incompatible known machine/tool kinds are errors and unverified
+identities remain debt. A saw naming a groove cannot replace that groove's
+size-setting tool, and a saw does not establish a finished datum.
+
 Sentence templates:
 
 - `{ref}: not listed in the inventory.`

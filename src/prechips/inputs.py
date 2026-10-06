@@ -99,6 +99,8 @@ def load_bundle(
     policy: str | Path | None = None,
     cutting_data: str | Path | None = None,
 ) -> Bundle:
+    from prechips.rules.resolution import SAW_OPS
+
     plan_path = Path(plan_path).resolve()
     plan, plan_hash = _load(plan_path, Plan, "plan")
     if plan.get("features") == "unknown":
@@ -137,6 +139,12 @@ def load_bundle(
         if "unknown" in op_ids or len(set(op_ids)) != len(op_ids):
             raise BadInput(f"{setup['id']}: operation numbers must be known and unique.")
         for op in ops:
+            if op.get("do") in SAW_OPS and "feature" not in op:
+                if op.get("checks") or op.get("missing_requirements"):
+                    raise BadInput(
+                        f"{setup['id']}:{op['op']}: saw inspection checks need a manifest feature."
+                    )
+                continue
             if op.get("feature") not in definitions:
                 raise BadInput(
                     f"{setup['id']}:{op['op']}: feature is neither in the manifest nor "

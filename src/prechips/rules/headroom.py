@@ -7,6 +7,11 @@ travel screens read; a vendor number without a complete local measurement
 keeps its nominal value in the numbers but can neither pass nor fail.
 An authored tool/holder projection stays unknown when explicitly declared
 unknown; OAL minus grip applies only when the selected pair has no entry.
+A dividing head carries the work on its axis: the stock top above the table
+is any declared parallels/supports plus the head's ``centre_height`` plus stock
+``top_z`` minus the posed axis origin height (``hold.pose.origin_mm`` z); the
+head's bed and jaw heights and the supported stock height do not enter it.
+Saw-only setups have no spindle stack and are not applicable.
 
 A lathe setup's envelope is its swing and length: the stock and chuck body
 diameters against swing over the bed, the stock against swing over the cross
@@ -29,8 +34,10 @@ from prechips.measurements import length_fact, measurement_entry
 from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules.resolution import (
     MANUAL,
+    SAW_OPS,
     length_mm,
     resolve,
+    saw_setup,
     setup_frame,
     uncertain,
     workholding_category,
@@ -66,6 +73,14 @@ def _height(item, orientation=None):
 
 def _mapping(value):
     return value if isinstance(value, dict) else {}
+
+
+def _head_axis_z(pose):
+    """Setup-frame height of the posed dividing-head axis origin, else unknown."""
+    origin = pose.get("origin_mm")
+    if isinstance(origin, list) and len(origin) == 3 and all(_numeric(v) for v in origin):
+        return origin[2]
+    return _UNKNOWN
 
 
 def _limit(machine, identity, field, debts, cite):
@@ -161,6 +176,18 @@ def evaluate(bundle):
         if machine.get("kind") == "lathe":
             findings.append(_lathe(bundle, setup, machine, machine_ref))
             continue
+        if saw_setup(setup):
+            findings.append(
+                Finding(
+                    "headroom",
+                    setup["id"],
+                    "not_applicable",
+                    {},
+                    ["PLAN.md §4.1 headroom", f"plan.setups.{setup['id']}.ops"],
+                    f"{setup['id']}: saw cuts use no spindle tool stack or table travel.",
+                )
+            )
+            continue
         debts = {}
         cite = [
             "PLAN.md §4.1 headroom",
@@ -188,11 +215,12 @@ def evaluate(bundle):
         bottom = state.get("retained_rail_bottom_z", state.get("bottom_z", _UNKNOWN))
         top = state.get("top_z", _UNKNOWN)
         stock_height = top - bottom if _numeric(top) and _numeric(bottom) else _UNKNOWN
-        bed = length_mm(fixture, "bed_height")
+        head = fixture.get("kind") == "dividing_head"
+        bed = _UNKNOWN if head else length_mm(fixture, "bed_height")
         jaw = length_mm(fixture, "jaw_height")
         spindle = _limit(machine, machine_ref, "envelope.spindle_to_table_max", debts, cite)
         numbers = {
-            "bed_height_mm": bed,
+            "bed_height_mm": "not_applicable" if head else bed,
             "fixture_height_mm": jaw,
             "fixture_verify": uncertain(fixture) if fixture else "missing",
             "parallels_mm": parallel_height
@@ -214,12 +242,29 @@ def evaluate(bundle):
                 "tool and holder geometry with verification flags as measurement debt"
             ),
         }
+        if head:
+            # The chucked work hangs on the head axis: its top sits at the head's centre
+            # height plus the stock top's offset above the posed axis origin, raised by
+            # any declared parallels/blocks under the head (the established support stack).
+            centre = length_mm(fixture, "centre_height")
+            axis_z = _head_axis_z(_mapping(hold.get("pose")))
+            offset = top - axis_z if _numeric(top) and _numeric(axis_z) else _UNKNOWN
+            work_top = _sum(parallel_height, support_height, centre, offset)
+            numbers.update(
+                {
+                    "head_centre_height_mm": centre,
+                    "head_axis_z": axis_z,
+                    "work_top_above_table_mm": work_top,
+                }
+            )
+        else:
+            work_top = _sum(bed, parallel_height, support_height, stock_height)
         unknown = (
             not fixture
             or not machine
             or any(uncertain(item) for item in (fixture, parallels, support) if item)
         )
-        unknown |= not _numeric(stock_height) or (
+        unknown |= not _numeric(work_top if head else stock_height) or (
             fixture.get("kind") == "vise" and not _numeric(jaw)
         )
         errors = []
@@ -227,7 +272,7 @@ def evaluate(bundle):
             errors.append("supported stock height is not positive")
         nominal_stacks, oals, gauges = [], [], []
         for op in setup["ops"]:
-            if op["do"] in MANUAL:
+            if op["do"] in MANUAL or op["do"] in SAW_OPS:
                 continue
             holder_ref = op.get("holder")
             tool = resolve(bundle, "tools", op.get("tool")) or {}
@@ -241,7 +286,7 @@ def evaluate(bundle):
             if holder and not declared:
                 grip = length_mm(holder, "grip")
                 projection = oal - grip if _numeric(oal) and _numeric(grip) else _UNKNOWN
-            stack = _sum(bed, parallel_height, support_height, stock_height, projection, gauge, 25)
+            stack = _sum(work_top, projection, gauge, 25)
             margin = (
                 spindle["value"] - stack
                 if _numeric(spindle["value"]) and _numeric(stack)
@@ -279,16 +324,25 @@ def evaluate(bundle):
         if gauges and len(gauges) == len(numbers["stacks"]):
             numbers["holder_gauge_len_mm"] = max(gauges)
         support_stack = _sum(parallel_height, support_height)
+        # The vise jaw rises from the supported stock bottom; a head's chuck jaws do not.
         jaw_top_z = (
-            bottom + jaw - support_stack
+            "not_applicable"
+            if head
+            else bottom + jaw - support_stack
             if all(_numeric(v) for v in (bottom, jaw, support_stack))
             else _UNKNOWN
         )
-        top_clearance = top - jaw_top_z if _numeric(top) and _numeric(jaw_top_z) else _UNKNOWN
+        top_clearance = (
+            top - jaw_top_z
+            if _numeric(top) and _numeric(jaw_top_z)
+            else "not_applicable"
+            if head
+            else _UNKNOWN
+        )
         cuts = {
             str(op["op"]): op["to_z"] - jaw_top_z
             for op in setup["ops"]
-            if _numeric(op.get("to_z")) and _numeric(jaw_top_z)
+            if op["do"] not in SAW_OPS and _numeric(op.get("to_z")) and _numeric(jaw_top_z)
         }
         numbers.update(
             {
