@@ -106,7 +106,7 @@ stop_fixture = "rocker-vise-stop"
 stop_pose = { origin_mm = [-79.3369, 37.0, -4.68295], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # magnetic base against the fixed jaw's left end
 stop = "switch on the magnetic fixed-jaw end stop and bring the left blank end gently against its nose; positioning contact only, no cutting load"
 clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # author's choice
-note = "Grip the full-thickness rails on matched narrow risers plus 1/2 in parallels. The 64 mm risers fit between the 65 mm closed jaws and fully carry both parallels. Keep the cutter's whole swept diameter inside the clearing bounds, not just its centre."
+note = "Grip the full-thickness rails on matched narrow risers plus 1/2 in parallels. The 64 mm risers fit between the 65 mm closed jaws and fully carry both parallels. Keep the cutter's whole swept diameter inside the clearing bounds, not just its centre. Use light conventional cuts at the outboard tips; stop and resolve chatter before deepening the cut."
 
 [setups.zero]
 tool_touches = [] # one Z touch per tool change, listed in retouch_after
@@ -291,7 +291,7 @@ stop_fixture = "rocker-vise-stop"
 stop_pose = { origin_mm = [-79.3369, 28.0, -4.68295], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "switch on the magnetic fixed-jaw end stop and bring the left blank end gently against its nose; then indicate the pilot to transfer datum"
 clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # author's choice
-note = "Seat the retained rails, not the thin strap or a hub rim."
+note = "Seat the retained rails, not the thin strap or a hub rim. Use light conventional cuts at the outboard tips; stop and resolve chatter before deepening the cut."
 
 [setups.zero]
 tool_touches = [] # one Z touch per tool change, listed in retouch_after
@@ -323,7 +323,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-4fl"
 check_jog_mm = 10.0 # author's choice
-retouch_after = [10, 15, 20, 28, 30, 50, 60] # retouch before each changed cutting tool
+retouch_after = [10, 15, 20, 28, 30, 32, 33, 34] # retouch before each changed cutting tool, including every rod-hole tool and the return to the rougher
 
 [[setups.ops]]
 op = 10
@@ -590,7 +590,7 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S3"
-note = "Remove the S3 straps, lift the blank clear of the permanent rod-hole pin and reload onto the same pin and support pads. Fit the shoulder screw and washer through the reamed pivot bore. Match each shimmed rail rest to the actual raw rail without lifting the part. Rotate the part counterclockwise viewed from above (looking down setup -Z) to preload the rod hole against the closing-cut side of the pin, then tighten the shoulder screw and washer. Indicate the ground screw head after tightening to establish the fixture axis; the head is coaxial with the shoulder, not an exposed part-bore touch. Clamp the scrap rails independently. Touch Z on an unobstructed upper strap patch, not the washer-covered hub. Finish the outline with light conventional passes."
+note = "Remove the S3 straps, leaving the part on the permanent rod-hole pin and support pads. Fit the shoulder screw and washer through the reamed pivot bore. Match each shimmed rail rest to the actual raw rail without lifting the part. Rotate the part counterclockwise viewed from above (looking down setup -Z) to preload the rod hole against the closing-cut side of the pin, then tighten the shoulder screw and washer. Indicate the ground screw head after tightening to establish the fixture axis; the head is coaxial with the shoulder, not an exposed part-bore touch. Clamp the scrap rails independently. Touch Z on an unobstructed upper strap patch, not the washer-covered hub. Finish the outline with light conventional passes."
 
 [setups.stock_state]
 top_feature = "hub_faces"

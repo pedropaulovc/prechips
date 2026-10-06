@@ -356,6 +356,19 @@ def test_undrawn_or_unplaced_fixture_leaves_interference_unknown(engine, parts):
     assert any(debt.startswith("vise jaws not placed") for debt in setup["fixture_clash_debts"])
 
 
+@pytest.mark.parametrize("origin_x,clashes", [(-4.0, False), (-2.0, True)])
+def test_stop_contact_is_allowed_but_stock_overlap_is_reported(engine, parts, origin_x, clashes):
+    hold = _plate_hold()
+    hold["stop"] = {
+        "pose": {"origin_mm": [origin_x, 8.0, 0.0], **UP},
+        "solids": [_box("stop:left", [0.0, 0.0, 0.0], [4.0, 4.0, 10.0])],
+    }
+    row = _scene(engine.run(engine.job(parts["plate"], setups=[_setup([], hold)])))
+    assert any(component["name"] == "stop:left" for component in row["render_scene"]["components"])
+    assert any("stop:left" in clash for clash in row["fixture_clashes"]) is clashes
+    assert row["fixture_rendered"] is not clashes
+
+
 # --------------------------------------------------------------------------- host inputs
 
 

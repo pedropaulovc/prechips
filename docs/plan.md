@@ -328,6 +328,10 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `support_tip_mm` | `[Number, Number, Number]` |
 | `quill_extension_mm` | `Number` |
 | `clamps` | `list[ClampPlacement]` |
+| `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |
+| `preload_direction` | `"clockwise"` / `"counterclockwise"` |
+| `stop_fixture` | `str` (inventory fixture with authored solids) |
+| `stop_pose` | `Pose` |
 | `grip_mm_verify` | `bool` |
 | `jaw_above_parallels_mm_verify` | `bool` |
 | `index` | `Index` |
@@ -337,6 +341,17 @@ mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
 `ClampPlacement` is `{ref, note, pose}`: `ref` names a fixture or a
 `kit/member` such as a clamping-kit strap, and its authored `solids` are
 placed by `pose` (origin at the strap underside on the work).
+
+`clamp_order` is the declared tightening-action sequence for drawing badges,
+not an automatic interpretation of the `clamps` array. A locating pin may
+belong to that array for its posed solids without being a tightening action;
+omit its index from the order. `preload_direction` is viewed from above,
+looking down setup -Z. These annotations do not certify clamp force or order.
+
+A physical stop uses `stop_fixture` plus `stop_pose`; its inventory solids
+follow the same dimension/measurement/void trust rules as other fixture bodies.
+The kernel places it, draws it and includes it in collision/interference checks.
+An unresolved stop is a named fixture gap, not a guessed point from `stop` prose.
 
 M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 `grip_mm` and `jaw_above_parallels_mm` to place the jaw solids in the setup
@@ -541,6 +556,9 @@ errors. A far-side face whose outward normal opposes the setup's +Z approach
 by more than 90° is an error naming the face and earns no coverage credit.
 Complementary setups can explicitly claim opposite sides; finishing coverage
 credits each face only to the direction-valid finishing cuts that claim it.
+A claimed hole cap also needs its feature's last drill/ream/bore/counterbore
+setup to leave it clear of stock; a tap or pilot claim never stands in for that
+(see [geometry](rules-geometry.md#finish_coverage)). No plan field selects that op.
 
 `stock_removal_bounds` is an explicit setup-frame clearing box:
 `{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric

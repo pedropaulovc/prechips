@@ -78,11 +78,35 @@ prior `traveler.html` so no old sheet accompanies the new report. It does not
 create PNGs or a sheet. Replacement and removal share the report transaction;
 a refusal restores every prior output, even if a stale target has already
 disappeared. No stale fixture image survives a successful run.
-The render is a deterministic software rasterization of the kernel's
-tessellation, so a cache hit and a fresh FreeCAD run give identical bytes; it
-is a view of setup-entry stock plus only fixture solids built from explicit
-inventory dimensions and declared pose, never a toolpath or CAM simulation.
-Unknown incoming stock produces no figure. See [geometry rules](rules-geometry.md#renders).
+The render is a 1600×1000 deterministic software drawing of kernel geometry,
+with an engine-bundled bitmap font and the engine's own PNG encoder. No host
+font, clock, image service or machine-specific metadata participates in the
+bytes. Lathe views put the headstock/chuck on the left, the tailstock on the
+right and setup +Z along the spindle to the right; mills use setup-frame
+isometric views, and custom plates use a plan view. Labels identify the setup
+axes, Z0, named datums, jaws, supports and selected cutter approach. The amber
+hatch is **entry stock minus this setup's derived exit stock**, not a finished
+part substituted for arriving material or a simulated toolpath. If the exit
+stock or a cutter cannot be established, a plain `render_debts` sentence says
+what is not shown; that display debt never changes a rule verdict.
+
+`scene` additionally records `view`, `width_px`, `height_px`, plain-language
+`shows` / `legend`, `render_debts`, `primary_op`, and sparse `waypoints`.
+Mill keys are `{label, op, xy}` in setup mm; axial lathe keys use `xz`, whose
+X is the declared radius/diameter DRO target and whose Z is the table station.
+The same `P1`, `P2`, … keys annotate the profile inset and traveler coordinate
+rows. Both mirrored sides remain explicit. Dense mill sketches use separate
+operation panels so repeated corners keep every coordinate key legible.
+Numbered custom-clamp badges follow authored `hold.clamp_order`, not an order
+inferred from prose; an explicit empty list means no accessory tightening
+actions. Holding/fit-up-only setups show no invented cutter.
+
+Exact posed fixture solids remain the only basis for `fixture = "modeled"`.
+Dashed table, vise-body and machine-context outlines are clearly marked
+schematic and do not enter geometry checks. A stop is drawn from a selected
+inventory fixture and declared `stop_pose`, never guessed from a holding note.
+Unknown incoming stock produces no figure. See
+[geometry rules](rules-geometry.md#renders).
 
 
 ## Eligibility and approval
@@ -177,45 +201,68 @@ No verb reads expected fixtures as runtime answers.
 
 ## Generated traveler
 
-The bench document uses Letter portrait print CSS, a header, each authored
-setup, and per-setup contour continuations. Logical continuation groups are
-not a count or proof of physical printed pages. Reflection compression is used
-only when the fresh computed table contains every counterpart checkpoint, not
-from presumed symmetry.
-Footers are in normal document flow, not fixed over bench content. Identical
-station positions may be grouped while retaining all provenance; diameter-mode
-lathe station tables omit nonoperative Y. Unresolved checks are grouped for
-compact bench presentation, not hidden or waived.
-Each setup page carries one figure after the Hold block. The caption follows
-the render record: `modeled` → `Kernel view: setup-entry stock and declared
-jaws / parallels; sampled checks are not a toolpath.` for a vise, or
-`... and declared <kind> fixture solids; ...` for any other kind; unresolved
-with `scene.jaws = "lateral_undeclared"` → `? Kernel view: setup-entry
-stock, certain jaw material and a possible-jaw envelope; exact fixture pose
-is unresolved.`; unresolved with `scene.jaws = "exact"` (parallels not
-modelled or another debt) → `? Kernel view: setup-entry stock and declared
-jaws; fixture scene incomplete.`; unresolved with drawn components →
-`? Kernel view: setup-entry stock and declared fixture solids; fixture scene
-incomplete.`; otherwise `? Kernel stock view only; fixture dimensions or
-jaw pose remain unresolved.` Every `scene.debts` sentence is appended to the
-caption. With no render the paragraph `? Kernel fixture render unavailable;
-holding geometry is not confirmed.` prints instead. The header legend states
-`Kernel geometry findings use sampled tool / holder solids, not CAM
-toolpaths. An unresolved fixture is not a rendered holding proof.` The image
-is referenced by relative filename, so the HTML shows it only beside its own
-`setup-S<n>.png`.
-Unknown drawing dimensions remain explicit. Declared dimension precision controls
-drawing values, manual settings, DRO-zero values and genuine feature points when
-available; without it, every known finite number still prints its own digits.
-Operation-derived coordinate rows, tip/Z targets, computed stations and
-contour/cutter-centre targets always retain their own numeric digits: six
-significant digits, with floating residue below `1e-6` dropped. Unrelated drawing
-precision never rounds or hides these operative targets. Actual unknown numeric
-values remain `?`. No acceptance band or drawing precision is invented, and
-numeric presentation never changes PLANNED readiness.
-Bench text excludes rule ids, source paths and full hashes; the footer short id
-is the report lookup. Generated logical sections and print CSS are not physical
-clipping/dry-run proof. The paper acceptance remains pending.
+The traveler is the shop-floor product: Letter portrait, written for a machinist
+at the machine. A job page opens with the part, drawing number, revision (or
+`REV NOT CONFIRMED`, which is also a STOP line) and the `PLANNED` banner, then
+**JOB STATUS** (STOP / CAUTION / not-verified boxes), the drawing material and
+finish, a one-line speeds/feeds source, the DRO manual named once, **STOCK AND
+ROUTE** (stock size, supply notes and a setup → machine → holding table) and
+**DRAWING REQUIREMENTS** (feature → limits).
+
+Each setup then starts on a new page, in this order:
+
+1. Title and status boxes. *STOP — do not run until resolved* lists one plain
+   line per real problem with the ops it applies to (`Op 20 — tool or holder
+   hits the part or the holding`); repeats are collapsed. *Not verified by the
+   planner — confirm at the machine* names the unproved topics with their ops.
+   Errors never print as `?`; unknowns never read as passes.
+2. **HOLD**: a numbered clamping sequence (mount, supports, grip, stop,
+   tighten, then the authored notes) and a small table of grip length,
+   stickout, jaw-front Z and, on a lathe, centre tip Z and quill extension.
+   Pose vectors and planner field names are not printed.
+3. The holding picture with a caption of the form `Setup S2 — part as it
+   arrives from Setup S1, held in the 6 in 3-jaw chuck. Picture shows the
+   holding only, not the cuts.` (or the render's own `scene.shows` / `legend`),
+   followed by bold `NOT SHOWN:` lines for each scene debt. Without a render the
+   setup prints `NO PICTURE — the holding is not modelled; set up from the HOLD
+   steps above.` The image is referenced by relative filename.
+4. Coolant and edge-break limit.
+5. **CLEARANCE**, machine specific. A lathe shows chuck Ø against swing,
+   work Ø against swing over the cross-slide, length against between-centres,
+   quill extension and the jaw-front distance to the closest tool stop. A mill
+   shows the spindle-to-table stack, per-op tool stickout and spare travel, jaw
+   top Z and table travel. Uncomputed items are grouped into one `Not computed —
+   check at the machine` line.
+6. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
+   QCTP station and the ops that use it. Op rows refer to tools by `T#`.
+7. **DRO ZERO**: positive directions, then one row per axis — what to touch
+   or pick up (tool, side, paper or edge-finder radius), the Axis Set value, a
+   no-touch jog, the value the display must read and the value it would read if
+   the axis were reversed — plus re-indicate and tool-change touch-offs.
+8. **FEATURE MAP** (feature, Ø or X/Y, Z from/to in the setup zero). Feature
+   locations, not tool tips.
+9. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
+   Z target, cut direction and `limit: gauge` inspection. Lathe feed prints as
+   `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
+   `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool stop, dead
+   centre at the work end, tool tip within 3 mm of the jaw top) and per-op STOP
+   or CAUTION findings print as boxed lines under the op row. Tip-depth
+   derivations and multi-sentence inspection procedures move to numbered *Op
+   notes* / *Inspection notes*; the table and its notes print as one block.
+10. **CONTOURS**: one block per contour op with its tool and direction, the
+   table at DRO precision and, when the render supplies `scene.waypoints`, a
+   `P` column keyed to the labels drawn in the picture. A missing tool prints
+   `STOP … tool not selected; do not run` instead of a table; an uncompensated
+   lathe profile says the nose radius compensation is not computed.
+
+Every setup ends with the sign-off line, kept on the page with the setup's last
+block. Setup coordinates, Z targets and DRO values print at the DRO's display
+precision (2 decimals in mm, 4 in inches); drawing limits keep the drawing's
+precision. Plan text is cleaned for the bench: author's-choice tags, face ids,
+inventory slugs, frame names and hashes are dropped, and frame `T1` reads as
+`Setup S1 zero`. Rule ids, source paths, uncertainty detail and full hashes
+stay in `report.json`; the footer short id is the report lookup. Print CSS is
+not a physical dry run, and presentation never changes PLANNED readiness.
 
 
 ## Telemetry and console
