@@ -5895,7 +5895,7 @@ class _Setup:
             table = op.get("checkpoints")
             if not isinstance(table, dict) or not table.get("bounded"):
                 continue
-            name = str(op.get("op"))
+            name = self._subject(op).rsplit(":", 1)[-1]  # the plan op, as the annotation keys it
             if table.get("reason"):
                 debts.append(f"NOT SHOWN: op {name} cutter path; {table['reason']}.")
                 continue
@@ -6282,9 +6282,10 @@ class _Setup:
         path's pieces as ``checkpoint_clips`` (docs/rules-coordinates.md, bounds clip).
 
         The cutter is the op's ``radius_mm`` cylinder less LIFT, from the printed tip plus
-        LIFT up above the setup-entry stock; it meets that stock (:meth:`_checkpoint_stock`,
-        the finished part outside the box included) when their common volume exceeds
-        HIT_MM3. Only the clipped rows and paths remain in ``checkpoints``: the row check
+        LIFT up above the setup-entry stock; it meets that stock (:meth:`_checkpoint_stock`)
+        when their common volume less the finished part exceeds HIT_MM3: as in the row check,
+        the finished part is its own obstacle, never stock, and rule A′ judges it at every
+        printed row. Only the clipped rows and paths remain in ``checkpoints``: the row check
         (:meth:`_checkpoint_facts`), the run-out and the sketch use nothing else. When the
         clip is unknown no row remains and the table says why.
         """
@@ -6362,13 +6363,18 @@ class _Setup:
         step, decimals, scale = dro["step"], dro["decimals"], dro["scale"]
         side = {"left": 1, "right": -1}.get(path.get("cutter_side"))
 
+        def hits(solid):
+            """Whether ``solid`` meets the stock, the finished part not counted."""
+            common = _common(solid, obstacle)
+            return common is not None and common.cut(self.finished).Volume > HIT_MM3
+
         def meets(a, b):
             """Whether the cutter swept from setup point ``a`` to ``b`` meets the stock."""
             if (b - a).Length <= PLANE_TOL:
                 solids = [Part.makeCylinder(rho, height, a)]
             else:
                 solids = [face.extrude(V(0, 0, height)) for face in _stadium(a, b, rho).Faces]
-            return any(_common(solid, obstacle) is not None for solid in solids)
+            return any(hits(solid) for solid in solids)
 
         def clear(i, j):
             """Whether the whole sweep along rows i..j is proven clear in one boolean."""
@@ -6382,9 +6388,7 @@ class _Setup:
                 return not meets(points[i], points[i])
             try:
                 area = _path_area(Part.makePolygon(run), rho)
-                return all(
-                    _common(face.extrude(V(0, 0, height)), obstacle) is None for face in area.Faces
-                )
+                return not any(hits(face.extrude(V(0, 0, height))) for face in area.Faces)
             except Exception:  # an OCC offset failure proves nothing: its halves are judged
                 return False
 
