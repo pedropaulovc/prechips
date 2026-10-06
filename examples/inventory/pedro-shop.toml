@@ -622,7 +622,10 @@ verify = true
 kind = "follow_rest"
 fits = "PM-1127VF-LB"
 source = "pm-1127 standard accessories"
-verify = true
+# --- pivot-shaft additions ---
+present = true               # example: standard accessory on hand
+# pending engine/lathe-zero follow-rest schema: capacity_min_mm 6.0 / capacity_max_mm 50.0 (example measured scalars)
+# --- end pivot-shaft additions ---
 
 # --- pivot-shaft additions ---
 # The PM-1127VF-LB standard-accessory MT3 dead centre, as a fixture with its solid facts.
