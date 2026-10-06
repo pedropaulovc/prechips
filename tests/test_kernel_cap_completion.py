@@ -83,9 +83,7 @@ def _claims(engine, step):
     lo, hi = (30 - DRILL, 20 - DRILL), (30 + DRILL, 20 + DRILL)
     bore = engine.refs(step, (*lo, 10), (*hi, 20), "Cylinder")
     caps = [
-        ref
-        for kind in ("Cone", "Sphere")
-        for ref in engine.refs(step, (*lo, 0), (*hi, 10), kind)
+        ref for kind in ("Cone", "Sphere") for ref in engine.refs(step, (*lo, 0), (*hi, 10), kind)
     ]
     assert len(bore) == 1 and len(caps) == 1
     return bore, caps[0]

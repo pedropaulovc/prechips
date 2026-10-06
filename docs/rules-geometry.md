@@ -496,6 +496,12 @@ Spot and tap operations honor an explicit depth even when the feature declares
 authored endpoint. `stock_state.top_z` and `entry_z` are machine-frame
 millimetres, and operation `depth_mm` is millimetres even when feature units
 are inches. Tap fallback feature-depth bands are converted to millimetres.
+For a spot, the sampled cutter tips and holder poses likewise stay above that
+authored endpoint: a 2 mm spot at the mouth of a 74 or 86 mm through bore has
+2 mm reach, not the full bore depth. This is action semantics (`do = "spot"`),
+including a centre-drill selected as its tool; the tool's name or kind does
+not turn the operation into a through drill. A following through drill
+retains its actual deep poses and any genuine deep chuck/fixture collision.
 
 When the op radius exceeds a matched bore's radius, every hole action except
 a spot also removes that bore's own wall out to the op radius. No fixed radial
