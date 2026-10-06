@@ -28,6 +28,7 @@ from prechips.rules.resolution import (
     resolve,
     setup_frame,
 )
+
 from .render_inputs import setup_annotations
 
 UNKNOWN = "unknown"

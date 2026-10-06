@@ -92,7 +92,9 @@ def _job(engine, step, ops, **features):
 def test_earlier_clearance_frees_a_later_flute_never_its_holder_or_an_earlier_flute(engine, solids):
     step = solids["island"]
     rough, finish = _rough(WEST), _finish()
-    reverse = {**_finish("S1:10")}, {**_rough(WEST), "subject": "S1:20"}
+    # A profile op would clear its own 2r corridor, the whole strip; a mill op sweeps its
+    # wall along +Z and removes nothing, so its flute still meets what the rough later clears.
+    reverse = {**_finish("S1:10"), "do": "mill"}, {**_rough(WEST), "subject": "S1:20"}
     forward, backward = engine.run(
         {"jobs": [_job(engine, step, [rough, finish]), _job(engine, step, list(reverse))]}
     )["results"]
@@ -101,7 +103,7 @@ def test_earlier_clearance_frees_a_later_flute_never_its_holder_or_an_earlier_fl
     assert after["tool_hits"] == 0 and after["obstacles"]["tool"] == [], after
     # The holder still meets the strip as the stock enters the setup.
     assert after["holder_hits"] > 0 and after["obstacles"]["holder"] == ["part"]
-    # Run first, the finish meets the whole strip: the later rough is never credited.
+    # Run first, the mill meets the whole strip: the later rough is never credited.
     before = backward["ops"]["S1:10"]
     assert before["tool_hits"] > 0 and before["obstacles"]["tool"] == ["part"], before
     assert before["holder_hits"] == after["holder_hits"]

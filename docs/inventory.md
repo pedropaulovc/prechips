@@ -295,8 +295,9 @@ support blocks carry their own heights. `point_angle` accepts the same
 
 `prechips tools --measure [--plan PLAN ...]` lists the measurement debt behind
 the current reports: every `numbers.measurements` entry that an unresolved
-applicable finding emits for the given plans (default: the five shipped example
-plans), sorted and deduplicated by scoped report id, including set-member and
+applicable finding emits for the given plans (default: the four pilot plans for
+shaft, rocker, bracket and the sole built-up cone), sorted and deduplicated by
+scoped report id, including set-member and
 tool/holder-pair ids such as `holders.r8-collets-lms-4860/3-8in.gauge_len` and
 `tools.endmills-lms-6784/3-8in-4fl.projection.r8-collets-lms-4860/3-8in`. An
 `"unknown"` fact a rule needs is listed even without `verify` debt. It is not a
@@ -315,6 +316,10 @@ marks each limit measured or unmeasured. Applicable M5 `?` sheet sentences also
 state what to measure and how; unresolved tools, holders, fixtures and supports
 are told to add or resolve an owned identity, not to measure an item the shop
 does not own.
+
+This evaluates the actual applicable rules and may need native in-process
+stock facts. A successful debt-list command is not a machining-readiness pass;
+unavailable physical facts remain unknown.
 
 ### Measurement records
 

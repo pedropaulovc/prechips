@@ -24,11 +24,19 @@ def save(name, shape):
     assert shape.isValid() and len(shape.Solids) == 1, name
     shape.exportStep(out + "/" + name + ".step")
 
-# 60x40x10 plate, its top split at x 29..31 by a 2 mm deep groove: an R2 boss 6 tall
-# at (25, 20) on the left top and one at (40, 20) on the right top.
-plate = Part.makeBox(60, 40, 10).fuse(Part.makeCylinder(2, 6, V(25, 20, 10)))
-plate = plate.fuse(Part.makeCylinder(2, 6, V(40, 20, 10))).removeSplitter()
-save("bosses", plate.cut(Part.makeBox(2, 42, 3, V(29, -1, 8))))
+# 60x40x10 plate, its top split at x 29..31 by a 2 mm deep groove into a left and a right
+# floor, each carrying an R1 stem 4 tall under a cap 4 thick (z 14..18). A floor pose is
+# legal by its tip disc, which clears the stems, but not the caps overhanging the floor:
+# an R5 pose covering a floor point beneath a cap meets it wherever the legal axis
+# stands. The near cap, R15 on the left floor's stem at (18, 20), overhangs the groove and
+# the right floor to x=33; no R5 pose covering the right floor (axis x >= 26) reaches its
+# stem. The far cap, R5 on the right floor's stem at (50, 20), starts at x=45, 6 mm beyond
+# any R5 pose covering the left floor (axis x <= 34).
+plate = Part.makeBox(60, 40, 10)
+for x, cap in ((18, 15), (50, 5)):
+    plate = plate.fuse(Part.makeCylinder(1, 4, V(x, 20, 10)))
+    plate = plate.fuse(Part.makeCylinder(cap, 4, V(x, 20, 14)))
+save("mushrooms", plate.removeSplitter().cut(Part.makeBox(2, 42, 3, V(29, -1, 8))))
 # 60x40x20 block, R4 opening from the top to z=2, and a D1.6 pin from its floor to z=25.
 opening = Part.makeBox(60, 40, 20).cut(Part.makeCylinder(4, 19, V(30, 20, 2)))
 save("pin-bore", opening.fuse(Part.makeCylinder(0.8, 23, V(31.8, 20, 2))).removeSplitter())
@@ -310,8 +318,8 @@ def certified(tmp_path_factory, freecad_kernel):
 _FACTS = ("sample_count", "tool_hits", "holder_hits", "min_hits", "obstacles", "hit_refs")
 
 
-def _boss_op(op_id, feature, tool=True, holder=True):
-    """R5 cutter 10 long; R5 holder 3 above the tip, under the 6 mm boss tops."""
+def _cap_op(op_id, feature, tool=True, holder=True):
+    """R5 cutter 10 long and R5 holder 3 above the tip: each spans the z 14..18 caps."""
     op = _op(op_id, feature, 5.0, 10.0, 3.0, holder_radius=5.0)
     if not tool:
         del op["flute_len_mm"]
@@ -322,32 +330,34 @@ def _boss_op(op_id, feature, tool=True, holder=True):
 
 
 def test_later_ops_on_shared_regions_keep_every_proven_ref_and_count_per_kind(engine, solids):
-    step = solids["bosses"]
+    step = solids["mushrooms"]
     left = engine.refs(step, (0, 0, 10), (29, 40, 10), kind="Plane")
     right = engine.refs(step, (31, 0, 10), (60, 40, 10), kind="Plane")
-    near = engine.refs(step, (23, 18, 10), (27, 22, 16))
-    far = engine.refs(step, (38, 18, 10), (42, 22, 16))
-    assert len(left) == len(right) == 1 and len(near) == len(far) == 2  # boss side and top
+    # Each cap's underside, rim and top; never a stem, which no legal pose meets.
+    near = engine.refs(step, (2, 4, 14), (34, 36, 18))
+    far = engine.refs(step, (44, 14, 14), (56, 26, 18))
+    assert len(left) == len(right) == 1 and len(near) == len(far) == 3
     features = {"both": left + right, "left": left, "right": right}
     hold = _vise(5.0)
     # One setup shares each top's own-face region across ops. Whichever top is posed first
-    # in S1:10, the other's poses then meet the near boss already proven for that kind;
+    # in S1:10, the other's poses then meet the near cap already proven for that kind;
     # S1:20 and S1:30 pose those same cylinders again from an empty union.
-    ops = [_boss_op("S1:10", "both"), _boss_op("S1:20", "right"), _boss_op("S1:30", "left")]
+    ops = [_cap_op("S1:10", "both"), _cap_op("S1:20", "right"), _cap_op("S1:30", "left")]
     shared = engine.run(engine.job(step, features, [_setup(ops, hold)]))["ops"]
     # Fresh single-face, single-kind references: no union or region outcome from another
     # op, face or kind.
     alone = [
-        _boss_op("S1:10", "left", holder=False),
-        _boss_op("S1:20", "right", holder=False),
-        _boss_op("S1:30", "left", tool=False),
-        _boss_op("S1:40", "right", tool=False),
+        _cap_op("S1:10", "left", holder=False),
+        _cap_op("S1:20", "right", holder=False),
+        _cap_op("S1:30", "left", tool=False),
+        _cap_op("S1:40", "right", tool=False),
     ]
     fresh = engine.run(engine.job(step, features, [_setup(alone, hold)]))["ops"]
     tool = {"left": fresh["S1:10"], "right": fresh["S1:20"]}
     holder = {"left": fresh["S1:30"], "right": fresh["S1:40"]}
-    # The left top's cutter and holder meet only the near boss; the right top's meet the
-    # near boss across the groove and discover the far one.
+    # The left top's cutter and holder meet only the near cap above it; the right top's
+    # meet the near cap where it overhangs the groove and the far cap around its own stem.
+    # Poses far from both caps (the plate corners) stay clear.
     for kind, facts in (("tool", tool), ("holder", holder)):
         assert facts["left"]["hit_refs"][kind] == sorted(near)
         assert facts["right"]["hit_refs"][kind] == sorted(near + far)

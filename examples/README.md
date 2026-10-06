@@ -125,7 +125,7 @@ PLAN §8 M3.
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
 | `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **2 (last CLI proof)**: all four native fixtures are modeled without fixture debts. Exit-0 still needs complete explicit-face ownership and legal cutter poses; S4's cut-state render is separately blocked by the engine's blanket stock-split guard despite independently held part and scrap. Checked-in goldens remain stale. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **2**: physical inventory and authored setup data are complete; all three native fixture scenes are modeled without debts. Legal planar cutter poses, the finish-floor cut plane and preceding-operation stock clearance remain engine-owned accessibility stops. |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all three native fixture scenes are modeled with no fixture or render debts. |
 | `cone-pivot-post/built-up.toml` | Five authored setups for a block plus proposed pressed boss; finished volume and waste remain unknown. | **2**: the `mount_west` nominal conflict and S2:50 far-side cone-boss claims. |
 
 ### Rocker-arm supported route
@@ -134,11 +134,14 @@ The illustrative rocker plan binds the exported `v40` drawing revision and
 uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
 a clean checker exit is released-plan approval or a measured first article.
 
-The checked-in rocker artifacts are regenerated from the actual required-kernel
-CLI with integration `f5c8182` and the revised route below. They honestly retain
-exit **2**: 189 passes, 165 not-applicable findings, eleven accessibility errors
-and one unresolved datum-transfer finding, with no warnings or unsupported
-findings. All four fixtures are modeled with exact components and no fixture
+The checked-in rocker artifacts are the last actual required-kernel CLI
+snapshot, generated with integration `f5c8182` before the positive-restraint
+declarations and corrected tip-turnover corridors below. They are stale against
+those newer inputs and must be regenerated after the engine contracts land.
+That stopped snapshot records exit **2**: 189 passes, 165 not-applicable
+findings, eleven accessibility errors and one unresolved datum-transfer finding,
+with no warnings or unsupported findings. All four fixtures are modeled with
+exact components and no fixture
 debts; S1/S2/S3 have no render debts. S4 still explicitly shows arriving stock
 only because the current stock-split guard rejects separating the retained
 scrap frame from the independently clamped part. This needs
@@ -167,11 +170,14 @@ halfway through a fixed setup:
   The rocker-only rougher is inserted to a 38.0 mm projection, below the
   four-diameter engagement limit; the shared finish cutter retains 38.5 mm.
   Before rough-contouring the end lands, open their tip-turnover pockets within
-  op 40's **Y27 / rolled Y-27** clearing corridor. The full cutter reaches
-  Y26.9581 / Y-26.9581 there, beyond the old Y24 / Y-24 limit but inside op 50's
-  already authorized top-edge pocket. Native stock proof preserves both raw
-  rails, both ears, the normal 0.20 mm allowance and the opposed 0.40 mm web;
-  moving that clearance earlier does not change the setup's final stock.
+  op 40's **Y27 / rolled Y-27** clearing corridor. The native wall-normal
+  roughing samples reach Y26.9581 / Y-26.9581 with the full cutter, beyond the old
+  Y24 / Y-24 limit but inside op 50's already authorized top-edge pocket.
+  Native bounded-removal proof preserves both raw rails, both ears, the normal
+  0.20 mm allowance and the opposed 0.40 mm web; moving that clearance earlier
+  does not change the setup's final stock. This does not certify the current
+  emitted offset-join checkpoints: their extended upper joins nick the retained
+  rails and require an engine-owned finite-path fix and native point validation.
   Opposed roughing retains a 0.40 mm connecting web. The 1/2 in parallels sit
   entirely beneath the rails
   on matched **76.2 × 64 × 25.4 mm** ground riser bars, with 0.5 mm clearance
@@ -1011,8 +1017,9 @@ The former 43-leaf missing-feature ledger is superseded by the v39 STEP-bound,
 hand-authored manifest. No dimensioned drawing was found, so bands are plausible
 example design intent rather than imported drawing acceptance limits.
 
-S1 faces the seat and profiles only the foot-depth region, with explicit bounded
-clearance retaining the upper-ear stock for S2/S3. S2 stands the foot on one
+S1 faces the whole actual raw top, including its overhang rails, then profiles
+only the foot-depth region with bounded clearance retaining the upper-ear stock
+for S2/S3. S2 stands the foot on one
 41.275 mm tall narrow parallel pair (not wide blocks under closed jaws).
 Both vise holds use no longitudinal end stop: each blank is clamped, then
 edge-found against the raw faces for its own DRO zero. No unmodeled stop is
@@ -1041,8 +1048,10 @@ Datum A is labelled "finished seat face" at the bench, not by a CAD-frame coordi
 The two setup transfers use an authored 0.001 in (0.0254 mm) TIR limit, two
 divisions of the existing 0.0005 in test indicator; this is an alignment target,
 not a claim that the setup has already been measured.
-After the shared outer face is finished, S3:11 checks the final 6 mm ear thickness
-(the S2 in-process ear was still 7 mm). The R7 arch gets a radius-gauge check.
+S3 likewise faces the full actual entry top, including the retained rectangular
+crown, before profiling the arch. After the shared outer face is finished,
+S3:11 checks the final 6 mm ear thickness (the S2 in-process ear was still 7 mm).
+The R7 arch gets a radius-gauge check.
 The crown's explicit S3 clearance box removes the retained cap without using
 the earlier straight side slots to fabricate an arched form from above.
 The reamed bore uses paired metric 6.500 mm go / 6.530 mm no-go pins rather than

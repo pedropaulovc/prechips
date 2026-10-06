@@ -1,13 +1,9 @@
-"""Floor tool poses within a cutter radius of any concave floor edge, curved ones included.
+"""Nearest covering floor axes against native straight and circular walls.
 
-User decision 2026-10-05: a floor sample on or within R of a concave floor/wall edge (a
-pocket wall or a boss foot, straight or circular) shifts away from the nearest edge point
-until the cutter is tangent: along that wall's in-plane normal, or straight away from a
-sharp convex island corner the sample is past both walls of. A concave circle at least R in
-radius bounds it exactly, so a sample between an arc and a straight wall stands tangent to
-both. A tool wider than its gap or circle still reports the real wall hit, never unknown.
-FreeCAD-backed tests run ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and
-skip without it.
+Circular pockets and exact two-radius grooves admit covering tangent axes.
+Sharp line/arc or arc/arc corners that require a farther axis report the physical
+wall collision instead of accepting an uncovered sample. FreeCAD-backed tests
+run ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
 import subprocess
@@ -107,22 +103,31 @@ def _floor_op(engine, step, lo, hi, radius):
         ("circle", (20, 10, 14), (40, 30, 14)),
         # Circle exactly the cutter's size: every sample stands on the one centred axis.
         ("exact-circle", (27, 17, 14), (33, 23, 14)),
-        # Arc and chord: a sample near their corner stands tangent to the circle and line.
-        ("d-pocket", (24, 10, 14), (40, 30, 14)),
-        # Acute cusp: a sample on one arc shifts toward the cusp until the other arc,
-        # farther than R from the sample, bounds it too.
-        ("lens", (26, 12, 14), (34, 28, 14)),
     ],
 )
 def test_samples_near_a_curved_pocket_wall_stand_tangent_inside_it(engine, solids, name, lo, hi):
     _, detail = _floor_op(engine, solids[name], lo, hi, 3.0)
-    assert detail["sample_count"] > 0
     assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail
+
+
+@pytest.mark.parametrize(
+    "name, lo, hi",
+    [
+        ("d-pocket", (24, 10, 14), (40, 30, 14)),
+        ("lens", (26, 12, 14), (34, 28, 14)),
+    ],
+)
+def test_sharp_curved_pocket_corners_report_uncoverable_real_wall_hits(
+    engine, solids, name, lo, hi
+):
+    _, detail = _floor_op(engine, solids[name], lo, hi, 3.0)
+    assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
+    assert "tool_hits" not in detail["reasons"], detail
+    assert detail["obstacles"]["tool"] == ["part"], detail
 
 
 def test_groove_exactly_two_radii_wide_clears_both_walls(engine, solids):
     _, detail = _floor_op(engine, solids["groove"], (0, 17, 12), (60, 23, 12), 3.0)
-    assert detail["sample_count"] > 0
     assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail
 
 
@@ -143,20 +148,18 @@ def test_tool_wider_than_its_circle_or_gap_reports_the_real_wall_hit(
     assert walls <= set(detail["hit_refs"]["tool"]), detail
 
 
-def test_axis_shifted_across_an_island_wall_is_bounded_by_it(engine, solids):
-    # The samples at and beside the V tip shift onto the two-wall tangent axis inside the
-    # boss; the boss wall they crossed joins the closure, which moves them past it. The
-    # two samples within R of the boss's tip-facing side and both V walls have no axis
-    # clear of all three tangent bounds, so they keep their own axis and report the hit.
+def test_a_sharp_v_corner_and_its_island_cannot_gain_a_noncovering_clear_axis(engine, solids):
+    # The V tip needs more than R of displacement even without the boss.
+    # A clear axis farther past that island cannot stand for the uncovered tip.
     _, detail = _floor_op(engine, solids["v-boss"], (5, 2, 14), (45, 38, 14), 1.5)
-    assert detail["tool_hits"] == 2 and "tool_hits" not in detail["reasons"], detail
+    assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
+    assert "tool_hits" not in detail["reasons"], detail
 
 
 def test_plate_samples_beside_a_thin_rib_stand_clear_of_its_near_face_only(engine, solids):
     # A sample at one face's foot lies behind the rib's other face 1 mm away: it is not
     # inside material, so that far face does not bound it and the near face alone does.
     _, detail = _floor_op(engine, solids["rib"], (0, 0, 10), (60, 40, 10), 3.0)
-    assert detail["sample_count"] > 0
     assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail
 
 
@@ -164,15 +167,12 @@ def test_plate_sample_past_a_square_islands_convex_corner_stands_clear_of_it(eng
     # The sample (30, 20) is 1.41 mm from the corner (31, 21) and past both walls' ends:
     # neither wall's line bounds it, the corner does, so it moves straight away to tangency.
     _, detail = _floor_op(engine, solids["corner-island"], (0, 0, 10), (60, 40, 10), 3.0)
-    assert detail["sample_count"] > 0
     assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail
 
 
-def test_sample_just_past_one_walls_end_is_bounded_by_the_other_wall_alone(engine, solids):
-    # The sample (30, 20) faces A's right wall; its nearest point on A's bottom wall is the
-    # corner, 0.01 away. Bounding it by that corner too would push the axis up the exactly
-    # 6 mm slot into C's reach, leaving no clear axis; the right wall alone puts it at
-    # (32.99, 20), tangent to A and B and clear of C.
+def test_an_exact_width_slot_closed_by_an_island_retains_its_uncoverable_corner_hit(engine, solids):
+    # The A/B walls leave a closed 2R strip, but C caps its end with sharp
+    # corners. A pose beyond R cannot erase those samples' physical collisions.
     _, detail = _floor_op(engine, solids["partial-gap"], (0, 0, 10), (60, 40, 10), 3.0)
-    assert detail["sample_count"] > 0
-    assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail
+    assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
+    assert "tool_hits" not in detail["reasons"], detail

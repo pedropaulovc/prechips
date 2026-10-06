@@ -371,33 +371,30 @@ travelers state surface prep, cure time and do not disturb until cured.
 See [the plan format](docs/plan.md) for the authored fields.
 
 Cutter self-contact exclusion is only a thin shell of the sampled face;
-another claimed groove wall remains an obstacle. Under the user's
-2026-10-05 pose decision, a floor sample on or within one cutter radius of
-any concave floor/rising-wall edge, straight or curved (pocket walls and boss
-feet alike), moves its axis along the wall's in-plane normal at the nearest
-edge point until the cutter is tangent; every such edge bounds it at once, so
-two-wall concave corners and samples near them stand tangent to both walls,
-and a concave circle at least the cutter's radius bounds it exactly. A cutter
-wider than its gap or circle keeps the sample's own axis and reports the real
-hit. Convex edges and farther interior samples are unchanged. A sample past
-both walls of a sharp convex island corner (classified by the wall/wall edge
-rising there) moves straight away from that corner, its nearest boundary
-point, until tangent; one in front of or behind a wall's interior is bounded
-by that wall alone, and convex vertices get no corner pose. An edge the shifted
-axis comes within a radius of, or crosses into its material from the floor
-(its nearest edge, straight behind the edge), joins the bounds once (a finite
-constraint closure, not a search). This is a
-per-sample rule for floors that keep their samples. A +Z planar floor whose
-entire face fits inside the actual cutter disc instead gets one pose, no
-samples or corners: the area centroid of the axes covering its outer wire
-(exact for lines and Z circles, no `STOCK_TOL` widening), a certified unique
-centre when only one axis covers it, or a concave rising Z-circle wall's centre
-meeting every such wall's tangent-circle bound; a rough leave or any other rising wall
-keeps the samples, and so does a face larger than the cutter (reverse
-containment is not this rule). An undecidable floor (other outer curves, a
-failed native locus or unclassifiable edge) drops only its own poses: other
-faces' certain hits stay while the op's measured facts are `unknown`.
-Tangency does not certify
+another claimed groove wall remains an obstacle. Every sample of an ordinary
++Z planar face (transient joint faces and hole ops keep their own poses),
+concave floor corners included, stands on its nearest legal centre. The tip
+height comes first: `max(face z + leave, to_z) + LIFT`. A centre is legal when
+it lies outside the branch's certain material (current components within their
+raw supply, without permitted unjoined sockets) and at least ρ from its section
+at that height, where ρ is the cutter radius `r` for finishing and `r + a`
+for roughing; the axis may move at most ρ, so a rough cutter is not asked to
+finish a wall foot its leave keeps. A legal sample keeps its axis. Otherwise
+the nearest legal centre within ρ wins; equally near ones (within one fixed
+1e-7 mm, never a radius or `STOCK_TOL`) go to the one nearest the face's area
+centroid, then the least (x, y). With none within ρ the sample keeps its axis
+and the native check reports the genuine hit, so a sharp corner the cutter
+cannot reach is a hit, not a cleared pose. Candidates are exact offsets of the
+nearby line and Z-circle section edges (exact single axes and 2r strips
+included), certified against the whole native section. Only the section at the
+tip height steers the axis: overhangs, leave below it, future hole cores and
+unclaimed raw do not, but the full flute against the accepted after-op stock
+and the holder against setup-entry stock still meet them there. Another curve
+near a sample, an ambiguous section (a face starting or ending at that height,
+an open wire) or missing raw supply leaves that floor's pose undefined: it
+drops only its own poses, other faces' certain hits stay and the op's measured
+facts are `unknown`.
+A legal centre does not certify
 corner radii. Floor-only claims do not certify wall/wall corners;
 `internal_corner_radius` retains its existing scope and checks a sharp
 wall/wall corner when the operation claims both walls.
@@ -449,7 +446,7 @@ inch-unit features; tap fallback feature-depth bands convert to millimetres.
 Unrelated finished material and holder obstacles remain. A rough milling op's
 scalar `rough_allowance_mm` (a) is an engine-consumed leave normal to the
 finished surface: each sample moves `a` along the unit normal before the
-cutter-radius XY shift, floor-edge/corner constraints use `r + a`, derived
+cutter-radius XY shift, planar floor samples need legal clearance `r + a`, derived
 stock protects the finished solid offset outward by `a` (drafted faces
 included), and later finishing ops remove it. An explicit `to_z` caps the endpoint rather
 than adding a second leave; a finishing op's numeric `to_z` above its face is
@@ -478,7 +475,15 @@ Those reserved columns span the actual matched bore plus any adjacent coaxial
 concave cone/sphere cap no wider than the bore, using exact axial spans and
 numerical lift at either end, not the entry-stock height. Wider back
 countersinks are not reserved, blind columns stop at their caps, and
-pins/rods outside that span remain.
+pins/rods outside that span remain. One exception: a bounded facing op
+(`face`, `rough_face`, `finish_face`) releases a column whose bore opens on one
+of its claimed +Z planar faces (a shared native edge, with face material outside
+the bore's nominal cylinder; a planar blind bottom, annular or slightly tilted,
+lying wholly inside it is a closed cap, not an opening) above that face's cut
+height `max(face z + a, to_z)` (the highest such claim's, no lift), and only
+inside its box, guard window and own outer-loop sweep: facing removes that
+core there. The column below that height, other bores and any core outside
+that scope stay reserved, and the flute and holder still meet them.
 Kernel-absent runs remove stale setup PNGs in the same output transaction.
 Nothing here is a toolpath or a certification of the physical setup. See
 [docs/rules-geometry.md](docs/rules-geometry.md).

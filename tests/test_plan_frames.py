@@ -181,18 +181,32 @@ def test_unbound_shaft_frame_keeps_model_z_unknown_and_records_the_local_station
     assert found["S3"].status == "unknown"
 
 
-def test_restored_cone_frames_return_numbers_but_never_a_physical_binding():
-    bundle = load_bundle(BUILT_UP)
-    found = by_setup(coordinates.evaluate(bundle))
-    assert {f.numbers["binding"] for f in found.values()} == {"unknown"}
-    assert all(f.status == "unknown" for f in found.values())
-    assert rows(found["S3"])["journal_bore", "centre"]["setup"] == [0.0, 0.0, 0.0]
-    assert rows(found["S4"])["crank_bore", "centre"]["setup"] == [0.0, 0.0, -21.3753]
-    assert rows(found["S2"])["mount_west", "centre"]["setup"] == [-12.98, 0.0, 86.0]
-    zero = by_setup(zero_recipe.evaluate(bundle))
-    assert {f.numbers["binding"] for f in zero.values()} == {"unknown"}
-    assert all(f.status != "pass" for f in zero.values())
-    assert "plan.frames.J3: author-declared setup frame" in zero["S3"].cite
+@pytest.mark.parametrize("rule", [coordinates, zero_recipe])
+def test_unbound_frames_stay_unknown_without_inventing_a_bench_binding(tmp_path, rule):
+    path = bundle_path(tmp_path, frames=PLAN_FRAME.replace('"nominal"', '"unknown"'))
+    bundle = load_bundle(path)
+    mill = bundle.plan["setups"][0]
+    bench = {
+        **mill,
+        "id": "B1",
+        "machine": "bench",
+        "ops": [{"op": 10, "do": "inspect", "feature": "hole"}],
+    }
+    bundle = dataclasses.replace(
+        bundle,
+        plan={**bundle.plan, "setups": [mill, bench]},
+        inventory={
+            **bundle.inventory,
+            "machines": {**bundle.inventory["machines"], "bench": {"kind": "bench"}},
+        },
+    )
+    found = by_setup(rule.evaluate(bundle))
+    assert found["S1"].numbers["binding"] == "unknown"
+    assert found["S1"].status == "unknown"
+    assert found["B1"].status == "not_applicable"
+    assert "binding" not in found["B1"].numbers
+    if rule is coordinates:
+        assert rows(found["S1"])["hole", "centre"]["setup"] == [20.0, 0.0, 0.0]
 
 
 @pytest.mark.parametrize("plan", [SHAFT, BUILT_UP])

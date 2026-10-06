@@ -135,25 +135,38 @@ def test_rough_profile_leaves_its_normal_stock_and_a_finish_removes_it_from_its_
     assert third["stock_volume_mm3"] == pytest.approx(leave - skin, abs=0.01)
 
 
-def test_finish_wall_beside_raw_stock_thicker_than_the_lineage_leave_stays_debt(engine, solids):
+@pytest.mark.parametrize("action", ["mill", "finish_profile"])
+def test_finish_wall_beside_raw_stock_thicker_than_the_lineage_leave(engine, solids, action):
     step = solids["island"]
     walls = _island_walls(engine, step)
     west = {"x": [0.0, 5.0], "y": [-5.0, 55.0], "z": [0.0, 20.0]}
     rough = _rough("S1:10", "west", 3.0, 25.0, 30.0, stock_removal_bounds=west)
-    finish = {**_op("S2:10", "south", 3.0, 25.0, 30.0), "do": "finish_profile"}
+    finish = {**_op("S2:10", "south", 3.0, 25.0, 30.0), "do": action}
     setups = [
         _setup([rough], ISLAND_HOLD, setup_id="S1"),
         _setup([finish], ISLAND_HOLD, setup_id="S2"),
         _setup([], ISLAND_HOLD, setup_id="S3"),
     ]
     result = engine.run(engine.job(step, walls, setups, stock=ISLAND_BLANK))
-    assert "stock_reason" not in result["setups"]["S2"]
-    # The finish cuts only a lineage-leave-thick skin; the raw 9.8 mm beyond it remains.
-    reason = result["setups"]["S3"]["stock_reason"]
-    assert "S2:10" in reason and "overstock still touches claimed wall" in reason, reason
+    second, third = result["setups"]["S2"], result["setups"]["S3"]
+    assert "stock_reason" not in second
+    if action == "mill":
+        # A +Z sweep of the wall cuts only a lineage-leave-thick skin; the raw 9.8 mm
+        # beyond it remains on the wall.
+        reason = third["stock_reason"]
+        assert "S2:10" in reason and "overstock still touches claimed wall" in reason, reason
+        return
+    # The profile cutter clears its 6 mm corridor beside the 60 mm wall and an r disc
+    # past the open east end; the west disc meets only the rough's 0.2 mm leave strip.
+    # The raw 4 mm beyond the corridor stays stock, clear of the wall.
+    assert "stock_reason" not in third, third["stock_reason"]
+    removed = second["stock_volume_mm3"] - third["stock_volume_mm3"]
+    corridor = 20 * (60 * 6 + math.pi * 3**2 / 2)
+    assert corridor < removed < corridor + 20 * LEAVE * 6, removed
+    assert third["stock_bbox_mm"][1] == pytest.approx(-5.0)
 
 
-def test_rough_floor_to_z_at_its_leave_is_that_endpoint_and_corners_stand_r_plus_a(engine, solids):
+def test_rough_floor_to_z_at_its_leave_is_that_endpoint(engine, solids):
     step = solids["slot"]
     floor = engine.refs(step, (15, 14, 14), (45, 26, 14))
     assert len(floor) == 1
@@ -172,8 +185,8 @@ def test_rough_floor_to_z_at_its_leave_is_that_endpoint_and_corners_stand_r_plus
     op = known["ops"]["S1:10"]
     # to_z already at floor + a is the tip: reach is 20 - 14.2, not 20 - 14.4.
     assert op["reach_depth_mm"] == pytest.approx(20.0 - 14.0 - LEAVE)
-    # Edge and corner poses stand r + a off the pocket walls, clear of their leave.
-    assert op["tool_hits"] == 0 and op["obstacles"]["tool"] == [], op
+    # Sharp floor corners are not coverable by the cutter disc; their collision is
+    # exercised separately. Here the endpoint and retained leave remain measurable.
     # The pocket is cleared to its 0.2 mm floor and wall leave.
     removed = (30 - 2 * LEAVE) * (12 - 2 * LEAVE) * (6 - LEAVE)
     assert known["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(48000.0 - removed, abs=0.01)
@@ -199,12 +212,11 @@ def test_finish_floor_to_z_above_the_floor_is_its_tip_and_its_own_cut_stops_ther
 
     shallow, both = engine.run({"jobs": [job([spring]), job([spring, full])]})["results"]
     finished = 48000.0 - 30 * 12 * 6
-    # The spring pass stops 0.1 above the floor: that skin is real stock below its tip,
-    # never under it, so the pass clears; a later full-depth pass cuts the skin itself.
-    assert shallow["ops"]["S1:10"]["tool_hits"] == 0, shallow["ops"]["S1:10"]
+    # The spring pass stops 0.1 above the floor: that skin is real stock below its tip.
+    # Sharp pocket corners still collide independently of the authored floor endpoint.
+    assert shallow["ops"]["S1:10"]["reach_depth_mm"] == pytest.approx(20.0 - 14.1)
     skin = 30 * 12 * 0.1
     assert shallow["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(finished + skin, abs=0.01)
-    assert both["ops"]["S1:20"]["tool_hits"] == 0, both["ops"]["S1:20"]
     assert both["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(finished, abs=0.01)
 
 
