@@ -132,6 +132,7 @@ GRID = 5  # cell-centred UV samples per face direction
 EDGE_SAMPLES = (2, 12)  # per boundary edge
 AWAY = -1e-3  # outward normal z below which a face points away from the tool approach
 HIT_MM3 = 1e-6  # common volume that counts as an intersection
+HIT_BALL_MM = 0.01  # mm: proof-ball radius; its 4.19e-6 mm^3 volume exceeds HIT_MM3
 STOCK_TOL = 1e-3  # mm: as-is face distance to the envelope, claimed-face contact
 COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is not cleared
 STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached stock piece
@@ -1174,11 +1175,101 @@ def _cylinder_hits_box(cx, cy, radius, z0, z1, box, touching=False):
     return dx * dx + dy * dy <= radius * radius if touching else dx * dx + dy * dy < radius * radius
 
 
+def _trustworthy(values):
+    """Whether every value is finite, with rounding far below STOCK_TOL."""
+    return all(math.isfinite(value) and math.ulp(value) <= STOCK_TOL / 128 for value in values)
+
+
+def _box_distance(point, box):
+    """Distance from ``point`` to the axis-aligned ``box``; 0 inside it."""
+    x, y, z = point
+    return math.hypot(
+        max(box[0] - x, 0.0, x - box[3]),
+        max(box[1] - y, 0.0, y - box[4]),
+        max(box[2] - z, 0.0, z - box[5]),
+    )
+
+
+def _surface_distance(point, kind, origin, axis, radius):
+    """Distance from ``point`` to an unbounded plane or cylinder with unit ``axis``."""
+    dx, dy, dz = point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]
+    ux, uy, uz = axis
+    if kind == "plane":
+        return abs(dx * ux + dy * uy + dz * uz)
+    return abs(math.hypot(dy * uz - dz * uy, dz * ux - dx * uz, dx * uy - dy * ux) - radius)
+
+
+def _face_bound(face, box, tol):
+    """(kind, origin, unit axis, radius, box) for ``_clearance``, or None for a face whose
+    surface is unsupported or whose native description is inconsistent.
+
+    A face lies on its surface, and its edges and vertices lie within ``tol`` of it. A
+    plane or cylinder face therefore lies within ``tol`` of that unbounded surface and
+    inside ``box``, its tolerance-grown bounds. A B-spline or Bezier surface with
+    positive weights lies in the convex hull of its poles, so the poles' box grown by
+    ``tol`` holds the whole face.
+    """
+    surface = face.Surface
+    u0, u1, v0, v1 = face.ParameterRange
+    if not _trustworthy((u0, u1, v0, v1)):
+        return None
+    middle = tuple(face.valueAt((u0 + u1) / 2, (v0 + v1) / 2))
+    vertices = [tuple(vertex.Point) for vertex in face.Vertexes]
+    if isinstance(surface, (Part.BSplineSurface, Part.BezierSurface)):
+        poles = [tuple(pole) for row in surface.getPoles() for pole in row]
+        weights = [weight for row in surface.getWeights() for weight in row]
+        if not poles or len(weights) != len(poles) or min(weights) <= 0:
+            return None
+        if not _trustworthy([value for pole in poles for value in pole] + weights):
+            return None
+        hull = tuple(min(pole[i] for pole in poles) - tol for i in range(3)) + tuple(
+            max(pole[i] for pole in poles) + tol for i in range(3)
+        )
+        if not all(_box_distance(point, hull) == 0 for point in [middle, *vertices]):
+            return None
+        return ("hull", None, None, 0.0, hull)
+    if isinstance(surface, Part.Plane):
+        kind, origin, radius = "plane", tuple(surface.Position), 0.0
+    elif isinstance(surface, Part.Cylinder):
+        kind, origin, radius = "cylinder", tuple(surface.Center), surface.Radius
+    else:
+        return None
+    axis = tuple(surface.Axis)
+    length = math.hypot(*axis)
+    if not (_trustworthy((*origin, *axis, radius, *box)) and length > 0):
+        return None
+    if (kind == "cylinder" and radius <= 0) or any(box[i] > box[i + 3] for i in range(3)):
+        return None
+    axis = tuple(value / length for value in axis)
+    corners = [tuple(face.valueAt(u, v)) for u in (u0, u1) for v in (v0, v1)]
+    if not all(
+        _trustworthy(point) and _surface_distance(point, kind, origin, axis, radius) <= STOCK_TOL
+        for point in [middle, *corners]
+    ):
+        return None
+    if not all(
+        _surface_distance(point, kind, origin, axis, radius) <= tol + STOCK_TOL
+        for point in vertices
+    ):
+        return None
+    return (kind, origin, axis, radius, box)
+
+
+def _clearance(point, bound, tol):
+    """Lower bound on the distance from ``point`` to a ``_face_bound`` face grown by ``tol``."""
+    kind, origin, axis, radius, box = bound
+    boxed = _box_distance(point, box)
+    if kind == "hull":
+        return boxed
+    return max(_surface_distance(point, kind, origin, axis, radius) - tol, boxed)
+
+
 class _Culled:
     """Cull and memoize cylinder intersections against one immutable stock solid.
 
     Cached shapes are read-only and expire with their stock/own-face region.
     Cap retained material shapes; cheap empty answers do not retain any B-rep.
+    Hits proven without a boolean keep only their exact cylinder, never a shape.
     """
 
     KEEP = 256
@@ -1186,9 +1277,20 @@ class _Culled:
     def __init__(self, shape):
         self.shape = shape
         self.boxes = [_tolerant_box(face) for face in shape.Faces]
+        self.box = None
+        if self.boxes:
+            self.box = tuple(
+                (min if index < 3 else max)(box[index] for box in self.boxes)
+                for index in range(6)
+            )
         self.answers = {}
         self.hit_refs = {}  # exact (cylinder, own face) -> read-only label set
         self.kept = 0
+        self.proven = set()  # exact cylinders a stock ball proves hit; never shapes or answers
+        self.balls = None  # lazy [centre, verified or None] lists; [] disables proofs
+        self.tol = None  # the shape's maximum tolerance, read with the balls
+        self.bounds = None  # per-face _face_bound, built with the balls
+        self.sound = None  # lazy _sound verdict, decided only for a proof about to be used
 
     def common(self, cx, cy, radius, z0, z1, solid=None):
         """The solid's material inside the cylinder, or None when there is none.
@@ -1205,7 +1307,16 @@ class _Culled:
             return self.answers[key]
         if not any(_cylinder_hits_box(cx, cy, radius, z0, z1, box, True) for box in self.boxes):
             # No face reaches the cylinder, so it lies wholly inside or wholly outside.
-            if not self.shape.isInside(V(cx, cy, (z0 + z1) / 2), 1e-9, False):
+            middle = (z0 + z1) / 2
+            outside = self.box is not None and (
+                cx < self.box[0] - 1e-6
+                or cy < self.box[1] - 1e-6
+                or middle < self.box[2] - 1e-6
+                or cx > self.box[3] + 1e-6
+                or cy > self.box[4] + 1e-6
+                or middle > self.box[5] + 1e-6
+            )
+            if outside or not self.shape.isInside(V(cx, cy, middle), 1e-9, False):
                 answer = None
             else:
                 answer = (
@@ -1225,6 +1336,136 @@ class _Culled:
                 self.answers[key] = answer
                 self.kept += 1
         return answer
+
+    def hits(self, cx, cy, radius, z0, z1):
+        """Whether ``common(cx, cy, radius, z0, z1)`` is not None.
+
+        A cached answer decides first, then a certified hit; otherwise the boolean
+        decides and is cached as usual.
+        """
+        key = (cx, cy, radius, z0, z1)
+        if key in self.answers:
+            return self.answers[key] is not None
+        return self._certified_hit(key) or self.common(*key) is not None
+
+    def certified(self, cylinder, own):
+        """Whether ``_certified_hit`` proves a hit that no cached result already decides.
+
+        A cached answer for ``cylinder``, or a cached full ref set for it posed from
+        ``own``, stays authoritative: the caller then takes its old path.
+        """
+        if cylinder in self.answers or (cylinder, own) in self.hit_refs:
+            return False
+        return self._certified_hit(cylinder)
+
+    def _certified_hit(self, cylinder):
+        """Whether a stock ball lies strictly inside the exact ``cylinder`` tuple.
+
+        True proves that ``common(*cylinder)`` holds more than HIT_MM3 of material:
+        the ball alone holds 4.19e-6 mm^3. False proves nothing. It never runs the
+        boolean and never touches ``answers`` or ``hit_refs``.
+        """
+        if cylinder in self.proven:
+            return True
+        cx, cy, radius, z0, z1 = cylinder
+        margin = HIT_BALL_MM + STOCK_TOL
+        reach = radius - margin
+        if not (_trustworthy(cylinder) and reach > 0 and z1 - z0 > 2 * margin):
+            return False
+        if self.balls is None:
+            self.balls = self._ball_centres()
+        for ball in self.balls:
+            (x, y, z), verified = ball
+            if verified is False or not z0 + margin < z < z1 - margin:
+                continue
+            if (x - cx) ** 2 + (y - cy) ** 2 >= reach * reach:
+                continue
+            if verified is None:
+                ball[1] = verified = self._ball_inside(ball[0])
+                if self.sound is False:
+                    self.balls = []  # an unsound stock never proves a ball
+                    return False
+            if verified:
+                self.proven.add(cylinder)
+                return True
+        return False
+
+    def _ball_centres(self):
+        """[centre, verified or None] for up to three UV samples per face, each moved
+        4 x (HIT_BALL_MM + tolerance + STOCK_TOL) along the inward normal; [] when any face
+        is unsupported.
+
+        Placement only aims proofs: every centre is proven before its first use.
+        """
+        try:
+            self.tol = self.shape.getTolerance(1)
+            if not (_trustworthy((self.tol,)) and self.tol >= 0):
+                return []
+            faces = self.shape.Faces
+            self.bounds = [
+                _face_bound(face, box, self.tol)
+                for face, box in zip(faces, self.boxes, strict=True)
+            ]
+        except Exception:
+            return []
+        if None in self.bounds:
+            return []
+        offset = 4 * (HIT_BALL_MM + self.tol + STOCK_TOL)
+        balls = []
+        for face in faces:
+            try:
+                u0, u1, v0, v1 = face.ParameterRange
+                for fraction in (0.5, 0.25, 0.75):
+                    u, v = u0 + fraction * (u1 - u0), v0 + fraction * (v1 - v0)
+                    if face.isPartOfDomain(u, v):
+                        centre = tuple(face.valueAt(u, v) - face.normalAt(u, v) * offset)
+                        if _trustworthy(centre):
+                            balls.append([centre, None])
+            except Exception:
+                continue
+        return balls
+
+    def _ball_inside(self, centre):
+        """Whether a HIT_BALL_MM ball around ``centre`` lies in the stock, clear of every face.
+
+        Scalar face bounds come first, then the once-per-stock soundness gate, then the
+        native classifier. A native error only withholds the proof.
+        """
+        margin = HIT_BALL_MM + STOCK_TOL
+        if not all(_clearance(centre, bound, self.tol) > margin for bound in self.bounds):
+            return False
+        if self.sound is None:
+            self.sound = self._sound()
+        if not self.sound:
+            return False
+        try:
+            return self.shape.isInside(V(*centre), 1e-9, False)
+        except Exception:
+            return False
+
+    def _sound(self):
+        """Whether the stock is valid closed solids, disjoint beyond tolerance, that own
+        every face, so a ball centred inside and clear of every face lies wholly inside."""
+        try:
+            shape = self.shape
+            solids = shape.Solids
+            if shape.ShapeType not in ("Solid", "CompSolid", "Compound") or not solids:
+                return False
+            if sum(len(solid.Faces) for solid in solids) != len(self.boxes):
+                return False
+            volumes = [solid.Volume for solid in solids]
+            if not all(math.isfinite(volume) and volume > 0 for volume in volumes):
+                return False
+            if not all(shell.isClosed() for shell in shape.Shells):
+                return False
+            if any(edge.Degenerated for edge in shape.Edges):
+                return False
+            boxes = [_tolerant_box(solid) for solid in solids]
+            if not all(_distant_box(a, b) for i, a in enumerate(boxes) for b in boxes[i + 1 :]):
+                return False
+            return shape.isValid()
+        except Exception:
+            return False
 
 
 def _pointed_cutter(x, y, tip, radius, slope, length):
@@ -6146,7 +6387,7 @@ class _Setup:
             facts["holder_wall_hits"] = sum(
                 1
                 for _, _, ax, ay, tip, downward in placed
-                if not downward and part.common(*self._holder(ax, ay, tip, holder)) is not None
+                if not downward and part.hits(*self._holder(ax, ay, tip, holder))
             )
         if sample_reason:
             facts["holder_wall_hits"] = UNKNOWN
@@ -6168,6 +6409,63 @@ class _Setup:
         )
         tool_ready = flute is not None and region_reason is None
         holder_ready = not holder_missing and region_reason is None
+        # One op holds its obstacles, fixture, radius, slope and flute fixed, so a
+        # non-downward pose's labels and uncertainty are a pure function of its kind, own
+        # face (its obstacle and excluded ref) and exact cylinder, which for a tool carries
+        # the exact cutter axis and tip. Its refs are not: they may omit refs already in
+        # ``known``, that kind's ref union so far. The union is their sole consumer and only
+        # grows within this op and kind, so union | refs stays exact on every reuse.
+        # Repeated poses classify once per op; every placed row still counts, so sample
+        # multiplicity and full counts stay exact.
+        outcomes, cutters = {}, {}
+
+        def classify(kind, index, ax, ay, tip, cylinder, known):
+            labels, refs = set(), frozenset()
+            obstacle = (flute_regions if kind == "tool" else regions)[index][0]
+            # A pointed tool's flute is its cone and body, for part and jaws alike; its
+            # gross cylinder only culls. Holders keep their own cylinder. The read-only
+            # cutter is shared by every own face posing that exact recipe.
+            solid = None
+            if kind == "tool" and slope is not None:
+                recipe = (ax, ay, tip, radius - LIFT, slope, flute)
+                if recipe not in cutters:
+                    cutters[recipe] = _pointed_cutter(*recipe)
+                solid = cutters[recipe]
+            common = None
+            if (
+                obstacle is not None
+                and solid is None
+                and obstacle.certified(cylinder, index)
+                and not self._new_refs_possible(cylinder, index, known)
+            ):
+                # Certified material, and no face _hit_refs could add bounds it: its refs
+                # are empty, a partial local outcome the shared full-set cache never stores.
+                labels.add("part")
+            elif obstacle is not None:
+                common = obstacle.common(*cylinder, solid)
+            if common is not None:
+                labels.add("part")
+                if solid is not None:
+                    refs = frozenset(self._hit_refs(common, cylinder, index, solid, known))
+                else:
+                    # The shared cache holds only full ref sets: partial ones stay local.
+                    key = (cylinder, index)
+                    if key in obstacle.hit_refs:
+                        refs = frozenset(obstacle.hit_refs[key])
+                    elif known:
+                        refs = frozenset(self._hit_refs(common, cylinder, index, known=known))
+                    else:
+                        obstacle.hit_refs[key] = self._hit_refs(common, cylinder, index)
+                        refs = frozenset(obstacle.hit_refs[key])
+            if self.fixture_ready:
+                labels.update(self._fixture_cylinder_hits(cylinder, solid))
+            uncertain = not labels and bool(
+                not self.fixture_ready
+                or self.fixture_gaps
+                or any(_tool_hits_box(cylinder, box, solid) for _, box in self.fixture_possible)
+            )
+            return frozenset(labels), refs, uncertain
+
         # Per kind: certain hits, hits only in the undeclared jaw extension, labels, refs.
         counters = {"tool": [0, 0, set(), set()], "holder": [0, 0, set(), set()]}
         for index, _, ax, ay, tip, downward in placed:
@@ -6183,35 +6481,15 @@ class _Setup:
                         counter[0] += 1
                         counter[2].add("part")
                     continue
-                labels = set()
-                obstacle = (flute_regions if kind == "tool" else regions)[index][0]
-                # A pointed tool's flute is its cone and body, for part and jaws alike; its
-                # gross cylinder only culls. Holders keep their own cylinder.
-                solid = (
-                    _pointed_cutter(ax, ay, tip, radius - LIFT, slope, flute)
-                    if kind == "tool" and slope is not None
-                    else None
-                )
-                common = obstacle.common(*cylinder, solid) if obstacle is not None else None
-                if common is not None:
-                    labels.add("part")
-                    if solid is not None:
-                        counter[3].update(self._hit_refs(common, cylinder, index, solid))
-                    else:
-                        key = (cylinder, index)
-                        if key not in obstacle.hit_refs:
-                            obstacle.hit_refs[key] = self._hit_refs(common, cylinder, index)
-                        counter[3].update(obstacle.hit_refs[key])
-                if self.fixture_ready:
-                    labels.update(self._fixture_cylinder_hits(cylinder, solid))
+                pose = (kind, index, cylinder)
+                if pose not in outcomes:
+                    outcomes[pose] = classify(kind, index, ax, ay, tip, cylinder, counter[3])
+                labels, refs, uncertain = outcomes[pose]
+                counter[3].update(refs)
                 if labels:
                     counter[0] += 1
                     counter[2].update(labels)
-                elif (
-                    not self.fixture_ready
-                    or self.fixture_gaps
-                    or any(_tool_hits_box(cylinder, box, solid) for _, box in self.fixture_possible)
-                ):
+                elif uncertain:
                     counter[1] += 1
         facts["obstacles"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][3]) for kind in counters}
@@ -6275,17 +6553,30 @@ class _Setup:
             self.culled_part = _Culled(self.part)
         return self.culled_part
 
-    def _hit_refs(self, common, cylinder, own, solid=None):
+    def _ref_candidates(self, cylinder, own, known):
+        """(index, face) of each finished face that may bound a hit in ``cylinder``: not
+        ``own``, its label not in ``known``, its tolerant box touching the cylinder."""
+        for index in range(len(self.finished.Faces)):
+            face = self.faces[index]
+            if self.owner.labels[index] in known:
+                continue
+            if index == own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
+                continue
+            yield index, face
+
+    def _hit_refs(self, common, cylinder, own, solid=None, known=()):
         """Finished face refs bounding a hit, excluding only the sampled face itself.
 
         ``solid`` is the cutter inside ``cylinder`` when it is not the cylinder itself.
+        Only the per-op union is observable: labels already proven for this kind
+        need no repeated boolean/distance query. A returned partial set must not
+        enter a cross-operation pose cache. A ref needs positive contact area with
+        the cutter as well as distance to ``common``: ``_new_refs_possible`` relies on
+        that necessary area test.
         """
         refs = set()
         common_box = _tolerant_box(common)
-        for index in range(len(self.finished.Faces)):
-            face = self.faces[index]
-            if index == own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
-                continue
+        for index, face in self._ref_candidates(cylinder, own, known):
             if _distant_box(common_box, self.face_boxes[index]):
                 continue
             if solid is None:
@@ -6296,6 +6587,25 @@ class _Setup:
             if face.common(solid).Area > CONTACT_MM2 and _distance(common, face)[0] < 1e-6:
                 refs.add(self.owner.labels[index])
         return refs
+
+    def _new_refs_possible(self, cylinder, own, known):
+        """Whether ``_hit_refs`` could add a ref for a hit in the plain ``cylinder``.
+
+        With no common yet, it keeps every candidate test but the ``_distant_box`` cull
+        and tests the necessary contact area with that identical cylinder. False proves
+        the refs empty; a probe error counts as True.
+        """
+        ax, ay, radius, z0, z1 = cylinder
+        solid = None
+        try:
+            for _, face in self._ref_candidates(cylinder, own, known):
+                if solid is None:
+                    solid = Part.makeCylinder(radius, z1 - z0, V(ax, ay, z0))
+                if face.common(solid).Area > CONTACT_MM2:
+                    return True
+        except Exception:
+            return True
+        return False
 
     # ------------------------------------------------------------------ turning
 
@@ -6803,7 +7113,9 @@ class _Setup:
                     common = solid.common(part)
                     if common.Volume > HIT_MM3:
                         labels.add("part")
-                        counters[kind][2].update(self._turn_hit_refs(common, solid, index))
+                        counters[kind][2].update(
+                            self._turn_hit_refs(common, solid, index, counters[kind][2])
+                        )
                         wall_hits += kind == "holder"
                 labels.update(self._turn_fixture(solid, subject) or ())
                 if labels:
@@ -6997,12 +7309,14 @@ class _Setup:
         facts["fixture_clashes"] = facts["fixture_clashes"] + clashes
         facts["fixture_clash_debts"] = list(dict.fromkeys(facts["fixture_clash_debts"] + debts))
 
-    def _turn_hit_refs(self, common, solid, own):
-        """Finished face refs bounding a turning-tool hit, excluding the sampled face."""
+    def _turn_hit_refs(self, common, solid, own, known=()):
+        """New refs bounding a turning-tool hit; already-proven union members stay known."""
         box, refs = _bbox(solid), set()
         common_box = _tolerant_box(common)
         for index in range(len(self.finished.Faces)):
             face = self.faces[index]
+            if self.owner.labels[index] in known:
+                continue
             if index == own or not _boxes_overlap(box, self.face_boxes[index]):
                 continue
             if _distant_box(common_box, self.face_boxes[index]):
