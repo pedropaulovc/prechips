@@ -167,7 +167,9 @@ transfer passes only when it names that feature/datum and originates at or
 after the datum finishing setup and before the current setup. Otherwise compare
 tolerance to measured `refixture_budget_mm`; tolerance below budget is error,
 unknown/unverified budget or unresolved cuts are unknown. Height-band tolerance
-is high minus low. Policy citation travels with a known budget.
+is high minus low of the band measured from `height_from`: the first of
+`height_above_pivot`, `height` or `separation` the feature declares (none =
+unknown). Policy citation travels with a known budget.
 
 Exact templates:
 

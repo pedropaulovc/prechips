@@ -108,7 +108,13 @@ def evaluate(bundle):
                 )
             )
         if "height_from" in feature:
-            band = feature.get("height_above_pivot", "unknown")
+            # The band measured from `height_from` is whichever height-like
+            # requirement the feature declares; the first present one is it.
+            key = next(
+                (k for k in ("height_above_pivot", "height", "separation") if k in feature),
+                None,
+            )
+            band = feature[key] if key else "unknown"
             tolerance = (
                 band[1] - band[0]
                 if isinstance(band, list) and len(band) == 2 and all(_number(v) for v in band)
