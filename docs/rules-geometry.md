@@ -444,11 +444,10 @@ Each setup's checks and image use the material explicitly selected by `stock_in`
 `"stock"` selects a single supply; `"stock.<id>"` selects a built-up component;
 any earlier setup id selects that setup's output, even when it is not the
 immediately previous setup. Every array requires a tagged `joint` and exactly
-two disjoint material branches whose combined ancestry contains exactly two
-physical supply components. Joining a two-component subassembly to another
-component is bad input even though its array has only two references.
-There is no unconditional Boolean-union path, and more-than-two-piece joint
-graphs are not implemented. Unknown or forward authored references
+two disjoint input branches. One may be an existing assembly when the other
+contains one single physical component, so body+cone followed by assembly+crank
+is supported. Two existing assemblies cannot be joined. There is no
+unconditional Boolean-union path. Unknown or forward authored references
 are bad input (exit 3), including authored `"unknown"` as a source. Omitted
 `stock_in` remains named stock debt, never an inferred linear route. Supplies and outputs all stay in the
 model frame; assembly does not implicitly transform a reference.
@@ -572,15 +571,43 @@ overlap is forbidden except for a press-fit interference annulus. A
 straight-axis insertion sweep must be free of socket-stock obstruction;
 a captive or shouldered fit does not pass merely because its final pose fits.
 
+A `cylinder_bore` with `thru = true` has a finite declared axial span and must
+be open at both ends on the actual received branch. It can receive a sleeve
+through a cross-bore; a blocked far end is not accepted merely because the
+authored declaration says through. Spigot verification checks the cylindrical
+exterior interface and required component-owned finished material. A sleeve's
+intentional finished bore need not contain fabricated solid core, and clearance
+fill occupies only the mating annulus. It does not refill that bore.
+
+Sequential joins preserve all material ancestry and branch-specific preparation.
+The next unused interface is rechecked on the actual received assembly; prior
+socket/spigot identities are consumed and cannot be joined again. Completed
+consumed preparation remains historical provenance, not permission to cut
+through the assembled interface. Shared ancestry still refuses the join, and
+upstream unknown stock cannot become known by adding another component.
+
+For `retaining_compound`, `clearance_mm` is the declared diametral band,
+`process` identifies the selected application, `surface_prep` declares preparation
+instructions, and positive `cure_time_min` declares the wait before disturbing
+the joint or machining it. Explicit unknown clearance, prep or cure time remains
+debt and withholds union/render; absent or malformed required process facts are
+bad input. These are authored process facts, not a chemical cure simulation or
+manufacturer certification. Travelers print **do not disturb until cured**.
+Existing silver-braze and press behavior is unchanged.
+A known geometric refusal (missing preparation, blocked insertion, overlap or
+lost required material) remains an error even when cure or surface prep is
+unknown. Only a geometrically derivable join becomes process debt; it still
+produces no stock output. An unused or unrelated spigot declaration cannot
+exclude required material from the assembly backstop.
+
 Surface joints use finite analytic rectangle `interfaces`, not finished STEP
 face references. Both authored sizes are full independent side lengths. Each
 must lie inside the final solid, with essentially full rectangle contact from
 both pieces and no bulk overlap. Plane-side ownership
 protects each component's final share during preparation: the first `stock_in`
 reference owns the negative-normal side, the second the positive-normal side.
-Several contact
-patches may describe the same two pieces; they do not support a multi-piece
-graph. Weld or silver-braze process text alone cannot connect separated pieces,
+Several contact patches describe one two-input join, not permission to consume
+more component inputs at that step. Weld or silver-braze process text alone cannot connect separated pieces,
 and surface joining adds no filler solid.
 
 At assembly a final-material backstop checks the portion of finished geometry

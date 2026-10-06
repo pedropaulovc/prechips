@@ -327,13 +327,15 @@ lineage twice.
 ### Assembly joints
 
 Every array `stock_in` requires a singular tagged `joint` declaration and
-exactly two physical supply components in its combined ancestry. One-piece
-arrays, arrays with more than two references, and a nested assembly joining an
-already joined pair to a third component are bad input (exit 3). Two immediate
-references do not bypass the physical-component limit. A multi-piece joint graph
-is not implemented. Joint geometry is in the model frame, regardless of
-the assembly setup's frame. A missing or malformed identity/reference is bad
-input; unknown numeric geometry withholds the union as named geometry debt.
+exactly two disjoint input branches. Either input may be an already-joined
+assembly if the other input is one single component. Thus `["body", "cone"]`
+may produce `J1`, followed by `["J1", "crank"]` producing a three-component
+assembly. Joining two existing assemblies, one-piece arrays and arrays with
+more than two references are bad input (exit 3). Shared supply ancestry remains
+forbidden at every step. Each interface identity is consumed only once.
+Joint geometry is in the model frame, regardless of the assembly setup's frame.
+A missing or malformed identity/reference is bad input; unknown numeric
+geometry or retaining-compound process facts withhold the union as named debt.
 
 A cylindrical joint declares `kind = "cylindrical"`, `socket` and `spigot`
 (matching plan joint-feature kinds on the two distinct consumed component
@@ -354,6 +356,54 @@ Both preparation cuts must be completed on the actual selected ancestors,
 remain intact, and have their target geometry verified at assembly. Declaring
 a joint cannot turn untouched blanks into prepared components.
 
+`method = "retaining_compound"` additionally requires `cure_time_min` (positive
+minutes, or literal `"unknown"`) and `surface_prep` (nonempty instructions, or
+literal `"unknown"`). `process` identifies the selected compound/application
+process; `clearance_mm` remains the diametral clearance band in millimetres.
+Missing process fields are bad input; explicitly unknown clearance, cure time
+or prep remains debt and cannot produce assembled stock or a render.
+`process` itself must be known text: the literal `"unknown"` is malformed,
+not an alternative bond process. Known physical refusals remain errors even
+when prep or cure is unknown; a later invalid join does not invalidate an
+earlier independent, valid assembly.
+The traveler prints the prep, cure time and **do not disturb until cured** before
+later machining. The process does not model cure kinetics or certify a product:
+cite the author's source/choice for the declared band and cure conditions.
+These fields do not apply to `silver_braze` or `press`; their behavior is unchanged.
+Use the canonical noncutting bench action `do = "fit"`, not an undeclared
+`fit_up` or `bond` cutting action.
+
+For example (illustrative process choices, not manufacturer specifications):
+
+```toml
+[[setups]]
+id = "J2"
+stock_in = ["J1", "crank_prepared"]
+[setups.joint]
+kind = "cylindrical"
+socket = "crank_socket"
+spigot = "crank_spigot"
+fit = "clearance"
+clearance_mm = [0.02, 0.06]
+method = "retaining_compound"
+process = "AUTHOR'S CHOICE: example Loctite 638-class retaining compound"
+cure_time_min = 1440
+surface_prep = "AUTHOR'S CHOICE: degrease and dry both mating surfaces"
+cite = "AUTHOR'S CHOICE: example clearance band and 24-hour cure before machining"
+[[setups.ops]]
+op = 10
+do = "fit"
+```
+
+A cylindrical cross-bore socket uses the existing `cylinder_bore` kind with
+`thru = true` and a finite `depth` spanning both openings. The kernel verifies
+both ends are open; this is not an unbounded hole or a blind socket with a
+waived bottom. A sleeve exterior is a `cylinder_spigot`, not a new feature kind.
+An intentional bore already present in the sleeve is permitted only where it
+does not remove required finished material; joining fills the mating annulus,
+not the sleeve's core. A subsequent finished bore operation still needs its
+own preparation/finish coverage and must follow the declared cure.
+
 A surface joint needs no transient feature. It declares `kind = "surface"`,
 `method = "weld"` or `"silver_braze"`, nonempty `process`, `cite`, and a nonempty
 `interfaces` list. Each rectangle has model-space centre `at`, unit orthogonal
@@ -363,7 +413,7 @@ direction. `at` uses manifest units. These are author-declared internal butt int
 not STEP face references. `stock_in[0]` owns the negative-normal side;
 `stock_in[1]` owns the positive-normal side. Both received pieces must contact
 essentially the whole rectangle inside the final solid, with no overlapping bulk. Multiple
-patches may describe the same two-piece interface, not a multi-piece graph.
+patches describe one two-input join, not additional component inputs in that step.
 Separated material is not joined merely because a process was named.
 
 The kernel protects component-owned finished material during preparation and
