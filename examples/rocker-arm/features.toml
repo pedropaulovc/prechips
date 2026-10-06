@@ -1,4 +1,4 @@
-# Generated from CAD drawing contracts and adjacent raw STEP bytes; do not hand edit.
+# Example manifest derived from CAD contracts and adjacent STEP; documented example patches are in examples/README.md.
 "part" = "rocker-arm"
 "units" = "mm"
 "precision" = 2
@@ -17,8 +17,8 @@
 "spec" = "LOW-CARBON STEEL OR GRAY IRON"
 "name" = "LOW-CARBON STEEL OR GRAY IRON"
 "finish" = "matte black oxide"
-"thickness" = "unknown"
-"cite" = ["harmonic-analyzer/cad/config/parts/rocker-arm.yaml:rocker-arm.material_family", "harmonic-analyzer/cad/config/parts/_defaults.yaml:material_families.ferrous_noncritical.material_specification", "harmonic-analyzer/cad/config/parts/_defaults.yaml:material_families.ferrous_noncritical.material", "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:rocker-arm.finish"]
+"thickness" = 2.5 # drawing note 2: nominal strap thickness; the integral hub has its own length requirement
+"cite" = ["harmonic-analyzer/cad/config/parts/rocker-arm.yaml:rocker-arm.material_family", "harmonic-analyzer/cad/config/parts/_defaults.yaml:material_families.ferrous_noncritical.material_specification", "harmonic-analyzer/cad/config/parts/_defaults.yaml:material_families.ferrous_noncritical.material", "harmonic-analyzer/cad/config/parts/rocker-arm.yaml:rocker-arm.finish", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93 (note 2: STRAP 2.50 THICK)"]
 
 ["notes"]
 "manufacturing" = ["1. MIRROR-SYMMETRIC ABOUT THE PIVOT AXIS;", "   ROD-PIN HOLE (1X) AT THE END SHOWN.", "2. STRAP 2.50 THICK; ALL HOLES THRU.", "3. TOP EDGE R800.00, BOTTOM EDGE R816.00,", "   CONCENTRIC; COMMON CENTRE ON THE", "   MIRROR AXIS, 808.00 REF FROM THE PIVOT", "   AXIS (STRAP DEPTH 16.00 REF).", "4. ARC LENGTHS 292.10 TOP / 266.70 BOTTOM", "   DEFINE THE ARC ENDPOINTS.", "5. EACH END: 5.59 RADIAL LAND PERP TO", "   TOP EDGE; STRAIGHT TAPER TO BOTTOM ARC.", "6. PIVOT HOLE: REAM.", "7. INTEGRAL HUB DIA 10.20, CENTRED ON THE", "   STRAP: THE HUBS SET THE STATION PITCH", "   (NO SPACERS). HUB OD COAXIAL WITH PIVOT", "   BORE WITHIN Ø0.50 (TURN HUB AND REAM", "   BORE IN ONE SETUP)."]
