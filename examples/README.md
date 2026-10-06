@@ -162,8 +162,8 @@ halfway through a fixed setup:
   the pin. The 8 mm stand relief gives the 6.512 mm reamer clearance. Match
   rail-rest shims after seating the finished strap on the pads; no fixed spacer
   is allowed to lift it. No profile cut crosses these straps.
-- **S4 — pinned, shoulder-screw profile fixture.** Reload onto the same permanent
-  diamond pin and support pads, then fit the shoulder screw and bored washer
+- **S4 — pinned, shoulder-screw profile fixture.** Remove the S3 straps while
+  leaving the part seated on the permanent diamond pin and support pads; fit the shoulder screw and bored washer
   through the reamed pivot bore. The pin is the positive tangential clocking
   stop. Preload counterclockwise viewed from above (looking down setup -Z)
   before tightening, then indicate the screw head ground coaxial with its shoulder.
