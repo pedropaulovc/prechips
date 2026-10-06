@@ -53,18 +53,33 @@ to nominal model geometry. Dome axial samples compute
 `radius=sqrt(sphere_radius^2-(z-sphere_centre_z)^2)` at authored steps and include
 the exact endpoint. Each row then gets the tool-nose compensation. The selected
 tool must not be flagged uncertain, and its nose radius `rn` must be known and
-≥ 0. The nose centre lies `rn` out along the sphere's surface normal `n`, so each
-row adds `x_tool_mm = display·(r + rn·(n_r − 1))` and `z_tool_mm = z + rn·(n_z − 1)`.
-These are the DRO readings of the imaginary tool tip when the tool was touched
-off on an outside diameter (X) and on a +Z end face (Z), the `zero_check`
-tool-touch convention, recorded as `tool_reference`. Then
-`tool_nose_compensation_mm = rn`, and the sheet prints tool columns beside the
-surface columns. Compensation stays unknown, the sheet STOP stays, and
-`coordinates` is unknown when any of these holds:
+≥ 0. The nose must also be what touches every row. Each row records its contact
+normal `normal_deg`, measured from +X (radially outward) toward +Z. For a
+right-hand tool feeding toward the chuck, the nose arc spans
+`entering_angle_deg + insert_angle_deg − 180` to `entering_angle_deg`: the
+trailing edge sets the lower bound and the major edge the upper. Both angles
+must be accepted inventory facts. A normal outside that range is cut by an edge
+or flank, not the nose, so no nose offset exists there.
+
+When the nose meets every row, its centre lies `rn` out along the sphere's
+surface normal `n`. Each row then adds `x_tool_mm = display·(r + rn·(n_r − 1))`
+and `z_tool_mm = z + rn·(n_z − 1)`. These are the DRO readings of the imaginary
+tool tip when the tool was touched off on an outside diameter (X) and on a +Z
+end face (Z), the `zero_check` tool-touch convention, recorded as
+`tool_reference`. Then `tool_nose_compensation_mm = rn`, and the sheet prints
+tool columns beside the surface columns. The surface columns are never
+relabelled as compensated.
+
+Compensation stays unknown, the sheet STOP stays, and `coordinates` is unknown
+when any of these holds:
 
 - the nose radius is unknown or negative;
 - the tool is uncertain;
-- the dome apex faces the chuck, so it is not cut from the +Z touch-off side.
+- the dome apex faces the chuck, so it is not cut from the +Z touch-off side;
+- the tool is not right-hand;
+- an entering or insert angle is unknown or does not form an insert;
+- any row's contact normal lies outside the nose arc. The reason names those
+  rows' Z.
 
 `tool_nose_compensation_reason` names which one applied.
 
