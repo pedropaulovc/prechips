@@ -310,11 +310,14 @@ check_jog_mm = 10.0         # author's choice: physical radial jog
 
 [setups.zero.z]
 face = "north stub end"
-edge_mm = 5.0                 # nominal; enter (caliper reading thrust face → stub end) - 9.0
+edge_mm = 5.0                 # nominal stub end (apex + 5); the Axis Set uses the measured length, not this
 from = "+z"
-method = "touch with the spindle running until the first chip shows; no paper: the stub end is waste, faced off to the apex in op 50"  # EL400 §9.2.1 p62: touch, withdraw without Z motion
+method = "measure_then_set"  # the stub length carries the S1 bar placement and blank length, so measure it
+gauge = "calipers"
+measure = "before chucking: outside caliper length from the shoulder thrust face to the north stub end (nominal 14.0)"
+offset_mm = -9.0              # thrust face (seated on the jaw fronts) is T2 Z-9
 tool = "turning-tools-warner-lms-4132/AR"
-paper_mm = 0.0
+paper_mm = 0.0               # touch with the spindle running until the first chip shows: the stub end is waste, faced off in op 50
 check_jog_mm = 10.0         # author's choice: physical axial jog
 retouch_after = []
 
