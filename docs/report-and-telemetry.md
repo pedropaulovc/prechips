@@ -89,6 +89,16 @@ hatch is **entry stock minus this setup's derived exit stock**, not a finished
 part substituted for arriving material or a simulated toolpath. If the exit
 stock or a cutter cannot be established, a plain `render_debts` sentence says
 what is not shown; that display debt never changes a rule verdict.
+Lathe material is drawn in meridian section so the removed annulus cannot
+conceal the retained core; the jaw-end detail magnifies nearby shoulders and
+reliefs without hiding the full stock length in the main view. Mill/custom
+views overlay a dashed **nominal part outline**, including behind arriving
+stock, solely to locate the drawing relative to pads, pins and coordinate keys.
+That outline is never a claim that the supply already has the finished shape.
+Selected cutters use the traveler's short human tool names. A separate feed
+arrow, when the plan declares its direction, is a direction symbol, not a path.
+An unresolved saw cut plane produces a plain STOP annotation and retains its
+downstream stock debt; it never prevents other geometry facts being returned.
 
 `scene` additionally records `view`, `width_px`, `height_px`, plain-language
 `shows` / `legend`, `render_debts`, `primary_op`, and sparse `waypoints`.

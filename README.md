@@ -308,6 +308,13 @@ order and posed inventory stops are shown explicitly. Dashed machine-context
 outlines are schematic, not measured fixture geometry, and unresolved drawing
 items remain plain-language warnings. The image is hashed into `report.json`
 with its scene record so an approval binds to it; it is not a toolpath.
+The lathe's filled meridian section keeps the retained core visible inside the
+removed annulus; its jaw-end inset magnifies nearby shoulders and reliefs.
+Dashed nominal part outlines locate mill/custom-fixture targets without
+pretending that incoming stock already has the finished shape. Cutter captions
+reuse the traveler's human tool names, with a separate declared feed-direction
+arrow when available. Missing saw-plane data stays a STOP/stock debt, not a
+renderer crash.
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
 setup id, not only the previous one. A nonempty reference array joins solids by
