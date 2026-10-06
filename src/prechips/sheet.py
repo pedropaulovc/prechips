@@ -67,7 +67,6 @@ border: 0; border-bottom: 1px solid #000; vertical-align: bottom; }
 h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; \
 margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
 .signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
-.report-id { color: #444; }
 .contour-row { display: flex; gap: 8pt; align-items: flex-start; }
 .contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
 .contour-row.tall { display: block; }
@@ -2379,17 +2378,15 @@ class _Traveler:
             if self.checked
             else "PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE"
         )
+        # The report binding is machine-readable only: hashes stay off the paper.
         result = [
             f'<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
+            f'<meta name="prechips-version" '
+            f'content="{escape(_text(self.report.get("prechips_version")))}">'
+            f'<meta name="prechips-report" content="{escape(_text(self.report.get("hash")))}">'
             f"<title>{escape(part)} traveler"
             f"</title><style>{_CSS}</style><script>{_DUPLEX_JS}</script></head><body>"
         ]
-        # The report id rides in the header line: a footer pushed alone onto a page by a
-        # few points would print a blank sheet.
-        report_id = (
-            f"prechips {self.report.get('prechips_version', '?')} · report "
-            f"{str(self.report.get('hash', '?'))[:8]}"
-        )
         signoff = _p(
             "Sign off: __________  First article / measured results: ____________________",
             "signoff",
@@ -2400,8 +2397,7 @@ class _Traveler:
                 f'<div class="meta"><h1>{escape(part.upper())} · '
                 f"{escape(_text(drawing.get('number')))} · "
                 + (f"rev {escape(revision)}" if revision else "REV NOT CONFIRMED")
-                + f"</h1><div>qty {escape(_text(self.plan.get('quantity')))}"
-                f' <span class="report-id">· {escape(report_id)}</span></div></div>'
+                + f"</h1><div>qty {escape(_text(self.plan.get('quantity')))}</div></div>"
             )
             result.append(f'<div class="banner">{banner}</div>')
             result.extend(blocks)
