@@ -3703,6 +3703,52 @@ class _Setup:
         )
         tool_ready = flute is not None and region_reason is None
         holder_ready = not holder_missing and region_reason is None
+        # One op holds its obstacles, fixture, radius, slope and flute fixed, so a
+        # non-downward pose's labels and uncertainty are a pure function of its kind, own
+        # face (its obstacle and excluded ref) and exact cylinder, which for a tool carries
+        # the exact cutter axis and tip. Its refs are not: they may omit refs already in
+        # ``known``, that kind's ref union so far. The union is their sole consumer and only
+        # grows within this op and kind, so union | refs stays exact on every reuse.
+        # Repeated poses classify once per op; every placed row still counts, so sample
+        # multiplicity and full counts stay exact.
+        outcomes, cutters = {}, {}
+
+        def classify(kind, index, ax, ay, tip, cylinder, known):
+            labels, refs = set(), frozenset()
+            obstacle = (flute_regions if kind == "tool" else regions)[index][0]
+            # A pointed tool's flute is its cone and body, for part and jaws alike; its
+            # gross cylinder only culls. Holders keep their own cylinder. The read-only
+            # cutter is shared by every own face posing that exact recipe.
+            solid = None
+            if kind == "tool" and slope is not None:
+                recipe = (ax, ay, tip, radius - LIFT, slope, flute)
+                if recipe not in cutters:
+                    cutters[recipe] = _pointed_cutter(*recipe)
+                solid = cutters[recipe]
+            common = obstacle.common(*cylinder, solid) if obstacle is not None else None
+            if common is not None:
+                labels.add("part")
+                if solid is not None:
+                    refs = frozenset(self._hit_refs(common, cylinder, index, solid, known))
+                else:
+                    # The shared cache holds only full ref sets: partial ones stay local.
+                    key = (cylinder, index)
+                    if key in obstacle.hit_refs:
+                        refs = frozenset(obstacle.hit_refs[key])
+                    elif known:
+                        refs = frozenset(self._hit_refs(common, cylinder, index, known=known))
+                    else:
+                        obstacle.hit_refs[key] = self._hit_refs(common, cylinder, index)
+                        refs = frozenset(obstacle.hit_refs[key])
+            if self.fixture_ready:
+                labels.update(self._fixture_cylinder_hits(cylinder, solid))
+            uncertain = not labels and bool(
+                not self.fixture_ready
+                or self.fixture_gaps
+                or any(_tool_hits_box(cylinder, box, solid) for _, box in self.fixture_possible)
+            )
+            return frozenset(labels), refs, uncertain
+
         # Per kind: certain hits, hits only in the undeclared jaw extension, labels, refs.
         counters = {"tool": [0, 0, set(), set()], "holder": [0, 0, set(), set()]}
         for index, _, ax, ay, tip, downward in placed:
@@ -3718,35 +3764,15 @@ class _Setup:
                         counter[0] += 1
                         counter[2].add("part")
                     continue
-                labels = set()
-                obstacle = (flute_regions if kind == "tool" else regions)[index][0]
-                # A pointed tool's flute is its cone and body, for part and jaws alike; its
-                # gross cylinder only culls. Holders keep their own cylinder.
-                solid = (
-                    _pointed_cutter(ax, ay, tip, radius - LIFT, slope, flute)
-                    if kind == "tool" and slope is not None
-                    else None
-                )
-                common = obstacle.common(*cylinder, solid) if obstacle is not None else None
-                if common is not None:
-                    labels.add("part")
-                    if solid is not None:
-                        counter[3].update(self._hit_refs(common, cylinder, index, solid))
-                    else:
-                        key = (cylinder, index)
-                        if key not in obstacle.hit_refs:
-                            obstacle.hit_refs[key] = self._hit_refs(common, cylinder, index)
-                        counter[3].update(obstacle.hit_refs[key])
-                if self.fixture_ready:
-                    labels.update(self._fixture_cylinder_hits(cylinder, solid))
+                pose = (kind, index, cylinder)
+                if pose not in outcomes:
+                    outcomes[pose] = classify(kind, index, ax, ay, tip, cylinder, counter[3])
+                labels, refs, uncertain = outcomes[pose]
+                counter[3].update(refs)
                 if labels:
                     counter[0] += 1
                     counter[2].update(labels)
-                elif (
-                    not self.fixture_ready
-                    or self.fixture_gaps
-                    or any(_tool_hits_box(cylinder, box, solid) for _, box in self.fixture_possible)
-                ):
+                elif uncertain:
                     counter[1] += 1
         facts["obstacles"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][3]) for kind in counters}
@@ -3804,14 +3830,19 @@ class _Setup:
             self.culled_part = _Culled(self.part)
         return self.culled_part
 
-    def _hit_refs(self, common, cylinder, own, solid=None):
+    def _hit_refs(self, common, cylinder, own, solid=None, known=()):
         """Finished face refs bounding a hit, excluding only the sampled face itself.
 
         ``solid`` is the cutter inside ``cylinder`` when it is not the cylinder itself.
+        Only the per-op union is observable: labels already proven for this kind
+        need no repeated boolean/distance query. A returned partial set must not
+        enter a cross-operation pose cache.
         """
         refs = set()
         common_box = _tolerant_box(common)
         for index, face in enumerate(self.faces):
+            if self.owner.labels[index] in known:
+                continue
             if index == own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
                 continue
             if _distant_box(common_box, self.face_boxes[index]):
@@ -4299,7 +4330,9 @@ class _Setup:
                     common = solid.common(part)
                     if common.Volume > HIT_MM3:
                         labels.add("part")
-                        counters[kind][2].update(self._turn_hit_refs(common, solid, index))
+                        counters[kind][2].update(
+                            self._turn_hit_refs(common, solid, index, counters[kind][2])
+                        )
                         wall_hits += kind == "holder"
                 labels.update(self._turn_fixture(solid) or ())
                 if labels:
@@ -4355,11 +4388,13 @@ class _Setup:
             else:
                 facts[key] = certain
 
-    def _turn_hit_refs(self, common, solid, own):
-        """Finished face refs bounding a turning-tool hit, excluding the sampled face."""
+    def _turn_hit_refs(self, common, solid, own, known=()):
+        """New refs bounding a turning-tool hit; already-proven union members stay known."""
         box, refs = _bbox(solid), set()
         common_box = _tolerant_box(common)
         for index, face in enumerate(self.faces):
+            if self.owner.labels[index] in known:
+                continue
             if index == own or not _boxes_overlap(box, self.face_boxes[index]):
                 continue
             if _distant_box(common_box, self.face_boxes[index]):

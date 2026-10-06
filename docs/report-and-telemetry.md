@@ -273,6 +273,14 @@ are `kernel.batch.wall_ms` / `kernel.batch.cpu_ms`; a cache-only call has no suc
 attributes. The geometry span's own elapsed duration includes host cache lookup
 and subprocess overhead, not just the measured native work.
 
+Collision sampling reuses only exact, immutable query recipes; it does not round
+poses or stop after the first hit. Every placed sample still contributes to the
+full hit count. Finished-face references are a per-operation, per-tool-kind set
+union: once a label is proven, later poses need not rediscover it. Partial new
+reference sets stay local to that monotonically growing union; a stock-region
+cache shared by operations stores only complete reference sets. Pointed cutters
+keep their actual cone/body geometry in stock and fixture intersections.
+
 When no kernel is found, every geometry finding carries
 `numbers.kernel_unavailable = true`; the console prints that identical
 kernel-naming `?` sentence once per run unless `--verbose` shows the full
