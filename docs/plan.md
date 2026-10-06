@@ -343,14 +343,20 @@ M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 frame: `jaws_along` is the jaw length axis (`x` / `y`), `fixed_jaw` picks the
 jaw on the negative or positive side of the other axis, `grip_mm` is the depth
 of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
-above the parallels. A `grip_mm_verify = true` or
+above the stock seat (parallel tops, or the bed when no parallels are selected).
+An explicit `parallels = "none"` or `"not_applicable"` means known zero lift,
+bed seating and no parallel solids or parallel-position debt. Omitted,
+`"unknown"` or unresolved named parallels still need an accepted positive
+height; a named zero-height parallel is not equivalent to explicit absence.
+A `grip_mm_verify = true` or
 `jaw_above_parallels_mm_verify = true` flag makes that number unknown to the
 kernel; `jaw_above_parallels_mm = 0` is a known zero, any other nonpositive or
 unknown value is debt. Together with the vise's explicit `jaw_height`,
-`jaw_width`, `jaw_depth` and `opening` and the parallels' `height`, these are
-the facts behind the jaw solids and the setup findings. When any is
-missing, the setup's `vise` and `thin_wall_under_clamp` findings stay `?`
-and the render, if any, is a part-only view labelled as unresolved.
+`jaw_width`, `jaw_depth` and `opening` and the selected parallels' `height`
+(or explicitly declared zero lift), these are the facts behind the jaw solids
+and setup findings. When a required fact is missing, the setup's `vise` and
+`thin_wall_under_clamp` findings stay `?` and the render, if any, is a part-only
+view labelled as unresolved.
 
 Two optional authored pose fields complete the picture. `jaw_center_along_mm`
 is the centre of the jaw plates along `jaws_along` in setup-frame
@@ -363,13 +369,13 @@ parallels row's fact-local `height`, `length` (along the jaws) and `width`
 seat. Nominal numbers are usable for geometry, not evidence of a measured
 shop setup. Both poses are declarations the author must measure at the bench; the
 kernel never infers a jaw centre or a parallel position, and only a setup
-with both exact jaws and exact parallels is captioned as a modeled fixture.
+with exact jaws and, when selected, exact parallels is captioned as modeled.
 Either field may be `"unknown"` (any unknown coordinate is a render debt, not
 a guessed pose) and neither has a `_verify` flag: they are author coordinate
 choices, while each parallel dimension has its own fact-local trust; the
 inventory item's `verify` does not taint other numeric facts. Omitting the
 optional poses does not block independent `vise` / `thin_wall_under_clamp`
-facts. Missing parallel height still leaves the fixture dimensions unknown.
+facts. A selected parallel's missing height still leaves fixture dimensions unknown.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with

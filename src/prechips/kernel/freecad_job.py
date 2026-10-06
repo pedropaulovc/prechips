@@ -2376,7 +2376,7 @@ class _Setup:
             "fixture_kind": _fixture_kind(self.setup.get("hold")),
             "jaws": jaws,
             "parallels": "absent"
-            if self.hold is None or (not vise and "parallels_ref" not in self.hold)
+            if not self._expects_parallels()
             else "exact"
             if parallels
             else "not_modelled",
@@ -2392,12 +2392,21 @@ class _Setup:
         }
         return _render(meshes), scene
 
+    def _expects_parallels(self):
+        """Named parallels, or a vise not declared seated on its bed (zero parallels height)."""
+        hold = self.hold
+        if hold is None:
+            return False
+        if "parallels_ref" in hold:
+            return True
+        return hold.get("kind") == "vise" and hold.get("parallels_height_mm") != 0
+
     def _parallels(self):
         """Parallel boxes from declared dimensions and centres, or the debt that prevents them."""
-        hold = self.hold
-        vise = hold is not None and hold.get("kind") == "vise"
-        if hold is None or not (vise or "parallels_ref" in hold):
+        if not self._expects_parallels():
             return None, None
+        hold = self.hold
+        vise = hold.get("kind") == "vise"
         dims = {
             key: _positive(hold, key)
             for key in ("parallels_height_mm", "parallels_length_mm", "parallels_width_mm")

@@ -8,6 +8,7 @@ from test_kernel_geometry import IDENTITY, _op
 from test_kernel_stock import PackagedEngine, _bundle
 
 from prechips import kernel
+from prechips.rules import fixture_interference, thin_wall_under_clamp, vise
 
 BOX = {
     "shape": "box",
@@ -373,3 +374,75 @@ def test_plan_plane_uses_feature_units(tmp_path, saw_target, freecad_kernel, ker
     assert detail["cut_plane"]["value"] == pytest.approx(0.79375)
     assert detail["retained_boundary_mm"] == pytest.approx(0.0)
     assert bundle.kernel["setups"]["S2"]["stock_bbox_mm"] == [0, 0, 0, 10, 8, 10]
+
+
+def _fixture_statuses(bundle):
+    # A 1 mm shop floor under the 10 mm stock: thin_wall turns only on the hold's facts.
+    bundle.policy["numbers"]["thin_wall_floor_mm"] = 1.0
+    rules = (vise, fixture_interference, thin_wall_under_clamp)
+    return {
+        row.rule: (str(row.status), row.sentence)
+        for module in rules
+        for row in module.evaluate(bundle)
+        if row.subject == "S1"
+    }
+
+
+@pytest.mark.parametrize("parallels", ["none", "not_applicable"])
+def test_explicit_no_parallels_seats_saw_vise_on_its_bed(
+    tmp_path, saw_target, freecad_kernel, kernel_cache, parallels
+):
+    bundle = _host_bundle(tmp_path, saw_target)
+    bundle.plan["setups"][0]["hold"]["parallels"] = parallels
+    kernel.run_geometry(bundle)
+    detail = bundle.kernel["setups"]["S1"]
+    assert detail["parallel_pair"] is True, detail
+    assert detail["width_mm"] == pytest.approx(10.0)
+    assert detail["contact_grip_mm"] == pytest.approx([4.0, 4.0])
+    assert detail["claimed_in_jaws"] == []
+    scene = detail["render_scene"]
+    assert scene["parallels"] == "absent"
+    assert {c["role"] for c in scene["components"]} == {"jaw"}
+    assert not any("parallel" in debt for debt in scene["debts"]), scene["debts"]
+    assert bundle.kernel["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(800.0)
+    statuses = _fixture_statuses(bundle)
+    assert {rule: status for rule, (status, _) in statuses.items()} == {
+        "vise": "pass",
+        "fixture_interference": "pass",
+        "thin_wall_under_clamp": "pass",
+    }, statuses
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda hold, fixtures: hold.pop("parallels"),
+        lambda hold, fixtures: hold.update(parallels=None),
+        lambda hold, fixtures: hold.update(parallels="unknown"),
+        lambda hold, fixtures: hold.update(parallels="missing_parallels"),
+        lambda hold, fixtures: fixtures["parallels"].update(height_mm=0.0),
+        lambda hold, fixtures: fixtures["parallels"].update(height_mm=-4.0),
+        lambda hold, fixtures: fixtures["parallels"].update(height_mm="unknown"),
+        lambda hold, fixtures: fixtures["parallels"].update(
+            height_mm={"value": 16.0, "verify": True}
+        ),
+    ],
+    ids=["absent", "null", "unknown", "unresolved", "zero", "negative", "unmeasured", "verify"],
+)
+def test_undeclared_or_unmeasured_vise_parallels_remain_fixture_debt(
+    tmp_path, saw_target, freecad_kernel, kernel_cache, edit
+):
+    bundle = _host_bundle(tmp_path, saw_target)
+    edit(bundle.plan["setups"][0]["hold"], bundle.inventory["fixtures"])
+    kernel.run_geometry(bundle)
+    detail = bundle.kernel["setups"]["S1"]
+    assert "parallels_height_mm" in detail["fixture_reason"], detail
+    assert detail["fixture_rendered"] is False
+    assert detail["parallel_pair"] == "unknown"
+    statuses = _fixture_statuses(bundle)
+    assert {rule: status for rule, (status, _) in statuses.items()} == {
+        "vise": "unknown",
+        "fixture_interference": "unknown",
+        "thin_wall_under_clamp": "unknown",
+    }, statuses
+    assert all("parallels_height_mm" in message for _, message in statuses.values()), statuses
