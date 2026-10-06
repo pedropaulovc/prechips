@@ -7,7 +7,7 @@ host tests check which declared fixture facts reach the engine.
 import subprocess
 
 import pytest
-from test_kernel_geometry import Engine, _op, _setup
+from test_kernel_geometry import Engine, _op, _setup, _vise
 
 from prechips.kernel import hold_inputs
 
@@ -153,6 +153,19 @@ def test_chuck_without_stock_in_its_jaws_is_unresolved_not_drawn(engine, parts):
     assert setup["fixture_rendered"] is False
 
 
+def test_dividing_head_chuck_wall_is_sampled_along_its_horizontal_axis(engine, parts):
+    # Setup z is model X, so the R10 bar (model Z) lies along setup x in the head's chuck.
+    frame = {"origin": [0, 0, 0], "x": [0, 0, 1], "y": [0, -1, 0], "z": [1, 0, 0]}
+    hold = _chuck(
+        fixture_kind="dividing_head",
+        pose={"origin_mm": [10.0, 0.0, 0.0], "x": [0.0, 0.0, 1.0], "z": [1.0, 0.0, 0.0]},
+    )
+    setup = _scene(engine.run(engine.job(parts["bar"], setups=[_setup([], hold, frame)])))
+    assert setup["chuck"]["contact_radii_mm"] == [10.0, 10.0, 10.0]
+    # A solid bar's run under each jaw crosses the axis: its full diameter.
+    assert setup["min_wall_mm"] == pytest.approx(20.0, abs=1e-6)
+
+
 def test_cutter_beside_the_gripped_bar_hits_a_chuck_jaw(engine, parts):
     step = parts["bar"]
     side = engine.refs(step, (-10, -10, 0), (10, 10, 30), kind="Cylinder")
@@ -246,6 +259,103 @@ def test_strap_that_bears_on_nothing_leaves_the_wall_unknown(engine, parts):
     )
 
 
+def _cylinder(name, at, dia, length, **extra):
+    return {
+        "name": name,
+        "shape": "cylinder",
+        "at_mm": at,
+        "axis": [0.0, 0.0, 1.0],
+        "dia_mm": dia,
+        "length_mm": length,
+        **extra,
+    }
+
+
+def _stud_hold(stud_x, hole=True):
+    """The plate on a custom floor plate; a strap whose Ø6 stud drops ``stud_x`` along it.
+
+    Strap underside centre on the plate top at (20, 10, 10); the stud runs from the floor
+    bottom (z -10) up through the strap's slot; a heel at strap x -45..-39 rests on the floor.
+    """
+    floor = [_box("nest:floor", [-30.0, -10.0, -10.0], [100.0, 40.0, 10.0])]
+    if hole:
+        floor.append(_cylinder("nest:hole", [20.0 - 35.0, 10.0, -11.0], 8.0, 12.0, void=True))
+    strap = [
+        _box("kit/strap:beam", [-45.0, -6.0, 0.0], [70.0, 12.0, 8.0]),
+        {
+            **_box("kit/strap:slot", [stud_x - 4.0, -3.5, -1.0], [8.0, 7.0, 10.0]),
+            "void": True,
+            "local": "slot",
+            "cuts": ["beam"],
+        },
+        _cylinder("kit/strap:stud", [stud_x, 0.0, -20.0], 6.0, 36.0, local="stud"),
+        _box("kit/strap:heel", [-45.0, -6.0, -10.0], [6.0, 12.0, 10.0]),
+    ]
+    strap[0]["local"] = "beam"
+    return {
+        **_plate_hold(),
+        "fixture_kind": "custom",
+        "solids": floor,
+        "clamps": [{**_strap([20.0, 10.0, 10.0]), "solids": strap}],
+    }
+
+
+@pytest.mark.parametrize(
+    "stud_x,hole,clash",
+    [
+        (-35.0, True, None),  # stud beside the part through the floor's clearance hole
+        (-35.0, False, "nest:floor interpenetrates kit/strap:stud"),  # no hole drawn
+        (5.0, True, "kit/strap:stud interpenetrates the setup-entry stock"),  # through the part
+    ],
+)
+def test_strap_stud_and_heel_only_touch_the_work_and_the_floor(engine, parts, stud_x, hole, clash):
+    hold = _stud_hold(stud_x, hole)
+    setup = _scene(engine.run(engine.job(parts["plate"], setups=[_setup([], hold)])))
+    assert setup["fixture_clash_debts"] == []
+    clashes = setup["fixture_clashes"]
+    if clash is None:
+        assert clashes == []  # heel on the floor and beam on the plate are contacts
+    else:
+        assert any(text.startswith(clash) for text in clashes), clashes
+
+
+@pytest.mark.parametrize(
+    "riser_across,parallel_ys,clash",
+    [
+        (16.0, (3.0, 17.0), None),  # inside the 0..20 opening
+        (30.0, (3.0, 17.0), "riser 1 blocks spans y -5.0..25.0 mm"),  # wider than the opening
+        (16.0, (1.0, 17.0), "parallel 1 spans y -1.0..3.0 mm"),  # overhangs the moving jaw
+    ],
+)
+def test_vise_parallels_and_risers_fit_the_jaw_opening(
+    engine, parts, riser_across, parallel_ys, clash
+):
+    # Plate 40 x 20 x 10 gripped across Y (opening y 0..20); parallels 4 wide below it.
+    hold = _vise(5.0, centre=20.0, parallels=(40.0, 4.0, [[20.0, y] for y in parallel_ys]))
+    hold["riser"] = {
+        "name": "blocks",
+        "size_mm": [25.0, riser_across, 25.0],
+        "centres_mm": [[20.0, 10.0]],
+    }
+    setup = _scene(engine.run(engine.job(parts["plate"], setups=[_setup([], hold)])))
+    assert setup["fixture_clash_debts"] == []
+    if clash is None:
+        assert setup["fixture_clashes"] == []
+    else:
+        assert any(text.startswith(clash) for text in setup["fixture_clashes"])
+
+
+def test_undrawn_or_unplaced_fixture_leaves_interference_unknown(engine, parts):
+    hold = {**_plate_hold(), "clamps": [], "gaps": ["clamp 1 'kit/strap' pose is undeclared"]}
+    setup = _scene(engine.run(engine.job(parts["plate"], setups=[_setup([], hold)])))
+    assert setup["fixture_clashes"] == []
+    assert setup["fixture_clash_debts"] == ["clamp 1 'kit/strap' pose is undeclared"]
+    # Jaws standing above material-free space are not placed: parallels cannot be checked.
+    unplaced = _vise(0.0, centre=20.0, parallels=(40.0, 4.0, [[20.0, 3.0], [20.0, 17.0]]))
+    setup = _scene(engine.run(engine.job(parts["plate"], setups=[_setup([], unplaced)])))
+    assert any(debt.startswith("vise jaws not placed") for debt in setup["fixture_clash_debts"])
+
+
 # --------------------------------------------------------------------------- host inputs
 
 
@@ -308,3 +418,27 @@ def test_unverified_solids_and_undeclared_supports_become_gaps():
     assert supported["gaps"] == [
         "dead centre 'centre' not drawn: quill_dia_mm, quill_extension_mm unresolved"
     ]
+
+
+@pytest.mark.parametrize(
+    "cuts,drawn",
+    [
+        (None, []),  # a bore that names no target withholds every solid of its owner
+        (["plate"], ["base:stand"]),  # only the solid it cuts is withheld
+    ],
+)
+def test_unresolved_void_withholds_the_solids_it_cuts(cuts, drawn):
+    bore = {**_cylinder("bore", [0, 0, -1], 6.6, 30), "void": True, "verify": True}
+    if cuts is not None:
+        bore["cuts"] = cuts
+    base = {
+        "kind": "custom",
+        "solids": [
+            {**_box("plate", [-20, -20, 0], [40, 40, 10]), "measured": MEASURED},
+            {**_cylinder("stand", [15, 15, 10], 9.5, 12), "measured": MEASURED},
+            bore,
+        ],
+    }
+    hold = _hold({"base": base}, {"fixture": "base", "pose": {"origin_mm": [0, 0, 0], **UP}})
+    assert [solid["name"] for solid in hold.get("solids", [])] == drawn
+    assert "base solid plate: not drawn, its void bore is unresolved" in hold["gaps"]

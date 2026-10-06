@@ -96,7 +96,7 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
+            "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
           },
           "plan": {
             "path": "examples/geometry/unclaimed-face/plan.toml",
@@ -513,6 +513,35 @@
       "rule": "finish_coverage",
       "status": "not_applicable",
       "subject": "step"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 6eb79bedf8985fb140b6f6bc5c4561c0c929f0f9332e124816ea752d6979caca; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold"
+      ],
+      "message": "S1: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 6eb79bedf8985fb140b6f6bc5c4561c0c929f0f9332e124816ea752d6979caca; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.test-vise: declared dimensions",
+        "inventory.fixtures.test-parallels-20: declared dimensions"
+      ],
+      "message": "S2: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S2"
     },
     {
       "cite": [
@@ -1785,7 +1814,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "33758854494d7a386d9750166376ac24f5abce09d11aba56bf63bb1dea06df8c",
+  "hash": "2a457e5e722798c89d7c96bc4c119cc1d64811aa78caac3581c2da62ba4605a7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -1797,7 +1826,7 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "13b0291fef481e45c51f049d82d7ff55e9d329e240aff3114013bc9d92d7b418"
+      "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
     },
     "plan": {
       "path": "examples/geometry/unclaimed-face/plan.toml",

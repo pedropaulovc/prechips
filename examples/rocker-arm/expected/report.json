@@ -10839,6 +10839,67 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "plan.frames.TA: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+      ],
+      "message": "S1: fixture interpenetrates the work or another fixture: riser 1 blocks-123-lms-2881 spans y -18.9..31.9 mm, outside the jaw opening y -16.0..29.0 mm closed on the stock; riser 2 blocks-123-lms-2881 spans y -18.9..31.9 mm, outside the jaw opening y -16.0..29.0 mm closed on the stock.",
+      "numbers": {
+        "clashes": [
+          "riser 1 blocks-123-lms-2881 spans y -18.9..31.9 mm, outside the jaw opening y -16.0..29.0 mm closed on the stock",
+          "riser 2 blocks-123-lms-2881 spans y -18.9..31.9 mm, outside the jaw opening y -16.0..29.0 mm closed on the stock"
+        ],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "error",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+      ],
+      "message": "S2: in-process stock unknown: S1:40 stock_removal_bounds removes 283.183135 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.rocker-profile-fixture: declared dimensions",
+        "plan.frames.TA: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+      ],
+      "message": "S3: in-process stock unknown: S1:40 stock_removal_bounds removes 283.183135 mm^3 in 2 piece(s) bordering none of its claimed faces; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
@@ -18553,7 +18614,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "b4f6ebc8228544833086950f47bda159c40103c57f7d9cf8ade1fce9b9334cbb",
+  "hash": "7172657e2d9d32952c2d42050ad793b036c2a205359f2ac5f0d46b8996192c47",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

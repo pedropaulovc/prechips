@@ -98,11 +98,12 @@ EL400 ABS Axis Set, not Preset. Approach side is independent of jog polarity.
 For edge finding, `contact=edge + side*finder_radius`, side -1 from negative
 axis and +1 from positive axis; indicated pickup uses radius 0. Paper Z uses
 `contact=edge + paper`; touching `top` takes the received/advanced stock top.
-Physical positive-axis jog gives `check=contact + sign*scale*jog` and
-`mirror=contact - sign*scale*jog`. The sign comes from authored DRO direction;
-lathe diameter-mode X uses scale 2 for the physical X jog and radius mode scale 1;
-an omitted or unknown lathe `radius_mode` leaves the X check/mirror readings
-unknown. Other axes use scale 1.
+Physical positive-axis jog gives `check=shown + sign*scale*jog` and
+`mirror=shown - sign*scale*jog`, where `shown=scale*contact` is the displayed
+Axis Set. The sign comes from authored DRO direction; lathe diameter-mode X
+uses scale 2 (a `+x` touch on a 6.35 mm gauge at the axis sets 6.35, not its
+3.175 radius) and radius mode scale 1; an omitted or unknown lathe
+`radius_mode` leaves the X readings unknown. Other axes use scale 1.
 Direction `right/away/up` (or lathe `away_from_spindle_axis/toward_exposed_end`)
 is positive. Reversed direction or a non-ABS known mode is an error.
 `edge_mm` explicitly locates a named pickup in the setup frame. Only Z
@@ -110,12 +111,22 @@ is positive. Reversed direction or a non-ABS known mode is an error.
 an ear's inner face) uses its own authored edge; stock top is not its fallback.
 
 For each authored Z `retouch_after`, the new set value is advanced top + paper.
-A profile does not move the touched top. A trial-cut method cannot take a target
-diameter as a measurement; the current input schema has no measured-diameter
-field and the resulting Axis Set remains unknown. Per-tool touch X stays
-unknown; known authored Z edge/paper can be displayed without certifying it.
-Missing tools, unverified finder/gauge facts, missing recipes and unknown frame
-binding preserve unknown. A lathe does not require a Y zero recipe.
+A profile does not move the touched top.
+
+X `method = "trial_cut_measure"` cuts a diameter, measures it at the machine
+with the declared `gauge` and Axis Sets that reading. Like paper thickness the
+reading is a bench value, so the recipe is complete when `tool` and `gauge`
+resolve without a verify flag, `check_jog_mm` is numeric and the lathe
+`radius_mode` is known. The rows show bench expressions: diameter mode
+`measured D`, check `D +2j`, mirror `D -2j`; radius mode `measured D/2`,
+`D/2 ±j`. A target diameter is never used as the measurement.
+
+Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
+`gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
+`x_axis_set` is the same measured-diameter expression and `z_axis_set` is
+`edge_mm + paper_mm`. Missing tools, unverified finder/gauge facts, missing
+recipes and unknown frame binding preserve unknown. A lathe does not require a
+Y zero recipe.
 
 Templates:
 

@@ -3036,7 +3036,9 @@
         "features.features.journal_bore.bounds/at",
         "features.frames.model; plan.frames.J3",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
         "https://www.precisionmatthews.com/products/pm-30mv",
+        "inventory.machines.BS-0.height",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
@@ -3052,19 +3054,11 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S3: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
+      "message": "S3: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder; measure: BS-0 record height, steel rule or calipers, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S3.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; author: Author plan.setups.S3.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S3.ops.40 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; resolve: add or select an owned tool for unknown in inventory and author plan.setups.S3.ops.40.tool.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
         "measurements": [
-          {
-            "cite": [
-              "inventory.fixtures.BS-0"
-            ],
-            "id": "fixtures.BS-0.resolve",
-            "instruction": "resolve: add or select an owned fixture for BS-0 in inventory and author plan.setups.S3.hold.fixture",
-            "units": "identity"
-          },
           {
             "cite": [
               "inventory.holders.unknown"
@@ -3072,6 +3066,14 @@
             "id": "holders.unknown.resolve",
             "instruction": "resolve: add or select an owned holder for unknown in inventory and author plan.setups.S3.ops.40.holder",
             "units": "identity"
+          },
+          {
+            "cite": [
+              "inventory.machines.BS-0.height"
+            ],
+            "id": "machines.BS-0.height",
+            "instruction": "measure: BS-0 record height, steel rule or calipers, mm",
+            "units": "mm"
           },
           {
             "cite": [
@@ -3730,6 +3732,85 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S0: frame and hold",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,373-376"
+      ],
+      "message": "S0: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S0"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.C4: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "S1: in-process stock unknown: stock.boss: round stock placement/dimensions undeclared: origin_mm, axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "plan.frames.M2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,79-81,373-376"
+      ],
+      "message": "S2: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.machines.BS-0: declared dimensions",
+        "https://www.precisionmatthews.com/products/dividinghead-bs-0",
+        "plan.frames.J3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67,268-279"
+      ],
+      "message": "S3: in-process stock unknown: stock.body: box stock placement/dimensions undeclared: origin_mm, axis, section_axis; in-process stock cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b; FreeCAD B-rep measurements",
+        "plan.setups.S4: frame and hold",
+        "plan.frames.C4: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
+      ],
+      "message": "S4: holding identity is unknown.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
@@ -4033,7 +4114,7 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
-        "fixture_verify": "missing",
+        "fixture_verify": false,
         "holder_gauge_len_mm": "unknown",
         "insertion_mm": 25,
         "jaw_obstruction": {
@@ -11489,20 +11570,21 @@
       "numbers": {
         "axes": {
           "x": {
-            "axis_set": "unknown",
-            "axis_set_status": "unknown",
+            "axis_set": "measured D",
+            "axis_set_status": "measured",
             "check_expression": "D +20",
             "check_jog_mm": 10.0,
-            "check_reading": "unknown",
+            "check_reading": "D +20",
             "dro_direction": "away_from_spindle_axis",
             "edge_mm": 0.0,
             "feature": "spindle_axis",
             "from": "+x",
             "gauge": "micrometers/0-1in",
+            "gauge_verify": false,
             "jog_mm": 10.0,
             "method": "trial_cut_measure",
             "mirrored_expression": "D -20",
-            "mirrored_reading": "unknown",
+            "mirrored_reading": "D -20",
             "paper_mm": "not_applicable",
             "radius_mm": "not_applicable",
             "sign": 1,
@@ -11804,7 +11886,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "d6f4377b5b670374d3de55df976dea160affb50824dd28e77acbf1f8fe11a507",
+  "hash": "4c64ebea887f1559a3b3d2261b8da23b74996c86bd340ce959f5317399968ab4",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -4014,6 +4014,58 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/1in: declared dimensions",
+        "plan.frames.TA: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP"
+      ],
+      "message": "Fixture pose/dimensions unmeasured or unavailable: grip_mm, jaw_above_parallels_mm",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.vise-pm-6: declared dimensions",
+        "https://www.precisionmatthews.com/products/vise-6in-highprec",
+        "inventory.fixtures.parallels-lms-6745/5-8in: declared dimensions",
+        "plan.frames.TB: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP"
+      ],
+      "message": "S2: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.angle-plate: declared dimensions",
+        "plan.frames.TC: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "pivot-bracket.STEP"
+      ],
+      "message": "S3: in-process stock unknown: S1:20: overstock still touches claimed wall(s) #12/ADVANCED_FACE[2]/NONE, #271/ADVANCED_FACE[11]/NONE, #470/ADVANCED_FACE[15]/NONE above its to_z; the setup approach does not fully clear this profile wall and the op declares no stock_removal_bounds (cleared XY footprint, retained rail/ear volume of an interrupted profile) for it; the in-process stock setup S1 leaves cannot be derived.",
+      "numbers": {},
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
@@ -9311,7 +9363,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "91600dfaca5441aa396e85a40b0a27bb3d591e55ac198444224436ab32c15f1f",
+  "hash": "1c2372c72a0244fdb6087dcb083ebfd91d1cfb9a93902ffbdfd59967f973ba07",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

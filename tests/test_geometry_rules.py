@@ -15,6 +15,7 @@ from prechips.rules import (
     accessibility,
     coverage,
     finish_coverage,
+    fixture_interference,
     internal_corner_radius,
     reach,
     thin_wall_under_clamp,
@@ -393,6 +394,33 @@ def test_holds_without_clamps_stay_unsupported(bundle):
     assert finding(thin_wall_under_clamp, bundle).status == "unsupported"
 
 
+@pytest.mark.parametrize(
+    "clashes,debts,status",
+    [
+        ([], [], "pass"),  # drawn components only touch
+        (["clamp 1 kit/strap:stud interpenetrates the setup-entry stock (12.5 mm^3)"], [], "error"),
+        ([], ["supports 'jack' has no fixture solid model"], "unknown"),
+        # An undrawn component cannot undo a certain interpenetration.
+        (["riser 1 blocks spans y -5..25 mm"], ["supports 'jack' has no fixture solid"], "error"),
+    ],
+)
+def test_fixture_interference_errors_on_any_clash_and_names_undrawn_components(
+    bundle, clashes, debts, status
+):
+    _strap_hold(bundle)
+    bundle.kernel["setups"]["S1"].update(fixture_clashes=clashes, fixture_clash_debts=debts)
+    row = finding(fixture_interference, bundle)
+    assert row.status == status
+    assert all(text in row.sentence for text in [*clashes, *(debts if not clashes else [])])
+
+
+def test_fixture_interference_without_engine_facts_stays_unknown(bundle):
+    reason = "holding inputs are unknown"
+    bundle.kernel["setups"]["S1"]["reasons"] = {"fixture_clashes": reason}
+    row = finding(fixture_interference, bundle)
+    assert row.status == "unknown" and reason in row.sentence
+
+
 def test_missing_physical_jaw_depth_is_not_invented_from_jaw_width(bundle):
     bundle.inventory["fixtures"]["vise"].pop("jaw_depth_mm")
     assert finding(vise, bundle).status == "unknown"
@@ -548,6 +576,33 @@ def test_machine_inventory_workholding_identity_is_not_misclassified_as_unknown(
     assert any("inventory.machines.BS-0" in cite for cite in row.cite)
     assert "Shop measured BS-0 identity" in row.cite
     assert finding(thin_wall_under_clamp, bundle).status == "unsupported"
+
+
+@pytest.mark.parametrize(
+    "wall,method,status", [(2.0, "hard_jaws", "pass"), (1.9, "hard_jaws", "error")]
+)
+def test_dividing_head_chuck_jaws_load_the_thin_wall_floor(bundle, wall, method, status):
+    bundle.inventory["machines"]["BS-0"] = {"kind": "dividing_head", "verify": False}
+    bundle.inventory["fixtures"]["head-chuck"] = {
+        "kind": "chuck_3jaw",
+        "body_dia_mm": 127.0,
+        "body_length_mm": 60.0,
+        "bore_dia_mm": 30.0,
+        "jaw_width_mm": 14.0,
+        "jaw_height_mm": 30.0,
+        "jaw_depth_mm": 20.0,
+        "verify": False,
+    }
+    bundle.plan["setups"][0]["hold"] = {
+        "fixture": "BS-0",
+        "chuck": "head-chuck",
+        "pose": {"origin_mm": [0.0, 10.0, 5.0], "x": [0.0, 1.0, 0.0], "z": [1.0, 0.0, 0.0]},
+        "jaw_clock_deg": 0.0,
+        "grip_mm": 10.0,
+        "method": method,
+    }
+    bundle.kernel["setups"]["S1"]["min_wall_mm"] = wall
+    assert finding(thin_wall_under_clamp, bundle).status == status
 
 
 @pytest.mark.parametrize("rule", [vise, thin_wall_under_clamp])

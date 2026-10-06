@@ -42,7 +42,9 @@ M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 must resolve to actual inventory or a named machine accessory; an unconfirmed
 accessory does not certify support.
 Hold identities resolve through `fixtures`, `holders`, then `machines`, so a
-machine-mounted dividing head is not an unresolved fixture. A dividing head
+machine-mounted dividing head is not an unresolved fixture: the kernel, the
+`hold_fields`, `headroom` and `envelope` rules all read its `height` /
+`bed_height`, `length` and `width` from wherever it is declared. A dividing head
 without declared gripping capacity is `not_applicable` to the diameter screen;
 a machine or dividing head with declared collet sizes or chuck ranges is checked.
 
@@ -103,6 +105,15 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   length_mm}` cylinders in its own frame. Each primitive is trusted on its
   own: a primitive whose record carries `verify = true` / `"unknown"` or an
   incomplete `measured` is not drawn and is named as debt.
+- A primitive with `void = true` (a bore, tapped or clearance hole, stud
+  slot) is not drawn: it is cut from the same `solids` list's other
+  primitives, or only from those it names in `cuts = ["<name>", …]`, and
+  never from another item's or member's solids. An untrusted or malformed
+  void withholds the solids it would cut (named debt) rather than draw them
+  uncut. A strap member models its whole clamp assembly in one list: beam,
+  slot void (`cuts = ["beam"]`), stud, heel, nut and washer (washer bore with
+  `cuts = ["washer"]`). Primitives of one list are one part and never checked
+  against each other; each posed clamp's list must touch the stock to bear.
 
 A tool enters an
 op's geometry job when `dia`, `flute_len` and `oal` resolve and a holder when
