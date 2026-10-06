@@ -423,16 +423,23 @@ with angles at the drawing's declared angular precision.
 | `height_mm` | `float` |
 | `jaw_lead_mm` | `float` |
 | `at_z_mm` | `float` |
+| `jaw_side` | `str` (`turned` or `uncut`; follow rests only) |
 | `ops` | `list[int]` |
 
 A `hold.supports` table with `jaw_lead_mm` declares a follow rest riding that
-far behind the tool; one with `at_z_mm` declares a steady rest at that
+far from the tool along Z; one with `at_z_mm` declares a steady rest at that
 setup-frame Z. `ops` lists the operation ids it serves (omitted = every turning
-op of the setup). `ref` names an inventory `follow_rest`/`steady_rest` fixture
-with measured `capacity_min`/`capacity_max`. `turning_deflection` then uses the
-rest span instead of `stickout_mm` (docs/rules-physics.md "Follow and steady
-rests"). Example:
-`supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0 }]`.
+op of the setup). A follow rest's `jaw_side` says which diameter its jaws ride:
+`turned` (the default; trailing the tool on the diameter just cut) or `uncut`
+(leading it on the diameter about to be cut). `ref` names an inventory
+`follow_rest`/`steady_rest` fixture with measured `capacity_min`/`capacity_max`.
+`turning_deflection` then uses the rest span instead of `stickout_mm`
+(docs/rules-physics.md "Follow and steady rests"). The kernel also draws and
+collision-checks the rest from that fixture's measured solid fields: a follow
+rest's `jaw_width`, `jaw_height`, `jaw_depth` and `jaw_angles_deg`, a steady
+rest's `body_dia` and `body_length` ([inventory](inventory.md),
+[rules-geometry](rules-geometry.md#follow-and-steady-rests)). Example:
+`supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]`.
 
 ## Zero
 

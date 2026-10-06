@@ -137,8 +137,8 @@ StockState = record(
     },
 )
 # A `hold.supports` table: follow rest {ref, ops, jaw_lead_mm[, jaw_side]} or steady rest
-# {ref, ops, at_z_mm}. A follow rest's jaw_side is "uncut" (ahead of the cutting point along
-# the feed, the default) or "turned" (behind it, on the diameter just cut).
+# {ref, ops, at_z_mm}. A follow rest's jaw_side is "turned" (behind the cutting point along
+# the feed, on the diameter just cut; the default) or "uncut" (ahead of it).
 Reference = record(
     "Reference",
     {
