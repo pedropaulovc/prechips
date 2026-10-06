@@ -1346,9 +1346,11 @@ def evaluate(bundle, *, pre_kernel=False):
             )
         plunge_errors = []  # blade plunges leaving a groove outside its drawing width
         for op in setup["ops"]:
+            # An inspect op may name a list of features; a groove op names one.
             name = op.get("feature")
-            feature = mapping(features.get(name)) if isinstance(name, str) else {}
-            plunges = _plunges(bundle, op, feature)
+            plunges = _plunges(
+                bundle, op, mapping(features.get(name) if isinstance(name, str) else None)
+            )
             if plunges is None:
                 continue
             numbers.setdefault("plunges", []).append(plunges)

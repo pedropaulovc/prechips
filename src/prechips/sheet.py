@@ -1194,7 +1194,9 @@ class _Traveler:
         return "<h2>CLEARANCE — mill</h2>" + "".join(_p(line) for line in lines)
 
     def lathe_approaches(self, setup):
-        """Distance from each op's last planned Z to the jaw fronts (exposed side +Z)."""
+        """Distance from each op's last planned Z to the jaw fronts (exposed side +Z); a
+        blade's own chuck-side face (accessibility ``blade_z_mm``) counts, not just the
+        Z its op names."""
         jaw = self.jaw_front_z(setup)
         result = {}
         if jaw is None:
@@ -1203,9 +1205,42 @@ class _Traveler:
             if op.get("do") in MANUAL:
                 continue
             zs = self.path_zs(setup, op)
+            numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
+            blade = numbers.get("blade_z_mm")
+            if zs and isinstance(blade, list) and blade and all(_known(z) for z in blade):
+                zs = [*zs, min(blade)]
             if zs:
                 result[str(op["op"])] = min(zs) - jaw
         return result
+
+    def posed_start(self, setup, op):
+        """The kernel's pose of a turning op at its start (accessibility ``window_poses``)
+        when a fixture component is within the crash zone of it: the clearance, and how
+        far out the start may go when that was found; None otherwise."""
+        numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
+        o = self.operative
+        for pose in numbers.get("window_poses") or []:
+            pose = _mapping(pose)
+            clear = pose.get("clearance_mm")
+            if pose.get("end") != "z_from" or not _known(clear) or clear > _CRASH_ZONE_MM:
+                continue
+            text = (
+                f"START Z {o(pose.get('z_mm'))}: {o(clear)} CLEAR OF {pose.get('nearest_fixture')}"
+            )
+            if _known(pose.get("max_start_z_mm")):
+                text += f" — start no further out than Z {o(pose['max_start_z_mm'])}"
+            return _Box(text)
+        return None
+
+    def rest_engagement(self, setup, op):
+        """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``)."""
+        numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
+        o = self.operative
+        return [
+            f"set the follow rest at Z {o(entry['declared_z_mm'])} once the tool passes it"
+            for entry in map(_mapping, numbers.get("rest_engagement") or [])
+            if _known(entry.get("declared_z_mm"))
+        ]
 
     def path_zs(self, setup, op):
         """The Z ends of an op's path as its op row prints them."""
@@ -1226,7 +1261,10 @@ class _Traveler:
                 boxes.append(_Box(f"JAWS Z {o(jaw)}: {o(gap)} clear — hand feed to a stop"))
             tip = _mapping(setup.get("hold")).get("support_tip_mm")
             zs = self.path_zs(setup, op)
-            if isinstance(tip, list) and len(tip) == 3 and _known(tip[2]) and zs:
+            start = self.posed_start(setup, op)
+            if start is not None:
+                boxes.append(start)
+            elif isinstance(tip, list) and len(tip) == 3 and _known(tip[2]) and zs:
                 gap = tip[2] - max(zs)
                 if gap <= _CRASH_ZONE_MM:
                     boxes.append(_Box(f"DEAD CENTRE Z {o(tip[2])}: start clear of it"))
@@ -1962,7 +2000,11 @@ class _Traveler:
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"
                 ]
             else:
-                target = self.tip(setup, op) + self.relief_plunges(setup, op)
+                target = (
+                    self.tip(setup, op)
+                    + self.relief_plunges(setup, op)
+                    + self.rest_engagement(setup, op)
+                )
             if any(isinstance(line, _Box) and "Z target" in line for line in target):
                 stops.setdefault("no Z target", []).append(str(op["op"]))
             boxes = self.crash_boxes(setup, op)

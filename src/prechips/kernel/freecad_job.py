@@ -24,8 +24,12 @@ Measurement conventions (setup frame, tool axis +Z):
   sample keeps its axis; ties within PLANAR_EQUAL_MM (1e-7 mm, never a radius or
   STOCK_TOL) go to the face's area centroid, then the least (x, y). No legal centre
   within rho keeps the sample's axis and reports its genuine hit. Candidates are
-  exact offsets of nearby line and Z-circle section edges, certified natively;
-  another nearby curve, an ambiguous section or missing raw supply makes that
+  exact offsets of nearby line and Z-circle section edges, certified natively.
+  Another nearby curve has no exact offset: the sample's native nearest-bound
+  certificate over the whole section (an outside native closest point q with
+  c = q + rho (p - q) / |p - q| legal, or one straight-line boundary with exactly
+  one legal normal) adds its proved axis to those candidates and their ranking.
+  An uncertified sample, an ambiguous section or missing raw supply makes that
   floor's pose undefined: its poses drop, every other face's certain hits stay,
   and the op's measured facts become unknown with the reason. Only the section
   at z steers the axis; overhangs, leave below z, future hole cores and unclaimed
@@ -164,6 +168,12 @@ HIT_MM3 = 1e-6  # common volume that counts as an intersection
 HIT_BALL_MM = 0.01  # mm: proof-ball radius; its 4.19e-6 mm^3 volume exceeds HIT_MM3
 STOCK_TOL = 1e-3  # mm: as-is face distance to the envelope, claimed-face contact
 COVER_MM = 0.01  # mm outside a claimed face where remaining stock means it is not cleared
+# A turning op's furthest clear start (_Setup._window_record): stepped out by its clearance
+# until within START_TOL mm of a fixture component, at most START_STEPS steps and
+# START_OUT_MM mm back from the planned start.
+START_TOL = 1e-3
+START_STEPS = 200
+START_OUT_MM = 250.0
 # mm along a printed cutter-centre chord within which the kernel locates where the cutter
 # first meets stock outside its op's stock_removal_bounds (_Setup._clip_checkpoints).
 CLIP_PRECISION_MM = 1e-4
@@ -7636,6 +7646,93 @@ class _Setup:
             self.planar_legal[key] = legal
         return self.planar_legal[key]
 
+    def _planar_certificate(self, section, px, py, z, rho, vertex, touching):
+        """A legal axis ``c`` for the illegal sample ``p = (px, py)`` (``vertex``, at
+        height ``z``) with no legal axis more than PLANAR_EQUAL_MM nearer ``p``, proved
+        from the whole native section without an exact offset of its curves, or None.
+
+        ``q`` is the section's native closest point (one pair or bit-identical
+        duplicates, never a tolerance cluster or average) and ``d = |p - q|`` comes from
+        coordinates. Every axis at least ``rho`` from material point ``q`` is at least
+        ``rho - d`` from ``p``, so a ``c`` at that distance with exact clearance ``rho``
+        is the unique nominal nearest axis. :meth:`_planar_legal` accepts clearance
+        ``rho - PLANAR_EQUAL_MM``, so a native pass proves only that no accepted axis is
+        more than PLANAR_EQUAL_MM nearer: ``c`` joins the supported candidates and their
+        ranking, never bypassing it.
+
+        Outside (``PLANAR_EQUAL_MM < d < rho``, ``p`` outside every certain solid),
+        ``c = q + rho (p - q) / d``. Every closest native Edge must resolve to exactly one
+        section edge, and one without an exact offset refuses when its native tolerance
+        exceeds PLANAR_EQUAL_MM (a conservative precision policy; a closest Vertex is
+        accepted). On a line (``d <= PLANAR_EQUAL_MM``, ``p`` strictly inside no certain
+        solid), ``touching`` (the slots the scan measured within PLANAR_EQUAL_MM of
+        ``p``) must be one line edge whose native foot ``q`` lies more than
+        PLANAR_EQUAL_MM inside both ends, and exactly one of ``q ± rho n`` must be legal.
+        A curve, seam, corner or vertex boundary, a classification the section
+        contradicts or an illegal ``c`` gives None; a farther legal axis never stands
+        in for it. Native failures raise.
+        """
+        shape = section["shape"]
+        distance, pairs, infos = _distance(shape, vertex)
+        if not pairs or len(pairs) != len(infos):
+            return None
+        q = pairs[0][0]
+        qx, qy, qz = q.x, q.y, q.z
+        if any((a.x, a.y, a.z) != (qx, qy, qz) for a, _ in pairs[1:]):
+            return None
+        if not _trustworthy((distance, qx, qy, qz)) or abs(qz - z) > PLANAR_EQUAL_MM:
+            return None
+        d = math.hypot(px - qx, py - qy)
+        if abs(distance - d) > PLANAR_EQUAL_MM:
+            return None
+        edges, closest = shape.Edges, set()
+        for info in infos:
+            if info[0] == "Vertex":
+                closest.add(None)
+                continue
+            if info[0] != "Edge" or not 0 <= info[1] < len(edges):
+                return None
+            edge = edges[info[1]]
+            slots = [slot for slot, entry in enumerate(section["edges"]) if entry[0].isSame(edge)]
+            if len(slots) != 1:
+                return None
+            closest.add(slots[0])
+        point, solids = vertex.Point, self.certain.Solids
+        if d > PLANAR_EQUAL_MM:
+            if d >= rho or any(solid.isInside(point, 1e-9, True) for solid in solids):
+                return None
+            for slot in closest - {None}:
+                edge, _, data, _, _ = section["edges"][slot]
+                if data is None:
+                    tolerance = edge.getTolerance(1)
+                    if not (_trustworthy((tolerance,)) and 0 <= tolerance <= PLANAR_EQUAL_MM):
+                        return None
+            candidates = [(qx + rho * (px - qx) / d, qy + rho * (py - qy) / d)]
+        else:
+            if any(solid.isInside(point, 1e-9, False) for solid in solids):
+                return None
+            if len(touching) != 1 or closest != {touching[0]}:
+                return None
+            _, kind, data, _, _ = section["edges"][touching[0]]
+            if kind != "line":
+                return None
+            ax, ay, bx, by = data
+            length = math.hypot(bx - ax, by - ay)
+            ux, uy = (bx - ax) / length, (by - ay) / length
+            along = (qx - ax) * ux + (qy - ay) * uy
+            if not PLANAR_EQUAL_MM < along < length - PLANAR_EQUAL_MM:
+                return None
+            candidates = [(qx - side * uy, qy + side * ux) for side in (rho, -rho)]
+        cover = rho + PLANAR_EQUAL_MM
+        legal = [
+            (x, y)
+            for x, y in candidates
+            if _trustworthy((x, y))
+            and math.hypot(x - px, y - py) <= cover
+            and self._planar_legal(section, x, y, z, rho)
+        ]
+        return legal[0] if len(legal) == 1 else None
+
     def _planar_axis(self, index, point, radius, leave, z):
         """The nearest legal tool axis ``(x, y)`` for a sample ``point`` of +Z planar face
         ``index`` whose tip stands at actual height ``z``.
@@ -7658,8 +7755,11 @@ class _Setup:
         ``2 rho`` of the sample, the only ones that can bound an axis within ``rho`` of
         it. Candidates are certified natively against the whole section in increasing
         distance (:meth:`_planar_legal`), so supersets are harmless. Such a nearby edge
-        that is neither a line nor a Z-axis circle, an ambiguous section, or missing raw
-        supply raises ValueError: the floor's pose is undefined, not free.
+        that is neither a line nor a Z-axis circle has no exact offset: the sample then
+        needs its native nearest-bound certificate (:meth:`_planar_certificate`), whose
+        one proved axis joins the candidates and their ranking. An uncertified sample, an
+        ambiguous section, or missing raw supply raises ValueError: the floor's pose is
+        undefined, not free.
         """
         why = self._certain_debt()
         if why is not None:
@@ -7671,16 +7771,20 @@ class _Setup:
             return px, py
         reach = 2 * rho + PLANAR_EQUAL_MM
         vertex = Part.Vertex(V(px, py, z))
-        primitives, found, unsupported = set(), set(), set()
+        primitives, found, unsupported, touching = set(), set(), set(), []
         for slot, (edge, kind, data, ends, box) in enumerate(section["edges"]):
             if (
                 px < box[0] - reach
                 or px > box[3] + reach
                 or py < box[1] - reach
                 or py > box[4] + reach
-                or _distance(edge, vertex)[0] > reach
             ):
                 continue
+            distance = _distance(edge, vertex)[0]
+            if distance > reach:
+                continue
+            if distance <= PLANAR_EQUAL_MM:
+                touching.append(slot)
             if data is None:
                 unsupported.add(kind)
                 continue
@@ -7691,11 +7795,14 @@ class _Setup:
             primitives.update(offsets)
             found.update(caps)
         if unsupported:
-            raise ValueError(
-                f"its section at pose height z={_r(z)} has "
-                f"{', '.join(sorted(unsupported))} edge(s) within {_r(reach)} mm of a "
-                "sample, which have no exact legal-centre offset"
-            )
+            certified = self._planar_certificate(section, px, py, z, rho, vertex, touching)
+            if certified is None:
+                raise ValueError(
+                    f"its section at pose height z={_r(z)} has "
+                    f"{', '.join(sorted(unsupported))} edge(s) within {_r(reach)} mm of a "
+                    "sample, which have no exact legal-centre offset"
+                )
+            found.add(certified)
         cover = rho + PLANAR_EQUAL_MM
         centroid = self.faces[index].CenterOfMass
         cx, cy = centroid.x, centroid.y
@@ -8584,10 +8691,13 @@ class _Setup:
         windows = [] if faced_feed else self._turn_windows(op, tool, samples)
         poses = [(index, point, normal, None) for index, point, normal in samples]
         poses += [(w["index"], w["point"], (1.0, 0.0), w) for w in windows]
+        blade_z = []
         for index, point, normal, window in poses:
             # Without a section (its reason keeps the hits unknown) the pose is nominal.
             if window is None:
                 centre, (low, high) = self._turn_pose(tool, point, normal, segments)
+                if tool["corners"] == 2:
+                    blade_z += [low, high]
             else:
                 # As a cut sample: a nose meeting the profile within twice its radius (a
                 # fillet or corner at the window end) stands at the nearest clear pose.
@@ -8648,6 +8758,10 @@ class _Setup:
                 common = band.common(reach_stock)
                 if common.Volume > HIT_MM3:
                     reach = max(reach, _max_radius(common) - point[0])
+        if blade_z:
+            # The blade's axial extent over its cutting poses: both faces, not the one Z
+            # the op names (a part-off's blade lies beyond the face it leaves).
+            facts["blade_z_mm"] = [_r(min(blade_z)), _r(max(blade_z))]
         if windows:
             facts["window_poses"] = [
                 self._window_record(w, tool, holder_missing, subject)
@@ -8733,28 +8847,56 @@ class _Setup:
             )
         return windows
 
-    def _window_record(self, window, tool, holder_missing, subject):
-        """One window end's pose and the placed fixture component nearest its tool/holder."""
-        section, pieces = self._turn_sections(tool, window["centre"], not holder_missing)
+    def _window_solids(self, tool, centre, holder_missing):
+        section, pieces = self._turn_sections(tool, centre, not holder_missing)
         solids = [_revolved(section)]
         if pieces is not None:
             solids += list(map(_revolved, pieces))
-        point = window["point"]
-        record = {"end": window["end"], "z_mm": _r(point[1]), "dia_mm": _r(2 * point[0])}
+        return [solid for solid in solids if solid is not None]
+
+    def _nearest_fixture(self, solids, subject):
+        """(name, distance) of the placed fixture component nearest ``solids``, else None."""
         nearest = None
         for component in self.fixture if self.fixture_ready else []:
             subjects = component.get("subjects", "all")
             if subjects != "all" and subject not in subjects:
                 continue
             for solid in solids:
-                if solid is None:
-                    continue
                 distance = solid.distToShape(component["envelope"])[0]
                 if nearest is None or distance < nearest[1]:
                     nearest = (component["name"], distance)
-        if nearest is not None:
-            record["nearest_fixture"] = nearest[0]
-            record["clearance_mm"] = _r(nearest[1])
+        return nearest
+
+    def _window_record(self, window, tool, holder_missing, subject):
+        """One window end's pose and the placed fixture component nearest its tool/holder.
+
+        At ``z_from`` it also gives ``max_start_z_mm``: the start furthest back (against
+        the feed, same diameter) before the tool or holder touches a fixture component.
+        It is stepped out by the current clearance each time, so every step stays clear,
+        and is recorded only once that clearance is within START_TOL of contact; a start
+        with nothing behind it within START_OUT_MM records none."""
+        point = window["point"]
+        record = {"end": window["end"], "z_mm": _r(point[1]), "dia_mm": _r(2 * point[0])}
+        solids = self._window_solids(tool, window["centre"], holder_missing)
+        nearest = self._nearest_fixture(solids, subject)
+        if nearest is None:
+            return record
+        record["nearest_fixture"] = nearest[0]
+        record["clearance_mm"] = _r(nearest[1])
+        if window["end"] != "z_from" or nearest[1] <= START_TOL:
+            return record
+        against, (cr, cz) = -tool["feed_z"], window["centre"]
+        out, gap = 0.0, nearest
+        for _ in range(START_STEPS):
+            out += gap[1]
+            if out > START_OUT_MM:
+                return record
+            moved = self._window_solids(tool, (cr, cz + against * out), holder_missing)
+            gap = self._nearest_fixture(moved, subject)
+            if gap[1] <= START_TOL:
+                record["max_start_z_mm"] = _r(point[1] + against * out)
+                record["max_start_meets"] = gap[0]
+                return record
         return record
 
     def _rest_engagement(self, posed, tool, windows, subject):
