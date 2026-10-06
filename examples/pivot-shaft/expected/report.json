@@ -2684,6 +2684,70 @@
     },
     {
       "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T1: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-44,110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117"
+      ],
+      "message": "S1: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "plan.setups.S2: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T2: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44-45",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:313-326,431"
+      ],
+      "message": "S2: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc; FreeCAD B-rep measurements",
+        "plan.setups.S3: frame and hold",
+        "inventory.fixtures.chuck-3jaw-6-d1-4: declared dimensions",
+        "pm-1127 standard accessories",
+        "plan.frames.T3: author-declared setup frame",
+        "AUTHOR'S CHOICE",
+        "harmonic-analyzer/cad/scripts/rocker_bank_layout.py:103-115",
+        "harmonic-analyzer/cad/scripts/draw_channel_assembly.py:77-82,101-110",
+        "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433"
+      ],
+      "message": "S3: every fixture component only touches the stock and the other components.",
+      "numbers": {
+        "clashes": [],
+        "undrawn": []
+      },
+      "rule": "fixture_interference",
+      "status": "pass",
+      "subject": "S3"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 headroom",
         "inventory: lathe swing/between-centres facts and chuck body dimensions",
         "plan: stock_state od_mm/north_end_z/south_end_z and hold stickout_mm",
@@ -7580,7 +7644,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "771d985b011b3f8669ad32f78a416d0a56778699a953aee9c9fb9df4a029524b",
+  "hash": "f29c8efc70909bb6674a3e5be9666ce7a3c0982b1a9bf05e826d89c7e36268a1",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
