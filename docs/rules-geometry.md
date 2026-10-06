@@ -529,8 +529,9 @@ countersink is therefore not reserved, and a blind hole's column stops at its
 actual cap rather than running on as an unbounded rod; pins or rods outside
 that span are not reserved hole stock.
 A profile op (`profile`, `rough_profile`, `finish_profile`) with no
-`stock_removal_bounds` clears only its cutter corridor beside its vertical
-claimed walls, never the stock past it. The walls' level sections are chained;
+`stock_removal_bounds` clears its cutter corridor beside its vertical claimed
+walls and the sweep of the cutter-centre paths the traveler prints for it,
+never the stock past both. The walls' level sections are chained;
 the cutter centre path is each chain offset by the cutter radius r to the side
 away from the finished part (side probed 0.01 mm off the wall), with arcs about
 convex joins and trimmed at concave ones; the corridor is every point within r
@@ -539,11 +540,28 @@ disc at each open path end. It stands from `to_z` (else the walls' foot) to
 above the setup-entry stock. A concave claim (for example an R800 edge) gets
 the same corridor, not its whole circle, so an unclaimed web wider than 2r, a
 clamped rail or an ear beyond it stays stock until an op that really cuts it.
-The finished part and the op's leave stay protected; fixtures are never stock,
-so a cutter that meets them stays an accessibility hit. An unknown cutter
-radius, an ambiguous wall side or a corridor OCC cannot build makes the cut
-underivable (named stock debt, never a guessed removal). Non-vertical claims
-of a profile op still sweep along +Z.
+The operator really drives the printed path, corner miters (two linear moves
+past a convex corner) and run-outs included, so every point within r of each
+printed table (its displayed `dro_xy` rows as chords, from its displayed tip up)
+is credited removal too. **Rule A′** limits that path, row by row: a printed
+row is an accessibility error naming the row when its cutter meets the finished
+part or the op's rough leave (its guard), a fixture component, stock outside a
+bounded op's box, or stock a later setup bears on. A row's scrap is what it
+removes past its op's design (the corridor and claim sweeps, or a bounded op's
+box). Retained scrap may be nicked unless a later setup (one whose stock
+descends from this setup) contacts it: where the scrap still borders that
+setup's entry stock and lies within 0.01 mm in front of a flat face of one of
+its jaws, clamps (press, locate or support), locators, rests, parallels, risers
+or fixture bodies over more than 1e-6 mm², the row is an error naming the later
+setup, the contact and the component. A later setup whose frame, entry stock
+or holding is unresolved, or that has undrawn components, leaves the rows
+`unknown`, as does scrap meeting a curved component face, a possible jaw
+extension or, with undrawn supports, the later seat; unknown never passes.
+Fixtures are never stock, so a cutter that meets them stays an accessibility
+hit. An unknown cutter radius, an ambiguous wall side, an unknown printed row or
+a corridor or run-out OCC cannot build makes the cut underivable (named stock
+debt, never a guessed removal). Non-vertical claims of a profile op still sweep
+along +Z.
 Every claimed face with a horizontal normal component is checked for
 remaining overstock above `to_z`,
 including drafted walls whose +Z sweep is nonzero. Exact face contact catches
@@ -668,6 +686,23 @@ each sample one prescribed tool pose (PLAN §4.2). Ordinary wall samples use
 the cutter-radius offset along the in-plane (XY) outward normal; ordinary
 interior floor samples have no XY offset. The tip is at the sample's Z,
 except as the rough leave below moves it.
+
+**Printed checkpoints (rule A′).** For an op whose coordinates tables print
+cutter-centre rows ([rules-coordinates](rules-coordinates.md)), the kernel
+stands the op's cutter cylinder (radius less 0.001 mm) at every printed row's
+displayed setup XY from its displayed tip up above the setup-entry stock. Each
+row is an error naming it when that cylinder meets the finished part, the op's
+rough leave (its guard less the finished part, inside what the row removes),
+a fixture component, or, for a bounded op, before-op stock outside its
+`stock_removal_bounds` box, each over 1e-6 mm³; or when what the row removes
+past its op's design is stock a later setup bears on (the profile-corridor
+paragraph under [In-process stock](#in-process-stock)). Facts:
+`checkpoint_count`, `checkpoint_hits` (rows with an error, or `unknown`),
+`checkpoint_errors` (`row`, `obstacle`, and `volume_mm3` or `later_setup`,
+`contact`, `area_mm2`), `checkpoint_reason` and `checkpoint_overshoot_ok`
+(corner-miter rows proven clear, empty while any row is unknown). Any error
+makes the op an accessibility error listing the first three (and how many
+more); an unknown check makes the op `unknown`, never a pass.
 
 A rough milling op's scalar `rough_allowance_mm` (a) is consumed by the
 engine as a leave in millimetres normal to the finished surface. Each rough

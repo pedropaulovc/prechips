@@ -242,6 +242,93 @@ def _xy_model(point, feature, frames):
 _CLIP_TOL = 1e-9
 # Plan units within which two table ends are one join of the same cutter path.
 _JOIN_TOL = 1e-6
+# Decimals the DRO shows per feature unit: the sheet prints, and the kernel checks, these.
+DRO_DECIMALS = {"mm": 2, "in": 4}
+# The operator note on a printed corner miter the kernel proves clear (rule A′).
+OVERSHOOT_NOTE = "corner overshoot into scrap — OK"
+
+
+def _grid(value, decimals, up):
+    """``value`` on the DRO grid of ``decimals``, rounded up (True) or down (False)."""
+    scale = 10**decimals
+    steps = math.ceil(value * scale - 1e-6) if up else math.floor(value * scale + 1e-6)
+    return round(steps / scale, decimals)
+
+
+def _to_segment(point, a, b):
+    delta = [b[i] - a[i] for i in range(2)]
+    span = delta[0] ** 2 + delta[1] ** 2
+    t = sum((point[i] - a[i]) * delta[i] for i in range(2)) / span if span else 0.0
+    t = max(0.0, min(1.0, t))
+    return math.dist(point, [a[i] + t * delta[i] for i in range(2)])
+
+
+def _to_arc(point, centre, radius, a, b, middle):
+    """Distance from ``point`` to the arc of ``radius`` about ``centre`` running from ``a``
+    through ``middle`` to ``b``: radial inside its sector, else to the nearer end."""
+
+    def angle(q):
+        return math.atan2(q[1] - centre[1], q[0] - centre[0])
+
+    sweep = (angle(b) - angle(a)) % math.tau
+    if (angle(middle) - angle(a)) % math.tau > sweep:  # the arc runs the other way round
+        a, b, sweep = b, a, math.tau - sweep
+    if (angle(point) - angle(a)) % math.tau <= sweep:
+        return abs(math.dist(point, centre) - radius)
+    return min(math.dist(point, a), math.dist(point, b))
+
+
+def _dro_xy(xy, decimals, walls, box, offset):
+    """``xy`` as the DRO prints it, on the safe side: the nearest grid point no nearer any
+    wall (``walls``: point -> distance) than ``xy`` or than the authored cutter-centre
+    ``offset``, whichever is less, and inside ``box`` (the DRO-rounded clip box) when
+    given; a corner of its grid cell, else up to two steps out, else unknown."""
+    if not walls or not all(number(v) for v in xy):
+        return [UNKNOWN, UNKNOWN]
+    step = 10.0**-decimals
+    base = [_grid(v, decimals, False) for v in xy]
+    floors = [min(wall(xy), offset) - _CLIP_TOL for wall in walls]
+    for reach in (1, 3):
+        span = range(1 - reach, reach + 1)
+        options = [
+            [round(base[0] + i * step, decimals), round(base[1] + j * step, decimals)]
+            for i in span
+            for j in span
+        ]
+        for point in sorted(options, key=lambda p: math.dist(p, xy)):
+            inside = box is None or _inside(point, box)
+            if inside and all(wall(point) >= low for wall, low in zip(walls, floors, strict=True)):
+                return point
+    return [UNKNOWN, UNKNOWN]
+
+
+def _printed(arcs, lines, decimals, walls, box, offset):
+    """Stamp every row and join point with the value the DRO prints: ``dro_xy``
+    (:func:`_dro_xy`) and ``dro_tip_z``, the tip rounded up so it is never deeper than
+    authored. The sheet prints these; the kernel checks them and credits their sweep. Points
+    within _JOIN_TOL of each other (a table end and the join it meets) print one value."""
+    done = []
+
+    def tip(value):
+        return _grid(value, decimals, True) if number(value) else UNKNOWN
+
+    def dro(xy):
+        if all(number(v) for v in xy):
+            for point, value in done:
+                if math.dist(point, xy) <= _JOIN_TOL:
+                    return value
+        value = _dro_xy(xy, decimals, walls, box, offset)
+        done.append((xy, value))
+        return value
+
+    for arc in arcs:
+        arc["dro_tip_z"] = tip(arc.get("tip_z"))
+        for row in arc["rows"]:
+            row["dro_xy"] = dro(row["setup_xy"])
+            row["dro_tip_z"] = tip(row.get("tip_z"))
+    for line in lines:
+        line["dro_tip_z"] = tip(line.get("tip_z"))
+        line["dro_xy"] = [dro(xy) for xy in line["setup_xy"]]
 
 
 def _centre_box(op, radius, units):
@@ -250,7 +337,8 @@ def _centre_box(op, radius, units):
     The bounds are the op's setup-frame clearing box (plan units, docs/plan.md); the stock
     model credits removal only inside it, so a cutter of ``radius`` mm stays in that removal
     only while its centre stays r inside each XY bound. Each axis is ``(lo + r, hi - r, lo
-    marker, hi marker)``; an op without bounds gives (None, None).
+    marker, hi marker)``, both rounded inward to the DRO grid (:data:`DRO_DECIMALS`) so a
+    printed point on a bound stays inside it; an op without bounds gives (None, None).
     """
     if "stock_removal_bounds" not in op:
         return None, None
@@ -260,6 +348,7 @@ def _centre_box(op, radius, units):
     if not (number(radius) and radius > 0):
         return None, "the cutter radius is unknown, so its stock_removal_bounds cannot clip"
     bounds, r, box = mapping(op["stock_removal_bounds"]), radius / scale, []
+    decimals = DRO_DECIMALS[units]
     for axis in ("x", "y"):
         span = bounds.get(axis)
         if not (
@@ -272,8 +361,8 @@ def _centre_box(op, radius, units):
         lo, hi = (float(v) for v in span)
         box.append(
             (
-                lo + r,
-                hi - r,
+                _grid(lo + r, decimals, True),
+                _grid(hi - r, decimals, False),
                 f"stock_removal_bounds {axis} {lo} + r",
                 f"stock_removal_bounds {axis} {hi} − r",
             )
@@ -465,9 +554,13 @@ def _authorised(arc, lines, box, row_at):
     if count <= 0:
         return [], [], "its cutter-centre path lies wholly outside its bounds inset by r"
     if count > 1:
-        return arcs, joins, (
-            f"its bounds inset by r split its cutter-centre path into {count} pieces; "
-            "no credited cut links them"
+        return (
+            arcs,
+            joins,
+            (
+                f"its bounds inset by r split its cutter-centre path into {count} pieces; "
+                "no credited cut links them"
+            ),
         )
     return arcs, joins, None
 
@@ -480,14 +573,18 @@ def _clipped(point):
     return point.get("clipped_at") if isinstance(point, dict) else point[2]
 
 
-def _arc(feature_name, feature, op, offset, frame, frames, features, sense, order, box=None):
+def _arc(
+    feature_name, feature, op, offset, frame, frames, features, sense, order, box=None, decimals=2
+):
     """([arc table fragments], join lines, clip debt or None), in cutting order for
     ``sense`` (see cut_order).
 
     The cutter-side wall normal is radial: outward when the cutter centre runs outside the
     wall radius, inward on a concave wall. A join's normal is its offset land's normal.
     ``box`` (:func:`_centre_box`) clips the path at the op's stock_removal_bounds
-    (:func:`_authorised`).
+    (:func:`_authorised`). Every row and join point carries the value the DRO prints at
+    ``decimals``, never nearer the feature's walls (:func:`_printed`); each join's corner
+    miter, the run-out past its land and taper walls, is flagged ``overshoot``.
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -510,6 +607,7 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
     start, end = 0.0, 360.0 if full else 180.0
     vertical_angle = False
     joins = None
+    lands = []  # a top arc's linked land segments (model xy): walls its end rows meet
     if "end" in feature or bottom:
         vertical_angle = True
         if bottom:
@@ -528,6 +626,15 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
                 endpoint = endpoints[0]
                 if any(math.dist(endpoint, point) > 1e-9 for point in endpoints[1:]):
                     return [], [], None
+                # Each land as _top_join takes it, on both halves of the mirrored top arc.
+                lands = [
+                    [
+                        [centre[0] + side * abs(p[0] - centre[0]), p[1]]
+                        for p in (feature["end"], linked_feature["radial_tip_end"])
+                    ]
+                    for linked_feature in linked
+                    for side in (-1, 1)
+                ]
             else:
                 endpoint = feature.get("end")
         if not isinstance(endpoint, list) or not all(number(v) for v in endpoint):
@@ -601,6 +708,33 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
         arc["max_chord_sagitta_mm"] = cutter_radius * (
             1 - math.cos(math.radians(min(step, abs(end - start)) / 2))
         )
+    walls, miters = [], []  # point -> distance to each feature wall; join miter points
+    known = all(number(v) for v in centre_xy)  # else no wall is placed and no DRO value
+
+    def setup_xy(point):
+        return frame_point(_xy_model(point, feature, frames), frame)[:2]
+
+    def rim(wall_radius, end_xy):
+        """point -> distance to the wall arc of ``wall_radius`` about the centre: mirrored
+        from ``end_xy`` through its lowest point (an upper semicircle's highest), a full
+        circle when ``end_xy`` is None. Never its circle past its ends."""
+        if end_xy is None:
+            return lambda p: abs(math.dist(p, centre_xy) - wall_radius)
+        dip = -wall_radius if vertical_angle else wall_radius
+        mirror = [2 * centre[0] - end_xy[0], end_xy[1]]
+        a, b, m = (setup_xy(q) for q in (end_xy, mirror, [centre[0], centre[1] + dip]))
+        return lambda p: _to_arc(p, centre_xy, wall_radius, a, b, m)
+
+    if known:
+        if full:
+            walls.append(rim(radius, None))
+        elif vertical_angle:  # _joins, _top_join or the endpoint check validated the end
+            walls.append(rim(radius, feature["bottom_end"] if bottom else feature["end"]))
+        else:
+            walls.append(rim(radius, [centre[0] + radius, centre[1]]))
+    for a, b in ([setup_xy(a), setup_xy(b)] for a, b in lands):
+        known = known and all(number(v) for v in (*a, *b))
+        walls.append(lambda p, a=a, b=b: _to_segment(p, a, b))
     lines = []
     if bottom and joins:
         sides = (-1, 1) if feature.get("mirror_symmetric") is True else (1,)
@@ -608,14 +742,21 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
         top_end = mapping(features.get(feature.get("top_edge_feature")))["end"]
         shifted, _ = _offset_line(top_end, feature["radial_tip_end"], 1.0)
         left = [shifted[i] - top_end[i] for i in range(2)]
-
-        def setup_xy(point):
-            return frame_point(_xy_model(point, feature, frames), frame)[:2]
-
+        top_r = _nominal(top, "radius")
+        if known:
+            walls.append(rim(top_r, top_end))
         for side in sides:
             xy = [[centre[0] + side * (p[0] - centre[0]), p[1]] for p in joins]
             local = [setup_xy(p) for p in xy]
             wall = setup_xy([xy[0][0] - side * left[0] * offset, xy[0][1] - left[1] * offset])
+            ends = [
+                setup_xy([centre[0] + side * (p[0] - centre[0]), p[1]])
+                for p in (top_end, feature["radial_tip_end"], feature["bottom_end"])
+            ]
+            known = known and all(number(v) for point in ends for v in point)
+            for a, b in itertools.pairwise(ends):
+                walls.append(lambda p, a=a, b=b: _to_segment(p, a, b))
+            miters.append(xy[1])
             normal = [
                 local[0][i] - wall[i] if number(local[0][i]) and number(wall[i]) else UNKNOWN
                 for i in range(2)
@@ -634,9 +775,15 @@ def _arc(feature_name, feature, op, offset, frame, frames, features, sense, orde
             lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
     if not rows:
         return [], [], None
-    if box is None:
-        return [arc], lines, None
-    return _authorised(arc, lines, box, row_at)
+    arcs, debt = [arc], None
+    if box is not None:
+        arcs, lines, debt = _authorised(arc, lines, box, row_at)
+    _printed(arcs, lines, decimals, walls if known else [], box, offset)
+    for line in lines:
+        line["overshoot"] = [any(p is m for m in miters) for p in line["model_xy"]]
+        if any(line["overshoot"]):
+            line["overshoot_note"] = OVERSHOOT_NOTE
+    return arcs, lines, debt
 
 
 def _boundary(feature, frame, frames):
@@ -832,31 +979,44 @@ def _dome(name, feature, op, radius_mode):
     }
 
 
+def row_id(subject, kind, table, index):
+    """A printed row's id: ``S1:40 rough arc row 3`` (``arc_table``) or ``S1:40 rough line
+    +X[0]`` (``line_table``); a piece of a clipped table adds ``fragment k``."""
+    name = f"{subject} {table.get('stage')} " + (
+        "arc" if kind == "arc_table" else f"line {table.get('side')}"
+    )
+    if "fragment" in table:
+        name += f" fragment {table['fragment'][0]}"
+    return f"{name} row {index}" if kind == "arc_table" else f"{name}[{index}]"
+
+
 def checkpoints(subject, numbers, op):
     """Each printed cutter-centre table of op ``op``'s arc_table output, in cutting order,
-    as its (row id, setup XY, tip Z) checkpoints in plan units: each stage's arc rows
-    (``S1:40 rough arc row 3``) and join points (``S1:40 rough line +X[0]``); a fragment
-    adds ``fragment k``."""
+    as its (row id (:func:`row_id`), printed setup XY ``dro_xy``, printed tip Z
+    ``dro_tip_z``, corner overshoot?) checkpoints in plan units: what the DRO shows is
+    what the kernel checks."""
     result = []
     for kind in ("arc_table", "line_table"):
         for table in numbers.get(kind, []):
             if table.get("op") != op:
                 continue
-            name = f"{subject} {table.get('stage')} " + (
-                "arc" if kind == "arc_table" else f"line {table.get('side')}"
-            )
-            if "fragment" in table:
-                name += f" fragment {table['fragment'][0]}"
-            tip = table.get("tip_z")
+            tip = table.get("dro_tip_z", UNKNOWN)
             if kind == "arc_table":
                 rows = table.get("rows", [])
-                path = [
-                    (f"{name} row {i}", row.get("setup_xy"), row.get("tip_z", tip))
-                    for i, row in enumerate(rows)
-                ]
+                printed = [row.get("dro_xy", UNKNOWN) for row in rows]
+                tips, flags = [row.get("dro_tip_z", tip) for row in rows], []
             else:
-                points = table.get("setup_xy", [])
-                path = [(f"{name}[{i}]", xy, tip) for i, xy in enumerate(points)]
+                printed, flags = table.get("dro_xy") or [], table.get("overshoot") or []
+                tips = [tip] * len(table.get("setup_xy", []))
+            path = [
+                (
+                    row_id(subject, kind, table, i),
+                    printed[i] if i < len(printed) else UNKNOWN,
+                    z,
+                    i < len(flags) and flags[i] is True,
+                )
+                for i, z in enumerate(tips)
+            ]
             result.append(path)
     return result
 
@@ -973,7 +1133,8 @@ def evaluate(bundle):
                 else [("finish", 0)]
             )
             sense, order = cut_order(machine, op)
-            box, clip_why = _centre_box(op, radius, bundle.features.get("units"))
+            units = bundle.features.get("units")
+            box, clip_why = _centre_box(op, radius, units)
             for stage, allowance in stages:
                 offset = radius + allowance if number(radius) and number(allowance) else UNKNOWN
                 profile = {
@@ -988,13 +1149,29 @@ def evaluate(bundle):
                     "rough_allowance_mm": allowance if stage == "rough" else "not_applicable",
                     "entry_z": before["entry_z"].get(name, before["top_z"]),
                     "to_z": op.get("to_z", UNKNOWN),
+                    # The depth the DRO shows: rounded up, never deeper than authored.
+                    "dro_to_z": (
+                        _grid(op["to_z"], DRO_DECIMALS.get(units, 2), True)
+                        if number(op.get("to_z"))
+                        else UNKNOWN
+                    ),
                     "contour": contour,
                     "tool_dia_basis": "selected member nominal, not measured",
                 }
                 generated = False
                 if contour.get("method") == "arc_table":
                     arcs, lines, debt = _arc(
-                        name, feature, op, offset, frame, frames, features, sense, order, box
+                        name,
+                        feature,
+                        op,
+                        offset,
+                        frame,
+                        frames,
+                        features,
+                        sense,
+                        order,
+                        box,
+                        DRO_DECIMALS.get(units, 2),
                     )
                     debt = clip_why if arcs and clip_why else debt
                     if debt:

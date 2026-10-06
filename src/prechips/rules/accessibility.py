@@ -1,8 +1,9 @@
 """Offset cutter/holder cylinders, or revolved turning tools, never zero-radius ray claims.
 
-Printed DRO checkpoints (coordinates arc/line tables) are checked in the kernel against the
-stock model: a checkpoint whose cutter meets retained stock, the finished part or a fixture
-component is an error naming the row; an unknown check never passes the op.
+Printed DRO checkpoints (coordinates arc/line tables) are checked in the kernel (rule A′): a
+checkpoint whose cutter meets the finished part, the op's rough leave, a fixture component or
+stock outside a bounded op's box, or removes stock a later setup grips, presses, locates,
+rests or supports on, is an error naming the row; an unknown check never passes the op.
 """
 
 from prechips.findings import Finding
@@ -16,7 +17,21 @@ from prechips.rules.geometry_common import (
 )
 from prechips.rules.resolution import number
 
-_CHECKPOINT_KEYS = ("checkpoint_count", "checkpoint_hits", "checkpoint_errors")
+_CHECKPOINT_KEYS = (
+    "checkpoint_count",
+    "checkpoint_hits",
+    "checkpoint_errors",
+    "checkpoint_overshoot_ok",
+)
+
+
+def _checkpoint_error(error):
+    if "later_setup" in error:
+        return (
+            f"{error['row']} removes stock later setup {error['later_setup']}'s "
+            f"{error['obstacle']} ({error['contact']}) bears on ({error['area_mm2']} mm^2)"
+        )
+    return f"{error['row']} meets {error['obstacle']} ({error['volume_mm3']} mm^3)"
 
 
 def _checkpoints(detail):
@@ -27,12 +42,9 @@ def _checkpoints(detail):
     errors = values["checkpoint_errors"] if isinstance(values["checkpoint_errors"], list) else []
     hit = None
     if errors:
-        listed = "; ".join(
-            f"{error['row']} meets {error['obstacle']} ({error['volume_mm3']} mm^3)"
-            for error in errors[:3]
-        )
+        listed = "; ".join(_checkpoint_error(error) for error in errors[:3])
         more = f" (+{len(errors) - 3} more)" if len(errors) > 3 else ""
-        hit = f"printed DRO checkpoint cutter meets material the stock model keeps: {listed}{more}"
+        hit = f"printed DRO checkpoint cutter breaks rule A′: {listed}{more}"
     unknown = None
     if not number(values["checkpoint_hits"]):
         unknown = "printed DRO checkpoints unproven: " + detail.get(

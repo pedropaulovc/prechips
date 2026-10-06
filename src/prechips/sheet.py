@@ -14,6 +14,7 @@ from html import escape
 
 from .joint_features import TEMPORARY_LABEL
 from .model import tolerance_requirements
+from .rules.coordinates import DRO_DECIMALS, OVERSHOOT_NOTE, row_id
 from .rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -64,8 +65,6 @@ border: 1px solid #999; }
 .foot { text-align: right; font-size: 6pt; margin-top: 3pt; color: #444; }
 @media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } }
 """
-# Operative targets print at DRO display resolution; report.json keeps every digit.
-_DRO_DECIMALS = {"mm": 2, "in": 4}
 # A planned tool path ending this close to jaws, a dead centre or the jaw tops is
 # hand-feed territory: it is boxed on the op row instead of buried in clearance prose.
 _CRASH_ZONE_MM = 3.0
@@ -313,7 +312,7 @@ class _Traveler:
             and not self.approval.get("warnings")
         )
         self.units = bundle.features.get("units", "unknown")
-        self.decimals = _DRO_DECIMALS.get(self.units, 2)
+        self.decimals = DRO_DECIMALS.get(self.units, 2)
         self.pages = []
         self.references = {}
         for reference in sorted(selected_references(self.plan)):
@@ -1637,14 +1636,15 @@ class _Traveler:
             rows = []
             for record in arc.get("rows", []):
                 xy = record.get("setup_xy", [record.get("x"), record.get("y")])
-                z = record.get("tip_z", arc.get("tip_z"))
+                printed = record.get("dro_xy") or ["unknown", "unknown"]
+                z = record.get("dro_tip_z", arc.get("dro_tip_z"))
                 entry["z"].add(o(z))
                 rows.append(
                     [
                         self.waypoint(waypoints, arc.get("op"), xy),
                         self.angle(record.get("angle_deg")),
-                        o(xy[0]),
-                        o(xy[1]),
+                        o(printed[0]),
+                        o(printed[1]),
                         o(z),
                     ]
                 )
@@ -1666,15 +1666,23 @@ class _Traveler:
         for line in numbers.get("line_table", []):
             entry = block(line.get("op"))
             rows = []
-            for xy in line.get("setup_xy", []):
-                entry["z"].add(o(line.get("tip_z")))
+            subject = f"{setup['id']}:{line.get('op')}"
+            proven = self.records.get(("accessibility", subject), {})
+            proven = proven.get("checkpoint_overshoot_ok") if isinstance(proven, dict) else None
+            proven = set(proven) if isinstance(proven, list) else set()
+            printed, flags = line.get("dro_xy") or [], line.get("overshoot") or []
+            for index, xy in enumerate(line.get("setup_xy", [])):
+                dro = printed[index] if index < len(printed) else ["unknown", "unknown"]
+                ok = index < len(flags) and flags[index] is True
+                ok = ok and row_id(subject, "line_table", line, index) in proven
+                entry["z"].add(o(line.get("dro_tip_z")))
                 rows.append(
                     [
                         self.waypoint(waypoints, line.get("op"), xy),
-                        "",
-                        o(xy[0]),
-                        o(xy[1]),
-                        o(line.get("tip_z")),
+                        OVERSHOOT_NOTE if ok else "",
+                        o(dro[0]),
+                        o(dro[1]),
+                        o(line.get("dro_tip_z")),
                     ]
                 )
             side = _text(line.get("side"))
@@ -1691,7 +1699,7 @@ class _Traveler:
             if not isinstance(points, list) or not points:
                 entry.setdefault("unresolved", True)
                 continue
-            z = o(profile.get("to_z"))
+            z = o(profile.get("dro_to_z", profile.get("to_z")))
             entry["z"].add(z)
             rows = []
             headings = ["P", "angle °", "X", "Y", "Z"]
@@ -2291,6 +2299,6 @@ def tool_label(bundle, reference) -> str:
         return f"{member} {role} holder"
     if kind == "parting_blade":
         width = _amount(item.get("blade_width_mm"))
-        decimals = _DRO_DECIMALS.get(bundle.features.get("units"), 2)
+        decimals = DRO_DECIMALS.get(bundle.features.get("units"), 2)
         return (f"{_number(width, decimals)} mm " if width else "") + "parting blade"
     return short_reference_label(bundle, reference, "tools")

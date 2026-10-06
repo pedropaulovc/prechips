@@ -255,8 +255,9 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
 
 def table_checkpoints(subject, tables, op, units):
     """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
-    ``xy_mm`` and ``tip_z_mm``, each printed table's ``paths`` (``xy_mm`` in cutting order
-    and its ``tip_z_mm``), and why any is unknown; None when it prints none."""
+    ``xy_mm`` and ``tip_z_mm`` (the values the DRO shows, ``overshoot`` on a corner miter),
+    each printed table's ``paths`` (``xy_mm`` in cutting order and its ``tip_z_mm``), and
+    why any is unknown; None when it prints none."""
     from prechips.rules.coordinates import checkpoints
 
     printed = [path for path in checkpoints(subject, tables, op) if path]
@@ -268,10 +269,11 @@ def table_checkpoints(subject, tables, op, units):
     rows, paths, unknown = [], [], []
     for path in printed:
         points = []
-        for name, xy, tip in path:
+        for name, xy, tip, overshoot in path:
             if isinstance(xy, list) and len(xy) == 2 and all(number(v) for v in (*xy, tip)):
                 xy_mm = [v * scale for v in xy]
-                points.append({"id": name, "xy_mm": xy_mm, "tip_z_mm": tip * scale})
+                point = {"id": name, "xy_mm": xy_mm, "tip_z_mm": tip * scale}
+                points.append({**point, "overshoot": True} if overshoot else point)
             else:
                 unknown.append(name)
         rows.extend(points)

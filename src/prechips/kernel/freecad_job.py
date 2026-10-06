@@ -540,6 +540,13 @@ def _boxes_overlap(a, b):
     return all(a[i] < b[i + 3] - PLANE_TOL and b[i] < a[i + 3] - PLANE_TOL for i in range(3))
 
 
+def _box_within(inner, outer):
+    return all(
+        outer[i] - PLANE_TOL <= inner[i] and inner[i + 3] <= outer[i + 3] + PLANE_TOL
+        for i in range(3)
+    )
+
+
 def _common(solid, shape):
     """``solid`` ∩ ``shape`` when it holds more than HIT_MM3, else None; only boxes that do
     not even touch skip the boolean."""
@@ -1889,6 +1896,19 @@ _ANCHOR_ROLES = frozenset(
 )
 # Vise accessories that stand between the jaws, below the seat.
 _VISE_ACCESSORIES = frozenset(("parallel", "riser"))
+# Rule A′ contact a later setup's fixture component makes, by role; a clamp's by restraint.
+_CONTACT_KINDS = {
+    "jaw": "jaw grip",
+    "chuck_jaw": "chuck jaw grip",
+    "chuck_body": "chuck seat",
+    "head": "dividing head seat",
+    "centre": "centre locate",
+    "parallel": "support",
+    "riser": "support",
+    "rest": "rest",
+    "fixture": "fixture support or locate",
+}
+_CLAMP_CONTACTS = {"press": "clamp press", "locate": "clamp locate"}  # else a clamp support
 
 
 def _pose_matrix(pose):
@@ -2084,6 +2104,8 @@ class _Job:
         )
         outputs = dict(supplies)
         leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
+        # Setup id -> the earlier setups its stock descends from; each setup's runner.
+        lineage, runners = {}, []
         for setup in setups:
             held, held_reason, state, assembly_error = self._held(setup, outputs)
             if held_reason is None:
@@ -2109,6 +2131,18 @@ class _Job:
                 "joined": state["joined"],
             }
             leaves[sid] = runner.leave_out
+            lineage[sid] = {
+                up
+                for ref in refs
+                if isinstance(ref, str) and ref in lineage
+                for up in (ref, *lineage[ref])
+            }
+            runners.append((sid, runner))
+        for sid, runner in runners:
+            # Rule A′: a printed checkpoint must not remove stock a later setup contacts.
+            runner._finish_checkpoints(
+                [later for later_sid, later in runners if sid in lineage[later_sid]]
+            )
         return result
 
     def _supplies(self):
@@ -2593,11 +2627,10 @@ class _Setup:
         # None, why that stock is unknown); the facts of each saw it reached; and (end
         # stock, None) or (None, why it stopped).
         self.cuts = {}
-        # id(op) -> (the cut it applies with no printed run-out credited, its band groups),
-        # each profile op's removal less its run-out (``uncredited``), and the setup's output
-        # with no run-out credited (:meth:`_uncredited_output`), or None until derived.
-        self.plans, self.uncredited, self.unrun = {}, {}, None
+        # Each printed-checkpoint op awaiting the later setups (:meth:`_checkpoint_facts`).
+        self.checkpoint_jobs = []
         self.run_outs = {}  # id(op) -> (its printed run-out sweep or None, why unknown)
+        self.designs = {}  # id(op) -> a printed profile op's claim sweeps before its run-out
         self.clamp_parts = []
         self.clamp_restraints = {}  # clamp name -> declared restraint (press/locate/none)
         self.split_holds = {}  # op subject -> per-piece held-split witnesses
@@ -3064,7 +3097,6 @@ class _Setup:
                     stopped = f"{subject} {why}; {where}"
                     continue
                 own, groups = plan
-                self.plans[id(op)] = (self.uncredited.get(id(op), own), groups)
                 after = stock
                 if own is not None or groups:
                     pieces = []
@@ -3154,8 +3186,9 @@ class _Setup:
         ``to_z``, leaving unclaimed hole columns to their own ops; its pieces must border a
         claim on the stock entering the setup, so an earlier op clearing the bridge between a
         claim and the rest of its box never strands that box. A profile op clears only its
-        cutter corridor beside its vertical claims (:meth:`_corridor`); other claims sweep
-        along +Z. Either way unclaimed rails, ears, webs and overstock past them stay. A
+        cutter corridor beside its vertical claims (:meth:`_corridor`) and what its printed
+        paths sweep (:meth:`_run_out`); other claims sweep along +Z. Either way unclaimed
+        rails, ears, webs and overstock past them stay. A
         lower-leave op also cuts the lineage leave off its claimed lateral faces of ``stock``
         (:meth:`_band`).
         """
@@ -3193,9 +3226,6 @@ class _Setup:
             )
         else:
             removal, why = self._removal(op, valid, to_z, leave)
-            if why is None and op.get("do") in PROFILE_ACTIONS and "checkpoints" in op:
-                # The same cut without its printed run-out: the setup's uncredited output.
-                self.uncredited[id(op)], why = self._removal(op, valid, to_z, leave, False)
         if why is not None:
             return None, why
         band, why = self._band(
@@ -3476,16 +3506,16 @@ class _Setup:
             return None, None
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
-    def _removal(self, op, valid, to_z, leave, run_out=True):
+    def _removal(self, op, valid, to_z, leave):
         """(stock outside the op's guard its claims sweep (:meth:`_op_sweep`), or None, and
         why not).
 
         A facing action sweeps each planar claim's outer loop, so raw pins over hole
         mouths go too; subtracting the guard still keeps islands, bosses and the leave. The
         whole sweep is guarded and its pieces judged by claim contact before ``to_z``
-        clips them. ``run_out`` False leaves a profile op's printed run-out uncredited.
+        clips them.
         """
-        faces, sweep, why = self._op_sweep(op, valid, to_z, run_out)
+        faces, sweep, why = self._op_sweep(op, valid, to_z)
         if why is not None:
             return None, why
         if sweep is None:
@@ -3508,15 +3538,16 @@ class _Setup:
                 return None, None
         return removal, None
 
-    def _op_sweep(self, op, valid, to_z, run_out=True):
+    def _op_sweep(self, op, valid, to_z):
         """(swept claims, the volume an op without a clearing box may clear or None, and
         why that is unknown).
 
         Claims sweep along +Z (:meth:`_sweep`), except a profile op's vertical walls: its
-        cutter only clears its own corridor beside them (:meth:`_corridor`) and, with
-        ``run_out``, along the cutter-centre paths the sheet prints for it
-        (:meth:`_run_out`), never the stock past them, so an unclaimed web or clamped rail
-        beyond both stays.
+        cutter clears its own corridor beside them (:meth:`_corridor`) and the sweep of the
+        cutter-centre paths the sheet prints for it (:meth:`_run_out`). The operator cuts
+        what is printed, corner miters and run-outs included, so that is credited; stock
+        past both, an unclaimed web or a clamped rail, stays. Rule A′ keeps a printed row
+        off stock a later setup contacts (:meth:`_finish_checkpoints`).
         """
         action = op.get("do")
         if action not in PROFILE_ACTIONS:
@@ -3524,7 +3555,7 @@ class _Setup:
         walls = [index for index in valid if _vertical(self.faces[index], Z)]
         rest = [index for index in valid if index not in walls]
         faces, sweep = self._sweep(rest, action) if rest else ([], None)
-        printed = run_out and isinstance(op.get("checkpoints"), dict)
+        printed = isinstance(op.get("checkpoints"), dict)
         if not walls and not printed:
             return faces, sweep, None
         radius = _positive(op, "radius_mm")
@@ -3538,6 +3569,10 @@ class _Setup:
             faces = faces + [self.faces[index] for index in walls]
             parts.append(corridor)
         if printed:
+            # Its design: what the claims alone clear, rule A′'s line for scrap.
+            self.designs[id(op)] = (
+                parts[0].fuse(parts[1:]) if len(parts) > 1 else parts[0] if parts else None
+            )
             path, why = self._run_out(op, radius)
             if why is not None:
                 return [], None, why
@@ -3551,9 +3586,10 @@ class _Setup:
         """(the solid a cutter of ``radius`` sweeps along ``op``'s printed cutter-centre
         paths, or None, and why that is unknown), cached per op.
 
-        Each printed table (``checkpoints`` ``paths``: an arc's rows as chords, a join's
-        points) is one level polyline; every point within the radius of it stands from the
-        table's tip to above the setup-entry stock, as :meth:`_corridor` does.
+        Each printed table (``checkpoints`` ``paths``: the values the DRO shows, an arc's
+        rows as chords, a join's points) is one level polyline; every point within the
+        radius of it stands from the table's printed tip to above the setup-entry stock, as
+        :meth:`_corridor` does.
         """
         if id(op) in self.run_outs:
             return self.run_outs[id(op)]
@@ -5431,71 +5467,74 @@ class _Setup:
         """(setup-frame stock a printed checkpoint of ``op`` must not meet, or None, its
         obstacle name, and why it is unknown).
 
-        The one definition of a checkpoint's stock obstacle. A bounded op's (its
-        ``stock_removal_bounds``) is its before-op stock outside its clearing box: the box is
-        all it may remove. Any other op's is the stock its setup leaves when no op is
-        credited its printed run-out (:meth:`_uncredited_output`): a printed path may run on
-        through stock an earlier or later cut of the setup removes, never through stock the
-        setup keeps. :meth:`_checkpoint_facts` measures only its part outside the finished
-        part, its own obstacle.
+        A bounded op's (its ``stock_removal_bounds``) is its before-op stock outside its
+        clearing box: the box is all it may remove. Any other op has none: what its printed
+        paths cut is credited (:meth:`_run_out`), so retained scrap they nick is removed, and
+        only its guard, fixtures and later-setup contacts limit them (rule A′,
+        :meth:`_finish_checkpoints`).
         """
-        if self.stock_reason is not None:
-            return None, None, f"in-process stock unknown: {self.stock_reason}"
         if "stock_removal_bounds" not in op:
-            stock, why = self._uncredited_output()
-            return stock, "stock the setup keeps", why
+            return None, None, None
         name = "stock outside its stock_removal_bounds"
-        before, _, stopped = self.cuts.get(id(op), (None, None, "the stock builder skipped it"))
-        if stopped is not None:
-            return None, name, f"the stock before this op is unknown ({stopped})"
-        span, why = _clearing_span(op["stock_removal_bounds"], _bbox(self.stock_states[0]))
-        if span is None:
+        before, why = self._checkpoint_before(op)
+        if why is None:
+            box, why = self._designed(op)
+        if why is not None:
             return None, name, why
         try:
-            return before.cut(_box_shape(span)), name, None
+            return before.cut(box), name, None
         except Exception as exc:
             return None, name, f"its stock outside the box could not be derived ({exc})"
 
-    def _uncredited_output(self):
-        """(setup-frame stock this setup leaves with no printed run-out credited, or None,
-        and why not), derived once: the entry stock less every op's cut, a profile op's
-        without its run-out. Material only a run-out removes stays in it."""
-        if self.unrun is None:
-            stock, why = self.built if self.built is not None else (None, "not built")
-            saws = [self._subject(op) for op in self.ops if _sawn(op)]
-            if why is not None:
-                self.unrun = None, f"the setup's output stock is not derived ({why})"
-            elif saws and self.uncredited:
-                self.unrun = None, (
-                    "the setup's output without run-out credit is not derived across its saw "
-                    "op(s) " + ", ".join(saws)
-                )
-            elif not self.uncredited:
-                self.unrun = stock, None
-            else:
-                try:
-                    stock = self.stock_states[0]
-                    for op in self.ops:
-                        own, groups = self.plans[id(op)]
-                        for cut in ([] if own is None else [own]) + [p for g in groups for p in g]:
-                            if stock.Solids and _boxes_overlap(_bbox(stock), _bbox(cut)):
-                                stock = stock.cut(cut)
-                    self.unrun = stock, None
-                except Exception as exc:
-                    self.unrun = None, f"the setup's output without run-out credit failed ({exc})"
-        return self.unrun
+    def _designed(self, op):
+        """(setup-frame volume a printed op clears by design, or None, and why it is
+        unknown): a bounded op's clearing box, else its claim sweeps and cutter corridor
+        before its printed run-out (:meth:`_op_sweep`). What a row removes past it is scrap."""
+        if "stock_removal_bounds" in op:
+            if not self.stock_states:
+                return None, f"in-process stock unknown: {self.stock_reason}"
+            span, why = _clearing_span(op["stock_removal_bounds"], _bbox(self.stock_states[0]))
+            return (None, why) if span is None else (_box_shape(span), None)
+        if id(op) not in self.designs:
+            return None, "its claim sweep is unknown"
+        return self.designs[id(op)], None
+
+    def _checkpoint_before(self, op):
+        """(setup-frame stock before ``op``, or None, and why it is unknown)."""
+        if self.stock_reason is not None:
+            return None, f"in-process stock unknown: {self.stock_reason}"
+        before, _, stopped = self.cuts.get(id(op), (None, None, "the stock builder skipped it"))
+        if stopped is not None:
+            return None, f"the stock before this op is unknown ({stopped})"
+        return before, None
+
+    def _checkpoint_guard(self, op):
+        """([(window or None, guard solids)], the op's rough leave, or None, and why
+        unknown): the guard (:meth:`_guard`) no printed checkpoint may cut into, whole or,
+        where OCC cannot build that, within each window its consumers protect."""
+        leave, why = self._guarded(op)
+        if why is not None:
+            return None, None, f"its guard is unknown ({why})"
+        guard, why = self._guard(leave)
+        if why is None:
+            return [(None, [guard])], leave, None
+        windows, why = self._windows(op, leave)
+        if why is not None:
+            return None, None, f"its guard is unknown ({why})"
+        pieces = [(window, self._guard(leave, window)[0]) for window in windows if window]
+        return [(window, solids) for window, solids in pieces if solids is not None], leave, None
 
     def _checkpoint_facts(self, op, facts, frame_reason=None):
-        """Printed DRO checkpoints (``checkpoints``) against the stock model.
+        """Printed DRO checkpoints (``checkpoints``) against this setup's stock model; the
+        job finishes them against every later setup (:meth:`_finish_checkpoints`).
 
         Each coordinates-table row stands the op's cutter cylinder (``radius_mm``) at its
-        setup XY from its tip up above the setup-entry stock. Its common volume with the
-        finished part, with each placed fixture component and with the op's stock obstacle
-        (:meth:`_checkpoint_stock`) outside the finished part must stay within HIT_MM3.
-        ``checkpoint_errors`` lists each certain hit by row, obstacle and volume;
-        ``checkpoint_hits`` counts the rows hit, unknown (``checkpoint_reason``) when a row,
-        the radius, the frame, the stock obstacle or the fixture is unknown. Certain hits
-        stay errors whatever else is unknown.
+        printed setup XY from its printed tip up above the setup-entry stock; the row
+        removes its before-op stock inside that cylinder. Its common volume with the
+        finished part, with the op's rough leave (its guard less the finished part, within
+        what it removes, :meth:`_checkpoint_guard`), with each placed fixture component and
+        with a bounded op's stock outside its box (:meth:`_checkpoint_stock`) must stay
+        within HIT_MM3; each certain hit is an error by row, obstacle and volume.
         """
         table = op.get("checkpoints")
         if not isinstance(table, dict) or _turned(op) or _sawn(op):
@@ -5503,30 +5542,48 @@ class _Setup:
         rows = [row for row in table.get("rows", []) if isinstance(row, dict)]
         facts["checkpoint_count"] = len(rows)
         why = [table["reason"]] if table.get("reason") else []
+        # Certain errors, why rows stay unknown and each row's removal, for the job to finish.
+        job = {"rows": rows, "facts": facts, "errors": [], "why": why, "removed": []}
+        job["designed"] = (None, None)
+        self.checkpoint_jobs.append(job)
         radius = _positive(op, "radius_mm")
-        retained = None
         if frame_reason is not None or radius is None or radius <= LIFT:
             why.append(
                 f"setup frame is unusable ({frame_reason})"
                 if frame_reason is not None
                 else "op lacks a measured cutter radius_mm"
             )
-            rows = []
-        else:
-            retained, name, unknown = self._checkpoint_stock(op)
-            if unknown is not None:
-                why.append(unknown)
-            if not self.fixture_ready:
-                why.append(f"fixture solids unresolved ({self.fixture_reason})")
-        top = self.box[5] + COVER_MM if rows else None
-        errors, gapped, extended = [], 0, 0
+            return
+        retained, name, unknown = self._checkpoint_stock(op)
+        if frame_reason is None and self.matrix is not None and self.stock_reason is None:
+            job["designed"] = self._designed(op)
+        before, unknown_before = self._checkpoint_before(op)
+        guard, leave, unknown_guard = self._checkpoint_guard(op)
+        why.extend(dict.fromkeys(r for r in (unknown, unknown_before, unknown_guard) if r))
+        if not self.fixture_ready:
+            why.append(f"fixture solids unresolved ({self.fixture_reason})")
+        top = self.box[5] + COVER_MM
+        gapped, extended, unguarded = 0, 0, 0
         for row in rows:
             (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
             if z0 >= top:
                 continue
             cylinder = (x, y, radius - LIFT, z0, top)
             tool = Part.makeCylinder(radius - LIFT, top - z0, V(x, y, z0))
+            removed = None if before is None else _common(tool, before)
             hits = [("finished part", _shared(tool, self.finished))]
+            if removed is not None and guard is not None and leave:
+                box = _bbox(removed)
+                within = (s for w, s in guard if w is None or _box_within(box, w))
+                pieces = next(within, None)
+                if pieces is None:
+                    unguarded += 1
+                else:
+                    volume = 0.0
+                    for piece in pieces:
+                        common = _common(removed, piece)
+                        volume += 0.0 if common is None else common.cut(self.finished).Volume
+                    hits.append((f"its {_r(leave)} mm rough leave", volume))
             if retained is not None:
                 # The finished part inside the stock is its own obstacle, never stock.
                 common = _common(tool, retained)
@@ -5538,24 +5595,196 @@ class _Setup:
                 if _cylinder_hits_box(*cylinder, component["envelope_bbox"]):
                     hits.append((component["name"], _shared(tool, component["envelope"])))
             hits = [(obstacle, volume) for obstacle, volume in hits if volume > HIT_MM3]
-            errors.extend(
+            job["errors"].extend(
                 {"row": row["id"], "obstacle": obstacle, "volume_mm3": _r(volume)}
                 for obstacle, volume in hits
             )
             if not hits and self.fixture_ready:
                 gapped += bool(self.fixture_gaps)
                 extended += any(_tool_hits_box(cylinder, box) for _, box in self.fixture_possible)
+            if removed is not None:
+                job["removed"].append((row["id"], removed))
         if gapped:
             why.append(f"undrawn fixture components ({'; '.join(self.fixture_gaps)})")
         if extended:
             why.append(f"{extended} clear checkpoint(s) reach the undeclared jaw extension")
-        hit = len(dict.fromkeys(error["row"] for error in errors))
-        facts["checkpoint_errors"] = errors
-        facts["checkpoint_hits"] = UNKNOWN if why else hit
-        if why:
-            facts["checkpoint_reason"] = "; ".join(why) + (
-                f"; {hit} printed checkpoint(s) certainly hit" if hit else ""
+        if unguarded:
+            why.append(f"{unguarded} checkpoint(s) cut outside every window its guard is known in")
+
+    def _finish_checkpoints(self, later):
+        """Rule A′ (docs/rules-geometry.md): every printed checkpoint against each ``later``
+        setup whose stock descends from this one, then the checkpoint facts.
+
+        A row's scrap is what it removes past its op's design (:meth:`_designed`): a run-out
+        or corner miter. Retained scrap no later setup touches may be cut. Where its scrap
+        still borders a later setup's entry stock and lies within HELD_PROBE_MM in front of
+        a flat face of that setup's fixture component over more than CONTACT_MM2
+        (:meth:`_later_contacts`), the setup grips, presses, locates, rests or supports on
+        stock the row removes: an error naming the row, the setup, the contact kind and the
+        component. A later setup whose frame, entry stock or holding is unresolved, or with
+        undrawn components, leaves every row unknown; so does, per row, scrap meeting a
+        curved component face, a possible jaw extension or, with undrawn supports below its
+        seat, that seat. ``checkpoint_overshoot_ok`` lists the corner-miter rows proven clear,
+        only when no row of the op is unknown.
+        """
+        contacts, blocked = [], []
+        for setup in later if self.matrix is not None else []:
+            sid = str(setup.setup.get("id"))
+            undrawn = [*setup.fixture_gaps, *(str(d) for d in (setup.hold or {}).get("debts", []))]
+            if setup.matrix is None:
+                blocked.append(f"later setup {sid}'s frame is unusable")
+            elif setup.stock_reason is not None:
+                blocked.append(f"later setup {sid}'s entry stock is unknown ({setup.stock_reason})")
+            elif not setup.fixture_ready:
+                blocked.append(f"later setup {sid}'s holding is unplaced ({setup.fixture_reason})")
+            elif undrawn:
+                blocked.append(f"later setup {sid} has undrawn components ({'; '.join(undrawn)})")
+            else:
+                contacts.append(self._later_contacts(sid, setup, undrawn))
+        for job in self.checkpoint_jobs:
+            errors, why, doubts = job["errors"], job["why"] + blocked, {}
+            for row, removed in job["removed"] if contacts else []:
+                try:
+                    self._later_touch(row, removed, job["designed"], contacts, errors, doubts)
+                except Exception as exc:  # OCC booleans
+                    reason = f"could not be judged against later setups ({exc})"
+                    doubts.setdefault(reason, []).append(row)
+            for reason, rows in doubts.items():
+                rows = list(dict.fromkeys(rows))
+                why.append(f"{len(rows)} checkpoint(s) {reason}, first {rows[0]}")
+            wrong = list(dict.fromkeys(error["row"] for error in errors))
+            facts = job["facts"]
+            facts["checkpoint_errors"] = errors
+            facts["checkpoint_hits"] = UNKNOWN if why else len(wrong)
+            facts["checkpoint_overshoot_ok"] = (
+                []
+                if why
+                else [r["id"] for r in job["rows"] if r.get("overshoot") and r["id"] not in wrong]
             )
+            if why:
+                facts["checkpoint_reason"] = "; ".join(why) + (
+                    f"; {len(wrong)} printed checkpoint(s) certainly hit" if wrong else ""
+                )
+
+    @staticmethod
+    def _later_touch(row, removed, designed, contacts, errors, doubts):
+        """Judge one row's removal against each later setup's contacts (rule A′), adding
+        errors and (reason -> rows) doubts."""
+        box = _bbox(removed)
+        reach = HELD_PROBE_MM + STOCK_TOL
+        grown = (*(v - reach for v in box[:3]), *(v + reach for v in box[3:]))
+        near = [found for found in contacts if _boxes_overlap(grown, found["bbox"])]
+        if not near:
+            return
+        design, why = designed
+        if why is not None:
+            doubts.setdefault(f"have unknown scrap ({why})", []).append(row)
+            return
+        scrap = removed if design is None else removed.cut(design)
+        if scrap.Volume <= HIT_MM3:
+            return
+        box = _bbox(scrap)
+        grown = (*(v - reach for v in box[:3]), *(v + reach for v in box[3:]))
+        for found in near:
+            sid = found["sid"]
+            if not _boxes_overlap(grown, found["stock_bbox"]):
+                continue
+            if scrap.distToShape(found["stock"])[0] >= STOCK_TOL:
+                continue  # nothing the later setup holds borders this scrap
+            for name, kind, flats, curved in found["components"]:
+                area = 0.0
+                for slab, slab_box in flats:
+                    if not _boxes_overlap(grown, slab_box):
+                        continue
+                    common = slab.common(scrap)
+                    if common.Volume / HELD_PROBE_MM <= CONTACT_MM2:
+                        continue
+                    if common.distToShape(found["stock"])[0] < STOCK_TOL:
+                        area += common.Volume / HELD_PROBE_MM
+                if area > CONTACT_MM2:
+                    errors.append(
+                        {
+                            "row": row,
+                            "obstacle": name,
+                            "later_setup": sid,
+                            "contact": kind,
+                            "area_mm2": _r(area),
+                        }
+                    )
+                elif any(
+                    _boxes_overlap(grown, face_box) and face.distToShape(scrap)[0] < STOCK_TOL
+                    for face, face_box in curved
+                ):
+                    reason = f"meet a curved face of later setup {sid}'s {name}"
+                    doubts.setdefault(reason, []).append(row)
+            if any(_boxes_overlap(grown, extension) for extension in found["possible"]):
+                reason = f"reach later setup {sid}'s undeclared jaw extension"
+                doubts.setdefault(reason, []).append(row)
+            if found["below"] and found["seat"](scrap):
+                reason = f"reach later setup {sid}'s seat ({'; '.join(found['below'])})"
+                doubts.setdefault(reason, []).append(row)
+
+    def _later_contacts(self, sid, setup, undrawn):
+        """Later setup ``setup``'s holding in this setup's frame: its entry stock; each
+        fixture component as (name, contact kind, [(bearing slab, bbox)] of its flat faces,
+        [(face, bbox)] of its curved ones); its possible jaw extensions' boxes; its undrawn
+        supports below the seat (the drawn-holding debts not in ``undrawn``) and whether a
+        shape here reaches that seat. A bearing slab is a flat face swept HELD_PROBE_MM
+        along its outward normal: the stock that face would bear on."""
+        to_model = setup.matrix.inverse()
+
+        def here(shape):
+            moved = shape.copy()
+            moved.transformShape(to_model)
+            return self._placed(moved)
+
+        seat_z = _bbox(setup._placed(setup.held))[2] + HELD_PROBE_MM
+
+        def seat(shape):
+            moved = shape.copy()
+            moved.transformShape(self.matrix.inverse())
+            return _bbox(setup._placed(moved))[2] <= seat_z
+
+        components, boxes = [], []
+        for component in setup.fixture:
+            restraint = setup.clamp_restraints.get(component["owner"])
+            kind = (
+                _CLAMP_CONTACTS.get(restraint, "clamp support")
+                if component["role"] == "clamp"
+                else _CONTACT_KINDS.get(component["role"], component["role"])
+            )
+            solid = here(component["solid"])
+            flats, curved = [], []
+            for face in solid.Faces:
+                if isinstance(face.Surface, Part.Plane):
+                    u0, u1, v0, v1 = face.ParameterRange
+                    normal = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
+                    slab = face.extrude(normal * HELD_PROBE_MM)
+                    flats.append((slab, _bbox(slab)))
+                else:
+                    curved.append((face, _bbox(face)))
+            components.append((component["name"], kind, flats, curved))
+            boxes.append(_bbox(solid))
+        possible = [_bbox(here(_box_shape(box))) for _, box in setup.fixture_possible]
+        stock = self._placed(setup.held)
+        boxes = boxes + possible
+        return {
+            "sid": sid,
+            "stock": stock,
+            "stock_bbox": _bbox(stock),
+            "components": components,
+            "bbox": (
+                (
+                    *(min(b[i] for b in boxes) for i in range(3)),
+                    *(max(b[i] for b in boxes) for i in range(3, 6)),
+                )
+                if boxes
+                else (0.0, 0.0, 0.0, -1.0, -1.0, -1.0)
+            ),
+            "possible": possible,
+            "below": [debt for debt in setup.undrawn if debt not in undrawn],
+            "seat": seat,
+        }
 
     def _joint_axial_op(self, op):
         """Centred real axial tool/holder solids, never tangent offset cylinders on a cone."""
