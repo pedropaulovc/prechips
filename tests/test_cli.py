@@ -247,8 +247,10 @@ def test_stale_approval_names_only_compared_input_changes(prior_inputs, changed,
     ],
 )
 def test_explain_rejects_all_malformed_matches_before_any_finding_output(
-    field, value, missing, json_output, tmp_path
+    field, value, missing, json_output, tmp_path, monkeypatch
 ):
+    # Deliberately withdraw the kernel; completed pilots need not have missing facts.
+    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "unavailable-freecadcmd"))
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     _, report, _ = traveler(plan, tmp_path / "plain")
     first = next(row for row in report["findings"] if row["status"] == "unknown")
@@ -271,7 +273,10 @@ def test_explain_rejects_all_malformed_matches_before_any_finding_output(
 
 
 @pytest.mark.parametrize("json_output", [False, True], ids=["human", "json"])
-def test_explain_valid_selected_finding_keeps_structured_evidence(json_output, tmp_path):
+def test_explain_valid_selected_finding_keeps_structured_evidence(
+    json_output, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "unavailable-freecadcmd"))
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     _, report, _ = traveler(plan, tmp_path / "plain")
     row = next(row for row in report["findings"] if row["status"] == "unknown")

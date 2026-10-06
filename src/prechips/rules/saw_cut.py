@@ -13,7 +13,6 @@ from prechips.rules.resolution import (
     uncertain,
 )
 
-
 _FACTS = (
     "kerf_mm",
     "retained_boundary_mm",

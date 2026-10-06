@@ -49,7 +49,7 @@ def evaluate(bundle):
             "; ".join(errors)
             if errors
             else "parallel gripped faces, opening, both-jaw grip and claimed-face "
-            "exclusion fit declared parallels"
+            "exclusion fit the declared vise hold"
             if known
             else fact_reason(
                 detail,
