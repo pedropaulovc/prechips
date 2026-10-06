@@ -1222,6 +1222,9 @@ sheet.
    endpoint without a second leave.
    Holder obstacles, holding and rendering keep actual setup-entry stock;
    no op borrows another op's removal.
+   OpenCASCADE distance extrema that fail with `StdFail_NotDone` retry with
+   the operands swapped: this measures the same geometric distance rather than
+   suppressing the failed guard. Other native exceptions still propagate.
    Explicit nonempty `op.faces` overrides the feature face set. A far-side
    face errors by reference and never credits coverage/finish; missing
    normals leave the face unknown. Certain observed collisions error even with

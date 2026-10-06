@@ -245,6 +245,24 @@ def _normal_at(face, point):
     return face.normalAt(u, v)
 
 
+def _distance(a, b):
+    """``a.distToShape(b)``, measured from ``b`` when OCC cannot finish it from ``a``.
+
+    BRepExtrema evaluates each sub-shape pair in argument order and is not symmetric. A
+    guard's arc-join torus or sphere is an exact ``leave`` offset of the finished edge it
+    rounds, and that coaxial circle/surface extremum can raise ``StdFail_NotDone`` one way
+    while the other way measures it. Both orders measure the same distance; a failure in
+    both still raises.
+    """
+    try:
+        return a.distToShape(b)
+    except RuntimeError as exc:
+        if "StdFail_NotDone" not in str(exc):
+            raise
+    distance, pairs, infos = b.distToShape(a)
+    return distance, [(p, q) for q, p in pairs], [info[3:] + info[:3] for info in infos]
+
+
 def _face_samples(face, spacing, interior_only=False):
     """(point, outward normal) pairs inside and, unless excluded, on the boundary."""
     samples, skipped = [], 0
@@ -1179,7 +1197,7 @@ class _Setup:
         stray = [
             piece
             for piece in pieces
-            if not any(piece.distToShape(face)[0] < leave + STOCK_TOL for face in claimed)
+            if not any(_distance(piece, face)[0] < leave + STOCK_TOL for face in claimed)
         ]
         if stray:
             return None, (
@@ -1219,7 +1237,7 @@ class _Setup:
             piece
             for piece in sweep.cut(self._guard(leave)[0]).Solids
             if piece.Volume > HIT_MM3
-            and any(piece.distToShape(f)[0] < leave + STOCK_TOL for f in faces)
+            and any(_distance(piece, f)[0] < leave + STOCK_TOL for f in faces)
         ]
         if not kept:
             return None
@@ -1261,7 +1279,7 @@ class _Setup:
 
         ``reach`` is ``COVER_MM`` past any leave the face may legitimately keep.
         """
-        distance, pairs, _ = face.distToShape(overstock)
+        distance, pairs, _ = _distance(face, overstock)
         if distance >= reach:
             return False
         if face.common(overstock).Area > CONTACT_MM2:
@@ -1408,7 +1426,7 @@ class _Setup:
             piece
             for piece in band.Solids
             if piece.Volume > HIT_MM3
-            and any(piece.distToShape(self.faces[i])[0] < leave + STOCK_TOL for i in lateral)
+            and any(_distance(piece, self.faces[i])[0] < leave + STOCK_TOL for i in lateral)
         ]
         if not pieces:
             return None, None
