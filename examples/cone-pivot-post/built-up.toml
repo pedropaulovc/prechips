@@ -1352,3 +1352,43 @@ finish_ra = "roughness-comparator"
 [setups.ops.inspection_methods]
 separation = "AUTHOR'S CHOICE: stand the post on foot B on the surface plate. With the DTI on the height gauge, read the top and bottom of each bore at both mouths; each bore centre is the mean of its top and bottom readings. Separation = crank centre - journal centre, accept 39.33-39.70."
 angularity_dia = "AUTHOR'S CHOICE: (1) Foot B on the plate: the crank bore centre heights at its two mouths must read equal, so its axis is parallel to B. (2) Clamp foot B to the angle plate with the post horizontal and turn the post until the journal bore centres at both mouths read equal. (3) The crank bore centres at its two mouths must then differ by 72.03 x sin 12.52 deg = 15.61, each mouth within 0.05 of its nominal height (the 0.1 diameter zone)."
+
+# ======================================================================= S12
+# Drawing finish: SSPC-SP 3 clean, mask machined faces, RAL 6005 alkyd 50-75 um DFT, oil bare faces.
+[[setups]]
+id = "S12"
+machine = "cone-bond-bench"
+frame = "R0"
+stock_in = "S11"
+coolant = "none: bench finishing"
+deburr_mm = 0.0
+deburr_cite = ["AUTHOR'S CHOICE: S11 already broke every machined edge; finishing cuts no edges"]
+note = "AUTHOR'S CHOICE: paint and oil the finished post on the assembly bench, resting in the bonding cradle."
+[setups.stock_state]
+top_z = 50.6591
+bottom_z = -22.3702
+note = "AUTHOR'S CHOICE: the finished post in the S7 cradle position, crank sleeve up."
+[setups.hold]
+fixture = "cone-bond-cradle"
+support = "none"
+grip_on = "AUTHOR'S CHOICE: gravity only: body in the cradle saddle 10-20 mm from foot B, foot B against the foot stop, north cap on the two cone pins"
+grip_mm = "not_applicable"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+stop = "AUTHOR'S CHOICE: the foot stop locates foot B; the cone pins carry the north cap."
+clamp = "none"
+[[setups.ops]]
+op = 10
+do = "coating"
+feature = "body"
+process = "ral-6005-alkyd"
+note = "SSPC-SP 3: power-tool clean the unmachined surfaces to bright metal and blow off the dust. Mask every machined face and both bores. Brush RAL 6005 alkyd to 50-75 um dry film and let it cure as the can states. Check the dry film with the coating-thickness gauge at five places; then unmask."
+[[setups.ops]]
+op = 20
+do = "coating"
+feature = "body"
+process = "oil-iso-vg32"
+note = "Wipe a thin film of ISO VG 32 oil on every bare machined face and into both bores."
