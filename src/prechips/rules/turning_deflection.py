@@ -79,7 +79,7 @@ def evaluate(bundle):
             continue
 
         feature_name = op.get("feature", UNKNOWN)
-        feature = record(bundle.features["features"].get(feature_name))
+        feature = record(bundle.feature_definitions.get(feature_name))
         hold = record(setup.get("hold"))
         length = hold.get("stickout_mm", UNKNOWN)
         diameter = nominal_diameter(bundle, feature)

@@ -102,6 +102,7 @@ def _turning_values(bundle, op):
 
 
 def op_inputs(bundle, setup, op, finishing=None):
+    from prechips.joint_features import joint_operation
     from prechips.rules.geometry_common import TURNING, approach, finishing_subjects
 
     subject = f"{setup['id']}:{op['op']}"
@@ -134,6 +135,9 @@ def op_inputs(bundle, setup, op, finishing=None):
         "do": op.get("do", UNKNOWN),
         "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
     }
+    joint_cut = joint_operation(bundle, op, result["finishing"])
+    if joint_cut is not None:
+        result["joint_cut"] = joint_cut
     if "faces" in op:
         result["faces"] = op["faces"]
     if turned:
@@ -525,6 +529,7 @@ def hold_inputs(bundle, setup):
 
 
 def build_job(bundle):
+    from prechips.joint_features import primitives_mm, setup_joint
     from prechips.rules.geometry_common import cutting_action, finishing_subjects
 
     units = bundle.features.get("units", UNKNOWN)
@@ -551,6 +556,7 @@ def build_job(bundle):
                     if cutting_action(op) is not False
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
+                "joint": setup_joint(bundle, setup),
                 # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
                 "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
                     "kind", UNKNOWN
@@ -567,6 +573,7 @@ def build_job(bundle):
             name: feature.get("faces", UNKNOWN)
             for name, feature in bundle.features["features"].items()
         },
+        "joint_features": primitives_mm(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
         "stock": stock_inputs(bundle),
         "setups": setups,
@@ -636,7 +643,9 @@ def _stock_envelope(stock):
 _ENGINE_OP = (
     "subject",
     "feature",
+    "do",
     "faces",
+    "joint_cut",
     "radius_mm",
     "flute_len_mm",
     "holder_radius_mm",
@@ -733,6 +742,7 @@ def engine_job(job):
         "step_path": job["step_path"],
         "step_sha256": job["step_sha256"],
         "features": job["features"],
+        "joint_features": job.get("joint_features", {}),
         "as_is_faces": job["as_is_faces"],
         "stock": job["stock"],
         "setups": [
@@ -742,6 +752,7 @@ def engine_job(job):
                 "hold": _engine_hold(setup["hold"]),
                 "ops": [{key: op[key] for key in _ENGINE_OP if key in op} for op in setup["ops"]],
                 "stock_in": setup["stock_in"],
+                "joint": setup.get("joint"),
                 "machine_kind": setup["machine_kind"],
             }
             for setup in job["setups"]

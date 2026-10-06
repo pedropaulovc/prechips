@@ -11,6 +11,7 @@ import math
 import re
 from html import escape
 
+from .joint_features import TEMPORARY_LABEL
 from .model import tolerance_requirements
 from .rules.resolution import (
     MANUAL,
@@ -114,7 +115,8 @@ class _Traveler:
     def __init__(self, bundle, findings, report, approval):
         self.bundle = bundle
         self.plan = bundle.plan
-        self.features = bundle.features.get("features", {})
+        # Operative features: the exported manifest plus resolved plan joint features.
+        self.features = bundle.feature_definitions
         self.general_precision = bundle.features.get("precision")
         self.findings = sorted(
             findings, key=lambda f: (_field(f, "rule", ""), _field(f, "subject", ""))
@@ -152,6 +154,31 @@ class _Traveler:
         if isinstance(overrides, dict):
             return overrides.get(dimension, self.general_precision)
         return overrides
+
+    def feature_label(self, feature):
+        """An exported feature prints its id; a transient joint feature is marked temporary."""
+        joint = _mapping(self.features.get(feature, {}).get("joint"))
+        if not joint:
+            return _text(feature)
+        kind = {"cylinder_bore": "socket bore", "cylinder_spigot": "spigot"}[joint["kind"]]
+        return f"{_text(feature)} ({kind} on {_text(joint['component'])}): {TEMPORARY_LABEL}"
+
+    def joint_text(self, setup):
+        """How a two-branch setup joins: method, process and the declared fit band."""
+        joint = _mapping(setup.get("joint"))
+        if not joint:
+            return ""
+        text = f"; joined by {_text(joint['method'])} ({_text(joint['process'])})"
+        if joint["kind"] == "cylindrical":
+            band = joint.get(f"{joint['fit']}_mm")
+            limits = " to ".join(map(_number, band)) if isinstance(band, list) else _text(band)
+            text += (
+                f": spigot {_text(joint['spigot'])} into socket {_text(joint['socket'])}, "
+                f"{joint['fit']} {limits} mm diametral"
+            )
+        else:
+            text += f" at {len(joint['interfaces'])} declared interface(s)"
+        return text
 
     def value(self, value, feature=None, dimension=None, drawing=True):
         """Format with the dimension's declared drawing precision when one exists.
@@ -893,7 +920,7 @@ class _Traveler:
                 (
                     _text(op["op"]),
                     action,
-                    _text(feature),
+                    self.feature_label(feature),
                     tools,
                     "—" if manual else _number(numbers.get("rpm"), 0),
                     feed_text,
@@ -1270,7 +1297,7 @@ class _Traveler:
             ],
             widths=[10, 20, 70],
         )
-        requirements = []
+        requirements, temporary = [], []
         for feature, definition in self.features.items():
             values = [
                 "Requirement identity: ?"
@@ -1278,12 +1305,25 @@ class _Traveler:
                 else f"{_text(d)} {self.value(definition.get(d), feature, d)}"
                 for d in dict.fromkeys(tolerance_requirements(definition))
             ]
+            if _mapping(definition.get("joint")):
+                # Plan-authored preparation, never drawing acceptance.
+                temporary.append(
+                    (
+                        self.feature_label(feature),
+                        "; ".join(values) or "No preparation requirements declared.",
+                    )
+                )
+                continue
             requirements.append(
                 (_text(feature), "; ".join(values) or "No drawing requirements declared.")
             )
         header += "<h2>DRAWING REQUIREMENTS</h2>" + _table(
             ["feature", "requirement / acceptance band"], requirements
         )
+        if temporary:
+            header += f"<h2>{escape(TEMPORARY_LABEL)}</h2>" + _table(
+                ["plan feature", "requirement / acceptance band"], temporary
+            )
         header += _p(
             "Kernel geometry findings use sampled tool / holder solids, not CAM toolpaths. "
             "An unresolved fixture is not a rendered holding proof. "
@@ -1300,6 +1340,7 @@ class _Traveler:
             content += _p(
                 "Starts from: "
                 + _text(setup.get("stock_in"))
+                + self.joint_text(setup)
                 + "; stock state: "
                 + self.paragraphs(setup.get("stock_state", {}))
             )

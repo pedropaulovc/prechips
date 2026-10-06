@@ -14,12 +14,19 @@ slide (the carriage passes under the whole turned length), and the stick-out
 plus chuck body length against the distance between centres.  It is a
 necessary-condition screen: it proves no tool path, carriage stroke or
 tailstock quill extension.
+
+Mill travel compares the stock each setup receives: a raw single supply (``stock_in``
+absent or ``"stock"``) keeps its blank, while a derived, component or joined route uses
+the kernel's setup-entry ``stock_bbox_mm`` (never the finished part or raw blank) and
+otherwise stays unknown.  Manual bench fit/inspection setups (``rules._bench``) have no
+spindle stack or travel.
 """
 
 from fractions import Fraction
 
 from prechips.findings import Finding
 from prechips.measurements import length_fact, measurement_entry
+from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules.resolution import (
     MANUAL,
     length_mm,
@@ -72,9 +79,83 @@ def _limit(machine, identity, field, debts, cite):
     return result
 
 
+def _entry_stock(bundle, setup, frame):
+    """Setup-frame X/Y extents of the stock this setup receives, never the finished part.
+
+    Only a raw single supply (no stock components; ``stock_in`` absent or ``"stock"``)
+    keeps the authored blank's box.  Any derived or component route (``stock_in`` naming
+    an earlier setup, a ``stock.<component>`` or a joined pair) exists only as the
+    kernel's setup-entry ``stock_bbox_mm``, already in this setup's frame: earlier cuts
+    can shrink it inside a blank that would not fit.  Without that box the extent stays
+    unknown debt.
+    """
+    components = _mapping(bundle.plan.get("stock")).get("components")
+    if setup.get("stock_in", "stock") == "stock" and not (
+        isinstance(components, list) and components
+    ):
+        stock = _mapping(bundle.plan.get("stock"))
+        section = stock.get("section_mm", [])
+        stock_x, stock_y = (
+            stock.get("length_mm", _UNKNOWN),
+            section[0] if isinstance(section, list) and section else _UNKNOWN,
+        )
+        axes = [frame.get("x"), frame.get("y")]
+        extents = [
+            stock_x,
+            stock_y,
+            section[1] if isinstance(section, list) and len(section) > 1 else _UNKNOWN,
+        ]
+        # Transform the stock box dimensions into the actual setup frame.
+        if all(_numeric(value) for value in extents) and all(
+            isinstance(axis, list) and len(axis) == 3 and all(_numeric(value) for value in axis)
+            for axis in axes
+        ):
+            stock_x, stock_y = [sum(abs(axis[i]) * extents[i] for i in range(3)) for axis in axes]
+        # Unchanged legacy evidence: the authored blank adds no route fields or cites.
+        return {"x": stock_x, "y": stock_y, "cite": []}
+    from prechips.kernel import run_geometry
+
+    sid = setup["id"]
+    result = {
+        "x": _UNKNOWN,
+        "y": _UNKNOWN,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "cite": [f"kernel.setups.{sid}.stock_bbox_mm: setup-entry stock in the setup frame"],
+    }
+    facts = _mapping(run_geometry(bundle))
+    if facts.get("status") != "ok":
+        result["kernel_status"] = facts.get("status", _UNKNOWN)
+        if facts.get("kernel_unavailable") is True:
+            result["kernel_unavailable"] = True
+        result["stock_entry_reason"] = facts.get(
+            "reason", "FreeCAD geometry facts are unavailable."
+        )
+        return result
+    detail = _mapping(_mapping(facts.get("setups")).get(sid))
+    bbox = detail.get("stock_bbox_mm")
+    if isinstance(bbox, list) and len(bbox) == 6 and all(_numeric(value) for value in bbox):
+        result.update(x=bbox[3] - bbox[0], y=bbox[4] - bbox[1], stock_entry_bbox_mm=bbox)
+    else:
+        result["stock_entry_reason"] = (
+            detail.get("assembly_error")
+            or detail.get("stock_reason")
+            or detail.get("reason")
+            or "the kernel derived no setup-entry stock"
+        )
+    return result
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
+        bench = manual_bench(bundle, setup)
+        if bench is not None:
+            findings.append(
+                not_applicable(
+                    "headroom", setup, bench, "headroom", "spindle stack or machine travel"
+                )
+            )
+            continue
         machine_ref = setup["machine"]
         machine = resolve(bundle, "machines", machine_ref) or {}
         if machine.get("kind") == "lathe":
@@ -222,25 +303,11 @@ def evaluate(bundle):
         # A below-jaw endpoint is not proof of a collision: lateral keep-outs
         # require geometry. Report separately without pretending the stack fails.
         unknown |= any(value < 0 for value in cuts.values())
-        stock = _mapping(bundle.plan.get("stock"))
-        section = stock.get("section_mm", [])
-        stock_x, stock_y = (
-            stock.get("length_mm", _UNKNOWN),
-            section[0] if isinstance(section, list) and section else _UNKNOWN,
-        )
         frame = setup_frame(bundle, setup)
-        axes = [frame.get("x"), frame.get("y")]
-        extents = [
-            stock_x,
-            stock_y,
-            section[1] if isinstance(section, list) and len(section) > 1 else _UNKNOWN,
-        ]
-        # Transform the stock box dimensions into the actual setup frame.
-        if all(_numeric(value) for value in extents) and all(
-            isinstance(axis, list) and len(axis) == 3 and all(_numeric(value) for value in axis)
-            for axis in axes
-        ):
-            stock_x, stock_y = [sum(abs(axis[i]) * extents[i] for i in range(3)) for axis in axes]
+        entry = _entry_stock(bundle, setup, frame)
+        stock_x, stock_y = entry.pop("x"), entry.pop("y")
+        cite.extend(entry.pop("cite"))
+        numbers.update(entry)
         numbers.update({"stock_extent_x_mm": stock_x, "stock_extent_y_mm": stock_y})
         travels = {}
         for axis, extent in (("x", stock_x), ("y", stock_y)):

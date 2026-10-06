@@ -235,6 +235,7 @@ def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(act
             }
         },
     )
+    bundle.feature_definitions = bundle.features["features"]
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(bundle)}
     row = findings["blind_depth", "h"]["numbers"]["endpoints"][0]
     expected_tip = {"tap": 5.0, "ream": -13.675, "drill": -13.5}[action]

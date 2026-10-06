@@ -22,6 +22,7 @@ from prechips.rules import (
     indexing,
     inspection,
     internal_corner_radius,
+    joints,
     op_chain,
     op_order,
     reach,
@@ -68,6 +69,7 @@ RULES: list[Rule] = [
     Rule("turning_deflection", turning_deflection.evaluate),
     Rule("engagement", engagement.evaluate),
     Rule("construction", construction.evaluate),
+    Rule("joint_fit", joints.evaluate_fit),
 ]
 
 GEOMETRY_RULES = [
@@ -79,6 +81,7 @@ GEOMETRY_RULES = [
     Rule("vise", vise.evaluate),
     Rule("thin_wall_under_clamp", thin_wall_under_clamp.evaluate),
     Rule("fixture_interference", fixture_interference.evaluate),
+    Rule("joint_assembly", joints.evaluate_assembly),
 ]
 RULES.extend(GEOMETRY_RULES)
 
@@ -100,7 +103,7 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
         elif selector in {"holes", "toleranced_features"}:
             subjects = [
                 feature
-                for feature, item in bundle.features["features"].items()
+                for feature, item in bundle.feature_definitions.items()
                 if (
                     item.get("kind") in {"hole", "counterbore", "thread"}
                     if selector == "holes"

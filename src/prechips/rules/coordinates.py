@@ -12,6 +12,7 @@ import itertools
 import math
 
 from ..findings import Finding
+from ._bench import manual_bench, not_applicable
 from .resolution import (
     UNKNOWN,
     length_mm,
@@ -471,11 +472,19 @@ def _dome(name, feature, op, radius_mode):
 
 def evaluate(bundle):
     result = []
-    features = bundle.features["features"]
+    features = bundle.feature_definitions
     # Feature source frames are manifest-only; setups resolve exported or plan-owned frames.
     frames = mapping(bundle.features.get("frames"))
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
+        bench = manual_bench(bundle, setup)
+        if bench is not None:
+            result.append(
+                not_applicable(
+                    "coordinates", setup, bench, "coordinates", "DRO target or cutter-centre table"
+                )
+            )
+            continue
         frame = setup_frame(bundle, setup)
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"

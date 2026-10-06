@@ -14,7 +14,7 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
-from .resolution import MANUAL, UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import MANUAL, UNKNOWN, length_mm, manifest_mm, number, resolve, uncertain
 from .tip_endpoints import mapping, records
 
 
@@ -64,10 +64,12 @@ def _bounds(machine):
 def _diameter(bundle, setup, op, tool, lathe):
     if not lathe:
         return length_mm(tool, "dia")
-    feature = bundle.features["features"].get(op.get("feature"), {})
-    diameter = feature.get("dia_nominal", UNKNOWN)
-    if not number(diameter) and number(feature.get("base_radius")):
-        diameter = 2 * feature["base_radius"]
+    feature = bundle.feature_definitions.get(op.get("feature"), {})
+    # Feature lengths are manifest units; convert once here, before mm allowance arithmetic.
+    diameter = manifest_mm(bundle, feature.get("dia_nominal", UNKNOWN))
+    radius = manifest_mm(bundle, feature.get("base_radius", UNKNOWN))
+    if not number(diameter) and number(radius):
+        diameter = 2 * radius
     if not number(diameter) and op.get("do") in {"face", "rough_face", "finish_face"}:
         diameter = mapping(setup.get("stock_state")).get("od_mm", UNKNOWN)
     if op.get("do") == "rough_turn":

@@ -1,6 +1,7 @@
 """Declared axial diameter intervals in the setup spindle frame, not a B-rep."""
 
 from ..findings import Finding
+from ..joint_features import joint_of, present, setup_span_mm
 from .coordinates import frame_point, model_point
 from .resolution import (
     UNKNOWN,
@@ -106,15 +107,18 @@ def _grooving(setup, name, bundle):
 
 def exposed_profile(bundle, setup):
     """Reuse the declared setup-Z geometry for profile and unsupported-diameter checks."""
-    features = bundle.features["features"]
+    features = bundle.feature_definitions
     # Source frames stay manifest-only; the setup frame may be exported or plan-owned.
     frames = record(bundle.features.get("frames"))
     units = bundle.features.get("units", UNKNOWN)
     scale = 25.4 if units == "in" else 1.0 if units == "mm" else None
     frame = _frame_mm(setup_frame(bundle, setup), scale or 1.0)
     claimed = {op.get("feature", UNKNOWN) for op in setup["ops"] if op["do"] in PROFILE_OPS}
+    # A transient joint feature belongs only to its own in-process branch (joint_features).
     names = {
-        name for name, feature in features.items() if feature.get("kind") in AXIAL_KINDS
+        name
+        for name, feature in features.items()
+        if feature.get("kind") in AXIAL_KINDS and present(bundle, setup, name)
     } | claimed
     state, hold = record(setup.get("stock_state")), record(setup.get("hold"))
     north, south, length = (
@@ -130,7 +134,13 @@ def exposed_profile(bundle, setup):
     exposed_names = set()
     for name in sorted(names):
         feature = record(features.get(name))
-        span = _axial_span(feature, frame, frames, scale)
+        # A transient joint cylinder spans exactly its authored ends in the setup frame;
+        # exported features keep the declared z_mm path.
+        span = (
+            setup_span_mm(bundle, name, frame)
+            if joint_of(feature)
+            else _axial_span(feature, frame, frames, scale)
+        )
         if span is None:
             unresolved.append(name)
             exposed_names.add(name)
@@ -217,7 +227,7 @@ def exposed_profile(bundle, setup):
 
 def evaluate(bundle):
     findings = []
-    features = bundle.features["features"]
+    features = bundle.feature_definitions
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine"))
         kind = record(machine).get("kind", UNKNOWN)

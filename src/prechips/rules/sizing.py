@@ -1,15 +1,16 @@
 """Compare only the selected size-setting finishing tool to drawing limits."""
 
 from ..findings import Finding
+from ..joint_features import source_cite
 from .resolution import _citations, length_mm, number, operations, record, resolve, uncertain
 
 
 def evaluate(bundle):
     result = []
-    for name, feature in bundle.features["features"].items():
+    for name, feature in bundle.feature_definitions.items():
         source = feature.get("cite", [])
         source = list(source.values()) if isinstance(source, dict) else source
-        cite = ["PLAN.md §4.1 sizing"] + _citations(source)
+        cite = ["PLAN.md §4.1 sizing", *source_cite(feature)] + _citations(source)
         nums = {
             "kind": feature["kind"],
             "feature_kind": feature["kind"],

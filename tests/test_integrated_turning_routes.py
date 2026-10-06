@@ -194,7 +194,7 @@ def _lug(x0, length):
     }
 
 
-def test_turning_keeps_a_separate_supply_piece_but_refuses_to_split_one(engine, shafts):
+def test_turning_a_component_keeps_it_intact_or_refuses_to_split_it(engine, shafts):
     step = shafts["filleted"]
     features = _journals(engine, step)
     setups = [
@@ -202,11 +202,13 @@ def test_turning_keeps_a_separate_supply_piece_but_refuses_to_split_one(engine, 
             "T1",
             [_turn("T1:10", "exposed", z_from=40.0, z_to=20.0)],
             UNHELD,
-            stock_in=["stock.bar", "stock.lug"],
+            stock_in="stock.lug",
         ),
-        {"id": "S2", "frame": IDENTITY, "hold": UNHELD, "ops": []},
+        {"id": "S2", "stock_in": "T1", "frame": IDENTITY, "hold": UNHELD, "ops": []},
     ]
     # Setup z 0..15 lies below the turned window; z 15..45 straddles both its ends.
+    # The separate bar accounts for finished-part supply coverage, but is not
+    # physically joined to the lug. Routing the lug alone isolates fragmentation.
     kept, split = engine.run(
         {
             "jobs": [
@@ -216,8 +218,8 @@ def test_turning_keeps_a_separate_supply_piece_but_refuses_to_split_one(engine, 
         }
     )["results"]
     row = kept["setups"]["S2"]
-    assert row["stock_volume_mm3"] == pytest.approx(TURNED_MM3 + 15 * 2 * 4, rel=1e-6)
-    assert row["stock_bbox_mm"] == pytest.approx([30.0, -6.0, -6.0, 70.0, 10.0, 6.0])
+    assert row["stock_volume_mm3"] == pytest.approx(15 * 2 * 4, rel=1e-6)
+    assert row["stock_bbox_mm"] == pytest.approx([30.0, 8.0, -2.0, 45.0, 10.0, 2.0])
     assert row["render_png_base64"] and "stock_reason" not in row
     row = split["setups"]["S2"]
     splits = "T1:10: removing its claimed clearance splits an input stock piece into 2"

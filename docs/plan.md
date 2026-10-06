@@ -3,9 +3,9 @@
 `part`, `features`, and `setups` are required. The loader additionally requires
 a nonempty setup list, known unique setup ids, a nonempty operation list per
 setup, known unique operation numbers within each setup, and every operation's
-feature in the manifest. Plan and manifest part names must agree; a known setup
-frame must name an exported manifest frame or a plan-owned frame in
-[`frames`](#frames). A literal `"unknown"` setup frame stays unresolved.
+feature in the manifest or in plan-owned `joint_features`. Plan and manifest part
+names must agree; a known setup frame must name an exported manifest frame or a
+plan-owned frame in [`frames`](#frames). A literal `"unknown"` setup frame stays unresolved.
 Execution follows authored array order, not numeric sorting of operation ids.
 
 `features` is relative to the plan; it must stay inside the bundle root. The
@@ -40,9 +40,9 @@ retouch rows using the stock top after each listed operation, including a face
 cut that changes the touched top. A known list does not certify that the authored
 schedule is physically sufficient.
 
-`checks` maps exported requirement names to inventory gauge references.
-Every key must belong to the selected feature's exported `requirements` list;
-otherwise loading raises `BadInput`, even if another feature exports that name.
+`checks` maps requirement names to inventory gauge references. Every key must
+belong to the selected resolved feature's `requirements` list (exported or
+plan-owned); otherwise loading raises `BadInput`, even if another feature owns that name.
 A wholly unknown requirements list cannot establish membership and does not
 authorize arbitrary checks. `inspection_methods` supplies the authored procedure
 for datum/geometric checks and missing requirements. A missing check is different
@@ -97,6 +97,7 @@ of geometric validity; rules perform the applicable checks.
 | `stock` | `Stock \| Unknown` | Optional |
 | `dro` | `Dro \| Unknown` | Optional |
 | `frames` | `dict[str, PlanFrame] \| Unknown` | Optional |
+| `joint_features` | `dict[str, JointFeature]` | Optional |
 | `setups` | `list[Setup]` | Required |
 
 ## Frames
@@ -122,6 +123,41 @@ manifest-only. Plan frames are never merged into the manifest or its hash; rule
 citations carry `plan.frames.<name>: author-declared setup frame` followed by
 the frame's own `cite`, while exported setup frames keep their manifest
 provenance.
+
+## Joint features
+
+`[joint_features.<id>]` declares transient component geometry, not a change to
+the finished STEP or its feature manifest. Identities must not collide with
+exported features. Every declaration requires:
+
+| Field | Meaning |
+|---|---|
+| `kind` | `cylinder_bore` (socket) or `cylinder_spigot` |
+| `component` | Exact declared stock component id |
+| `at` | Starting-face centre in model coordinates |
+| `axis` | Unit vector along positive depth |
+| `dia` | Ordered positive diameter tolerance band `[low, high]` |
+| `nominal_dia` | Authored cylinder diameter; never inferred from band midpoint |
+| `depth` | Positive finite axial length, including when `thru = true` |
+| `thru` | Boolean through/blind declaration |
+| `cite` | Nonempty author/source citation |
+
+Unsuffixed lengths use the manifest's model units; `axis` is dimensionless.
+Known geometry must satisfy these constraints. Literal numeric `"unknown"`
+remains debt and cannot create a solid, an inferred nominal, or a successful
+assembly. Identity fields and citations are not numeric debt: missing/unknown
+kinds, components and references are bad input. Optional `requirements` is a
+subset of `["dia"]` and defaults to that list; depth is finite construction
+geometry, not an invented depth tolerance. Optional `precision` and `note`
+retain normal dimensional/display semantics.
+
+Operations address these identities through the same resolved feature mapping
+as exported dimensions (socket as hole, spigot as boss), but may prepare them
+only on their own pre-assembly component ancestry. The original manifest and
+STEP hashes remain unchanged. Findings cite `plan.joint_features.<id>` and the
+author's citations, not invented exported faces. Completing a transient cut
+never earns finished STEP coverage or final finish coverage.
+
 
 ## Drawing
 
@@ -245,6 +281,7 @@ setups. Unknown controller/install facts remain unresolved independently.
 | `frame` | `str` |
 | `coolant` | `str` |
 | `stock_in` | `str \| list[str]` |
+| `joint` | Tagged cylindrical or surface joint (required for array `stock_in`) |
 | `note` | `str` |
 | `deburr_mm` | `Number` |
 | `deburr_cite` | `Citations` |
@@ -253,10 +290,24 @@ setups. Unknown controller/install facts remain unresolved independently.
 | `zero` | `Zero` |
 | `ops` | `list[Operation]` |
 
+For a manual joining or inspection station, declare the inventory machine's
+`kind = "bench"` (or `"manual"`) and use only `fit` and `inspect` operations.
+`zero_check`, `coordinates` and `headroom` are then `not_applicable`: the station
+has no DRO, cutter-centre table, spindle stack or machine travel to check.
+The joint's joining method does not create machine axes. Any cutting or
+explicitly unknown action retains the normal screens; a bench declaration
+cannot waive a machining operation. This does not waive physical joint,
+holding, stock, frame or render requirements.
+
+For component stock, an earlier setup's output, or a joint output, mill
+headroom's X/Y travel screen uses the kernel's **setup-entry stock bounding
+box**, before the current setup's cuts. It does not substitute the finished
+part or the original raw blank. Missing entry stock remains a geometry debt.
+
 `stock_in` names `"stock"` for a single supply, `"stock.<id>"` for a built-up
 component, or any earlier setup's `id` (not necessarily the immediately previous
-setup). A nonempty array of these references joins their solids by Boolean union
-in model coordinates. Unknown or forward authored references are bad input
+setup). An array requests assembly of exactly two disjoint branches and requires
+an explicit `joint`; there is no generic Boolean-union fallback. Unknown or forward authored references are bad input
 (exit 3), including authored `"unknown"` as a source. Omitted `stock_in`
 remains stock debt; it does not infer a linear route. Every supply and setup output stays in the model frame:
 joining references never applies an implicit assembly transform.
@@ -265,6 +316,54 @@ a supply with its descendant (for example `["stock", "S1"]` when S1 consumes
 stock) are bad input (exit 3), naming the shared supply ancestor. Separate route
 alternatives may start from the same supply again, but cannot join that material
 lineage twice.
+
+### Assembly joints
+
+Every array `stock_in` requires a singular tagged `joint` declaration and
+exactly two physical supply components in its combined ancestry. One-piece
+arrays, arrays with more than two references, and a nested assembly joining an
+already joined pair to a third component are bad input (exit 3). Two immediate
+references do not bypass the physical-component limit. A multi-piece joint graph
+is not implemented. Joint geometry is in the model frame, regardless of
+the assembly setup's frame. A missing or malformed identity/reference is bad
+input; unknown numeric geometry withholds the union as named geometry debt.
+
+A cylindrical joint declares `kind = "cylindrical"`, `socket` and `spigot`
+(matching plan joint-feature kinds on the two distinct consumed component
+branches), `fit`, the applicable diametral fit band, `method`, nonempty
+`process` and `cite`. Clearance uses `fit = "clearance"` and `clearance_mm`,
+with `method = "silver_braze"` or `"retaining_compound"`. Interference uses
+`fit = "interference"`, `interference_mm` and `method = "press"`.
+All tolerance extremes must satisfy the declared fit:
+
+- Clearance interval: `[socket.low - spigot.high, socket.high - spigot.low]`.
+- Interference interval: `[spigot.low - socket.high, spigot.high - socket.low]`.
+
+The resulting interval must be nonnegative and entirely inside the declared
+millimetre band; exact endpoints are accepted. A compatible nominal alone is
+insufficient. Axes must be collinear with finite overlapping engagement.
+Both preparation cuts must be completed on the actual selected ancestors,
+remain intact, and have their target geometry verified at assembly. Declaring
+a joint cannot turn untouched blanks into prepared components.
+
+A surface joint needs no transient feature. It declares `kind = "surface"`,
+`method = "weld"` or `"silver_braze"`, nonempty `process`, `cite`, and a nonempty
+`interfaces` list. Each rectangle has model-space centre `at`, unit orthogonal
+`normal` and `x`, positive `size_mm = [width, height]`, and nonempty `cite`;
+`normal × x` is its height direction. `at` uses manifest units while `size_mm`
+is explicitly millimetres. These are author-declared internal butt interfaces,
+not STEP face references. `stock_in[0]` owns the negative-normal side;
+`stock_in[1]` owns the positive-normal side. Both received pieces must contact
+essentially the whole rectangle inside the final solid, with no overlapping bulk. Multiple
+patches may describe the same two-piece interface, not a multi-piece graph.
+Separated material is not joined merely because a process was named.
+
+The kernel protects component-owned finished material during preparation and
+checks final material coverage again at assembly. Cylindrical fill is limited
+to derived finite engagement; surface joins add no fill. Undeclared overlap,
+a blocked straight-axis insertion, or lost finished material refuses the
+assembly. See [in-process stock](rules-geometry.md#in-process-stock).
+
 
 ## StockState
 

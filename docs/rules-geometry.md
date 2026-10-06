@@ -22,10 +22,11 @@ that carries its own verification debt.
 
 The citation list of every geometry finding starts with that PLAN row, adds
 `kernel: STEP SHA-256 <digest>; FreeCAD B-rep measurements` when the manifest
-digest is known, then the manifest feature (`features.<name>: faces and
-requirements` plus its citations), the setup (`plan.setups.<id>: frame and
-hold`, the resolved fixture/parallels rows and their citations, the frame
-citation) and the operation (`plan.setups.<id>.ops.<n>: selected
+digest is known, then the feature (exported `features.<name>: faces and
+requirements` or author-owned `plan.joint_features.<name>` plus its citations),
+the setup (`plan.setups.<id>: frame and hold`, the resolved fixture/parallels
+rows and their citations, the frame citation) and the operation
+(`plan.setups.<id>.ops.<n>: selected
 action/tool/holder`, the resolved tool/holder rows). `thin_wall_under_clamp`
 also cites `shop-policy.numbers.thin_wall_floor_mm`. The kernel itself reports
 measurements only; it never emits citations.
@@ -34,7 +35,8 @@ measurements only; it never emits citations.
 
 A run evaluates geometry at most once per bundle. The CLI builds a canonical
 JSON job per candidate (STEP path/digest, feature and explicit op face claims,
-authored stock envelope and `stock.as_is_faces`, setup order/frames/stock chain,
+authored stock envelope and `stock.as_is_faces`, normalized transient joint
+primitives and assembly declarations, setup order/frames/stock chain,
 hold geometry and cutting dimensions/endpoints), sends every job that is
 not already cached to **one** `freecadcmd.exe <freecad_job.py> -- INPUT_JSON
 OUTPUT_JSON` subprocess as a batch (`compare` therefore spawns one process for
@@ -98,8 +100,8 @@ of the canonical job without its `step_path` (the STEP digest and every
 numeric input are inside), the digest of the engine's own `kernel/*.py`
 sources, and the kernel executable's resolved path, SHA-256, size and mtime.
 Changing a consumed geometry input, the STEP, the engine or the FreeCAD build
-therefore misses; moving the bundle does not. Host-only action/finishing metadata,
-tool OAL after projection is resolved, protective hold-method text, and the
+therefore misses; moving the bundle does not. Host-only action/finishing metadata
+that is not consumed by transient preparation, tool OAL after projection is resolved, protective hold-method text, and the
 item-level `verify` / `present` / `source` flags around a consumed fact (which
 never enter the job) do not invalidate geometry. `unknown` and `error` results
 are never cached, and a cache that cannot be written changes nothing. A hit
@@ -145,6 +147,14 @@ rows `unknown` (`feature face references are unknown or unmapped`). Imported
 faces that no reference names are labelled `imported face index <n>`
 (0-based) wherever the kernel has to name them, for example in `coverage`.
 
+Plan-owned joint cylinders are separate analytic targets, labelled with their
+`plan.joint_features.<id>` provenance. They are never assigned synthetic STEP
+entity references and never enter final face, source, as-is, coverage or corner
+mappings. Dimensional and operation consumers use the resolved feature mapping;
+final `coverage` and `finish_coverage` still iterate only the original manifest.
+Neither transient completion nor joint filler proves a final surface was cut.
+
+
 ## Approach models
 
 **Milling (axial).** Directional claims and prescribed cutter/holder poses
@@ -173,8 +183,8 @@ declared `z_from`/`z_to` span, then cut the finished part back out. That
 in-process stock is inverse-transformed back into model coordinates and can
 feed any later setup that explicitly selects it through `stock_in`, not only
 the immediately following setup. Removal checks each input solid separately:
-an existing multi-piece input is permitted, but splitting any one input piece
-into multiple retained pieces leaves the output unresolved.
+splitting any one input piece into multiple retained pieces leaves the output
+unresolved. Separate supplies do not authorize an unconnected assembly.
 
 The turning model is a deterministic radial sampled necessary-condition screen.
 It does not prove tool paths, chip flow, insert clearance angles below centre height, boring bars or
@@ -281,8 +291,12 @@ setup frame; the frame is the author's declaration, not a measured setup.
 Each setup's checks and image use the material explicitly selected by `stock_in`.
 `"stock"` selects a single supply; `"stock.<id>"` selects a built-up component;
 any earlier setup id selects that setup's output, even when it is not the
-immediately previous setup. A nonempty array joins the selected solids by
-Boolean union in model coordinates. Unknown or forward authored references
+immediately previous setup. Every array requires a tagged `joint` and exactly
+two disjoint material branches whose combined ancestry contains exactly two
+physical supply components. Joining a two-component subassembly to another
+component is bad input even though its array has only two references.
+There is no unconditional Boolean-union path, and more-than-two-piece joint
+graphs are not implemented. Unknown or forward authored references
 are bad input (exit 3), including authored `"unknown"` as a source. Omitted
 `stock_in` remains named stock debt, never an inferred linear route. Supplies and outputs all stay in the
 model frame; assembly does not implicitly transform a reference.
@@ -297,6 +311,19 @@ derivable allowance above the sampled finished face within its claimed clearing
 footprint: that material is being cut, not an obstacle. No other op's removal is
 borrowed. Finished face indices stay bound to the original STEP even when
 booleans change the stock's face order.
+
+Mill headroom's X/Y travel screen consumes
+`kernel.setups.<id>.stock_bbox_mm` for component stock, an earlier setup's
+output, and a joined pair. That box is the actual stock placed in the setup
+frame **at entry**; it is neither the finished-part box nor a sum of raw supply
+boxes. A missing or withheld entry box leaves travel unresolved. Equality
+with a measured travel limit passes; exceeding it fails.
+
+A machine with inventory `kind = "bench"` or `"manual"` whose non-empty
+operation list contains only `fit` and `inspect` needs no DRO or spindle
+screen: `zero_check`, `coordinates` and `headroom` are `not_applicable`.
+Joint geometry and modeled holding still apply. Adding any cutting or unknown
+operation reinstates the normal machine screens.
 
 The supply needs the positive dimensions and model-frame placement described
 under [plan stock](plan.md#stock). As-is face references do not define a stock
@@ -321,6 +348,71 @@ requiring every component envelope to be known; it can therefore withhold an
 otherwise-known branch. Empty or omitted declarations add no cross-component
 dependency. Removal fragmentation is checked per input solid: deleting one
 assembly piece cannot mask splitting another.
+
+### Transient joint preparation and assembly
+
+The [joint declarations](plan.md#joint-features) supply real analytic finite
+socket/spigot cylinders. The host converts model-unit lengths once to
+millimetres; an authored `nominal_dia` defines the cylinder, never a midpoint
+guessed from a tolerance band. Unknown numeric geometry withholds downstream
+stock as debt. Malformed kinds, missing references and component ancestry
+mismatches are bad input.
+
+Socket preparation derives actual tool-profile removal from its component;
+spigot preparation removes the exterior annulus within its declared axial
+interval. A blind drill includes the cone below its cylindrical depth, and
+that cone must not intrude into protected finished material. Drill/spot point
+geometry needs an accepted included angle, not a fabricated flat bottom.
+Socket spotting uses its pointed tool profile and does not complete the
+full cylinder. Tapping and counterboring on transient joint features remain
+named stock debt until actual thread and pilot/step geometry is supported;
+they are not approximated by a full-diameter cylindrical void. This limit
+does not change operations on exported features.
+Unsupported or unknown cutting actions leave named stock debt.
+
+Rough allowances remain real material; a preparation is complete only after an
+applicable valid size-setting finishing cut and target-geometry verification.
+Completion follows the selected stock route, not chronological proximity,
+and is invalidated by subsequent damaging cuts. Noncutting operations such as
+inspection, fitting and deburring do not cut, damage or complete joint geometry.
+Assembly rechecks actual received target geometry.
+
+Finished-material protection is component-owned before joining. The spigot's
+share is the final solid inside its full cylinder; the socket's share excludes
+that spigot-owned region. A raw boss may overlap the body's final coordinates:
+its sacrificial turning annulus is not yet body material. Conversely, socket
+removal into socket-owned finished material outside derived finite engagement
+is forbidden. This protection applies to every cut on those branches, not
+only operations naming a transient feature. Overlapping spigot ownership is
+refused rather than resolved by ordering. Ordinary `stock_removal_bounds`
+cannot grant permission to remove protected finished material.
+
+For a cylindrical joint the kernel verifies every extreme of the declared
+diametral clearance/interference bands, collinearity, finite engagement and
+branch-specific completed preparation. Incompatible known bands are certain
+errors, not unknown stock. Fill is derived only from engagement and the
+declared joining process, never an arbitrary authored allowance. Actual branch
+overlap is forbidden except for a press-fit interference annulus. A
+straight-axis insertion sweep must be free of socket-stock obstruction;
+a captive or shouldered fit does not pass merely because its final pose fits.
+
+Surface joints use finite analytic rectangle `interfaces`, not finished STEP
+face references. Each must lie inside the final solid, with essentially full
+rectangle contact from both pieces and no bulk overlap. Plane-side ownership
+protects each component's final share during preparation: the first `stock_in`
+reference owns the negative-normal side, the second the positive-normal side.
+Several contact
+patches may describe the same two pieces; they do not support a multi-piece
+graph. Weld or silver-braze process text alone cannot connect separated pieces,
+and surface joining adds no filler solid.
+
+At assembly a final-material backstop checks the portion of finished geometry
+inside the consumed raw envelopes against the actual branch outputs plus
+authorized derived fill. A failed fit, lost material, missing preparation or
+blocked insertion withholds stock output. A later finished bore must really
+remove the joined material/fill; earlier socket cutting earns no final bore
+coverage. Original exported geometry and its hash remain the provenance anchor.
+
 
 For a derivable face footprint, removal is clipped to the authored `to_z`
 endpoint and to material outside the finished solid. Every claimed face with

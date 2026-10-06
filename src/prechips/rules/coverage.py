@@ -42,6 +42,9 @@ def evaluate(bundle):
     unsupported = set()
     mapping = record(facts.get("mapping"))
     for setup, op in operations(bundle):
+        # Transient preparation, even with an explicit face override, never cuts the final STEP.
+        if record(record(bundle.feature_definitions.get(op.get("feature"))).get("joint")):
+            continue
         action = cutting_action(op)
         if action is False:
             continue

@@ -40,6 +40,16 @@ def same_length(a, b):
     return math.isclose(a, b, rel_tol=0.0, abs_tol=LENGTH_TOLERANCE_MM)
 
 
+def manifest_mm(bundle, value):
+    """A manifest-unit feature length (scalar or band) in mm; unknown units stay unknown."""
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units", UNKNOWN))
+    if scale is None:
+        return UNKNOWN
+    if isinstance(value, list):
+        return [v * scale if number(v) else UNKNOWN for v in value]
+    return value * scale if number(value) else UNKNOWN
+
+
 def fraction(value):
     try:
         return Fraction(str(value).removesuffix("in").replace("-", "/"))

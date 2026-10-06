@@ -65,34 +65,33 @@ uv run prechips compare examples/cone-pivot-post/plan.toml examples/cone-pivot-p
 Current expected consumer CLI exits are **shaft 4 / rocker 2 / bracket 2 / cone
 one-piece 2 / cone built-up 2**. Existing inspection choices follow the exported
 feature owners without inventing methods or changing gauges. The shaft keeps
-required unknowns. Missing tooling/fixtures and one-piece-only construction keep
-their stops. The one-piece cone stops on an exported inconsistency:
-`mount_west.station_nominal = -12.98` lies outside its own `station` band
-[12.47, 13.49]. That is an HA export follow-up, not a sign the consumer may fix.
-Restored milling frames also expose far-side boss-face claims (one-piece S2:40/50,
-built-up S2:50); those remain errors requiring an authored route/claim correction.
+required unknowns. Missing tooling, holding and inspection capability keep
+their stops. The cone examples carry explicitly labelled construction and
+signed-station divergences from the upstream export; these are not claims
+that the original drawing or export was corrected. Known frames can expose
+far-side face claims requiring an authored route and claim correction.
 Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
 spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
 Only the consumer side of M3 is done; the HA follow-ups and the combined gate
 evidence are in PLAN §8 M3. Outputs are still written for exits 2 and 4.
-All example plans remain **authored** and their sheets **PLANNED**. The shaft,
-rocker and cone consume verbatim harmonic-analyzer `features.toml` exports
-with their exact adjacent STEP files. The pivot-bracket manifest remains
-hand-authored, without a registered consumer drawing or STEP bytes.
+All example plans remain **authored** and their sheets **PLANNED**. The shaft
+and rocker consume harmonic-analyzer `features.toml` exports; the cone records
+its example divergences beside the affected fields. Each keeps its adjacent
+STEP file. The pivot-bracket manifest remains hand-authored.
 Exported geometry does not certify the route, tooling, setup or first article.
 No verified cutting-table numbers are supplied; unknown RPM/feed cells stay
 unknown. See [examples/README.md](examples/README.md) for export provenance,
 source-contract changes and the separate synthetic geometry fixtures.
 
 The cone candidates are authored **full-envelope one-piece blank** and **block
-plus pressed boss** alternatives, not route generation or a recommendation. The
-built-up route is marked `✗ drawing permits one-piece only`: no drawing note
-permits assembly. Its single 12.5182° journal setting prints BS-0 plate/circle,
-turns and spaces; inventory verification remains due. No shaft cross-hole is
-invented. Cutting-data K_c/E remains `"unknown"`, so deflection is not a
-numerical machining claim. The current exported cone manifest supplies no
-finished volume: comparison must leave net volume and waste unknown, rather
-than transplanting the former hand-authored analytic-volume fact into the export.
+plus separate boss** alternatives, not route generation or a recommendation.
+The example manifest explicitly permits built-up construction, but permission
+alone does not prepare or assemble material. Its migrated built-up candidate
+declares temporary socket/spigot features and a pressed joint with numeric
+debt; that debt withholds the physical union rather than inventing a fit.
+No shaft cross-hole is invented. Unknown cutting-data K_c/E is not a numerical
+machining claim. Comparison leaves net volume and waste unknown without a
+sourced manifest volume; it does not transplant an old analytic estimate.
 
 ## CLI: five noninteractive verbs
 
@@ -294,8 +293,10 @@ deterministic rasterization of the kernel tessellation, hashed into
 `report.json` with its scene record so an approval binds to it.
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
-setup id, not only the previous one. A nonempty reference array joins solids by
-Boolean union in model coordinates. All supplies and outputs remain model-frame;
+setup id, not only the previous one. Every two-reference assembly array requires
+a cited `joint`: either a fitted cylindrical socket/spigot pair or a surface
+joint with authored finite butt interfaces. A bare Boolean union is not a
+physical joining process. All supplies and outputs remain model-frame;
 assembly adds no implicit transform. Components require known, nonempty, unique
 ids matched exactly, with no ASCII character whitelist, and their own
 `origin_mm`, `axis` and `section_axis` pose facts, with root-stock semantics. Each contains
@@ -316,6 +317,15 @@ Joined references must have disjoint supply ancestry: duplicate entries and
 joining a supply with its descendant are bad input (exit 3), naming the shared
 ancestor. Independent route alternatives may restart from the same supply but
 cannot join that material lineage twice.
+Plan-owned `joint_features` describe temporary cylindrical sockets and spigots
+on component stock, separately from the exported finished-part manifest.
+Their operations participate in sizing, inspection and geometric clearance,
+but earn no finished STEP-face coverage. Declared fit bands must cover the
+worst-case mating diameters, prepared geometry must reach the join along the
+selected stock lineage, and the kernel refuses interference outside the
+permitted fit or protected component material removed outside its joint.
+Unknown joint dimensions withhold the union and its render, rather than
+assuming a fit. See [the plan format](docs/plan.md) for the authored fields.
 Cutter exclusion is only a thin shell of the sampled face; another claimed groove wall remains an
 obstacle. Missing surface normals never become clearance or reach passes.
 Kernel-absent runs remove stale setup PNGs in the same output transaction.

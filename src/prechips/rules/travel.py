@@ -45,7 +45,7 @@ def _span(bands):
 
 
 def evaluate(bundle):
-    features = record(bundle.features.get("features"))
+    features = bundle.feature_definitions
     frames = record(bundle.features.get("frames"))
     endpoints = {
         (row["setup"], row["op"], row["feature"]): row

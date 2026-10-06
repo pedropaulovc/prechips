@@ -25,6 +25,8 @@ def evaluate(bundle):
     unsupported = set()
     mapping = record(facts.get("mapping"))
     for setup, op in operations(bundle):
+        if record(record(bundle.feature_definitions.get(op.get("feature"))).get("joint")):
+            continue
         if cutting_action(op) is None:
             debt = True
         if f"{setup['id']}:{op['op']}" not in finishers:

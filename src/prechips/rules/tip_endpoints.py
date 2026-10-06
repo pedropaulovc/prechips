@@ -7,7 +7,7 @@ import math
 from prechips.measurements import nominal_angle_deg
 
 from ..findings import Finding
-from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import UNKNOWN, length_mm, manifest_mm, number, resolve, uncertain
 
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
@@ -111,7 +111,7 @@ def stock_states(setup, features=None):
 
 
 def evaluate(bundle):
-    features = bundle.features["features"]
+    features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
     errors = set()
@@ -146,10 +146,14 @@ def evaluate(bundle):
                     tip_z=_subtract(entry, op.get("depth_mm", UNKNOWN)),
                 )
             elif action == "tap":
-                depth = op.get(
-                    "depth_mm", feature.get("thread_depth", feature.get("depth", UNKNOWN))
-                )
-                if isinstance(depth, list):
+                # Authored op depth is mm; the feature fallback is manifest units.
+                depth = op.get("depth_mm")
+                if depth is None:
+                    depth = feature.get("thread_depth", feature.get("depth", UNKNOWN))
+                    if isinstance(depth, list):
+                        depth = depth[1]
+                    depth = manifest_mm(bundle, depth)
+                elif isinstance(depth, list):
                     depth = depth[1]
                 flute = length_mm(tool, "flute_len")
                 row.update(
@@ -198,6 +202,8 @@ def evaluate(bundle):
                 limit = feature.get("depth", UNKNOWN)
                 if isinstance(limit, list):
                     limit = limit[1]
+                # The manifest guard converts once to mm before meeting the mm cut depth.
+                limit = manifest_mm(bundle, limit)
                 total = depth + lead if number(depth) and number(lead) else UNKNOWN
                 row.update(
                     depth_mm=depth,

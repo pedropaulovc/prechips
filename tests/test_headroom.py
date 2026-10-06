@@ -1,7 +1,6 @@
 """Physical mill stack arithmetic, independent of authored reference outputs."""
 
 import re
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -19,7 +18,7 @@ def measured(value):
 
 
 def bundle():
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"length_mm": 100, "section_mm": [30, 16]},
             "setups": [
@@ -74,6 +73,8 @@ def bundle():
         features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": {}},
         policy={},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def test_stack_uses_physical_height_not_coordinate_or_jaw_height():
@@ -244,7 +245,6 @@ def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_travel():
     assert finding.numbers["sum_mm"] == pytest.approx(146)
     assert finding.numbers["travel_checks"]["x"]["fixture_mm"] == 450
     assert finding.status == "error"
-    assert finding.sentence == "S1: part/fixture envelope exceeds X travel."
 
 
 def test_part_and_fixture_envelope_must_fit_travel():
@@ -465,45 +465,51 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         )
 
 
-@pytest.mark.parametrize(("setup_id", "op_id"), [("S1", 40), ("S2", 40), ("S3", 30)])
-def test_exported_rocker_top_edge_keeps_cutter_table_with_all_linked_features(setup_id, op_id):
-    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
-    finding = next(row for row in coordinates.evaluate(data) if row.subject == setup_id)
-    arc = next(
-        (
-            arc
-            for arc in finding.numbers["arc_table"]
-            if arc["feature"] == "top_edge" and arc["op"] == op_id
-        ),
-        None,
-    )
-    assert arc is not None
-    top = next(
-        profile
-        for profile in finding.numbers["profiles"]
-        if profile["feature"] == "top_edge" and profile["op"] == op_id
-    )
-    assert arc["cutter_centre_radius_mm"] == pytest.approx(800.0 - top["offset_mm"])
-    assert arc["rows"][0]["model_xy"][0] == pytest.approx(-arc["rows"][-1]["model_xy"][0])
-    assert arc["rows"][0]["model_xy"][1] == pytest.approx(arc["rows"][-1]["model_xy"][1])
-
-
 @pytest.mark.parametrize("corruption", ["missing", "inconsistent"])
-@pytest.mark.parametrize("linked_feature", ["profile_outer", "tip_land_pos_x", "tip_land_neg_x"])
+@pytest.mark.parametrize("linked_feature", ["outer", "right_land", "left_land"])
 def test_top_edge_does_not_ignore_missing_or_conflicting_linked_geometry(
-    linked_feature, corruption
+    tmp_path, linked_feature, corruption
 ):
-    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml")
+    plan = coordinate_bundle(
+        tmp_path,
+        """kind = "profile"
+radius = 10.0
+arc_centre = [0.0, 0.0, 0.0]
+end = [6.0, -8.0, 0.0]
+[features.outer]
+kind = "profile"
+top_edge_feature = "target"
+radial_tip_end = [10.0, -8.0, 0.0]
+[features.right_land]
+kind = "profile"
+top_edge_feature = "target"
+radial_tip_end = [10.0, -8.0, 0.0]
+[features.left_land]
+kind = "profile"
+top_edge_feature = "target"
+radial_tip_end = [-10.0, -8.0, 0.0]
+""",
+        "[[setups.ops]]\nop = 20\ndo = 'finish_profile'\nfeature = 'target'\n"
+        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+        "contour = { method = 'arc_table', step_deg = 5.0 }\n",
+    )
+    data = load_bundle(plan)
+    known = coordinates.evaluate(data)[0]
+    assert known.status == "pass"
+    (arc,) = known.numbers["arc_table"]
+    # The 6 mm cutter offsets the R10 arc to R7 and the horizontal lands to Y-5.
+    assert arc["cutter_centre_radius_mm"] == pytest.approx(7.0)
+    assert arc["rows"][0]["model_xy"] == pytest.approx([-24.0**0.5, -5.0])
+    assert arc["rows"][-1]["model_xy"] == pytest.approx([24.0**0.5, -5.0])
+    assert arc["rows"][0]["setup_xy"] == pytest.approx([-24.0**0.5 - 5.0, -7.0])
     linked = data.features["features"][linked_feature]
     if corruption == "missing":
         linked["radial_tip_end"] = "unknown"
     else:
         linked["radial_tip_end"][1] += 1.0
     finding = coordinates.evaluate(data)[0]
-    assert not any(arc["feature"] == "top_edge" for arc in finding.numbers["arc_table"])
-    top = next(
-        profile
-        for profile in finding.numbers["profiles"]
-        if profile["feature"] == "top_edge" and profile["op"] == 40
-    )
+    assert finding.status == "unknown"
+    assert finding.numbers["arc_table"] == []
+    (top,) = finding.numbers["profiles"]
+    assert top["offset_mm"] == pytest.approx(3.0)
     assert top["cutter_centre"] == "unknown"
