@@ -395,7 +395,7 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, -27.9945], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
-stop = "AUTHOR'S CHOICE: set 50 mm of bar out of the jaws with a steel rule; the parting cut then sits about 7 mm ahead of the jaws."
+stop = "AUTHOR'S CHOICE: set 50 mm of bar out of the jaws with a steel rule; the parting line then sits about 7 mm ahead of the jaws, and the blade's chuck-side face about 5.4 mm."
 clamp = "Tighten all three chuck pinions on the grip; remove the key."
 [setups.zero.x]
 feature = "spindle_axis"
@@ -515,7 +515,7 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, -79.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
-stop = "AUTHOR'S CHOICE: set 80 mm of bar out of the jaws with a steel rule; the parting cut then sits about 7 mm ahead of the jaws."
+stop = "AUTHOR'S CHOICE: set 80 mm of bar out of the jaws with a steel rule; the parting line then sits about 7 mm ahead of the jaws, and the blade's chuck-side face about 5.4 mm."
 clamp = "Tighten all three chuck pinions on the grip; remove the key."
 note = "AUTHOR'S CHOICE: no tailstock, because the north face is faced first and the sleeve is parted last. Unsupported stickout 80 = 3.65 x D, so the finish is one light 0.1 mm pass, miked for taper"
 [setups.zero.x]
