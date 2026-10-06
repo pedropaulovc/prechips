@@ -376,11 +376,25 @@ shared supply ancestor. Independent forks may start from the same supply again
 as route alternatives, but cannot join that material lineage twice.
 Each setup output subtracts only that setup's derivable claimed removals from
 its selected input. Current-setup removals do not change current holding facts,
-image, reach or holder obstacles. The flute alone excludes the current op's own
-derivable allowance above the sampled finished face within its claimed clearing
-footprint: that material is being cut, not an obstacle. No other op's removal is
-borrowed. Finished face indices stay bound to the original STEP even when
-booleans change the stock's face order.
+image, reach or holder obstacles. A milling or hole flute instead meets the
+stock its setup's earlier ops leave: before any op is measured, one pass in op
+order derives each op's before-op stock and removal, so a flute never meets
+material an earlier derived cut removed and is never credited with a later
+cut. It also excludes the current op's own derivable allowance above the
+sampled finished face within its claimed clearing footprint (a hole op's own
+cutter volume): that material is being cut, not an obstacle. If an earlier
+cut cannot be derived (unresolved claims or `to_z`, an underivable leave or
+clearing box, a split or emptied stock piece, a failed boolean), that op keeps
+its own known before-op stock, but every later op's flute meets only finished
+material: its certain finished hits stay certain (`min_hits`) and its tool
+hits become unknown, naming the stopping op. This is a deliberate regression
+for such later ops, which on entry stock would otherwise have read clear or
+blocked from material that may already be gone. Final profile-wall overstock
+and complete-form cap debts are judged once on the setup's end stock and never
+change an earlier op's before-op stock. Turning keeps its own turned-profile
+obstacle model, unchanged and independent of this pass. Finished face indices
+stay bound to the original STEP even when booleans change the stock's face
+order.
 
 Mill headroom's X/Y travel screen consumes
 `kernel.setups.<id>.stock_bbox_mm` for component stock, an earlier setup's
@@ -706,24 +720,27 @@ Adjacent finished walls are not removed to manufacture clearance, and
 undercut or leaning walls remain obstacles.
 
 The holder cylinder (gauge diameter, gauge length) starts `projection_mm`
-above the tip. Both cylinders are intersected with actual setup-entry
-material minus a thin inward offset shell of **that sampled face only**,
-plus the jaw boxes. The flute also excludes only this op's derivable
-outside-finished allowance; the holder still sees it. The shell removes
-numerical self-contact, not a cutter-radius slab and not another finished
-face of the same feature. A cutter wider than a claimed groove therefore
-still intersects the opposite claimed wall. Holding, rendering and holder
-obstacles use actual setup-entry stock; no pose borrows another op's removal.
+above the tip. Both cylinders are intersected with material minus a thin
+inward offset shell of **that sampled face only**, plus the jaw boxes. The
+holder meets actual setup-entry material. The flute meets the stock the
+setup's earlier derived cuts leave (see [in-process stock](#in-process-stock)), less this op's
+own derivable outside-finished allowance; the holder still sees both. The
+shell removes numerical self-contact, not a cutter-radius slab and not another
+finished face of the same feature. A cutter wider than a claimed groove
+therefore still intersects the opposite claimed wall. Holding, rendering,
+reach and holder obstacles use actual setup-entry stock, and no flute is
+credited with a later op's removal.
 
 Claimed concave cone or sphere point caps are not blanket-exempt. Only a hole
 op's own known matched cap is: a cap (as defined for planned-hole columns)
 that shares a real edge with a claimed concave cylindrical bore parallel to
 setup Z and lies wholly below that bore, closing the end away from the tool.
 An upward-facing cap is not matched. For an op whose hole cut resolves, a
-sample on that cap uses the unmodified actual setup-entry stock instead of the
-own-face offset shell, which cannot be built at a cone apex; the on-axis
-cutter's numerical-lift shrink already removes self-contact, and the holder
-also sees the full entry stock. The cap's actual collision is still checked:
+sample on that cap uses the unmodified stock (the flute's stock before this op,
+less its own cut) instead of the own-face offset shell, which cannot be built
+at a cone apex; the on-axis cutter's numerical-lift shrink already removes
+self-contact, and the holder also sees the full entry stock. The cap's actual
+collision is still checked:
 a wrong point angle, a point deeper than the finished cap, or a flat-bottomed
 tool against a matched cone or sphere hits. A wider countersink and tilted or
 unrelated caps keep their offset shell, unknowns and real hits, and no other

@@ -567,7 +567,7 @@ not exist.
 
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
-| accessibility: sample each claimed face with the prescribed cutter/holder pose below. Obstacles are setup-entry stock minus a 0.001 mm inward shell of this sampled face (an own matched point cap uses unmodified entry stock instead), plus fixture solids; only the flute excludes this op's derivable outside-finished allowance or own hole cutter volume (spot/drill: point cone and body). Other finished faces and holder obstacles remain. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing pose/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims error by name, and invalid clearing removals are named stock debt | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), spot/drill `point_angle`, rough `rough_allowance_mm`, fixture dimensions and pose, authored op depth/entry/through extent | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
+| accessibility: sample each claimed face with the prescribed cutter/holder pose below. Obstacles are stock minus a 0.001 mm inward shell of this sampled face (an own matched point cap uses unmodified stock instead), plus fixture solids: holders see setup-entry stock; a milling or hole flute sees the stock left by the setup's earlier derived cuts (never a later cut's) and excludes this op's derivable outside-finished allowance or own hole cutter volume (spot/drill: point cone and body). After an underivable earlier cut, a flute keeps only certain finished-material hits and its tool hits are unknown. Other finished faces and holder obstacles remain. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing pose/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims error by name, and invalid clearing removals are named stock debt | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), spot/drill `point_angle`, rough `rough_allowance_mm`, fixture dimensions and pose, authored op depth/entry/through extent | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
 | reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default | features.faces, plan.ops.faces, plan.stock.as_is_faces | M4 | "Face 23 (the ear's back) is machined by no valid op." |
@@ -640,7 +640,7 @@ An own hole bore radius is diameter-sizing, not `internal_corner_radius`.
 Claimed point caps are not blanket-exempt. Only a hole op's own known matched
 cap, a concave cone or sphere lying wholly below and sharing a real edge with
 its claimed concave Z-parallel bore, coaxial and no wider than it, is sampled
-against unmodified setup-entry stock instead of an own-face offset shell that
+against unmodified stock instead of an own-face offset shell that
 cannot be built at a cone apex, and is not an internal corner. Its actual
 collision is still checked (wrong angle, deeper point or flat tool hits);
 wider countersinks and tilted or unrelated caps keep their unknowns and hits,
@@ -657,8 +657,9 @@ unmeasurable completion leaves that credit unknown.
 is millimetres even for inch-unit features, and tap fallback feature-depth
 bands are converted to millimetres.
 Unrelated finished material and holder obstacles are not cleared. Holding,
-rendering and holder obstacles still use actual setup-entry stock; an op
-cannot borrow another op's removal.
+rendering, reach and holder obstacles still use actual setup-entry stock; a
+flute meets only material the setup's earlier derived cuts leave, and no op is
+credited with a later op's removal.
 
 The −setup-Z approach model applies to milling and spindle-axis lathe actions
 (`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`). Other cutting
@@ -1245,9 +1246,13 @@ sheet.
    lift at either end, not entry-stock height; wider back countersinks are
    not reserved, blind columns stop at their caps, and pins/rods outside the
    hole remain material.
-   Current-setup cuts shape output stock, while the flute
-   alone excludes its own op's derivable allowance; holder, reach, holding and
-   image facts still use setup-entry stock. `stock_removal_bounds` is the
+   Current-setup cuts shape output stock and, in op order, the stock each
+   later milling or hole flute of the setup meets (never a later cut's); the
+   flute also excludes its own op's derivable allowance; holder, reach,
+   holding and image facts still use setup-entry stock. After an underivable
+   earlier cut, later flutes keep only certain finished hits and their tool
+   hits are unknown; final wall/cap debts never change a before-op stock.
+   `stock_removal_bounds` is the
    authored cleared footprint (possibly several passes), not capped to the
    claimed faces' XY bbox plus cutter radius and not a whole-toolpath proof.
    A known cutter radius, finite bounds, intersection with the selected stock,
@@ -1306,8 +1311,8 @@ sheet.
    surface (`r + a` floor-edge constraints); an explicit `to_z` caps the
    endpoint without a second leave, and any milling op's numeric `to_z`
    above its face is its actual tip.
-   Holder obstacles, holding and rendering keep actual setup-entry stock;
-   no op borrows another op's removal.
+   Holder obstacles, reach, holding and rendering keep actual setup-entry
+   stock; no flute is credited with a later op's removal.
    OpenCASCADE distance extrema that fail with `StdFail_NotDone` retry with
    the operands swapped: this measures the same geometric distance rather than
    suppressing the failed guard. Other native exceptions still propagate.
