@@ -43,7 +43,13 @@ class Finding:
         }
 
 
+# Joint rules gate physical assembly: no policy omission can waive them.
+ALWAYS_REQUIRED = frozenset({"joint_fit", "joint_assembly"})
+
+
 def is_required(finding: Finding, policy: dict, bundle: Bundle | None = None) -> bool:
+    if finding.rule in ALWAYS_REQUIRED:
+        return True
     required = policy.get("required", "unknown")
     if required == "unknown":
         return True
@@ -60,7 +66,7 @@ def is_required(finding: Finding, policy: dict, bundle: Bundle | None = None) ->
         return bundle is None or finding.subject in {s["id"] for s in bundle.plan["setups"]}
     feature = finding.subject.split(":", 1)[0]
     if selector in {"holes", "toleranced_features"} and bundle is not None:
-        entry = bundle.features["features"].get(feature, {})
+        entry = bundle.feature_definitions.get(feature, {})
         if selector == "holes":
             return entry.get("kind") in {"hole", "counterbore", "thread"}
         from prechips.model import tolerance_requirements

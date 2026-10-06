@@ -1,6 +1,8 @@
 """Every manifest tolerance needs its own real, capable inspection method."""
 
 from ..findings import Finding
+from ..joint_features import source_cite
+from ..measurements import length_fact
 from ..model import tolerance_requirements
 from .resolution import length_mm, number, operations, record, resolve, uncertain
 
@@ -18,11 +20,12 @@ def _nominal_band_error(feature, requirement):
 
 def evaluate(bundle):
     result = []
-    for name, feature in bundle.features["features"].items():
+    for name, feature in bundle.feature_definitions.items():
         requirements = tolerance_requirements(feature)
+        # A transient joint feature cites its plan identity, never the drawing manifest.
         cite = [
             "PLAN.md §4.1 inspection",
-            "features requirement manifest",
+            *(source_cite(feature) or ["features requirement manifest"]),
             "inventory gauge range/resolution/verification",
         ]
         route = operations(bundle, name)
@@ -129,7 +132,9 @@ def evaluate(bundle):
                     message = "named gauge is not listed; capability unresolved"
                 elif gauge:
                     kind = gauge.get("kind", "unknown")
-                    resolution = length_mm(gauge, "resolution")
+                    # Only the resolution fact's own trust lets it establish or refute capability.
+                    fact = length_fact(gauge, "resolution", require_measured=False)
+                    resolution = fact["value"] if fact["verified"] else "unknown"
                     span = gauge.get("range_mm")
                     if not isinstance(span, list):
                         maximum = length_mm(gauge, "range")

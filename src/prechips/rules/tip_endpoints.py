@@ -131,7 +131,7 @@ def stock_states(setup, features=None):
 
 
 def evaluate(bundle):
-    features = bundle.features["features"]
+    features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
     errors = set()

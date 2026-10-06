@@ -184,6 +184,30 @@ def test_rough_floor_to_z_at_its_leave_is_that_endpoint_and_corners_stand_r_plus
         assert "S1:10" in reason and "rough_allowance_mm" in reason, reason
 
 
+def test_finish_floor_to_z_above_the_floor_is_its_tip_and_its_own_cut_stops_there(engine, solids):
+    step = solids["slot"]
+    floor = engine.refs(step, (15, 14, 14), (45, 26, 14))
+    assert len(floor) == 1
+    hold = _vise(5.0, centre=30.0)
+    blank = _blank((0.0, 0.0, 0.0), 60.0, (40.0, 20.0))
+    spring = {**_op("S1:10", "floor", 1.0, 10.0, 20.0), "to_z": 14.1}
+    full = {**_op("S1:20", "floor", 1.0, 10.0, 20.0), "to_z": 14.0}
+
+    def job(ops):
+        setups = [_setup(ops, hold, setup_id="S1"), _setup([], hold, setup_id="S2")]
+        return engine.job(step, {"floor": floor}, setups, stock=blank)
+
+    shallow, both = engine.run({"jobs": [job([spring]), job([spring, full])]})["results"]
+    finished = 48000.0 - 30 * 12 * 6
+    # The spring pass stops 0.1 above the floor: that skin is real stock below its tip,
+    # never under it, so the pass clears; a later full-depth pass cuts the skin itself.
+    assert shallow["ops"]["S1:10"]["tool_hits"] == 0, shallow["ops"]["S1:10"]
+    skin = 30 * 12 * 0.1
+    assert shallow["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(finished + skin, abs=0.01)
+    assert both["ops"]["S1:20"]["tool_hits"] == 0, both["ops"]["S1:20"]
+    assert both["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(finished, abs=0.01)
+
+
 def test_rough_face_flute_sits_on_its_leave_while_a_low_holder_meets_raw_stock(engine, solids):
     step = solids["block"]
     top = engine.refs(step, (0, 0, 20), (60, 40, 20))

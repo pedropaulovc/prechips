@@ -242,53 +242,39 @@ def test_saw_rejects_retained_fragmentation_of_one_connected_stock_piece(
     saw_engine, saw_target, loose_width
 ):
     target = saw_target.parent / "fragment-target.step"
-    left = {**BOX, "length_mm": 2.0, "section_mm": [2.0, 10.0]}
-    right = {
-        **left,
-        "origin_mm": [8.0, 0.0, 0.0],
-        "length_mm": loose_width,
-    }
-    bridge = {**BOX, "origin_mm": [0.0, 0.0, 8.0], "section_mm": [2.0, 2.0]}
-    stock = {"components": {"left": left, "right": right, "bridge": bridge}}
-    first = _setup(_saw("z"))
-    first["stock_in"] = ["stock.left", "stock.right", "stock.bridge"]
-    result = saw_engine.run(saw_engine.job(target, setups=[first, _setup(sid="S2")], stock=stock))
-    detail = result["ops"]["S1:10"]
+    stock = {**BOX, "section_mm": [2.0, 10.0]}
+    wall = saw_engine.refs(target, [2, 0, 1], [2, 2, 7])
+    clearing = _op("S1:10", "wall", 0.25, 20.0, 30.0, holder_radius=0.25)
+    clearing.update(
+        to_z=0.0,
+        stock_removal_bounds={"x": [2, 10 - loose_width], "y": [0, 2], "z": [0, 8]},
+    )
+    # Clearing one supplied box leaves two legs joined by its original 2 mm top bridge.
+    # The saw then cuts that bridge away; no loose leg may silently become retained stock.
+    result = saw_engine.run(
+        saw_engine.job(
+            target,
+            features={"wall": wall},
+            setups=[
+                _setup(clearing, machine="mill"),
+                _setup(_saw("z", subject="S2:10"), sid="S2"),
+                _setup(sid="S3"),
+            ],
+            stock=stock,
+        )
+    )
+    prepared = result["setups"]["S2"]
+    assert "stock_reason" not in prepared, prepared
+    assert prepared["stock_bbox_mm"] == [0, 0, 0, 10, 2, 10]
+    assert prepared["stock_volume_mm3"] == pytest.approx(72.0 + 16.0 * loose_width)
+    detail = result["ops"]["S2:10"]
     assert "saw_error" in detail and "saw_reason" not in detail, detail
     assert detail["kerf_volume_mm3"] == pytest.approx(20.0)
     assert detail["offcut_volume_mm3"] == pytest.approx(20.0)
     assert detail["removed_volume_mm3"] == pytest.approx(40.0)
     assert detail["stock_volume_after_mm3"] == pytest.approx(32.0 + 16.0 * loose_width)
     assert detail["stock_volume_before_mm3"] == pytest.approx(72.0 + 16.0 * loose_width)
-    assert "stock_bbox_mm" not in result["setups"]["S2"]
-
-
-@pytest.mark.parametrize("discarded_component", [False, True])
-def test_saw_retains_preexisting_disconnected_stock_components(
-    saw_engine, saw_target, discarded_component
-):
-    target = saw_target.parent / "fragment-target.step"
-    left = {**BOX, "length_mm": 2.0, "section_mm": [2.0, 10.0]}
-    right = {**left, "origin_mm": [8.0, 0.0, 0.0]}
-    stock = {"components": {"left": left, "right": right}}
-    first = _setup(_saw("z"))
-    first["stock_in"] = ["stock.left", "stock.right"]
-    if discarded_component:
-        stock["components"]["discard"] = {
-            **left,
-            "origin_mm": [12.0, 0.0, 9.0],
-            "section_mm": [2.0, 1.0],
-        }
-        first["stock_in"].append("stock.discard")
-    result = saw_engine.run(saw_engine.job(target, setups=[first, _setup(sid="S2")], stock=stock))
-    detail = result["ops"]["S1:10"]
-    assert "saw_error" not in detail and "saw_reason" not in detail, detail
-    assert detail["stock_volume_before_mm3"] == pytest.approx(84.0 if discarded_component else 80.0)
-    assert detail["stock_volume_after_mm3"] == pytest.approx(64.0)
-    assert detail["kerf_volume_mm3"] == pytest.approx(8.0)
-    assert detail["offcut_volume_mm3"] == pytest.approx(12.0 if discarded_component else 8.0)
-    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(64.0)
-    assert result["setups"]["S2"]["stock_bbox_mm"] == [0, 0, 0, 10, 2, 8]
+    assert "stock_bbox_mm" not in result["setups"]["S3"]
 
 
 @pytest.mark.parametrize("missing", ["machine", "frame", "stock"])

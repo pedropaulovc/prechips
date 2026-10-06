@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..findings import Finding
+from ._bench import manual_bench, not_applicable
 from .resolution import (
     UNKNOWN,
     length_mm,
@@ -64,6 +65,12 @@ def evaluate(bundle):
     result = []
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
+        bench = manual_bench(bundle, setup)
+        if bench is not None:
+            result.append(
+                not_applicable("zero_check", setup, bench, "zero recipe", "DRO zero to set")
+            )
+            continue
         if saw_setup(setup):
             result.append(
                 Finding(
@@ -196,7 +203,7 @@ def evaluate(bundle):
         unknown |= (
             recipe.get("retouch_after", UNKNOWN) == UNKNOWN or zero.get("tool_touches") == UNKNOWN
         )
-        for op, _, after in stock_states(setup, bundle.features["features"]):
+        for op, _, after in stock_states(setup, bundle.feature_definitions):
             if op["op"] in records(recipe.get("retouch_after")):
                 top = after["top_z"]
                 touch = top + paper if number(top) and number(paper) else UNKNOWN
