@@ -135,22 +135,35 @@ def test_rough_profile_leaves_its_normal_stock_and_a_finish_removes_it_from_its_
     assert third["stock_volume_mm3"] == pytest.approx(leave - skin, abs=0.01)
 
 
-def test_finish_wall_beside_raw_stock_thicker_than_the_lineage_leave_stays_debt(engine, solids):
+@pytest.mark.parametrize("action", ["mill", "finish_profile"])
+def test_finish_wall_beside_raw_stock_thicker_than_the_lineage_leave(engine, solids, action):
     step = solids["island"]
     walls = _island_walls(engine, step)
     west = {"x": [0.0, 5.0], "y": [-5.0, 55.0], "z": [0.0, 20.0]}
     rough = _rough("S1:10", "west", 3.0, 25.0, 30.0, stock_removal_bounds=west)
-    finish = {**_op("S2:10", "south", 3.0, 25.0, 30.0), "do": "finish_profile"}
+    finish = {**_op("S2:10", "south", 3.0, 25.0, 30.0), "do": action}
     setups = [
         _setup([rough], ISLAND_HOLD, setup_id="S1"),
         _setup([finish], ISLAND_HOLD, setup_id="S2"),
         _setup([], ISLAND_HOLD, setup_id="S3"),
     ]
     result = engine.run(engine.job(step, walls, setups, stock=ISLAND_BLANK))
-    assert "stock_reason" not in result["setups"]["S2"]
-    # The finish cuts only a lineage-leave-thick skin; the raw 9.8 mm beyond it remains.
-    reason = result["setups"]["S3"]["stock_reason"]
-    assert "S2:10" in reason and "overstock still touches claimed wall" in reason, reason
+    second, third = result["setups"]["S2"], result["setups"]["S3"]
+    assert "stock_reason" not in second
+    if action == "mill":
+        # A +Z sweep of the wall cuts only a lineage-leave-thick skin; the raw 9.8 mm
+        # beyond it remains on the wall.
+        reason = third["stock_reason"]
+        assert "S2:10" in reason and "overstock still touches claimed wall" in reason, reason
+        return
+    # The profile cutter clears its 6 mm corridor beside the 60 mm wall and an r disc
+    # past the open east end; the west disc meets only the rough's 0.2 mm leave strip.
+    # The raw 4 mm beyond the corridor stays stock, clear of the wall.
+    assert "stock_reason" not in third, third["stock_reason"]
+    removed = second["stock_volume_mm3"] - third["stock_volume_mm3"]
+    corridor = 20 * (60 * 6 + math.pi * 3**2 / 2)
+    assert corridor < removed < corridor + 20 * LEAVE * 6, removed
+    assert third["stock_bbox_mm"][1] == pytest.approx(-5.0)
 
 
 def test_rough_floor_to_z_at_its_leave_is_that_endpoint(engine, solids):

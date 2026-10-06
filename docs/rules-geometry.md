@@ -637,6 +637,22 @@ a contained cone apex or sphere pole) extends the column. A wider back
 countersink is therefore not reserved, and a blind hole's column stops at its
 actual cap rather than running on as an unbounded rod; pins or rods outside
 that span are not reserved hole stock.
+A profile op (`profile`, `rough_profile`, `finish_profile`) with no
+`stock_removal_bounds` clears only its cutter corridor beside its vertical
+claimed walls, never the stock past it. The walls' level sections are chained;
+the cutter centre path is each chain offset by the cutter radius r to the side
+away from the finished part (side probed 0.01 mm off the wall), with arcs about
+convex joins and trimmed at concave ones; the corridor is every point within r
+of that path: 2r beside each wall, a 2r tube about each convex join and an r
+disc at each open path end. It stands from `to_z` (else the walls' foot) to
+above the setup-entry stock. A concave claim (for example an R800 edge) gets
+the same corridor, not its whole circle, so an unclaimed web wider than 2r, a
+clamped rail or an ear beyond it stays stock until an op that really cuts it.
+The finished part and the op's leave stay protected; fixtures are never stock,
+so a cutter that meets them stays an accessibility hit. An unknown cutter
+radius, an ambiguous wall side or a corridor OCC cannot build makes the cut
+underivable (named stock debt, never a guessed removal). Non-vertical claims
+of a profile op still sweep along +Z.
 Every claimed face with a horizontal normal component is checked for
 remaining overstock above `to_z`,
 including drafted walls whose +Z sweep is nonzero. Exact face contact catches
@@ -803,7 +819,7 @@ journal pads, makes OCC fail at any leave), the op's guard is built
 exactly in each box where one of its consumers subtracts it: its claimed
 faces grown by its wall-check reach (`max(a, carried) + 0.01` mm, also
 covering its band and pose contacts), and its clearing box above `to_z` or
-its whole unclipped +Z claim sweep. In each box the finished part's offset
+its whole unclipped +Z claim sweep or profile corridor. In each box the finished part's offset
 equals the arc-join offset of the finished part within the box grown by
 `2a`, cropped to the box. Every positive-volume source and cropped component
 is kept, each piece must offset to one valid solid containing it, and the
