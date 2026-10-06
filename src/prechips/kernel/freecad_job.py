@@ -153,8 +153,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
-from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
 from render_diagram import render_diagram  # noqa: E402
+from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
 
 UNKNOWN = "unknown"
 LIFT = 1e-3  # mm: cylinders shrink radially and lift off the sample by this clearance
