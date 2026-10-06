@@ -1841,9 +1841,6 @@ class _Traveler:
             if isinstance(shows, list) and shows
             else "Picture shows the holding only, not the cuts."
         )
-        legend = scene.get("legend")
-        if isinstance(legend, list) and legend:
-            caption.append("Key: " + "; ".join(map(str, legend)) + ".")
         lines = []
         for debt in scene.get("debts") or []:
             text = re.sub(r"^(?:fixture )?not drawn:\s*", "", str(debt))

@@ -93,11 +93,10 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     endpoint = next(
         row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 10 to_z"
     )
-    assert coordinates["status"] == "unknown"
-    # Plan frame T3 restores X/Y; its unbound Z keeps the authored local endpoint.
+    assert coordinates["status"] == "pass"
+    # Nominal frame T3 (z = -model Z from -156.67) maps the authored local endpoint.
     assert endpoint["setup"] == [0.0, 0.0, 1.75]
-    assert endpoint["model"] == [0.0, 0.0, "unknown"]
-    assert endpoint["local_from"] == {"op": 10, "field": "to_z", "axis": "z"}
+    assert endpoint["model"] == pytest.approx([0.0, 0.0, -158.42])
     s3_ops = sections(html, "OPERATIONS")[-1]
     op10 = next(cells for number, cells in op_rows(s3_ops) if number == "10")
     assert "1.75" in text(op10)
@@ -124,8 +123,22 @@ def test_machine_backed_workholding_prints_without_missing_label(tmp_path, plan)
     assert "BS-0 (not in shop list)" not in route
 
 
+MISSING_LENGTH_OP = """
+[[setups.ops]]
+op = 30
+do = "inspect"
+feature = "pivot_bearing"
+missing_requirements = { length = "calipers" }
+
+[setups.ops.inspection_methods]
+length = "Measure 1.75 past the actual scribe to the cut face with calipers."
+"""
+
+
 def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path):
-    _, report, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
+    _, report, html = traveler(plan, tmp_path / "out")
     rows = [
         text(cells)
         for page in sections(html, "OPERATIONS")
@@ -163,7 +176,8 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
 
 
 def test_hold_text_has_no_pose_vectors(tmp_path):
-    _, _, html = traveler(ROOT / "examples" / "rocker-arm" / "plan.toml", tmp_path / "out")
+    # Every shaft hold carries a chuck pose; the sheet turns it into a jaw-front Z only.
+    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
     holds = sections(html, "HOLD")
     assert holds
     for hold in holds:
