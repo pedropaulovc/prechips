@@ -39,8 +39,13 @@ Omission and literal `"unknown"` leave the schedule unresolved, so a required
 `zero_check` cannot pass merely because no rows were declared. An explicit
 `retouch_after = []` means a known empty schedule; a known nonempty list produces
 retouch rows using the stock top after each listed operation, including a face
-cut that changes the touched top. A known list does not certify that the authored
-schedule is physically sufficient.
+cut that changes the touched top; each serves the next tool. A known list does not
+certify the schedule: `zero_check` derives a touch for every other tool change from
+the setup's standing touched or faced surfaces, or reports it missing as an error
+([coordinates and DRO zero](rules-coordinates.md#zero_check)). Z
+`method = "measure_then_set"` (with `gauge`, `measure`, `offset_mm`; on a tool
+touch `z_gauge`, `z_measure`, `z_offset_mm`) sets a measured edge, M + offset +
+paper.
 
 `checks` maps requirement names to inventory gauge references. Every key must
 belong to the selected resolved feature's `requirements` list (exported or
@@ -675,11 +680,13 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 | `tool` | `str` |
 | `holder` | `str` |
 | `gauge` | `str` |
+| `measure` | `str` (`measure_then_set`: what M is) |
 | `from` | `str` |
 | `edge_mm` | `float` |
 | `radius_mm` | `float` |
 | `paper_mm` | `float` |
 | `check_jog_mm` | `float` |
+| `offset_mm` | `float` (`measure_then_set`: Axis Set M + offset + paper) |
 | `retouch_after` | `list[int]` |
 | `after_op` | `int` |
 
@@ -705,6 +712,9 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 | `method` | `str` |
 | `edge_mm` | `float` |
 | `paper_mm` | `float` |
+| `z_gauge` | `str` (`measure_then_set`) |
+| `z_measure` | `str` (`measure_then_set`: what M is) |
+| `z_offset_mm` | `float` (`measure_then_set`: Axis Set Z = M + offset + paper) |
 | `before_ops` | `list[int]` |
 | `after_op` | `int` |
 

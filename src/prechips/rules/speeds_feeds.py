@@ -258,6 +258,11 @@ def evaluate(bundle):
                         selected.get("feed_mm_rev", UNKNOWN),
                     )
                     range_unknown |= uncertain(selected)
+            planned = lathe and "feed_mm_rev" in op
+            if planned:
+                # One feed: the op's planned feed per rev, the one turning_deflection
+                # loads the cut with, overrides the row's starting value.
+                per_rev = op["feed_mm_rev"]
             diameter_in = diameter / 25.4 if number(diameter) and diameter > 0 else UNKNOWN
             raw = (
                 12 * sfm / (math.pi * diameter_in)
@@ -310,7 +315,12 @@ def evaluate(bundle):
                 "cutting-data aliases and rows",
             ]
             if lathe:
-                cite.append("lathe feed = RPM·feed_mm_rev from the same cited row or chart")
+                cite.append(
+                    f"lathe feed = RPM·feed_mm_rev from plan.setups[{setup['id']}].ops"
+                    f"[{op['op']}].feed_mm_rev"
+                    if planned
+                    else "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
+                )
             if _cited(source):
                 cite.extend(source if isinstance(source, list) else [source])
             sentence = (
