@@ -239,7 +239,8 @@ their untimed output contract.
 The native batch response has `timing = {wall_ms, cpu_ms}`. Each job result has
 its own top-level `timing = {wall_ms, cpu_ms, setups}`, where `setups` maps setup
 ids to `{wall_ms, cpu_ms, phases, ops}`. `phases` holds measured `fixture`,
-`render` and `stock_output` intervals; `ops` maps operation subjects to
+`chuck_walls` (radial clamp-wall sampling), `render` and `stock_output` intervals
+when those paths run; `ops` maps operation subjects to
 `{wall_ms, cpu_ms}`. All measurements are milliseconds rounded to six decimal
 places: elapsed time uses a monotonic clock, while CPU time uses the FreeCAD
 process CPU clock, not host CPU or machine-wide utilization. Setup totals include

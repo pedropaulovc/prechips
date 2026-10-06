@@ -260,6 +260,18 @@ def _boxes_overlap(a, b):
     return all(a[i] < b[i + 3] - PLANE_TOL and b[i] < a[i + 3] - PLANE_TOL for i in range(3))
 
 
+def _distant_box(box, other):
+    """Tolerance-grown bounds prove distance > 1e-6; overlap never proves contact."""
+    return (
+        box.XMax < other[0] - 1e-6
+        or box.YMax < other[1] - 1e-6
+        or box.ZMax < other[2] - 1e-6
+        or box.XMin > other[3] + 1e-6
+        or box.YMin > other[4] + 1e-6
+        or box.ZMin > other[5] + 1e-6
+    )
+
+
 def _merged_length(intervals):
     total, end = 0.0, -math.inf
     for lo, hi in sorted(intervals):
@@ -506,6 +518,7 @@ class _Culled:
         self.shape = shape
         self.boxes = [_tolerant_box(face) for face in shape.Faces]
         self.answers = {}
+        self.hit_refs = {}  # exact (cylinder, own face) -> read-only label set
         self.kept = 0
 
     def common(self, cx, cy, radius, z0, z1):
@@ -2617,7 +2630,10 @@ class _Setup:
                 common = obstacle.common(*cylinder) if obstacle is not None else None
                 if common is not None:
                     labels.add("part")
-                    counter[3].update(self._hit_refs(common, cylinder, index))
+                    key = (cylinder, index)
+                    if key not in obstacle.hit_refs:
+                        obstacle.hit_refs[key] = self._hit_refs(common, cylinder, index)
+                    counter[3].update(obstacle.hit_refs[key])
                 if self.fixture_ready:
                     labels.update(self._fixture_cylinder_hits(cylinder))
                 if labels:
@@ -2689,8 +2705,11 @@ class _Setup:
         """Finished face refs bounding a hit, excluding only the sampled face itself."""
         refs = set()
         solid = None
+        common_box = common.BoundBox
         for index, face in enumerate(self.faces):
             if index == own or not _cylinder_hits_box(*cylinder, self.face_boxes[index], True):
+                continue
+            if _distant_box(common_box, self.face_boxes[index]):
                 continue
             if solid is None:
                 ax, ay, radius, z0, z1 = cylinder
@@ -3075,8 +3094,11 @@ class _Setup:
     def _turn_hit_refs(self, common, solid, own):
         """Finished face refs bounding a turning-tool hit, excluding the sampled face."""
         box, refs = _bbox(solid), set()
+        common_box = common.BoundBox
         for index, face in enumerate(self.faces):
             if index == own or not _boxes_overlap(box, self.face_boxes[index]):
+                continue
+            if _distant_box(common_box, self.face_boxes[index]):
                 continue
             if face.common(solid).Area > CONTACT_MM2 and common.distToShape(face)[0] < 1e-6:
                 refs.add(self.owner.labels[index])
