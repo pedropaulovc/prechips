@@ -157,13 +157,16 @@ Neither transient completion nor joint filler proves a final surface was cut.
 A joint op's analytic claims never credit an imported face. The one exception
 is measured: a finishing spigot turn whose cut the stock builder accepted
 certifies (`certified_indices`) each imported face it leaves as its own turned
-surface. The face must be an outward cylinder face whose full area lies inside
-the op's finite cut window, within 0.001 mm of the turned radius about the
-spigot axis. It must also lie inside that component's owned finished material
-and on the accepted after-op stock. Only those faces earn `coverage`, and
+surface. The face must be an outward cylinder face lying on the turned cylinder
+itself: its radius and axis match the turned diameter and spigot axis within
+1e-6 mm over the face's whole extent, so a cut that leaves stock even below the
+0.001 mm stock tolerance earns nothing. Its full area must lie inside the op's
+finite cut window, inside that component's owned finished material and on the
+accepted after-op stock. Only those faces earn `coverage`, and
 `finish_coverage` too when the op is a finishing cut. A rough, unknown,
 stopped or rejected cut, a face outside or only partly inside the window, a
-face at another diameter and any transient index earn nothing. Earning
+face at another diameter or about another axis and any transient index earn
+nothing. Earning
 nothing leaves the face's obligations open; it is never debt or
 `not_applicable`.
 

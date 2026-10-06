@@ -221,7 +221,7 @@ def test_finishing_spigot_turn_certifies_exposed_final_face_inside_its_cut(engin
 
 @pytest.mark.parametrize(
     "case",
-    ["wrong_diameter", "out_of_window", "partial_face"],
+    ["wrong_diameter", "slightly_oversize", "off_axis", "out_of_window", "partial_face"],
 )
 def test_accepted_spigot_turn_certifies_no_face_outside_its_exact_cut(engine, joint_solids, case):
     step = joint_solids["joined"]
@@ -232,6 +232,18 @@ def test_accepted_spigot_turn_certifies_no_face_outside_its_exact_cut(engine, jo
         band = {"nominal_dia_mm": 10.0, "dia_mm": [9.7, 10.0]}
         job["joint_features"]["spigot"].update(band)
         cut.update(band, diameter_mm=10.0)
+    elif case == "slightly_oversize":
+        # 0.0008 mm of radial stock still covers the face: below any stock tolerance, yet
+        # the face is not the surface this cut leaves.
+        job["joint_features"]["spigot"]["dia_mm"] = [9.7, 9.802]
+        cut.update(dia_mm=[9.7, 9.802], diameter_mm=9.8016)
+    elif case == "off_axis":
+        # The same diameter turned about a spigot axis 0.0005 mm off the finished boss axis
+        # (the spindle follows the spigot) leaves up to 0.001 mm of stock on one side.
+        off = {"at_mm": [0.0005, 0, 0], "nominal_dia_mm": 9.801, "dia_mm": [9.7, 9.802]}
+        job["joint_features"]["spigot"].update(off)
+        job["setups"][1]["frame"] = {**IDENTITY, "origin": [0.0005, 0, 0]}
+        cut.update(off, diameter_mm=9.801)
     elif case == "out_of_window":
         cut.update(z_from=0.0, z_to=10.0)  # meets the exposed face only along its edge
     else:
