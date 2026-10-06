@@ -12213,9 +12213,11 @@
       ],
       "message": "S1:50: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           800.0
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 800.0,
         "tool_radius_mm": 4.7625
       },
@@ -12259,9 +12261,11 @@
       ],
       "message": "S1:60: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           3.25
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 3.25,
         "tool_radius_mm": 0.99
       },
@@ -12305,9 +12309,11 @@
       ],
       "message": "S1:70: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           3.25
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 3.25,
         "tool_radius_mm": 3.175
       },
@@ -12539,9 +12545,11 @@
       ],
       "message": "S2:50: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           800.0
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 800.0,
         "tool_radius_mm": 4.7625
       },
@@ -12620,9 +12628,11 @@
       ],
       "message": "S3:20: a claimed internal corner is smaller than the selected cutter radius.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           3.25
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 3.25,
         "tool_radius_mm": 3.256
       },
@@ -12663,9 +12673,11 @@
       ],
       "message": "S3:30: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           800.0
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 800.0,
         "tool_radius_mm": 4.7625
       },
@@ -12899,9 +12911,11 @@
       ],
       "message": "S3:50: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           0.99695
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 0.99695,
         "tool_radius_mm": 0.99
       },
@@ -12945,9 +12959,11 @@
       ],
       "message": "S3:60: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           0.99695
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 0.99695,
         "tool_radius_mm": 0.997
       },
@@ -15501,7 +15517,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -15522,10 +15538,11 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
@@ -15538,9 +15555,13 @@
             "status": "not_applicable"
           }
         ],
+        "uncovered_z_mm": [],
         "unresolved": [
           "hub_od"
         ],
+        "unresolved_reasons": {
+          "hub_od": "no declared z_mm; kernel: the kernel measured no faces of revolution for this setup (no turning-model operation, or an unusable setup frame)"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -15552,7 +15573,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -15573,10 +15594,11 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
@@ -15589,9 +15611,13 @@
             "status": "not_applicable"
           }
         ],
+        "uncovered_z_mm": [],
         "unresolved": [
           "hub_od"
         ],
+        "unresolved_reasons": {
+          "hub_od": "no declared z_mm; kernel: the kernel measured no faces of revolution for this setup (no turning-model operation, or an unusable setup frame)"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -15603,7 +15629,7 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm",
         "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm",
@@ -15624,18 +15650,23 @@
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": 4.0,
         "stickout_mm": "unknown",
         "support_status": "not_applicable",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [
           "hub_od"
         ],
+        "unresolved_reasons": {
+          "hub_od": "no declared z_mm; kernel: the kernel measured no faces of revolution for this setup (no turning-model operation, or an unusable setup frame)"
+        },
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -17767,7 +17798,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.TA: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
@@ -17779,9 +17810,11 @@
         "exposed_z_mm": "unknown",
         "frame": "TA",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -17790,7 +17823,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.TB: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
@@ -17802,9 +17835,11 @@
         "exposed_z_mm": "unknown",
         "frame": "TB",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -17813,7 +17848,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.TA: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
@@ -17825,9 +17860,11 @@
         "exposed_z_mm": "unknown",
         "frame": "TA",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -18553,7 +18590,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "b4f6ebc8228544833086950f47bda159c40103c57f7d9cf8ade1fce9b9334cbb",
+  "hash": "f98bce3c83fcb211cdf772f6da9a3d1dc0474ca7fc941b1e4f35ffaa01c3762f",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -41,6 +41,13 @@ M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
 must resolve to actual inventory or a named machine accessory; an unconfirmed
 accessory does not certify support.
+A `follow_rest` / `steady_rest` fixture that a plan `hold.supports` table
+selects (`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`) declares its jaw
+capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or
+`_in`): the work diameters the rest can ride on, inclusive. `turning_deflection`
+uses the rest span only for an op whose ridden diameter is inside that capacity;
+an unmeasured or unverified capacity leaves deflection unknown and is listed in
+the measurement checklist. Rests have no kernel solid.
 Hold identities resolve through `fixtures`, `holders`, then `machines`, so a
 machine-mounted dividing head is not an unresolved fixture. A dividing head
 without declared gripping capacity is `not_applicable` to the diameter screen;
@@ -420,6 +427,9 @@ on hand.
 | `width_mm` | `MeasuredLength` |
 | `width_in` | `MeasuredLength` |
 | `capacity_mm` | `float` |
+| `capacity_min_mm` / `capacity_min_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `capacity_max_mm` / `capacity_max_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
+| `blade_width_mm` / `blade_width_in` | `MeasuredLength` (grooving/parting blade front-edge width) |
 | `bed_height_in` | `MeasuredLength` |
 | `nose_radius_mm` | `float` |
 | `reach_mm` | `float` |

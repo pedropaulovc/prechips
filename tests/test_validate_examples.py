@@ -10,7 +10,6 @@ from types import SimpleNamespace
 import pytest
 from test_cli import copy_examples
 
-from prechips.inputs import load_bundle
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]

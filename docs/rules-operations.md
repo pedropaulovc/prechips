@@ -109,9 +109,14 @@ Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
 feed in mm/min is `RPM * feed_mm_rev`, where `feed_mm_rev` comes from the same
 cited `[[cut]]` row (or the tool's cited `chart`) as `sfm`, under the same
 citation/verify rules as the mill chip load; the lathe diameter is the turned
-feature diameter (plus `rough_allowance_mm` for `rough_turn`, stock OD for a
-face). There is no op-level feed override on either machine. Lathe rows report
-`feed_mm_rev`. Verified material, tool and machine facts are needed.
+feature's `dia_nominal` (plus `rough_allowance_mm` for `rough_turn`). A dome
+uses its widest (base) diameter: `2 * base_radius`, else `2 * sqrt(h (2R - h))`
+from its declared `sphere_radius` R and nominal height h (2R once h exceeds R),
+else the kernel-measured base from `turned_profile.feature_span`. A face, cut to
+fit or part off without a feature diameter uses the setup's `stock_state.od_mm`;
+otherwise the diameter stays unknown. There is no op-level feed override on
+either machine. Lathe rows report `feed_mm_rev`. Verified material, tool and
+machine facts are needed.
 
 Exact templates:
 

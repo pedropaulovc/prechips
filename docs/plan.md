@@ -420,6 +420,18 @@ with angles at the drawing's declared angular precision.
 | `orientation` | `str` |
 | `note` | `str` |
 | `height_mm` | `float` |
+| `jaw_lead_mm` | `float` |
+| `at_z_mm` | `float` |
+| `ops` | `list[int]` |
+
+A `hold.supports` table with `jaw_lead_mm` declares a follow rest riding that
+far behind the tool; one with `at_z_mm` declares a steady rest at that
+setup-frame Z. `ops` lists the operation ids it serves (omitted = every turning
+op of the setup). `ref` names an inventory `follow_rest`/`steady_rest` fixture
+with measured `capacity_min`/`capacity_max`. `turning_deflection` then uses the
+rest span instead of `stickout_mm` (docs/rules-physics.md "Follow and steady
+rests"). Example:
+`supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0 }]`.
 
 ## Zero
 
