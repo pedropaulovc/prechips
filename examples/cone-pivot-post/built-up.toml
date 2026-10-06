@@ -27,7 +27,7 @@ length_mm = 123.0 # AUTHOR'S CHOICE: Y-3..120; 34 mm sacrificial head tail for t
 origin_mm = [-25.4, -3.0, 25.4]
 axis = [0.0, 1.0, 0.0]
 section_axis = [1.0, 0.0, 0.0]
-note = "AUTHOR'S CHOICE: 2 in square body/head stock, X/Z +/-25.4. Preserve Y86..120 as a sacrificial 4-jaw grip tail until rotary machining and joining are complete; mill it off in S6. The crank sleeve is a separate component."
+note = "AUTHOR'S CHOICE: 2 in square body/head stock, X/Z +/-25.4. Preserve Y86..120 as a sacrificial 4-jaw grip tail until rotary machining and joining are complete; saw it off in S6cut and finish-face in S6. The crank sleeve is a separate component."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,62-67,268-279"]
 [[stock.components]]
 id = "boss"
@@ -107,6 +107,15 @@ z = [0.21674972336567902, 0.0, 0.9762272058393484]
 binding = "nominal"
 note = "AUTHOR'S CHOICE: reverse the journal setting by 180 degrees; south pad outward normal is setup +Z, its finished face Z21.0055."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:62-67"]
+
+[frames.B6]
+origin = [0.0, 86.0, 0.0]
+x = [0.0, -1.0, 0.0]
+y = [0.0, 0.0, -1.0]
+z = [1.0, 0.0, 0.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: post lies on its side in the bandsaw vise; setup (X,Y,Z) = (86-model Y, -model Z, model X). The finished head cap is X0 and the raw tail end X-34. Set the blade to the scribed allowance, not a mill DRO zero."
+cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33"]
 
 [joint_features.crank_socket]
 kind = "cylinder_bore"
@@ -441,13 +450,51 @@ approach = "rotary"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 z_from = 40.6
+z_to = 52.0
+angle_window_deg = [0.0, 360.0]
+stock_to_leave_mm = 0.0
+doc_mm = 0.5
+approach_mm = 5.0
+direction = "conventional"
+note = "AUTHOR'S CHOICE: use the 3/8 in cutter only from body Y59.4 down to Y48, safely above the pad walls. Finish these cylindrical lands to 42.011 mm and skim the narrow Y59.4 shoulder annulus (#395) with the cutter flank. #431 is the still-unfinished head cap at Y86. Axial limits are along the dividing-head axis from the Y100 jaw mouth, not spindle Z."
+[setups.ops.checks]
+dia = "calipers"
+
+[[setups.ops]]
+op = 25
+do = "profile"
+feature = "body"
+faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BODY__P01"]
+approach = "rotary"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+z_from = 81.0
 z_to = 100.0
 angle_window_deg = [0.0, 360.0]
 stock_to_leave_mm = 0.0
 doc_mm = 0.5
 approach_mm = 5.0
 direction = "conventional"
-note = "AUTHOR'S CHOICE: rotary-mill the body cylinder from Y59.4 to foot Y0 in shallow traverses; preserve both inclined pad islands, then finish the cylindrical lands to 42.011 mm and skim the narrow Y59.4 shoulder annulus with the cutter flank in the same pass. Actual STEP #395 is this shoulder; #431 is the still-unfinished head cap at Y86. Axial limits are measured along the head axis from the jaw mouth, not spindle Z."
+note = "AUTHOR'S CHOICE: finish the body foot band Y0..19 with the 3/8 in cutter. Its complete 4.7625 mm radial envelope stays more than 1 mm short of the pad's first Y24.768 wall."
+[setups.ops.checks]
+dia = "calipers"
+
+[[setups.ops]]
+op = 30
+do = "profile"
+feature = "body"
+faces = ["#550/ADVANCED_FACE[16]/HAF_BODY__P01", "#885/ADVANCED_FACE[26]/HAF_BODY__P01"]
+approach = "rotary"
+tool = "cone-pad-endmill-1-8in"
+holder = "r8-collets-lms-4860/1-8in"
+z_from = 52.0
+z_to = 81.0
+angle_window_deg = [0.0, 360.0]
+stock_to_leave_mm = 0.0
+doc_mm = 0.15
+approach_mm = 5.0
+direction = "conventional"
+note = "AUTHOR'S CHOICE: change to the short 1/8 in square-end carbide cutter for Y19..48, spanning both pad-wall ends plus the full larger-cutter exclusion window. Finish the body lands while preserving both inclined pad islands; the 3/8 in cutter physically hits those islands at Y23.8994 and Y43.0059. Re-establish tool Z after changing cutters and use shallow 0.15 mm radial traverses."
 [setups.ops.checks]
 dia = "calipers"
 
@@ -969,18 +1016,50 @@ note = "AUTHOR'S CHOICE: ream the final crank bore only after braze cooling and 
 dia = "bore-gauge-small"
 finish_ra = "roughness-comparator"
 
+# AUTHOR'S CHOICE: separate saw holding before the finish-mill setting.
+[[setups]]
+id = "S6cut"
+machine = "bandsaw-4x6"
+frame = "B6"
+stock_in = "S5"
+coolant = "none: dry cut"
+deburr_mm = 0.1
+deburr_cite = ["AUTHOR'S CHOICE: retain the finished journal's 0.1 mm maximum rim break"]
+[setups.stock_state]
+top_z = 25.4
+bottom_z = -25.4
+note = "AUTHOR'S CHOICE: raw square tail on the saw bed; finished joined post overhangs the blade side."
+[setups.hold]
+fixture = "vise-bandsaw-4x6"
+support = "none"
+grip_on = "AUTHOR'S CHOICE: sacrificial square head tail, model Y91..120, not the finished head or crank sleeve"
+grip_mm = 50.8
+fixed_jaw = "rear"
+jaws_along = "x"
+parallels = "none"
+jaw_above_parallels_mm = 60.0
+jaw_center_along_mm = -60.0
+stop = "AUTHOR'S CHOICE: scribe model Y87.75 for the blade centre; the measured 1.5 mm kerf leaves the retained head at Y87."
+clamp = "AUTHOR'S CHOICE: seat the raw tail flat on the saw bed and tighten the saw vise; keep the finished sleeve and both pads outside the jaws. Support the freed finished post as the cut breaks through, without reaching into the moving blade."
+[[setups.ops]]
+op = 10
+do = "saw_cut"
+tool = "bandsaw-blade-10-14"
+cut_plane = { axis = "x", value = -1.75, keep = "above" }
+note = "AUTHOR'S CHOICE: saw off the complete sacrificial head tail at blade centre Y87.75. Kerf retains Y<=87, leaving a real 1 mm facing allowance above the final head cap Y86 for S6."
+
 [[setups]]
 id = "S6"
 machine = "PM-30MV"
 frame = "M2"
-stock_in = "S5"
+stock_in = "S6cut"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1
 deburr_cite = ["AUTHOR'S CHOICE: retain the journal's 0.1 mm maximum rim break"]
 [setups.stock_state]
-top_z = 120.0
+top_z = 87.0
 bottom_z = 0.0
-note = "AUTHOR'S CHOICE: foot B down; all 34 mm of sacrificial tail above the final Y86 head cap remains until this operation."
+note = "AUTHOR'S CHOICE: foot B down after the saw cut; only 1 mm facing allowance remains above the final Y86 head cap."
 [setups.hold]
 fixture = "vise-pm-6"
 support = "none"
@@ -996,7 +1075,7 @@ jaw_center_along_mm = 0.0
 stop = "AUTHOR'S CHOICE: datum B on clean parallels; indicate the finished head centre and crank sleeve clocking."
 clamp = "AUTHOR'S CHOICE: snug the jaws on the lower-body cylinder, tap B down and tighten. Keep the crank sleeve above and clear of the jaws; no separate pads or unmodeled soft jaws are inserted."
 [setups.zero.transfer]
-from = "S5"
+from = "S6cut"
 indicate = ["head", "foot_seat", "crank_boss_faces"]
 gauge = "dti"
 runout_limit_mm = 0.02
@@ -1020,7 +1099,7 @@ edge_mm = 86.0
 from = "+z"
 method = "face_then_set"
 after_op = 10
-tool = "endmills-long/3-8in-4fl-long"
+tool = "endmills-lms-6784/3-8in-4fl"
 paper_mm = 0.0
 check_jog_mm = 10.0
 retouch_after = []
@@ -1029,14 +1108,14 @@ op = 10
 do = "face"
 feature = "head"
 faces = ["#431/ADVANCED_FACE[12]/HAF_HEAD__P02"]
-tool = "endmills-long/3-8in-4fl-long"
+tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = 86.0
-doc_mm = 1.0
+doc_mm = 0.5
 approach_mm = 5.0
 direction = "conventional"
-stock_removal_bounds = { x = [-25.4, 25.4], y = [-25.4, 25.4], z = [86.0, 120.0] }
-note = "AUTHOR'S CHOICE: mill off the complete sacrificial tail in 1 mm layers. Approach the 86 mm overall height by caliper measurements from the accessible edge of finished foot B, leaving 0.2 mm for the finish pass; set the head-cap DRO coordinate Z86 only after that height is established. Do not try to touch the underside of B through the vise. #431 is the actual head cap, not the shoulder. Preserve the complete joined sleeve below this plane."
+stock_removal_bounds = { x = [-21.3753, 21.3753], y = [-21.3753, 21.3753], z = [86.0, 87.0] }
+note = "AUTHOR'S CHOICE: face the remaining 1 mm sawn allowance in 0.5 mm layers with the normal 3/8 in cutter, then take a light finish pass. Establish 86 mm overall height by caliper measurements from the accessible edge of finished foot B and set the head-cap DRO coordinate Z86 only after that height is established. Do not try to touch B through the vise. #431 is the actual head cap, not the shoulder. Preserve the complete joined sleeve below this plane."
 [setups.ops.checks]
 dia = "calipers"
 height = "calipers"

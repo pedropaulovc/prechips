@@ -1093,6 +1093,18 @@ body_depth_mm = { value = 32.0, measured = { by = "example (plausible, not measu
 # --- cone-pivot-post built-up additions ---
 # Illustrative purchase choices for the body/socket and separate crank sleeve.
 # The matching diameter bands and brazing procedure belong to built-up.toml.
+[tools.cone-pad-endmill-1-8in]
+kind = "endmill"
+material = "carbide"
+present = true
+note = "AUTHOR'S CHOICE: illustrative purchase, short 1/8 in square-end two-flute carbide end mill for the body windows beside the integral cone-pad walls; no ball nose or undocumented centre offset."
+dia_mm = { value = 3.175, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over opposed cutting edges" } }
+shank_in = "1/8"
+flutes = 2
+flute_len_mm = { value = 9.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, tip to flute runout" } }
+oal_mm = { value = 38.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+projection_mm = { "r8-collets-lms-4860/1-8in" = { value = 12.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to cutter tip" } } }
+
 [tools.cone-joint-drill-21p5]
 kind = "drill"
 material = "HSS"
@@ -1118,6 +1130,13 @@ lead_mm = { value = 1.5, measured = { by = "example (plausible, not measured)", 
 flute_len_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 oal_mm = { value = 140.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 projection_mm = { "drill-chuck-r8" = { value = 85.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } } }
+
+[gauges.cone-socket-bore-gauge]
+kind = "bore_gauge"
+present = true
+note = "Illustrative example purchase: 18-35 mm two-point dial bore gauge with a 0.001 mm indicator, zeroed in a 22.010 mm setting ring or against the outside micrometer. Check the 22.000-22.020 mm socket at both mouths and through its engagement before joining; all capability values are plausible, not actual measurements."
+range_mm = [18.0, 35.0]
+resolution_mm = { value = 0.001, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "indicator graduation and gauge calibration certificate" } }
 
 [tools.cone-braze-torch]
 kind = "joining_tool"
