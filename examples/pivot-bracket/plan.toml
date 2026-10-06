@@ -133,6 +133,8 @@ holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 to_z = 0.0                       # establishes the seat, frame A z = 0
 direction = "conventional"       # author's choice for a hand-fed mill
+stock_removal_bounds = { x = [-9.0, 9.0], y = [-4.0, 22.2], z = [0.0, 1.0] } # AUTHOR'S CHOICE: face full raw top
+note = "Face the complete raw top, X -9..9 and Y -4..22.2, from Z +1 to Z0 before profiling the foot. Do not leave the raw overhang rails at the future finished-face boundary."
 
 [[setups.ops]]
 op = 20
@@ -464,6 +466,8 @@ holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author's choice
 to_z = 0.0                       # outer face, model Z = -3
 direction = "conventional"       # author's choice
+stock_removal_bounds = { x = [-8.0, 8.0], y = [-33.2, 0.0], z = [0.0, 1.0] } # AUTHOR'S CHOICE: face full raw top
+note = "Face the complete top of the actual S3 entry stock, X -8..8 and Y -33.2..0, from Z +1 to Z0 before profiling the arch. Include the retained rectangular crown, not merely the finished outer-face outline."
 
 [[setups.ops]]
 op = 11
