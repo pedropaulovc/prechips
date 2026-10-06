@@ -594,6 +594,7 @@
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.test-mill.envelope.travel.x",
         "inventory.machines.test-mill.envelope.travel.y"
       ],
@@ -655,8 +656,17 @@
           }
         ],
         "stock_bottom_z": 0.0,
-        "stock_extent_x_mm": 61.0,
-        "stock_extent_y_mm": 70.0,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          0.0,
+          0.0,
+          0.0,
+          70.0,
+          50.0,
+          60.0
+        ],
+        "stock_extent_x_mm": 70.0,
+        "stock_extent_y_mm": 50.0,
         "stock_height_mm": 60.0,
         "stock_top_above_jaws_mm": 40.0,
         "stock_top_z": 60.0,
@@ -666,13 +676,13 @@
         "travel_checks": {
           "x": {
             "fixture_mm": "unknown",
-            "part_mm": 61.0,
+            "part_mm": 70.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "fixture_mm": "unknown",
-            "part_mm": 70.0,
+            "part_mm": 50.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -806,9 +816,11 @@
       ],
       "message": "S1:10: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           6.0
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 6.0,
         "tool_radius_mm": 4.0
       },
@@ -831,9 +843,11 @@
       ],
       "message": "S2:10: concave corner radii admit the selected cutter.",
       "numbers": {
+        "cad_sharp_corners": 0,
         "corner_radii_mm": [
           6.0
         ],
+        "corner_radius_max_design_mm": "unknown",
         "minimum_corner_radius_mm": 6.0,
         "tool_radius_mm": 4.0
       },
@@ -1015,22 +1029,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -1042,22 +1059,25 @@
         "PLAN.md §4.1 stick-out (line 541)",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
-        "features declared finished diameters/z_mm/frame; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
         "diameter_features": [],
         "diameter_mm": "unknown",
-        "diameter_source": "features declared finished profile in exposed setup Z",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution",
         "exposed_z_mm": "unknown",
         "held_diameter_mm": "unknown",
         "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
         "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "support_status": "unknown",
         "supports": [],
+        "uncovered_z_mm": [],
         "unresolved": [],
+        "unresolved_reasons": {},
         "unsupported_limit_mm": "unknown"
       },
       "rule": "stickout",
@@ -1551,7 +1571,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
       "numbers": {
@@ -1559,9 +1579,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -1570,7 +1592,7 @@
     {
       "cite": [
         "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
-        "features declared nominal diameters/z_mm/frame; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
       "numbers": {
@@ -1578,9 +1600,11 @@
         "exposed_z_mm": "unknown",
         "frame": "A",
         "intervals": [],
+        "off_axis": {},
         "segments": [],
         "transitions": [],
-        "unresolved": []
+        "unresolved": [],
+        "unresolved_reasons": {}
       },
       "rule": "turned_profile",
       "status": "not_applicable",
@@ -1694,7 +1718,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "9ced2855078f97fd29638e214f497c4511bc39d4e8f86aa522b4e053e0caf0c7",
+  "hash": "9c6387b80ed7fe398c7ccfb98ec925e919327f495ce49be95422f7bb55e14bea",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -1779,7 +1803,7 @@
       "sha256": "da19fbd677488e1f59ca10a0191547d78806ba2b9375c9f6c6658a8d9e755406"
     }
   },
-  "rules_version": "m5-rev8",
+  "rules_version": "m5-rev9",
   "step_sha256": "b2e607417ac8a76a6efd7eff6e87837ec111cc0445e3862042d1f9325d7dff9f",
   "verification": "planned"
 }

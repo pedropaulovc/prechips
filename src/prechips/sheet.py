@@ -12,6 +12,7 @@ import math
 import re
 from html import escape
 
+from .joint_features import TEMPORARY_LABEL
 from .model import tolerance_requirements
 from .rules.resolution import (
     MANUAL,
@@ -286,7 +287,8 @@ class _Traveler:
     def __init__(self, bundle, findings, report, approval):
         self.bundle = bundle
         self.plan = bundle.plan
-        self.features = bundle.features.get("features", {})
+        # Operative features: the exported manifest plus resolved plan joint features.
+        self.features = bundle.feature_definitions
         self.general_precision = bundle.features.get("precision")
         self.findings = sorted(
             findings, key=lambda f: (_field(f, "rule", ""), _field(f, "subject", ""))
@@ -337,6 +339,35 @@ class _Traveler:
         if isinstance(overrides, dict):
             return overrides.get(dimension, self.general_precision)
         return overrides
+
+    def feature_label(self, feature):
+        """An exported feature prints its shop name; a transient joint feature is marked
+        temporary."""
+        joint = _mapping(self.features.get(feature, {}).get("joint"))
+        if not joint:
+            return self.feature_name(feature)
+        kind = {"cylinder_bore": "socket bore", "cylinder_spigot": "spigot"}[joint["kind"]]
+        return (
+            f"{self.feature_name(feature)} ({kind} on {_text(joint['component'])}): "
+            f"{TEMPORARY_LABEL}"
+        )
+
+    def joint_text(self, setup):
+        """How a two-branch setup joins: method, process and the declared fit band."""
+        joint = _mapping(setup.get("joint"))
+        if not joint:
+            return ""
+        text = f" Joined by {_text(joint['method'])} ({_text(joint['process'])})"
+        if joint["kind"] == "cylindrical":
+            band = joint.get(f"{joint['fit']}_mm")
+            limits = " to ".join(map(_number, band)) if isinstance(band, list) else _text(band)
+            text += (
+                f": spigot {self.feature_name(joint['spigot'])} into socket "
+                f"{self.feature_name(joint['socket'])}, {joint['fit']} {limits} mm diametral"
+            )
+        else:
+            text += f" at {len(joint['interfaces'])} declared interface(s)"
+        return text + "."
 
     def value(self, value, feature=None, dimension=None, drawing=True):
         """Format with the dimension's declared drawing precision when one exists.
@@ -1496,7 +1527,7 @@ class _Traveler:
                     (
                         _text(op["op"]),
                         action,
-                        self.feature_name(feature)
+                        self.feature_label(feature)
                         if feature is not None
                         else "stock"
                         if saw
@@ -1879,7 +1910,7 @@ class _Traveler:
         line = f"Starts from: {self.arrival(setup)}"
         if parts:
             line += " — " + ", ".join(parts)
-        line += "."
+        line += "." + self.joint_text(setup)
         if state.get("note"):
             line += " " + self.bench(state["note"], setup).rstrip(".") + "."
         return _p(line)
@@ -1926,7 +1957,7 @@ class _Traveler:
         return line
 
     def requirements(self):
-        rows = []
+        rows, temporary = [], []
         for feature, definition in self.features.items():
             values = [
                 "? requirement not identified"
@@ -1936,15 +1967,29 @@ class _Traveler:
                 + self.band(definition.get(d), feature, d)
                 for d in dict.fromkeys(tolerance_requirements(definition))
             ]
+            if _mapping(definition.get("joint")):
+                # Plan-authored preparation, never drawing acceptance.
+                temporary.append(
+                    (
+                        self.feature_label(feature),
+                        "; ".join(values) or "No preparation requirements declared.",
+                    )
+                )
+                continue
             rows.append(
                 (self.feature_name(feature), "; ".join(values) or "no toleranced requirement")
             )
         thickness = _mapping(self.bundle.features.get("material")).get("thickness")
         if _known(thickness):
             rows.append(("part", f"finished thickness {self.value(thickness)}"))
-        return "<h2>DRAWING REQUIREMENTS</h2>" + _table(
+        html = "<h2>DRAWING REQUIREMENTS</h2>" + _table(
             ["feature", "limits"], rows, widths=[30, 70]
         )
+        if temporary:
+            html += f"<h2>{escape(TEMPORARY_LABEL)}</h2>" + _table(
+                ["plan feature", "limits"], temporary, widths=[30, 70]
+            )
+        return html
 
     def drawing_revision(self):
         revision = self.plan.get("drawing", {}).get("revision", "unknown")

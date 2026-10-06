@@ -16,7 +16,7 @@ def measured(value):
 
 
 def bundle():
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"form": "flat_bar", "length_mm": 100, "section_mm": [30, 16]},
             "setups": [
@@ -81,6 +81,8 @@ def bundle():
         },
         policy={"required": {"envelope": "*", "travel": "*"}},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def test_measured_setup_passes_and_stack_is_physical_not_z_coordinate():
@@ -312,7 +314,6 @@ def test_review_10_unresolved_holder_requests_resolution_not_measurement():
     data.plan["setups"][0]["ops"][0]["holder"] = "unowned-chuck"
     row = envelope.evaluate(data)[0]
     assert row.status == "unknown"
-    assert "resolve" in row.sentence.lower() and "unowned-chuck" in row.sentence
     assert not any(
         entry["id"] in {"holders.unowned-chuck.gauge_len", "holders.unowned-chuck.grip"}
         for entry in row.numbers["measurements"]

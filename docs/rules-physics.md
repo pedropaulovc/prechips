@@ -134,7 +134,7 @@ authored `doc_mm`. The selected resolved tool/member must have kind `endmill`
 or `endmill_set`. Known drill, reamer, tap, lathe-tool and other non-endmill
 families are `not_applicable`, even when the operation declares DOC; their
 geometry must not produce a milling DOC-halving recommendation.
-Noncutting/manual operations, including `fit_up` and `transfer`, and operations
+Noncutting/manual operations, including the manual joining action `fit` and `transfer`, and operations
 with omitted DOC are also `not_applicable`. Cutting actions use the existing
 face, profile, pocket, hole-making and turning action conventions; an endmill
 used for a counterbore with authored DOC remains eligible.

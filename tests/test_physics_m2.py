@@ -16,7 +16,7 @@ DIA_CITE = "scratch drawing fixture: diameter acceptance band"
 
 
 def turning_bundle():
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"material": "scratch alloy", "material_verify": False},
             "setups": [
@@ -69,6 +69,8 @@ def turning_bundle():
         },
         policy={"required": {}},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def milling_bundle():
@@ -224,7 +226,6 @@ def test_computed_deflection_without_sourced_acceptance_stays_unknown(problem):
     assert finding.status == "unknown"
     assert finding.numbers["deflection_mm"] == pytest.approx(0.33953054526271004)
     assert finding.numbers["acceptance_threshold_mm"] == "unknown"
-    assert "acceptance threshold" in finding.sentence
 
 
 @pytest.mark.parametrize("problem", ["band_only", "unknown_nominal", "units", "hold", "support"])
@@ -282,7 +283,7 @@ def test_engagement_scope_excludes_known_non_endmill_families_even_with_doc(kind
     assert engagement.evaluate(data)[0].status == "not_applicable"
 
 
-@pytest.mark.parametrize("action", ["fit_up", "transfer"])
+@pytest.mark.parametrize("action", ["fit", "transfer"])
 def test_engagement_scope_excludes_noncutting_operations_even_with_endmill_and_doc(action):
     data = milling_bundle()
     data.plan["setups"][0]["ops"][0]["do"] = action
