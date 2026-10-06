@@ -485,7 +485,7 @@ def read_report(path: Path) -> dict:
         == ("checked" if report.get("expected_exit") == 0 else "planned"),
         f"{path}: unearned readiness",
     )
-    require(report.get("rules_version") == "m5-rev8", f"{path}: stale rule catalogue")
+    require(report.get("rules_version") == "m5-rev9", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]

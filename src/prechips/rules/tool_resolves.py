@@ -1,8 +1,14 @@
-"""Resolve selected identities once, then check each cutting assembly."""
+"""Resolve selected identities once, then check each cutting assembly.
+
+A saw cut has no spindle, collet or holder: its assembly is a ``bandsaw`` blade on
+a mill, bench or bandsaw machine, and the cut is located by ``cut_plane``.
+"""
 
 from ..findings import Finding
 from .resolution import (
     MANUAL,
+    SAW_OPS,
+    UNKNOWN,
     length_mm,
     number,
     operations,
@@ -11,6 +17,53 @@ from .resolution import (
     selected_references,
     uncertain,
 )
+
+SAW_MACHINE_KINDS = frozenset({"mill", "bench", "bandsaw"})
+SAW_TOOL_KINDS = frozenset({"bandsaw"})
+
+
+def _saw_assembly(subject, op, tool, machine, machine_ref):
+    nums = {
+        "tool": op.get("tool", UNKNOWN),
+        "holder": "not_applicable",
+        "machine": machine_ref,
+        "machine_kind": (machine or {}).get("kind", UNKNOWN),
+        "tool_kind": (tool or {}).get("kind", UNKNOWN),
+    }
+    problems = []
+    unknown = tool is None or machine is None
+    if not unknown:
+        for kind, accepted, label in (
+            (nums["machine_kind"], SAW_MACHINE_KINDS, "machine"),
+            (nums["tool_kind"], SAW_TOOL_KINDS, "tool"),
+        ):
+            if kind == UNKNOWN:
+                unknown = True
+            elif kind not in accepted:
+                problems.append(
+                    f"{label} kind {kind} cannot run a saw cut "
+                    f"(accepted: {', '.join(sorted(accepted))})"
+                )
+        # Unverified identities cannot establish either a fit or a mismatch.
+        if uncertain(tool) or uncertain(machine):
+            unknown = True
+            problems = []
+    status = "error" if problems else "unknown" if unknown else "pass"
+    message = (
+        "; ".join(problems)
+        if problems
+        else "saw assembly needs a resolved, verified bandsaw blade and saw-capable machine"
+        if unknown
+        else "bandsaw blade on a saw-capable machine; no spindle, collet or holder applies"
+    )
+    return Finding(
+        "tool_resolves",
+        subject,
+        status,
+        nums,
+        ["inventory machine kind and tool kind", "PLAN.md §4.1"],
+        f"{subject}: {message}.",
+    )
 
 
 def evaluate(bundle):
@@ -49,6 +102,17 @@ def evaluate(bundle):
         if op["do"] in MANUAL:
             continue
         subject = f"{setup['id']}:{op['op']}"
+        if op["do"] in SAW_OPS:
+            findings.append(
+                _saw_assembly(
+                    subject,
+                    op,
+                    resolve(bundle, "tools", op.get("tool")),
+                    resolve(bundle, "machines", setup["machine"]),
+                    setup["machine"],
+                )
+            )
+            continue
         tool = resolve(bundle, "tools", op.get("tool"))
         holder = resolve(bundle, "holders", op.get("holder"))
         machine = resolve(bundle, "machines", setup["machine"])
