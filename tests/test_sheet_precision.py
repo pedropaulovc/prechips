@@ -255,9 +255,10 @@ def setup_pages(html):
     return pages
 
 
-def test_bench_setups_print_no_machine_zero_or_clearance(tmp_path):
-    # A bench fit/inspect setup has no spindle, DRO or axes: its sheets carry no DRO
-    # ZERO table and no machine CLEARANCE, while the machine setups keep both.
+def test_bench_and_saw_setups_print_no_machine_zero_or_clearance(tmp_path):
+    # A bench fit/inspect setup has no spindle, DRO or axes, and a saw cut-off is located
+    # by its cut plane: their sheets carry no DRO ZERO and no CLEARANCE, while the
+    # machine setups keep both.
     plan = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     authored = tomllib.loads(plan.read_text(encoding="utf-8"))
@@ -269,9 +270,10 @@ def test_bench_setups_print_no_machine_zero_or_clearance(tmp_path):
     }
     pages = setup_pages(html)
     bench = [sid for sid, kind in kinds.items() if kind == "bench"]
+    saws = [sid for sid, kind in kinds.items() if kind == "bandsaw"]
     mills = [sid for sid, kind in kinds.items() if kind == "mill"]
-    assert bench and mills
-    for sid in bench:
+    assert bench and saws and mills
+    for sid in bench + saws:
         assert "DRO ZERO" not in pages[sid] and "CLEARANCE" not in pages[sid], sid
     for sid in mills:
         assert "DRO ZERO" in pages[sid] and "CLEARANCE" in pages[sid], sid

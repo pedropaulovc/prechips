@@ -1129,7 +1129,8 @@ class _Traveler:
     # ------------------------------------------------------------- clearance
     def clearance(self, setup):
         if saw_setup(setup):
-            return "<h2>CLEARANCE</h2>" + _p("Saw cut-off: no spindle clearance applies.")
+            # A saw cut-off has no spindle stack or table travel: nothing to print.
+            return None
         numbers = self.records.get(("headroom", setup["id"]), {})
         o = self.operative
         lathe = self.lathe(setup)
@@ -1321,9 +1322,8 @@ class _Traveler:
     # ------------------------------------------------------------------ DRO
     def dro(self, setup, tools):
         if saw_setup(setup):
-            return "<h2>DRO ZERO</h2>" + _p(
-                "Saw setting uses the stated cut plane; no spindle DRO zero applies."
-            )
+            # The saw cut is located by its cut plane in the op row: no zero to set.
+            return None
         numbers = self.records.get(("zero_check", setup["id"]), {})
         authored = _mapping(setup.get("zero"))
         settings = _mapping(self.plan.get("dro"))

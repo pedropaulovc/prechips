@@ -308,8 +308,9 @@ Front sheet (sheet 1), in this order:
    once on the job page.
 4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
    QCTP station and the ops that use it. Op rows carry only the `T#`.
-5. **DRO ZERO** (not on bench setups: a machine of kind `bench` or `manual`
-   running only fit and inspect ops has no spindle, DRO or axes): positive
+5. **DRO ZERO** (not on bench setups — a machine of kind `bench` or `manual`
+   running only fit and inspect ops has no spindle, DRO or axes — nor on a saw
+   cut-off setup, located by the cut plane in its op row): positive
    directions, then one row per axis — what to touch
    or pick up (tool, side, paper or edge-finder radius), the Axis Set value, a
    no-touch jog, the value the display must read and the value it would read if
@@ -334,7 +335,7 @@ and inspection notes*):
    as it arrives from Setup S1, held in the 6 in 3-jaw chuck.`; the key is
    drawn in the picture) and its `NOT SHOWN:` lines. The image is referenced by
    relative filename.
-2. **CLEARANCE** (not on bench setups), machine specific. A lathe shows chuck
+2. **CLEARANCE** (not on bench or saw cut-off setups), machine specific. A lathe shows chuck
    Ø against swing, work Ø against swing over the cross-slide, length against
    between-centres, quill extension and the jaw-front distance to the closest
    tool stop. A mill
