@@ -7336,6 +7336,11 @@ class _Setup:
         if not regions:
             return None, None
         removal = regions[0].fuse(regions[1:]) if len(regions) > 1 else regions[0]
+        # Each sampled meridian chord revolves to its own band, and the faces of one finished
+        # surface give near-identical profiles: unified, the turned surface is one face per
+        # surface, not a stack of sliver bands that booleans against the coincident finished
+        # face resolve inconsistently (wrong volumes, Null shapes, invalid pieces).
+        removal = removal.removeSplitter()
         if window is not None:
             removal = removal.common(_band(0.0, outer, *window))
         if removal.isNull() or removal.Volume <= HIT_MM3:
@@ -7343,9 +7348,19 @@ class _Setup:
         removal = stock.common(removal)
         if removal.isNull() or removal.Volume <= HIT_MM3:
             return None, None
+        precision = max(self.faces[index].getTolerance(1) for index in valid)
         if self.protected.Volume > HIT_MM3:
             removal = removal.cut(self.protected)
-        pieces = [piece for piece in removal.Solids if piece.Volume > HIT_MM3]
+            precision = max(precision, self.protected.getTolerance(1))
+        # Finished faces are located only to within their BRep precision (their largest
+        # edge or vertex tolerance; joint-ownership booleans loosen it to microns). A piece
+        # whose mean thickness is within that precision is a coincidence remnant between
+        # an earlier pass's surface and the finished one, not stock this op removes.
+        pieces = [
+            piece
+            for piece in removal.Solids
+            if piece.Volume > HIT_MM3 and 2 * piece.Volume / piece.Area > precision
+        ]
         if not pieces:
             return None, None
         if not all(piece.isValid() for piece in pieces):
