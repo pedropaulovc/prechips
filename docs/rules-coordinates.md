@@ -203,15 +203,26 @@ value. Every table carries `dro_tip_z`, and each profile and operation
 on the default grid). The op rows and contour table headers print the same
 value, and so does every later Z printed for that face: a start Z, a Z zero and
 its Axis Set and jog readings, a hole entry, a tip's height over the jaw tops.
-A face links to the facing or pocketing op of its own or an earlier same-frame
-setup that last cut it to that Z, or to the op that advanced a stock-state top
-or entry; any other surface Z prints on the grid by `dro_z`. Hole endpoints
+One provenance source (`tip_endpoints.operative_z`) picks the op that produced
+that face. It looks first among the setup's own ops scheduled before the reading.
+For a Z zero's `top`, those are the ops up to and including its `after_op`,
+never a later recut. It then walks the selected stock ancestry: the setup's
+`stock_in` chain, the same one the kernel builds, joint branches included, and
+same-frame setups only. A setup outside that chain never counts, even if it cut
+the same nominal face. The producer is the facing or pocketing op that last cut
+the face to that Z, or the op that advanced a stock-state top or entry. Its
+value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
+the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other
+surface Z prints on the grid by `dro_z`. Hole endpoints
 carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
 printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
-STOP, and so does a blind `dro_depth_mm` below the feature's `depth` band (a bare
-`depth` is an upper limit only: a depth the rounding changed is then unknown, a
-STOP). A final forming cut whose `to_z` ends on its finished face (no `exit_mm`)
+STOP. Every row that prints a rounded depth carries `depth_floor_mm`: the lower
+end of the feature's `depth` band, or for a tap its `thread_depth` (else `depth`)
+band. Any other kind of row, and a bare `depth` (an upper limit only), has an
+unknown floor. A `dro_depth_mm` below its floor prints a STOP, and so does a depth
+the rounding changed when the floor is unknown. A final forming cut whose `to_z`
+ends on its finished face (no `exit_mm`)
 and whose rounded-up depth leaves more skin than its feature's narrowest
 numeric tolerance band is an error (`dro_z_residual_errors`). Every join record
 carries its `stage`, `allowance_mm` (the rough leave, 0 for finish) and
