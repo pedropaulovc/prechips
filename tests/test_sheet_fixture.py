@@ -375,3 +375,26 @@ def test_each_placement_of_an_item_builds_its_own_shim_stacks():
     ]
     page = sheets(bundle([{"clamps": clamps}]))[0]
     assert "4 shim stacks under the rail (C1 shim R, C2 shim R, C1 shim L, C2 shim L)" in page
+
+
+def test_hole_without_cuts_prints_in_every_part_it_passes_through():
+    lower = {"name": "lower", "shape": "box", "at_mm": [60, -5, 0], "size_mm": [10, 10, 5]}
+    upper = {"name": "upper", "shape": "box", "at_mm": [60, -5, 5], "size_mm": [10, 10, 4]}
+    hole = cylinder("pin-hole", 65, 0, 3, 9, void=True)
+    table = bridge_page(lower, upper, hole)
+    assert table.count("with 1 × Ø3 hole: axis at X 65, Y 0; Z 0…9") == 2
+    # Unverified, the same hole withholds both parts it would cut.
+    table = bridge_page(lower, upper, {**hole, "verify": True})
+    assert table.count("? not set: its hole pin-hole is unverified") == 2
+    assert "X 60…70" not in table
+
+
+def test_bought_primitives_count_together_only_when_they_touch():
+    screw = {"supply": "bought", "fastener": "M8 SHCS"}
+    # Parallel Ø8 shanks 9.9 apart: their bounding boxes overlap, the screws do not.
+    near = cylinder("screw-a", 0, 20, 8, 20, **screw)
+    apart = {**cylinder("screw-b", 7, 20, 8, 20, **screw), "at_mm": [7, 7, 20]}
+    assert "; 2 × M8 SHCS." in bridge_page(near, apart)
+    # A Ø13 head resting on the end of its shank is one screw.
+    head = cylinder("screw-head", 0, 40, 13, 8, **screw)
+    assert "; 1 × M8 SHCS." in bridge_page(near, head)

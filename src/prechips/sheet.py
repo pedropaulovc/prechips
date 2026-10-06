@@ -403,28 +403,19 @@ def _inside(solid, point):
 
 
 def _void_parents(void, solids, made):
-    """The solids a hole is cut in (made, or existing parts machined here): every such
-    solid its ``cuts`` names, else the first holding its centre, else the first. A hole
-    cut only in bought hardware (a nut's thread) has no parent and is not listed."""
+    """The solids a hole is cut in (made, or existing parts machined here), as the kernel
+    cuts it: every such solid its ``cuts`` names, else every such solid it overlaps. A
+    hole cut only in bought hardware (a nut's thread) has no parent and is not listed."""
     cuts = void.get("cuts")
     if isinstance(cuts, list) and cuts:
         named = {solid.get("name"): solid for solid in solids}
         return [named[n] for n in dict.fromkeys(cuts) if n in named and named[n] in made]
-    at, size, axis, length = (void.get(k) for k in ("at_mm", "size_mm", "axis", "length_mm"))
-    if not (isinstance(at, list) and len(at) == 3):
-        return []
-    if isinstance(size, list) and len(size) == 3:
-        centre = [at[i] + size[i] / 2 for i in range(3)]
-    elif isinstance(axis, list) and len(axis) == 3 and _known(length):
-        centre = [at[i] + axis[i] * length / 2 for i in range(3)]
-    else:
-        return []
-    parent = next((solid for solid in made if _inside(solid, centre)), made[0] if made else None)
-    return [parent] if parent is not None else []
+    return [solid for solid in made if _meet(void, solid, contact=False)]
 
 
-def _bounds(solid):
-    """Owner-frame (low, high) box around a box or cylinder primitive; None if malformed."""
+def _primitive(solid):
+    """``("box", low, high)`` or ``("cylinder", start, unit axis, length, radius)`` in
+    the owner frame; None for a malformed primitive."""
     at = solid.get("at_mm")
     if not (isinstance(at, list) and len(at) == 3 and all(_known(v) for v in at)):
         return None
@@ -432,27 +423,107 @@ def _bounds(solid):
     if solid.get("shape") == "box" and isinstance(size, list) and len(size) == 3:
         if not all(_known(v) for v in size):
             return None
-        ends = [at, [at[i] + size[i] for i in range(3)]]
-        return [min(e[i] for e in ends) for i in range(3)], [
-            max(e[i] for e in ends) for i in range(3)
-        ]
+        far = [at[i] + size[i] for i in range(3)]
+        return "box", [min(at[i], far[i]) for i in range(3)], [max(at[i], far[i]) for i in range(3)]
     dia, length = solid.get("dia_mm"), solid.get("length_mm")
     if solid.get("shape") == "cylinder" and isinstance(axis, list) and len(axis) == 3:
-        if not (_known(dia) and _known(length) and all(_known(v) for v in axis)):
+        norm = math.hypot(*axis) if all(_known(v) for v in axis) else 0.0
+        if not (_known(dia) and _known(length) and dia > 0 and length > 0 and norm > 0):
             return None
-        end = [at[i] + axis[i] * length for i in range(3)]
-        pad = [dia / 2 * math.sqrt(max(0.0, 1 - axis[i] ** 2)) for i in range(3)]
-        return (
-            [min(at[i], end[i]) - pad[i] for i in range(3)],
-            [max(at[i], end[i]) + pad[i] for i in range(3)],
-        )
+        return "cylinder", list(at), [v / norm for v in axis], length, dia / 2
     return None
 
 
+def _overlap(low_a, high_a, low_b, high_b, contact):
+    """Whether two intervals share a length (or, for ``contact``, at least a point)."""
+    if contact:
+        return low_a <= high_b + 1e-6 and low_b <= high_a + 1e-6
+    return low_a < high_b - 1e-6 and low_b < high_a - 1e-6
+
+
+def _meet(a, b, contact):
+    """Whether two box/cylinder primitives share volume (``contact``: touch or share
+    volume). Exact for boxes, parallel cylinders and axis-aligned cylinders against
+    boxes; an oblique pair shares volume only where a sampled point of one lies inside
+    the other, and never counts as touching."""
+    pa, pb = _primitive(a), _primitive(b)
+    if pa is None or pb is None:
+        return False
+    if pa[0] == "cylinder" and pb[0] == "box":
+        (a, pa), (b, pb) = (b, pb), (a, pa)
+    if pa[0] == "box" and pb[0] == "box":
+        return all(_overlap(pa[1][k], pa[2][k], pb[1][k], pb[2][k], contact) for k in range(3))
+    edge = (lambda d, r: d <= r + 1e-6) if contact else (lambda d, r: d < r - 1e-6)
+    if pa[0] == "box":
+        _, low, high = pa
+        _, start, axis, length, radius = pb
+        k = next((k for k in range(3) if abs(abs(axis[k]) - 1) <= 1e-9), None)
+        if k is not None:
+            ends = sorted((start[k], start[k] + axis[k] * length))
+            off = [max(low[i] - start[i], 0, start[i] - high[i]) for i in range(3) if i != k]
+            return _overlap(low[k], high[k], *ends, contact) and edge(math.hypot(*off), radius)
+    else:
+        _, start_a, axis_a, length_a, radius_a = pa
+        _, start_b, axis_b, length_b, radius_b = pb
+        dot = sum(axis_a[i] * axis_b[i] for i in range(3))
+        if abs(abs(dot) - 1) <= 1e-9:
+            rel = [start_b[i] - start_a[i] for i in range(3)]
+            along = sum(rel[i] * axis_a[i] for i in range(3))
+            ends = sorted((along, along + dot * length_b))
+            radial = math.dist(rel, [along * axis_a[i] for i in range(3)])
+            return _overlap(0, length_a, *ends, contact) and edge(radial, radius_a + radius_b)
+    if contact:
+        return False
+    return any(_inside(b, point) for point in _samples(pa)) or any(
+        _inside(a, point) for point in _samples(pb)
+    )
+
+
+def _samples(primitive, n=8):
+    """Interior points spread through a box or cylinder primitive."""
+    steps = [(i + 0.5) / n for i in range(n)]
+    if primitive[0] == "box":
+        _, low, high = primitive
+        return [
+            [low[k] + (high[k] - low[k]) * f for k, f in enumerate((fx, fy, fz))]
+            for fx in steps
+            for fy in steps
+            for fz in steps
+        ]
+    _, start, axis, length, radius = primitive
+    other = [0.0, 0.0, 1.0] if abs(axis[2]) < 0.9 else [1.0, 0.0, 0.0]
+    u = [
+        axis[1] * other[2] - axis[2] * other[1],
+        axis[2] * other[0] - axis[0] * other[2],
+        axis[0] * other[1] - axis[1] * other[0],
+    ]
+    norm = math.hypot(*u)
+    u = [v / norm for v in u]
+    w = [
+        axis[1] * u[2] - axis[2] * u[1],
+        axis[2] * u[0] - axis[0] * u[2],
+        axis[0] * u[1] - axis[1] * u[0],
+    ]
+    points = []
+    for f in steps:
+        for g in steps:
+            for turn in range(2 * n):
+                angle = math.tau * turn / (2 * n)
+                r = radius * g
+                points.append(
+                    [
+                        start[k]
+                        + axis[k] * length * f
+                        + r * (math.cos(angle) * u[k] + math.sin(angle) * w[k])
+                        for k in range(3)
+                    ]
+                )
+    return points
+
+
 def _touching_groups(solids):
-    """How many connected sets the solids form, joining those whose bounds touch or
-    overlap (a screw's head on its shank); a malformed primitive is a set of its own."""
-    bounds = [_bounds(solid) for solid in solids]
+    """How many connected sets the solids form, joining primitives that touch or share
+    volume (a screw's head on its shank); separate or malformed primitives stay apart."""
     parent = list(range(len(solids)))
 
     def root(i):
@@ -460,14 +531,9 @@ def _touching_groups(solids):
             i = parent[i]
         return i
 
-    for i, a in enumerate(bounds):
+    for i, a in enumerate(solids):
         for j in range(i):
-            b = bounds[j]
-            if (
-                a
-                and b
-                and all(a[0][k] <= b[1][k] + 1e-6 and b[0][k] <= a[1][k] + 1e-6 for k in range(3))
-            ):
+            if _meet(a, solids[j], contact=True):
                 parent[root(i)] = root(j)
     return len({root(i) for i in range(len(solids))})
 
