@@ -6,7 +6,7 @@ this boundary. Display annotations never certify a holding or a toolpath.
 
 from prechips.clamp_labels import clamp_labels
 from prechips.rules.coordinates import row_id
-from prechips.rules.resolution import number, record, resolve, workholding_category
+from prechips.rules.resolution import number, op_feature, record, resolve, workholding_category
 from prechips.sheet import tool_label
 
 
@@ -153,7 +153,8 @@ def _holding_name(bundle, reference):
 
 def _target(setup):
     """The one feature every op of a setup cuts, else None: a picture names it as the target."""
-    features = {op.get("feature") for op in setup["ops"]}
+    # An inspect op naming several features has no single feature: no target then.
+    features = {op_feature(op) for op in setup["ops"]}
     if len(features) != 1:
         return None
     (feature,) = features
