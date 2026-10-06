@@ -18,7 +18,8 @@ quantity = 1                 # harmonic-analyzer/cad/config/parts/pivot-shaft.ya
 
 [drawing]
 number = "MHA-065"           # parts/pivot-shaft.yaml:2
-revision = "unknown"         # export v40 exists (harmonic-analyzer/cad/config/release.yaml:next_revision); release/operator matching pending
+revision = "v40"             # export manifest revision (features.toml drawing.revision); illustrative plan, not released or approved
+cite = ["harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:2", "harmonic-analyzer/cad/config/release.yaml:next_revision", "harmonic-analyzer/cad/scripts/_common.py:1751-1765"]
 
 [paths]
 inventory = "../inventory/pedro-shop.toml"
