@@ -40,9 +40,9 @@ within its band; a face the kernel did not measure leaves it unknown. Otherwise 
 box gives only the highest and lowest points: ``top_z`` is the highest (under an
 ``"unknown"`` ``top_feature`` only bounded by it), and the lower of an unnamed ``bottom_z``
 and ``retained_rail_bottom_z`` the lowest. A named seat proves only its own face: the box
-still shows whether stock reaches below every authored point. A compared fact whose field,
-inventory value, plan units, band or kernel value is missing or unknown, or that the kernel
-cannot prove, is ``unknown``, never ``pass``.
+still shows whether stock other than that measured face reaches below every authored point.
+A compared fact whose field, inventory value, plan units, band or kernel value is missing or
+unknown, or that the kernel cannot prove, is ``unknown``, never ``pass``.
 """
 
 from __future__ import annotations
@@ -364,8 +364,10 @@ def _kernel_stock(bundle, setup, scale):
     bounded by it. Any other ``bottom_z`` and ``retained_rail_bottom_z`` are the box's
     lowest point where they are the lowest authored point, else not compared; a rail with
     no ``bottom_z`` is proved only when it is below the stock. A named seat proves only its
-    own face: as the lowest authored point it is still wrong when the box shows stock below
-    it, since nothing authored reaches that stock."""
+    own face: as the lowest authored point it is still wrong when the kernel measures that
+    face above the box's lowest point, since stock then hangs below it that nothing
+    authored reaches. Where its measured face is the box's lowest point, its face verdict
+    alone judges it, a displacement its band permits included; unmeasured, it is unknown."""
     from prechips.kernel import run_geometry
 
     state = record(setup.get("stock_state"))
@@ -437,11 +439,17 @@ def _kernel_stock(bundle, setup, scale):
                 "compared"
             )
     seat_lowest = not any((value - lowest) * scale <= STOCK_TOL_MM for value in boxed.values())
-    if "bottom_z" in named and seat_lowest and lowest * scale - box[2] > STOCK_TOL_MM:
+    seat = named.get("bottom_z", {})
+    if (
+        seat_lowest
+        and "stock" in seat
+        and min(lowest * scale, seat["stock"]) - box[2] > STOCK_TOL_MM
+    ):
         found.append(
-            f"stock_state.bottom_z {lowest:g}, bottom_feature {named['bottom_z']['name']}'s "
-            "face, is the lowest authored stock point, but the kernel's setup-entry stock "
-            f"reaches Z {box[2] / scale:.4f} below it, and no authored point does"
+            f"stock_state.bottom_z {lowest:g}, bottom_feature {seat['name']}'s face, is the "
+            f"lowest authored stock point; the kernel puts the stock under that face at "
+            f"Z {seat['stock'] / scale:.4f}, but its setup-entry stock reaches "
+            f"Z {box[2] / scale:.4f} below it, and no authored point does"
         )
     return 1, found, unchecked
 
