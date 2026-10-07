@@ -23,12 +23,15 @@ from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import go_no_go_pair
 from .rules.resolution import (
     MANUAL,
+    NAMED_REFERENCE,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
     coating_process,
     drawing_precision,
     inventory_category,
     length_mm,
+    listing_categories,
+    named_item,
     op_feature,
     op_features,
     printed_band,
@@ -36,6 +39,8 @@ from .rules.resolution import (
     saw_setup,
     selected_references,
     setup_frame,
+    shop_made_item,
+    slot_category,
     workholding_category,
 )
 from .rules.resolution import record as _mapping
@@ -431,6 +436,7 @@ _TOPICS = {
     "construction": "construction",
     "engagement": "cutter engagement",
     "saw_cut": "saw cut",
+    "purchased_tooling": "purchased tooling receipt check",
 }
 _DIRECTIONS = {
     "radially_inward": "face from OD to centre",
@@ -498,6 +504,13 @@ _SPINDLE_TURNS = {
     "FORWARD": "the top of the work turns toward you",
     "REVERSE": "the top of the work turns away from you",
 }
+
+
+# A shop-made item the HOLD places (no pose places its solids): its make table gives
+# positions in the item's own frame, and where it goes is the HOLD's to say.
+LOOSE = "loose"
+LOOSE_TEXT = "loose: placed as the HOLD says"
+_ITEM_FRAME = ([0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0])
 
 
 def _pose_axes(pose):
@@ -742,6 +755,27 @@ def _text(value):
 
 def _known(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _inward(low, high, unit="mm"):
+    """``(low, high)`` texts of a band given in mm, in ``unit`` (``mm`` to 0.001, ``in`` to
+    0.0001), rounded inward (low up, high down): never looser. A band too narrow for those
+    decimals takes more until it is not reversed, and a cap ``(0, high)`` until it is not
+    rounded to nothing. Past 0.1 µm a mm band prints exactly as declared; an inch band
+    that cannot be stated inward is None (the mm band stands alone)."""
+    scale, places = {"mm": (1.0, 3), "in": (25.4, 4)}[unit]
+    for decimals in range(places, places + 4):
+        steps = 10**decimals
+        lo = math.ceil(round(low / scale * steps, 6)) / steps
+        hi = math.floor(round(high / scale * steps, 6)) / steps
+        if lo <= hi and (hi > 0 or high <= 0):
+            return f"{lo:.{decimals}f}", f"{hi:.{decimals}f}"
+    return (repr(float(low)), repr(float(high))) if unit == "mm" else None
+
+
+def _stated(value):
+    """A text the shop can act on: not blank and not the unknown sentinel."""
+    return isinstance(value, str) and value.strip() not in ("", "unknown")
 
 
 def _supply_name(root):
@@ -1045,9 +1079,12 @@ class _Traveler:
         # values, so the job page prints the one legend for its mark.
         self.example_marks = False
         self.references = {}
+        # A bare plan key in prose prints as its shop name, unless two categories list it:
+        # then it names no one item (prose names it ``<category>.<key>``) and stays as is.
         for reference in sorted(selected_references(self.plan)):
             if isinstance(reference, str) and reference not in ("unknown", "none"):
-                self.references[reference] = self.reference(reference)
+                if len(listing_categories(bundle, reference)) <= 1:
+                    self.references[reference] = self.reference(reference)
         self.faces = {
             face: name
             for name, feature in self.features.items()
@@ -1384,6 +1421,16 @@ class _Traveler:
             lambda m: self.feature_name(self.faces[m[0]]) if m[0] in self.faces else "a face",
             text,
         )
+        # An inventory item named in prose (``gauges.dti``) prints as its shop name; one
+        # the shop list does not have prints ``? <key>`` (tool_resolves reports it unknown).
+        text = NAMED_REFERENCE.sub(
+            lambda m: (
+                reference_label(self.bundle, m[2], m[1]).removesuffix(" (not in shop list)")
+                if named_item(self.bundle, m[0]) is not None
+                else f"? {m[2]}"
+            ),
+            text,
+        )
         for reference, label in sorted(self.references.items(), key=lambda pair: -len(pair[0])):
             text = text.replace(reference, label)
         for key in sorted(self.features, key=len, reverse=True):
@@ -1551,9 +1598,9 @@ class _Traveler:
             steps.extend(self.fixture_setting(setup, hold, uses))
             steps.extend(self.align_step(setup, hold))
         if stated("parallels") and hold["parallels"] != "unknown":
-            line = "Parallels: " + self.reference(hold["parallels"])
+            line = "Parallels: " + self.reference(hold["parallels"], "fixtures")
             if stated("riser"):
-                line += ", standing on " + self.reference(hold["riser"])
+                line += ", standing on " + self.reference(hold["riser"], "fixtures")
                 line += self.shop_made_pointer(setup, hold["riser"], uses)
             if stated("support_orientation"):
                 line += f" ({_text(hold['support_orientation'])} up)"
@@ -1570,6 +1617,7 @@ class _Traveler:
             steps.append(
                 "Jaw buttons: "
                 + self.reference(hold["jaw_buttons"], "fixtures")
+                + self.shop_made_pointer(setup, hold["jaw_buttons"], uses)
                 + ", one between each jaw and the work, its spigot in the work's bore."
             )
         supports = hold.get("supports")
@@ -1577,7 +1625,7 @@ class _Traveler:
             if not (stated("riser") and supports == hold.get("riser")):
                 steps.append(
                     "Supports: "
-                    + self.reference(supports)
+                    + self.reference(supports, "fixtures")
                     + self.shop_made_pointer(setup, supports, uses)
                     + "."
                 )
@@ -1604,7 +1652,7 @@ class _Traveler:
             if hold["support"] == "unknown":
                 steps.append("STOP: support / restraint not chosen — do not run.")
             else:
-                line = label + self.reference(hold["support"])
+                line = label + self.reference(hold["support"], "fixtures")
                 if _known(hold.get("quill_extension_mm")):
                     line += f", quill out {self.operative(hold['quill_extension_mm'])} mm"
                 steps.append(line + ".")
@@ -1629,7 +1677,7 @@ class _Traveler:
         for label, clamp in zip(clamp_labels(hold), clamps, strict=True):
             clamp = _mapping(clamp)
             role = _CLAMP_ROLES[label.rstrip("0123456789")]
-            line = f"{label} {role}: {self.reference(clamp.get('ref'))}"
+            line = f"{label} {role}: {self.reference(clamp.get('ref'), 'fixtures')}"
             line += self.shop_made_pointer(setup, clamp.get("ref"), uses)
             if clamp.get("note"):
                 line += " — " + self.bench(clamp["note"], setup)
@@ -1829,37 +1877,29 @@ class _Traveler:
 
     # ------------------------------------------------------------ shop-made
     def shop_made(self, reference):
-        """The inventory record of a shop-made holding item (``kind = "custom"`` or flagged
-        ``shop_made``) with something to make, else None: an item whose every solid is
-        bought or existing (a plain ground plate) has no make table."""
-        if not isinstance(reference, str) or reference in ("unknown", "none", "not_applicable"):
-            return None
-        category = inventory_category(self.bundle, reference, WORKHOLDING_CATEGORIES)
-        item = _mapping(resolve(self.bundle, category or "fixtures", reference))
-        if not (item.get("kind") == "custom" or item.get("shop_made") is True):
-            return None
-        solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
-        if solids and not any(_supply(s) == "made" for s in solids):
-            return None
-        return item
+        """The shop-made holding item with something to make (:func:`shop_made_item`)."""
+        return shop_made_item(self.bundle, reference)
 
     def shop_made_uses(self, setup):
         """``{reference: [(label, pose)]}`` for each shop-made item the hold uses, in HOLD
         order: the fixture at ``hold.pose``, each clamp entry at its own pose (labelled by
-        :func:`clamp_labels`), the work stop at ``stop_pose``; risers and supports carry
-        no pose."""
+        :func:`clamp_labels`), the work stop at ``stop_pose``. An item whose solids nothing
+        poses, because the HOLD places it (a vise's own jaw plates, the riser, supports,
+        jaw buttons: the kernel builds those from their facts), is :data:`LOOSE`."""
         hold = _mapping(setup.get("hold"))
         clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
-        placed = [(hold.get("fixture"), None, hold.get("pose"))]
+        fixture = hold.get("fixture")
+        vise = _mapping(self.shop_made(fixture)).get("kind") == "vise"
+        placed = [(fixture, None, LOOSE if vise else hold.get("pose"))]
         placed += [
             (_mapping(clamp).get("ref"), label, _mapping(clamp).get("pose"))
             for label, clamp in zip(clamp_labels(hold), clamps, strict=True)
         ]
         placed.append((hold.get("stop_fixture"), "stop", hold.get("stop_pose")))
-        placed += [(hold.get(key), None, None) for key in ("riser", "supports")]
+        placed += [(hold.get(key), None, LOOSE) for key in ("riser", "supports", "jaw_buttons")]
         uses = {}
         for reference, label, pose in placed:
-            if self.shop_made(reference) is None or (pose is None and reference in uses):
+            if self.shop_made(reference) is None or (pose in (None, LOOSE) and reference in uses):
                 continue
             uses.setdefault(reference, []).append((label, pose))
         return uses
@@ -2068,7 +2108,10 @@ class _Traveler:
         return "?"
 
     def solid_position(self, solid, axes, fit=False):
-        """Setup-frame position: a box's X/Y/Z extents, a cylinder's axis."""
+        """Setup-frame position (or item-frame, for an item the HOLD places): a box's X/Y/Z
+        extents, a cylinder's axis."""
+        if axes == LOOSE:
+            return LOOSE_TEXT
         extents = _solid_extents(solid, axes) if axes else None
         if extents is None:
             return "? not posed"
@@ -2161,13 +2204,21 @@ class _Traveler:
         """The item's made solids as make-and-set rows; identical solids share a row (an
         authored ``label`` names the group), each row lists every setup-frame position
         and the holes cut in it. Bought hardware is one line under the table, and each
-        made row's ``note`` (material, heat treatment, finish) one "Make:" entry under
-        that; solids already in the shop (``supply = "existing"``, such as machine vise
-        jaws drawn for clearance) are not listed. A fit position printed ``?`` says why
-        under the table."""
+        made row's or made hole's ``note`` (material, heat treatment, finish, how it is
+        cut) one "Make:" entry under that; solids already in the shop (``supply =
+        "existing"``, such as machine vise jaws drawn for clearance) are not rows. A
+        bought or existing part's note prints on a "Notes:" line after the Make entries,
+        and every solid's ``records`` print as fill-ins (:meth:`record_blank`) under
+        "Measure and record before first use:". A fit position printed ``?`` says why
+        under the table. An item only the HOLD places (:data:`LOOSE`) gives its positions
+        in its own frame, the one its solids are drawn in."""
         sid = setup["id"]
         item = self.shop_made(reference)
-        placed = [(label, _pose_axes(pose)) for label, pose in placements]
+        loose = all(pose == LOOSE for _, pose in placements)
+        placed = [
+            (label, _ITEM_FRAME if loose else LOOSE if pose == LOOSE else _pose_axes(pose))
+            for label, pose in placements
+        ]
         solids, made, withheld, holes, drilled, fits = self.shop_made_parts(reference)
         self.fixture_unknowns = set()
         groups = {}
@@ -2250,6 +2301,25 @@ class _Traveler:
                     self.bench(first["fastener"]) if first.get("fastener") else "—",
                 ]
             )
+        # A made hole's note (how it is cut) is a Make entry; a bought or existing part's
+        # note (its state as bought, what to leave alone) prints apart, as Notes.
+        listed = {id(s) for members in groups.values() for s in members}
+        others = {}
+        for solid in solids:
+            note = solid.get("note")
+            name = self.bench(solid.get("label") or _solid_name(solid.get("name", "?")))
+            if not note or id(solid) in listed:
+                continue
+            made_hole = solid.get("void") and _supply(solid) == "made"
+            entry = (notes if made_hole else others).setdefault(self.bench(note).rstrip("."), [])
+            if name not in entry:
+                entry.append(name)
+        records = [
+            self.record_blank(solid, blank)
+            for solid in solids
+            for blank in solid.get("records") or []
+            if isinstance(blank, dict)
+        ]
         if not solids:
             dims = [_amount(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")]
             size = (
@@ -2261,11 +2331,12 @@ class _Traveler:
             if any(_example(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")):
                 body += f" {EXAMPLE_MARK}"
                 self.example_marks = True
-            rows.append([body, size, ["? not posed"], "—", "—"])
+            rows.append([body, size, [LOOSE_TEXT if loose else "? not posed"], "—", "—"])
+        frame = f"its own frame ({LOOSE_TEXT})" if loose else f"Setup {sid}"
         headings = [
             "Component",
             "Size mm",
-            f"Position, Setup {sid} X / Y / Z mm",
+            f"Position, {frame} X / Y / Z mm",
             "Locates",
             "Fastener",
         ]
@@ -2277,8 +2348,14 @@ class _Traveler:
         title = f"SHOP-MADE FIXTURE — {self.reference(reference, 'fixtures')}"
         title += f" ({', '.join(users)})" if users else ""
         intro = (
-            f"Make before Setup {sid}. Positions are in the Setup {sid} frame: boxes give "
-            "their X / Y / Z extents, cylinders their axis."
+            f"Make before Setup {sid}. "
+            + (
+                f"Nothing poses it in the Setup {sid} frame: set it where the HOLD says. "
+                "Positions are in the item's own frame"
+                if loose
+                else f"Positions are in the Setup {sid} frame"
+            )
+            + ": boxes give their X / Y / Z extents, cylinders their axis."
         )
         hardware = self.hardware(
             [s for s in solids if not s.get("void") and _supply(s) == "bought"], len(placed)
@@ -2297,8 +2374,38 @@ class _Traveler:
             )
             + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
             + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
+            + (_p(f"Notes: {_make_notes(others)}.") if others else "")
+            + (_p("Measure and record before first use:") if records else "")
+            + "".join(_p(line) for line in records)
             + "".join(_p(reason) for reason in sorted(self.fixture_unknowns))
         )
+
+    def record_blank(self, solid, blank):
+        """One record blank as a fill-in: ``head: head-to-shoulder TIR — 0.0005 in test
+        indicator, rolled in the V-block: accept ≤ 0.010 mm, goal ≤ 0.003 mm; measured
+        ________ mm``. The spec and goal print rounded down (never looser); a gauge the
+        shop list does not have prints ``? <key>``; no spec is recorded, not judged."""
+        component = self.bench(solid.get("label") or _solid_name(solid.get("name", "?")))
+        line = f"{component}: {self.bench(blank['check'])}"
+        tools = []
+        gauge = blank.get("gauge")
+        if isinstance(gauge, str) and gauge not in ("none", "not_applicable"):
+            present = named_item(self.bundle, f"gauges.{gauge}") is not None
+            tools.append(self.reference(gauge, "gauges") if present else f"? {gauge}")
+        if _stated(blank.get("how")):
+            tools.append(self.bench(blank["how"]))
+        if tools:
+            line += " — " + ", ".join(tools)
+        limits = [
+            f"{word}≤ {_inward(0, blank[key])[1]} mm"
+            for key, word in (("max_mm", "accept "), ("goal_mm", "goal "))
+            if _known(blank.get(key))
+        ]
+        if limits:
+            line += ": " + ", ".join(limits)
+        over = blank.get("over_mm")
+        span = f" over {over:g} mm" if _known(over) else ""
+        return f"{line}; measured ________ mm{span}"
 
     def hardware(self, solids, uses):
         """Bought solids as ``2 × 3/8-16 stud; 2 × washer Ø20.6 × 1.6``: the declared
@@ -2372,14 +2479,15 @@ class _Traveler:
             return _p(
                 self.bench(
                     f"Index: {glyph} {tentative}"
-                    f"{self.short_reference(numbers.get('fixture'))}; continuous rotation "
-                    "turned by the rotary ops; no plate landings."
+                    f"{self.short_reference(numbers.get('fixture'), 'fixtures')}; continuous "
+                    "rotation turned by the rotary ops; no plate landings."
                 )
             )
         r = _number  # Dividing-head arithmetic keeps its own digits; it is not a DRO reading.
         glyph = _GLYPHS.get(_status(finding), "")
         tentative = "Tentative — " if _status(finding) == "unknown" else ""
-        head = f"Index: {glyph} {tentative}{self.short_reference(numbers.get('fixture'))}: "
+        fixture = self.short_reference(numbers.get("fixture"), "fixtures")
+        head = f"Index: {glyph} {tentative}{fixture}: "
         positions = numbers.get("positions")
         lock = "Lock the spindle before cutting."
         if numbers.get("requested_angle_deg") == 0 and positions == 1:
@@ -2989,7 +3097,10 @@ class _Traveler:
         limit = transfer.get("runout_limit_mm")
         # A limit is never rounded: 0.0254 printed as 0.03 would loosen it.
         reading = f"{_number(limit)} mm total indicator reading"
-        with_gauge = " with the " + self.reference(gauge) if gauge not in (None, "unknown") else ""
+        slot = "tools" if "tool" in transfer else "gauges"
+        with_gauge = (
+            " with the " + self.reference(gauge, slot) if gauge not in (None, "unknown") else ""
+        )
         recovery = transfer.get("recovery")
         recovery = recovery.strip() if isinstance(recovery, str) and recovery != "unknown" else ""
         clamped = transfer.get("keep_clamped") is True
@@ -3131,7 +3242,7 @@ class _Traveler:
                 tool = (
                     "? tool not chosen"
                     if touch["tool"] in (None, "unknown")
-                    else tools.get(touch["tool"]) or self.short_reference(touch["tool"])
+                    else self.touched_tool(touch["tool"], tools)
                 )
             if indicate:
                 contact.append(self.indicate_recipe(setup, axis, target, authored, tool))
@@ -3169,6 +3280,10 @@ class _Traveler:
             radius = touch.get("radius_mm")
             if _known(radius) and radius and touch.get("from") != "indicated":
                 contact.append(f"edge-finder radius {o(radius)}")
+            if computed.get("finder"):
+                contact.append(
+                    "speed, kick-out and offset: " + self.finder_pointer(setup, touch.get("tool"))
+                )
             paper = touch.get("paper_mm")
             if _known(paper):
                 contact.append(f"paper {o(paper)}" if paper else "direct contact, no paper")
@@ -3228,6 +3343,15 @@ class _Traveler:
                     ordered=True,
                 )
             )
+        for (reference, machine), home in self.finder_homes.items():
+            if home == setup["id"] and machine == setup.get("machine"):
+                finder = next(
+                    computed["finder"]
+                    for axis, computed in axes.items()
+                    if computed.get("finder")
+                    and _mapping(authored.get(axis)).get("tool") == reference
+                )
+                pieces.append(self.finder_box(reference, machine, finder))
         correction = self.measured_top(setup)
         if correction:
             pieces.append(_p(correction))
@@ -3251,7 +3375,7 @@ class _Traveler:
             for record in records:
                 after, served = _text(record.get("op")), record.get("next_op")
                 incoming = record.get("next_tool")
-                name = tools.get(incoming) or self.short_reference(incoming)
+                name = self.touched_tool(incoming, tools)
                 if record.get("tool_change") is True:
                     changes.append((after, name, _text(served)))
                 elif record.get("tool_change") is False and _known(served):
@@ -3288,7 +3412,7 @@ class _Traveler:
                     pieces.append(_p(self.tool_setting(settings_at[(kind, index)], tools)))
                 pieces.append(_p(self.tool_touch(setup, touch, tools)))
         for gap in numbers.get("missing_touches", []):
-            name = tools.get(gap.get("tool")) or self.short_reference(gap.get("tool"))
+            name = self.touched_tool(gap.get("tool"), tools)
             missing = " and ".join(_text(axis).upper() for axis in gap.get("axes", []))
             pieces.append(
                 _p(
@@ -3300,6 +3424,184 @@ class _Traveler:
             if record.get("note"):
                 pieces.append(_p(self.bench(record["note"])))
         return "".join(pieces)
+
+    @functools.cached_property
+    def finder_homes(self):
+        """``{(edge-finder reference, machine): setup id}``: the first setup whose DRO zero
+        picks up with that finder on that mill prints its EDGE FINDER box. The speed is the
+        mill's, so each mill the finder is used on gets its own box."""
+        homes = {}
+        for setup in self.plan.get("setups", []):
+            axes = _mapping(self.records.get(("zero_check", setup["id"]))).get("axes")
+            zero = _mapping(setup.get("zero"))
+            for axis in ("x", "y"):
+                if _mapping(_mapping(axes).get(axis)).get("finder"):
+                    key = (_mapping(zero.get(axis)).get("tool"), setup.get("machine"))
+                    homes.setdefault(key, setup["id"])
+        return homes
+
+    def finder_pointer(self, setup, reference):
+        """``EDGE FINDER box`` with the sheet that prints it when another setup's does."""
+        home = self.finder_homes.get((reference, setup.get("machine")), setup["id"])
+        return "EDGE FINDER box" + ("" if home == setup["id"] else f", Setup {home} sheet 1")
+
+    def finder_box(self, reference, machine, finder):
+        """The one edge-finding procedure every X/Y pick-up with ``reference`` on
+        ``machine`` follows: the speed it runs at on that mill, how its contact shows and
+        how half its tip Ø is applied by the side it comes from
+        (``zero_recipe.finder_procedure`` facts)."""
+        o = self.operative
+        kind = finder.get("finder_type")
+        lines = []
+        names = {"finder_type": "type", "tip_in / tip_mm": "tip Ø", "rpm_range": "rpm range"}
+        missing = [names.get(name, name) for name in finder.get("missing") or []]
+        if missing:
+            lines.append(
+                _p(
+                    f"STOP: the shop list gives no {' or '.join(missing)} for this finder — "
+                    "its speed, contact and offset are not known. Do not pick up with it.",
+                    "stop",
+                )
+            )
+
+        def bands(value):
+            return " or ".join("–".join(_number(v) for v in pair) for pair in value)
+
+        rpm, band, spindle = finder.get("rpm"), finder.get("finder_rpm_range"), None
+        if isinstance(finder.get("machine_rpm"), list):
+            spindle = bands(finder["machine_rpm"])
+        if kind == "electronic":
+            lines.append(_p("Speed: spindle stopped — the finder does not turn."))
+        elif finder.get("status") == "error":
+            lines.append(
+                _p(
+                    f"STOP: the finder's {bands([band])} rpm lies outside the mill's "
+                    f"{spindle} rpm.",
+                    "stop",
+                )
+            )
+        elif isinstance(rpm, list) and rpm:
+            lines.append(
+                _p(
+                    f"Speed: {bands(rpm)} rpm, where a spindle range turns it (finder "
+                    f"{bands([band])} rpm; mill {spindle} rpm). Never a speed between the "
+                    "mill's ranges."
+                    if len(rpm) > 1
+                    else f"Speed: {bands(rpm)} rpm, in the spindle range that covers it "
+                    f"(finder {bands([band])} rpm; mill {spindle} rpm)."
+                )
+            )
+        elif "rpm range" not in missing:
+            lines.append(
+                _p("STOP: the finder's or the mill's rpm range is not known — no speed.", "stop")
+            )
+        if kind == "mechanical":
+            lines.append(
+                _p(
+                    "Kick-out: spindle stopped, push the tip a little off centre by hand. Run "
+                    "the spindle: the tip wobbles. Feed toward the edge by handwheel, in the "
+                    "smallest steps once close: the tip touches and runs true with the body, "
+                    "and at the next small step it kicks sharply sideways. Stop at the kick. "
+                    "Back off, re-approach in the smallest steps and stop at the first kick "
+                    "again: that position is the pick-up."
+                )
+            )
+        elif kind == "electronic":
+            lines.append(
+                _p(
+                    "Contact: the finder's light comes on the moment the tip touches the "
+                    "work. Feed in the smallest steps once close and stop at the first light; "
+                    "back off and re-approach once: that position is the pick-up."
+                )
+            )
+        tip, radius = finder.get("tip_dia_mm"), finder.get("radius_mm")
+        if _known(radius):
+            lines.append(
+                _p(
+                    f"Offset: at the pick-up the spindle axis is half the tip Ø ({o(tip)}) off "
+                    f"the edge, r = {o(radius)}. Coming from the − side (moving + onto the "
+                    f"edge): Axis Set edge − {o(radius)}. Coming from the + side: Axis Set edge "
+                    f"+ {o(radius)}. Each DRO ZERO row prints its signed Axis Set."
+                )
+            )
+        cite = finder.get("cite")
+        cites = [cite] if isinstance(cite, str) and cite != "unknown" else cite
+        if isinstance(cites, list) and cites:
+            lines.append(_p("Finder data: " + "; ".join(str(c) for c in cites) + "."))
+        title = f"EDGE FINDER — {self.reference(reference, 'tools')}"
+        if sum(key[0] == reference for key in self.finder_homes) > 1:
+            title += f" on {self.reference(machine, 'machines')}"
+        return f'<div class="keep"><h3>{escape(title)}</h3>{"".join(lines)}</div>'
+
+    @functools.cached_property
+    def receipt_homes(self):
+        """``{(category, bought item reference): setup id}``: the first setup using an item
+        with receipt checks prints its PURCHASED TOOLING / RECEIPT CHECK table. A
+        ``fixtures.pins`` and a ``gauges.pins`` are two items, each with its own table."""
+        homes = {}
+        for setup in self.plan.get("setups", []):
+            numbers = _mapping(self.records.get(("purchased_tooling", setup["id"])))
+            for item in numbers.get("items", []):
+                homes.setdefault((item.get("category"), item["ref"]), setup["id"])
+        return homes
+
+    def purchased_tooling(self, setup):
+        """Each bought-finished item the setup uses that carries receipt checks: its
+        table where first used, a pointer to that table after."""
+        numbers = _mapping(self.records.get(("purchased_tooling", setup["id"])))
+        html = []
+        for item in numbers.get("items", []):
+            identity = (item.get("category"), item["ref"])
+            name = self.reference(item["ref"], item.get("category"))
+            home = self.receipt_homes.get(identity, setup["id"])
+            if home != setup["id"]:
+                html.append(
+                    _p(
+                        f"{name}: bought finished, accepted on receipt — PURCHASED TOOLING / "
+                        f"RECEIPT CHECK table, Setup {home} sheet 1."
+                    )
+                )
+                continue
+            rows = []
+            for check in item["checks"]:
+                gauge = check["gauge"]
+                tool = "by hand / eye" if gauge == "none" else self.short_reference(gauge, "gauges")
+                if _stated(check["how"]) and check["how"] != "not_applicable":
+                    tool += f"; {check['how']}"
+                accept = []
+                limits, most = check.get("limits_mm"), check.get("max_mm")
+                # Limits print rounded inward (the low limit up, the high one down), in mm
+                # and, for an inch gauge, in inches: never looser than declared, and never
+                # reversed or rounded to nothing (`_inward` keeps the decimals that needs).
+                reads = _mapping(resolve(self.bundle, "gauges", gauge))
+                inch = any(key.endswith("_in") for key in reads)
+                if isinstance(limits, list) and all(_known(v) for v in limits):
+                    text = "{}–{} mm".format(*_inward(*limits))
+                    inches = _inward(*limits, "in") if inch else None
+                    accept.append(text + (" ({}–{} in)".format(*inches) if inches else ""))
+                elif _known(most):
+                    inches = _inward(0, most, "in") if inch else None
+                    text = f"≤ {_inward(0, most)[1]} mm"
+                    accept.append(text + (f" (≤ {inches[1]} in)" if inches else ""))
+                if _stated(check["accept"]) and check["accept"] != "not_applicable":
+                    accept.append(check["accept"])
+                if check["status"] != "pass":
+                    accept.append(f"STOP: {check['reason']}")
+                rows.append([check["check"], tool, "; ".join(accept)])
+            purchase = item.get("purchase")
+            stops = item.get("stops") or []
+            html.append(
+                f'<div class="keep"><h3>PURCHASED TOOLING / RECEIPT CHECK — {escape(name)}</h3>'
+                + "".join(
+                    _p(f"STOP: {stop} — do not use it until the shop list states it.", "stop")
+                    for stop in stops
+                )
+                + (_p(f"Bought finished: {purchase}.") if _stated(purchase) else "")
+                + _p("Check on receipt, before first use; return the item if any check fails.")
+                + (_table(["check", "gauge", "accept"], rows, widths=[30, 35, 35]) if rows else "")
+                + "</div>"
+            )
+        return "".join(html)
 
     def measured_top(self, setup):
         """A mill Z zero set from a bench-measured M on the raw top (``measure_then_set`` on
@@ -3352,11 +3654,15 @@ class _Traveler:
             return f"{subject} {sign} {self.operative(float(match[3]))}"
         return "measured Ø" if text.strip() == "measured D" else self.bench(text)
 
+    def touched_tool(self, reference, tools):
+        """A touched-off tool's name: the setup's own name for it (``tools``), else the
+        shop name of the tools-category item (never a same-key item of another category)."""
+        return tools.get(reference) or self.short_reference(reference, "tools")
+
     def tool_setting(self, record, tools):
         """The step that sets a toolpost tool before its first touch-off (zero_check
         ``tool_setting``): on centre height, and a blade squared to the spindle axis."""
-        reference = record.get("tool")
-        name = tools.get(reference) or self.short_reference(reference)
+        name = self.touched_tool(record.get("tool"), tools)
         text = f"Before touching off {name}: {self.bench(record.get('centre_height'))}"
         square = record.get("square_blade")
         if square not in (None, "not_applicable"):
@@ -3365,7 +3671,7 @@ class _Traveler:
 
     def tool_touch(self, setup, touch, tools):
         reference = touch.get("tool")
-        name = tools.get(reference) or self.short_reference(reference)
+        name = self.touched_tool(reference, tools)
         before = touch.get("before_ops")
         when = f"Before {_ops_label(before if isinstance(before, list) else [before])}"
         if touch.get("after_op") not in (None, "unknown"):
@@ -5917,6 +6223,7 @@ class _Traveler:
             status,
             f'<div class="hold-row"><div class="hold-steps">{steps}</div>'
             f"{unpictured}</div>{hold_below}{coolant}",
+            self.purchased_tooling(setup),
             tool_html,
             None if bench else self.dro(setup, tools),
             ops_html,
@@ -6006,16 +6313,20 @@ def render_traveler(bundle, findings, report, approval=None) -> str:
 # The shop-name helpers read only the bundle's inventory (and its units for a blade
 # width), so the render host can label tools without building a traveler.
 def reference_label(bundle, reference, category=None) -> str:
-    """Shop name for an inventory reference; '(not in shop list)' when it does not resolve."""
+    """Shop name for an inventory reference; '(not in shop list)' when it does not resolve.
+    The item is the one the rules read (:func:`slot_category`): ``category``'s own first
+    (``fixtures`` is a hold slot: fixtures, holders, machines), then the rest; with no
+    category, the default order. A same-key item in another category never names it."""
     if reference in (None, "unknown", "none", "not_applicable"):
         return _text(reference)
     if not isinstance(reference, str):
         return "?"
-    identity_category = category
-    if category == "fixtures":
-        identity_category = (
-            inventory_category(bundle, reference, WORKHOLDING_CATEGORIES) or category
-        )
+    slot = "workholding" if category == "fixtures" else category
+    identity_category = (
+        slot_category(bundle, reference, slot)
+        if slot
+        else inventory_category(bundle, reference.partition("/")[0])
+    ) or category
     item = resolve(bundle, identity_category, reference)
     root, _, member = reference.partition("/")
     raw = (
@@ -6035,7 +6346,7 @@ def reference_label(bundle, reference, category=None) -> str:
     named = own if member else raw or record
     name = named.get("name", named.get("label"))
     if not name:
-        if category == "machines" or root in _mapping(bundle.inventory.get("machines")):
+        if "machines" in (category, identity_category):
             # A maker's model number (PM-30MV) is the machine's name; any other identity
             # is an inventory slug, so the operator reads the machine's kind instead.
             model = re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)*", root) and re.search(r"\d", root)

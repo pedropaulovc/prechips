@@ -788,6 +788,18 @@ is positive. Reversed direction or a non-ABS known mode is an error.
 `face = "top"` substitutes the received stock top. Another named face (such as
 an ear's inner face) uses its own authored edge; stock top is not its fallback.
 
+An X/Y pick-up with an `edge_finder` tool (not `from = "indicated"`) records the
+finder's procedure facts on its row as `finder`: `finder_type`, `tip_dia_mm`
+(`tip_in`/`tip_mm`, else `dia`), `radius_mm`, the finder's `finder_rpm_range`,
+the setup machine's spindle bands `machine_rpm` (`[[lo, hi], …]`: `ranges_rpm`,
+each clipped to a stated `rpm_min`/`rpm_max`, else `[[rpm_min, rpm_max]]`) and
+`rpm`, the bands it runs at (the finder's band intersected with each spindle
+band; a gap between bands is never filled; an electronic finder runs with the
+spindle stopped, `not_applicable`). A missing type, tip or mechanical rpm
+range, or any unknown endpoint of either band, leaves the zero unknown; a
+finder band no spindle band turns is an error. The traveler prints these once
+per finder and mill as the EDGE FINDER box ([inventory](inventory.md#edge-finder)).
+
 For each authored Z `retouch_after`, the new set value is advanced top + paper.
 A profile does not move the touched top. A listed retouch sets Z for the next
 cutting tool only: each `retouch` row carries `next_op`, `next_tool` and

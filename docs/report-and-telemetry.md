@@ -334,7 +334,12 @@ Front sheet (sheet 1), in this order:
 3. Coolant (not on bench setups). The drawing's edge break prints once on the
    job page; a setup whose `deburr_mm` differs from it prints its own limit
    with the author's reason (`Break edges 0.100 mm max in this setup, not the
-   drawing's 0.25: small socket edge break keeps the bonded length.`).
+   drawing's 0.25: small socket edge break keeps the bonded length.`). Then a
+   **PURCHASED TOOLING / RECEIPT CHECK** table for each bought-finished item
+   with receipt checks ([inventory](inventory.md#purchased-tooling)) that this
+   setup is the first to use: what is bought, then check, gauge and accept
+   limit per row (an unresolved row prints `STOP:` and why); later setups using
+   it print one line naming that table's sheet.
 4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material (with the
    shank, `shank Ø12.700`, when it differs from the cutting diameter), holder or
    QCTP station and the ops that use it. Op rows carry only the `T#`.
@@ -351,7 +356,14 @@ Front sheet (sheet 1), in this order:
    across the top); jog the table the printed distance and read it; jog back
    until the display shows the Axis Set value again, then lower. The picked-up
    value is never set again. A lathe check jogs away from the work and has no
-   raise step.
+   raise step. An edge-finder pick-up row names the **EDGE FINDER** box, which
+   prints once per finder and mill, in the DRO ZERO of the first setup picking
+   up with it on that mill ([inventory](inventory.md#edge-finder)): the speed
+   bands where the mill's ranges turn the finder (never a speed between them),
+   how the contact shows, and the offset — half the tip Ø, Axis Set edge − r
+   from the − side and edge + r from the + side; a later setup on the same mill
+   names `EDGE FINDER box, Setup S1 sheet 1`. A missing or unknown finder or
+   spindle fact prints `STOP:`.
 6. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
    Z target, cut direction and `limit: gauge` inspection. Lathe feed prints as
    `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in

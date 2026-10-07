@@ -351,16 +351,17 @@ def test_missing_retouch_schedule_is_unknown_after_facing(
         encoding="utf-8",
     )
     inventory = plan.parent.parent / "inventory" / "pedro-shop.toml"
+    finder = 'finder_type = "mechanical"\nrpm_range = [750, 1500]\n'
     with inventory.open("a", encoding="utf-8") as stream:
-        for tool, kind in [
-            ("control-finder", "edge_finder"),
-            ("control-face", "endmill"),
-            ("control-second", "endmill"),
-            ("control-third", "endmill"),
+        for tool, kind, extra in [
+            ("control-finder", "edge_finder", finder),
+            ("control-face", "endmill", ""),
+            ("control-second", "endmill", ""),
+            ("control-third", "endmill", ""),
         ]:
             stream.write(
                 f'\n[tools.{tool}]\nkind = "{kind}"\nverify = false\n'
-                'dia_mm = 6.0\nshank_mm = 9.525\nunits = "mm"\n'
+                f'dia_mm = 6.0\nshank_mm = 9.525\nunits = "mm"\n{extra}'
             )
     (plan.parent.parent / "shop-policy.toml").write_text(
         '[required]\nzero_check = "setups"\n', encoding="utf-8"
