@@ -35,7 +35,10 @@ def bundle(machine, zero, ops, stock_state=None):
         },
         features={"frames": {"F": {"binding": "nominal"}}, "features": {"journal": {}}},
         inventory={
-            "machines": {"lathe": {"kind": "lathe"}, "mill": {"kind": "mill"}},
+            "machines": {
+                "lathe": {"kind": "lathe"},
+                "mill": {"kind": "mill", "spindle": {"rpm_min": 50, "rpm_max": 3000}},
+            },
             "tools": {
                 name: {"kind": kind, "tip_in": 0.2}
                 for name, kind in (
@@ -52,6 +55,8 @@ def bundle(machine, zero, ops, stock_state=None):
         policy={},
     )
     data.feature_definitions = data.features["features"]
+    # An edge finder's EDGE FINDER box facts (docs/inventory.md "Edge finder").
+    data.inventory["tools"]["finder"].update(finder_type="mechanical", rpm_range=[1000, 1200])
     return data
 
 

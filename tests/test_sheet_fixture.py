@@ -484,3 +484,64 @@ def test_oblique_hole_without_cuts_withholds_the_part_it_may_cross():
     # Named in cuts, the hole prints in the plate's row.
     table = bridge_page(plate, {**hole, "cuts": ["plate"]})
     assert "X 60…70, Y -5…5, Z 0…0.1|with 1 × Ø1 hole" in table
+
+
+# A soft-jaw plate bolted to a vise jaw, drawn in its own frame: the vise places it.
+SOFT_JAWS = {
+    "kind": "vise",
+    "shop_made": True,
+    "solids": [
+        {"name": "jaw-plate", "shape": "box", "at_mm": [0, 0, 0], "size_mm": [150, 20, 60]},
+        {
+            "name": "bolt-hole",
+            "shape": "cylinder",
+            "at_mm": [25, 0, 30],
+            "axis": [0, 1, 0],
+            "dia_mm": 11,
+            "length_mm": 20,
+            "void": True,
+            "fastener": "M10 jaw bolt",
+        },
+    ],
+}
+BUTTONS = {
+    "kind": "jaw_buttons",
+    "shop_made": True,
+    "solids": [
+        {
+            "name": "button",
+            "shape": "cylinder",
+            "at_mm": [0, 0, 0],
+            "axis": [0, 0, 1],
+            "dia_mm": 20,
+            "length_mm": 6,
+        },
+    ],
+}
+
+
+def loose_page(hold, **items):
+    data = bundle([hold])
+    data.inventory["fixtures"].update(items)
+    page = sheets(data)[0]
+    return page, page[page.index("SHOP-MADE FIXTURE —") :]
+
+
+def test_an_item_the_hold_places_prints_its_make_table_in_its_own_frame():
+    _, table = loose_page({"fixture": "soft-jaws", "jaws_along": "x"}, **{"soft-jaws": SOFT_JAWS})
+    assert "loose: placed as the HOLD says" in table
+    assert "? not posed" not in table
+    # Sizes and the bolt hole stand where the make table draws them, in the item frame.
+    assert "150 × 20 × 60" in table and "X 0…150, Y 0…20, Z 0…60" in table
+    assert "M10 jaw bolt" in table and "axis at X 25, Z 30" in table
+
+
+def test_jaw_buttons_get_a_make_table_and_the_hold_points_to_it():
+    page, table = loose_page({"fixture": "angle", "jaw_buttons": "buttons"}, buttons=BUTTONS)
+    assert "Jaw buttons: " in page and "(shop-made: SHOP-MADE FIXTURE table, sheet 2)" in page
+    assert "Ø20 × 6" in table and "loose: placed as the HOLD says" in table
+
+
+def test_a_fixture_placed_by_its_pose_still_stops_without_one():
+    _, table = loose_page({"fixture": "plate"})
+    assert "? not posed" in table and "loose" not in table

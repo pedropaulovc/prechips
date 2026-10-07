@@ -276,6 +276,26 @@ def workholding_category(bundle_or_inventory, reference):
     return inventory_category(bundle_or_inventory, reference, WORKHOLDING_CATEGORIES) or "fixtures"
 
 
+def setup_item_refs(setup):
+    """The inventory references a setup puts its hands on, first use first: the hold's
+    fixture, clamps, stop, riser and supports, then each op's filing guide and tool."""
+    hold = record(setup.get("hold"))
+    refs = [hold.get("fixture")]
+    refs += [record(clamp).get("ref") for clamp in hold.get("clamps") or [] if clamp]
+    refs += [hold.get("stop_fixture"), hold.get("riser")]
+    supports = hold.get("supports")
+    for support in supports if isinstance(supports, list) else [supports]:
+        refs.append(record(support).get("ref") if isinstance(support, dict) else support)
+    for op in setup.get("ops") or []:
+        guide = record(record(op).get("guide"))
+        refs += [guide.get("buttons"), guide.get("template"), record(op).get("tool")]
+    seen = []
+    for ref in refs:
+        if isinstance(ref, str) and ref not in {UNKNOWN, "none", "not_applicable", *seen}:
+            seen.append(ref)
+    return seen
+
+
 def resolve(bundle_or_inventory, category, reference):
     inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
     if not isinstance(reference, str) or reference in {UNKNOWN, "none", "not_applicable"}:

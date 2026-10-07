@@ -1189,6 +1189,16 @@ FixtureSolid = record(
         "verify": bool,
     },
 )
+# One receipt check of a bought-finished item (docs/inventory.md "Purchased tooling"):
+# ``check`` says what is checked, ``gauge`` names an inventory gauge (``"none"`` for a
+# check by hand or eye, which then states its ``accept`` criterion), ``how`` the way the
+# gauge is used. The limit is ``limits`` (the name of a limits pair or single-length field
+# on the same item, printed lo–hi or ≤ value) or ``limits_mm`` [lo, hi], and/or ``accept``
+# in words (a GO / NO-GO result).
+AcceptanceCheck = record(
+    "AcceptanceCheck",
+    {**texts("check gauge how limits accept"), "limits_mm": LimitPair},
+)
 InventoryItem = record(
     "InventoryItem",
     {
@@ -1200,6 +1210,13 @@ InventoryItem = record(
         "sku": str | int,
         **flags("verify present center_cutting swivel_base scroll independent shop_made"),
         **texts("dial_increases"),
+        # Edge finder (docs/inventory.md "Edge finder"): how its contact shows and the
+        # spindle speed band it is run at (with ``tip_in``/``tip_mm``, the tip Ø).
+        "finder_type": Literal["mechanical", "electronic"],
+        "rpm_range": LimitPair,
+        # Bought-finished tooling: what is bought, and its receipt checks.
+        "purchase": str,
+        "acceptance": Annotated[list[AcceptanceCheck], Field(min_length=1)],
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
@@ -1431,6 +1448,52 @@ def _inventory_lengths(
         )
 
 
+def _inventory_checks(item: Any, where: str) -> None:
+    """Receipt checks belong to bought items, and an edge finder's speed band is ordered
+    (docs/inventory.md "Purchased tooling", "Edge finder")."""
+    if not isinstance(item, dict):
+        return
+    band = item.get("rpm_range")
+    if _numeric_pair(band):
+        _ordered(band, f"{where}: rpm_range", floor=0.0, inclusive=False)
+    checks = item.get("acceptance")
+    if isinstance(checks, list):
+        if item.get("shop_made") is True or item.get("kind") == "custom":
+            raise ValueError(f"{where}: acceptance is a bought item's receipt check.")
+        for index, check in enumerate(checks):
+            if isinstance(check, dict):
+                _acceptance_check(check, f"{where}.acceptance[{index}]")
+    members = item.get("members")
+    for name, member in members.items() if isinstance(members, dict) else ():
+        _inventory_checks(member, f"{where}/{name}")
+
+
+def _acceptance_check(check: dict, where: str) -> None:
+    """A receipt check states what it checks, with a gauge (or ``none``) and a limit."""
+    for key in ("check", "gauge"):
+        value = check.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{where}: {key} must be stated (gauge may be unknown or none).")
+    numeric = [key for key in ("limits", "limits_mm") if key in check]
+    if len(numeric) > 1:
+        raise ValueError(f"{where}: state the limit once, as limits or limits_mm.")
+    if not numeric and "accept" not in check:
+        raise ValueError(f"{where}: a receipt check needs a limit or an accept criterion.")
+    if check["gauge"] == "none" and numeric:
+        raise ValueError(f"{where}: a numeric limit is read with a gauge, not by hand.")
+    band = check.get("limits_mm")
+    if _numeric_pair(band):
+        _ordered(band, f"{where}: limits_mm", floor=0.0, inclusive=True)
+
+
+def _numeric_pair(band: Any) -> bool:
+    return (
+        isinstance(band, list)
+        and len(band) == 2
+        and all(isinstance(v, int | float) and not isinstance(v, bool) for v in band)
+    )
+
+
 # An in-house consumable a coating op names: the shop's display name for the traveler and
 # the products on the shelf; an unknown, empty or blank product list leaves it unresolved.
 Consumable = record("Consumable", {"name": str, "products": list[str]})
@@ -1457,6 +1520,7 @@ class Inventory(InputModel):
                     for identity, item in items.items():
                         where = f"{category}.{identity}"
                         _inventory_lengths(item, where, tool=category == "tools")
+                        _inventory_checks(item, where)
         return values
 
 
