@@ -621,6 +621,160 @@ def _positive(record, key):
     return float(value) if _number(value) and value > 0 else None
 
 
+def _islands(op):
+    """(an op's raster keep-out ``(islands, printed, skipped)``, or None, and why it is
+    unknown). ``islands`` are setup-frame ``(x, y, radius)`` mm circles its passes keep the
+    whole cutter outside; ``printed`` its cutter-centre pieces and ``skipped`` the parts of
+    its island-free passes the circles removed, each ``((x0, y0), (x1, y1))`` mm. An op
+    without islands keeps nothing: ``([], [], [])``."""
+    circles = op.get("keep_out", [])
+    if not isinstance(circles, list):
+        return None, "contour.keep_out islands have no setup-frame circles"
+    islands = []
+    for circle in circles:
+        at = circle.get("at_mm") if isinstance(circle, dict) else None
+        dia = _positive(circle, "dia_mm") if isinstance(circle, dict) else None
+        if not (isinstance(at, list) and len(at) == 2 and all(map(_number, at)) and dia):
+            return None, "contour.keep_out needs numeric setup-frame at_mm and positive dia_mm"
+        islands.append((float(at[0]), float(at[1]), dia / 2))
+    if not islands:
+        return ([], [], []), None
+    passes = op.get("keep_out_passes")
+    split = [
+        _segments(passes.get(key)) if isinstance(passes, dict) else None
+        for key in ("printed", "skipped")
+    ]
+    if any(segments is None for segments in split):
+        return None, (
+            "contour.keep_out passes have no setup-frame printed pieces and skipped parts, "
+            "so the stock they leave round the islands is unknown"
+        )
+    return (islands, *split), None
+
+
+def _segments(value):
+    """A list of ``[[x, y], [x, y]]`` mm segments as point tuples, or None."""
+    if not isinstance(value, list):
+        return None
+    segments = []
+    for segment in value:
+        if not (
+            isinstance(segment, list)
+            and len(segment) == 2
+            and all(isinstance(p, list) and len(p) == 2 and all(map(_number, p)) for p in segment)
+        ):
+            return None
+        segments.append(tuple((float(p[0]), float(p[1])) for p in segment))
+    return segments
+
+
+def _foot(x, y, segment):
+    """The point of a level segment ``((x0, y0), (x1, y1))`` nearest ``(x, y)``."""
+    (ax, ay), (bx, by) = segment
+    dx, dy = bx - ax, by - ay
+    length = dx * dx + dy * dy
+    t = 0.0 if length <= 0 else max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / length))
+    return ax + t * dx, ay + t * dy
+
+
+def _to_segment(x, y, segment):
+    """Distance from ``(x, y)`` to a level segment ``((x0, y0), (x1, y1))``."""
+    fx, fy = _foot(x, y, segment)
+    return math.hypot(x - fx, y - fy)
+
+
+def _segment_gap(s, t):
+    """Distance between two level segments: 0 where they cross, else an endpoint's."""
+
+    def side(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+
+    if side(*s, t[0]) * side(*s, t[1]) < 0 and side(*t, s[0]) * side(*t, s[1]) < 0:
+        return 0.0
+    return min(*(_to_segment(*p, t) for p in s), *(_to_segment(*p, s) for p in t))
+
+
+def _unreached(keep, x, y, radius):
+    """Whether no printed piece of a split raster reaches ``(x, y)``: inside or on a
+    keep-out circle, or within the cutter ``radius`` of a skipped pass part yet farther
+    than it from every printed piece (a cusp the round cutter leaves between piece ends)."""
+    islands, printed, skipped = keep
+    if any(math.hypot(x - cx, y - cy) <= r + PLANAR_EQUAL_MM for cx, cy, r in islands):
+        return True
+    near = radius + PLANAR_EQUAL_MM
+    return any(_to_segment(x, y, part) <= near for part in skipped) and all(
+        _to_segment(x, y, piece) > near for piece in printed
+    )
+
+
+def _unswept(keep, radius, box):
+    """The stock a split raster leaves, as prisms through the Z span of ``box``: its
+    keep-out islands, and what its skipped pass parts would have swept less what any
+    printed piece sweeps, which is the cusps a cutter of ``radius`` leaves between piece
+    ends. Away from the skipped parts its printed pieces sweep what the whole passes do.
+    The region is built from level faces and extruded once: planar booleans on many
+    overlapping stadiums are an order of magnitude cheaper than on their prisms."""
+    islands, printed, skipped = keep
+    low, high = box[2] - 1.0, box[5] + 1.0
+
+    def swept(segments):
+        faces = []
+        for a, b in segments:
+            start, end = V(a[0], a[1], low), V(b[0], b[1], low)
+            if (end - start).Length <= PLANE_TOL:
+                faces.append(Part.Face(Part.Wire(Part.makeCircle(radius, start))))
+            else:
+                faces.extend(_stadium(start, end, radius).Faces)
+        if not faces:
+            return None
+        return faces[0].fuse(faces[1:]) if len(faces) > 1 else faces[0]
+
+    kept = [Part.Face(Part.Wire(Part.makeCircle(r, V(cx, cy, low)))) for cx, cy, r in islands]
+    lost = swept(skipped)
+    if lost is not None:
+        reach = 2 * radius + PLANE_TOL
+        cover = swept(p for p in printed if any(_segment_gap(p, s) < reach for s in skipped))
+        if cover is not None:
+            lost = lost.cut(cover)
+        kept.extend(face for face in lost.Faces if face.Area > 0)
+    area = kept[0].fuse(kept[1:]).removeSplitter() if len(kept) > 1 else kept[0]
+    prisms = [face.extrude(V(0, 0, high - low)) for face in area.Faces]
+    return prisms[0].fuse(prisms[1:]).removeSplitter() if len(prisms) > 1 else prisms[0]
+
+
+def _off_islands(islands, x, y, radius, point):
+    """Tool axis ``(x, y)`` moved straight out from each keep-out circle it stands nearer
+    than one cutter ``radius`` beyond (towards the sample ``point`` from a centred axis),
+    where the passes keep it: the cutter edge just touches the circle."""
+    for cx, cy, r in islands:
+        need = r + radius
+        dx, dy = x - cx, y - cy
+        distance = math.hypot(dx, dy)
+        if distance >= need - PLANAR_EQUAL_MM:
+            continue
+        if distance <= 1e-9:
+            dx, dy = point.x - cx, point.y - cy
+            distance = math.hypot(dx, dy)
+        x, y = cx + need * dx / distance, cy + need * dy / distance
+    return x, y
+
+
+def _on_pass(keep, x, y, radius, point):
+    """Tool axis ``(x, y)`` of a split raster's floor sample ``point``, moved off its
+    keep-out circles (:func:`_off_islands`) and then, where its cutter could still meet the
+    stock a skipped pass part leaves, onto the nearest point of a printed piece within one
+    cutter ``radius`` of the sample: there the cutter that takes it stands, sweeping
+    neither an island nor a cusp."""
+    islands, printed, skipped = keep
+    x, y = _off_islands(islands, x, y, radius, point)
+    if all(_to_segment(x, y, part) >= 2 * radius for part in skipped):
+        return x, y
+    near = radius + PLANAR_EQUAL_MM
+    feet = [_foot(point.x, point.y, piece) for piece in printed]
+    reach = [(gap, f) for f in feet if (gap := math.hypot(point.x - f[0], point.y - f[1])) <= near]
+    return min(reach, key=lambda entry: entry[0])[1] if reach else (x, y)
+
+
 def _bbox(shape):
     box = shape.optimalBoundingBox(True, False)
     return (box.XMin, box.YMin, box.ZMin, box.XMax, box.YMax, box.ZMax)
@@ -4243,7 +4397,8 @@ class _Setup:
         paths sweep (:meth:`_run_out`); other claims sweep along +Z. Either way unclaimed
         rails, ears, webs and overstock past them stay. A
         lower-leave op also cuts the lineage leave off its claimed lateral faces of ``stock``
-        (:meth:`_band`).
+        (:meth:`_band`). A raster split round keep-out islands removes neither, in its own
+        cut or its band, where its printed pieces do not sweep (:func:`_unswept`).
         """
         process = op.get("process_cut")
         if isinstance(process, dict) and process.get("reason"):
@@ -4275,6 +4430,12 @@ class _Setup:
             if cut["reason"] is not None:
                 return None, cut["reason"]
             return (cut["removal"], []), None
+        keep, why = _islands(op)
+        if why is not None:
+            return None, why
+        radius = _positive(op, "radius_mm")
+        if keep[0] and radius is None:
+            return None, "contour.keep_out leaves unknown stock: missing measured cutter radius_mm"
         leave, why = self._guarded(op)
         if why is not None:
             return None, why
@@ -4287,7 +4448,7 @@ class _Setup:
                 valid,
                 away,
                 to_z,
-                _positive(op, "radius_mm"),
+                radius,
                 leave,
                 op.get("do"),
             )
@@ -4300,6 +4461,27 @@ class _Setup:
         )
         if why is not None:
             return None, why
+        if keep[0] and (removal is not None or band):
+            # Its printed pieces sweep neither an island nor the cusps between their ends:
+            # whatever its box, claims or the lineage leave would remove there stays.
+            kept = _unswept(keep, radius, _bbox(stock))
+            if removal is not None:
+                removal = removal.cut(kept)
+                if removal.Volume <= HIT_MM3:
+                    removal = None
+            band = [
+                group
+                for group in (
+                    [
+                        solid
+                        for piece in group
+                        for solid in piece.cut(kept).Solids
+                        if solid.Volume > 0
+                    ]
+                    for group in band or []
+                )
+                if group
+            ]
         return (removal, band or []), None
 
     def _hand_removal(self, op, valid, stock):
@@ -8948,6 +9130,8 @@ class _Setup:
         # Transient faces already include their joint cut's allowance; ordinary rough
         # poses stand their known leave off the finished surface along the normal.
         leave, why = (0.0, None) if joint or hole_cut is not None else self._guarded(op)
+        keep, unmapped = _islands(op)
+        why = why or unmapped
         if why is not None:
             for key in self._MEASURED:
                 facts[key] = UNKNOWN
@@ -8969,7 +9153,13 @@ class _Setup:
                 except Exception as exc:
                     undefined[index] = exc
                     continue
-            samples.extend((index, point, normal) for point, normal in found)
+            # A sample no printed piece reaches, inside a keep-out island or in a cusp left
+            # between piece ends round it, is not this op's: it stays under the stock.
+            samples.extend(
+                (index, point, normal)
+                for point, normal in found
+                if not _unreached(keep, point.x, point.y, radius)
+            )
             if missed:
                 sample_problems.append(
                     f"{self.owner.labels[index]}: {missed} sample point(s) "
@@ -9014,6 +9204,7 @@ class _Setup:
             if index in floors:
                 try:
                     ax, ay = self._planar_axis(index, point, radius, leave, level + LIFT)
+                    ax, ay = _on_pass(keep, ax, ay, radius, point)
                 except Exception as exc:
                     undefined[index] = exc
                     continue
