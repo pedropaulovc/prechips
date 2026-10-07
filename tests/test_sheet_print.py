@@ -582,6 +582,114 @@ def test_fixture_position_fragments_repeat_component_and_size_in_the_same_slots(
     assert re.findall(r"OriginalPosition\d{4}", "".join(reconstructed[2])) == words
 
 
+@pytest.mark.parametrize("oversized", [False, True], ids=["fitting-clauses", "over-page-clause"])
+def test_existing_tapped_clauses_keep_words_slots_and_make_page_progress(printed_sheet, oversized):
+    from test_sheet_fixture import IDENTITY, existing_tapped_fixture
+
+    from prechips.sheet import _fields
+
+    # Many ordinary features force a genuine row continuation. The other fixture
+    # has one identity longer than a page, so keeping it whole cannot make progress.
+    identity = [f"IdentityWord{index:04}" for index in range(500)] if oversized else []
+    data = existing_tapped_fixture(1 if oversized else 48, identity)
+    traveler = _Traveler(data, [], {}, None)
+    source = traveler.shop_made_table(data.plan["setups"][0], "plate", [("C1", IDENTITY)])
+    source += f"<p>{_fields('Record existing observation: {observed}')}</p>"
+    original = Markup(source.replace("<br>", " "))
+    (table,) = original.find("fixture")
+    (row,) = _body_rows(original, table)
+    expected = [content(cell).split() for cell in _cells(original, row)]
+    headings = [
+        content(node)
+        for node in original.nodes
+        if node["tag"] == "th"
+        and node["attrs"].get("colspan", "1") == "1"
+        and node["parent"]["parent"]["parent"] is table
+    ]
+    assert len(expected) == len(headings) == 3
+    clauses = [
+        clause.split()
+        for clause in re.findall(r"with\b.*?(?=\bwith\b|$)", content(_cells(original, row)[2]))
+    ]
+    assert len(clauses) == (1 if oversized else 48)
+    probe = _SOURCE_PAGES.replace(
+        "pages: Number(section.dataset.pages),",
+        r"""pages: Number(section.dataset.pages),
+        fragments: [...section.querySelectorAll('table.fixture')].map(table => ({
+          headings: [...[...table.querySelectorAll('thead tr')]
+            .find(row => row.children.length === 3 && [...row.children]
+              .every(cell => cell.tagName === 'TH' && cell.colSpan === 1)).children]
+            .map(cell => cell.textContent),
+          rows: [...table.tBodies].flatMap(body => [...body.rows])
+            .filter(row => !row.closest('[data-duplex]')).map(row => ({
+              slots: [...row.cells].map(cell => {
+                const words = [], segments = [], walker = document.createTreeWalker(
+                  cell, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+                let text = '';
+                while (walker.nextNode()) {
+                  const node = walker.currentNode;
+                  const owner = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+                  if (owner.closest('[data-duplex]')) continue;
+                  if (node.nodeType !== Node.TEXT_NODE) {
+                    if (node.tagName === 'BR') text += ' ';
+                    continue;
+                  }
+                  segments.push({node, start: text.length, end: text.length + node.length});
+                  text += node.textContent;
+                }
+                for (const match of text.matchAll(/\S+/g)) {
+                  const first = segments.find(part => part.end > match.index);
+                  const end = match.index + match[0].length;
+                  const last = segments.find(part => part.start < end && part.end >= end);
+                  const range = document.createRange();
+                  range.setStart(first.node, match.index - first.start);
+                  range.setEnd(last.node, end - last.start);
+                  words.push({text: match[0], page: pageOf(range)});
+                }
+                return {words, span: cell.colSpan};
+              }),
+              context: [...row.cells].map(cell =>
+                [...cell.querySelectorAll('[data-duplex]')].map(copy => copy.textContent))
+            }))
+        })),""",
+    )
+    printed, details = printed_sheet(source, probe)
+    _assert_source_on_every_page(details)
+    assert 1 < details["pages"] < 30
+    reconstructed = [[] for _ in expected]
+    contexts = [0, 0]
+    for fragment in details["fragments"]:
+        assert fragment["headings"][:3] == headings
+        assert fragment["rows"]
+        for row in fragment["rows"]:
+            assert len(row["slots"]) == len(expected)
+            for index, slot in enumerate(row["slots"]):
+                assert slot["span"] == 1
+                reconstructed[index].extend(slot["words"])
+                if row["context"][index]:
+                    assert index in (0, 1)
+                    assert not slot["words"]
+                    assert " ".join(expected[index]) in " ".join(row["context"][index])
+                    contexts[index] += 1
+    assert all(contexts)
+    assert [[word["text"] for word in slot] for slot in reconstructed] == expected
+    position = reconstructed[2]
+    offset = expected[2].index("with")
+    for clause in clauses:
+        words = position[offset : offset + len(clause)]
+        assert [word["text"] for word in words] == clause
+        pages = {word["page"] for word in words}
+        if oversized:
+            assert len(pages) > 1
+        else:
+            assert len(pages) == 1
+        offset += len(clause)
+    assert offset == len(position)
+    (field,) = printed.find("writing-blank")
+    assert _original(field)
+    assert len(printed.find("field")) == len(original.find("field")) == 1
+
+
 def test_huge_optional_contour_context_is_omitted_without_losing_original_words(printed_sheet):
     from prechips.sheet import _fields, _table
 

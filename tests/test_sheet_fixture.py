@@ -984,6 +984,49 @@ def test_existing_part_drilled_here_lists_only_its_holes():
     assert "100 × 100 × 10" not in table and "vise" not in table
 
 
+def existing_tapped_fixture(count=1, identity_words=()):
+    """An existing plate whose only made features are the declared tapped holes."""
+    data = bundle([{"fixture": "plate", "pose": IDENTITY}])
+    data.inventory["fixtures"]["plate"]["solids"] = [
+        {
+            "name": "plate",
+            "shape": "box",
+            "at_mm": [0, -5, -20],
+            "size_mm": [100, 10, 10],
+            "supply": "existing",
+        },
+        *(
+            cylinder(
+                f"tap-{index}",
+                index,
+                -20,
+                8.5,
+                10,
+                void=True,
+                cuts=["plate"],
+                fastener=" ".join(["M10 tapped", f"Feature{index:03}", *identity_words]),
+            )
+            for index in range(count)
+        ),
+    ]
+    return data
+
+
+def test_existing_tapped_feature_identity_and_coordinates_keep_their_original_owner():
+    data = existing_tapped_fixture(2)
+    table = sheets(data)[0].fixture()
+    (row,) = table.rows()
+    assert row["Component"] == "plate (existing part: make the holes only)"
+    assert row["Size mm"] == "—"
+    assert list(row) == ["Component", "Size mm", "Position, Setup S1 X / Y / Z mm"]
+    clauses = row["Position, Setup S1 X / Y / Z mm"].split("with ")
+    assert clauses[0].split() == "X 0…100, Y -5…5, Z -20…-10".split()
+    assert [clause.split() for clause in clauses[1:]] == [
+        "1 × M10 tapped Feature000: axis at X 0, Y 0; Z -20…-10".split(),
+        "1 × M10 tapped Feature001: axis at X 1, Y 0; Z -20…-10".split(),
+    ]
+
+
 def test_fixture_numbers_print_at_policy_make_precision_and_fits_at_drawing_precision():
     table = bridge_page(fixture_make_decimals=1)
     assert table.row("beam")["Size mm"] == "60 × 10 × 8.3"

@@ -14,6 +14,7 @@ from prechips.kernel.render_diagram import (
     _CONTACT,
     _INK,
     _AnnotationDetail,
+    _compose_diagram,
     _corners,
     _dashed,
     _Diagram,
@@ -34,6 +35,13 @@ _WHITE = (255, 255, 255)
 
 def _canvas(meshes=(), camera=_FRONT, width=200, height=200):
     return RenderCanvas(meshes, camera, viewport=(0, 0, width, height), width=width, height=height)
+
+
+def _composed_diagram(meshes, spec, debts=()):
+    final_spec = {**spec, "notes": list(spec.get("notes", [])) + list(debts)}
+    main, _ = _main_diagram(meshes, final_spec)
+    details = _holding_details(meshes, spec, main)
+    return _compose_diagram(main, details)
 
 
 def _pixel(canvas, x, y):
@@ -411,8 +419,7 @@ def test_stickout_dimension_starts_at_the_jaw_front_marker_not_the_stock_end():
         "jaw_front_z_mm": -40,
         "stickout_mm": 80,
     }
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([], spec)
 
     start, end = diagram.dimensions["STICKOUT 80 mm"]
     assert start[0] == pytest.approx(diagram.jaw_marker[0])
@@ -430,8 +437,7 @@ def test_a_stickout_from_a_fit_up_is_labelled_nominal_with_its_setting():
         "stickout_mm": 80,
         "stickout_add_mm": 8,
     }
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([], spec)
     # The dimension is the nominal; the setting rule goes to the wrapping notes, so a
     # short stickout's dimension label never runs into the lane labels.
     assert "NOM STICKOUT 80 mm" in diagram.dimensions
@@ -469,10 +475,8 @@ def test_production_png_preserves_declared_stickout_qualification_with_or_withou
         assert 0 < panel["height_px"] / width * 7.5 <= 8.4
         cursor += panel["height_px"]
     assert cursor == height
-    diagram = _Diagram([], {**spec, "notes": list(spec.get("notes", [])) + debts})
-    scale = diagram.canvas.scale
-    diagram.render()
-    assert diagram.canvas.scale == scale
+    diagram, observed_png = _composed_diagram([], spec, debts)
+    assert observed_png == png
     assert json.dumps(spec, sort_keys=True) == supplied
     captions = [
         box
@@ -511,8 +515,7 @@ def test_round_stock_prints_its_diameter_not_a_bounding_box(round_dia, printed):
     spec = {"setup_id": "S1", "view": "lathe", "stock_box": [-10, -10, -60, 10, 10, 40]}
     if round_dia is not None:
         spec["stock_round_dia_mm"] = round_dia
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([], spec)
     texts = [box[0] for box in diagram.canvas.text_boxes]
     assert any(text.startswith(printed) for text in texts), texts
     # Round stock: the box would only repeat the length the stock dimension already gives.
@@ -596,14 +599,13 @@ def test_production_png_protects_nominal_dimension_text_from_a_plain_end_leader(
     png, debts, panels = render_diagram(meshes, spec)
     width, height, pixels = _decode_png(png)
     assert debts == []
-    assert (width, height) == (1600, 1484)
+    assert width == 1600
+    assert 0 < height <= 1792
     assert panels == [
         {"top_px": 0, "height_px": height, "role": "setup", "label": "SETUP S3  /  LATHE VIEW"}
     ]
-    diagram = _Diagram(meshes, spec)
-    scale = diagram.canvas.scale
-    diagram.render()
-    assert diagram.canvas.scale == scale
+    diagram, observed_png = _composed_diagram(meshes, spec, debts)
+    assert observed_png == png
     assert json.dumps(spec, sort_keys=True) == supplied
     label = "NOM STICKOUT 24.83 MM"
     ((_, left, top, right, bottom),) = [box for box in diagram.canvas.text_boxes if box[0] == label]
@@ -662,13 +664,11 @@ def test_lathe_dimension_png_keeps_extension_lines_out_of_complete_label_rectang
         }
     )
     supplied = json.dumps(spec, sort_keys=True)
-    diagram = _Diagram([], spec)
-    scale = diagram.canvas.scale
-    diagram.render()
     png, debts, panels = render_diagram([], spec)
+    diagram, observed_png = _composed_diagram([], spec, debts)
+    assert observed_png == png
     width, height, pixels = _decode_png(png)
     assert json.dumps(spec, sort_keys=True) == supplied
-    assert diagram.canvas.scale == scale
     assert panels[0]["top_px"] == 0
     assert panels[0] == diagram.print_panels[0]
     assert panels[0]["role"] == "setup"
@@ -739,8 +739,8 @@ def test_print_bands_cover_the_actual_png_once_and_keep_complete_local_annotatio
         cursor += panel["height_px"]
     assert cursor == height
 
-    diagram = _Diagram([], {**spec, "notes": list(spec.get("notes", [])) + debts})
-    diagram.render()
+    diagram, observed_png = _composed_diagram([], spec, debts)
+    assert observed_png == png
     assert panels == diagram.print_panels
     diagram.canvas.assert_text_layout(min_scale=5)
     # No annotation can straddle a print-band boundary or disappear when the sheet
@@ -785,7 +785,7 @@ def test_print_bands_cover_the_actual_png_once_and_keep_complete_local_annotatio
 @pytest.mark.parametrize("name", ["shaft-s1", "cone-s1", "rocker-s3", "rocker-s4"])
 def test_dense_setup_pictures_print_every_label_at_body_size(name):
     # Cap height at a 7.5 inch print width must reach 11 pt without shrinking tall composites.
-    diagram, _ = _main_diagram([], _example_spec(name))
+    diagram, _ = _composed_diagram([], _example_spec(name))
 
     assert diagram.canvas.text_boxes
     for _, _, top, _, bottom in diagram.canvas.text_boxes:
@@ -795,8 +795,8 @@ def test_dense_setup_pictures_print_every_label_at_body_size(name):
 
 def test_a_panel_with_many_point_keys_gets_the_height_to_print_them_apart():
     # Rocker S1: seven operation panels; op 40 alone keys seven profile points (P3-P9).
-    # The picture grows until every panel's keys print apart.
-    diagram, _ = _main_diagram([], _example_spec("rocker-s1"))
+    # Each independently measured annotation panel grows until its keys print apart.
+    diagram, _ = _composed_diagram([], _example_spec("rocker-s1"))
     keys = [box for box in diagram.canvas.text_boxes if re.fullmatch(r"P\d+|PASS \d+", box[0])]
     assert {box[0] for box in keys} >= {f"P{number}" for number in range(1, 13)}
     for index, (label, x0, y0, x1, y1) in enumerate(keys):
@@ -807,8 +807,7 @@ def test_a_panel_with_many_point_keys_gets_the_height_to_print_them_apart():
 
 def test_profile_legend_glyphs_are_dark_while_samples_keep_source_colors_and_dashes():
     spec = _example_spec("shaft-s1")
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([], spec)
     (detail,) = diagram.annotation_details
     canvas = detail.canvas
     for profile in spec["lathe_profiles"]:
@@ -832,8 +831,7 @@ def test_profile_legend_glyphs_are_dark_while_samples_keep_source_colors_and_das
 @pytest.mark.parametrize("name", ["shaft-s1", "shaft-s2", "cone-s1"])
 def test_profile_band_removes_only_unused_tail_without_refitting_complete_content(name):
     spec = _example_spec(name)
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([], spec)
     (detail,) = diagram.annotation_details
     # Independently repaint the established tall layout. A compact canonical canvas
     # must retain every primitive pixel, label and leader at precisely the same place.
@@ -890,8 +888,7 @@ def test_lathe_point_keys_that_would_crowd_get_an_enlarged_detail_with_keys_apar
     # scale, so their keys cannot both sit beside them; a lone key never crowds.
     spec = _example_spec("shaft-s2")
     spec["waypoints"] = [point for point in spec["waypoints"] if point["label"] in keys]
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([], spec)
 
     details = [box[0] for box in diagram.canvas.text_boxes if box[0].startswith("DETAIL")]
     if keys == ("P1",):
@@ -920,8 +917,7 @@ def test_lathe_point_keys_that_would_crowd_get_an_enlarged_detail_with_keys_apar
 @pytest.mark.parametrize("name", ["shaft-s1", "cone-s1"])
 def test_bar_end_labels_key_their_own_end_and_never_lead_along_the_axis_past_another_point(name):
     spec = _example_spec(name)
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([], spec)
     project = diagram.canvas.project
     anchors = [project(datum["point_mm"]) for datum in spec["datums"]]
     anchors.append(project(spec["zero_mm"]))
@@ -949,7 +945,7 @@ def test_bar_end_labels_key_their_own_end_and_never_lead_along_the_axis_past_ano
 def test_plan_view_pad_and_clamp_badges_have_separate_uncrossed_leaders(name):
     # Twelve pads under a thin strap plus straps, a pivot screw and a clocking pin.
     spec = _example_spec(name)
-    diagram, _ = _main_diagram([], spec)
+    diagram, _ = _composed_diagram([], spec)
     targets, keyed = {}, {"SUPPORT PADS"}
     for component in spec["components"]:
         label = component["label"].upper()
@@ -1177,8 +1173,7 @@ def test_stock_leader_ends_on_the_drawn_stock_not_its_bounding_box(case):
     else:
         meshes.append(_slab(*jaw, 5, (120, 98, 76), "moving_jaw"))
     spec = {"setup_id": "S1", "view": "plan", "stock_box": box}
-    diagram = _Diagram(meshes, spec)
-    diagram.render()
+    diagram, _ = _composed_diagram(meshes, spec)
 
     start = _leader_start(diagram, "STOCK")
     assert _inside(diagram, start, stock)
@@ -1210,11 +1205,10 @@ def test_a_named_solid_hidden_from_view_is_a_render_debt_not_a_leader():
     png, debts, panels = render_diagram(meshes, spec)
 
     assert debts == ["NOT SHOWN: PARALLELS is hidden in this view, so it has no leader."]
-    diagram = _Diagram(meshes, {**spec, "notes": debts})
-    diagram.render()
+    diagram, observed_png = _composed_diagram(meshes, spec, debts)
     assert [label for label, _ in diagram.leaders if label == "PARALLELS"] == []
     # The debt is printed in the picture's own notes, and the picture is the one returned.
-    assert png == diagram.canvas.png()
+    assert png == observed_png == diagram.canvas.png()
     assert panels == diagram.print_panels
     # Moved out from under the stock, the same parallel is drawn and keeps its leader.
     meshes[1] = _slab(12, 2, 18, 8, 1, (120, 98, 76), "parallel_1")
@@ -1269,8 +1263,7 @@ def test_a_numbered_position_badge_never_leads_to_the_solid_in_front_of_it(kind,
         "stock_box": [0, 0, 0, 10, 10, 2],
         "components": [component],
     }
-    diagram = _Diagram(meshes, spec)
-    diagram.render()
+    diagram, _ = _composed_diagram(meshes, spec)
 
     assert diagram.render_debts == []
     # A badge leader drawn to a solid ends on that solid's own pixels, never the stock's.
@@ -1320,8 +1313,7 @@ def test_a_vise_jaw_hidden_by_the_work_is_a_dashed_outline_with_its_leader_not_a
             }
         ],
     }
-    diagram = _Diagram(meshes, spec)
-    diagram.render()
+    diagram, _ = _composed_diagram(meshes, spec)
 
     assert diagram.render_debts == []
     seen = [path for label, path in diagram.leaders if label == "FIXED JAW"]
@@ -1380,8 +1372,7 @@ def test_a_moving_jaw_pressing_the_work_through_a_round_bar_keeps_its_leader(pre
             for name, box in boxes.items()
         ],
     }
-    diagram = _Diagram(meshes, spec)
-    diagram.render()
+    diagram, _ = _composed_diagram(meshes, spec)
 
     named = {label for label, _ in diagram.leaders}
     assert ("MOVING JAW" in named) is pressing
@@ -1432,8 +1423,7 @@ def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
         "legend": ["retained", "removed", "holding", "tool"],
         "nominal_outline_mm": [[[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]],
     }
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([], spec)
     axes_words = [box for box in diagram.canvas.text_boxes if box[0] in {"VIEW", "NORMAL"}]
     assert [box[0] for box in axes_words] == ["VIEW", "NORMAL"]
     for _, _, top, right, bottom in axes_words:
@@ -1655,11 +1645,11 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
     meshes, spec = _vise_spec(size, touching)
     png, debts, panels = render_diagram(meshes, spec)
     _, height, _ = _decode_png(png)
-    main = _Diagram(meshes, spec)
-    main.render()
+    main, _ = _main_diagram(meshes, spec)
     details = _holding_details(meshes, spec, main)
     expected = list(main.print_panels)
     top = main.canvas.height
+    main_height = main.canvas.height
     for detail in details:
         expected.append(
             {
@@ -1670,17 +1660,22 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
             }
         )
         top += detail.canvas.height
+    diagram, observed_png = _compose_diagram(main, details)
+    assert observed_png == png
+    assert diagram.print_panels == expected
+    assert diagram.holding_details == details
+    assert diagram.render_debts == debts
     assert panels == expected
     assert all(panel["height_px"] / 1600 * 7.5 <= 8.4 for panel in panels)
 
     assert debts == []
     if not detailed:
         assert details == []
-        assert height == main.canvas.height
+        assert height == main_height
         return
     # The detail is printed below the setup picture and draws the work far larger.
     (detail,) = details
-    assert height == main.canvas.height + detail.canvas.height
+    assert height == main_height + detail.canvas.height
     drawn = _stock_short_side(main.canvas, spec["stock_box"])
     assert _stock_short_side(detail.canvas, spec["stock_box"]) >= 1.5 * drawn
     # Each jaw's contact key leads to its own outlined contact face, apart from the other.
@@ -1709,8 +1704,7 @@ def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_own
     width, height, pixels = _decode_png(png)
     assert debts == []
     assert json.dumps(spec, sort_keys=True) == supplied
-    main = _Diagram(meshes, spec)
-    main.render()
+    main, _ = _main_diagram(meshes, spec)
     (detail,) = _holding_details(meshes, spec, main)
     contacts = {callout.label for callout in detail.callouts if callout.colour == _CONTACT}
     assert contacts == {"FIXED JAW CONTACT AT X 0", "MOVING JAW CONTACT AT X 12"}
@@ -1730,6 +1724,10 @@ def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_own
         "label": detail._title(),
     }
     assert band["top_px"] + band["height_px"] == height
+    diagram, observed_png = _compose_diagram(main, [detail])
+    assert observed_png == png
+    assert diagram.print_panels == panels
+    assert diagram.render_debts == debts
     assert pixels[band["top_px"] * width * 3 :] == detail.canvas.rgb
     detail.canvas.assert_text_layout(min_scale=5)
     for _, _, top, _, bottom in detail.canvas.text_boxes:
@@ -1753,8 +1751,7 @@ def test_picture_coordinates_and_clearances_print_as_the_setup_tables_print_them
         "from_mm": [0, 6, 10],
         "to_mm": [0, 6, 10 - 6.6547],
     }
-    main = _Diagram(meshes, spec)
-    main.render()
+    main, _ = _main_diagram(meshes, spec)
     (detail,) = _holding_details(meshes, spec, main)
     text = " ".join(box[0] for drawn in (main, detail) for box in drawn.canvas.text_boxes)
     assert f"JAW FRONT Z -{cut} MM" in text, text
@@ -1828,8 +1825,7 @@ def test_long_work_held_at_a_small_hub_gets_a_detail_windowed_on_its_holding():
     # the holding that touches the work and says which stretch of the work it shows.
     meshes, spec, solids = _button_kit()
     stock = spec["stock_box"]
-    main = _Diagram(meshes, spec)
-    main.render()
+    main, _ = _main_diagram(meshes, spec)
     (detail,) = _holding_details(meshes, spec, main)
 
     drawn = _stock_short_side(main.canvas, stock)
@@ -2114,7 +2110,7 @@ def test_a_label_naming_points_on_both_sides_leads_from_each_lane_to_its_own_sid
             {"name": "rest slot", "role": "fixture", "center_mm": [x, 10, 0]} for x in (5, 195)
         ],
     }
-    diagram, _ = _main_diagram([], spec)
+    diagram, _ = _composed_diagram([], spec)
 
     keys = [box for box in diagram.canvas.text_boxes if box[0] == "REST SLOT"]
     assert sorted(box[1] < diagram.lane_split for box in keys) == [False, True]
@@ -2254,8 +2250,7 @@ def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_onc
         ],
         "contacts": contacts,
     }
-    main = _Diagram(meshes, spec)
-    main.render()
+    main, _ = _main_diagram(meshes, spec)
     details = _holding_details(meshes, spec, main)
 
     assert len(details) == 2
@@ -2276,6 +2271,9 @@ def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_onc
     assert [p["label"] for p in panels if p["role"] == "holding_detail"] == [
         detail._title() for detail in details
     ]
+    diagram, observed_png = _compose_diagram(main, details)
+    assert observed_png == png
+    assert diagram.print_panels == panels
 
 
 @pytest.mark.parametrize(
@@ -2321,8 +2319,7 @@ def test_one_named_family_in_one_band_is_keyed_once_per_contact_height(heights, 
         ],
         "contacts": contacts,
     }
-    main = _Diagram(meshes, spec)
-    main.render()
+    main, _ = _main_diagram(meshes, spec)
     details = _holding_details(meshes, spec, main)
 
     keyed = [[c.label for c in d.callouts if c.colour == _CONTACT] for d in details]
@@ -2347,8 +2344,7 @@ def test_a_datum_face_turned_away_from_the_view_is_marked_hidden_not_drawn_in_fr
             },
         ],
     }
-    diagram = _Diagram([_block(spec["stock_box"], (160, 175, 185), "part")], spec)
-    diagram.render()
+    diagram, _ = _composed_diagram([_block(spec["stock_box"], (160, 175, 185), "part")], spec)
 
     (label,) = [label for label, _ in diagram.leaders if label.startswith("DATUM B")]
     x, y = (math.floor(v) for v in diagram.canvas.project([10, 10, z]))

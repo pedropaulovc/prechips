@@ -751,7 +751,19 @@ correction had 7 physical pages for shaft, 10 for rocker and 10 for bracket,
 matching the then-logical sections. Those counts are history, not the current
 layout contract. Footers flow after instructions.
 
-Latest parent-reported **R6**, integrated on baseline
+Current immutable baseline
+`f0f765fb584235bc9d3836b7c82fface5569dddb`: the parent reported all four actual
+CLI runs exited 0, with 22 shaft, 94 rocker, 72 bracket and 56 cone even Letter
+pages (244 total). The initial runner inherited a cache; this is not fresh-cache
+guard proof. Rebased readability source/composition repairs are being finalized.
+New-source CLI/PDF and image review, fresh-cache proof, goldens and the full gate
+remain pending. Physical printer/pen/operator and live-farm acceptance remain
+unobserved.
+
+<details>
+<summary>Historical R6–R7 on the previous 1ef baseline (not f0 acceptance)</summary>
+
+Historical parent-reported **R6**, integrated on baseline
 `1efbef15d9824a6438cdb636a9543509f194943f`: all four actual CLI runs exited 0.
 Letter PDFs had 52 shaft, 220 rocker, 138 bracket and 118 cone pages (528 total),
 all even. Minimum rendered metadata font was 9.997 pt; there were zero half-inch
@@ -781,13 +793,20 @@ test-ownership mismatch and a genuine narrow-table word split. After the local
 selector and column-room repairs, the targeted rerun of exactly those failed
 function cases had three passed in 5.10 seconds. This does not combine into a
 374-pass broader run: the runs used different source states. Ruff and formatting
-checks passed again (185 files). Source is frozen while actual R7 generation
-runs; no R7 CLI/PDF outcome is yet reported. The full gate remains pending.
-The earlier pre-freeze gate was cancelled after partial output, not passed.
-Earlier image-range verdicts are not approval of subsequent repairs. Native R7,
-golden regeneration, final image approval and the full suite remain pending.
-Physical printer/pen/operator rehearsal is unobserved; this evidence establishes
-neither machining nor farm acceptance.
+checks passed again (185 files). The earlier pre-freeze gate was cancelled after
+partial output, not passed; no combined broader-pass claim was established.
+
+Subsequent actual **R7**, still on the previous baseline, exited 0 for all four
+CLI runs and produced 52 shaft, 224 rocker, 140 bracket and 118 cone even Letter
+pages (534 total). Shaft's 52 images were CLEAR; rocker had three CLEAR ranges
+and one FIX for word/feature-clause splits. Bracket and cone were not fully
+reviewed. A separate 82-page stress PDF retained all 1,400 NOTE and 1,400 RECORD
+entries in exact order, with minimum metadata font 9.997 pt and no margin,
+front-parity or header-only-continuation defects. These observations are historical
+pre-f0 evidence, not current acceptance or a gold freeze. Physical rehearsal
+was not performed.
+
+</details>
 
 <details>
 <summary>Historical old-base evidence (R1–R5 on d4b8826; statuses at observation time)</summary>
