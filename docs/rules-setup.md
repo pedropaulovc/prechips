@@ -209,7 +209,12 @@ widths: widely separated holes need the distance between their centres. Point
 and hole operations (`spot`, `drill`, `ream`, `tap`, `counterbore`, `center`)
 are their centres with no cutter-radius padding, because the spindle sits on
 the hole; only outside-profile extents carry the selected cutter radius;
-face/pocket declared extents are used as authored.
+face/pocket declared extents are used as authored. A rough stage pads each side
+by the stock it leaves: an explicit `rough_*` op by its `rough_allowance_mm`
+(else `stock_to_leave_mm`), and a contour finish by the `rough_allowance_mm` of
+the rough stage the coordinates rule prints with it; a finish without a contour
+cuts at the line. An unknown leave a rough stage needs is debt; a negative leave
+on any operation is an error (it would cut into the finished part).
 Broad face/profile/pocket operations without complete extents use a
 conservative stock-span screen without inventing a stock origin. Z is the
 union of each operation's **spindle-nose** positions, `tip + holder gauge +

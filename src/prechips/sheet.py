@@ -4084,7 +4084,9 @@ class _Traveler:
                 if rotary.get("centre_by") == "pin":
                     locate = (
                         f"a pin of Ø{_number(rotary.get('pin_dia_mm'))} mm through {feature} "
-                        "into the table's centre bore"
+                        f"into the table's Ø{_number(rotary.get('table_bore_dia_mm'))} mm centre "
+                        f"bore (the centre may shift up to {_number(rotary.get('centre_play_mm'))}"
+                        " mm)"
                     )
                 elif rotary.get("centre_by") == "indicate":
                     locate = f"indicate {feature}"
@@ -4101,8 +4103,8 @@ class _Traveler:
                     "by indicating its centre bore, then set DRO X0 Y0.",
                     f"Put the arc centre on the table axis: {locate}.",
                     f"For this {side} arc, offset the table to "
-                    f"X {_number(rotary.get('offset_mm'))} "
-                    f"mm (R {_number(rotary.get('radius_mm'))} mm {sign} cutter radius "
+                    f"X {o(rotary.get('offset_x'))} "
+                    f"(R {_number(rotary.get('cut_radius_mm'))} mm {sign} cutter radius "
                     f"{_number(rotary.get('cutter_radius_mm'))} mm).",
                     f"Lock X and Y; set Z {o(arc.get('dro_tip_z'))}; turn the table "
                     f"{_text(rotary.get('rotation'))} from {_number(rotary.get('start_deg'))}° "
@@ -4165,9 +4167,10 @@ class _Traveler:
             entry = block(op)
             if not isinstance(points, list) or not points:
                 entry.setdefault("unresolved", True)
-                for reason in ("clip_reason", "stair_reason"):
-                    if profile.get(reason):
-                        entry["stops"].append(_text(profile[reason]))
+                for reason in ("clip_reason", "stair_reason", "allowance_reason"):
+                    stop = _text(profile.get(reason)) if profile.get(reason) else None
+                    if stop and stop not in entry["stops"]:
+                        entry["stops"].append(stop)
                 continue
             z = o(profile.get("dro_to_z", profile.get("to_z")))
             entry["z"].add(z)

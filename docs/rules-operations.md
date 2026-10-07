@@ -174,7 +174,8 @@ declared (the feed `turning_deflection` loads the cut with; a planned
 `"unknown"` stays unknown), else the one from the same
 cited `[[cut]]` row (or the tool's cited `chart`) as `sfm`, under the same
 citation/verify rules as the mill chip load; the lathe diameter is the turned
-feature's `dia_nominal` (plus `rough_allowance_mm` for `rough_turn`). A dome
+feature's `dia_nominal` (plus, for `rough_turn`, its `rough_allowance_mm`, else
+`stock_to_leave_mm`; a negative leave makes the diameter unknown). A dome
 uses its widest (base) diameter: `2 * base_radius`, else `2 * sqrt(h (2R - h))`
 from its declared `sphere_radius` R and nominal height h (2R once h exceeds R),
 else the kernel-measured base from `turned_profile.feature_span`. A face, cut to

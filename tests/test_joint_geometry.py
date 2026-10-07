@@ -11,7 +11,7 @@ from test_turning_geometry import _turn
 
 from prechips import kernel
 from prechips.inputs import Bundle
-from prechips.rules.resolution import MANUAL
+from prechips.rules.resolution import HAND_FINISH, MANUAL
 
 _AUTHOR = r"""
 import sys
@@ -646,9 +646,9 @@ def test_unpaired_spigot_does_not_authorize_erasing_finished_component_core(engi
     assert "stock_out_volume_mm3" not in facts["setups"]["cut"]
 
 
-@pytest.mark.parametrize("action", sorted(MANUAL | {"transfer"}))
-def test_manual_actions_neither_damage_stock_nor_prepare_socket(engine, joint_solids, action):
-    step = joint_solids["joined"]
+def _manual_job(step, action):
+    """A socket-cut setup whose one op is ``action`` on the transient socket, then a setup
+    that carries its stock on."""
     digest = hashlib.sha256(step.read_bytes()).hexdigest()
     bundle = Bundle(
         plan={
@@ -689,13 +689,34 @@ def test_manual_actions_neither_damage_stock_nor_prepare_socket(engine, joint_so
         hashes={"step": digest},
         root=step.parent,
     )
-    facts = engine.run(kernel.build_job(bundle))
+    return kernel.build_job(bundle)
+
+
+# A bench file (HAND_FINISH) does remove stock, off its claimed faces; it is not a no-op.
+@pytest.mark.parametrize("action", sorted((MANUAL - HAND_FINISH) | {"transfer"}))
+def test_manual_actions_neither_damage_stock_nor_prepare_socket(engine, joint_solids, action):
+    facts = engine.run(_manual_job(joint_solids["joined"], action))
     assert facts["status"] == "ok", facts
     for name in ("socket-cut", "after-manual"):
         stock = facts["setups"][name]
         assert stock["stock_volume_mm3"] == pytest.approx(math.pi * 1000, abs=1e-3)
         assert stock["stock_out_volume_mm3"] == pytest.approx(math.pi * 1000, abs=1e-3)
         assert stock["completed_joint_features"] == []
+
+
+def test_filing_a_joint_feature_without_face_references_is_unknown(engine, joint_solids):
+    # A file removes stock off its claimed faces; a transient socket has none, so the stock
+    # it leaves (and every later setup's) stays unknown with a reason, never the untouched
+    # bar and never a prepared socket.
+    facts = engine.run(_manual_job(joint_solids["joined"], "file_to_line"))
+    assert facts["status"] == "ok", facts
+    assert facts["ops"]["socket-cut:10"]["claimed_indices"] == "unknown"
+    filed = facts["setups"]["socket-cut"]
+    assert "stock_out_volume_mm3" not in filed and filed["stock_out_reason"]
+    after = facts["setups"]["after-manual"]
+    assert "stock_volume_mm3" not in after and after["reason"]
+    for stock in (filed, after):
+        assert "socket" not in stock.get("completed_joint_features", [])
 
 
 def test_partial_spot_profile_does_not_claim_full_through_cylinder(engine, joint_solids):

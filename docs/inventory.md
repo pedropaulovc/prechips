@@ -138,10 +138,11 @@ arcs is ordinary inventory:
   them. A plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a
   clamp `ref`).
 - A rotary table is a `fixtures.<id>` with `kind = "rotary_table"`:
-  `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work` and
-  `t_slot_width`, plus `solids` (table, slots, worm housing) so the setup render
-  draws it modeled. A `rotary_table` contour or an indexed chord reads it from
-  `hold.fixture`.
+  `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work`,
+  `t_slot_width` and the centre bore `bore_dia` a `centre_by = "pin"` pin must
+  enter (unknown leaves the pin unproven), plus `solids` (table, slots, worm
+  housing) so the setup render draws it modeled. A `rotary_table` contour or an
+  indexed chord reads it from `hold.fixture`.
 - Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
   `"profile_gauge"` and the `range_mm` of radii they read.
 
@@ -207,8 +208,9 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   slot void (`cuts = ["beam"]`), stud, heel, nut and washer (washer bore with
   `cuts = ["washer"]`). Primitives of one list are one part and never checked
   against each other; each posed clamp's list must touch the stock to bear.
-  The holding fixture's own solids must touch the stock or a clamp list that
-  bears on it (a bench vise gripping the stud of filing buttons on the work).
+  The holding fixture's own solids must touch the stock or a clamp member that
+  reaches it member to member (a bench vise gripping the stud of filing buttons
+  on the work); a member cut off from the bearing ones by air carries no load.
 - A trusted void in the holding fixture may carry an optional shop-caption
   `label = "Strap stud holes"`. The setup render places its leader at the void's
   centre after applying `hold.pose`, and records the label and posed centre in
