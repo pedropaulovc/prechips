@@ -33,7 +33,7 @@ origin_mm = [-172.5, -25.6, -9.525] # AUTHOR'S CHOICE: bar corner, model X -172.
 axis = [1.0, 0.0, 0.0] # length direction
 section_axis = [0.0, 1.0, 0.0] # 76.2 mm section direction; axis × section_axis is 19.05 mm Z
 note = "The squared 340 x 65 x 16 mm blank (P1-P5), length left-to-right with the future rod-hole end at +X. Relative to Setup S1 zero, the blank is X -170..170 and Y -28..37. The S1/S2 face rasters cut the internal field out to the full-thickness lower rail (Y -28..-20), upper rail (Y 31.7..37) and end ears (outside X ±160); the rails and ears stay continuous to S4. The opposed S1/S2 rough pockets leave a 0.42 mm web at the 7.080 mm hub-length aim. Make the hub integral with the bar; no brazed boss, loose bushing, rod tap or counterbore."
-prerequisite = "bandsaw 345 mm off 3 x 3/4 in 1018 cold-finished flat bar" # AUTHOR'S CHOICE: printed as the job page's Before P1 line
+prerequisite = "bandsaw 345 mm off 3 x 3/4 in 1018 cold-finished flat bar, laid flat in the 4x6 bandsaw vise: 4/6 bi-metal blade, 200 ft/min belt step, dry, light steady feed — let the blade cut, never force it" # AUTHOR'S CHOICE: printed as the job page's Before P1 line. Speed: Machinery's Handbook 27th ed. p.1142 Bimetal Band Saw Speeds, 1018 = 300 fpm with coolant; dry -30-50% = 150-210 fpm; 200 is the shop saw's nearest belt step (inventory machines.bandsaw-4x6). 4/6 pitch: the inventory blade, p.1138 chart, 3 in length of cut
 cite = ["AUTHOR'S CHOICE: 3 x 3/4 in, a common US flat-bar section over 65 x 16, because it leaves a clean-up skim on every face; 345 mm saws 2.5 mm over each 340 end"]
 as_is_faces = [] # every finished face is cut
 
@@ -56,7 +56,7 @@ parallel = "dti"
 [stock.prepared.methods] # AUTHOR'S CHOICE: the DTI on the height gauge over the granite plate, because the plate is the shop's flat reference
 flat = "Lay each broad face on the granite plate; it must not rock. Sweep the DTI on the height gauge along the face above at both edges and the middle: the needle moves no more than 0.05."
 square = "Stand the blank on the granite against a 1-2-3 block's ground side; sweep the DTI up each edge and each end: the needle moves no more than 0.05 over the face."
-parallel = "Mike the 16.0 thickness at both ends and the middle on both edges: the readings agree within 0.05. Mike the 65.0 width at both ends and the middle: within 0.1."
+parallel = "Lay the lower face on the granite and sweep the DTI on the height gauge along the upper face at both edges and the middle: the needle moves no more than 0.05. Stand it on the datum edge and sweep the opposite edge end to end: no more than 0.1."
 
 # Stock preparation (P1-P5): the six blank faces as plan process faces. Each is a planar
 # face of the squared blank; it earns no drawing coverage. at = a point on the face,
@@ -229,7 +229,7 @@ method = "paper"
 paper_mm = 0.05 # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10
@@ -292,7 +292,7 @@ method = "paper"
 paper_mm = 0.05 # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10
@@ -358,7 +358,7 @@ offset_mm = -65.0 # Axis Set Z = M - 65.0 + paper puts Z0 on the 65.0 face
 paper_mm = 0.05 # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10
@@ -423,7 +423,7 @@ offset_mm = -16.0 # Axis Set Z = M - 16.0 + paper puts Z0 on the 16.0 face
 paper_mm = 0.05 # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10

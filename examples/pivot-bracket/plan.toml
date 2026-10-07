@@ -34,7 +34,7 @@ origin_mm = [9.525, -2.9, -6.775] # AUTHOR'S CHOICE: bar corner, model X 9.525..
 axis = [0.0, 1.0, 0.0]           # 38 length along model Y
 section_axis = [-1.0, 0.0, 0.0]  # 19.05 thickness along model -X; axis x section_axis = +Z (31.75 width)
 as_is_faces = []                 # every finished face is cut
-prerequisite = "bandsaw 38 mm off 3/4 × 1-1/4 in flat bar" # AUTHOR'S CHOICE: printed as the job page's Before P1 line
+prerequisite = "bandsaw 38 mm off 3/4 × 1-1/4 in flat bar, laid flat in the 4x6 bandsaw vise: 4/6 bi-metal blade, 200 ft/min belt step, dry, light steady feed — let the blade cut, never force it" # AUTHOR'S CHOICE: printed as the job page's Before P1 line. Speed: Machinery's Handbook 27th ed. p.1142 Bimetal Band Saw Speeds, low-carbon 1018 = 300 fpm with coolant; dry -30-50% = 150-210 fpm; 200 is the shop saw's nearest belt step (inventory machines.bandsaw-4x6). 4/6 pitch: the inventory blade, p.1142 note, 1-1/4 in length of cut
 cite = ["AUTHOR'S CHOICE: 3/4 x 1-1/4 in, a common flat-bar section over 18 x 26.2, because it leaves a clean-up skim on every face; 38 mm saws 1.9 mm over each 34.2 end"]
 
 [stock.prepared]                 # the squared blank P1-P6 hand S1
@@ -246,7 +246,7 @@ method = "paper"
 paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10
@@ -309,7 +309,7 @@ method = "paper"
 paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10
@@ -375,7 +375,7 @@ offset_mm = -26.2                # Axis Set Z = M - 26.2 + paper puts Z0 on the 
 paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10
@@ -440,7 +440,7 @@ offset_mm = -18.0                # Axis Set Z = M - 18.0 + paper puts Z0 on the 
 paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10
@@ -503,7 +503,7 @@ method = "paper"
 paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10
@@ -569,7 +569,7 @@ offset_mm = -34.2                # Axis Set Z = M - 34.2 + paper puts Z0 on the 
 paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
 tool = "endmills-lms-6784/3-4in-4fl"
 check_jog_mm = 10.0
-retouch_after = [10]
+retouch_after = [] # one cutter, one op: no tool change follows
 
 [[setups.ops]]
 op = 10

@@ -4566,6 +4566,8 @@ class _Traveler:
                 continue
             if key in {"on_hand", "prerequisite"}:
                 continue  # Outstanding before the first setup: printed in JOB STATUS.
+            if key == "prepared":
+                continue  # Printed as CHECK THE BLANK before the setup that receives it.
             if key == "note":
                 extras.append(self.bench(value).rstrip(".") + ".")
                 continue

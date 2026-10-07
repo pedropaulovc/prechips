@@ -131,7 +131,9 @@ def test_job_page_stock_sizes_print_on_the_receiving_machine_grid(shaft, rocker)
     assert "Ø10.00 × 180.50 long" in stock, stock
     assert not re.search(r"\d\.\d{3}", stock), stock
     stock = re.search(r"Stock: [^|]*", text(sections(rocker[1], "STOCK AND ROUTE")[0]))[0]
-    assert "65.000 × 16.000 × 340.000 long" in stock, stock
+    assert "76.200 × 19.050 × 345.000 long" in stock, stock
+    # The prepared blank is printed as CHECK THE BLANK, never as a raw field dump.
+    assert "Prepared" not in stock and "{" not in stock, stock
 
 
 def test_the_abbreviation_key_lists_only_abbreviations_the_sheets_print(shaft, rocker):
