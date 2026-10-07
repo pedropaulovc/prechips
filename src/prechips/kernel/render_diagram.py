@@ -6,7 +6,7 @@ screen-space symbolism, deliberately separate from the modelled fixture geometry
 
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 try:
     from .render_png import RenderCanvas
@@ -110,6 +110,16 @@ def _plain(value):
 def _mm(value):
     text = f"{value:.2f}".rstrip("0").rstrip(".")
     return "0" if text in ("", "-0") else text
+
+
+def _dro(value, decimals):
+    """A setup coordinate or clearance as the traveler's tables print it
+    (``_Traveler.operative``): at the setup's DRO ``decimals`` when the spec names them,
+    so a picture and its table never show one value rounded two ways; else :func:`_mm`."""
+    if not isinstance(decimals, int) or isinstance(decimals, bool) or decimals < 0:
+        return _mm(value)
+    text = f"{value:.{decimals}f}"
+    return text.removeprefix("-") if float(text) == 0 else text
 
 
 def _corners(box):
@@ -501,8 +511,11 @@ def _nearest_on_outline(outline, point):
     return best
 
 
-def _shoulder(z, small, large):
-    return f"SHOULDER Z {_mm(z)}: DIA {_mm(2 * small)} / DIA {_mm(2 * large)}"
+def _shoulder(z, small, large, decimals=None):
+    return (
+        f"SHOULDER Z {_dro(z, decimals)}: "
+        f"DIA {_dro(2 * small, decimals)} / DIA {_dro(2 * large, decimals)}"
+    )
 
 
 def _radial_steps(profiles):
@@ -521,8 +534,15 @@ def _radial_steps(profiles):
 
 class _Diagram:
     grows_to_fit = False
+    splits_sides = True
 
-    def __init__(self, meshes, spec):
+    def _dro(self, value):
+        """``value`` as the traveler's tables print it (:func:`_dro`)."""
+        return _dro(value, self.spec.get("decimals"))
+
+    def __init__(self, meshes, spec, extra=0):
+        """``extra``: pixels the footer moves down (the canvas grows by as much) so the
+        label lanes hold every key; the placed scene keeps its size and place."""
         self.spec = spec
         self.view = spec["view"]
         self.camera = (
@@ -622,6 +642,7 @@ class _Diagram:
         )
         self.footer_top = min(self.footer_top, 984 - footer_height)
         self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
+        self.footer_top += extra
         # Label lanes: the first row's top and the last row's bottom limit; each side's
         # (text left, text width, leader end x), and the x that splits points between them.
         self.lanes = (202, self.footer_top - 64)
@@ -635,7 +656,7 @@ class _Diagram:
             # Leave real exterior key bands even for a vertically tall fixture.
             viewport = (278, 278, 900, 540)
         self.viewport = viewport
-        self.canvas = RenderCanvas(self.meshes, self.camera, viewport, fit=fit)
+        self.canvas = RenderCanvas(self.meshes, self.camera, viewport, height=1000 + extra, fit=fit)
         self.stock_pixels = [self.canvas.project(p) for p in _corners(self.stock)]
         self.position_badges.extend(
             {"label": label, "xy": self.canvas.project(point), "colour": _BLUE}
@@ -718,8 +739,8 @@ class _Diagram:
             # Set from a measured fit-up: the dimension is the nominal; the note, in the
             # wrapping footer, says how it is set.
             notes.append(
-                f"Stickout {_mm(self.spec['stickout_mm'])} mm is nominal: "
-                f"set it as the measured fit-up + {_mm(add)} mm."
+                f"Stickout {self._dro(self.spec['stickout_mm'])} mm is nominal: "
+                f"set it as the measured fit-up + {self._dro(add)} mm."
             )
         return [line for note in notes for line in _wrap(self.canvas, note, 720, scale=3)]
 
@@ -779,7 +800,8 @@ class _Diagram:
             if (large - small) * self.canvas.scale >= 3 or self._in_lathe_window(z):
                 continue
             point = self.canvas.project((large, 0, z))
-            self.callouts.append(_Callout(_shoulder(z, small, large), [point], _INK))
+            label = _shoulder(z, small, large, self.spec.get("decimals"))
+            self.callouts.append(_Callout(label, [point], _INK))
         self._labels()
         if self.position_badges:
             exclusion = None
@@ -1117,10 +1139,10 @@ class _Diagram:
             else:
                 _outline(c, pixels, _BLUE, width=2, dashed=True)
                 anchor = jaw_marker
-            self.callouts.append(_Callout(f"JAW FRONT Z {_mm(jaw)} mm", [anchor], _BLUE))
+            self.callouts.append(_Callout(f"JAW FRONT Z {self._dro(jaw)} mm", [anchor], _BLUE))
         stickout = self.spec.get("stickout_mm")
         if stickout is not None:
-            label = f"STICKOUT {_mm(stickout)} mm"
+            label = f"STICKOUT {self._dro(stickout)} mm"
             if self.spec.get("stickout_add_mm") is not None:
                 # Set from a measured fit-up: the drawn value is the nominal (see notes).
                 label = f"NOM {label}"
@@ -1154,7 +1176,27 @@ class _Diagram:
                     self._hidden(callout.label)
                     continue
             kept.append(callout)
-        self.callouts = kept
+        # A label naming points on both sides of the picture is keyed once in each lane,
+        # each copy leading to its own side's points: no leader fans across the work. A
+        # holding detail keys each contact once, so it keeps one key.
+        self.callouts = []
+        for callout in kept:
+            sides = [[], []]
+            for index, point in enumerate(callout.points):
+                sides[0 if point[0] < self.lane_split else 1].append(index)
+            if callout.leader == "keyed" or not all(sides) or not self.splits_sides:
+                self.callouts.append(callout)
+                continue
+            for indices in sides:
+                self.callouts.append(
+                    replace(
+                        callout,
+                        points=[callout.points[i] for i in indices],
+                        outlines=tuple(callout.outlines[i] for i in indices)
+                        if callout.outlines
+                        else (),
+                    )
+                )
         lane_specs = self.lane_specs
         limit = self.lanes[1]
         anchors = [(callout, point) for callout in self.callouts for point in callout.points]
@@ -1426,7 +1468,8 @@ class _Diagram:
                 continue
             point = project((large, z))
             c.line((point[0], point[1] - 12), (point[0], point[1] + 12), _INK, width=2)
-            for line in _wrap(c, _shoulder(z, small, large), right - left, scale=3):
+            shoulder = _shoulder(z, small, large, self.spec.get("decimals"))
+            for line in _wrap(c, shoulder, right - left, scale=3):
                 rows.append((line, _INK, None, 0))
         for path, _ in paths:
             for line in _wrap(c, f"OP {path['op']} SURFACE", right - left - 34, scale=3):
@@ -1973,8 +2016,7 @@ def render_diagram(meshes, spec):
     # A debt found while laying out is printed in the notes, which can move the layout:
     # redraw until the printed notes are exactly the debts of the picture they sit in.
     for attempt in range(4):
-        diagram = _Diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
-        png = diagram.render()
+        diagram, png = _main_diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
         if attempt == 0:
             details = _holding_details(meshes, spec, diagram)
         found = [debt for detail in details for debt in detail.render_debts]
@@ -1989,6 +2031,19 @@ def render_diagram(meshes, spec):
             diagram.canvas.paste(detail.canvas, 0, diagram.canvas.height - detail.canvas.height)
         return diagram.canvas.png(), debts
     raise ValueError(f"setup picture debts do not settle: {debts}")
+
+
+def _main_diagram(meshes, spec):
+    """``(diagram, png)``: the setup picture, its footer moved down (the canvas taller)
+    until every key fits its label lane, so no key runs past the divider into the key."""
+    extra = 0
+    while True:
+        diagram = _Diagram(meshes, spec, extra)
+        diagram.grows_to_fit = True
+        png = diagram.render()
+        if diagram.lane_overflow <= 0:
+            return diagram, png
+        extra += math.ceil(diagram.lane_overflow)
 
 
 def _holding_details(meshes, spec, diagram):
@@ -2181,6 +2236,7 @@ class _HoldingDetail(_Diagram):
         return ((0, 1, 0), (-s, 0, c), (c, 0, s))  # from +X, raised
 
     grows_to_fit = True
+    splits_sides = False
 
     def __init__(self, meshes, spec, frame, camera, gain, tile=(1, 1), extra=0):
         self.spec = spec
@@ -2418,7 +2474,7 @@ class _HoldingDetail(_Diagram):
         if zero is None or plane is None:
             return ""
         axis, value = plane
-        return f" AT {'XYZ'[axis]} {_mm(value - zero[axis])}"
+        return f" AT {'XYZ'[axis]} {self._dro(value - zero[axis])}"
 
     def _closest_cut(self):
         cut = self.spec.get("closest_cut")
@@ -2440,5 +2496,5 @@ class _HoldingDetail(_Diagram):
                 holder = self._component_label(component)
             elif component.get("code"):
                 holder = f"{_plain(component['code'])} {holder}"
-        label = f"CUT {_mm(cut['mm'])} mm FROM {holder.upper()}"
+        label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         self.callouts.append(_Callout(label, [middle], _AMBER))

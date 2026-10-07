@@ -38,8 +38,13 @@ step = step.cut(Part.makeBox(8, 20, 7, V(8, 10, 14)))
 tip = R / math.tan(math.radians(59.0))
 drill = Part.makeCylinder(R, 6, V(45, 20, 5)).fuse(Part.makeCone(0, R, tip, V(45, 20, 5 - tip)))
 save("stepcone", step.cut(drill).removeSplitter())
+# A 14 wide, 6 thick ear standing 26 tall: an R7 arch crown and an R3 cross bore through
+# its thickness, both made after the wall in front of it is roughed.
+ear = Part.makeBox(14, 6, 19, V(3, 20, 0))
+ear = ear.fuse(Part.makeCylinder(7, 6, V(10, 20, 19), V(0, 1, 0)))
+save("ear", ear.cut(Part.makeCylinder(3, 8, V(10, 19, 19), V(0, 1, 0))).removeSplitter())
 """
-_AUTHORED = 4
+_AUTHORED = 5
 LEAVE = 0.2
 R = 3.25
 CONE = math.pi * R**2 * (R / math.tan(math.radians(59.0))) / 3
@@ -133,6 +138,32 @@ def test_rough_profile_leaves_its_normal_stock_and_a_finish_removes_it_from_its_
     assert "stock_reason" not in third, third.get("stock_reason")
     skin = 20 * (LEAVE * (40 + 60) + 3 * math.pi * LEAVE**2 / 4)
     assert third["stock_volume_mm3"] == pytest.approx(leave - skin, abs=0.01)
+
+
+def test_a_bounded_rough_leaves_a_flat_skin_before_its_wall_not_a_later_arch_or_bore(
+    engine, solids
+):
+    step = solids["ear"]
+    wall = engine.refs(step, (3, 20, 0), (17, 20, 26), kind="Plane")
+    assert len(wall) == 1
+    blank = _blank((0.0, 0.0, 0.0), 20.0, (30.0, 28.0))
+    hold = _vise(5.0, centre=10.0)
+    # The free run in front of the ear, up to its wall plane; the crown behind stays raw.
+    run = {"x": [0.0, 20.0], "y": [0.0, 20.0], "z": [0.0, 28.0]}
+    rough = {**_rough("S1:10", "wall", 3.0, 30.0, 40.0), "do": "rough_pocket"}
+    setups = [
+        _setup([{**rough, "stock_removal_bounds": run}], hold, setup_id="S1"),
+        _setup([], hold, setup_id="S2"),
+    ]
+    result = engine.run(engine.job(step, {"wall": wall}, setups, stock=blank))
+    second = result["setups"]["S2"]
+    assert "stock_reason" not in second, second.get("stock_reason")
+    # Its passes stop the leave short of the wall plane across the whole raw crown behind
+    # it: one flat 20 x 28 skin. The finished face's arch outline and the bore no setup has
+    # drilled yet are not carved into it (that skin would hold about 63 mm^3, not 112).
+    flat = 20 * 28 * LEAVE
+    assert second["stock_volume_mm3"] == pytest.approx(20 * 10 * 28 + flat, abs=0.01)
+    assert second["stock_bbox_mm"] == [0.0, 20 - LEAVE, 0.0, 20.0, 30.0, 28.0]
 
 
 @pytest.mark.parametrize("action", ["mill", "finish_profile"])

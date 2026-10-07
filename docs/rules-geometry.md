@@ -1566,16 +1566,22 @@ One row per setup. Non-vise holding (`kind` ≠ `vise`) is `not_applicable`
 holding identity or any missing pose/dimension is `unknown` with the job's
 reason. With the jaws placed the kernel reports `width_mm` (part extent
 between the inner jaw planes), `jaw_separation_mm` (how far the jaws stand apart
-closed on it: `width_mm` plus a `jaw_bar` round bar's Ø), `contact_grip_mm` (per
+closed on it: `width_mm` plus a `jaw_bar` round bar's Ø, plus twice a
+`jaw_buttons` button's thickness), `contact_grip_mm` (per
 jaw, the merged length of planar part faces lying in that jaw plane within the
-zone; a line contact is measured when no planar face touches), `parallel_pair`
+zone, inside the button's face where `jaw_buttons` stand between; a line contact
+is measured when no planar face touches), `parallel_pair`
 (both jaw planes have planar contact faces) and `claimed_in_jaws` (claimed faces
 sharing area with a jaw box). A `jaw_bar` that bears on no jaw-held work along its
-length leaves the jaws unplaced. Numbers: those plus `opening_mm`,
+length leaves the jaws unplaced. Each `jaw_buttons` button is centred on the one
+bore of the work that opens on its jaw face at least as wide as its spigot, its
+spigot in that bore; no such bore (or several), a spigot the bore does not take
+whole, a button meeting the work beyond the face, or a jaw that misses the button
+leaves the jaws unplaced. Numbers: those plus `opening_mm`,
 `required_grip_mm`, `parallels_height_mm`. Errors join with `; `:
 
 - `gripped faces are not a parallel pair`
-- `jaw separation (part width plus any round bar) exceeds vise opening`
+- `jaw separation (part width plus any round bar or jaw buttons) exceeds vise opening`
 - `both jaws do not provide the declared grip`
 - `claimed faces enter jaw solids: <refs>`
 - pass: `parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.`
@@ -1743,7 +1749,8 @@ leader ending on the outline at an open ring, so its position still shows
 without pointing at the solid in front. A hidden parallel stays a render debt.
 An isometric view calls out the holding that touches the stock; a vise jaw
 that presses the work through it (the moving jaw behind a `jaw_bar` round bar,
-called out as `ROUND BAR`) is holding too.
+called out as `ROUND BAR`) is holding too, as are `jaw_buttons` (called out as
+`JAW BUTTONS`), each between the work and a jaw.
 Triangles that share an edge cover every pixel centre on it exactly
 once, so a solid wholly behind another never shows through its seams. A datum's
 authored face name keeps its words but its axis words are restated in the

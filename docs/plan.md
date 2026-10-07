@@ -643,6 +643,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_center_along_mm` | `Number` |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
 | `align` | `{ indicator: str, limit_mm: Number, over_mm: Number, face: str, cite: str \| list[str] }`: how a mill vise's fixed jaw or angle plate's locating face is squared to the table travel; `indicator` is an inventory `dial_test_indicator` / `dial_indicator` gauge swept `over_mm` along the face, its reading changing no more than `limit_mm`; an angle plate's `face` names the fixture solid whose face is squared. Required where the setup mounts or turns the vise or plate ([hold_fields](rules-setup.md#hold_fields)) |
+| `jaw_buttons` | `str` (fixtures `jaw_buttons`: one button between each jaw and the work, its spigot in the work's bore) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
 | `riser_up` | `str` (riser dimension standing vertical: `length` / `width` / `height`) |
@@ -761,6 +762,16 @@ jaw height: the work's height comes from `stock_state` in plan units, so unknown
 plan units leave the bar's height unknown. A bar that does not resolve to a
 `round_bar` with measured `dia` and `length` leaves the jaws
 unplaced (fixture debt), never drawn as closing on the work.
+
+`jaw_buttons` names a fixtures `jaw_buttons` item: two shop-made buttons, one
+between each jaw and the work, each with a spigot that drops into the work's bore
+opening on that jaw face. Its fact-local measured `dia` (the button face),
+`thickness`, `spigot_dia` and `spigot_length` place them: the kernel centres each
+button on the one bore of the work opening on its jaw face that takes the spigot,
+and the jaws close on the buttons, each standing off the work by `thickness`.
+Any of those four unmeasured, or an item that is not `jaw_buttons`, leaves the
+jaws unplaced (fixture debt), as does a face with no such bore, or with several.
+The contacts drawn and measured are the button faces, not the jaws.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with

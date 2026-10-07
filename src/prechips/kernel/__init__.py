@@ -655,6 +655,7 @@ def _vise_inputs(bundle, hold, fixture, result):
         else:
             missing.append("parallels_height_mm")
     _jaw_bar_inputs(bundle, hold, result)
+    _jaw_buttons_inputs(bundle, hold, result)
     if missing:
         result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
             missing
@@ -678,6 +679,29 @@ def _jaw_bar_inputs(bundle, hold, result):
         result["jaw_bar_reason"] = "jaw_bar unresolved: " + ", ".join(missing)
         return
     result["jaw_bar"] = {"name": bar, "dia_mm": dims["dia"], "length_mm": dims["length"]}
+
+
+_JAW_BUTTON_SIZES = ("dia", "thickness", "spigot_dia", "spigot_length")
+
+
+def _jaw_buttons_inputs(bundle, hold, result):
+    """Declared jaw buttons (one between each jaw and the work), or why they are unplaceable.
+
+    The jaws close on the buttons, so an unresolved button leaves the jaws unplaced
+    (``jaw_buttons_reason``): every size is a measured fact, never a default.
+    """
+    buttons = hold.get("jaw_buttons")
+    if buttons is None:
+        return
+    item = measurement_item(bundle, "fixtures", buttons) if buttons != UNKNOWN else {}
+    dims = {key: _measured_length(item, key) for key in _JAW_BUTTON_SIZES}
+    kind = record(item).get("kind")
+    missing = [] if kind == "jaw_buttons" else [f"{buttons!r} as jaw_buttons"]
+    missing.extend(f"{key}_mm (measured)" for key, value in dims.items() if value == UNKNOWN)
+    if missing:
+        result["jaw_buttons_reason"] = "jaw_buttons unresolved: " + ", ".join(missing)
+        return
+    result["jaw_buttons"] = {"name": buttons, **{key + "_mm": dims[key] for key in dims}}
 
 
 def _centres(value, minimum, maximum=None):
@@ -877,6 +901,10 @@ def _follow_rest(setup, entry, item, reference):
         missing.append(f"plan hold.supports[{reference}].jaw_lead_mm (positive)")
     if rest["side"] not in _JAW_SIDES:
         missing.append(f"plan hold.supports[{reference}].jaw_side (turned or uncut)")
+    engage = entry.get("engage_at_z_mm", UNKNOWN)
+    if number(engage):
+        # Where the jaws go on: the picture poses them there, beside the tool.
+        rest["engage_at_z_mm"] = engage
     if record(item).get("kind") != "follow_rest":
         missing.append(f"fixtures.{reference} kind follow_rest")
     for dimension in ("jaw_width", "jaw_height", "jaw_depth"):
@@ -1194,6 +1222,7 @@ _ENGINE_HOLD = (
     "parallels_along",
     "riser",
     "jaw_bar",
+    "jaw_buttons",
 )
 # Vise inputs whose absence stops jaw placement in the engine.
 _ENGINE_HOLD_REQUIRED = (
@@ -1245,8 +1274,10 @@ def _engine_hold(hold):
             result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
                 missing
             )
-        elif "jaw_bar_reason" in hold:
-            result["reason"] = hold["jaw_bar_reason"]
+        elif "jaw_bar_reason" in hold or "jaw_buttons_reason" in hold:
+            result["reason"] = "; ".join(
+                hold[key] for key in ("jaw_bar_reason", "jaw_buttons_reason") if key in hold
+            )
         return result
     if kind in _CHUCK_JAWS or kind == "dividing_head":
         result = {"kind": "chuck", "fixture_kind": kind, **common}
