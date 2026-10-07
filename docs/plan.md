@@ -26,7 +26,11 @@ geometry rules `?`. See [geometry rules](rules-geometry.md).
 
 Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in
 the setup frame; `local_thickness` is per hole, not the whole bar thickness.
-`top_feature` identifies the touched face that facing advances. `entry_z` permits
+`top_feature` identifies the touched face that facing advances; `top_z` is then
+that feature's +Z face. `bottom_feature` likewise names the seated face: `bottom_z`
+is that feature's -Z face. The kernel gives each named face's height and the
+entering stock's over it, and [consistency](rules-setup.md#consistency) compares
+them with `top_z` / `bottom_z`. `entry_z` permits
 a separate local entry surface. `zero.transfer` describes a pickup from another
 setup, and `tool_touches` explicitly records tool changes. Neither invents a
 measured trial-cut diameter.
@@ -595,6 +599,7 @@ assembly. See [in-process stock](rules-geometry.md#in-process-stock).
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `top_feature` | `str` |
+| `bottom_feature` | `str` |
 | `note` | `str` |
 | `top_z` | `float` |
 | `bottom_z` | `float` |
@@ -668,7 +673,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 
 `Pose` is `{origin_mm, x, z}`, each `[Number, Number, Number]` in setup-frame
 mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
-`ClampPlacement` is `{ref, note, pose, restraint, torque_nm}`: `ref` names a fixture or a
+`ClampPlacement` is `{ref, note, pose, restraint, torque_nm, tighten}`: `ref` names a fixture or a
 `kit/member` such as a clamping-kit strap, and its authored `solids` are
 placed by `pose` (origin at the strap underside on the work). `restraint` is
 `press` (it holds the work down along pose -z), `locate` (it only positions
@@ -693,7 +698,11 @@ HOLD and the picture share one label per `clamps` entry, by its 1-based index:
 `clamp_order` or no order at all), `LOC<i>` for `locate`, `SUP<i>` otherwise.
 HOLD prints the order as "seat against the locators (turning in
 `preload_direction`), snug each in turn, then tighten each fully in the same
-order", to the entry's optional declared `torque_nm` when given.
+order", to the entry's optional declared `torque_nm` when given. An entry declared
+`tighten = "hand"` (a nut run down on a stud without a wrench) is printed as
+tightened "by hand only, no wrench" instead of fully; it takes no `torque_nm`. A
+clamp's note must not restate its tightening as hand or finger tight: the HOLD
+prints it from these fields ([consistency](rules-setup.md#consistency)).
 
 A physical stop uses `stop_fixture` plus `stop_pose`; its inventory solids
 follow the same dimension/measurement/void trust rules as other fixture bodies.
@@ -717,6 +726,12 @@ frame: `jaws_along` is the jaw length axis (`x` / `y`), `fixed_jaw` picks the
 jaw on the negative or positive side of the other axis, `grip_mm` is the depth
 of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
 above the stock seat (support tops, or the bed without a lifting support).
+HOLD prints it and, from the same fields, `work top above jaw tops mm`
+(`stock_state.top_z` less the seated bottom, `retained_rail_bottom_z` when lower,
+and this height; `?` when any of them is unknown, or when this height or the
+parallels are not inputs the kernel accepts below). A note in this hold must not
+give heights from the jaws: give them as Z values
+([consistency](rules-setup.md#consistency)).
 An explicit `parallels = "none"` or `"not_applicable"` means known zero parallel
 lift and no parallel solids or parallel-position debt. Without another lifting
 support the work seats on the bed. Omitted,

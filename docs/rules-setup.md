@@ -347,6 +347,128 @@ manifest datum/tolerance references, finishing cuts and transfer, plus shop
 budget citation. A nominal frame or a pickup of an earlier pilot never proves
 a later finished drawing datum.
 
+## `consistency`
+
+One fact, one source. Where the traveler prints a fact from a plan field or the
+kernel, the author's free text must leave it to that source. A fact that can be
+derived is derived: the TOOLS table's `T<n>` numbers come from one function
+(`resolution.tool_numbers`: first use in plan order, a lathe pair keeping its
+number across that machine's setups), a clamp's tightening from its `tighten` /
+`torque_nm` ([plan](plan.md#hold)), the DRO ZERO's kept clamping from
+`zero.transfer.keep_clamped`, and the jaw tops and HOLD's `work top above jaw tops
+mm` from `resolution.jaw_top_z` (the seated bottom, `retained_rail_bottom_z` when
+lower, plus `jaw_above_parallels_mm`, from the inputs the kernel accepts for its
+vise). One subject per setup (hold, clamp notes,
+setup and stock notes, zero texts, stock heights) and one `{setup}:{op}` subject
+per op whose text the rule reads (note, `inspection_note`, `layout`,
+`inspection_methods`).
+
+The rule reads exactly the token patterns below; any other wording makes no
+claim, so it is never an error and never a pass.
+
+**Restated** facts are an `error` wherever the pattern occurs. Negation, time,
+tolerance and subject do not matter: the fact has one source, and the text may
+only leave it there.
+
+- `same chucking` in a setup's hold, clamp, stock, setup or zero text: the HOLD
+  prints the work holding, and the DRO ZERO whether the work stays clamped from
+  the transfer's setup (`zero.transfer.keep_clamped`).
+- `hand tight`, `hand-tighten[ed | ing]`, `tighten[ed | ing] by hand` or `finger
+  tight` in the note of a clamp listed in `clamp_order`: the HOLD prints its
+  tightening.
+- `N mm` or `N in` `above` or `below the [vise] jaw[s]` or `jaw top[s]`, in the
+  setup or op text of a hold that sets `jaw_above_parallels_mm`: the jaw tops are
+  derived, so other heights are given as Z values.
+
+**Compared** forms are an `error` when they disagree with the field. A `T<n>` in a
+setup's or op's text names that setup's TOOLS row.
+
+- A `T<n>` word (not inside a name such as `6061-T6`, not before a decimal point
+  or hyphen, not a plan frame's name) is not in this setup's TOOLS table.
+- A flute count in digits (any integer), bound to exactly one tool number as
+  `2-flute T1`, `T1 (2-flute …)` or `T1, the 2fl …`, differs from that tool's
+  inventory `flutes`.
+- On an op checked by a GO / NO-GO pair, an un-negated clause of its inspection
+  text sends the NO-GO through. Sentences split at `;`, `!`, `?` and full stops
+  (never a decimal point), and clauses at `,` and `:` too. Parenthesised text is
+  dropped. "Negated" means `not`, `never`, `no` (not `NO-GO`), `cannot`,
+  `without`, `unlike`, `instead` or `-n't` in the clause. The clause starts with
+  `push`, `pass`, `run` or `slide` (after `and`, `then`, `now`, `next`, `finally`,
+  `so` or `but`) and sends `the NO-GO [plug]`, `the GO and NO-GO plugs`, `each`,
+  `every`, `both` or `all [the] plug(s)`, or `the plugs` through.
+
+Two checks need no prose:
+
+- A `tighten = "hand"` clamp also declares `torque_nm`.
+- `stock_state` heights are checked against the kernel's setup-entry stock,
+  beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence
+  source its declaration names, and no other source stands in for it.
+  - A `top_z` whose `top_feature` names a feature, or a `bottom_z` whose
+    `bottom_feature` does, is that feature's +Z (or -Z) face, judged by the
+    kernel's height of that face alone. The kernel gives
+    (`setups.<id>.stock_faces_mm`) the face's finished Z and the entering stock's
+    highest point over its footprint (lowest under it). While stock stands over
+    the face, the height must be that stock's. Once the face is cut, the height
+    may sit off the face's CAD Z only as far as the feature's band allows. The
+    band counts only when the feature has one requirement with a `[low, high]`
+    band and a `_nominal`, and the kernel puts its +Z and -Z faces that nominal
+    apart. A thicker feature then moves the face outward, the other face held at
+    its CAD Z. With both faces of one feature cut, `top_z - bottom_z` must lie in
+    the band, and each face may move at most the band's span.
+  - Otherwise the box gives only the stock's highest and lowest points. `top_z`
+    is the highest point; under an `"unknown"` `top_feature` it is wrong only
+    above the whole stock.
+  - The lower of an unnamed `bottom_z` and `retained_rail_bottom_z` is the lowest
+    point. When both are set, that lower one (both, when they tie) is wrong
+    whenever it differs from the box bottom. A named seat never exempts a rail:
+    the rail keeps its own comparison.
+  - A named seat proves only its own face. When it is the lowest authored point
+    and the kernel measures the stock under that face above the box bottom,
+    other stock hangs below it that nothing authored reaches, which is wrong.
+    When the face is the box bottom, its face verdict alone judges the seat, so
+    a displacement its band permits passes.
+  - A rail with no `bottom_z` is wrong only below the box bottom, since the seat
+    may be the stock's lowest point.
+
+A compared fact that cannot be proved is `unknown`, never `pass`:
+
+- a `T<n>` beyond a TOOLS table that still has an op with no tool chosen;
+- a flute count for a tool with no inventory `flutes`;
+- any authored stock height that is unknown, unknown plan units, or no kernel
+  stock box;
+- a `top_z` below the box top under an `"unknown"` `top_feature`;
+- a `top_z` or `bottom_z` whose named face the kernel did not measure (no
+  horizontal face on that side, finished material beyond it, or a face the
+  entering stock does not carry), whatever the box shows, stock below it
+  included;
+- a cut named face off its CAD Z whose feature has no band proved to be its
+  faces' separation;
+- an unnamed `bottom_z` or a rail above the lowest authored point;
+- a rail with no `bottom_z` that is not below the box bottom.
+
+An unknown rail, a jaw height that is negative, not a number or flagged
+`jaw_above_parallels_mm_verify` (anything but `false`), or parallels other than
+`"none"` / `"not_applicable"` that do not resolve, are uncertain or have no
+accepted positive `height` leave the jaw tops unknown, as they leave the kernel's
+vise unplaced. HOLD then prints `work top above jaw tops mm` as `?`. A subject the
+rule reads nothing in is `not_applicable`. An op
+subject is emitted only when its text is read. Evidence: `claims`,
+`contradictions` and `unchecked`.
+
+Not covered (never read, so never an error):
+
+- kept chucking in any other wording (`do not loosen the jaws`, `never loosen it`,
+  `without loosening`, `stays clamped`, `same chuck`), and `same chucking` in op
+  text;
+- hand tightening in any other wording, or in hold text rather than a clamp's own
+  note, or in the note of a clamp outside `clamp_order`;
+- a torque restated in text;
+- heights from the jaws in other wording (`within 18 mm of the jaw tops`, `proud
+  of the jaws`), or in a hold without `jaw_above_parallels_mm`;
+- flute counts in words (`four-flute`), or not bound to one tool number;
+- inspection text that sends a plug through in any other wording (`gently push
+  …`, `the NO-GO goes through`).
+
 ## M2 declared workholding and indexing
 
 The [lathe rules](rules-lathe.md) check a turned profile from the actual chuck
