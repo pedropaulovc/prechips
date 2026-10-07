@@ -693,9 +693,12 @@ edge_len_mm = { value = 1.6, measured = { by = "example (plausible, not measured
 head_len_mm = { value = 12.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, blade height" } }
 shank_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
 functional_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, blade width" } }
-projection_mm = { "qctp-axa-lms-2280/7-parting" = { value = 18.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to blade tip" } } }
+# AUTHOR'S CHOICE: 15.0 out of the holder because the deepest plunge it makes is the cone
+# crank part-off (12.5 radial on Ø25); a blade set no longer than the job needs is stiffer
+# and less prone to chatter and grabbing on the shallow shaft reliefs.
+projection_mm = { "qctp-axa-lms-2280/7-parting" = { value = 15.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to blade tip" } } }
 shank_in = "1/2"             # blade height clamped by the #7 holder (size_in 1/16 x 1/2 x 4-1/2)
-reach_mm = { value = 18.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to blade tip (usable plunge depth)" } }
+reach_mm = { value = 15.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to blade tip (usable plunge depth)" } }
 blade_width_mm = { value = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground front edge" } }
 # Drill-only point_angle/flute_len/oal/flutes/dia fields removed: a parting blade has none.
 # --- end pivot-shaft additions ---

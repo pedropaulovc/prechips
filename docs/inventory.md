@@ -102,6 +102,19 @@ projection whenever that entry exists: an entry that is `"unknown"` or
 carries its own debt keeps the op unresolved rather than falling back, and
 only an absent pair uses `oal - holder.grip`. Neither flute length nor holder
 gauge length substitutes for projection.
+
+A projection is one value per tool/holder pair for the whole shop; a plan has no
+per-job or per-setup override, on purpose. The projection is a measured inventory
+fact: its trust (`measured`, `verify`) and its measurement debt are keyed to the
+tool/holder pair, and an authored plan number would carry neither. Six readers
+take it from the inventory (envelope, headroom, engagement, accessibility, the
+kernel's tool stack and the sheet's tool table), so an override that reached some
+and not others would print one setting while the checks use another. A shop that
+sets a blade further out for one job declares that setting in the inventory and
+measures it, and every job is then checked at it: deflection and clearance at the
+longer setting, and a reach still too short is a finding naming the setting. A
+tool kept set at two projections is two inventory tools.
+
 Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
@@ -145,6 +158,11 @@ arcs is ordinary inventory:
   indexed chord reads it from `hold.fixture`.
 - Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
   `"profile_gauge"` and the `range_mm` of radii they read.
+- A machine's own axis read-out, used as a gauge (a lathe tool touched through
+  paper on a scribe, then on a faced end), is a `gauges.<id>` with
+  `kind = "dro_scale"`, its `resolution_mm` and the `range_mm` of the axis travel.
+  It reads a length along that axis (`length`, `depth`, `height`, `thickness`,
+  `station`, or a reference-only `length_ref`) and never a diameter or a form.
 
 ## Kernel geometry facts (M4)
 
@@ -249,9 +267,17 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   in the shop, such as a machine's vise jaws drawn for clearance: not listed,
   unless holes are made in it here, when its row reads "(existing part: make
   the holes only)" with size "—").
-  Sizes and positions print at shop policy `numbers.fixture_make_decimals`; the
-  fit of a primitive with `locates` (the bore cut in it, else the primitive
-  itself) and shim nominals print at the drawing precision. Optional texts
+  Sizes and positions print on the DRO grid they are made on (the shop's mill:
+  every machine of kind `mill` reading one grid, else the setup machine's), at
+  shop policy `numbers.fixture_make_decimals`; the fit of a primitive with
+  `locates` (the bore cut in it, else the primitive itself) and shim nominals
+  print at the drawing precision, and either one undeclared, finer than the
+  grid or off it at the grid step. A position at the place of a fit on the same
+  sheet (a hole a locating pin stands in, a bolt hole over a locating pad)
+  prints the fit's value: one place, one value. A fit the grid moves beyond the
+  drawing's general tolerance at its precision (`general_tolerances.linear_<n>pl`),
+  or with that tolerance undeclared, prints `?` with the reason under the table;
+  the hole is never moved silently. Optional texts
   `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
   Locates and Fastener columns; `shim = true` marks an adjustable shim stack
   whose drawn thickness HOLD prints as the nominal to fit with feeler gauges,
