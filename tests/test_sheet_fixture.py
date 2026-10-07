@@ -410,6 +410,94 @@ def test_a_gauge_named_only_in_a_record_or_prose_gets_its_receipt_check(where):
     assert found["S1"] == "unknown"
 
 
+def same_key_receipts(s1_note, s2_note=None, s1_slots=None):
+    """``fixtures.pins`` (receipt known) and ``gauges.pins`` (receipt unknown): two items
+    under one key. Returns ``{setup: status}`` and ``{setup: receipt text}``."""
+    from prechips.rules import purchased_tooling
+
+    data, _ = record_page()
+    data.inventory["fixtures"]["pins"] = {
+        "kind": "accessory",
+        "name": "fixture locating pins",
+        "acceptance": [{"check": "condition", "gauge": "none", "accept": "no visible damage"}],
+    }
+    data.inventory["gauges"]["pins"] = {
+        "kind": "pin_gauge",
+        "name": "quarter-inch pin gauge",
+        "dia_mm": 6.35,
+        "acceptance": "unknown",
+    }
+    data.plan["setups"].append({**data.plan["setups"][0], "id": "S2"})
+    data.plan["setups"][0] = {**data.plan["setups"][0], **(s1_slots or {})}
+    for setup, note in zip(data.plan["setups"], (s1_note, s2_note), strict=True):
+        if note:
+            setup["note"] = note
+    findings = purchased_tooling.evaluate(data)
+    traveler = _Traveler(data, findings, {}, None)
+    receipts = {
+        setup["id"]: unescape(re.sub(r"<[^>]+>", "|", traveler.purchased_tooling(setup)))
+        for setup in data.plan["setups"]
+    }
+    return {f.subject: f.status for f in findings}, receipts
+
+
+@pytest.mark.parametrize(
+    "note",
+    ["Use fixtures.pins, then check with gauges.pins.", "Check with gauges.pins; fixtures.pins."],
+)
+def test_two_items_under_one_key_in_different_categories_each_get_their_receipt(note):
+    found, receipts = same_key_receipts(note)
+    assert found["S1"] == "unknown"
+    assert "fixture locating pins" in receipts["S1"]
+    gauge = receipts["S1"][receipts["S1"].index("quarter-inch pin gauge") :]
+    assert "STOP" in gauge
+
+
+def test_a_same_key_item_first_used_later_gets_its_own_receipt_table_there():
+    found, receipts = same_key_receipts("Use fixtures.pins.", "Check with gauges.pins.")
+    assert found == {"S1": "pass", "S2": "unknown"}
+    assert "quarter-inch pin gauge" in receipts["S2"] and "STOP" in receipts["S2"]
+    # The gauge's table is its own, here: no pointer back to the fixture's in S1.
+    assert "fixture locating pins" not in receipts["S2"]
+
+
+def test_a_receipt_table_names_its_own_category_item():
+    found, receipts = same_key_receipts("Check with gauges.pins.")
+    assert found == {"S1": "unknown"}
+    assert "quarter-inch pin gauge" in receipts["S1"]
+    assert "fixture locating pins" not in receipts["S1"]
+
+
+@pytest.mark.parametrize(
+    "slots",
+    [
+        {"hold": {"fixture": "bridge", "pose": IDENTITY, "align": {"indicator": "pins"}}},
+        {"ops": [{"op": 10, "do": "inspect", "feature": "bore", "checks": {"dia": "pins"}}]},
+    ],
+)
+def test_a_gauge_slot_reads_the_gauge_not_a_same_key_fixture(slots):
+    found, receipts = same_key_receipts(None, s1_slots=slots)
+    assert found == {"S1": "unknown"}
+    assert "quarter-inch pin gauge" in receipts["S1"]
+    assert "fixture locating pins" not in receipts["S1"]
+
+
+def test_a_gauge_slot_resolves_the_gauge_not_a_same_key_fixture():
+    from prechips.rules import tool_resolves
+
+    data, _ = record_page()
+    data.inventory["fixtures"]["pins"] = {"kind": "accessory", "name": "fixture locating pins"}
+    data.inventory["gauges"]["pins"] = {"kind": "pin_gauge", "dia_mm": 6.35, "verify": True}
+    op = {"op": 10, "do": "inspect", "feature": "bore", "checks": {"dia": "pins"}}
+    data.plan["setups"][0]["ops"] = [op]
+    found = {f.subject: f.status for f in tool_resolves.evaluate(data)}
+    # The gauge the check reads still needs verifying: the listed fixture is another item.
+    assert found["gauges.pins"] == "unknown"
+    data.inventory["gauges"]["pins"]["verify"] = False
+    found = {f.subject: f.status for f in tool_resolves.evaluate(data)}
+    assert found["gauges.pins"] == "pass"
+
+
 def drill_note(note):
     from prechips.rules import tool_resolves
 

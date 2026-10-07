@@ -12,14 +12,17 @@ from .resolution import (
     SAW_OPS,
     UNKNOWN,
     coating_process,
+    inventory_category,
     length_mm,
     named_item,
     named_references,
     number,
     operations,
+    record,
     resolve,
     same_length,
     selected_references,
+    setup_item_uses,
     uncertain,
 )
 
@@ -139,8 +142,20 @@ def evaluate(bundle):
         )
     # An item the prose names (``gauges.granite-surface-plate`` in a make note, a record
     # blank's gauge) must be in the shop list: the traveler prints its name, and a name it
-    # cannot find, or an item still to verify, is unknown, never a pass.
-    for name, where in sorted(named_references(bundle).items()):
+    # cannot find, or an item still to verify, is unknown, never a pass. So must the item a
+    # slot reads when another category lists the same key first: a ``checks`` gauge
+    # ``pins`` is ``gauges.pins``, not the ``fixtures.pins`` resolved above.
+    named = named_references(bundle)
+    for setup in bundle.plan.get("setups") or []:
+        for categories, ref in setup_item_uses(setup):
+            root = ref.partition("/")[0]
+            category = inventory_category(bundle, root, categories)
+            if category and category != inventory_category(bundle, root):
+                places = named.setdefault(f"{category}.{ref}", [])
+                where = f"Setup {record(setup).get('id', '?')}"
+                if where not in places:
+                    places.append(where)
+    for name, where in sorted(named.items()):
         category, _, reference = name.partition(".")
         item = named_item(bundle, name)
         verified = item is not None and not uncertain(item)

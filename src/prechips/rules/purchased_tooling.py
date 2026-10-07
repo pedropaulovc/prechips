@@ -21,7 +21,7 @@ from .resolution import (
     number,
     record,
     resolve,
-    setup_item_refs,
+    setup_item_uses,
     setup_named_references,
     uncertain,
 )
@@ -30,26 +30,34 @@ CITE = "docs/inventory.md Purchased tooling: acceptance"
 
 
 def acceptance_items(bundle, setup, job=False):
-    """``[(reference, item, checks)]`` for each item the setup uses that declares receipt
-    checks: a kit's own list once under its root, a member's own list under its path. An
-    explicitly unknown list (``acceptance = "unknown"``) is declared, not absent. A setup
-    uses the items its slots name (:func:`setup_item_refs`) and the items its prose and its
-    shop-made items' notes and record blanks name (:func:`setup_named_references`); with
-    ``job`` (the first setup) also the job page's."""
-    uses = [(None, ref) for ref in setup_item_refs(setup)]
-    uses += [tuple(name.split(".", 1)) for name in setup_named_references(bundle, setup, job=job)]
+    """``[(category, reference, item, checks)]`` for each item the setup uses that declares
+    receipt checks: a kit's own list once under its root, a member's own list under its
+    path. An explicitly unknown list (``acceptance = "unknown"``) is declared, not absent.
+    A setup uses the items its slots name (:func:`setup_item_uses`, each in the first
+    category declaring it, the slot's own kind first: a ``checks`` gauge is a gauge) and the
+    items its prose and its shop-made items' notes and record blanks name
+    (:func:`setup_named_references`, in the category they name); with ``job`` (the first
+    setup) also the job page's. An item is its category and key: a ``fixtures.pins`` and a
+    ``gauges.pins`` are two items, each with its own checks."""
+    uses = list(setup_item_uses(setup))
+    uses += [
+        ((category,), ref)
+        for category, ref in (
+            name.split(".", 1) for name in setup_named_references(bundle, setup, job=job)
+        )
+    ]
     found = []
-    for named, ref in uses:
+    for categories, ref in uses:
         root, _, member = ref.partition("/")
-        category = named or inventory_category(bundle, root)
+        category = inventory_category(bundle, root, categories)
         raw = record(record(bundle.inventory.get(category)).get(root)) if category else {}
         owners = [(root, raw)]
         if member:
             owners.append((ref, record(record(raw.get("members")).get(member))))
         for key, own in owners:
-            if "acceptance" in own and key not in {k for k, _, _ in found}:
-                item = resolve(bundle, named, key) or own
-                found.append((key, item, own["acceptance"]))
+            if "acceptance" in own and (category, key) not in {(c, k) for c, k, *_ in found}:
+                item = resolve(bundle, category, key) or own
+                found.append((category, key, item, own["acceptance"]))
     return found
 
 
@@ -127,21 +135,24 @@ def _check(bundle, item, check):
     return row, reason
 
 
-def item_checks(bundle, reference, item, checks):
+def item_checks(bundle, category, reference, item, checks):
     """The item's receipt-check record: each check with its resolved limit and status. An
-    unknown list, an empty one or an unknown ``purchase`` cannot accept the item."""
+    unknown list, an empty one or an unknown ``purchase`` cannot accept the item. The
+    record names the item by category and key (``gauges.pins``), never the bare key."""
     rows, stops = [], []
     if "purchase" in item and not _stated(item["purchase"]):
         stops.append("what is bought is unknown")
     if not isinstance(checks, list) or not checks:
         stops.append("its receipt checks are unknown")
-    reasons = [f"{reference}: {stop}" for stop in stops]
+    identity = f"{category}.{reference}"
+    reasons = [f"{identity}: {stop}" for stop in stops]
     for check in checks if isinstance(checks, list) else []:
         row, reason = _check(bundle, item, record(check))
         if reason:
-            reasons.append(f"{reference}: {row['check']}: {reason}")
+            reasons.append(f"{identity}: {row['check']}: {reason}")
         rows.append(row)
     return {
+        "category": category,
         "ref": reference,
         "name": item.get("name", reference),
         "purchase": item.get("purchase", UNKNOWN),
@@ -155,8 +166,8 @@ def evaluate(bundle):
     result = []
     for index, setup in enumerate(bundle.plan["setups"]):
         items, reasons = [], []
-        for reference, item, checks in acceptance_items(bundle, setup, job=index == 0):
-            row, why = item_checks(bundle, reference, item, checks)
+        for category, reference, item, checks in acceptance_items(bundle, setup, job=index == 0):
+            row, why = item_checks(bundle, category, reference, item, checks)
             items.append(row)
             reasons += why
         if not items:
@@ -175,7 +186,7 @@ def evaluate(bundle):
                 setup["id"],
                 "unknown" if reasons else "pass",
                 {"items": items},
-                [CITE, *(f"inventory {row['ref']}: acceptance" for row in items)],
+                [CITE, *(f"inventory {row['category']}.{row['ref']}: acceptance" for row in items)],
                 sentence,
             )
         )
