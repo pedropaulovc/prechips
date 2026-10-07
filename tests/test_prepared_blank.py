@@ -250,6 +250,45 @@ def test_the_jaw_round_bar_must_resolve_before_the_vise_is_placed(tmp_path, bar,
     assert hold["reason"]
 
 
+_BUTTONS = '\n[fixtures.jaw-buttons]\nkind = "jaw_buttons"\nname = "two jaw buttons with spigots"\n'
+_MEASURED = (
+    "{{ value = {}, measured = {{ by = "
+    '"example (plausible, not measured)", date = "2026-10-05", instrument = "caliper" }} }}'
+)
+
+
+@pytest.mark.parametrize(
+    ("reference", "unmeasured", "placed"),
+    [
+        ('"jaw-buttons"', None, True),
+        # A button whose thickness or spigot is unmeasured: where the jaws close, or
+        # whether the spigot seats in the work, is unknown.
+        ('"jaw-buttons"', "thickness_mm", False),
+        ('"jaw-buttons"', "spigot_length_mm", False),
+        # Not jaw buttons: the jaws cannot be placed on them.
+        ('"jaw-round-bar"', None, False),
+    ],
+)
+def test_jaw_buttons_must_resolve_every_measurement_before_the_vise_is_placed(
+    tmp_path, reference, unmeasured, placed
+):
+    plan = bracket(tmp_path)
+    inventory = plan.parents[1] / "inventory" / "pedro-shop.toml"
+    sizes = {"dia_mm": 16.0, "thickness_mm": 3.0, "spigot_dia_mm": 12.2, "spigot_length_mm": 2.0}
+    item = "".join(
+        f"{key} = {_MEASURED.format(value)}\n" for key, value in sizes.items() if key != unmeasured
+    )
+    inventory.write_text(inventory.read_text(encoding="utf-8") + _BUTTONS + item, encoding="utf-8")
+    rewrite(plan, ("hold", "P4"), "jaw_buttons", reference)
+    hold = hold_sent(plan, "P4")
+    if placed:
+        assert hold["jaw_buttons"] == {"name": "jaw-buttons", **sizes}
+        assert "reason" not in hold
+        return
+    assert "jaw_buttons" not in hold
+    assert "jaw_buttons" in hold["reason"]
+
+
 def test_a_mill_process_face_on_a_drawing_plane_never_claims_that_face(tmp_path, freecad_kernel):
     plan = bracket(tmp_path)
     before = rules(load_bundle(plan), "coverage")["coverage"]["pivot-bracket"]

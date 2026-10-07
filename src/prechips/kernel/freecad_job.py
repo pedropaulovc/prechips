@@ -874,6 +874,15 @@ def _merged_length(intervals):
     return total
 
 
+def _clipped(intervals, span):
+    """The parts of ``intervals`` inside ``span`` (lo, hi)."""
+    return [
+        (max(lo, span[0]), min(hi, span[1]))
+        for lo, hi in intervals
+        if min(hi, span[1]) > max(lo, span[0])
+    ]
+
+
 # --------------------------------------------------------------------------- mapping
 
 
@@ -3695,6 +3704,8 @@ class _Setup:
         # certain jaw boxes {"fixed", "moving"} plus "possible": [(fixed side?, box)] once placed
         self.jaws = None
         self.jaw_bar = None  # a vise's placed round bar between the work and the moving jaw
+        # a vise's placed jaw buttons {side: (solid, gripped Z span)}, one per jaw
+        self.jaw_buttons = None
         self.hold = None  # the declared hold, once it is declared without a reason
         self.fixture_reason = None
         # Placed fixture components: {name, role, solid, bbox, box, rotating}; their union is
@@ -5731,6 +5742,9 @@ class _Setup:
                     self._add(side + "_jaw", "jaw", _box_shape(self.jaws[side]), self.jaws[side])
                 if self.jaw_bar is not None:
                     self._add("jaw_bar " + self.hold["jaw_bar"]["name"], "fixture", self.jaw_bar)
+                for side, (solid, _) in (self.jaw_buttons or {}).items():
+                    name = self.hold["jaw_buttons"]["name"]
+                    self._add(f"jaw_buttons {name} {side}", "fixture", solid)
                 self.fixture_possible = [
                     (("fixed" if fixed else "moving") + "_jaw_possible", box)
                     for fixed, box in self.jaws["possible"]
@@ -6226,15 +6240,33 @@ class _Setup:
             lo_corner[c_axis], hi_corner[c_axis] = c0, c1
             return (lo_corner[0], lo_corner[1], top - height, hi_corner[0], hi_corner[1], top)
 
-        # A round bar between the work and the moving jaw holds that jaw off by its Ø.
-        bar = hold.get("jaw_bar")
+        # A round bar between the work and the moving jaw holds that jaw off by its Ø;
+        # jaw buttons hold each jaw off by their thickness.
+        bar, buttons = hold.get("jaw_bar"), hold.get("jaw_buttons")
+        if bar and buttons:
+            return (
+                "jaw_bar and jaw_buttons are both declared; the kernel places one of them "
+                "between the work and the jaws, not both"
+            )
         gap = bar["dia_mm"] if bar else 0.0
-        fixed_c = (hi, hi + depth) if sign > 0 else (lo - depth, lo)
-        moving_c = (lo - gap - depth, lo - gap) if sign > 0 else (hi + gap, hi + gap + depth)
+        thick = buttons["thickness_mm"] if buttons else 0.0
+        fixed_c = (hi + thick, hi + thick + depth) if sign > 0 else (lo - thick - depth, lo - thick)
+        moving_c = (
+            (lo - gap - thick - depth, lo - gap - thick)
+            if sign > 0
+            else (hi + gap + thick, hi + gap + thick + depth)
+        )
         jaw_a = (centre - width / 2, centre + width / 2) if exact else (a_lo, a_hi)
+        planes = {"fixed": hi if sign > 0 else lo, "moving": lo if sign > 0 else hi}
+        outward = {"fixed": sign, "moving": -sign}
         if bar:
             moving_plane = lo if sign > 0 else hi
             reason = self._jaw_bar(bar, sign, a_axis, c_axis, moving_plane, jaw_a, zone)
+            if reason:
+                return reason
+        if buttons:
+            jaw_z = (top - height, top)
+            reason = self._jaw_buttons(buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z)
             if reason:
                 return reason
         self.jaws = {
@@ -6265,16 +6297,19 @@ class _Setup:
             "exact": exact,
         }
         facts["width_mm"] = _r(hi - lo)
-        facts["jaw_separation_mm"] = _r(hi - lo + gap)
-        planes = {"fixed": hi if sign > 0 else lo, "moving": lo if sign > 0 else hi}
-        outward = {"fixed": sign, "moving": -sign}
+        facts["jaw_separation_mm"] = _r(hi - lo + gap + 2 * thick)
         grips, planar, contact_faces = [], [], {}
         for side in ("fixed", "moving"):
             intervals, labels = self._contact(zone, c_axis, planes[side], outward[side], seat, top)
+            if buttons:
+                # The work bears only on its button's face, not the jaw's.
+                intervals = _clipped(intervals, self.jaw_buttons[side][1])
             planar.append(bool(intervals))
             contact_faces[side] = labels
             if not intervals:
                 intervals = self._line_contact(zone, c_axis, planes[side])
+                if buttons:
+                    intervals = _clipped(intervals, self.jaw_buttons[side][1])
             grips.append(_r(_merged_length(intervals)))
         facts["parallel_pair"] = all(planar)
         facts["contact_grip_mm"] = grips
@@ -6322,6 +6357,69 @@ class _Setup:
                 f"{[_r(held[a_axis]), _r(held[a_axis + 3])]}), so the moving jaw is unplaced"
             )
         self.jaw_bar = solid
+        return None
+
+    def _jaw_buttons(self, buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z):
+        """Each jaw's button: centred on the one bore of the work that opens on that jaw
+        face wide enough for its spigot, its face on the work and its spigot in the bore;
+        else why it cannot be placed there. No such bore (or more than one), a spigot the
+        bore does not take whole, a button that meets the work beyond the face, or a jaw
+        that misses the button leaves the jaws unplaced."""
+        name, thick = buttons["name"], buttons["thickness_mm"]
+        radius, spigot_r = buttons["dia_mm"] / 2, buttons["spigot_dia_mm"] / 2
+        placed = {}
+        for side in ("fixed", "moving"):
+            plane = planes[side]
+            where = f"the {side} jaw face ({'xy'[c_axis]} {_r(plane)})"
+            centres = []
+            for edge in self.part.Edges:
+                curve = edge.Curve
+                if not isinstance(curve, Part.Circle) or abs(curve.Axis[c_axis]) < PARALLEL:
+                    continue
+                if abs(curve.Center[c_axis] - plane) > PLANE_TOL:
+                    continue
+                if curve.Radius < spigot_r - PLANE_TOL:
+                    continue
+                centre = [curve.Center.x, curve.Center.y, curve.Center.z]
+                if all(math.dist(centre, other) > PLANE_TOL for other in centres):
+                    centres.append(centre)
+            if len(centres) != 1:
+                return (
+                    f"jaw_buttons {name}: {len(centres)} bores of Ø {_r(2 * spigot_r)} mm or "
+                    f"more open on {where}, so the button's place there is undefined"
+                )
+            (centre,) = centres
+            out = [0.0, 0.0, 0.0]
+            out[c_axis] = float(outward[side])
+            button = Part.makeCylinder(radius, thick, V(*centre), V(*out))
+            spigot = Part.makeCylinder(
+                spigot_r, buttons["spigot_length_mm"], V(*centre), V(*(-v for v in out))
+            )
+            if spigot.common(self.part).Volume > HIT_MM3:
+                return (
+                    f"jaw_buttons {name}: the Ø{_r(2 * spigot_r)} x "
+                    f"{_r(buttons['spigot_length_mm'])} mm spigot does not fit the bore at "
+                    f"{_r(centre[2])} mm Z on {where}"
+                )
+            if button.common(self.part).Volume > HIT_MM3:
+                return (
+                    f"jaw_buttons {name}: the Ø{_r(2 * radius)} mm button meets the work "
+                    f"off {where}"
+                )
+            span = (centre[2] - radius, centre[2] + radius)
+            a_span = (centre[a_axis] - radius, centre[a_axis] + radius)
+            if (
+                span[1] <= jaw_z[0]
+                or span[0] >= jaw_z[1]
+                or a_span[1] <= jaw_a[0]
+                or a_span[0] >= jaw_a[1]
+            ):
+                return (
+                    f"jaw_buttons {name}: the {side} jaw (Z {_r(jaw_z[0])} to {_r(jaw_z[1])}) "
+                    f"misses the button centred at Z {_r(centre[2])}"
+                )
+            placed[side] = (button.fuse(spigot), (max(span[0], jaw_z[0]), min(span[1], jaw_z[1])))
+        self.jaw_buttons = placed
         return None
 
     def _contact(self, zone, c_axis, plane, outward, seat, top):
@@ -7262,6 +7360,9 @@ class _Setup:
                 elif name.startswith("jaw_bar "):
                     # The round bar between the work and the moving jaw, as HOLD names it.
                     label, role = "ROUND BAR", "jaw_bar"
+                elif name.startswith("jaw_buttons "):
+                    # A button between the work and each jaw, as HOLD names them.
+                    label, role = "JAW BUTTONS", "jaw_buttons"
                 elif local.startswith("pad"):
                     role = "pad"
                 elif local.startswith("base"):
