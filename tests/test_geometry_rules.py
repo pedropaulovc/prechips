@@ -24,8 +24,8 @@ from prechips.rules import (
 )
 
 
-@pytest.fixture
-def bundle(tmp_path):
+def rules_bundle(root):
+    """One finish_profile op S1:10 on ``em`` in ``holder`` with its kernel facts preset."""
     return Bundle(
         {
             "part": "test-part",
@@ -112,7 +112,7 @@ def bundle(tmp_path):
         {},
         {},
         {},
-        tmp_path,
+        root,
         {
             "status": "ok",
             "bbox_mm": [0.0, 0.0, 0.0, 50.0, 20.0, 10.0],
@@ -127,6 +127,7 @@ def bundle(tmp_path):
                     "holder_hits": 0,
                     "reach_depth_mm": 8.0,
                     "holder_wall_hits": 0,
+                    "shank_hits": 0,
                     "corner_radii_mm": [3.0],
                     "claimed_indices": [1],
                     "claim_errors": [],
@@ -143,6 +144,11 @@ def bundle(tmp_path):
             },
         },
     )
+
+
+@pytest.fixture
+def bundle(tmp_path):
+    return rules_bundle(tmp_path)
 
 
 def finding(rule, bundle, subject=None):
@@ -225,7 +231,9 @@ def test_holder_gauge_length_uses_explicit_inch_units(bundle):
 @pytest.mark.parametrize(
     "depth,oal,hits,shank,status",
     [
-        (10.0, 30.0, "unknown", "unknown", "pass"),
+        # Within the flute an unresolved shank still never passes; a resolved one does.
+        (10.0, 30.0, "unknown", "unknown", "unknown"),
+        (10.0, 30.0, "unknown", 0, "pass"),
         (28.0, 30.0, 0, 0, "pass"),
         (28.0, 30.0, 1, 0, "error"),
         (31.0, 30.0, 0, 0, "error"),
@@ -250,6 +258,7 @@ def test_long_reach_requires_oal_and_holder_wall_clearance(bundle, depth, oal, h
         (28.0, 1, "error"),  # it meets that stock: a clash past the flute
         (8.0, 1, "error"),  # a shank wider than the cutter clashes even within the flute
         (28.0, "unknown", "unknown"),  # unmeasured shank past the flute is never a pass
+        (0.5, "unknown", "unknown"),  # nor within it: a shallow spot sinks the shank too
     ],
 )
 def test_shank_past_the_flute_clears_clashes_or_stays_unknown(bundle, depth, shank_hits, status):

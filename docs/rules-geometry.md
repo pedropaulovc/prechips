@@ -1240,17 +1240,29 @@ inventory (a `{ value, measured }` record, halved to the engine's
 `shank_radius_mm`) running from `shank_from_mm` above the tip to the holder
 face. `shank_from_mm` is the flute length, or for a combined drill and
 countersink (`angle_deg`) the flute plus its seat cone out to the shank
-diameter. `shank_hits` counts the samples whose shank cylinder meets the stock
-the op leaves: the shank trails the flutes through the op's own cut (down its
-bore, or pass by pass down a milled wall), so the finished bore or wall counts
-and the op's own allowance does not. An unknown shank diameter or start leaves
-`shank_hits` unknown.
+diameter. That seat cone, from the flute radius at the flute end to the shank
+radius at `shank_from_mm`, is cutting body, not shank: it is part of the tool
+solid whose hits `accessibility` counts, and a spot or drill removes it with
+its own cut, so a spot deeper than its pilot countersinks its own mouth while a
+retained shoulder inside the cone is a tool hit. `shank_hits` counts the
+samples whose shank cylinder meets the stock the op leaves: the shank trails
+the flutes through the op's own cut (down its bore, or pass by pass down a
+milled wall), so the finished bore or wall counts and the op's own allowance
+does not. An unknown shank diameter or start leaves `shank_hits` unknown.
 
-On a hole op's own axis the kernel also reports three clearances, each the
+On a hole op's own axis the kernel also reports four clearances, each the
 least over its axes, measured within the holder radius:
 
 - `body_clear_mm`: the flute body's radial gap above its own cut's mouth to the
   stock the op leaves (a crown, ear or wall beside the spot);
+- `seat_clear_mm`: the seat cone's radial gap to that stock (at each height,
+  the stock's distance from the axis less the cone's radius there). A cone
+  that meets no stock is measured above the countersink it cuts itself, as
+  the body is above its mouth; one that meets it reports the interference
+  from the flute end up, exact down to minus the pilot radius and unknown
+  deeper; `"not_applicable"` for a tool without a seat cone, and unknown, as
+  the shank, when the shank radius is: only that radius tells a seat cone from
+  none;
 - `shank_clear_mm`: the shank's radial gap to that stock (the finished bore wall
   for a reamer past its flutes);
 - `holder_clear_mm`: the holder face's height above the highest stock the op
@@ -1265,10 +1277,11 @@ Numbers: `reach_depth_mm`, `flute_len_mm`, `oal_mm`, `projection_mm`,
 `holder_wall_hits`, on a milling or axial joint sample `reach_top_z_mm` (the
 setup Z of that highest material, the reach reference; `"not_applicable"` when
 no material stands beside the tool), and off the turning model `shank_dia_mm`,
-`shank_from_mm`, `shank_hits`, any of `body_clear_mm`, `shank_clear_mm`,
-`holder_clear_mm` the kernel reported and `clearances`: one
+`shank_from_mm`, `shank_hits`, any of `body_clear_mm`, `seat_clear_mm`,
+`shank_clear_mm`, `holder_clear_mm` the kernel reported and `clearances`: one
 `{ part, obstacle, mm }` per reported clearance other than
-`"not_applicable"`, with `part` `tool body`, `tool shank` or `holder face`;
+`"not_applicable"`, with `part` `tool body`, `seat cone`, `tool shank` or
+`holder face`;
 `obstacle` `the Ø<d> bore this op cuts` when the gap is the op's own bore,
 `stock <r> from the tool axis`, `stock under the holder at Z<z>` or, when
 unmeasured, `stock beside the tool`/`stock under the holder`.
@@ -1282,11 +1295,13 @@ verdict past the flute and the holder face's height above that stock
 - depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)
 - shank hits: `the tool shank past its flutes meets the retained stock.`
   (error, at any depth)
-- depth ≤ flute: `entry-to-floor depth is within the selected flute length.` (pass)
+- depth ≤ flute with zero shank hits (turning: no shank check):
+  `entry-to-floor depth is within the selected flute length.` (pass)
 - depth > flute with holder wall hits: `depth exceeds flute length and the holder intersects walls.` (error)
-- depth > flute with the shank unknown: the kernel's `shank_hits` reason, or
-  `depth exceeds flute length and the shank past the flutes is unresolved.`
-  (unknown)
+- the shank unknown, at any depth: the kernel's `shank_hits` reason, or
+  `the shank past the flutes is unresolved against the retained stock.`
+  (unknown). A shallow cut does not prove the shank clear: a spot 0.5 mm deep
+  still sinks the shank beside a retained wall the flutes never reach.
 - depth > flute, ≤ OAL, zero holder and shank hits and every holder dimension
   known: `depth exceeds flute length but fits OAL with the shank and holder clear
   of the retained stock.` (pass; turning: `… with the holder cylinder clear of

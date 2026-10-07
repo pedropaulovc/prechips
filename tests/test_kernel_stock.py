@@ -8,16 +8,19 @@ skip without ``freecadcmd``.
 
 import hashlib
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from test_geometry_rules import finding, rules_bundle
 from test_kernel_geometry import IDENTITY, Engine, _op, _vise
 
 from prechips import kernel
 from prechips.inputs import Bundle
 from prechips.model import Stock
+from prechips.rules import reach
 
 ENGINE = Path(kernel.__file__).resolve().parent / "freecad_job.py"
 BOX = {
@@ -56,6 +59,9 @@ Part.makeBox(60, 200, 20).cut(wide_cut).exportStep(out + "/wideupdraftstep.step"
 # The stepped block with a 4 mm through hole in its floor, axis 6 mm from the x=30 wall.
 step = Part.makeBox(60, 40, 20).cut(Part.makeBox(31, 42, 11, V(30, -1, 10)))
 step.cut(Part.makeCylinder(2, 12, V(36, 20, -1))).exportStep(out + "/step-hole.step")
+# A z10 floor (x >= 30) beside a shoulder up to z13, its 2 mm through hole 1.5 mm from it.
+seat = Part.makeBox(60, 40, 13).cut(Part.makeBox(31, 42, 4, V(30, -1, 10)))
+seat.cut(Part.makeCylinder(1, 12, V(31.5, 20, -1))).exportStep(out + "/seat.step")
 """
 
 
@@ -271,7 +277,7 @@ def solids(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 7, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 8, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -371,11 +377,15 @@ def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
 
 
 @pytest.mark.parametrize(
-    "shank, clash, shank_clear",
-    [(2.5, False, 3.5), (6.5, True, -0.5), (None, "unknown", "unknown")],
+    "shank, clash, shank_clear, verdict",
+    [
+        (2.5, False, 3.5, "pass"),
+        (6.5, True, -0.5, "error"),
+        (None, "unknown", "unknown", "unknown"),
+    ],
 )
 def test_spot_reach_holder_and_shank_meet_the_stock_earlier_ops_leave(
-    engine, solids, shank, clash, shank_clear
+    engine, solids, tmp_path, shank, clash, shank_clear, verdict
 ):
     # The facing op clears the 10 mm over the floor, across its hole; the setup-entry
     # block still holds it.
@@ -413,6 +423,62 @@ def test_spot_reach_holder_and_shank_meet_the_stock_earlier_ops_leave(
     )
     if shank is None:
         assert "shank_radius_mm" in op["reasons"]["shank_hits"]
+    # The reach rule on these native facts: the 0.5 mm spot is well within its 6 mm flute,
+    # yet only a resolved shank passes beside the retained wall; an unknown one never does.
+    rules = rules_bundle(tmp_path)
+    tool = rules.inventory["tools"]["em"]
+    tool.update(dia_mm=5.0, flute_len_mm=6.0, projection_mm={"holder": 12.0}, oal_mm=100.0)
+    if shank is not None:
+        tool["shank_mm"] = 2 * shank
+    rules.kernel["ops"]["S1:10"] = {**op, "claimed_indices": [1], "claim_errors": []}
+    assert finding(reach, rules).status == verdict
+
+
+# A combined drill and countersink's R1 pilot, 1.9 mm long, under its 60 degree seat cone.
+PILOT, PILOT_LEN, SEAT_SLOPE = 1.0, 1.9, math.tan(math.radians(30.0))
+
+
+@pytest.mark.parametrize(
+    "name, depth, shank, hits, seat_clear",
+    [
+        # 0.5 deep, 1.5 mm from the shoulder (z13): the cone (z11.4-13.79) widens past it.
+        ("seat", 0.5, 2.38125, True, 1.5 - (PILOT + (13.0 - 11.4) * SEAT_SLOPE)),
+        # A seat ending at R1.4 (z12.09) stays 0.1 mm off that shoulder.
+        ("seat", 0.5, 1.4, False, 0.1),
+        # 2 mm deep after facing: the cone sinks its own countersink into the mouth, which
+        # is its cut, not an obstacle; the retained x=30 wall stands 6 mm off its R2.38 top.
+        ("step-hole", 2.0, 2.38125, False, 6.0 - 2.38125),
+    ],
+)
+def test_centre_drill_seat_cone_is_cutting_body_checked_against_retained_stock(
+    engine, solids, name, depth, shank, hits, seat_clear
+):
+    step = solids[name]
+    centre = (31.5, 20) if name == "seat" else (36, 20)
+    hole = engine.refs(
+        step, (centre[0] - 2.5, 17.5, 0), (centre[0] + 2.5, 22.5, 10), kind="Cylinder"
+    )
+    spot = {
+        **_op("S1:20", "hole", PILOT, PILOT_LEN, 20.0),
+        "do": "spot",
+        "hole": {"thru": True, "depth_mm": depth, "entry_z_mm": 10.0, "point_angle_deg": 118.0},
+        "shank_from_mm": PILOT_LEN + (shank - PILOT) / SEAT_SLOPE,
+        "shank_radius_mm": shank,
+    }
+    if name == "seat":
+        job = engine.job(step, {"hole": hole}, [_setup("S1", [spot])], stock=PART)
+    else:
+        floor = engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane")
+        face = {**_floor_op("S1:10"), "do": "face"}
+        job = engine.job(step, {"floor": floor, "hole": hole}, [_setup("S1", [face, spot])])
+    op = engine.run(job)["ops"]["S1:20"]
+    assert (op["tool_hits"] > 0) == hits, op
+    assert op["obstacles"]["tool"] == (["part"] if hits else [])
+    assert op["seat_clear_mm"] == pytest.approx(seat_clear, abs=1e-3)
+    # The pilot alone stands 0.5 mm off the shoulder; the shank starts at the seat's top.
+    if name == "seat":
+        assert op["body_clear_mm"] == pytest.approx(0.5, abs=1e-3)
+        assert op["shank_hits"] == 0
 
 
 @pytest.mark.parametrize("shank, clash", [(3.0, False), (4.0, True)])

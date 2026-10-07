@@ -314,6 +314,7 @@ def _facts(claimed, errors):
         "holder_hits": 0,
         "reach_depth_mm": 8.0,
         "holder_wall_hits": 0,
+        "shank_hits": 0,
         "corner_radii_mm": [],
         "claimed_indices": claimed,
         "claim_errors": errors,
