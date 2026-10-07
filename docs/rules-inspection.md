@@ -133,7 +133,9 @@ band, or an unknown, unlisted or unverified gauge, is `unknown`. Otherwise it is
 `pass`. Evidence: each hold's band, drawing band, gauge, reason,
 `inside_drawing_band`, `gauge_status` and `gauge_message`. The sheet prints it as
 `PROCESS HOLD — not a drawing limit: <reason> — <feature> <requirement> <band>:
-<gauge>`, at the hold's own digits.
+<gauge>`. The band prints with the most decimals among its own limits, the
+drawing precision and one gauge step in mm: a 0.001 mm or a 0.0001 in
+(0.00254 mm) gauge reads 3 places, not the five of the inch conversion.
 
 ## `finish_route`
 

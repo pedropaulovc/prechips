@@ -289,6 +289,15 @@ def test_a_process_hold_prints_as_a_shop_limit_not_a_drawing_limit(tmp_path):
     assert "2.000–2.010" in row
 
 
+def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_resolves(tmp_path):
+    # 0.0001 in is 0.00254 mm: the band reads to 0.001 mm, not to the conversion's five places.
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    _, op = hold_ream(plan, "[2.000, 2.010]", gauge="micrometers/0-1in")
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    (row,) = [row for row in op_rows(html, op) if REASON in row]
+    assert "2.000–2.010" in row
+
+
 def test_a_process_hold_names_an_exported_requirement(tmp_path):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     hold_ream(plan, "[2.000, 2.010]", requirement="depth")
@@ -443,18 +452,28 @@ def built_up(tmp_path, order=None):
     return bundle, by_id
 
 
-def coat(setup):
-    number = max(op["op"] for op in setup["ops"]) + 10
-    setup["ops"].append({"op": number, "do": "coating", "feature": setup["ops"][0]["feature"]})
+def coat(setup, feature=None):
+    number = max((op["op"] for op in setup["ops"]), default=0) + 10
+    feature = feature or setup["ops"][0]["feature"]
+    setup["ops"].append({"op": number, "do": "coating", "feature": feature})
 
 
 def test_one_coating_of_the_joined_assembly_after_its_last_cut_covers_every_component(
     tmp_path,
 ):
-    bundle, _ = built_up(tmp_path)
-    coat(bundle.plan["setups"][-1])
+    bundle, by_id = built_up(tmp_path)
+    # S12 is the bench finishing setup after S11's last cut; stripping its coatings empties it.
+    last = bundle.plan["setups"][-1]
+    assert last["id"] == "S12" and last["ops"] == []
+    coat(last, "body")
     row = evaluate("finish_route", bundle)["cone-pivot-post"]
     assert row.status == "pass", row.sentence
+    # The same single coating one setup earlier, before S11's cuts, leaves those cuts bare.
+    last["ops"] = []
+    coat(by_id["S10"], "body")
+    row = evaluate("finish_route", bundle)["cone-pivot-post"]
+    assert row.status == "warn", row.sentence
+    assert {cut.split(":")[0] for cut in row.numbers["uncoated_cuts"]} == {"S11"}
 
 
 # Body S1->S4->S5, cone S2, crank S3; S6 joins body+cone, S7 adds the crank; no later cut.

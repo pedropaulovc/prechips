@@ -2535,11 +2535,12 @@ class _Traveler:
             for axis, target, drawn in zip("XYZ", record["dro"], nominal, strict=True)
             if o(target) != o(drawn)
         )
+        reason = self.bench(aim["reason"]).rstrip(".")
         return (
             f"{self.feature_name(feature)} is aimed at {moved} so its "
             f"{_REQUIREMENT_NAMES.get(requirement, requirement)} from the "
             f"{self.feature_name(source)} reads {_number(aim['value_mm'])} inside "
-            f"{self.band(aim['printed_band'], feature, requirement)}: {self.bench(aim['reason'])}."
+            f"{self.band(aim['printed_band'], feature, requirement)}: {reason}."
         )
 
     # ------------------------------------------------------------------ tools
@@ -2838,9 +2839,14 @@ class _Traveler:
         gauge = resolve(self.bundle, "gauges", hold["gauge"]) or {}
         resolution = length_mm(gauge, "resolution")
         precision = self.precision(feature, requirement)
+        # The decimals that show one gauge step: 0.001 mm reads 3, and 0.0001 in (0.00254 mm)
+        # also reads 3, not the five places of its mm conversion.
+        step = 0
+        if _known(resolution) and resolution > 0:
+            step = math.ceil(-math.log10(resolution) - 1e-9)
         places = max(
             *(_places(limit) for limit in hold["band"]),
-            _places(resolution) if _known(resolution) and resolution > 0 else 0,
+            min(max(step, 0), 6),
             precision if isinstance(precision, int) else 0,
         )
         band = "–".join(_number(limit, places) for limit in hold["band"])
