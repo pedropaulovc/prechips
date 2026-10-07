@@ -375,13 +375,12 @@ def test_a_rail_alone_is_compared_only_where_the_box_bottom_proves_it(state, sta
     assert rows(data)["S1"].status == status
 
 
-def test_a_touched_top_feature_below_the_stock_top_is_unknown_and_above_it_an_error():
+def test_a_touched_top_feature_the_kernel_did_not_measure_is_unknown_against_any_stock_top():
     box = kernel([-170, -40, -11.528, 170, 40, 4.47175])
-    below = {"stock_state": {"top_feature": "hub", "top_z": 0.0, "bottom_z": -11.528}}
-    row = rows(bundle([below], kernel=box))["S1"]
-    assert row.status == "unknown" and "hub" in row.sentence
-    above = {"stock_state": {"top_feature": "hub", "top_z": 4.6, "bottom_z": -11.528}}
-    assert "top_z" in errors(bundle([above], kernel=box))["S1"]
+    for top in (0.0, 4.47175, 4.6):
+        state = {"stock_state": {"top_feature": "hub", "top_z": top, "bottom_z": -11.528}}
+        row = rows(bundle([state], kernel=box))["S1"]
+        assert row.status == "unknown" and "top_feature hub" in row.sentence
 
 
 def test_an_unknown_top_feature_leaves_a_top_below_the_kernel_stock_unknown():
@@ -490,6 +489,96 @@ def test_a_named_seat_at_the_stock_bottom_is_judged_by_its_band_and_one_above_it
     assert rows(hub(state, box=(-170, -40, -7.0565, 170, 40, 0.0)))["S1"].status == "pass"
     # Stock hangs below the seated face elsewhere: the stock's lowest point is not authored.
     assert "bottom_z" in errors(hub(state, box=(-170, -40, -9.0, 170, 40, 0.0)))["S1"]
+
+
+# Each authored height is judged by the one evidence source its declaration designates: a
+# named face by the kernel's height of that face (unmeasured: unknown, the box never
+# standing in), an unnamed seat and a rail by the stock box's lowest point. The box also
+# proves the stock's lowest point is authored: a named seat proves only its own face.
+# A plate between faces at Z -10 (the box bottom) and Z 0, drawn 10-10.05 thick: "outside"
+# is its seat grown 0.025 below the box, inside that band; "inside" a step face at Z -8.
+SEAT = {"extreme": (-10.0, -10.0), "inside": (-8.0, -8.0), "outside": (-10.0, -10.025)}
+PLATE = {
+    "kind": "face",
+    "requirements": ["length"],
+    "length": [10.0, 10.05],
+    "length_nominal": 10.0,
+}
+SEAT_VERDICTS = {
+    # declaration: {height: (no rail, rail equal, rail 1 above, rail below)}
+    "named": {
+        "extreme": ("pass", "pass", "unknown", "error"),
+        "inside": ("error", "error", "error", "pass"),
+        "outside": ("pass", "error", "unknown", "error"),
+    },
+    "unresolved": {
+        "extreme": ("unknown", "unknown", "unknown", "error"),
+        "inside": ("error", "error", "error", "unknown"),
+        "outside": ("unknown", "error", "unknown", "error"),
+    },
+    "unnamed": {
+        "extreme": ("pass", "pass", "unknown", "error"),
+        "inside": ("error", "error", "error", "unknown"),
+        "outside": ("error", "error", "error", "error"),
+    },
+}
+RAILS = ("none", "equal", "above", "below")
+
+
+def plate(state, *, up=0.0, down=-10.0, measured=True):
+    """``state`` against the box (-50, -50, -10, 50, 50, 0) and a kernel that measures the
+    plate's cut faces at Z ``up`` and ``down``, or gives the reason it could not."""
+    cut = {"up": {"face_z": up, "stock_z": up}, "down": {"face_z": down, "stock_z": down}}
+    unmeasured = {side: {"reason": "no planar face of plate faces that way"} for side in cut}
+    facts = {
+        "stock_bbox_mm": [-50, -50, -10.0, 50, 50, 0.0],
+        "stock_faces_mm": {"plate": cut if measured else unmeasured},
+    }
+    data = bundle([{"stock_state": state}], kernel={"status": "ok", "setups": {"S1": facts}})
+    return replace(data, features={"units": "mm", "features": {"plate": PLATE}})
+
+
+@pytest.mark.parametrize("declared", [*SEAT_VERDICTS, "unnamed, plate measured"])
+@pytest.mark.parametrize("height", list(SEAT))
+@pytest.mark.parametrize("rail", RAILS)
+def test_each_low_height_is_judged_by_the_one_source_its_declaration_names(declared, height, rail):
+    face, seat = SEAT[height]
+    state = {"bottom_z": seat}
+    if declared in ("named", "unresolved"):
+        state["bottom_feature"] = "plate"
+    if rail != "none":
+        state["retained_rail_bottom_z"] = {
+            "equal": seat,
+            "above": seat + 1.0,
+            "below": -10.0 if seat > -10.0 else seat - 1.0,
+        }[rail]
+    data = plate(state, down=face, measured=declared != "unresolved")
+    expected = SEAT_VERDICTS[declared.partition(",")[0]][height][RAILS.index(rail)]
+    assert rows(data)["S1"].status == expected
+
+
+@pytest.mark.parametrize(
+    ("declared", "height", "status"),
+    [
+        ("named", "extreme", "pass"),
+        ("named", "inside", "pass"),
+        ("named", "outside", "pass"),
+        ("unresolved", "extreme", "unknown"),
+        ("unresolved", "inside", "unknown"),
+        ("unresolved", "outside", "unknown"),
+        ("unnamed", "extreme", "pass"),
+        ("unnamed", "inside", "error"),
+        ("unnamed", "outside", "error"),
+        ("unnamed, plate measured", "inside", "error"),
+    ],
+)
+def test_a_top_is_judged_by_its_named_face_alone_or_else_by_the_box_top(declared, height, status):
+    # Mirrored: the face at Z 0 (the box top), a touched step at Z -2, grown 0.025 above.
+    face, top = {"extreme": (0.0, 0.0), "inside": (-2.0, -2.0), "outside": (0.0, 0.025)}[height]
+    state = {"top_z": top}
+    if declared in ("named", "unresolved"):
+        state["top_feature"] = "plate"
+    assert rows(plate(state, up=face, measured=declared != "unresolved"))["S1"].status == status
 
 
 def test_without_a_kernel_stock_box_the_heights_are_unknown_not_passed():

@@ -401,9 +401,11 @@ Two checks need no prose:
 
 - A `tighten = "hand"` clamp also declares `torque_nm`.
 - `stock_state` heights are checked against the kernel's setup-entry stock,
-  beyond its 0.001 mm stock tolerance.
+  beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence
+  source its declaration names, and no other source stands in for it.
   - A `top_z` whose `top_feature` names a feature, or a `bottom_z` whose
-    `bottom_feature` does, is that feature's +Z (or -Z) face. The kernel gives
+    `bottom_feature` does, is that feature's +Z (or -Z) face, judged by the
+    kernel's height of that face alone. The kernel gives
     (`setups.<id>.stock_faces_mm`) the face's finished Z and the entering stock's
     highest point over its footprint (lowest under it). While stock stands over
     the face, the height must be that stock's. Once the face is cut, the height
@@ -414,11 +416,15 @@ Two checks need no prose:
     its CAD Z. With both faces of one feature cut, `top_z - bottom_z` must lie in
     the band, and each face may move at most the band's span.
   - Otherwise the box gives only the stock's highest and lowest points. `top_z`
-    is the highest point. A named `top_feature` the kernel did not measure is
-    wrong only above the whole stock.
-  - The lower of `bottom_z` and `retained_rail_bottom_z` is the lowest point. When
-    both are set, that lower one is wrong whenever it differs from the box bottom.
-    A measured named seat whose stock is the box bottom is judged as a face only.
+    is the highest point; under an `"unknown"` `top_feature` it is wrong only
+    above the whole stock.
+  - The lower of an unnamed `bottom_z` and `retained_rail_bottom_z` is the lowest
+    point. When both are set, that lower one (both, when they tie) is wrong
+    whenever it differs from the box bottom. A named seat never exempts a rail:
+    the rail keeps its own comparison.
+  - A named seat proves only its own face. When it is the lowest authored point
+    and the box shows stock below it, the stock's lowest point is not authored,
+    which is wrong.
   - A rail with no `bottom_z` is wrong only below the box bottom, since the seat
     may be the stock's lowest point.
 
@@ -428,12 +434,13 @@ A compared fact that cannot be proved is `unknown`, never `pass`:
 - a flute count for a tool with no inventory `flutes`;
 - any authored stock height that is unknown, unknown plan units, or no kernel
   stock box;
-- a `top_z` below the box top under an `"unknown"` `top_feature`, or under a named
-  one whose face the kernel did not measure (no horizontal face on that side,
-  finished material beyond it, or a face the entering stock does not carry);
+- a `top_z` below the box top under an `"unknown"` `top_feature`;
+- a `top_z` or `bottom_z` whose named face the kernel did not measure (no
+  horizontal face on that side, finished material beyond it, or a face the
+  entering stock does not carry), whatever the box shows;
 - a cut named face off its CAD Z whose feature has no band proved to be its
   faces' separation;
-- the higher of `bottom_z` and a rail, unless it is a measured named face;
+- an unnamed `bottom_z` or a rail above the lowest authored point;
 - a rail with no `bottom_z` that is not below the box bottom.
 
 An unknown rail, a jaw height that is negative, not a number or flagged
