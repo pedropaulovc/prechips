@@ -257,8 +257,9 @@ def turned_from(tmp_path, cut, shaft_xy):
     sheet.setup = lathe
     (row,) = sheet.tip(lathe, lathe["ops"][0])
     start = re.fullmatch(r"Z (-?\d+\.\d+) → -10\.000", row)[1]
+    # The lathe map prints the drawing Ø limits (here none) apart from the turn-to Ø.
     mapped = re.search(
-        r"\|shaft\|+Ø6\|+(-?\d+\.\d+)\|+-10\.000\|",
+        r"\|shaft\|+[^|]*\|+Ø6(?:\.0+)?\|+(-?\d+\.\d+)\|+-10\.000\|",
         unescape(re.sub(r"<[^>]+>", "|", sheet.feature_map(lathe))),
     )[1]
     return start, mapped

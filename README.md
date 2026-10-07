@@ -359,11 +359,20 @@ support.
 Every cutter-centre contour row and every hole op's tool-axis X/Y prints on the
 setup DRO grid; contour rows round to the side that leaves material, and a
 finish row with no safe grid point inside its feature's band is an error. Raster
-and outline rows that run past the stock are labelled cutter clearance. A contour
-cut in several depth levels lists every level in its heading and says to repeat
-the complete path at each, in order. The CLEARANCE line prints the op's cut
-(start Z to tip Z, as on its op row) apart from its reach below the highest stock
-beside the tool. Inspection procedures may be authored as step lists that print
+and outline rows that run past the stock are labelled cutter clearance; a
+raster's pass ends are called clear air when they stand a cutter radius past the
+op's stock box, or walled (plunge in material) when inside it. A contour cut in
+several depth levels lists every level once, in its heading. Contour tables
+repeat their op, tool and Z on a continued page and never wrap a coordinate.
+The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
+of the closest obstacle (headroom, jaw tops, holder face above the stock beside
+the tool, or a reach finding's declared clearances) with the clearance and the
+action; an unknown clearance is a check-at-the-machine action, a negative one a
+STOP. The FEATURE MAP names what each mill row stands on (hole axis, arc centre,
+face) and gives a lathe row's drawing Ø limits apart from the size turned to. A
+surface-alignment sweep tells the operator to tap the work, not move the table;
+the job page's abbreviation key lists only abbreviations the sheets print.
+Inspection procedures may be authored as step lists that print
 numbered, with recording blanks and a separate calculation line
 ([plan format](docs/plan.md)).
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:

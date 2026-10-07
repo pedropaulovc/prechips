@@ -808,6 +808,12 @@ turning spindle, and the cut never resumes on a stopped one.
 | `runout_limit_mm` | `Number` |
 | `reindicate_after` | `list[int]` |
 
+The setup sheet prints the transfer by what `indicate` names: on a lathe, tap true
+to the limit; on a mill, one hole, bore or boss (or a named item that is not a
+feature, such as a pin head) is centred on by moving the table; surfaces, or
+several features, are an alignment, so the operator sweeps each surface by table
+travel and taps the work, not the table, until the reading is within the limit.
+
 ## ToolTouch
 
 | Field | Type (also accepts `"unknown"`) |

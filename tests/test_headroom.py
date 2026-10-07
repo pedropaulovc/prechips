@@ -603,7 +603,10 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
     }
     for stage, allowance in (("rough", 0.3), ("finish", 0.0)):
         table = displayed[stage]
-        headings = re.findall(r"<th(?:\s[^>]*)?>(.*?)</th>", table)
+        # The column headings are the thead's last row; a first row repeats the op/tool
+        # header across all columns for a table split over pages.
+        thead = table[: table.index("</thead>")].split("<tr")[-1]
+        headings = re.findall(r"<th(?:\s[^>]*)?>(.*?)</th>", thead)
         first_row = re.search(r"<tbody><tr>(.*?)</tr>", table, re.DOTALL).group(1)
         cells = dict(zip(headings, re.findall(r"<td[^>]*>(.*?)</td>", first_row), strict=True))
         assert [float(cells["X"]), float(cells["Y"])] == pytest.approx(

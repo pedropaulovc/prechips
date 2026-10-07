@@ -143,16 +143,22 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     # The dome's rough stair (headed "in to X") leaves stock on the surface; the finish
     # table after it carries the dome stations.
     tables = page[page.index("south dome") :].split("<table")[1:]
+    # Headings come from the thead's last row: a split table's first row repeats its
+    # op/tool header across every column. Cells may carry a class (num, read).
     table, headings = next(
         (table, headings)
         for table in tables
         if "in to X (Ø)"
-        not in (headings := re.findall(r"<th>([^<]*)</th>", table[: table.index("</thead>")]))
+        not in (
+            headings := re.findall(
+                r"<th[^>]*>([^<]*)</th>", table[: table.index("</thead>")].split("<tr")[-1]
+            )
+        )
     )
     # A compensated dome also prints tool X/Z; the stations are the surface Z column.
     column = headings.index("surface Z" if "surface Z" in headings else "Z")
-    rows = re.findall(r"<tr>((?:<td>[^<]*</td>)+)</tr>", table)
-    stations = [float(re.findall(r"<td>([^<]*)</td>", row)[column]) for row in rows]
+    rows = re.findall(r"<tr>((?:<td[^>]*>[^<]*</td>)+)</tr>", table)
+    stations = [float(re.findall(r"<td[^>]*>([^<]*)</td>", row)[column]) for row in rows]
     expected = [round(r["z_mm"], 2) for r in dome["rows"]]
     assert stations[: len(expected)] == expected
     assert len(set(expected)) == len(expected)

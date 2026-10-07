@@ -1,5 +1,7 @@
 """Operation-sheet wording a machinist acts on: printed bands and index directions."""
 
+import re
+
 import pytest
 
 from prechips.sheet import _Traveler
@@ -90,38 +92,80 @@ def reach_records(top="unset", projection=27.0, hits=0):
     return {("reach", "S1:60"): record, ("blind_depth", "hole"): {"endpoints": [endpoint]}}
 
 
-def test_clearance_prints_the_cut_from_the_op_targets_and_the_reach_apart():
-    text = shop(reach_records(top=4.47)).reach_text(SPOT, [60], False)
-    # The cut is the op row's own Z start -> tip; the reach is measured to that same tip.
-    assert "Op 60 cuts Z 0.000 → -0.500, 0.500 deep from its start." in text
-    assert "its tip at Z -0.500 is 4.970 below the highest stock beside the tool (Z 4.470)" in (
-        text
-    )
-    assert "cuts 4.97" not in text
-    # Past its 1.9 flute the tool body goes below that stock; the holder face stays above.
-    assert "3.070 past its 1.900 flute" in text
-    assert "the reach check found the holder clear of the walls" in text
-    assert "the holder face stays 22.030 above that stock" in text
+def clearance_sheet(records):
+    # Op 60's DRO tip as the coordinates rule checked it.
+    records = {("coordinates", "S1"): {"operations": [{"op": 60, "dro_to_z": -0.5}]}, **records}
+    sheet = shop(records)
+    # The stock top prints as its own DRO surface Z; here the grid leaves it unchanged.
+    sheet.surface_z = lambda setup, value, *args, **kwargs: value
+    return sheet
+
+
+def headroom(margin=None, tip_above_jaws=None, jaw_top_z=None):
+    numbers = {"stacks": [{"op": 60, "margin_mm": margin}] if margin is not None else []}
+    if tip_above_jaws is not None:
+        numbers["cut_tip_above_jaws_mm"] = {"60": tip_above_jaws}
+        numbers["jaw_obstruction"] = {"jaw_top_z": jaw_top_z}
+    return numbers
+
+
+def clearance_row(records, numbers):
+    rows = clearance_sheet(records).clearance_rows(SPOT, numbers, {("c", None): "T4"})
+    assert len(rows) == 1, rows
+    return rows[0]
+
+
+def test_the_clearance_row_names_the_smallest_clearance_of_the_op():
+    # Headroom 40 spare, holder face 22.03 above the stock top: the holder face is closest.
+    ops, tool, obstacle, value, action = clearance_row(reach_records(top=4.47), headroom(40.0))
+    assert (ops, tool, value, action) == ("60", "T4", "22.030", "")
+    assert "holder face" in obstacle and "4.470" in obstacle
+    # Jaw tops 1.2 below the tip win over both, and ask for a hand-fed approach.
+    numbers = headroom(40.0, tip_above_jaws=1.2, jaw_top_z=-1.7)
+    _, _, obstacle, value, action = clearance_row(reach_records(top=4.47), numbers)
+    assert "jaw" in obstacle and value == "1.200" and action.startswith("hand feed")
+
+
+def test_a_declared_reach_clearance_competes_for_the_closest_obstacle():
+    records = reach_records(top=4.47)
+    records[("reach", "S1:60")]["clearances"] = [
+        {"part": "holder", "obstacle": "crown", "mm": -11.2}
+    ]
+    _, _, obstacle, value, action = clearance_row(records, headroom(40.0))
+    assert obstacle == "holder to crown" and value == "-11.200"
+    assert action.startswith("STOP")
+
+
+def test_a_tip_below_the_jaw_tops_is_a_stop():
+    numbers = headroom(40.0, tip_above_jaws=-0.4, jaw_top_z=0.0)
+    _, _, obstacle, value, action = clearance_row(reach_records(top="not_applicable"), numbers)
+    assert "jaw" in obstacle and value == "-0.500" and action.startswith("STOP")
 
 
 @pytest.mark.parametrize(
-    ("top", "hits", "words"),
+    ("records", "check"),
     [
-        ("unset", 0, "its tip is 4.972 below the highest stock beside the tool"),
-        ("not_applicable", 0, "no stock stands beside the tool above its tip"),
-        (4.47, "unknown", "holder clearance of the walls is not proven — check at the machine"),
+        (reach_records(top=4.47, projection="unknown"), "holder face"),
+        (reach_records(top=4.47, hits="unknown"), "holder clearance of the walls not proven"),
     ],
 )
-def test_reach_without_a_reference_or_holder_proof_never_reads_as_a_cut(top, hits, words):
-    text = shop(reach_records(top=top, hits=hits)).reach_text(SPOT, [60], False)
-    assert "Op 60 cuts Z 0.000 → -0.500" in text
-    assert words in text
-    assert "cuts 4.97" not in text
+def test_an_unknown_clearance_is_an_action_to_check_at_the_machine(records, check):
+    _, _, _, _, action = clearance_row(records, headroom(40.0))
+    assert check in action and "check at the machine" in action
 
 
-def test_a_holder_face_below_the_stock_top_says_so():
-    text = shop(reach_records(top=4.47, projection=3.0)).reach_text(SPOT, [60], False)
-    assert "the holder face goes 1.970 below that stock" in text
+def test_a_holder_below_the_stock_top_with_walls_proven_clear_is_not_a_clearance():
+    _, _, obstacle, value, action = clearance_row(reach_records(top=4.47, projection=3.0), {})
+    assert value == "—" and "1.970 below" in obstacle and "clear of the walls" in obstacle
+    assert action == ""
+
+
+def test_ops_with_one_tool_obstacle_clearance_and_action_share_a_row():
+    records = reach_records(top="not_applicable")
+    setup = {"id": "S1", "ops": [{**SPOT["ops"][0]}, {**SPOT["ops"][0], "op": 70}]}
+    numbers = {"stacks": [{"op": 60, "margin_mm": 5.0}, {"op": 70, "margin_mm": 5.0}]}
+    rows = clearance_sheet(records).clearance_rows(setup, numbers, {("c", None): "T4"})
+    assert [row[0] for row in rows] == ["60, 70"]
 
 
 def contour_records(levels):
@@ -157,13 +201,13 @@ def contour_records(levels):
 POCKET = {"id": "S1", "ops": [{"op": 10, "do": "pocket", "feature": "ear", "tool": "c"}]}
 
 
-def test_a_stepped_contour_heading_lists_every_level_and_says_repeat_the_path():
+def test_a_stepped_contour_lists_its_levels_once_in_the_heading():
     html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"})
     assert "S1 op 10 — ear · T1 · Z -0.250, -0.500, -0.600" in html
-    assert (
-        "3 depth levels: run the complete path below at Z -0.250, then repeat the complete "
-        "path at each level in order — Z -0.500, then Z -0.600."
-    ) in html
+    assert "3 depth levels" in html
+    # The repeat row prints only on a continued page; the first page shows the levels once.
+    first_page = re.sub(r'<tr class="repeat">.*?</tr>', "", html)
+    assert first_page.count("-0.250") == first_page.count("-0.500") == 1
 
 
 def test_a_single_level_contour_heading_keeps_its_one_z():
@@ -173,12 +217,33 @@ def test_a_single_level_contour_heading_keeps_its_one_z():
         assert "depth levels" not in html
 
 
-def test_raster_rows_past_the_cleared_area_are_named_cutter_clearance():
+@pytest.mark.parametrize(
+    ("box", "claim"),
+    [
+        ([-9.0, 9.0], "clear air"),  # ends a cutter radius past the stock
+        ([-160.0, 160.0], "walled"),  # ends inside the cleared field: plunge in material
+    ],
+)
+def test_raster_pass_ends_are_classified_against_the_op_stock_box(box, claim):
+    pocket = {"id": "S1", "ops": [{**POCKET["ops"][0], "stock_removal_bounds": {"x": box}}]}
+    html = shop(contour_records(None)).contours(pocket, {"c": "T1"})
+    assert "pass ends X -13.765 / 13.765: both " in html
+    other = {"clear air": "walled", "walled": "clear air,"}[claim]
+    assert claim in html and other not in html
+
+
+def test_raster_pass_ends_without_a_stock_box_make_no_claim():
     html = shop(contour_records(None)).contours(POCKET, {"c": "T1"})
-    assert "pass ends are intentional cutter clearance, not material" in html
-    # The pass ends, the radius they clear by and the area edges they clear.
-    assert all(n in html for n in ("X -13.765 / 13.765", "(4.760)", "X -9.000 / 9.000"))
-    assert "pass 1 at Y 1.000 stands wholly outside the open -Y side" in html
+    assert "pass ends X -13.765 / 13.765" in html
+    assert "clear air, a cutter" not in html and "walled" not in html
+
+
+def test_a_contour_table_repeats_its_op_on_continued_pages_and_never_wraps_a_number():
+    html = shop(contour_records(None)).contours(POCKET, {"c": "T1"})
+    assert '<tr class="repeat"><th colspan=' in html
+    repeat = html.split('<tr class="repeat">', 1)[1].split("</tr>", 1)[0]
+    assert "op 10" in repeat and "T1" in repeat
+    assert '<td class="read num">-13.765</td>' in html or '<td class="num">-13.765</td>' in html
 
 
 def hole_records(points):
@@ -199,6 +264,135 @@ def test_a_hole_op_prints_its_tool_axis_on_the_dro_grid():
     unknown = shop(hole_records([["unknown", 2.0]]))
     assert unknown.hole_xy({"id": "S2"}, DRILL) == ["STOP: hole X/Y not set"]
     assert shop(hole_records([[1.0, 2.0]]), "lathe").hole_xy({"id": "S2"}, DRILL) == []
+
+
+def mapped(records, features, drawing=None, kind="mill"):
+    from types import SimpleNamespace
+
+    sheet = shop(records, kind)
+    sheet.features = features
+    sheet.bundle = SimpleNamespace(features={"features": drawing or {}})
+    sheet.feature_name = lambda feature: feature.replace("_", " ")
+    sheet.zero_name = lambda setup: f"Setup {setup['id']} zero"
+    sheet.surface_z = lambda setup, value, *args, **kwargs: value
+    sheet.ops_done = lambda setup, before=None: 0
+    return sheet
+
+
+def rows_of(html):
+    from test_sheet_precision import text
+
+    return text(html)
+
+
+def test_a_lathe_feature_map_keeps_the_drawing_limits_apart_from_the_size_turned_to():
+    rows = [
+        {"feature": "head", "setup": [21.375, 0.0, z], "x_target_mm": 42.75} for z in (0.0, -95.0)
+    ]
+    rows.append({"feature": "spigot", "setup": [8.6, 0.0, -23.0], "x_target_mm": 17.2})
+    sheet = mapped(
+        {("coordinates", "S1"): {"x_display": "diameter", "rows": rows}},
+        {"head": {"kind": "cylinder"}, "spigot": {"kind": "cylinder_spigot"}},
+        drawing={"head": {"kind": "cylinder", "dia": [42.0, 43.6]}},
+        kind="lathe",
+    )
+    html = sheet.feature_map({"id": "S1", "ops": []})
+    head = html.split("<td>head</td>", 1)[1].split("</tr>", 1)[0]
+    assert "Ø42.000–43.600" in head and "Ø42.750" in head
+    # A process size (a joint spigot) has no drawing limits to print.
+    spigot = html.split("<td>spigot</td>", 1)[1].split("</tr>", 1)[0]
+    assert "<td>—</td>" in spigot and "Ø17.200" in spigot
+
+
+def test_a_mill_feature_map_names_the_point_each_row_stands_on_from_the_feature_kind():
+    rows = [
+        {"feature": "hold_down", "dro": [0.0, -8.2, 0.0]},
+        {"feature": "ear_arch", "dro": [0.0, -25.2, 0.0]},
+        {"feature": "crank_bore", "dro": [-72.885, 0.0, -21.375]},
+    ]
+    endpoint = {"setup": "S1", "op": 30, "dro_entry_z": 0.0, "dro_exit_face": -21.375}
+    sheet = mapped(
+        {
+            ("coordinates", "S1"): {"rows": rows},
+            ("blind_depth", "crank_bore"): {"endpoints": [endpoint]},
+        },
+        {
+            "hold_down": {"kind": "hole"},
+            "ear_arch": {"kind": "pocket", "arc": "upper_semicircle"},
+            "crank_bore": {"kind": "bore"},
+        },
+    )
+    setup = {"id": "S1", "ops": [{"op": 30, "do": "ream", "feature": "crank_bore"}]}
+    plain = rows_of(sheet.feature_map(setup))
+    assert "hold down||hole axis on the Z0 surface||" in plain
+    assert "ear arch||arc centre on the Z0 surface||" in plain
+    assert "crank bore||hole axis at the exit face||" in plain
+
+
+def test_an_aimed_target_names_its_offset_and_inspection_but_not_the_authored_reason():
+    sheet = mapped({}, {})
+    record = {
+        "feature": "crank_bore",
+        "dro": [-72.885, 0.0, -21.375],
+        "nominal_setup": [-72.7, 0.0, -21.375],
+        # The aim record coordinates emits: its owner and its value in manifest units.
+        "aim": {
+            "feature": "crank_bore",
+            "shift_mm": -0.185,
+            "source": "journal_bore",
+            "requirement": "separation",
+            "printed_band": [39.34, 39.7],
+            "value_mm": 39.517,
+            "value": 39.517,
+            "reason": "centre the separation band; the gauge reads low",
+        },
+    }
+    note = sheet.aim_note(record)
+    assert "X -72.885" in note and "0.185 off the drawing nominal -72.700" in note
+    assert "39.340–39.700" in note
+    assert "gauge reads low" not in note
+
+
+def tip_sheet():
+    endpoint = {
+        "setup": "S1",
+        "op": 60,
+        "dro_entry_z": 0.0,
+        "tip_z": -25.214,
+        "dro_tip_z": -25.210,
+        "exit_face": "#1/ADVANCED_FACE[2]/NONE",
+        "dro_exit_face": -21.375,
+        "point_mm": 1.839,
+        "exit_mm": 0.5,
+    }
+    return mapped({("blind_depth", "hole"): {"endpoints": [endpoint]}}, {})
+
+
+def test_a_breakthrough_note_prints_only_dro_grid_values():
+    note = tip_sheet().tip_note(SPOT, SPOT["ops"][0])
+    assert "-25.210" in note and "-21.375" in note and "0.500" in note
+    # The off-grid exact tip and the point allowance arithmetic stay in the report.
+    assert "-25.214" not in note and "1.839" not in note
+
+
+def transfer_sheet(indicate, kind):
+    sheet = mapped({}, {"face_a": {"kind": "face"}, "bore": {"kind": "hole"}})
+    sheet.reference = lambda gauge: "dial test indicator"
+    return sheet, {"from": "S1", "indicate": indicate, "tool": "dti", "runout_limit_mm": 0.0254}
+
+
+@pytest.mark.parametrize(
+    ("indicate", "moves"),
+    [(["face_a"], "work"), (["bore"], "table"), (["face_a", "bore"], "work")],
+)
+def test_an_alignment_sweep_moves_the_work_and_a_centring_sweep_moves_the_table(indicate, moves):
+    sheet, transfer = transfer_sheet(indicate, "mill")
+    line = sheet.transfer_line({"id": "S2"}, transfer)
+    assert "0.0254" in line
+    if moves == "work":
+        assert "move the table" not in line and "tap the" in line and "re-clamp" in line
+    else:
+        assert "move the table" in line and "re-clamp" not in line
 
 
 def test_a_procedure_authored_as_steps_prints_numbered_with_fields_and_its_calculation():
