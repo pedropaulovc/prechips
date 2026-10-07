@@ -16,16 +16,28 @@ import math
 import re
 import sys
 import tomllib
+from datetime import date
 from fractions import Fraction
 from html.parser import HTMLParser
 from pathlib import Path
 from types import SimpleNamespace
 
 from prechips.findings import ALWAYS_REQUIRED
-from prechips.joint_features import LABEL_PREFIX, feature_definitions, fit, label
-from prechips.model import Plan, tolerance_requirements
+from prechips.inputs import operative_definitions
+from prechips.joint_features import LABEL_PREFIX, fit, label
+from prechips.model import UNIT_TOLERANCE, Plan, tolerance_requirements
+from prechips.process_features import ANGLE_TOLERANCE_DEG
+from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
 from prechips.rules._bench import manual_bench
-from prechips.rules.resolution import MANUAL, SAW_OPS, op_features, saw_setup
+from prechips.rules.coordinates import CENTRE_OPS, HEIGHT_BANDS, UNIT_MM
+from prechips.rules.resolution import (
+    LENGTH_TOLERANCE_MM,
+    MANUAL,
+    SAW_OPS,
+    op_features,
+    saw_setup,
+)
+from prechips.rules.resolution import uncertain as record_uncertain
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
@@ -138,6 +150,24 @@ AUTHOR_CHOICE_FIELDS = {
     "method",
     "step_deg",
     "step_mm",
+}
+# The selected combined drill and countersink's own fact behind each drilled-centre size
+# (Machinery's Handbook Table 6 drill D, drill length C, countersink angle, body A) and
+# the pilot point that closes the centre.
+CENTRE_TOOL_FACTS = {
+    "drill_dia_mm": "dia",
+    "drill_length_mm": "pilot_len",
+    "countersink_angle_deg": "angle_deg",
+    "body_dia_mm": "shank",
+    "point_angle_deg": "point_angle",
+}
+# The cutting-data operation an action's speed (and deep-hole derate) row is keyed by.
+CUT_OPERATIONS = {
+    "rough_face": "face",
+    "finish_face": "face",
+    **dict.fromkeys(
+        ("rough_profile", "finish_profile", "rough_pocket", "finish_pocket", "pocket"), "profile"
+    ),
 }
 
 
@@ -340,17 +370,24 @@ def tool_diameter(ref: str, entries: dict):
     return tool_field(ref, "dia", entries)
 
 
-def tool_field(ref: str, key: str, entries: dict):
+def tool_record(ref: str, key: str, entries: dict):
+    """The selected tool's own authored ``key`` (a member's over its set's), unwrapped
+    from neither ``{value, ...}`` nor its units."""
     root, _, member = ref.partition("/")
     entry = entries.get(root, {})
-    if key == "flutes" and entry.get("kind") == "endmill_set":
-        match = re.fullmatch(r"(.+in)-(2|4)fl", member)
-        return int(match[2]) if match else "unknown"
     members = entry.get("members", {})
     selected = members.get(member, {}) if isinstance(members, dict) else {}
     if not isinstance(selected, dict):
         return "unknown"
-    value = selected.get(key, entry.get(key, "unknown"))
+    return selected.get(key, entry.get(key, "unknown"))
+
+
+def tool_field(ref: str, key: str, entries: dict):
+    root, _, member = ref.partition("/")
+    if key == "flutes" and entries.get(root, {}).get("kind") == "endmill_set":
+        match = re.fullmatch(r"(.+in)-(2|4)fl", member)
+        return int(match[2]) if match else "unknown"
+    value = tool_record(ref, key, entries)
     return value.get("value", "unknown") if isinstance(value, dict) else value
 
 
@@ -366,6 +403,39 @@ def tool_length_mm(ref: str, field: str, entries: dict):
     if numeric(value) and units in {"mm", "in", "inch"}:
         return value if units == "mm" else value * 25.4
     return "unknown"
+
+
+def accepted(fact) -> bool:
+    """A fact is accepted unless its own record declares verification debt: ``verify``
+    true or unknown, or a ``measured`` record short of its by, date and instrument."""
+    if not isinstance(fact, dict):
+        return True
+    if fact.get("verify") is True or fact.get("verify") == "unknown":
+        return False
+    measured = fact.get("measured", "unknown")
+    if measured == "unknown":
+        return True
+    if not isinstance(measured, dict) or set(measured) != {"by", "date", "instrument"}:
+        return False
+    try:
+        return date.fromisoformat(measured["date"]).isoformat() == measured["date"]
+    except (TypeError, ValueError):
+        return False
+
+
+def centre_tool_facts(ref: str, entries: dict) -> dict:
+    """The selected centre drill's own accepted D, C, countersink angle, body and point
+    (``CENTRE_TOOL_FACTS``) in mm and degrees; any other fact is unknown."""
+    facts = {}
+    for key, field in CENTRE_TOOL_FACTS.items():
+        if key.endswith("_deg"):
+            value, names = tool_field(ref, field, entries), (field,)
+        else:
+            value = tool_length_mm(ref, field, entries)
+            names = (field + "_mm", field + "_in", field)
+        trusted = all(accepted(tool_record(ref, name, entries)) for name in names)
+        facts[key] = value if numeric(value) and trusted else "unknown"
+    return facts
 
 
 def frame_point(point: list, frame: dict) -> list:
@@ -526,7 +596,7 @@ def required_finding(finding: dict, policy: dict, plan: dict, features: dict) ->
     if selector == "setups":
         return subject in {setup["id"] for setup in plan["setups"]}
     if selector in {"holes", "toleranced_features"}:
-        feature = feature_definitions(plan, features).get(subject.split(":", 1)[0], {})
+        feature = operative_definitions(plan, features).get(subject.split(":", 1)[0], {})
         if selector == "holes":
             return feature.get("kind") in {"hole", "counterbore", "thread"}
         return bool(tolerance_requirements(feature))
@@ -554,7 +624,7 @@ def report_exit(report: dict, policy: dict, plan: dict, features: dict) -> int:
 
 def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) -> None:
     Plan.model_validate(plan)
-    definitions = feature_definitions(plan, features)
+    definitions = operative_definitions(plan, features)
 
     def has(rule: str, subject: str) -> None:
         require((rule, subject) in findings, f"missing finding {rule}:{subject}")
@@ -574,8 +644,11 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
         )
         require(
             not isinstance(feature.get("faces"), list)
-            or all(not str(face).startswith(LABEL_PREFIX) for face in feature["faces"]),
-            f"{name}: transient joint labels cannot name finished STEP faces",
+            or all(
+                not str(face).startswith((LABEL_PREFIX, PROCESS_PREFIX))
+                for face in feature["faces"]
+            ),
+            f"{name}: transient joint or preparation labels cannot name finished STEP faces",
         )
         if requirements:
             require(isinstance(feature.get("precision"), dict), f"{name}: per-dimension precision")
@@ -670,7 +743,7 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
 
 
 def check_inspection_declarations(plan: dict, features: dict, findings: dict) -> None:
-    definitions = feature_definitions(plan, features)
+    definitions = operative_definitions(plan, features)
     for setup in plan["setups"]:
         for op in setup["ops"]:
             if op.get("do") in SAW_OPS and "feature" not in op:
@@ -871,9 +944,113 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
         near(row["axis_set"], expected, f"{setup['id']}: retouch Axis Set")
 
 
+def check_centre_endpoint(
+    plan: dict, features: dict, setup: dict, op: dict, row: dict, finding: dict, entries: dict
+) -> None:
+    """A quill-fed drilled centre: its depth past touching the end is the Table 6 drill
+    length C (point included) plus the countersink to the mouth, read on the tailstock
+    quill, and only for the centre the selected tool's own accepted facts cut, with its
+    mouth on the touched entry surface along the setup -Z feed (on a lathe, on the
+    spindle axis). A contradiction is the finding's error; anything unresolved leaves
+    the depth unknown and the row's reasons stated."""
+    where = f"{setup['id']}:{op['op']}: centre"
+    declared = plan["process_features"][op["feature"]]
+    drill, length, mouth, angle = (
+        declared.get(key, "unknown")
+        for key in ("drill_dia_mm", "drill_length_mm", "mouth_dia_mm", "countersink_angle_deg")
+    )
+    sized = all(numeric(value) for value in (drill, length, mouth, angle))
+    countersink = (mouth - drill) / 2 / math.tan(math.radians(angle / 2)) if sized else "unknown"
+    near(row.get("countersink_depth_mm", "unknown"), countersink, f"{where} countersink depth")
+    near(
+        row.get("drill_length_mm", "unknown"),
+        length if numeric(length) else "unknown",
+        f"{where} Table 6 drill length",
+    )
+    require(row.get("depth_scale") == "quill", f"{where} depth is read on the tailstock quill")
+    require(row.get("exit_face") == "not_applicable", f"{where} has no exit face")
+    require(not {"point_mm", "lead_mm"} & row.keys(), f"{where}: Table 6 C already holds the point")
+    reference = op.get("tool", "unknown")
+    tool = centre_tool_facts(reference, entries)
+    reported = row.get("tool_centre")
+    require(isinstance(reported, dict) and reported.keys() == tool.keys(), f"{where} tool facts")
+    for key, value in tool.items():
+        near(reported[key], value, f"{where} tool {key}")
+    errors, unresolved = [], []
+    if not resolves(reference, entries) or uncertain(reference, entries):
+        unresolved.append("tool record")
+    unresolved += [key for key, value in tool.items() if not numeric(value)]
+    for key, size in (("drill_dia_mm", drill), ("drill_length_mm", length)):
+        if not numeric(size):
+            unresolved.append(f"declared {key}")
+        elif numeric(tool[key]) and abs(size - tool[key]) > LENGTH_TOLERANCE_MM:
+            errors.append(key)
+    if not numeric(angle):
+        unresolved.append("declared countersink_angle_deg")
+    elif numeric(tool["countersink_angle_deg"]):
+        if abs(angle - tool["countersink_angle_deg"]) > ANGLE_TOLERANCE_DEG:
+            errors.append("countersink_angle_deg")
+    body = tool["body_dia_mm"]
+    if not numeric(mouth):
+        unresolved.append("declared mouth_dia_mm")
+    elif numeric(body) and mouth > body + LENGTH_TOLERANCE_MM:
+        errors.append("mouth wider than body")
+    point, pilot, dia = (tool[k] for k in ("point_angle_deg", "drill_length_mm", "drill_dia_mm"))
+    if numeric(point) and not 0 < point < 180:
+        errors.append("point angle")
+    elif all(numeric(value) for value in (point, pilot, dia)):
+        if pilot - dia / 2 / math.tan(math.radians(point / 2)) <= LENGTH_TOLERANCE_MM:
+            errors.append("point no shorter than pilot")
+    # The mouth in the setup frame: on the touched entry surface, fed along -Z.
+    entry = row.get("entry_z", "unknown")
+    frame = setup_frame(setup, plan, features)
+    scale = {"mm": 1.0, "in": 25.4}.get(features.get("units"))
+    at, axis = declared.get("at"), declared.get("axis")
+    mouth_z = "unknown"
+    if scale and all(
+        isinstance(v, list) and len(v) == 3 and all(map(numeric, v)) for v in (at, axis)
+    ):
+        seat = frame_point(at, frame)
+        ahead = frame_point([a + d for a, d in zip(at, axis, strict=True)], frame)
+        if all(map(numeric, seat + ahead)):
+            mouth_z = seat[2]
+            feed = [b - a for a, b in zip(seat, ahead, strict=True)]
+            norm = math.sqrt(sum(v * v for v in feed))
+            if norm == 0 or feed[2] / norm > -1 + UNIT_TOLERANCE:
+                errors.append("axis is not the setup -Z feed")
+            if math.hypot(seat[0], seat[1]) * scale > LENGTH_TOLERANCE_MM:
+                kind = entries.get(setup.get("machine", "unknown"), {}).get("kind", "unknown")
+                if kind == "lathe":
+                    errors.append("mouth off the spindle axis")
+                elif not isinstance(kind, str) or kind == "unknown":
+                    unresolved.append("machine kind")
+            if not numeric(entry):
+                unresolved.append("entry surface")
+            elif abs(seat[2] - entry) * scale > LENGTH_TOLERANCE_MM:
+                errors.append("mouth off the touched entry surface")
+    if mouth_z == "unknown":
+        unresolved.append("mouth position")
+    near(row.get("mouth_z", "unknown"), mouth_z, f"{where} mouth Z")
+    depth = countersink + length if sized else "unknown"
+    prepared = not errors and not unresolved and numeric(depth)
+    expected = depth if prepared else "unknown"
+    near(row.get("depth_mm", "unknown"), expected, f"{where} quill depth")
+    tip = entry - expected if numeric(entry) and numeric(expected) else "unknown"
+    near(row.get("tip_z", "unknown"), tip, f"{where} tip endpoint")
+    if errors:
+        require(finding["status"] == "error", f"{where}: contradicted ({errors}) yet no error")
+    elif not prepared:
+        require(
+            bool(row.get("unknown")) and finding["status"] in {"unknown", "error"},
+            f"{where}: unresolved ({unresolved}) yet not unknown",
+        )
+    else:
+        require("unknown" not in row, f"{where}: a prepared centre has no unresolved reason")
+
+
 def check_endpoints(plan: dict, features: dict, findings: dict, entries: dict) -> None:
     setups = {setup["id"]: setup for setup in plan["setups"]}
-    definitions = feature_definitions(plan, features)
+    definitions = operative_definitions(plan, features)
     for (rule, _), finding in findings.items():
         if rule != "blind_depth":
             continue
@@ -885,6 +1062,13 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: dict) -
             action = op["do"]
             entry = row.get("entry_z", "unknown")
             tool = op.get("tool", "unknown")
+            if action == "center_drill":
+                require(
+                    feature.get("kind") == "centre_hole",
+                    f"{row['setup']}:{row['op']}: only a plan centre hole has a centre endpoint",
+                )
+                check_centre_endpoint(plan, features, setup, op, row, finding, entries)
+                continue
             if action in {"spot", "tap"}:
                 fallback = feature.get("thread_depth", feature.get("depth", "unknown"))
                 depth = op.get("depth_mm", fallback if action == "tap" else "unknown")
@@ -977,9 +1161,80 @@ def check_saw_speed(setup: dict, op: dict, row: dict, entries: dict, cutting: di
     require("rpm" not in row, f"{setup['id']}:{op['op']}: a saw blade has no spindle RPM")
 
 
+def hole_depths(findings: dict) -> dict:
+    """Material depth each hole op's full diameter cuts, keyed ``(setup, op)``, from the
+    ``blind_depth`` endpoint rows ``check_endpoints`` holds to the plan: a through hole's
+    local thickness, a blind hole's planned depth, never the point or exit lead."""
+    depths = {}
+    for (rule, _), finding in findings.items():
+        if rule != "blind_depth":
+            continue
+        for row in finding["numbers"].get("endpoints", []):
+            through = row.get("exit_face", "not_applicable") != "not_applicable"
+            depth = row.get("local_thickness" if through else "depth_mm", "unknown")
+            depths[row["setup"], row["op"]] = depth if numeric(depth) and depth > 0 else "unknown"
+    return depths
+
+
+def cited(value) -> bool:
+    if isinstance(value, list):
+        return bool(value) and all(map(cited, value))
+    return isinstance(value, str) and value not in {"", "unknown"}
+
+
+def deep_hole_derate(cutting: dict, operation: str, depth, diameter) -> tuple:
+    """``(sfm factor, report fields, unresolved)`` of the cutting data's cited
+    ``[[deep_hole]]`` row governing a hole ``depth`` deep at ``diameter`` (both mm): the
+    deepest ``depth_over_dia`` its depth/diameter exceeds. An operation no row names keeps
+    its sfm and reports nothing; an unknown ratio or a malformed, uncited or tied row leaves
+    the factor unknown, and they or an unconfirmed governing row leave it ``unresolved``."""
+    rows = [row for row in cutting.get("deep_hole", []) if row.get("operation") == operation]
+    if not rows:
+        return 1.0, {}, False
+    known = numeric(depth) and numeric(diameter) and diameter > 0
+    ratio = depth / diameter if known else "unknown"
+    fields = {
+        "depth_over_dia": ratio,
+        "deep_hole_row": "unknown",
+        "deep_hole_sfm_factor": "unknown",
+    }
+
+    def positive(value) -> bool:
+        return numeric(value) and math.isfinite(value) and value > 0
+
+    valid = all(
+        positive(row.get("depth_over_dia"))
+        and positive(row.get("sfm_factor"))
+        and row["sfm_factor"] <= 1
+        and cited(row.get("cite"))
+        for row in rows
+    )
+    if not valid or not numeric(ratio):
+        return "unknown", fields, True
+    deeper = [row for row in rows if ratio > row["depth_over_dia"]]
+    if not deeper:
+        fields.update(deep_hole_row="not_applicable", deep_hole_sfm_factor=1.0)
+        return 1.0, fields, False
+    limit = max(row["depth_over_dia"] for row in deeper)
+    governing = [row for row in deeper if row["depth_over_dia"] == limit]
+    if len(governing) != 1:
+        return "unknown", fields, True
+    (row,) = governing
+    fields.update(deep_hole_row=row["cite"], deep_hole_sfm_factor=row["sfm_factor"])
+    # A governing row marked for verification derates, but cannot establish a pass.
+    return row["sfm_factor"], fields, record_uncertain(row)
+
+
 def check_speeds(
-    setup: dict, op: dict, finding: dict, entries: dict, cutting: dict, definitions: dict
+    setup: dict,
+    op: dict,
+    finding: dict,
+    entries: dict,
+    cutting: dict,
+    definitions: dict,
+    depths: dict,
 ) -> None:
+    where = f"{setup['id']}:{op['op']}"
     row = finding["numbers"]
     if finding["status"] == "not_applicable":
         return
@@ -1006,6 +1261,20 @@ def check_speeds(
             diameter = tool_diameter(tool, entries)
     if numeric(row.get("diameter_in")) and numeric(diameter):
         near(row["diameter_in"], diameter / 25.4, "cutting diameter")
+    operation = CUT_OPERATIONS.get(op["do"], op["do"])
+    require(row.get("operation") == operation, f"{where}: cutting-data operation")
+    # The ratio divides by the validator's own cutting diameter (held to the row above).
+    if not numeric(diameter) and numeric(row.get("diameter_in")):
+        diameter = row["diameter_in"] * 25.4
+    depth = depths.get((setup["id"], op["op"]), "unknown")
+    factor, derate, unresolved = deep_hole_derate(cutting, operation, depth, diameter)
+    deep_fields = {"depth_over_dia", "deep_hole_row", "deep_hole_sfm_factor"}
+    require(deep_fields & row.keys() == derate.keys(), f"{where}: deep-hole derate fields")
+    for key, value in derate.items():
+        if numeric(value):
+            near(row[key], value, f"{where}: deep-hole {key}")
+        else:
+            require(row[key] == value, f"{where}: deep-hole {key}")
     sfm = row.get("sfm", "unknown")
     if numeric(sfm):
         require(
@@ -1013,11 +1282,18 @@ def check_speeds(
             or tool_field(op["tool"], "chart", entries) != "unknown",
             "numeric speed lacks source table/chart",
         )
-        raw = 12 * sfm / (math.pi * row["diameter_in"])
-        rpm = round(max(row["rpm_min"], min(row["rpm_max"], raw)) / 50) * 50
-        near(row["rpm"], rpm, f"{setup['id']}:{op['op']}: RPM")
+        rpm = "unknown"
+        if numeric(factor) and numeric(row.get("diameter_in")):
+            # The governing deep-hole row derates the sourced sfm before the RPM is derived.
+            raw = 12 * sfm * factor / (math.pi * row["diameter_in"])
+            rpm = round(max(row["rpm_min"], min(row["rpm_max"], raw)) / 50) * 50
+        near(row["rpm"], rpm, f"{where}: RPM")
     else:
         require(row.get("rpm") == "unknown", "uncited cutting speed became RPM")
+    require(
+        not unresolved or finding["status"] != "pass",
+        f"{where}: an unresolved deep-hole derate cannot pass",
+    )
     if numeric(row.get("feed_mm_rev")):  # lathe rows feed per spindle revolution
         values = row.get("rpm"), row.get("feed_mm_rev")
         label = "feed per revolution"
@@ -1028,14 +1304,303 @@ def check_speeds(
     near(row.get("feed_mm_min", "unknown"), feed, label)
 
 
-def check_coordinates(setup: dict, features: dict, finding: dict, plan: dict) -> None:
+def located_point(definitions: dict, frames: dict, name: str) -> tuple[str, list]:
+    """``(locator, model point)``: the feature whose ``at`` places ``name`` (its own, even
+    unknown; else its parent hole's) and that ``at`` in model coordinates."""
+    feature = definitions.get(name, {})
+    parent = feature.get("hole", feature.get("parent"))
+    locator = name if "at" in feature or not isinstance(parent, str) else parent
+    owner = definitions.get(locator, {})
+    at, frame = owner.get("at"), frames.get(owner.get("frame", "model"), "unknown")
+    if not (isinstance(at, list) and len(at) == 3 and isinstance(frame, dict)):
+        return locator, ["unknown"] * 3
+    return locator, model_point(at, frame)
+
+
+def unit(vector) -> list | None:
+    if not (isinstance(vector, list) and len(vector) == 3 and all(map(numeric, vector))):
+        return None
+    length = math.sqrt(sum(v * v for v in vector))
+    return [v / length for v in vector] if length > 1e-6 else None
+
+
+def dot(a: list, b: list) -> float:
+    return sum(x * y for x, y in zip(a, b, strict=True))
+
+
+def measuring_axis(definitions: dict, frames: dict, name: str, seen: tuple = ()):
+    """``name``'s declared axis as a model unit vector, else the axis of the feature it
+    stands on (``hole``, ``parent``, ``coaxial_to``); None when none is declared along that
+    line, "unknown" when the axis, its frame or its owner is not resolved."""
+    feature = definitions.get(name, {})
+    if "axis" not in feature:
+        owner = feature.get("hole", feature.get("parent", feature.get("coaxial_to")))
+        if not isinstance(owner, str):
+            return None
+        if owner in (*seen, name) or owner not in definitions:
+            return "unknown"
+        return measuring_axis(definitions, frames, owner, (*seen, name))
+    axis, frame = feature["axis"], frames.get(feature.get("frame", "model"))
+    basis = [frame.get(key) for key in ("x", "y", "z")] if isinstance(frame, dict) else []
+    if not (
+        isinstance(axis, list)
+        and len(axis) == 3
+        and all(map(numeric, axis))
+        and len(basis) == 3
+        and all(unit(vector) for vector in basis)
+    ):
+        return "unknown"
+    return unit([dot(axis, [basis[j][i] for j in range(3)]) for i in range(3)]) or "unknown"
+
+
+def sheet_band(features: dict, feature: dict, requirement: str):
+    """``requirement``'s band as the sheet prints it: each limit rounded inward at its
+    drawing precision; "unknown" unless both limits are numbers."""
+    band = feature.get(requirement)
+    if not (isinstance(band, list) and len(band) == 2 and all(map(numeric, band))):
+        return "unknown"
+    precision = feature.get("precision", {})
+    places = (
+        precision.get(requirement, features.get("precision"))
+        if isinstance(precision, dict)
+        else precision
+    )
+    if not isinstance(places, int) or isinstance(places, bool):
+        return list(band)
+    scale = 10**places
+    low = math.ceil(round(band[0] * scale, 6)) / scale
+    high = math.floor(round(band[1] * scale, 6)) / scale
+    return [low, high] if low <= high else list(band)
+
+
+def dialled(context: SimpleNamespace, name: str) -> bool:
+    """Whether a mill setup's hole or centre op cuts ``name`` at its DRO target."""
+    for setup in context.plan["setups"]:
+        kind = context.entries.get(setup.get("machine", "unknown"), {}).get("kind")
+        if kind == "lathe" or manual_bench(context.inventory, setup) is not None:
+            continue
+        if any(op.get("do") in CENTRE_OPS and op.get("feature") == name for op in setup["ops"]):
+            return True
+    return False
+
+
+def band_distance(context: SimpleNamespace, name: str, source: str, point: list, seen: tuple):
+    """``(distance, unit direction)`` from ``name``'s ``height_from`` reference ``source`` to
+    model ``point``: along a reference plane's normal; else from the reference's planned
+    point along the common normal of both measuring axes, square to the one axis, or point
+    to point with neither. None when it cannot be measured."""
+    if not all(map(numeric, point)):
+        return None
+    reference = context.definitions.get(source, {})
+    plane = reference.get("plane")
+    if isinstance(plane, dict) and plane:
+        frame = context.frames.get(plane.get("frame", "model"))
+        axis = plane.get("axis")
+        if axis not in ("x", "y", "z") or not isinstance(frame, dict):
+            return None
+        normal = unit(frame.get(axis))
+        coordinates = [plane.get("value") if key == axis else 0.0 for key in ("x", "y", "z")]
+        base = model_point(coordinates, frame)
+        if normal is None or not all(map(numeric, base)):
+            return None
+    else:
+        base = planned_model_point(context, source, (*seen, name))
+        first = measuring_axis(context.definitions, context.frames, name)
+        second = measuring_axis(context.definitions, context.frames, source)
+        if base is None or "unknown" in (first, second):
+            return None
+        delta = [p - q for p, q in zip(point, base, strict=True)]
+        normal = None
+        if first and second:
+            normal = unit(
+                [
+                    first[(i + 1) % 3] * second[(i + 2) % 3]
+                    - first[(i + 2) % 3] * second[(i + 1) % 3]
+                    for i in range(3)
+                ]
+            )
+        shared = first or second
+        if normal is None and shared:
+            along = dot(delta, shared)
+            normal = unit([d - along * s for d, s in zip(delta, shared, strict=True)])
+        if normal is None and not shared:
+            normal = unit(delta)
+        if normal is None:
+            return None
+    signed = dot([p - q for p, q in zip(point, base, strict=True)], normal)
+    return abs(signed), normal if signed >= 0 else [-v for v in normal]
+
+
+# A requested value on a printed band limit is inside it (the engine's join tolerance).
+BAND_TOLERANCE = 1e-6
+
+
+def aim_outcome(context: SimpleNamespace, name: str, points: list, seen: tuple = ()):
+    """How plan ``aims.<name>`` places ``name``'s model ``points``, recomputed from the plan
+    and the drawing band: None without an aim; ``{"refused": True, "error": bool}`` when it
+    cannot apply (``error``: the asked value lies outside the printed band); else the
+    moved points with the nominal and asked distances."""
+    aim = context.plan.get("aims", {}).get(name)
+    if aim is None:
+        return None
+    refused = {"refused": True, "error": False}
+    feature = context.definitions.get(name, {})
+    scale = UNIT_MM.get(context.features.get("units"))
+    band = sheet_band(context.features, feature, aim["requirement"])
+    if name in seen:
+        return refused
+    if scale is not None and band != "unknown":
+        asked = aim["value_mm"] / scale
+        if not band[0] - BAND_TOLERANCE <= asked <= band[1] + BAND_TOLERANCE:
+            return {"refused": True, "error": True}
+    source = feature.get("height_from")
+    requirement = next((key for key in HEIGHT_BANDS if key in feature), None)
+    if (
+        not dialled(context, name)
+        or scale is None
+        or not isinstance(source, str)
+        or requirement != aim["requirement"]
+        or band == "unknown"
+    ):
+        return refused
+    measured = [band_distance(context, name, source, point, seen) for point in points]
+    if not measured or None in measured:
+        return refused
+    nominal, direction = measured[0]
+    if any(
+        abs(value - nominal) > BAND_TOLERANCE or math.dist(other, direction) > 1e-9
+        for value, other in measured[1:]
+    ):
+        return refused
+    asked = aim["value_mm"] / scale
+    shift = asked - nominal
+    return {
+        "moved": [
+            [p + shift * d for p, d in zip(point, direction, strict=True)] for point in points
+        ],
+        "source": source,
+        "printed_band": band,
+        "value": asked,
+        "nominal_mm": nominal * scale,
+        "shift_mm": shift * scale,
+    }
+
+
+def planned_model_point(context: SimpleNamespace, name: str, seen: tuple = ()):
+    """``name``'s planned model point: its locator's ``at`` moved by that locator's own
+    plan aim; None when unknown, or when an aim bearing on it cannot be applied."""
+    locator, point = located_point(context.definitions, context.frames, name)
+    outcome = aim_outcome(context, locator, [point], seen)
+    if outcome is not None:
+        if "refused" in outcome:
+            return None
+        (point,) = outcome["moved"]
+    if locator != name and name in context.plan.get("aims", {}):
+        return None  # a child's own aim would take it off its parent's axis
+    return point if all(map(numeric, point)) else None
+
+
+def check_aims(context: SimpleNamespace, setup: dict, finding: dict, frame) -> dict:
+    """Hold every coordinate row to the plan ``aims`` bearing on it, recomputed from the
+    plan, the drawing band and the frames: a mill row of an aimed feature (or of a child
+    located on one) carries that aim, stands where the aim moves it with its unmoved
+    target as ``nominal_setup``, or names why the aim moves nothing. Returns
+    ``{id(row): model point the row stands at}`` for the rows an aim moves."""
+    aims = context.plan.get("aims", {})
+    lathe = context.entries.get(setup.get("machine", "unknown"), {}).get("kind") == "lathe"
+    groups = {}
+    for row in finding["numbers"].get("rows", []):
+        known = all(map(numeric, frame_point(row["model"], frame)))
+        if not lathe and ("point" in row or known):
+            groups.setdefault(row["feature"], []).append(row)
+        else:
+            require(not {"aim", "refused_aim", "nominal_setup"} & row.keys(), "unplaced aim")
+    standing, errors, unresolved = {}, False, False
+    for name, rows in groups.items():
+        locator, _ = located_point(context.definitions, context.frames, name)
+        outcome = aim_outcome(context, locator, [row["model"] for row in rows])
+        own = locator != name and name in aims
+        expected = {"aim"} if outcome is not None else set()
+        expected |= {"refused_aim"} if own else set()
+        moved = outcome is not None and "moved" in outcome
+        errors |= outcome is not None and outcome.get("error", False)
+        unresolved |= own or (outcome is not None and "refused" in outcome)
+        for index, row in enumerate(rows):
+            require(
+                {"aim", "refused_aim"} & row.keys() == expected,
+                f"{setup['id']}: {name}: plan aims bearing on the row",
+            )
+            for key in expected:
+                owner = locator if key == "aim" else name
+                record, authored = row[key], aims[owner]
+                require(
+                    record.get("feature") == owner
+                    and all(
+                        record.get(k) == authored[k] for k in ("requirement", "value_mm", "reason")
+                    )
+                    and f"plan.aims.{owner}" in finding["cite"],
+                    f"{setup['id']}: {name}: aim differs from plan.aims.{owner}",
+                )
+            if own:
+                require("why" in row["refused_aim"], f"{name}: a child's own aim must be refused")
+            if outcome is None:
+                require("nominal_setup" not in row, f"{name}: unaimed row moved")
+                continue
+            record = row["aim"]
+            if not moved:
+                require(
+                    "why" in record
+                    and ("error" in record) is outcome["error"]
+                    and "nominal_setup" not in row,
+                    f"{setup['id']}: {name}: aims.{locator} cannot move it",
+                )
+                continue
+            require(
+                not {"why", "error"} & record.keys() and record.get("source") == outcome["source"],
+                f"{setup['id']}: {name}: aims.{locator} applies",
+            )
+            for actual, expected_limit in zip(
+                record["printed_band"], outcome["printed_band"], strict=True
+            ):
+                near(actual, expected_limit, f"{name}: aimed printed band")
+            near(record.get("value"), outcome["value"], f"{name}: aimed value")
+            for key in ("nominal_mm", "shift_mm"):
+                require(
+                    numeric(record.get(key))
+                    and math.isclose(record[key], outcome[key], abs_tol=BAND_TOLERANCE),
+                    f"{name}: aim {key}",
+                )
+            for actual, expected_value in zip(
+                row["nominal_setup"], frame_point(row["model"], frame), strict=True
+            ):
+                near(actual, expected_value, f"{name}: unaimed setup coordinate")
+            standing[id(row)] = outcome["moved"][index]
+    if errors:
+        require(finding["status"] == "error", f"{setup['id']}: an out-of-band aim must error")
+    elif unresolved:
+        require(finding["status"] != "pass", f"{setup['id']}: an unapplied aim cannot pass")
+    return standing
+
+
+def check_coordinates(
+    setup: dict, features: dict, finding: dict, plan: dict, entries: dict, inventory: dict
+) -> None:
     frame = setup_frame(setup, plan, features)
     if setup["frame"] in plan.get("frames", {}):
         require(
             f"plan.frames.{setup['frame']}: author-declared setup frame" in finding["cite"],
             f"{setup['id']}: plan-owned frame provenance missing from coordinates",
         )
-    definitions = feature_definitions(plan, features)
+    definitions = operative_definitions(plan, features)
+    context = SimpleNamespace(
+        plan=plan,
+        features=features,
+        definitions=definitions,
+        frames=features["frames"] if isinstance(features["frames"], dict) else {},
+        entries=entries,
+        inventory=inventory,
+    )
+    standing = check_aims(context, setup, finding, frame)
     for row in finding["numbers"].get("rows", []):
         require(row["feature"] in definitions, "unknown coordinate feature")
         feature = definitions[row["feature"]]
@@ -1054,7 +1619,9 @@ def check_coordinates(setup: dict, features: dict, finding: dict, plan: dict) ->
             model = model_point(at, source)
             for actual, expected in zip(row["model"], model, strict=True):
                 near(actual, expected, "model coordinate")
-        transformed = frame_point(row["model"], frame)
+        # A row a plan aim moves stands at the moved point; its nominal target is checked
+        # as nominal_setup (check_aims).
+        transformed = frame_point(standing.get(id(row), row["model"]), frame)
         if "local_from" in row:
             source = row["local_from"]
             require(
@@ -1354,7 +1921,7 @@ def kernel_filled_exposed_diameter(
     and height; its kernel span must be cited. Other missing or contradictory nominals stay
     unresolved rather than trusting a diameter repeated by the report.
     """
-    definitions = feature_definitions(plan, features)
+    definitions = operative_definitions(plan, features)
     units = features.get("units")
     scale = 1 if units == "mm" else 25.4 if units == "in" else None
     state = setup.get("stock_state", {})
@@ -1648,13 +2215,16 @@ def validate_fixture(
     check_joint_declarations(plan, features, findings)
     missing = check_references(plan, entries, findings)
     check_endpoints(plan, features, findings, entries)
-    definitions = feature_definitions(plan, features)
+    definitions = operative_definitions(plan, features)
+    depths = hole_depths(findings)
     for setup in plan["setups"]:
         # check_subjects already holds bench and saw zero waivers to their facts.
         if manual_bench(inventory, setup) is None:
             if not saw_setup(setup):
                 check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
-            check_coordinates(setup, features, findings["coordinates", setup["id"]], plan)
+            check_coordinates(
+                setup, features, findings["coordinates", setup["id"]], plan, entries, inventory
+            )
         check_indexing(setup, features, entries, findings["indexing", setup["id"]])
         check_stickout(setup, plan, features, policy, findings["stickout", setup["id"]])
         for op in setup["ops"]:
@@ -1665,6 +2235,7 @@ def validate_fixture(
                 entries,
                 cutting,
                 definitions,
+                depths,
             )
     exit_code = report_exit(report, policy, plan, features)
     candidate = part if plan_filename == "plan.toml" else f"{part}/{plan_filename}"
