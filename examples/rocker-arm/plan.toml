@@ -213,7 +213,7 @@ jaw_above_parallels_mm = 13.1953
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE: seat the raw face before the first cut
 parallels_along = "x"
 parallels_centres_mm = [[170.0, -3.0], [170.0, 68.0]] # AUTHOR'S CHOICE: under both edges of the bar
-note = "Bar flat on 1-1/4 in parallels, upper face up; it stands 5.9 mm above the jaws. Face the upper face just enough to clean up: it is the reference face for every later setup."
+note = "Bar flat on 1-1/4 in parallels, upper face up. Face the upper face just enough to clean up: it is the reference face for every later setup."
 
 [setups.zero.x]
 edge = "sawn left end"
@@ -276,7 +276,7 @@ jaw_above_parallels_mm = 32.2453
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
 parallels_along = "x"
 parallels_centres_mm = [[170.0, -2.5], [170.0, -15.0]] # AUTHOR'S CHOICE: under both faces of the bar
-note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1/2 in parallels, the faced upper face against the fixed jaw; it stands 44 mm above the jaws. The datum edge comes out square to the upper face."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1/2 in parallels, the faced upper face against the fixed jaw. The datum edge comes out square to the upper face."
 
 [setups.zero.x]
 edge = "sawn left end"
@@ -1142,7 +1142,7 @@ retained_rail_bottom_z = -11.52825 # the raw rail frame is still on; it is remov
 fixture = "bench-vise-4in"
 pose = { origin_mm = [0.0, 0.0, -31.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # AUTHOR'S CHOICE: jaw tops 20 mm below the rail frame, closed on the stud tail
 clamps = [
-  { ref = "rocker-hub-filing-buttons", restraint = "press", tighten = "hand", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "stud through reamed bore A, one button on each hub face, nut tightened by hand" },
+  { ref = "rocker-hub-filing-buttons", restraint = "press", tighten = "hand", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "stud through reamed bore A, one button on each hub face, nut over the spacer sleeve" },
 ]
 clamp_order = [1]
 support = "none"
