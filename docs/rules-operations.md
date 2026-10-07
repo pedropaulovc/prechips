@@ -189,7 +189,8 @@ tool and machine facts are needed.
 
 A non-lathe op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
 from the one matching cited `[[plunge]]` row (material class, tool material, tool
-diameter; see [cutting data](cutting-data.md#plunge)), `plunge_mm_min = RPM *
+diameter; see [cutting data](cutting-data.md#plunge)) for a tool declared
+`center_cutting = true` (any other has none), `plunge_mm_min = RPM *
 plunge_mm_rev`, and `plunge_reason` when it is unknown. It does not change the
 finding's status: whether the op plunges at all is the coordinates rule's
 `level_paths`, which makes a plunge without a known feed debt.

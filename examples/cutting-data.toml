@@ -322,11 +322,12 @@ cite = "example (plausible, not measured); cobalt spot drill: speed on the tool 
 # revolution (rules-operations.md speeds_feeds; plunge feed = RPM x feed_mm_rev). The
 # corpus has no end-mill plunge table, so each value is derived from p.1060's twist-drill
 # feed for the same diameter. Bands break at 1/4 in (6.35 mm), p.1060's size step; the
-# shared 1/4 in size takes the smaller drill band's feed.
+# shared 1/4 in size takes the smaller drill band's feed. The first band starts at exactly
+# 1/8 in (3.175 mm), p.1060's lower bound, and the plunge needs a centre-cutting end mill.
 [[plunge]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
-diameter_range = [3.176, 6.35]
+diameter_range = [3.175, 6.35]
 feed_mm_rev = 0.025
 cite = "example (plausible, not measured); AUTHOR'S CHOICE: 0.001 in/rev (0.025 mm/rev), half the 0.002 in/rev floor of Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1060 ordinary twist-drill feed 0.002-0.006 in/rev for 1/8- to 1/4-in drills, because an end mill fed down its axis has no drill point to centre it and only its end teeth to clear the chip; it equals one tooth at the same handbook's Table 15a p.1054 .001 in/tooth for a 1/4 in HSS end mill in plain carbon steels AISI 1006-1030"
 

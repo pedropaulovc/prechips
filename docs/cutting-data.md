@@ -123,13 +123,15 @@ not proof of geometric validity; rules perform the applicable checks.
 
 An end mill fed straight down its own axis into material, as a milled path does where
 it goes down at a depth level the stock box does not prove clear (see
-[coordinates](rules-coordinates.md#coordinates)). Selected like a cut row, without an
-operation: the stock's material class (by `aliases`), the tool's `material` and its mm
-diameter inside the inclusive `diameter_range`. Exactly one cited, verified row with a
-positive `feed_mm_rev` gives the op's plunge feed, `rpm * feed_mm_rev` mm/min at the
-op's own starting RPM; no row, several rows or an uncited, unverified or non-positive
-row leaves it unknown, and a plunging op with no known plunge feed is coordinates debt
-and a STOP on the sheet.
+[coordinates](rules-coordinates.md#coordinates)). Only a centre-cutting end mill can: a
+tool whose inventory record does not declare `center_cutting = true` has no plunge feed,
+whatever the rows say (`false`: it cannot be fed down; absent or unknown: not proven).
+Otherwise a row is selected like a cut row, without an operation: the stock's material
+class (by `aliases`), the tool's `material` and its mm diameter inside the inclusive
+`diameter_range`. Exactly one cited, verified row with a positive `feed_mm_rev` gives the
+op's plunge feed, `rpm * feed_mm_rev` mm/min at the op's own starting RPM; no row,
+several rows or an uncited, unverified or non-positive row leaves it unknown, and a
+plunging op with no known plunge feed is coordinates debt and a STOP on the sheet.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -141,5 +143,6 @@ and a STOP on the sheet.
 
 The shipped example rows (`# --- SheetR5 additions ---`) are AUTHOR'S CHOICE values
 derived from Machinery's Handbook 27th ed.: half the low end of the p.1060 drill feed
-for the size band, which equals one or two teeth of the Table 15a (p.1054) end-mill
-feed per tooth. They are illustrative, not shop measurements.
+for the size band (1/8 to 1/4 in from exactly 3.175 mm, then to 1/2 in), which equals
+one or two teeth of the Table 15a (p.1054) end-mill feed per tooth. They are
+illustrative, not shop measurements.

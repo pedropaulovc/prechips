@@ -38,7 +38,8 @@ POLICY = (
 INVENTORY = (
     "[machines.mill]\nkind = 'mill'\nverify = false\n"
     "[machines.mill.spindle]\nrotation = 'cw'\n"
-    "[tools.cutter]\nkind = 'endmill'\nmaterial = 'HSS'\ndia_mm = 6.0\nverify = false\n"
+    "[tools.cutter]\nkind = 'endmill'\nmaterial = 'HSS'\ncenter_cutting = true\ndia_mm = 6.0\n"
+    "verify = false\n"
     "[tools.drill]\nkind = 'drill'\ndia_mm = 3.0\npoint_angle = 118.0\nverify = false\n"
     "[tools.bore-drill]\nkind = 'drill'\ndia_mm = 6.0\npoint_angle = 118.0\nverify = false\n"
     "[fixtures.table]\nkind = 'rotary_table'\ngraduation_deg = 1.0\nvernier_deg = 0.1\n"

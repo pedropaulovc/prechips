@@ -2289,7 +2289,13 @@ class _Traveler:
         top = record.get("reach_top_z_mm")
         if _known(top):
             top = self.kernel_z(setup, top)
-        reach = top - tip if _known(top) and _known(tip) else record.get("reach_depth_mm")
+        # The printed Zs are plan units; projection and flute length are millimetres.
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        reach = (
+            (top - tip) * scale
+            if _known(top) and _known(tip) and scale
+            else record.get("reach_depth_mm")
+        )
         projection, hits = record.get("projection_mm"), record.get("holder_wall_hits")
         flute = record.get("flute_len_mm")
         beside = (
@@ -4010,14 +4016,18 @@ class _Traveler:
         return {}
 
     def plunge_feed(self, setup, op):
-        """The op's plunge feed in mm/min, or a STOP when it plunges without a known one;
-        None when nothing in its path plunges into the stock."""
+        """The op's plunge feed in mm/min, or a STOP, with coordinates' reason, when it
+        plunges without a known one (a tool not proven centre-cutting has none); None when
+        nothing in its path plunges into the stock."""
         record = self.level_path(setup, op.get("op"))
         if "plunge_mm_rev" not in record:
             return None
         numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
         feed = numbers.get("plunge_mm_min")
-        return f"{_number(feed, 0)} mm/min" if _known(feed) else "STOP: plunge feed not set"
+        if _known(record["plunge_mm_rev"]) and _known(feed):
+            return f"{_number(feed, 0)} mm/min"
+        why = record.get("plunge_reason")
+        return "STOP: plunge feed not set" + (f" — {why}" if why else "")
 
     def level_entries(self, setup, op, waypoints):
         """One paragraph: how the op's path goes down at each depth level and gets back for

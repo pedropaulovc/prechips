@@ -8,14 +8,16 @@ them and records, per piece the cutter has to go down at:
   setup-frame ``stock_bbox_mm``, by its as-is face tolerance) goes down in air; anything
   else plunges into material, since nothing else proves the spot clear;
 * from where: level 1 from the op's DRO start Z, level ``k`` from level ``k-1``'s Z, which
-  the same path already cut at that spot (each level runs the whole path);
+  the same path already cut at that spot (each level runs the whole path). Levels
+  coordinates could not compute stay unknown, never one level at the op's depth;
 * how it gets back: a path that ends where it starts goes straight down to the next level;
   otherwise the cutter raises to the op's raise Z (``approach_mm`` above the current top,
   on the DRO grid, as a raster's lift) before moving to the next entry. That height is
   claimed above the stock only when the kernel's stock box proves it.
 
-An op that plunges and has no known plunge feed (``speeds_feeds.plunge_row``) is debt, as
-is a return without a known raise Z or with one the stock box puts below the stock top.
+An op that plunges and has no known plunge feed (``speeds_feeds.plunge_row``, which has
+none for a tool not declared centre-cutting) is debt, as is a return without a known raise
+Z or with one the stock box puts below the stock top.
 Rotary-table and chain-drill tables are not end-mill paths and are skipped.
 """
 
@@ -130,9 +132,15 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z):
         entry = entries.get(op_id, {})
         profile = profiles.get(op_id, {})
         levels = mapping(entry.get("z_levels"))
-        depths = levels.get("levels")
-        if not isinstance(depths, list):
-            depths = [entry.get("dro_to_z", dro_z(op.get("to_z", UNKNOWN), grid))]
+        # A level plan coordinates could not compute stays unknown: never one level at the
+        # op's depth, which would plunge the whole depth at once.
+        depths = (
+            levels.get("levels", UNKNOWN)
+            if levels
+            else [entry.get("dro_to_z", dro_z(op.get("to_z", UNKNOWN), grid))]
+        )
+        if not (isinstance(depths, list) and depths and all(number(z) for z in depths)):
+            depths = UNKNOWN
         start = levels.get("dro_start_z") if levels else None
         if start is None:
             start = dro_z(profile.get("entry_z", prior.get("top_z", UNKNOWN)), grid)
@@ -164,8 +172,9 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z):
             "closed": closed,
         }
         # A return to an entry: between levels of an open path, between pieces, and
-        # after every raster pass.
-        returns = raster or len(downs) > 1 or (len(depths) > 1 and not closed)
+        # after every raster pass. An unknown level count claims no return between levels.
+        several = isinstance(depths, list) and len(depths) > 1
+        returns = raster or len(downs) > 1 or (several and not closed)
         if returns:
             approach, top = op.get("approach_mm", UNKNOWN), prior.get("top_z", UNKNOWN)
             raised = (

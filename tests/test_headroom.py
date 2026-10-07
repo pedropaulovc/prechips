@@ -482,7 +482,8 @@ def coordinate_bundle(tmp_path, feature, operations):
     (root / "inventory.toml").write_text(
         "[machines.mill]\nkind = 'mill'\nverify = false\n"
         "[machines.mill.spindle]\nrotation = 'cw'\n"
-        "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nmaterial = 'HSS'\nverify = false\n"
+        "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nmaterial = 'HSS'\ncenter_cutting = true\n"
+        "verify = false\n"
         "[tools.spot]\nkind = 'center_drill'\ndia_mm = 6.0\npoint_angle = 90.0\n"
         "verify = false\n"
         "[tools.drill]\nkind = 'drill'\ndia_mm = 6.0\npoint_angle = 118.0\n"
@@ -496,7 +497,8 @@ def coordinate_bundle(tmp_path, feature, operations):
         "[numbers_verify]\nmax_filing_stock_mm = false\n",
         encoding="utf-8",
     )
-    # Every end mill the scratch plans plunge has a cited plunge feed (level_entry).
+    # Every end mill the scratch plans plunge is centre-cutting with a cited plunge feed
+    # (level_entry).
     (root / "cutting.toml").write_text(
         "revision = 1\n[aliases]\n'scratch steel' = 'steel'\n"
         "[[plunge]]\nmaterial_class = 'steel'\ntool_material = 'HSS'\n"
@@ -586,7 +588,7 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         tmp_path,
         feature,
         f"[[setups.ops]]\nop = 20\ndo = '{action}'\nfeature = 'target'\n"
-        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\napproach_mm = 2.0\n"
         + allowance_field
         + f"contour = {{ method = '{method}', cusp_mm = 0.1 }}\n",
     )

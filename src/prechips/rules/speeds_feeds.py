@@ -23,9 +23,10 @@ override; the sourced speed is clamped to the machine's inclusive
 
 A mill op with a ``contour`` path also carries its plunge feed: the end mill fed
 straight down its own axis, ``RPM x feed_mm_rev`` of the one cited ``[[plunge]]`` row
-for its material class, tool material and tool diameter. It does not change this
-finding's status; the coordinates rule decides which ops plunge into the stock and
-leaves those without a known plunge feed unknown.
+for its material class, tool material and tool diameter, and only for a tool declared
+``center_cutting = true``. It does not change this finding's status; the coordinates
+rule decides which ops plunge into the stock and leaves those without a known plunge
+feed unknown.
 """
 
 from __future__ import annotations
@@ -184,8 +185,14 @@ def plunge_row(bundle, op):
     """``(feed_mm_rev, cite, why)`` of the one cited ``[[plunge]]`` row matching the stock's
     material class, the op tool's material and its diameter (mm, inclusive range); the feed
     is unknown, with why, when no row, several rows or an uncited, unverified or
-    non-positive row matches."""
+    non-positive row matches, and whatever the rows say for a tool not declared
+    ``center_cutting = true``: only a centre-cutting end mill can be fed down its axis."""
     tool = resolve(bundle, "tools", op.get("tool")) or {}
+    centre = tool.get("center_cutting")
+    if centre is False:
+        return UNKNOWN, UNKNOWN, "the tool is not centre-cutting, so it cannot be fed down"
+    if centre is not True:
+        return UNKNOWN, UNKNOWN, "the tool is not declared centre-cutting (center_cutting)"
     diameter = length_mm(tool, "dia")
     key = (stock_material_class(bundle), tool.get("material", UNKNOWN))
     if UNKNOWN in key or not number(diameter):
