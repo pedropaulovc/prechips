@@ -1079,6 +1079,71 @@ def test_filing_on_an_unknown_size_or_an_unverified_kit_is_unknown(tmp_path, ops
     assert "files_to_mm" not in row.numbers["guide"]
 
 
+SCRIBE_BY_TEMPLATE = bench_op(10, "scribe", layout="'template'", guide="{ template = 'template' }")
+_SCRIBE_OP = bench_op(25, "scribe", layout="'template'", guide="{ template = 'template' }")
+_NO_RANGE = "range_mm = 'unknown'"
+
+
+# Every input the manual_arc rule leaves unknown, on a real evaluated finding: the
+# traveler must stop that op, never print its layout or filing as an established step.
+@pytest.mark.parametrize(
+    ("ops", "number", "name", "old", "new"),
+    [
+        (FILE_BY_BUTTONS, 30, "features.toml", "dia = [19.8, 20.2]", "dia = 'unknown'"),
+        (FILE_BY_BUTTONS, 30, "features.toml", "dia = [19.8, 20.2]", "dia = [19.8, 'unknown']"),
+        (FILE_BY_BUTTONS, 30, "features.toml", "dia = [6.0, 6.03]", "dia = [6.0, 'unknown']"),
+        (FILE_BY_BUTTONS, 30, "inventory.toml", "pin_dia_limits_mm = [5.99, 6.0]\n", ""),
+        (FILE_BY_BUTTONS, 30, "inventory.toml", "0.004\nverify = false", "0.004\nverify = true"),
+        (FILE_BY_BUTTONS, 30, "plan.toml", "fixture = 'buttons'", "fixture = 'unknown'"),
+        (FILE_BY_BUTTONS, 30, "plan.toml", ", gauge = 'radius-gauge'", ""),
+        (FILE_BY_BUTTONS, 30, "inventory.toml", "range_mm = [1.0, 25.0]", _NO_RANGE),
+        (FILE_BY_BUTTONS, 30, "plan.toml", STAIRS, ""),
+        (FILE_BY_BUTTONS, 30, "policy.toml", POLICY, '[required]\nmanual_arc = "*"\n'),
+        (TEMPLATE_FILING, 30, "features.toml", "dia = [19.8, 20.2]", "dia = 'unknown'"),
+        (TEMPLATE_FILING, 30, "plan.toml", _SCRIBE_OP, ""),
+        (TEMPLATE_FILING, 30, "inventory.toml", "range_mm = [9.0, 11.0]", _NO_RANGE),
+        (bench_op(10, "scribe", layout="'chalk'"), 10, "plan.toml", "", ""),
+        (SCRIBE_BY_TEMPLATE, 10, "inventory.toml", "range_mm = [9.0, 11.0]", _NO_RANGE),
+        (SCRIBE_BY_TEMPLATE, 10, "features.toml", "at = [20.0, 10.0, 0.0]", "at = 'unknown'"),
+    ],
+    ids=[
+        "filing-arc-band-unknown",
+        "filing-arc-band-partly-unknown",
+        "filing-bore-partly-unknown",
+        "filing-no-pin-limits",
+        "filing-kit-to-verify",
+        "filing-buttons-not-held",
+        "filing-no-gauge",
+        "filing-gauge-range-unknown",
+        "filing-no-rough",
+        "filing-no-stock-cap",
+        "template-arc-band-unknown",
+        "template-no-layout",
+        "template-range-unknown",
+        "scribe-layout-unknown",
+        "scribe-template-range-unknown",
+        "scribe-centre-unknown",
+    ],
+)
+def test_every_unknown_manual_arc_input_stops_its_op_on_the_traveler(
+    tmp_path, ops, number, name, old, new
+):
+    plan = scratch(tmp_path, ops, hold="fixture = 'buttons'")
+    change(plan.with_name(name), old, new)
+    bundle = load_bundle(plan)
+    row = next(r for r in manual_arc.evaluate(bundle) if r.subject == f"S1:{number}")
+    assert row.status == "unknown", row.sentence
+    setup = bundle.plan["setups"][0]
+    sheet = _Traveler(bundle, [row], {}, None)
+    sheet.setup = setup
+    table, _, stops = sheet.operations(setup, {}, {"notes": 2, "contours": None})
+    printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", table)).split())
+    # The op's own manual instruction carries the STOP, and the setup's STOP list names it.
+    step = printed[printed.index("Layout:" if number == 10 else "Bench filing:") :]
+    assert "STOP" in step, step
+    assert str(number) in [op for ops in stops.values() for op in ops], stops
+
+
 @pytest.mark.parametrize(("layout", "status"), [("'dividers'", "pass"), ("'chalk'", "unknown")])
 def test_scribe_prints_the_centre_radius_and_layout(tmp_path, layout, status):
     plan = scratch(tmp_path, bench_op(10, "scribe", layout=layout))
