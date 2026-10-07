@@ -467,7 +467,7 @@ note = "Spindle stopped, lathe in neutral, carriage run back clear. Turn the chu
 id = "S3"
 machine = "PM-1127VF-LB"
 frame = "T3"                 # plan.frames.T3 (author's choice)
-note = "Before S3 (assembly trial fit, off the lathe): slide the shaft through both rocker-bank ears with the shoulder pushed against the north ear; ink the body with a felt-tip pen at the south ear's outer face, scribe a light ring through the ink there, then remove the shaft. Measure the scribe to the plain end: caliper's fixed jaw on the plain end, sliding jaw's edge on the scribe under the 10x measuring loupe. Nominal 16.83 (the scribe 158.17 from the north apex). 16.33 to 17.33: go on to S3. Outside that: clean the ear bores and the shoulder, refit with the shoulder hard against the north ear, re-ink, scribe again (the bright line through the fresh ink is the scribe) and measure again. Still outside but 11.50 or more: go on. S3 is set from the scribe, so its zero, jaw position and cut positions stay as printed; only the stickout changes, to your reading + 8 instead of 24.83. Under 11.50: do not cut. The ears sit more than 5 mm off the bank drawing, and the S1 follow-rest jaw mark (1 to 11 mm in from the plain end) would land on the finished bearing; keep the shaft uncut and refit it once the bank is corrected."  # AUTHOR'S CHOICE: the S3 numbers are all set from the scribe, so only the waste past it depends on the span; 11.50 keeps the S1 follow-rest jaw band (jaws 8 mm behind the tool stopped at T1 Z152, 10 mm deep: T1 Z155-165, 1-11 mm in from the plain end) beyond the S3 dome base Z0.25
+note = "Trial fit before S3, off the lathe. Fit: push the shaft through both rocker-bank ears, shoulder hard against the north ear; ink the body at the south ear's outer face and scribe a light ring through the ink; remove the shaft. Measure: calipers from the plain end to the scribe (loupe on the scribe); nominal 16.83. Then: 16.33 to 17.33, go on. Outside that, clean the ear bores and shoulder, refit, re-ink, scribe again and re-measure. Still outside but 11.50 or more: go on, with stickout = your reading + 8 (every other S3 number is set from the scribe and stays as printed). Under 11.50: do not cut; the bank's ears are more than 5 mm off and the S1 follow-rest mark would land on the finished bearing; keep the shaft until the bank is corrected."  # AUTHOR'S CHOICE: the S3 numbers are all set from the scribe, so only the waste past it depends on the span; 11.50 keeps the S1 follow-rest jaw band (jaws 8 mm behind the tool stopped at T1 Z152, 10 mm deep: T1 Z155-165, 1-11 mm in from the plain end) beyond the S3 dome base Z0.25
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S2"
@@ -505,6 +505,7 @@ runout_limit_mm = 0.02        # author's choice: example limit next to the jaws
 
 [setups.zero.x]
 feature = "spindle_axis"
+edge = "spindle axis: trial cut only on the plain-end waste, Z6 to Z10 (past the parting line, cut off in op 10); never on the bearing"  # AUTHOR'S CHOICE: the arriving body is the finished Ø6.330-6.350 bearing; Z6-Z10 lies past the op 10 cut (Z2.25 plus the blade) and inside the shortest permitted span (11.50)
 edge_mm = 0.0
 from = "+x"
 method = "trial_cut_measure"  # on the excess past the scribe
@@ -532,10 +533,10 @@ paper_mm = 0.0             # author's choice: chuck-side corner aligned to the s
 method = "spindle stopped; align the chuck-side corner to the scribe; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
 before_ops = [10]
 
-# The blade's Axis Set replaced the AR's zero; put the AR back in holder #1 and re-touch it
-# on the same body diameter and scribe before it faces and domes.
+# The blade's Axis Set replaced the T1 zero; put the HSS tool bit back in holder #1 and
+# re-touch it on the same body diameter and scribe before it faces and domes.
 [[setups.zero.tool_touches]]
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 x_method = "touch the body diameter just measured by micrometer; Axis Set its measured diameter"  # author's choice
 gauge = "micrometers/0-1in"
 z_face = "scribe"
