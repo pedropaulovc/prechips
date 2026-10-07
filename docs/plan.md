@@ -674,7 +674,10 @@ placed by `pose` (origin at the strap underside on the work). `restraint` is
 `press` (it holds the work down along pose -z), `locate` (it only positions
 the work) or `none`; undeclared is `none`. Only a press clamp can hold a stock
 piece an op splits off, and only when the kernel proves the load path onto an
-anchored support (rules-geometry, held split).
+anchored support (rules-geometry, held split). A `locate` clamp must prove that
+its solids that declare `locates` bear on the stock by their own geometry: a
+pin's contact cylinder in the bore it locates, a flat locator's face
+(rules-geometry, `thin_wall_under_clamp`).
 
 `clamp` is the clamping instruction, or a declared clamp fixture's name. An
 explicit `clamp = "none"` or `"not_applicable"` with no `clamps` members
