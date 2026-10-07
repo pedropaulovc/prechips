@@ -6316,29 +6316,31 @@ def reference_label(bundle, reference, category=None) -> str:
     """Shop name for an inventory reference; '(not in shop list)' when it does not resolve.
     The item is the one the rules read (:func:`slot_category`): ``category``'s own first
     (``fixtures`` is a hold slot: fixtures, holders, machines), then the rest; with no
-    category, the default order. A same-key item in another category never names it."""
+    category, the default order. The selected category is authoritative: an item it lists
+    as unknown or with nothing about it (``{}``), or a category stated unknown, prints
+    ``? <category>.<key>``, and a same-key item in another category never names it. Only a
+    reference no category selects is looked for in the rest of the shop list."""
     if reference in (None, "unknown", "none", "not_applicable"):
         return _text(reference)
     if not isinstance(reference, str):
         return "?"
     slot = "workholding" if category == "fixtures" else category
-    identity_category = (
-        slot_category(bundle, reference, slot)
-        if slot
-        else inventory_category(bundle, reference.partition("/")[0])
-    ) or category
-    item = resolve(bundle, identity_category, reference)
     root, _, member = reference.partition("/")
-    raw = (
-        _mapping(_mapping(bundle.inventory.get(identity_category)).get(root))
-        if identity_category
-        else {}
-    )
-    if not raw:
-        raw_category = inventory_category(bundle, reference, tuple(bundle.inventory))
-        raw = (
-            _mapping(_mapping(bundle.inventory.get(raw_category)).get(root)) if raw_category else {}
-        )
+    selected = (
+        slot_category(bundle, reference, slot) if slot else inventory_category(bundle, root)
+    ) or category
+    # No category selects it: the shop list may still name it in a category no rule reads.
+    identity_category = selected or inventory_category(bundle, reference, tuple(bundle.inventory))
+    entries = bundle.inventory.get(identity_category) if identity_category else None
+    stated = _mapping(entries).get(root)
+    raw = _mapping(stated)
+    if (
+        entries == "unknown"
+        or stated in ("unknown", {})
+        or (member and _mapping(raw.get("members")).get(member) == "unknown")
+    ):
+        return f"? {identity_category}.{reference}"
+    item = resolve(bundle, selected, reference)
     record = item or raw
     # A member's display name is its own: a named kit does not name each of its pieces.
     own = _mapping(_mapping(raw.get("members")).get(member)) if member else {}

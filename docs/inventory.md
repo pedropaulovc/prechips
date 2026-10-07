@@ -221,7 +221,10 @@ only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
 checked even when a fixture of that key is listed), the notes and record blanks
 of a shop-made holder or fixture, and every name the traveler prints for it. A
 bare key in prose that two categories list names no one item and prints as
-written; name it `<category>.<key>`. Unknown is
+written; name it `<category>.<key>`. The selected category is authoritative: an
+item it lists as `"unknown"` or with nothing about it (`{}`), or a category
+stated `"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
+it never borrows a same-key item's name or record. Unknown is
 never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
 is unknown, not listed or not verified; a `limits_mm` that is not two known

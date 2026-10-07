@@ -432,12 +432,17 @@ def named_references(bundle):
 
 def named_item(bundle, name):
     """The inventory record a :data:`NAMED_REFERENCE` ``<category>.<key>`` names, else
-    None. A whole set (``tools.reamers-metric``) is named as itself; a member is resolved."""
+    None. A whole set (``tools.reamers-metric``) is named as itself; a member is resolved.
+    An item listed as unknown or with nothing about it (``{}``), or in a category stated
+    unknown, is unknown (needs verifying), not absent."""
     category, _, reference = name.partition(".")
     if "/" in reference:
         return resolve(bundle, category, reference)
     inventory = getattr(bundle, "inventory", bundle)
-    item = record(inventory.get(category)).get(reference)
+    entries = inventory.get(category)
+    item = record(entries).get(reference)
+    if entries == UNKNOWN or item in (UNKNOWN, {}):
+        return {"kind": UNKNOWN, "verify": True}
     if not isinstance(item, dict) or item.get("present") is False:
         return None
     return item
@@ -457,11 +462,17 @@ def resolve(bundle_or_inventory, category, reference):
             unknown_category = True
             continue
         if isinstance(entries, dict) and root in entries:
-            if entries[root] == UNKNOWN:
+            # An item stated unknown, or listed with nothing about it, is unknown: never
+            # a listed item, and never one from another category or a machine's kit.
+            if entries[root] in (UNKNOWN, {}):
                 return {"kind": UNKNOWN, "verify": True}
             item = inventory_record(entries[root])
             break
     if item is None:
+        # A named category stated unknown as a whole may hold it: unknown, not a machine's
+        # accessory of the same name.
+        if category and unknown_category:
+            return {"kind": UNKNOWN, "verify": True}
         machines = inventory.get("machines", {})
         for machine in machines.values() if isinstance(machines, dict) else ():
             machine = inventory_record(machine)
