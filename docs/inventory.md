@@ -194,7 +194,10 @@ jaw-plate thickness along the gripping normal and is never synthesized from
 jaw width, jaw height, bed height or any other dimension. A `round_bar` item
 (the bar a plan's `hold.jaw_bar` lays between the work and the moving jaw)
 needs fact-local measured `dia` and `length`; its Ø holds the moving jaw off the
-work, and without both the jaws stay unplaced.
+work, and without both the jaws stay unplaced. A `jaw_buttons` item (the pair a
+plan's `hold.jaw_buttons` sets between each jaw and the work) needs fact-local
+measured `dia` (the button face), `thickness`, `spigot_dia` and `spigot_length`;
+without all four the jaws stay unplaced.
 
 Other holding solids come from the same accepted-fact rule, never defaults:
 
@@ -724,6 +727,14 @@ fact `{ value = "cw", measured = {by, date, instrument} }`; a labelled value
 flagged `verify = true` counts as undeclared. With an op's `direction`
 (`conventional`/`climb`) it fixes the cutting order of contour tables
 (see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
+
+A lathe spindle's turn comes from the op's tool, not from `rotation`: the traveler
+prints FORWARD (the top of the work turns toward the operator) in the rpm cell of
+each lathe op whose tool declares `hand = "right"` or `"left"` (a turning, facing,
+grooving or boring tool of either hand is set edge up, as the turning model poses
+it), REVERSE for a left-hand-cut tailstock tool (centre drill, drill, reamer, tap),
+and a STOP when the tool declares no `hand`. The op table's heading says once what
+each printed word means.
 
 ## Length and angle facts
 

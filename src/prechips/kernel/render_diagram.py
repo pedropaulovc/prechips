@@ -6,7 +6,7 @@ screen-space symbolism, deliberately separate from the modelled fixture geometry
 
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 try:
     from .render_png import RenderCanvas
@@ -44,6 +44,32 @@ _ARROWS = "ARROWS: POINT ORDER"
 # A raster of at most this many passes draws and labels every pass; a longer one is a band
 # with its first and last pass.
 _EVERY_PASS = 8
+# The legend a path sketch prints once it has drawn a raster's lifted return: the cycle
+# is one way (feed a pass, lift, rapid back to the next pass's start).
+_RETURNS = "DASHED: LIFTED RETURN"
+
+
+def _lifted_returns(paths):
+    """(from, to) XY of each rapid return between consecutive raster passes a sketch draws
+    whole: the end of pass n to the start of pass n + 1 of the same op, when both run in a
+    known direction. A band showing only its first and last pass draws none."""
+    returns = []
+    for op in dict.fromkeys(str(path.get("op", "")) for path in paths):
+        raster = sorted(
+            (p for p in paths if p.get("raster") and str(p.get("op", "")) == op),
+            key=lambda p: p["raster"]["pass"],
+        )
+        keep_out = any(path["raster"].get("keep_out") for path in raster)
+        if len(raster) > _EVERY_PASS and not keep_out:
+            continue
+        for before, after in zip(raster, raster[1:], strict=False):
+            if (
+                after["raster"]["pass"] == before["raster"]["pass"] + 1
+                and before.get("directed") is True
+                and after.get("directed") is True
+            ):
+                returns.append((before["xy"][-1], after["xy"][0]))
+    return returns
 
 
 def _labelled_passes(numbers):
@@ -110,6 +136,16 @@ def _plain(value):
 def _mm(value):
     text = f"{value:.2f}".rstrip("0").rstrip(".")
     return "0" if text in ("", "-0") else text
+
+
+def _dro(value, decimals):
+    """A setup coordinate or clearance as the traveler's tables print it
+    (``_Traveler.operative``): at the setup's DRO ``decimals`` when the spec names them,
+    so a picture and its table never show one value rounded two ways; else :func:`_mm`."""
+    if not isinstance(decimals, int) or isinstance(decimals, bool) or decimals < 0:
+        return _mm(value)
+    text = f"{value:.{decimals}f}"
+    return text.removeprefix("-") if float(text) == 0 else text
 
 
 def _corners(box):
@@ -501,8 +537,11 @@ def _nearest_on_outline(outline, point):
     return best
 
 
-def _shoulder(z, small, large):
-    return f"SHOULDER Z {_mm(z)}: DIA {_mm(2 * small)} / DIA {_mm(2 * large)}"
+def _shoulder(z, small, large, decimals=None):
+    return (
+        f"SHOULDER Z {_dro(z, decimals)}: "
+        f"DIA {_dro(2 * small, decimals)} / DIA {_dro(2 * large, decimals)}"
+    )
 
 
 def _radial_steps(profiles):
@@ -521,8 +560,15 @@ def _radial_steps(profiles):
 
 class _Diagram:
     grows_to_fit = False
+    splits_sides = True
 
-    def __init__(self, meshes, spec):
+    def _dro(self, value):
+        """``value`` as the traveler's tables print it (:func:`_dro`)."""
+        return _dro(value, self.spec.get("decimals"))
+
+    def __init__(self, meshes, spec, extra=0):
+        """``extra``: pixels the footer moves down (the canvas grows by as much) so the
+        label lanes hold every key; the placed scene keeps its size and place."""
         self.spec = spec
         self.view = spec["view"]
         self.camera = (
@@ -554,6 +600,7 @@ class _Diagram:
         self.off_window_keys = []
         # Direction arrows drawn so far: a legend claims "ARROWS" only once one is drawn.
         self.arrows_drawn = 0
+        self.returns_drawn = 0
         self.shoulders = (
             _radial_steps(spec.get("lathe_profiles", [])) if self.view == "lathe" else []
         )
@@ -622,6 +669,7 @@ class _Diagram:
         )
         self.footer_top = min(self.footer_top, 984 - footer_height)
         self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
+        self.footer_top += extra
         # Label lanes: the first row's top and the last row's bottom limit; each side's
         # (text left, text width, leader end x), and the x that splits points between them.
         self.lanes = (202, self.footer_top - 64)
@@ -635,7 +683,7 @@ class _Diagram:
             # Leave real exterior key bands even for a vertically tall fixture.
             viewport = (278, 278, 900, 540)
         self.viewport = viewport
-        self.canvas = RenderCanvas(self.meshes, self.camera, viewport, fit=fit)
+        self.canvas = RenderCanvas(self.meshes, self.camera, viewport, height=1000 + extra, fit=fit)
         self.stock_pixels = [self.canvas.project(p) for p in _corners(self.stock)]
         self.position_badges.extend(
             {"label": label, "xy": self.canvas.project(point), "colour": _BLUE}
@@ -718,8 +766,8 @@ class _Diagram:
             # Set from a measured fit-up: the dimension is the nominal; the note, in the
             # wrapping footer, says how it is set.
             notes.append(
-                f"Stickout {_mm(self.spec['stickout_mm'])} mm is nominal: "
-                f"set it as the measured fit-up + {_mm(add)} mm."
+                f"Stickout {self._dro(self.spec['stickout_mm'])} mm is nominal: "
+                f"set it as the measured fit-up + {self._dro(add)} mm."
             )
         return [line for note in notes for line in _wrap(self.canvas, note, 720, scale=3)]
 
@@ -779,7 +827,8 @@ class _Diagram:
             if (large - small) * self.canvas.scale >= 3 or self._in_lathe_window(z):
                 continue
             point = self.canvas.project((large, 0, z))
-            self.callouts.append(_Callout(_shoulder(z, small, large), [point], _INK))
+            label = _shoulder(z, small, large, self.spec.get("decimals"))
+            self.callouts.append(_Callout(label, [point], _INK))
         self._labels()
         if self.position_badges:
             exclusion = None
@@ -806,13 +855,15 @@ class _Diagram:
     def _header(self):
         c = self.canvas
         _text(c, 32, 27, f"SETUP {self.spec['setup_id']}  /  {self.view.upper()} VIEW", scale=4)
+        # A subtitle states what the operator reads off the view; the isometric view's
+        # orientation is its axes key, so it has none.
         subtitles = {
             "lathe": "SPINDLE Z TO RIGHT  /  RADIAL X UP  /  FULL ARRIVING STOCK",
             "plan": "SETUP X TO RIGHT  /  Y UP  /  VIEW FROM +Z",
-            "isometric": "PLACED GEOMETRY IN THE SETUP FRAME",
             "elevation": self.spec.get("view_note", "SETUP Z UP"),
         }
-        _text(c, 34, 76, subtitles[self.view], _MUTED)
+        if self.view in subtitles:
+            _text(c, 34, 76, subtitles[self.view], _MUTED)
         _text(c, 1565, 77, "DIMENSIONS IN mm", _MUTED, align="right")
         c.line((32, 112), (1568, 112), _INK, width=2)
         _text(c, 32, 138, "PLACED STOCK + WORKHOLDING", _INK)
@@ -1117,10 +1168,10 @@ class _Diagram:
             else:
                 _outline(c, pixels, _BLUE, width=2, dashed=True)
                 anchor = jaw_marker
-            self.callouts.append(_Callout(f"JAW FRONT Z {_mm(jaw)} mm", [anchor], _BLUE))
+            self.callouts.append(_Callout(f"JAW FRONT Z {self._dro(jaw)} mm", [anchor], _BLUE))
         stickout = self.spec.get("stickout_mm")
         if stickout is not None:
-            label = f"STICKOUT {_mm(stickout)} mm"
+            label = f"STICKOUT {self._dro(stickout)} mm"
             if self.spec.get("stickout_add_mm") is not None:
                 # Set from a measured fit-up: the drawn value is the nominal (see notes).
                 label = f"NOM {label}"
@@ -1154,7 +1205,27 @@ class _Diagram:
                     self._hidden(callout.label)
                     continue
             kept.append(callout)
-        self.callouts = kept
+        # A label naming points on both sides of the picture is keyed once in each lane,
+        # each copy leading to its own side's points: no leader fans across the work. A
+        # holding detail keys each contact once, so it keeps one key.
+        self.callouts = []
+        for callout in kept:
+            sides = [[], []]
+            for index, point in enumerate(callout.points):
+                sides[0 if point[0] < self.lane_split else 1].append(index)
+            if callout.leader == "keyed" or not all(sides) or not self.splits_sides:
+                self.callouts.append(callout)
+                continue
+            for indices in sides:
+                self.callouts.append(
+                    replace(
+                        callout,
+                        points=[callout.points[i] for i in indices],
+                        outlines=tuple(callout.outlines[i] for i in indices)
+                        if callout.outlines
+                        else (),
+                    )
+                )
         lane_specs = self.lane_specs
         limit = self.lanes[1]
         anchors = [(callout, point) for callout in self.callouts for point in callout.points]
@@ -1426,7 +1497,8 @@ class _Diagram:
                 continue
             point = project((large, z))
             c.line((point[0], point[1] - 12), (point[0], point[1] + 12), _INK, width=2)
-            for line in _wrap(c, _shoulder(z, small, large), right - left, scale=3):
+            shoulder = _shoulder(z, small, large, self.spec.get("decimals"))
+            for line in _wrap(c, shoulder, right - left, scale=3):
                 rows.append((line, _INK, None, 0))
         for path, _ in paths:
             for line in _wrap(c, f"OP {path['op']} SURFACE", right - left - 34, scale=3):
@@ -1538,15 +1610,19 @@ class _Diagram:
         content_top = top + 40
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
         before = self.arrows_drawn
+        # A raster's lifted returns need a second legend line above the arrows'.
+        legend = 26 if _lifted_returns(paths) else 0
         if len(ops) > 1:
-            self._operation_panels(left, right, content_top, bottom - 34, ops, paths, waypoints)
-            if self.arrows_drawn > before:
-                _text(c, left, bottom - 21, _ARROWS, _MUTED)
+            self._operation_panels(
+                left, right, content_top, bottom - 34 - legend, ops, paths, waypoints
+            )
+            self._sketch_legend(left, bottom - 21, before)
             return
         xmin, ymin, xmax, ymax = _bounds(points)
         ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
         key_lines = [(op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)]
-        plot_top, plot_bottom = content_top + 14, bottom - 40 - 30 * len(key_lines)
+        plot_top = content_top + 14
+        plot_bottom = bottom - 40 - 30 * len(key_lines) - legend
         scale = min(
             (right - left - 74) / max(xmax - xmin, 1e-9),
             max(50, plot_bottom - plot_top - 28) / max(ymax - ymin, 1e-9),
@@ -1576,8 +1652,17 @@ class _Diagram:
             c.line((left, row + 10), (left + 23, row + 10), colours[op], width=3)
             _text(c, left + 32, row, line, colours[op])
             row += 30
-        if self.arrows_drawn > before:
-            _text(c, left, bottom - 22, _ARROWS, _MUTED)
+        self._sketch_legend(left, bottom - 22, before)
+
+    def _sketch_legend(self, left, top, arrows_before):
+        """The arrows legend at ``top`` once a direction arrow is drawn, and the lifted
+        returns' line above it once a return is dashed."""
+        row = top
+        if self.arrows_drawn > arrows_before:
+            _text(self.canvas, left, row, _ARROWS, _MUTED)
+            row -= 26
+        if self.returns_drawn:
+            _text(self.canvas, left, row, _RETURNS, _MUTED)
 
     def _operation_panels(self, left, right, top, bottom, ops, paths, waypoints):
         """Separate authored operations, not every raster pass or curve record."""
@@ -1733,6 +1818,11 @@ class _Diagram:
                 colour,
                 arrows=path.get("directed") is True,
             )
+        # The cycle is one way: each pass's lift and rapid back to the next pass's start is
+        # dashed, never drawn as a cut.
+        for start, end in _lifted_returns(raster):
+            _dashed(c, [[start, end]], project, colour)
+            self.returns_drawn += 1
         numbers = set(_labelled_passes([path["raster"]["pass"] for path in raster]))
         for path in raster:
             if path["raster"]["pass"] in numbers:
@@ -1973,8 +2063,7 @@ def render_diagram(meshes, spec):
     # A debt found while laying out is printed in the notes, which can move the layout:
     # redraw until the printed notes are exactly the debts of the picture they sit in.
     for attempt in range(4):
-        diagram = _Diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
-        png = diagram.render()
+        diagram, png = _main_diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
         if attempt == 0:
             details = _holding_details(meshes, spec, diagram)
         found = [debt for detail in details for debt in detail.render_debts]
@@ -1991,13 +2080,28 @@ def render_diagram(meshes, spec):
     raise ValueError(f"setup picture debts do not settle: {debts}")
 
 
+def _main_diagram(meshes, spec):
+    """``(diagram, png)``: the setup picture, its footer moved down (the canvas taller)
+    until every key fits its label lane, so no key runs past the divider into the key."""
+    extra = 0
+    while True:
+        diagram = _Diagram(meshes, spec, extra)
+        diagram.grows_to_fit = True
+        png = diagram.render()
+        if diagram.lane_overflow <= 0:
+            return diagram, png
+        extra += math.ceil(diagram.lane_overflow)
+
+
 def _holding_details(meshes, spec, diagram):
     """The rendered holding detail bands for a setup picture, else []. They are drawn only
     when something touches the stock and ``diagram`` draws the stock's narrower side under
     ``_DETAIL_MIN_PX`` (small beside its holding). One band is drawn when it draws that
     side at least ``_DETAIL_GAIN`` times larger. A plan view, which cannot show contact
     heights, always gets the detail's raised view, split along the work's length into the
-    fewest bands (at most ``_DETAIL_TILES``) that reach the gain, else the most."""
+    fewest bands (at most ``_DETAIL_TILES``) that reach the gain, else the most. Any other
+    view whose whole work cannot reach the gain is windowed on the holding that touches
+    it (:func:`_detail_frame`), when that reaches the gain."""
     frame = _detail_frame(spec)
     if frame is None or not diagram.stock_pixels:
         return []
@@ -2017,7 +2121,10 @@ def _holding_details(meshes, spec, diagram):
             break
     else:
         if spec["view"] != "plan":
-            return []
+            tiles = [_detail_frame(spec, window=True)]
+            scale = _fit_scale(_corners(tiles[0]), camera, _detail_viewport(tiles[0], camera))
+            if scale * across < _DETAIL_GAIN * drawn:
+                return []
     details = []
     for index, tile in enumerate(tiles, 1):
         extra = 0
@@ -2087,18 +2194,26 @@ def _fit_scale(points, camera, viewport):
     return min(scales) if scales else 1.0
 
 
-def _detail_frame(spec):
+def _detail_frame(spec, window=False):
     """The box a holding detail frames: the stock, its contact outlines and the closest
-    cut's ends, padded; None when nothing touches the stock."""
+    cut's ends, padded; None when nothing touches the stock. A ``window`` frames instead
+    the holding that touches the stock: its contact outlines and the whole of each
+    component making one (both buttons and the stud they hang on, a jaw and its grip)."""
     stock = spec.get("stock_box")
     contacts = spec.get("contacts") or []
     if stock is None or not contacts:
         return None
-    points = _corners(stock)
-    points += [p for contact in contacts for line in contact["lines_mm"] for p in line]
-    cut = spec.get("closest_cut")
-    if cut:
-        points += [cut["from_mm"], cut["to_mm"]]
+    points = [p for contact in contacts for line in contact["lines_mm"] for p in line]
+    if window:
+        tags = {contact["tag"] for contact in contacts}
+        for component in spec.get("components", []):
+            if tags.intersection(component.get("meshes", ())) and component.get("box_mm"):
+                points += _corners(component["box_mm"])
+    else:
+        points += _corners(stock)
+        cut = spec.get("closest_cut")
+        if cut:
+            points += [cut["from_mm"], cut["to_mm"]]
     low = [min(p[i] for p in points) for i in range(3)]
     high = [max(p[i] for p in points) for i in range(3)]
     pads = [0.05 * (high[i] - low[i]) + 2.0 for i in range(3)]
@@ -2181,6 +2296,7 @@ class _HoldingDetail(_Diagram):
         return ((0, 1, 0), (-s, 0, c), (c, 0, s))  # from +X, raised
 
     grows_to_fit = True
+    splits_sides = False
 
     def __init__(self, meshes, spec, frame, camera, gain, tile=(1, 1), extra=0):
         self.spec = spec
@@ -2219,9 +2335,13 @@ class _HoldingDetail(_Diagram):
         title = "HOLDING DETAIL" if count == 1 else f"HOLDING DETAIL {index} OF {count}"
         title += f" X{self.gain:.1f}"
         zero = self.spec.get("zero_mm")
-        if count == 1 or zero is None:
-            return title
         axis = max(range(3), key=lambda i: abs(self.camera[0][i]))
+        # A band or a window on the holding shows only a stretch of the work: say which.
+        whole = (
+            self.frame[axis] <= self.stock[axis] and self.stock[axis + 3] <= self.frame[axis + 3]
+        )
+        if (count == 1 and whole) or zero is None:
+            return title
         low, high = self.frame[axis] - zero[axis], self.frame[axis + 3] - zero[axis]
         return f"{title}  /  SETUP {'XYZ'[axis]} {_mm(low)} TO {_mm(high)}"
 
@@ -2418,7 +2538,7 @@ class _HoldingDetail(_Diagram):
         if zero is None or plane is None:
             return ""
         axis, value = plane
-        return f" AT {'XYZ'[axis]} {_mm(value - zero[axis])}"
+        return f" AT {'XYZ'[axis]} {self._dro(value - zero[axis])}"
 
     def _closest_cut(self):
         cut = self.spec.get("closest_cut")
@@ -2440,5 +2560,5 @@ class _HoldingDetail(_Diagram):
                 holder = self._component_label(component)
             elif component.get("code"):
                 holder = f"{_plain(component['code'])} {holder}"
-        label = f"CUT {_mm(cut['mm'])} mm FROM {holder.upper()}"
+        label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         self.callouts.append(_Callout(label, [middle], _AMBER))
