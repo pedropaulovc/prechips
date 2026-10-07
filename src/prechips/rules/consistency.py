@@ -49,12 +49,13 @@ _STANDS = re.compile(
 _JAW_TOPS = re.compile(
     rf"\bZ\s*([+\-−]?)\s*{_NUMBER}\s*,\s*{_NUMBER}\s*mm\s+above\s+the\s+jaw\s+tops?\b"
 )
-_PUSH = r"\b(?:push|pass|run|slide)\b[^.;]*"
+# Matched within one clause (``_no_go`` splits on ``;`` and sentence stops, not decimals).
+_PUSH = r"\b(?:push|pass|run|slide)\b.*"
 _THROUGH_ALL = re.compile(
-    _PUSH + r"\b(?:each|every|all|both)\b[^.;]*\b(?:plugs?|pins?|gauges?)\b[^.;]*\bthrough\b",
+    _PUSH + r"\b(?:each|every|all|both)\b.*\b(?:plugs?|pins?|gauges?)\b.*\bthrough\b",
     re.IGNORECASE,
 )
-_THROUGH_NO_GO = re.compile(_PUSH + r"\bno-go\b[^.;]*\bthrough\b", re.IGNORECASE)
+_THROUGH_NO_GO = re.compile(_PUSH + r"\bno-go\b.*\bthrough\b", re.IGNORECASE)
 _NEGATED = re.compile(r"\b(?:not|never)\b|n't\b", re.IGNORECASE)
 
 
@@ -168,7 +169,7 @@ def _tool_claims(bundle, texts, numbers, frames):
                 found.append(f"the text names {label}, but this setup's TOOLS table has {listed}")
                 continue
             end = matches[k + 1].start() if k + 1 < len(matches) else len(text)
-            clause = re.split(r"[.;:()]", text[match.end() : end], maxsplit=1)[0]
+            clause = re.split(r"[;:()]|\.(?!\d)", text[match.end() : end], maxsplit=1)[0]
             said = _FLUTES.findall(clause)
             if len(said) != 1:
                 continue
@@ -276,7 +277,7 @@ def _no_go(op):
         if "no-go" not in text.lower():
             continue
         claims += 1
-        for clause in re.split(r"[.;]", text):
+        for clause in re.split(r";|\.(?!\d)", text):
             if (
                 _THROUGH_ALL.search(clause) or _THROUGH_NO_GO.search(clause)
             ) and not _NEGATED.search(clause):

@@ -239,6 +239,7 @@ def gauged(method):
     [
         "The GO and NO-GO plugs first. Push each plug by hand through the strap; never force it.",
         "Clean the hole, then push the drawing GO and NO-GO plugs by hand through the strap.",
+        "Push the NO-GO plug (2.090) through the strap to clear the burr.",
     ],
 )
 def test_text_passing_the_no_go_plug_through_contradicts_the_go_no_go_check(method):
@@ -250,6 +251,8 @@ def test_text_passing_the_no_go_plug_through_contradicts_the_go_no_go_check(meth
     [
         "The 2.000 GO plug enters through the hub and the 2.090 NO-GO plug does not.",
         "Push the GO plug through; the NO-GO plug must not enter.",
+        "The GO plug (2.000) must pass by hand through the strap; offer the NO-GO plug "
+        "(2.090) gently at each mouth: it must not enter.",
     ],
 )
 def test_a_no_go_plug_that_does_not_enter_passes(method):
