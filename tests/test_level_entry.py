@@ -105,12 +105,14 @@ def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_pat
     assert record["levels"] == [-1.0, -2.0] and record["closed"] is True
     html = _Traveler(bundle, [row], {}, None).render()
     text = " ".join(page_text(html).split())
-    assert "2 depth levels, top first" in text
-    # Each level's own Z and how it gets down; the closed outline goes straight down.
+    # Every level's Z, in the heading; how each gets down and back, said once.
+    assert "Z -1.000, -2.000" in text, text
     entry = "X -8.300, Y -5.300"
-    assert f"1 -1.000 {entry}: plunge Z 0.000 → -1.000" in text, text
-    assert f"2 -2.000 {entry}: plunge Z -1.000 → -2.000" in text, text
-    assert f"stay at {entry}: the path ends where it starts" in text
+    assert (
+        f"2 depth levels, top first, at the Zs in the heading: run the whole path below at "
+        f"each. Get down {entry}: plunge from the level above (level 1 from Z 0.000)"
+    ) in text, text
+    assert f"Between levels, stay at {entry}: the path ends where it starts." in text
 
 
 def test_a_plunging_op_without_a_plunge_feed_is_unknown_and_a_stop(tmp_path):

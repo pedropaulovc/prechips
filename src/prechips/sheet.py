@@ -152,12 +152,14 @@ _DUPLEX_JS = """(() => {
       pageStart = el;
     }
     // What must start a page with `el`: the headings (and a table's caption) right above
-    // it and, when `el` opens its parent, what must start a page with the parent.
+    // it, a heading's lead-in line, and, when `el` opens its parent, what must start a
+    // page with the parent.
     function lead(el) {
       let start = el;
       for (;;) {
         const prev = start.previousElementSibling;
-        if (heading(prev) || (prev && prev.tagName === "P" && start.tagName === "TABLE")) {
+        const caption = prev && prev.tagName === "P" && start.tagName === "TABLE";
+        if (heading(prev) || caption || (prev && prev.classList.contains("lead-in"))) {
           start = prev;
         } else if (!prev && start.parentElement !== section) {
           start = start.parentElement;
@@ -4018,74 +4020,67 @@ class _Traveler:
         return f"{_number(feed, 0)} mm/min" if _known(feed) else "STOP: plunge feed not set"
 
     def level_entries(self, setup, op, waypoints):
-        """``(note, table)``: how the op's path goes down at each depth level and gets back
-        for the next, as coordinates proved it (``level_paths``); ``("", "")`` without a
-        record. One level prints one sentence; several print one row per level, each with
-        its own Z, so no level reads the deepest Z."""
+        """One paragraph: how the op's path goes down at each depth level and gets back for
+        the next, as coordinates proved it (``level_paths``); ``""`` without a record. The
+        heading lists every level's Z, so several levels state the procedure once."""
         o = self.operative
         record = self.level_path(setup, op.get("op"))
         downs, depths = record.get("entries"), record.get("levels")
         if not (isinstance(downs, list) and downs and isinstance(depths, list) and depths):
-            return "", ""
+            return ""
         feed = self.plunge_feed(setup, op)
         raised, raster = record.get("raise_z"), record.get("raster") is True
         above = " (above the stock)" if record.get("raise_clear") is True else ""
         at = f" at {feed}"
         if feed is None or feed.startswith("STOP"):
             at = f" — {feed}" if feed else ""
+        start, several = record.get("from_z"), len(depths) > 1
+        plunge = f"plunge Z {o(start)} → {o(depths[0])}{at}"
+        lower = f"lower to Z {o(depths[0])}"
+        if several:
+            plunge = f"plunge from the level above (level 1 from Z {o(start)}){at}"
+            lower = "lower to the level's Z"
 
         def where(down):
             xy = down.get("xy") or ["unknown", "unknown"]
             label = self.waypoint(waypoints, op.get("op"), xy)
             return label or f"X {o(xy[0])}, Y {o(xy[1])}"
 
-        def get_down(start, z):
+        def get_down():
             if raster:
                 plunged = [d for d in downs if not d.get("air")]
                 if not plunged:
-                    return f"at each pass start, clear of the stock: lower to Z {o(z)}"
-                text = f"plunge Z {o(start)} → {o(z)}{at}"
+                    return f"at each pass start, clear of the stock: {lower}"
                 if len(plunged) == len(downs):
-                    return "at each pass start: " + text
+                    return "at each pass start: " + plunge
                 return (
                     "at the pass starting "
                     + "; at the pass starting ".join(where(d) for d in plunged)
-                    + f": {text}; at every other pass start, clear of the stock: lower to "
-                    f"Z {o(z)}"
+                    + f": {plunge}; at every other pass start, clear of the stock: {lower}"
                 )
             steps = []
             for index, down in enumerate(downs):
                 lead = "" if index == 0 else f"raise to Z {o(raised)}{above}, move to "
                 if down.get("air"):
-                    steps.append(f"{lead}{where(down)}, clear of the stock: lower to Z {o(z)}")
+                    steps.append(f"{lead}{where(down)}, clear of the stock: {lower}")
                 else:
-                    steps.append(f"{lead}{where(down)}: plunge Z {o(start)} → {o(z)}{at}")
+                    steps.append(f"{lead}{where(down)}: {plunge}")
             return "; then ".join(steps)
 
+        text = get_down()
+        if not several:
+            return _p(((text[:1].upper() + text[1:]) if raster else "Enter at " + text) + ".")
         first = where(downs[0])
-        start = record.get("from_z")
-        if len(depths) == 1:
-            text = get_down(start, depths[0])
-            note = (text[:1].upper() + text[1:]) if raster else "Enter at " + text
-            return _p(note + "."), ""
-        rows = []
-        for index, z in enumerate(depths):
-            last = index == len(depths) - 1
-            if raster:
-                after = "" if last else f"lift to Z {o(raised)}{above}, rapid back to pass 1"
-            elif last:
-                after = ""
-            elif record.get("closed") is True:
-                after = f"stay at {first}: the path ends where it starts"
-            else:
-                after = f"raise to Z {o(raised)}{above}, move back to {first}"
-            rows.append([str(index + 1), o(z), get_down(start, z), after])
-            start = z
-        note = _p(
-            f"{len(depths)} depth levels, top first: run the whole path below at each level's Z."
+        if raster:
+            after = f"lift to Z {o(raised)}{above}, rapid back to pass 1"
+        elif record.get("closed") is True:
+            after = f"stay at {first}: the path ends where it starts"
+        else:
+            after = f"raise to Z {o(raised)}{above}, move back to {first}"
+        return _p(
+            f"{len(depths)} depth levels, top first, at the Zs in the heading: run the whole "
+            f"path below at each. Get down {text}. Between levels, {after}."
         )
-        table = _table(["level", "Z", "get down", "then"], rows, css="coords")
-        return note, table
 
     def contours(self, setup, tools):
         """One block per contour op; both sides of a symmetric profile print explicitly."""
@@ -4475,9 +4470,9 @@ class _Traveler:
             if op.get("direction"):
                 title += f" · {self.direction(op['direction'])}"
             content = f"<h3>{escape(title)}</h3>"
-            note, table = self.level_entries(setup, op, waypoints) if op else ("", "")
+            note = self.level_entries(setup, op, waypoints) if op else ""
             if note:
-                content += note + table
+                content += note
             elif stepped:
                 # The heading lists the levels; the note says how to run them, once per op.
                 content += _p(
@@ -4545,9 +4540,11 @@ class _Traveler:
             + "</h2>"
         )
         if any(entry.get("raster") for entry in blocks.values()):
+            # A lead-in: the pagination keeps it, and its heading, with the first block.
             heading += _p(
                 "Rasters: feed each pass from → to, lift to the op's lift Z, rapid back to the "
-                "next pass's start."
+                "next pass's start.",
+                "lead-in",
             )
         wide = any(arc.get("method") == "chords" for arc in numbers.get("arc_table", []) or [])
         css = "contours wide" if wide else "contours"

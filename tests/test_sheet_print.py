@@ -171,3 +171,25 @@ def test_the_clearance_section_never_leaves_its_travel_lines_apart_from_its_tabl
         assert "Y travel" in page and "closest obstacle" in page, page
         moved += page is not run[0]
     assert moved
+
+
+def test_a_contour_heading_and_its_raster_line_print_with_the_first_contour_block(tmp_path):
+    # The contour sheet opens with its heading and the one-line raster procedure; a block
+    # too tall for the rest of the page must not leave them alone at its foot.
+    rows = "".join(f"<tr><td>{n}</td><td>contour-row-{n}</td></tr>" for n in range(1, 31))
+    contours = (
+        "<h2>CONTOURS — Setup S1 zero; cutter-centre X / Y</h2>"
+        '<p class="lead-in">Rasters: feed each pass from → to, lift to the op\'s lift Z, '
+        "rapid back to the next pass's start.</p>"
+        '<div class="contours"><div class="contour"><h3>S1 op 10 — relief</h3>'
+        f'<table class="coords"><thead><tr><th>row</th><th>X</th></tr></thead>{rows}'
+        "</table></div></div>"
+    )
+    fillers = range(300, 801, 100)
+    texts = printed_pages(_sections([(filler, contours) for filler in fillers]), tmp_path)
+    moved = 0
+    for run in _runs(texts, len(fillers)):
+        (page,) = [text for text in run if "Rasters:" in text]
+        assert "contour-row-1" in page, page
+        moved += page is not run[0]
+    assert moved
