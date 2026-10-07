@@ -413,6 +413,7 @@ def selected_references(plan):
         "tool",
         "holder",
         "gauge",
+        "indicator",
         "fixture",
         "parallels",
         "support",

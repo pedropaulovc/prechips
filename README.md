@@ -395,7 +395,8 @@ tick as each level is done, and says once
 above its rows how each level goes down (in air only when the kernel's stock box
 proves it, else a plunge from the level above at the op's cited plunge feed from
 `[[plunge]]` cutting data, a STOP without one; a level at the Z the op starts at is
-lowered to, never plunged) and how it gets back for the next
+lowered to only when the stock box puts it at or above the stock top, else fed down
+to it, never `plunge Z a → a`) and how it gets back for the next
 level (straight down for a closed path, else raise to a Z called above the stock
 only on that proof). Contour tables
 repeat their op, tool and Z on a continued page and never wrap a coordinate; a Z
