@@ -283,10 +283,11 @@ def setup_annotations(bundle, setup, numbers):
                     "xz": points[index],
                 }
             )
-    # Each inspect op's set-up sketches, drawn in the part model's own axes (mm).
+    # Each inspect op's set-up sketches, drawn in the part model's own axes (mm), with its
+    # place in the setup's route (``position``, the op's index in the setup's op list).
     inspections = [
-        {"op": op["op"], "requirement": requirement, "views": views}
-        for op in setup["ops"]
+        {"op": op["op"], "position": position, "requirement": requirement, "views": views}
+        for position, op in enumerate(setup["ops"])
         for requirement, views in record(op.get("inspection_views")).items()
         if isinstance(views, list)
     ]

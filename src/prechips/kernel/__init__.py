@@ -368,9 +368,13 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
     the most stock a file takes off its claimed faces; it has no machine cutter or holder.
     A file guided by filing buttons held in this setup names the kit's solids by their
-    kernel owner (``guide_owner``): where its cut reaches them is where the file stops."""
+    kernel owner (``guide_owner``) and the kit's declared button OD limits
+    (``guide_rim_dia_mm``): only a button of the kit, a turned solid of that OD whose rim
+    lies on the filed surface, is where the file stops."""
+    from prechips.measurements import nominal_limits_mm
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
+    from prechips.rules.resolution import resolve
 
     result = {
         "subject": subject,
@@ -395,6 +399,14 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     )
     if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
         result["guide_owner"] = owner
+        item = resolve(bundle, "fixtures", kit)
+        limits = nominal_limits_mm(item, "button_dia_limits") if isinstance(item, dict) else None
+        if (
+            isinstance(limits, list)
+            and len(limits) == 2
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in limits)
+        ):
+            result["guide_rim_dia_mm"] = sorted(limits)
     return result
 
 
@@ -1075,6 +1087,20 @@ def hold_inputs(bundle, setup):
     return result
 
 
+def _inspections_after(setup, sent, render):
+    """``render`` with each inspection's route ``position`` replaced by ``after``: the
+    subject of the last op sent to the kernel (``sent``) before it in the setup's route,
+    or None when none precedes it. The kernel draws the stock as it stands there."""
+    for inspection in render.get("inspections", []):
+        before = [
+            op
+            for op in setup["ops"][: inspection.pop("position")]
+            if any(op is other for other in sent)
+        ]
+        inspection["after"] = f"{setup['id']}:{before[-1]['op']}" if before else None
+    return render
+
+
 def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
     from prechips.process_features import primitives_mm as process_primitives_mm
@@ -1104,6 +1130,11 @@ def build_job(bundle):
             transformed = UNKNOWN
         elif units == "in":
             transformed["origin"] = [value * 25.4 for value in transformed["origin"]]
+        sent = [
+            op
+            for op in setup["ops"]
+            if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+        ]
         setups.append(
             {
                 "id": setup["id"],
@@ -1111,11 +1142,12 @@ def build_job(bundle):
                 "hold": hold_inputs(bundle, setup),
                 "ops": [
                     op_inputs(bundle, setup, op, finishing, complete, coordinates.get(setup["id"]))
-                    for op in setup["ops"]
-                    if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+                    for op in sent
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
-                "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
+                "render": _inspections_after(
+                    setup, sent, setup_annotations(bundle, setup, coordinates.get(setup["id"], {}))
+                ),
                 "joint": setup_joint(bundle, setup),
                 # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
                 "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
@@ -1247,6 +1279,7 @@ _ENGINE_OP = (
     "angle_window_deg",
     "max_filing_stock_mm",
     "guide_owner",
+    "guide_rim_dia_mm",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,

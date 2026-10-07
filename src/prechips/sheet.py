@@ -2081,9 +2081,9 @@ class _Traveler:
         coarser = declared and abs(wanted / step - round(wanted / step)) <= 1e-9 * wanted / step
         if coarser and wanted >= step * (1 - 1e-9):
             step, decimals = wanted, places
-        # Half a grid step rounds away from zero; float noise in the quotient does not count.
-        quotient = round(value / step, 6)
-        steps = math.copysign(math.floor(abs(quotient) + 0.5), quotient)
+        from prechips.kernel.render_diagram import dro_steps
+
+        steps = dro_steps(value, step)
         printed = round(steps * step, decimals)
         moved = abs(printed - value)
         if fit and declared and step != wanted and moved > 1e-9:
