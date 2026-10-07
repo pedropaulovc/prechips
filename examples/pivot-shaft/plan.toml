@@ -252,7 +252,6 @@ z_to = 2.0
 doc_mm = 0.33               # radial plunge depth Ø6.35 → Ø5.7
 feed_mm_rev = 0.02          # light plunge on the slender body
 direction = "plunge_radial"  # author's choice: plunge flush at Z0..1.6, step to Z0.4..2.0, plunge again
-note = "DIN 509 relief: two square plunges with the 1/16 in blade, chuck-side corner flush to the thrust face."
 
 [setups.ops.checks]
 dia = "calipers"
@@ -392,7 +391,6 @@ z_to = -5.5
 doc_mm = 0.33
 feed_mm_rev = 0.02
 direction = "plunge_radial"  # author's choice: plunge flush at Z-7.5..-5.9, step to -7.1..-5.5, plunge again
-note = "DIN 509 relief: two square plunges, chuck-side corner flush to the shoulder north face."
 
 [setups.ops.checks]
 dia = "calipers"
