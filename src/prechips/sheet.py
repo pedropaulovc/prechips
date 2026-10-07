@@ -785,6 +785,39 @@ def _places(value):
     return next((d for d in range(7) if abs(round(value, d) - value) < 1e-9), 6)
 
 
+def _limits(value):
+    """A declared ``[least, greatest]`` pair as ``19.99–20``, else None."""
+    if isinstance(value, list) and len(value) == 2 and all(map(_known, value)):
+        return "–".join(_number(v) for v in value)
+    return None
+
+
+def _buttons_text(guide, bore, proven):
+    """Filing buttons on the traveler: every stack element's receipt limits, then the
+    radius they file worst case (rounded outward to 0.001, so printing never narrows it),
+    which reads as an established result only when the rule ``proven`` it inside the
+    drawing band; else a STOP naming the unknown elements."""
+    runout = guide.get("button_runout_mm")
+    stack = [
+        ("button OD", "buttons Ø{} mm", _limits(guide.get("button_dia_mm"))),
+        ("button bore", "bored Ø{} mm", _limits(guide.get("button_bore_mm"))),
+        ("button runout", "OD runout {} mm TIR", _number(runout) if _known(runout) else None),
+        ("pin", "on a Ø{} mm pin", _limits(guide.get("pin_dia_mm"))),
+        (bore, f"through {bore} Ø{{}} mm", _limits(guide.get("bore_dia_mm"))),
+    ]
+    text = ", ".join(form.format(value) for _, form, value in stack if value is not None)
+    reach = guide.get("files_to_mm")
+    missing = [name for name, _, value in stack if value is None]
+    if missing or _limits(reach) is None:
+        unknown = f"{', '.join(missing)} limits unknown; " if missing else ""
+        return f"{text}; STOP: {unknown}worst-case filing radius not established"
+    low = math.floor(round(reach[0] * 1000, 6)) / 1000
+    high = math.ceil(round(reach[1] * 1000, 6)) / 1000
+    if not proven:
+        return f"{text}; not proven: worst case they would file R{low:.3f} to R{high:.3f} mm"
+    return f"{text}; worst case they file R{low:.3f} to R{high:.3f} mm"
+
+
 def _angle(value):
     """A dividing-head angle: four decimals, or two significant digits below 0.001°."""
     small = value and abs(value) < 1e-3
@@ -4234,11 +4267,33 @@ class _Traveler:
                 parts.append(f"{depth} radial per pass")
         return parts
 
-    def manual_arc_lines(self, setup, op):
-        """Layout and bench-filing instructions computed for this manual operation."""
-        numbers = _mapping(self.records.get(("manual_arc", f"{setup['id']}:{op['op']}")))
+    def manual_arc_lines(self, setup, op, stops):
+        """Layout and bench-filing instructions computed for this manual operation. A
+        finding the rule leaves unknown stops the op, in its row and in the setup's STOP
+        list, with the rule's reasons: no unproven layout or filing reads as established."""
+        subject = f"{setup['id']}:{op['op']}"
+        finding = next(
+            (
+                f
+                for f in self.findings
+                if _field(f, "rule") == "manual_arc" and _field(f, "subject") == subject
+            ),
+            None,
+        )
+        numbers = _mapping(_field(finding, "numbers", {})) if finding is not None else {}
         if not numbers:
             return []
+        status = _status(finding)
+        lines = self.manual_arc_steps(op, numbers, status == "pass")
+        if lines and status in ("unknown", "unsupported"):
+            debts = numbers.get("debts")
+            reasons = [self.bench(debt) for debt in debts] if isinstance(debts, list) else []
+            lines.append(_Box(f"STOP: {'; '.join(reasons) or 'not proven'} — do not run."))
+            stops.setdefault("manual arc not proven", []).append(str(op["op"]))
+        return lines
+
+    def manual_arc_steps(self, op, numbers, proven):
+        """The layout or bench-filing line itself; ``proven`` says whether the rule passed it."""
         o = self.operative
         if op.get("do") == "scribe":
             centre = numbers.get("centre_setup_xy") or ["unknown", "unknown"]
@@ -4273,14 +4328,8 @@ class _Traveler:
             target = "file down to the hardened button rims"
             guide_text = (
                 f"{self.reference(guide.get('kit'), 'fixtures')} "
-                f"(Ø{_number(guide.get('button_dia_mm'))} mm buttons clamped on a "
-                f"Ø{_number(guide.get('pin_dia_mm'))} mm pin through "
-                f"{self.feature_name(guide.get('bore'))}"
+                f"({_buttons_text(guide, self.feature_name(guide.get('bore')), proven)})"
             )
-            reach = guide.get("files_to_mm")
-            if isinstance(reach, list) and len(reach) == 2 and all(map(_known, reach)):
-                guide_text += f"; they file R{_number(reach[0], 3)} to R{_number(reach[1], 3)} mm"
-            guide_text += ")"
         elif guide.get("kind") == "template":
             guide_text = self.reference(guide.get("kit"), "gauges")
             layout = numbers.get("layout_op")
@@ -4419,7 +4468,7 @@ class _Traveler:
                     for prefix in (subject + ":", subject.replace(":", " ") + ":"):
                         message = message.removeprefix(prefix).strip()
                     boxes.append(_Box("CAUTION: " + self.bench(message)))
-            boxes.extend(self.manual_arc_lines(setup, op))
+            boxes.extend(self.manual_arc_lines(setup, op, stops))
             boxes.extend(rest_lines)
             # Crash and status warnings print full width under the op so the narrow
             # action column keeps its line height; the op's own note follows them there.

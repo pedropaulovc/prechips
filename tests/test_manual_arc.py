@@ -44,8 +44,10 @@ INVENTORY = (
     "[tools.bore-drill]\nkind = 'drill'\ndia_mm = 6.0\npoint_angle = 118.0\nverify = false\n"
     "[fixtures.table]\nkind = 'rotary_table'\ngraduation_deg = 1.0\nvernier_deg = 0.1\n"
     "dial_increases = 'clockwise'\nbore_dia_mm = 6.0\nmax_work_mm = 150.0\nverify = false\n"
-    "[fixtures.buttons]\nkind = 'filing_buttons'\ndia_mm = 20.0\nbore_dia_mm = 6.0\n"
-    "verify = false\n"
+    # Ø19.99-20.00 buttons bored Ø6.00-6.01 with 0.004 OD runout, on a Ø5.99-6.00 pin.
+    "[fixtures.buttons]\nkind = 'filing_buttons'\nbutton_dia_limits_mm = [19.99, 20.0]\n"
+    "button_bore_limits_mm = [6.0, 6.01]\npin_dia_limits_mm = [5.99, 6.0]\n"
+    "button_runout_mm = 0.004\nverify = false\n"
     "[gauges.radius-gauge]\nkind = 'radius_gauge'\nrange_mm = [1.0, 25.0]\nverify = false\n"
     "[gauges.small-gauge]\nkind = 'radius_gauge'\nrange_mm = [1.0, 7.5]\nverify = false\n"
     "[gauges.template]\nkind = 'profile_gauge'\nrange_mm = [9.0, 11.0]\nverify = false\n"
@@ -857,10 +859,77 @@ def test_filing_to_buttons_through_the_axis_bore_files_inside_the_band(tmp_path)
     row = filing(tmp_path)
     assert row.status == "pass", row.sentence
     guide = row.numbers["guide"]
-    # Ø20 buttons on a Ø6 pin in a Ø6.00-6.03 bore shift at most 0.015 radially.
-    assert guide["files_to_mm"] == pytest.approx([9.985, 10.015])
+    # The button centre shifts up to 0.032 off the bore axis: the pin in the Ø6.00-6.03
+    # bore (0.02), the button on the pin (0.01) and half the OD runout (0.002); so the
+    # R9.995-10.000 rims file R9.963 to R10.032 worst case.
+    assert guide["files_to_mm"] == pytest.approx([9.963, 10.032])
     assert row.numbers["rough_op"] == "S1 op 20" and row.numbers["stock_cap_mm"] == CAP
     assert row.numbers["gauge"]["range_mm"] == [1.0, 25.0]
+
+
+# Each element of the stack, given more tolerance, widens the worst-case filed band.
+@pytest.mark.parametrize(
+    ("name", "old", "new", "band"),
+    [
+        ("inventory.toml", "[19.99, 20.0]", "[19.95, 20.04]", [9.943, 10.052]),
+        ("inventory.toml", "[6.0, 6.01]", "[6.0, 6.05]", [9.943, 10.052]),
+        ("inventory.toml", "[5.99, 6.0]", "[5.95, 6.0]", [9.923, 10.072]),
+        ("inventory.toml", "button_runout_mm = 0.004", "button_runout_mm = 0.04", [9.945, 10.05]),
+        ("features.toml", "dia = [6.0, 6.03]", "dia = [6.0, 6.07]", [9.943, 10.052]),
+        (
+            "inventory.toml",
+            "button_dia_limits_mm = [19.99, 20.0]",
+            "button_dia_limits_in = [0.787, 0.7874]",
+            [0.787 * 12.7 - 0.032, 0.7874 * 12.7 + 0.032],
+        ),
+    ],
+    ids=["button-dia", "button-bore", "pin", "runout", "part-bore", "inch-button-dia"],
+)
+def test_every_stack_tolerance_widens_the_worst_case_filed_band(tmp_path, name, old, new, band):
+    plan = scratch(tmp_path, FILE_BY_BUTTONS, hold="fixture = 'buttons'")
+    change(plan.with_name(name), old, new)
+    row = manual_row(plan, 30)
+    assert row.status == "pass", row.sentence
+    assert row.numbers["guide"]["files_to_mm"] == pytest.approx(band)
+
+
+@pytest.mark.parametrize(
+    ("name", "old", "new"),
+    [
+        # R9.925 - 0.032 = R9.893 under the R9.9 limit; R10.075 + 0.032 = R10.107 over R10.1.
+        ("inventory.toml", "[19.99, 20.0]", "[19.85, 20.0]"),
+        ("inventory.toml", "[19.99, 20.0]", "[19.99, 20.15]"),
+        # Nominal Ø20 buttons fit, but a 0.15 runout shifts the rim 0.075 more both ways.
+        ("inventory.toml", "button_runout_mm = 0.004", "button_runout_mm = 0.15"),
+        # The collar-on-pin play alone carries the rim past both limits.
+        ("inventory.toml", "[6.0, 6.01]", "[6.0, 6.15]"),
+    ],
+    ids=["under-the-low-limit", "over-the-high-limit", "runout", "collar-on-pin-play"],
+)
+def test_a_worst_case_filed_band_past_a_drawing_limit_is_an_error(tmp_path, name, old, new):
+    plan = scratch(tmp_path, FILE_BY_BUTTONS, hold="fixture = 'buttons'")
+    change(plan.with_name(name), old, new)
+    row = manual_row(plan, 30)
+    assert row.status == "error", row.sentence
+    reach = row.numbers["guide"]["files_to_mm"]
+    assert reach[0] < 9.9 or reach[1] > 10.1
+
+
+@pytest.mark.parametrize(
+    ("name", "old", "new"),
+    [
+        ("features.toml", "dia = [6.0, 6.03]", "dia = [5.998, 6.03]"),
+        ("inventory.toml", "[6.0, 6.01]", "[5.998, 6.01]"),
+    ],
+    ids=["part-bore", "button-bore"],
+)
+def test_a_pin_that_may_not_enter_a_bore_at_its_limits_is_an_error(tmp_path, name, old, new):
+    # The Ø6.000 largest pin does not enter a Ø5.998 smallest bore.
+    plan = scratch(tmp_path, FILE_BY_BUTTONS, hold="fixture = 'buttons'")
+    change(plan.with_name(name), old, new)
+    row = manual_row(plan, 30)
+    assert row.status == "error", row.sentence
+    assert "files_to_mm" not in row.numbers["guide"]
 
 
 @pytest.mark.parametrize(
@@ -957,25 +1026,50 @@ TEMPLATE_FILING = (
 )
 
 
+_LIMITS = (
+    "button_dia_limits_mm = [19.99, 20.0]\nbutton_bore_limits_mm = [6.0, 6.01]\n"
+    "pin_dia_limits_mm = [5.99, 6.0]\nbutton_runout_mm = 0.004\n"
+)
+
+
 @pytest.mark.parametrize(
     ("ops", "name", "old", "new"),
     [
         (FILE_BY_BUTTONS, "features.toml", "dia = [6.0, 6.03]", "dia = [6.0, 'unknown']"),
+        (FILE_BY_BUTTONS, "inventory.toml", "0.004\nverify = false", "0.004\nverify = true"),
         (
             FILE_BY_BUTTONS,
             "inventory.toml",
-            "bore_dia_mm = 6.0\nverify = false",
-            "bore_dia_mm = 6.0\nverify = true",
-        ),
-        (
-            FILE_BY_BUTTONS,
-            "inventory.toml",
-            "bore_dia_mm = 6.0\nverify = false",
-            "bore_dia_mm = { value = 6.0, verify = true }\nverify = false",
+            "pin_dia_limits_mm = [5.99, 6.0]",
+            "pin_dia_limits_mm = { value = [5.99, 6.0], verify = true }",
         ),
         (TEMPLATE_FILING, "features.toml", "dia = [19.8, 20.2]", "dia = 'unknown'"),
+        # A kit known only by nominal sizes proves no worst-case band.
+        (FILE_BY_BUTTONS, "inventory.toml", _LIMITS, "dia_mm = 20.0\nbore_dia_mm = 6.0\n"),
+        (FILE_BY_BUTTONS, "inventory.toml", "button_dia_limits_mm = [19.99, 20.0]\n", ""),
+        (FILE_BY_BUTTONS, "inventory.toml", "button_bore_limits_mm = [6.0, 6.01]\n", ""),
+        (FILE_BY_BUTTONS, "inventory.toml", "pin_dia_limits_mm = [5.99, 6.0]\n", ""),
+        (FILE_BY_BUTTONS, "inventory.toml", "button_runout_mm = 0.004\n", ""),
+        (FILE_BY_BUTTONS, "inventory.toml", "[19.99, 20.0]", "[20.0, 19.99]"),
+        (FILE_BY_BUTTONS, "inventory.toml", "[5.99, 6.0]", "[0.0, 6.0]"),
+        (FILE_BY_BUTTONS, "inventory.toml", "[6.0, 6.01]", "[6.0, 'unknown']"),
+        (FILE_BY_BUTTONS, "inventory.toml", "runout_mm = 0.004", "runout_mm = -0.004"),
     ],
-    ids=["bore-partly-unknown", "buttons-to-verify", "pin-to-verify", "arc-band-unknown"],
+    ids=[
+        "bore-partly-unknown",
+        "buttons-to-verify",
+        "pin-to-verify",
+        "arc-band-unknown",
+        "nominal-sizes-only",
+        "no-button-dia-limits",
+        "no-button-bore-limits",
+        "no-pin-limits",
+        "no-runout",
+        "reversed-limits",
+        "zero-pin",
+        "button-bore-partly-unknown",
+        "negative-runout",
+    ],
 )
 def test_filing_on_an_unknown_size_or_an_unverified_kit_is_unknown(tmp_path, ops, name, old, new):
     plan = scratch(tmp_path, ops, hold="fixture = 'buttons'")
@@ -983,6 +1077,71 @@ def test_filing_on_an_unknown_size_or_an_unverified_kit_is_unknown(tmp_path, ops
     row = manual_row(plan, 30)
     assert row.status == "unknown", row.sentence
     assert "files_to_mm" not in row.numbers["guide"]
+
+
+SCRIBE_BY_TEMPLATE = bench_op(10, "scribe", layout="'template'", guide="{ template = 'template' }")
+_SCRIBE_OP = bench_op(25, "scribe", layout="'template'", guide="{ template = 'template' }")
+_NO_RANGE = "range_mm = 'unknown'"
+
+
+# Every input the manual_arc rule leaves unknown, on a real evaluated finding: the
+# traveler must stop that op, never print its layout or filing as an established step.
+@pytest.mark.parametrize(
+    ("ops", "number", "name", "old", "new"),
+    [
+        (FILE_BY_BUTTONS, 30, "features.toml", "dia = [19.8, 20.2]", "dia = 'unknown'"),
+        (FILE_BY_BUTTONS, 30, "features.toml", "dia = [19.8, 20.2]", "dia = [19.8, 'unknown']"),
+        (FILE_BY_BUTTONS, 30, "features.toml", "dia = [6.0, 6.03]", "dia = [6.0, 'unknown']"),
+        (FILE_BY_BUTTONS, 30, "inventory.toml", "pin_dia_limits_mm = [5.99, 6.0]\n", ""),
+        (FILE_BY_BUTTONS, 30, "inventory.toml", "0.004\nverify = false", "0.004\nverify = true"),
+        (FILE_BY_BUTTONS, 30, "plan.toml", "fixture = 'buttons'", "fixture = 'unknown'"),
+        (FILE_BY_BUTTONS, 30, "plan.toml", ", gauge = 'radius-gauge'", ""),
+        (FILE_BY_BUTTONS, 30, "inventory.toml", "range_mm = [1.0, 25.0]", _NO_RANGE),
+        (FILE_BY_BUTTONS, 30, "plan.toml", STAIRS, ""),
+        (FILE_BY_BUTTONS, 30, "policy.toml", POLICY, '[required]\nmanual_arc = "*"\n'),
+        (TEMPLATE_FILING, 30, "features.toml", "dia = [19.8, 20.2]", "dia = 'unknown'"),
+        (TEMPLATE_FILING, 30, "plan.toml", _SCRIBE_OP, ""),
+        (TEMPLATE_FILING, 30, "inventory.toml", "range_mm = [9.0, 11.0]", _NO_RANGE),
+        (bench_op(10, "scribe", layout="'chalk'"), 10, "plan.toml", "", ""),
+        (SCRIBE_BY_TEMPLATE, 10, "inventory.toml", "range_mm = [9.0, 11.0]", _NO_RANGE),
+        (SCRIBE_BY_TEMPLATE, 10, "features.toml", "at = [20.0, 10.0, 0.0]", "at = 'unknown'"),
+    ],
+    ids=[
+        "filing-arc-band-unknown",
+        "filing-arc-band-partly-unknown",
+        "filing-bore-partly-unknown",
+        "filing-no-pin-limits",
+        "filing-kit-to-verify",
+        "filing-buttons-not-held",
+        "filing-no-gauge",
+        "filing-gauge-range-unknown",
+        "filing-no-rough",
+        "filing-no-stock-cap",
+        "template-arc-band-unknown",
+        "template-no-layout",
+        "template-range-unknown",
+        "scribe-layout-unknown",
+        "scribe-template-range-unknown",
+        "scribe-centre-unknown",
+    ],
+)
+def test_every_unknown_manual_arc_input_stops_its_op_on_the_traveler(
+    tmp_path, ops, number, name, old, new
+):
+    plan = scratch(tmp_path, ops, hold="fixture = 'buttons'")
+    change(plan.with_name(name), old, new)
+    bundle = load_bundle(plan)
+    row = next(r for r in manual_arc.evaluate(bundle) if r.subject == f"S1:{number}")
+    assert row.status == "unknown", row.sentence
+    setup = bundle.plan["setups"][0]
+    sheet = _Traveler(bundle, [row], {}, None)
+    sheet.setup = setup
+    table, _, stops = sheet.operations(setup, {}, {"notes": 2, "contours": None})
+    printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", table)).split())
+    # The op's own manual instruction carries the STOP, and the setup's STOP list names it.
+    step = printed[printed.index("Layout:" if number == 10 else "Bench filing:") :]
+    assert "STOP" in step, step
+    assert str(number) in [op for ops in stops.values() for op in ops], stops
 
 
 @pytest.mark.parametrize(("layout", "status"), [("'dividers'", "pass"), ("'chalk'", "unknown")])
