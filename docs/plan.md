@@ -630,7 +630,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `grip_mm` | `Number \| Literal['not_applicable']` |
 | `jaw_above_parallels_mm` | `Number \| Literal['not_applicable']` |
 | `stickout_mm` | `Number` |
-| `stickout_fit` | `{ measure: str, nominal_mm: Number, add_mm: Number }`: a stickout set from a measured fit-up; `stickout_mm` is the nominal `nominal_mm + add_mm` ([stickout](rules-lathe.md#stickout)) and the operator sets the `measure` reading + `add_mm`. The HOLD table prints `nominal stickout mm` and `set stickout: measured … + N`; the picture labels `NOMINAL STICKOUT … (SET = MEASURED + N)` |
+| `stickout_fit` | `{ measure: str, nominal_mm: Number, add_mm: Number }`: a stickout set from a measured fit-up; `stickout_mm` is the nominal `nominal_mm + add_mm` ([stickout](rules-lathe.md#stickout)) and the operator sets the `measure` reading + `add_mm`. The HOLD table prints `nominal stickout mm` and `set stickout: measured … + N`; the picture dimensions `NOM STICKOUT …` and its notes say it is set as the measured fit-up + N |
 | `jaw_center_along_mm` | `Number` |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
@@ -915,7 +915,9 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `tool` | `str` |
-| `x_method` | `str` |
+| `x_method` | `str` (the operator's words; `"trial_cut_measure"`: the touch trial-cuts its own diameter) |
+| `x_face` | `str`: the plan feature whose measured diameter a lathe X touch is set on, or `"x_zero"` for this setup's X-zero trial-cut land; must stand where it touches ([zero_check](rules-coordinates.md#zero_check)) |
+| `x_paper_mm` | `float`: paper between the tool and that diameter; Axis Set X = measured D + 2×paper on a diameter display (D/2 + paper on radius) |
 | `gauge` | `str` |
 | `z_face` | `str` |
 | `method` | `str` |
@@ -992,7 +994,15 @@ feature exports (else `BadInput`), and `band` is in the drawing's units. The
 inspection rule errors when the band reaches outside the drawing band (limits
 included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
 inspection cell as `PROCESS HOLD — not a drawing limit: <reason>`, never as a
-drawing limit.
+drawing limit, and the job page gathers every hold in a **PROCESS HOLDS —
+in-process limits, not drawing limits** table, apart from DRAWING REQUIREMENTS.
+
+A hold may instead name a feature's reference-only dimension (`<name>_ref`, a
+number the drawing gives as REF or CUT TO FIT, such as an assembly fit-up span).
+The drawing sets no limit there, so the hold must also say what the gauge reads
+(`measure`, e.g. `"scribe to faced end"`) and where the band comes from (`cite`);
+missing either is `BadInput`. A `measure` on a hold of an exported requirement is
+`BadInput` too: that hold reads the requirement itself.
 
 A `GoNoGo` is `{ go = <mm>, no_go = <mm> }`, both positive and different: the two
 limit-gauge sizes a limit check uses. The GO size must pass the work (enter a hole,

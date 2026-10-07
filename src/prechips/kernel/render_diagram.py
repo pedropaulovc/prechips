@@ -39,6 +39,22 @@ _CAMERAS = {
 _KEY_ROOM_PX = 66
 # Height of a lathe window shrunk to orientation so its crowded contour's detail has room.
 _ORIENTATION_PX = 70
+# The legend a path sketch prints once it has drawn a direction arrow.
+_ARROWS = "ARROWS: POINT ORDER"
+# A raster of at most this many passes draws and labels every pass; a longer one is a band
+# with its first and last pass.
+_EVERY_PASS = 8
+
+
+def _labelled_passes(numbers):
+    """The raster pass numbers a sketch labels: every one up to :data:`_EVERY_PASS`, else
+    the first and the last."""
+    numbers = sorted(numbers)
+    return (
+        numbers if len(numbers) <= _EVERY_PASS else list(dict.fromkeys(numbers[:1] + numbers[-1:]))
+    )
+
+
 # A setup picture drawing the stock's narrower side under this many pixels shows it small
 # beside its holding; a holding detail is added when it draws that side at least
 # ``_DETAIL_GAIN`` times larger.
@@ -536,6 +552,8 @@ class _Diagram:
         self.jaw_marker = None  # projected jaw-front marker, where stickout starts
         self.lathe_window = None
         self.off_window_keys = []
+        # Direction arrows drawn so far: a legend claims "ARROWS" only once one is drawn.
+        self.arrows_drawn = 0
         self.shoulders = (
             _radial_steps(spec.get("lathe_profiles", [])) if self.view == "lathe" else []
         )
@@ -695,6 +713,14 @@ class _Diagram:
             notes.append("Datums: not declared")
         if self.is_chuck and self.spec.get("stickout_mm") is None:
             notes.append("Stickout: not declared")
+        add = self.spec.get("stickout_add_mm")
+        if self.spec.get("stickout_mm") is not None and add is not None:
+            # Set from a measured fit-up: the dimension is the nominal; the note, in the
+            # wrapping footer, says how it is set.
+            notes.append(
+                f"Stickout {_mm(self.spec['stickout_mm'])} mm is nominal: "
+                f"set it as the measured fit-up + {_mm(add)} mm."
+            )
         return [line for note in notes for line in _wrap(self.canvas, note, 720, scale=3)]
 
     def _legend(self):
@@ -1095,10 +1121,9 @@ class _Diagram:
         stickout = self.spec.get("stickout_mm")
         if stickout is not None:
             label = f"STICKOUT {_mm(stickout)} mm"
-            add = self.spec.get("stickout_add_mm")
-            if add is not None:
-                # Set from a measured fit-up: the drawn value is the nominal.
-                label = f"NOMINAL {label} (SET = MEASURED + {_mm(add)})"
+            if self.spec.get("stickout_add_mm") is not None:
+                # Set from a measured fit-up: the drawn value is the nominal (see notes).
+                label = f"NOM {label}"
             if jaw_marker is not None and self.view == "lathe":
                 # The declared distance runs from the jaw-front marker itself, on its own
                 # row, never from the stock-length extension line.
@@ -1382,6 +1407,7 @@ class _Diagram:
             c.line(project((0, zmin)), project((0, zmax)), _RULE, width=2, dashed=True)
         # Key rows (text, colour, sample line): drawn last, below whatever detail is drawn.
         rows = []
+        arrows_before = self.arrows_drawn
         for profile in profiles:
             colour = tuple(profile.get("colour", _INK))
             dashed = profile["label"] == "arriving stock"
@@ -1406,7 +1432,7 @@ class _Diagram:
             for line in _wrap(c, f"OP {path['op']} SURFACE", right - left - 34, scale=3):
                 rows.append((line, _GREEN, (_GREEN, False), 34))
         if paths:
-            rows.append(("ARROWS: POINT ORDER", _MUTED, None, 0))
+            rows.append((_ARROWS, _MUTED, None, 0))
         if closed:
             for line in _wrap(c, "TINT: PROFILE DIFFERENCE", right - left, scale=3):
                 rows.append((line, _AMBER, None, 0))
@@ -1490,6 +1516,8 @@ class _Diagram:
         if local is None:
             self._waypoint_badges(waypoints, project, (left, 205, right, 493))
         for line, colour, sample, indent in rows:
+            if line == _ARROWS and self.arrows_drawn == arrows_before:
+                continue
             if sample is not None:
                 c.line(
                     (left, row + 10), (left + 25, row + 10), sample[0], width=3, dashed=sample[1]
@@ -1509,9 +1537,11 @@ class _Diagram:
         _text(c, left, top, "PROFILE SKETCH / XY")
         content_top = top + 40
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
+        before = self.arrows_drawn
         if len(ops) > 1:
             self._operation_panels(left, right, content_top, bottom - 34, ops, paths, waypoints)
-            _text(c, left, bottom - 21, "ARROWS: POINT ORDER", _MUTED)
+            if self.arrows_drawn > before:
+                _text(c, left, bottom - 21, _ARROWS, _MUTED)
             return
         xmin, ymin, xmax, ymax = _bounds(points)
         ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
@@ -1546,7 +1576,8 @@ class _Diagram:
             c.line((left, row + 10), (left + 23, row + 10), colours[op], width=3)
             _text(c, left + 32, row, line, colours[op])
             row += 30
-        _text(c, left, bottom - 22, "ARROWS: POINT ORDER", _MUTED)
+        if self.arrows_drawn > before:
+            _text(c, left, bottom - 22, _ARROWS, _MUTED)
 
     def _operation_panels(self, left, right, top, bottom, ops, paths, waypoints):
         """Separate authored operations, not every raster pass or curve record."""
@@ -1656,7 +1687,7 @@ class _Diagram:
             raster = sorted(
                 p["raster"]["pass"] for p in paths if str(p.get("op", "")) == op and p.get("raster")
             )
-            labels.extend(f"PASS {number}" for number in dict.fromkeys(raster[:1] + raster[-1:]))
+            labels.extend(f"PASS {number}" for number in _labelled_passes(raster))
             if not labels:
                 continue
             cell = max(_badge_width(c, label) for label in labels)
@@ -1676,9 +1707,11 @@ class _Diagram:
     def _raster_band(self, paths, project, colour, labels):
         """Draw ordinary rasters as a band, but keep-out rasters as independent lines.
 
-        Sparse endpoint labels use the table's independent PASS 1 ... PASS n numbers;
-        a filled band must never claim that the clearance between split passes is swept.
-        Return non-raster paths for the caller to draw separately.
+        Up to :data:`_EVERY_PASS` passes each draw and label (PASS 1 ... PASS n, the
+        table's numbers), with a direction arrow when the table gives the cutting
+        direction; more draw the band with the first and last pass. A filled band must
+        never claim that the clearance between split passes is swept. Return non-raster
+        paths for the caller to draw separately.
         """
         c = self.canvas
         raster = sorted((p for p in paths if p.get("raster")), key=lambda p: p["raster"]["pass"])
@@ -1691,15 +1724,21 @@ class _Diagram:
             same = (f1[0] - f0[0]) * (l1[0] - l0[0]) + (f1[1] - f0[1]) * (l1[1] - l0[1]) >= 0
             tint = tuple(int(255 - (255 - channel) * 0.22) for channel in colour)
             c.polygon([f0, f1, l1, l0] if same else [f0, f1, l0, l1], tint)
-            shown = [first, last]
+            shown = raster if len(raster) <= _EVERY_PASS else [first, last]
         else:
             shown = raster
         for path in shown:
-            c.line(project(path["xy"][0]), project(path["xy"][-1]), colour, width=3)
-        for path in (first, last) if last is not first else (first,):
-            a, b = path["xy"][0], path["xy"][-1]
-            middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-            labels.append({"label": f"PASS {path['raster']['pass']}", "xy": middle})
+            self._ordered_path(
+                [project(path["xy"][0]), project(path["xy"][-1])],
+                colour,
+                arrows=path.get("directed") is True,
+            )
+        numbers = set(_labelled_passes([path["raster"]["pass"] for path in raster]))
+        for path in raster:
+            if path["raster"]["pass"] in numbers:
+                a, b = path["xy"][0], path["xy"][-1]
+                middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+                labels.append({"label": f"PASS {path['raster']['pass']}", "xy": middle})
         return [p for p in paths if not p.get("raster")]
 
     def _ordered_path(self, pixels, colour, width=3, arrows=True, clip=None):
@@ -1746,6 +1785,7 @@ class _Diagram:
                 tail = point_at(run, distance - half_span)
                 tip = point_at(run, distance + half_span)
                 c.arrow(tail, tip, colour, width=width)
+                self.arrows_drawn += 1
 
     def _waypoint_badges(
         self,

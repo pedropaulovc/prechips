@@ -401,9 +401,10 @@ def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
     assert line.startswith("STOP")
 
 
-def _rest_steps(side, lead=8.0, engage=True):
+def _rest_steps(side, lead=8.0, engage=True, declared=None):
     """The follow-rest cells and full-width lines of a rough turn fed toward the chuck,
-    the jaws on ``side`` ``lead`` mm from the tool; ``engage``: set on once past Z152."""
+    the jaws on ``side`` ``lead`` mm from the tool; ``engage``: set on once past Z152,
+    checked clear; ``declared``: the support's own engage_at_z_mm."""
     numbers = {"feed_z": -1}
     if engage:
         numbers["rest_engagement"] = [{**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}]
@@ -411,6 +412,8 @@ def _rest_steps(side, lead=8.0, engage=True):
     support = {"ref": "follow_rest", "ops": [10], "jaw_side": side}
     if lead is not None:
         support["jaw_lead_mm"] = lead
+    if declared is not None:
+        support["engage_at_z_mm"] = declared
     setup["hold"]["supports"] = [support]
     return sheet.rest_steps(setup, op)
 
@@ -454,6 +457,15 @@ def test_a_follow_rest_with_unknown_geometry_stops_and_never_prints_a_checked_re
     _, lines = _rest_steps(side, lead=lead)
     assert any(line.startswith("STOP") for line in lines)
     assert not any("return the carriage" in line for line in lines)
+
+
+def test_a_declared_follow_rest_z_that_was_not_checked_stops_never_falls_back_to_the_lead():
+    # The plan sets the rest on at Z152 (past where the start would foul it); with no
+    # clearance check of that Z, "once the tool has turned 8 mm" would contradict it.
+    cells, lines = _rest_steps("turned", engage=False, declared=152.0)
+    assert [type(cell).__name__ for cell in cells] == ["_Box"]
+    assert str(cells[0]).startswith("STOP")
+    assert not any("once the tool has turned" in str(line) for line in lines)
 
 
 def test_an_inch_relief_is_plunged_in_millimetres_and_printed_in_inches():
@@ -564,15 +576,18 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
 
     bundle = load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml")
     engage = {**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}
-    clear = Finding(
-        "accessibility",
-        "S1:10",
-        "pass",
-        {"rest_engagement": [engage], "feed_z": -1},
-        [],
-        "S1:10.",
-    )
-    page = render_traveler(bundle, [clear], {})
+    clear = [
+        Finding(
+            "accessibility",
+            f"S1:{number}",
+            "pass",
+            {"rest_engagement": [engage], "feed_z": -1},
+            [],
+            f"S1:{number}.",
+        )
+        for number in (10, 30)
+    ]
+    page = render_traveler(bundle, clear, {})
     html = unescape(re.sub(r"<[^>]+>", " ", page))
     step = re.search(r"at Z 152\.00: [^.]*", html).group(0)
     # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
@@ -590,8 +605,8 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
     full_width = re.findall(r'<span class="see">([^<]*)</span>', page)
     assert sum("set the follow-rest jaws" in line for line in full_width) == 2
     assert unescape(page).count("set the follow-rest jaws") == 2
-    # Only op 10 has the engagement fact here: its cell alone prints the Z.
-    assert unescape(page).count("follow rest on: Z 152.00") == 1
+    # Each op's coordinate cell prints the Z its own engagement check cleared.
+    assert unescape(page).count("follow rest on: Z 152.00") == 2
 
 
 def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):
@@ -785,6 +800,38 @@ def test_a_sleeve_parted_after_a_touch_on_its_far_end_comes_out_full_length():
     assert "Z now reads the chuck-side corner" in text
 
 
+@pytest.mark.parametrize(
+    ("do", "extra", "depth", "expected"),
+    [
+        # The shaft's S3 op 10: the blade plunges a Ø6.4 bearing to the axis.
+        ("cut_to_fit", {"to_dia": 0.0}, 3.2, "X 6.40 → 0.00 (3.20 radial)"),
+        ("part_off", {}, 3.2, "X 6.40 → 0.00 (3.20 radial)"),
+        # Parted to a diameter (a sleeve left on an arbor): X stops there.
+        ("part_off", {"to_dia": 2.0}, 2.2, "X 6.40 → 2.00 (2.20 radial)"),
+        # The plunge is unmeasured: the endpoint still prints, the start does not.
+        ("cut_to_fit", {"to_dia": 0.0}, "unknown", "X → 0.00 (radial plunge unknown)"),
+    ],
+)
+def test_a_parting_row_prints_the_x_it_plunges_to_and_the_radial_plunge(do, extra, depth, expected):
+    touch = {"tool": "blade", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
+    bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1)
+    op = bundle.plan["setups"][0]["ops"][0]
+    op.update(do=do, **extra)
+    _, _, sheet, setup = _traveler(bundle)
+    sheet.records[("reach", "S1:40")] = {"reach_depth_mm": depth}
+    parts = sheet.tip(setup, op)
+    assert expected in parts, parts
+
+
+def test_a_parting_row_with_an_unknown_endpoint_stops():
+    touch = {"tool": "blade", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
+    bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1)
+    op = bundle.plan["setups"][0]["ops"][0]
+    op.update(do="cut_to_fit", to_dia="unknown")
+    _, _, sheet, setup = _traveler(bundle)
+    assert any("STOP" in str(part) and "X endpoint" in str(part) for part in sheet.tip(setup, op))
+
+
 def _traveler(bundle):
     """(zero_check, coordinates, sheet, setup) for a one-setup bundle, records loaded."""
     from prechips.sheet import _Traveler
@@ -934,7 +981,13 @@ def _retouched(width):
     re-touch reads X on); a ``width`` blade faces the end to -10 (op 40) reading its
     chuck-side corner (forming with its tailstock-side one); the turner, re-touched on that
     end, then faces the sleeve to -8 (op 50), a 7.96..8.04 length."""
-    touch = {**_FACE_TOUCH, "gauge": "mic", "x_method": "touch bar diameter"}
+    touch = {
+        **_FACE_TOUCH,
+        "gauge": "mic",
+        "x_method": "touch bar diameter",
+        "x_face": "bar",
+        "x_paper_mm": 0.0,
+    }
     bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1, to_z=-10.0)
     bundle.plan["dro"].update(
         mode="abs", direction={"x": "away_from_spindle_axis", "z": "toward_exposed_end"}
@@ -1138,6 +1191,8 @@ _END_TOUCH = {
     "before_ops": [50],
     "gauge": "mic",
     "x_method": "touch bar diameter",
+    "x_face": "bar",
+    "x_paper_mm": 0.0,
     "method": "touch",
 }
 

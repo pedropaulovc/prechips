@@ -105,13 +105,14 @@ def contour_annotations(numbers, scale, setup_id):
         if isinstance(points[0], list) and points[0] and isinstance(points[0][0], list):
             # A raster table contains independent straight passes, not joins between passes.
             # Its rows are numbered passes, never P keys: the picture names passes the same way.
+            # Each pass runs in cutting order when the table gives a cutting sense.
             keep_out = bool(record(profile.get("raster")).get("keep_out"))
             for index, segment in enumerate(points):
                 add_path(
                     profile.get("op"),
                     segment,
                     [],
-                    False,
+                    _directed(profile),
                     raster={
                         "pass": index + 1,
                         "of": len(points),

@@ -298,7 +298,9 @@ retouch_after = []
 
 [[setups.zero.tool_touches]]
 tool = "parting-blade-lms-1728"
-x_method = "spindle stopped: mic the bearing Ø next to the thrust face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: a paper touch on the measured finished bearing, because a cut ring inside the 2 mm relief could not be mic'd apart from the bearing and a cut on the bearing would mark it; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the bearing Ø next to the thrust face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: a paper touch on the measured finished bearing, because a cut ring inside the 2 mm relief could not be mic'd apart from the bearing and a cut on the bearing would mark it; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_bearing"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "shoulder_thrust"
 edge_mm = 0.0
@@ -328,7 +330,7 @@ rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
 doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
 feed_mm_rev = 0.08          # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5c p.1036 HSS feed rows .002-.060 in/rev
 direction = "toward_chuck"  # author's choice: plain end to shoulder; cutting load pushes into the headstock
-note = "Four passes, Ø10 → Ø6.55; the rest jaws are reset on each new diameter. Each pass: start at Z166.3 with both follow-rest jaws backed off wide, clear of the dead centre. At Z152 stop the feed and then the spindle (S3 cuts that end length off), bring both rest jaws onto the diameter just cut and lock them, restart the spindle and resume the feed to the shoulder. Pass end, at Z0.2: stop the feed and then the spindle, back both rest jaws off wide, withdraw the tool along X, then run the carriage back to Z166.3 for the next pass. The Ø10 shoulder stays as bar."
+note = "Four passes, Ø10 → Ø6.55; the rest jaws are reset on each new diameter at Z152 (S3 cuts that end length off). The Ø10 shoulder stays as bar."
 
 [[setups.ops]]
 op = 20
@@ -356,7 +358,7 @@ z_to = 0.0
 doc_mm = 0.1                # Ø6.55 → Ø6.35; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
 feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "toward_chuck"  # author's choice: plain end to the thrust face in one pass
-note = "One pass, Ø6.55 → Ø6.35, with the same rest sequence: jaws backed off wide at the start; at Z152 stop the feed and then the spindle, set the jaws on the finished diameter and lock them, restart the spindle and feed on to the thrust face. Pass end, at Z0: stop the feed and then the spindle, back both rest jaws off wide, withdraw the tool along X and run the carriage back clear. Mic at both ends and the middle for taper before moving on."
+note = "One pass, Ø6.55 → Ø6.35, with the rest jaws set on the finished diameter at Z152. Mic at both ends and the middle for taper before moving on."
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
@@ -434,8 +436,9 @@ face = "north stub end"
 edge_mm = 5.0                 # nominal stub end (apex + 5); the Axis Set uses the measured length, not this
 from = "+z"
 method = "measure_then_set"  # the stub length carries the S1 bar placement and blank length, so measure it
+measure_before_hold = true   # M is read on the bench, before the part goes into the jaws
 gauge = "calipers"
-measure = "before chucking: outside caliper length from the shoulder thrust face to the north stub end (nominal 14.0)"
+measure = "outside caliper length from the shoulder thrust face to the north stub end (nominal 14.0)"
 offset_mm = -9.0              # thrust face is T2 Z-9 (frame); M is measured from it
 tool = "hss-toolbit-3-8-rh"
 paper_mm = 0.0               # touch with the spindle running until the first chip shows: the stub end is waste, faced off in op 50
@@ -444,7 +447,9 @@ retouch_after = []
 
 [[setups.zero.tool_touches]]
 tool = "parting-blade-lms-1728"
-x_method = "spindle stopped: mic the journal Ø next to the shoulder north face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: a paper touch on the measured finished journal, because a cut ring inside the 2 mm relief could not be mic'd apart from the journal and a cut on the journal would mark it; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the journal Ø next to the shoulder north face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: a paper touch on the measured finished journal, because a cut ring inside the 2 mm relief could not be mic'd apart from the journal and a cut on the journal would mark it; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_journal"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "shoulder_north_face"
 edge_mm = -7.5
@@ -458,7 +463,9 @@ before_ops = [40]
 # finished journal keeps no touch mark.
 [[setups.zero.tool_touches]]
 tool = "hss-toolbit-3-8-rh"
-x_method = "spindle stopped: mic the stub Ø between Z0 and Z5 (op 30 turned it with the journal; op 50 faces it off); bring the tool nose in on the stub through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: the stub still stands before op 50 and is mic'd where it is touched; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the stub Ø between Z0 and Z5 (op 30 turned it with the journal; op 50 faces it off); bring the tool nose in on the stub through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the stub still stands before op 50 and is mic'd where it is touched; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_journal"     # the stub is the journal Ø, turned with it in op 30
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "shoulder_north_face"
 edge_mm = -7.5
@@ -621,10 +628,11 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "jaw fronts 8 mm north of the actual fit-up scribe, Z-8. The stickout in the table, 24.83, is the nominal; the actual stickout is your trial-fit scribe-to-end reading + 8. Set it from the scribe, not from the number"  # author's choice: room for the dome tool and holder past the jaws
+stop = "jaw fronts 8 mm north of the actual fit-up scribe, Z-8. Set it from the scribe, not from the number"  # author's choice: room for the dome tool and holder past the jaws
 clamp = "tighten chuck key by hand at all three pinions; remove key; then indicate the bearing between the jaw fronts and the scribe (Z-7 to -1)"  # author's choice
 jaw_protection = "clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip"  # author's choice; no listed accessory invented
-stickout_mm = 24.83         # nominal: jaw front Z-8 to the nominal plain end Z16.83; the actual setting is the measured scribe-to-end reading + 8 (setup note and stop)
+stickout_mm = 24.83         # nominal: jaw front Z-8 to the nominal plain end Z16.83 = stickout_fit nominal + add
+stickout_fit = { measure = "trial-fit scribe-to-end reading", nominal_mm = 16.83, add_mm = 8.0 }  # the actual setting is the measured scribe-to-end reading + 8
 pose = { origin_mm = [0.0, 0.0, -8.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
 
@@ -656,7 +664,9 @@ retouch_after = []
 
 [[setups.zero.tool_touches]]
 tool = "parting-blade-lms-1728"
-x_method = "spindle stopped: mic the T3 trial-cut land again, anvils between Z7 and the end (the land stands until op 10 cuts it off); bring the blade tip in on that land through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: the zero's own trial-cut land is the one measured surface that stands before op 10; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the T3 trial-cut land again, anvils between Z7 and the end (the land stands until op 10 cuts it off); bring the blade tip in on that land through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the zero's own trial-cut land is the one measured surface that stands before op 10; D2 zero on the surface touched, measured where it is touched
+x_face = "x_zero"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "scribe"
 edge_mm = 0.0
@@ -670,7 +680,9 @@ before_ops = [10]
 # the body Ø left past the scribe, which ops 20 and 30 cut away.
 [[setups.zero.tool_touches]]
 tool = "hss-toolbit-3-8-rh"
-x_method = "spindle stopped: mic the body Ø between the jaw fronts and the parted end (Z-7 to Z2: one finished diameter, so the anvils sit anywhere on it); bring the tool nose in on the stub past the scribe, Z1 to Z2, through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: the trial-cut land is gone after op 10; the body stub past the scribe still stands, is the same diameter the micrometer reads, and ops 20 and 30 cut it away; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the body Ø between the jaw fronts and the parted end (Z-7 to Z2: one finished diameter, so the anvils sit anywhere on it); bring the tool nose in on the stub past the scribe, Z1 to Z2, through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the trial-cut land is gone after op 10; the body stub past the scribe still stands, is the same diameter the micrometer reads, and ops 20 and 30 cut it away; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_bearing"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "scribe"
 edge_mm = 0.0
