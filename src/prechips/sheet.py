@@ -493,6 +493,19 @@ def _supply(solid):
     return solid.get("supply", "made")
 
 
+# A shop-made fixture value authored as an example: the job page explains the mark once.
+EXAMPLE_MARK = "†"
+EXAMPLE_LEGEND = (
+    f"{EXAMPLE_MARK} example fixture dimensions (plausible, not measured): confirm before making."
+)
+
+
+def _example(record):
+    """A primitive or length whose own measurement is labelled as an example value."""
+    by = _mapping(_mapping(record).get("measured")).get("by", "")
+    return isinstance(by, str) and by.startswith("example")
+
+
 def _void_parents(void, solids, made):
     """``(parents, unresolved)``: the solids a hole is cut in (made, or existing parts
     machined here), as the kernel cuts it: every such solid its ``cuts`` names, else
@@ -801,6 +814,9 @@ class _Traveler:
         )
         self.units = bundle.features.get("units", "unknown")
         self.pages = []
+        # Set while the setup sheets are written: a SHOP-MADE FIXTURE row printed example
+        # values, so the job page prints the one legend for its mark.
+        self.example_marks = False
         self.references = {}
         for reference in sorted(selected_references(self.plan)):
             if isinstance(reference, str) and reference not in ("unknown", "none"):
@@ -1016,13 +1032,14 @@ class _Traveler:
         declared resolution, else the default grid."""
         return dro_grid(self.bundle, self.setup or {})[1]
 
-    def operative(self, value):
-        """Machine targets (tips, stations, cutter centres) print at DRO resolution."""
+    def operative(self, value, decimals=None):
+        """Machine targets (tips, stations, cutter centres) print at DRO resolution: the
+        setup being written's, unless ``decimals`` names another machine's grid."""
         if isinstance(value, (list, tuple)):
-            return " / ".join(self.operative(v) for v in value)
+            return " / ".join(self.operative(v, decimals) for v in value)
         if isinstance(value, dict) and "value" in value:
             value = value["value"]
-        return _number(value, self.decimals)
+        return _number(value, self.decimals if decimals is None else decimals)
 
     def band(self, value, feature, dimension):
         """A drawing acceptance band (``6.330–6.350``) at the drawing's own precision,
@@ -1718,6 +1735,9 @@ class _Traveler:
                 for solid, name in zip(members, tags, strict=True)
                 for void in holes.get(id(solid), [])
             ]
+            if any(map(_example, members)) or any(_example(void) for void, _ in cut):
+                component += f" {EXAMPLE_MARK}"
+                self.example_marks = True
             kinds = {}
             for void, name in cut:
                 key = (
@@ -1753,7 +1773,11 @@ class _Traveler:
                 if None not in dims
                 else "? not declared"
             )
-            rows.append(["body", size, ["? not posed"], "—", "—"])
+            body = "body"
+            if any(_example(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")):
+                body += f" {EXAMPLE_MARK}"
+                self.example_marks = True
+            rows.append([body, size, ["? not posed"], "—", "—"])
         headings = [
             "Component",
             "Size mm",
@@ -1772,10 +1796,6 @@ class _Traveler:
             f"Make before Setup {sid}. Positions are in the Setup {sid} frame: boxes give "
             "their X / Y / Z extents, cylinders their axis."
         )
-        if any(
-            str(_mapping(s.get("measured")).get("by", "")).startswith("example") for s in solids
-        ):
-            intro += " Example dimensions (plausible, not measured): confirm before making."
         hardware = self.hardware(
             [s for s in solids if not s.get("void") and _supply(s) == "bought"], len(placed)
         )
@@ -2142,6 +2162,7 @@ class _Traveler:
         cut that feature before it left it (:meth:`surface_z`)."""
         done = self.ops_done(setup, before=op.get("op"))
         return self.surface_z(setup, op.get(key), face=op.get("feature"), done=done)
+
     @property
     def near_jaw_mm(self):
         """The shop's declared distance from spinning jaws inside which an op row carries
@@ -2228,9 +2249,10 @@ class _Traveler:
                         for k, v in directions.items()
                         if not self.metadata(k) and not (lathe and k == "y")
                     )
-                    + ". Axis Set each axis (never Preset), then jog without touching: the "
-                    "display must show 'must read'; 'if reversed' means STOP, fix the axis "
-                    "direction and redo the zero."
+                    + ". Axis Set each axis (never Preset), then "
+                    + ("jog without touching" if lathe else "make the check jog")
+                    + ": the display must show 'must read'; 'if reversed' means STOP, fix "
+                    "the axis direction and redo the zero."
                 )
             )
         axes = numbers.get("axes", {})
@@ -2319,7 +2341,7 @@ class _Traveler:
                     "axis",
                     "touch / pick up",
                     "Axis Set",
-                    "jog, no touch",
+                    "check jog",
                     "must read",
                     "if reversed",
                 ],
@@ -2327,6 +2349,22 @@ class _Traveler:
                 widths=[5, 45, 13, 11, 13, 13],
             )
         )
+        if not lathe and any(row[0] in ("X", "Y") for row in rows):
+            # From a side pickup, +X / +Y runs the finder over the work at pickup height.
+            pieces.append(
+                _p("X and Y check jog, after each Axis Set:")
+                + _list(
+                    [
+                        "raise Z only (X and Y stay put) until the edge finder or indicator tip "
+                        "is above the work and everything clamped to it — look across the top "
+                        "for daylight under the tip;",
+                        "jog the table the check-jog distance and read 'must read';",
+                        "jog back until the display shows the Axis Set value again, then lower; "
+                        "do not Axis Set again: the picked-up value stays.",
+                    ],
+                    ordered=True,
+                )
+            )
         transfer = _mapping(authored.get("transfer"))
         if transfer:
             indicate = transfer.get("indicate")
@@ -2669,6 +2707,7 @@ class _Traveler:
         low, high = plunges.get("groove_z_mm", [None, None])
         parts.append(f"groove Z {o(low)} to {o(high)}")
         return parts
+
     def surface_z(self, setup, value, source=None, face=None, done=0):
         """One surface, one printed Z (:func:`operative_z`): the checked depth of the op
         that produced it, on its own setup's grid, as this setup's DRO shows it; else
@@ -2829,17 +2868,21 @@ class _Traveler:
         cells = []
         for reference in process if isinstance(process, list) else [process]:
             category, item = coating_process(self.bundle, reference)
+            # The shop's display name; an unnamed entry keeps its identity visible.
+            name = _mapping(item).get("name")
+            name = name if isinstance(name, str) and name.strip() not in ("", "unknown") else None
+            shown = name or _text(reference)
             if reference == "unknown":
                 cells.append("? coating process not set")
             elif category == "services":
-                # Name what is sent out and to whom: the service id and the coating it applies.
+                # Name what is sent out and to whom: the service and the coating it applies.
                 applied = _mapping(item).get("coating")
                 cells.append(
-                    f"outside: {_text(reference)}"
+                    f"outside: {shown}"
                     + (f" ({_text(applied)})" if applied not in (None, "unknown") else "")
                 )
             elif category == "consumables":
-                cells.append(f"{_text(reference)} (in-house)")
+                cells.append(f"{shown} (in-house)")
             else:
                 cells.append(f"{_text(reference)} (not in shop list)")
         return ", ".join(cells)
@@ -3563,9 +3606,22 @@ class _Traveler:
                     result.append(finding)
         return result
 
-    def stock_line(self, stock):
+    def receiving_setup(self, ref):
+        """The first setup the stock ``ref`` (``stock`` or ``stock.<id>``) arrives in."""
+        for setup in self.plan.get("setups", []):
+            source = setup.get("stock_in")
+            if ref in (source if isinstance(source, list) else [source]):
+                return setup
+        return None
+
+    def stock_line(self, stock, ref="stock"):
+        """Stock size and supply notes on the DRO grid of the machine it first goes to."""
         stock = _mapping(stock)
-        o = self.operative
+        decimals = dro_grid(self.bundle, self.receiving_setup(ref) or {})[1]
+
+        def o(value):
+            return self.operative(value, decimals)
+
         form = stock.get("form")
         parts = []
         dims = ""
@@ -3602,7 +3658,7 @@ class _Traveler:
             name = _text(key)
             unit = " mm" if name.endswith(" mm") else ""
             name = name.removesuffix(" mm")
-            shown = self.operative(value) + unit if _known(value) else self.bench(value)
+            shown = o(value) + unit if _known(value) else self.bench(value)
             extras.append(f"{name[:1].upper() + name[1:]}: {shown}.")
         return " ".join([line, *extras])
 
@@ -3796,34 +3852,34 @@ class _Traveler:
         return revision if isinstance(revision, str) and revision != "unknown" else None
 
     def job_state(self, topics):
-        """The checker result, the release state the banner shows, and what must be in
-        hand before the first setup: the job page never reads clear beside NOT APPROVED."""
-        if self.report.get("verification") == "checked":
-            check = "Plan check: no rule fails"
-            check += f"; {len(topics)} check(s) not verified, listed above." if topics else "."
-        else:
-            check = "Plan check: not passed — clear the items above before running."
+        """What still stands in the way of running, the release state the banner shows, and
+        what must be in hand before the first setup: the job page never reads clear beside
+        NOT APPROVED. The checker's own result is not shop information."""
+        state = []
+        if self.report.get("verification") != "checked":
+            state.append("Not ready to run: clear the items above first.")
+        elif topics:
+            state.append(f"{len(topics)} check(s) not verified, listed above.")
         evidence = self.approval.get("first_article")
         recorded = isinstance(evidence, str) and evidence.strip().lower() not in ("", "unknown")
-        this_bundle = bool(self.approval) and self.approval.get("hash") == self.report.get("hash")
+        this_plan = bool(self.approval) and self.approval.get("hash") == self.report.get("hash")
         if self.checked:
-            approval = "Approved: hash-matched first article recorded for this input bundle."
-        elif recorded and this_bundle:
-            approval = (
-                "NOT APPROVED: a first article is recorded for this input bundle, but the plan "
-                "check has not passed and approval cannot waive it."
+            state.append("Approved: the first article is recorded against this exact plan.")
+        elif recorded and this_plan:
+            state.append(
+                "NOT APPROVED: a first article is recorded for this plan, but the plan has "
+                "open items above and approval cannot waive them."
             )
         else:
-            approval = (
+            state.append(
                 "NOT APPROVED: "
                 + (
-                    "the recorded first article is for other inputs"
+                    "the recorded first article was made to a different plan or drawing"
                     if recorded
-                    else "no first article is recorded for this input bundle"
+                    else "no first article is recorded"
                 )
                 + "; the first part made is the first article — sign it off below."
             )
-        state = [check, approval]
         stock = _mapping(self.plan.get("stock"))
         components = stock.get("components")
         pieces = [("stock", stock)] + [
@@ -3885,6 +3941,8 @@ class _Traveler:
         html += _list(self.job_state(topics), ordered=False)
         dro = _mapping(self.plan.get("dro"))
         lines = [self.material(), self.speeds_source()]
+        # The setup sheets are written first: a marked fixture row puts its legend here.
+        lines.append(EXAMPLE_LEGEND if self.example_marks else None)
         if dro.get("manual") or dro.get("controller") not in (None, "unknown"):
             name = dro.get("manual") if isinstance(dro.get("manual"), str) else dro["controller"]
             lines.append(
@@ -3898,7 +3956,11 @@ class _Traveler:
         components = stock.get("components")
         if isinstance(components, list) and components:
             html += _list(
-                [f"{_text(_mapping(c).get('id'))}: " + self.stock_line(c) for c in components],
+                [
+                    f"{_text(_mapping(c).get('id'))}: "
+                    + self.stock_line(c, f"stock.{_text(_mapping(c).get('id'))}")
+                    for c in components
+                ],
                 ordered=False,
             )
             stock = {k: v for k, v in stock.items() if k != "components"}
@@ -4021,11 +4083,7 @@ class _Traveler:
         drawing = self.plan.get("drawing", {})
         part = _text(self.plan.get("part"))
         revision = self.drawing_revision()
-        banner = (
-            "CHECKED — HASH-MATCHED FIRST ARTICLE RECORDED"
-            if self.checked
-            else "PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE"
-        )
+        banner = "CHECKED — FIRST ARTICLE RECORDED" if self.checked else "PLANNED — NOT APPROVED"
         # The report binding is machine-readable only: hashes stay off the paper.
         result = [
             f'<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'

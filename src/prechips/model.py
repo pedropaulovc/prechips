@@ -1183,6 +1183,11 @@ def _inventory_lengths(
         )
 
 
+# An in-house consumable a coating op names: the shop's display name for the traveler and
+# the products on the shelf; an unknown, empty or blank product list leaves it unresolved.
+Consumable = record("Consumable", {"name": str, "products": list[str]})
+
+
 class Inventory(InputModel):
     machines: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     tools: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
@@ -1191,7 +1196,7 @@ class Inventory(InputModel):
     gauges: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     # Outside processes the shop sends work to (a coating vendor): not shop-owned kit.
     services: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
-    consumables: dict[str, list[str] | Unknown] | Unknown = UNKNOWN
+    consumables: dict[str, Consumable | Unknown] | Unknown = UNKNOWN
     stock: list[Stock] | Unknown = UNKNOWN
 
     @model_validator(mode="before")

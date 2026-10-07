@@ -155,7 +155,7 @@ Any error wins (exit 2). Required warn/unknown/unsupported or a missing required
 rule/subject yields 4; an explicitly unknown required policy also yields 4.
 Otherwise the report has exit 0 and `verification = "checked"`.
 The implemented gate does not block required `info` or `not_applicable`. Without
-approval the traveler still prints `PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE`.
+approval the traveler still prints `PLANNED — NOT APPROVED`.
 No hash prints on the sheet. `traveler.html` carries the full report hash and the
 prechips version in `<meta name="prechips-report">` / `<meta name="prechips-version">`
 for tools; they are a lookup, never the approval's binding.
@@ -247,16 +247,20 @@ at the machine. A job page opens with the part, drawing number, revision (or
 `REV NOT CONFIRMED`, which is also a STOP line) and the `PLANNED` banner, then
 **JOB STATUS** (STOP / CAUTION / not-verified boxes; a setup with its own STOP
 items is named here too, so the job page never says "no stops" over a stopped
-setup; then, always, the plan-check result, the approval state matching the
-banner — `NOT APPROVED:` with what the approval record holds: no first article
-for this input bundle, one recorded for other inputs (both: the first part made
-is the first article), or one recorded for these inputs on a plan check that
-has not passed, which approval cannot waive — and each `Before S1:` stock
-prerequisite, such as `obtain the stock — not on hand`), the drawing material
-and finish, a one-line speeds/feeds source, the DRO manual named once, the
-`DRO resolution:` of each routed machine (its inventory `resolution`, or the
-default grid said as such; a lathe adds whether X reads diameter or radius),
-**STOCK AND ROUTE** (stock size, supply notes and a setup → machine → holding
+setup; then a `Not ready to run` line when the plan check has not passed, or the
+count of checks not verified — the checker's own pass is not printed — then,
+always, the approval state matching the banner in shop words — `NOT APPROVED:`
+with what the approval record holds: no first article recorded, one made to a
+different plan or drawing (both: the first part made is the first article), or
+one recorded for this plan while it still has open items, which approval cannot
+waive — and each `Before S1:` stock prerequisite, such as `obtain the stock —
+not on hand`), the drawing material and finish, a one-line speeds/feeds source,
+the legend `† example fixture dimensions (plausible, not measured): confirm
+before making` when a SHOP-MADE FIXTURE row carries the mark, the DRO manual
+named once, the `DRO resolution:` of each routed machine (its inventory
+`resolution`, or the default grid said as such; a lathe adds whether X reads
+diameter or radius), **STOCK AND ROUTE** (stock size at the DRO resolution of
+the setup that receives that stock, supply notes and a setup → machine → holding
 table, machines by display name: an inventory `name`, a maker's model number,
 or else the machine kind, never an inventory slug) and **DRAWING
 REQUIREMENTS** (feature → limits, ending with the drawing's edge break printed
@@ -317,8 +321,15 @@ Front sheet (sheet 1), in this order:
    cut-off setup, located by the cut plane in its op row): positive
    directions, then one row per axis — what to touch
    or pick up (tool, side, paper or edge-finder radius), the Axis Set value, a
-   no-touch jog, the value the display must read and the value it would read if
-   the axis were reversed — plus re-indicate and tool-change touch-offs.
+   check jog, the value the display must read and the value it would read if
+   the axis were reversed — plus re-indicate and tool-change touch-offs. On a
+   mill, an X or Y check jog from a side pickup would carry the finder over the
+   work, so the sheet prints the check as steps: raise Z only, until the finder
+   or indicator clears the work and everything clamped to it (checked by eye
+   across the top); jog the table the printed distance and read it; jog back
+   until the display shows the Axis Set value again, then lower. The picked-up
+   value is never set again. A lathe check jogs away from the work and has no
+   raise step.
 6. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
    Z target, cut direction and `limit: gauge` inspection. Lathe feed prints as
    `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
