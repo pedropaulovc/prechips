@@ -1415,6 +1415,38 @@ angularity_dia = [
   "Calculate: 0.901 × (rC2 − 16.918) − 1.418 × rJ2 = {e2}",
   "Calculate: √(e1² + e2²) = {result}; accept 0.10 or less.",
 ]
+# Set-up sketches of op 110 (part model axes): foot B is the Y = 0 plane, journal axis A
+# J = (0.21675, 0, 0.97623) through (0, 33.368, 0), its north cap on the -J side; the crank
+# axis is Z through (0, 72.7, 0), its flush sleeve end at Z-21.38, the projecting end Z50.66.
+[[setups.ops.inspection_views.angularity_dia]]
+title = "ORIENTATION 1: FOOT B ON THE PLATE (STEPS 5-6)"
+up = [0.0, 1.0, 0.0]
+toward = [-1.0, 0.0, 0.0]
+aids = [
+  { name = "JOURNAL GAUGE ROD 12.250", shape = "cylinder", at_mm = [-13.222, 33.368, -59.55], axis = [0.21674972336567902, 0.0, 0.9762272058393484], dia_mm = 12.25, length_mm = 122.0 },
+  { name = "CRANK GAUGE ROD 11.405", shape = "cylinder", at_mm = [0.0, 72.7, -61.38], axis = [0.0, 0.0, 1.0], dia_mm = 11.405, length_mm = 152.04 },
+]
+marks = [
+  { label = "JOURNAL ROD A", at_mm = [-5.419, 39.493, -24.406], reads = true },
+  { label = "JOURNAL ROD B (A + 50.8)", at_mm = [5.592, 39.493, 25.187], reads = true },
+  { label = "CRANK ROD A", at_mm = [0.0, 78.403, -23.38], reads = true },
+  { label = "CRANK ROD B (A + 76.2)", at_mm = [0.0, 78.403, 52.82], reads = true },
+  { label = "FOOT B ON THE PLATE", at_mm = [0.0, 0.0, 0.0] },
+]
+[[setups.ops.inspection_views.angularity_dia]]
+title = "ORIENTATION 2: ON ITS HEAD AND BODY, JOURNAL ROD LEVEL (STEPS 7-8)"
+up = [-0.9762272058393484, 0.0, 0.21674972336567902]
+toward = [0.0, -1.0, 0.0]
+aids = [
+  { name = "JOURNAL GAUGE ROD 12.250", shape = "cylinder", at_mm = [-13.222, 33.368, -59.55], axis = [0.21674972336567902, 0.0, 0.9762272058393484], dia_mm = 12.25, length_mm = 122.0 },
+  { name = "CRANK GAUGE ROD 11.405", shape = "cylinder", at_mm = [0.0, 72.7, -61.38], axis = [0.0, 0.0, 1.0], dia_mm = 11.405, length_mm = 152.04 },
+]
+marks = [
+  { label = "JOURNAL ROD A", at_mm = [-11.398, 33.368, -23.078], reads = true },
+  { label = "JOURNAL ROD B (A + 50.8)", at_mm = [-0.387, 33.368, 26.514], reads = true },
+  { label = "CRANK ROD A", at_mm = [-5.703, 72.7, -23.427], reads = true },
+  { label = "CRANK ROD B (A + 76.2)", at_mm = [-5.703, 72.7, 54.629], reads = true },
+]
 
 # ======================================================================= S12
 # Drawing finish (built-up variant, example divergence in features.toml material.finish, HA #1215
