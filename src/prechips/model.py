@@ -257,6 +257,10 @@ Hold = record(
         # kind round_bar with measured dia/length): the moving jaw closes on the bar, which
         # presses the work along one line so the fixed jaw seats its face square.
         "jaw_bar": str,
+        # A vise's pair of jaw buttons (an inventory fixture of kind jaw_buttons with
+        # measured dia, thickness, spigot_dia and spigot_length): one between each jaw and
+        # the work, its spigot seated in the work's bore that opens on that jaw face.
+        "jaw_buttons": str,
     },
 )
 # ``measure_before_hold``: a ``measure_then_set`` M read on the part before it is held (a
@@ -1232,6 +1236,12 @@ InventoryItem = record(
                 "max_work_in",
                 "t_slot_width_mm",
                 "t_slot_width_in",
+                # Jaw buttons (a vise hold's jaw_buttons): face Ø (dia), thickness, spigot.
+                "thickness_mm",
+                "spigot_dia_mm",
+                "spigot_dia_in",
+                "spigot_length_mm",
+                "spigot_length_in",
             ),
             MeasuredLength,
         ),
@@ -1346,6 +1356,8 @@ _INVENTORY_LENGTH_STEMS |= {"blade_width"}
 _INVENTORY_LENGTH_STEMS |= {"max_work", "t_slot_width"}
 # Combined drill and countersink pilot length (Table 6 C).
 _INVENTORY_LENGTH_STEMS |= {"pilot_len"}
+# Jaw button thickness and spigot (a vise hold's jaw_buttons).
+_INVENTORY_LENGTH_STEMS |= {"thickness", "spigot_dia", "spigot_length"}
 
 
 def _inventory_lengths(

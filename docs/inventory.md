@@ -194,7 +194,10 @@ jaw-plate thickness along the gripping normal and is never synthesized from
 jaw width, jaw height, bed height or any other dimension. A `round_bar` item
 (the bar a plan's `hold.jaw_bar` lays between the work and the moving jaw)
 needs fact-local measured `dia` and `length`; its Ø holds the moving jaw off the
-work, and without both the jaws stay unplaced.
+work, and without both the jaws stay unplaced. A `jaw_buttons` item (the pair a
+plan's `hold.jaw_buttons` sets between each jaw and the work) needs fact-local
+measured `dia` (the button face), `thickness`, `spigot_dia` and `spigot_length`;
+without all four the jaws stay unplaced.
 
 Other holding solids come from the same accepted-fact rule, never defaults:
 

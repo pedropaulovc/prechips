@@ -1442,6 +1442,12 @@ class _Traveler:
                 + self.jaw_bar_height(setup, hold)
                 + "."
             )
+        if stated("jaw_buttons") and hold["jaw_buttons"] != "unknown":
+            steps.append(
+                "Jaw buttons: "
+                + self.reference(hold["jaw_buttons"], "fixtures")
+                + ", one between each jaw and the work, its spigot in the work's bore."
+            )
         supports = hold.get("supports")
         if isinstance(supports, str) and supports not in ("none", "not_applicable", "unknown"):
             if not (stated("riser") and supports == hold.get("riser")):
