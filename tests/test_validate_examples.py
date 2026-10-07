@@ -1,6 +1,7 @@
 """Regression coverage for authored report validation against plan touch surfaces."""
 
 import copy
+import functools
 import json
 import math
 import runpy
@@ -16,6 +17,7 @@ from test_process_features import set_process_key, set_tool_fact, shaft
 
 from prechips.inputs import load_bundle
 from prechips.kernel import run_geometry
+from prechips.model import Inventory
 from prechips.rules import (
     coordinates,
     indexing,
@@ -25,6 +27,8 @@ from prechips.rules import (
     tool_resolves,
     zero_recipe,
 )
+from prechips.rules.resolution import inch_sizes, resolve
+from prechips.rules.resolution import uncertain as resolved_uncertain
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -819,34 +823,195 @@ def test_speed_oracle_never_passes_a_row_on_unverified_inputs(debt, flag):
         check()
 
 
+def solids(flag):
+    """A one-box body whose own record carries ``flag`` as its verification."""
+    box = {"name": "base", "shape": "box", "at_mm": [0, 0, 0], "size_mm": [100, 100, 30]}
+    return [{**box, "verify": flag}]
+
+
 @pytest.mark.parametrize(
-    ("path", "value"),
+    ("path", "value", "verdict"),
     [
         # The drill's verification left unknown, on its record or on a fact it is read by.
-        (("tools", "drill", "verify"), "unknown"),
-        (("tools", "drill", "dia_mm"), {"value": 6.35, "verify": "unknown"}),
+        (("tools", "drill", "verify"), "unknown", "unknown"),
+        (("tools", "drill", "dia_mm"), {"value": 6.35, "verify": "unknown"}, "unknown"),
         # The drill, or every tool, left unknown.
-        (("tools", "drill"), "unknown"),
-        (("tools",), "unknown"),
+        (("tools", "drill"), "unknown", "unknown"),
+        (("tools",), "unknown", "unknown"),
         # A collection the drill is read through left unknown.
-        (("tools", "drill", "flutes"), "unknown"),
+        (("tools", "drill", "flutes"), "unknown", "unknown"),
         # The machine's verification left unknown.
-        (("machines", "mill", "verify"), "unknown"),
+        (("machines", "mill", "verify"), "unknown", "unknown"),
+        # A body solid's verification is the solid's, not its owner's identity.
+        (("machines", "mill", "solids"), solids("unknown"), "pass"),
+        (("machines", "mill", "solids"), solids(True), "pass"),
+        (("tools", "drill", "solids"), solids("unknown"), "pass"),
     ],
 )
-def test_reference_oracle_never_reads_an_unknown_identity_as_verified(path, value):
-    """An identity the inventory leaves unknown, or whose verification it leaves unknown,
-    resolves unverified: the engine's unknown is accepted, the same row passed is not."""
+def test_reference_oracle_reads_identity_verification_as_the_checker_does(path, value, verdict):
+    """An identity the inventory leaves unknown, or whose own verification it leaves
+    unknown, resolves unverified; a record it lists (a body's solid) does not qualify it.
+    The engine's verdict is accepted, every other one rejected."""
     data = drill_bundle()
     set_key(path, value)(data.inventory)
+    Inventory.model_validate(data.inventory)
     findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
     entries = VALIDATOR["entries_for"](data.inventory)
     key = "tool_resolves", path[1] if len(path) > 1 else "drill"
-    assert findings[key]["status"] == "unknown"
+    assert findings[key]["status"] == verdict
     VALIDATOR["check_references"](data.plan, entries, findings)
-    findings[key] = {**findings[key], "status": "pass"}
-    with pytest.raises(ValueError):
-        VALIDATOR["check_references"](data.plan, entries, findings)
+    for forged in sorted({"pass", "unknown", "error"} - {verdict}):
+        with pytest.raises(ValueError):
+            VALIDATOR["check_references"](
+                data.plan, entries, {**findings, key: {**findings[key], "status": forged}}
+            )
+
+
+PILOTS = [
+    ROOT / "examples" / "pivot-shaft" / "plan.toml",
+    ROOT / "examples" / "rocker-arm" / "plan.toml",
+    ROOT / "examples" / "pivot-bracket" / "plan.toml",
+    ROOT / "examples" / "cone-pivot-post" / "built-up.toml",
+]
+CATEGORIES = ("machines", "tools", "holders", "fixtures", "gauges")
+# Members a drill index's declared coverage generates, or not, and a qctp set's holder slots.
+INDEX_MEMBERS = ("#1", "#60", "#61", "A", "Z", "1/16", "1/4", "33/64", "1/2", "17/32")
+QCTP_MEMBERS = ("1-turning-facing", "2-boring-turning-facing", "4-heavy-boring", "7-parting")
+
+
+def identities(root, item):
+    """Every identity ``root`` names or may generate: itself, each declared member, each
+    accessory, each member its declared sizes, flutes, styles, ranges, holders or coverage
+    may generate, and one it declares nowhere."""
+    if not isinstance(item, dict):
+        return {root}
+
+    def declared(*keys):
+        return [v for key in keys if isinstance(item.get(key), (list, dict)) for v in item[key]]
+
+    members = declared("members", "holders", "nominal_dia_mm", "sizes", "styles")
+    members += [*INDEX_MEMBERS, *QCTP_MEMBERS, *(f"{size}mm" for size in declared("sizes_mm"))]
+    for key in ("sizes_in", "heights_in", "ranges_in"):
+        members += [f"{size}in" for size in inch_sizes(item.get(key))]
+    members += [f"{size}in-{n}fl" for size in inch_sizes(item.get("sizes_in")) for n in (2, 3, 4)]
+    accessories = declared("standard_accessories", "included")
+    return {root, *accessories, *(f"{root}/{member}" for member in [*members, "undeclared"])}
+
+
+@functools.cache
+def pilot_inventories():
+    """``[(inventory, refs)]``: each inventory the pilots read, as authored, with every
+    identity its pilots select."""
+    plans = {}
+    for path in PILOTS:
+        plan = tomllib.loads(path.read_text(encoding="utf-8"))
+        inventory = (path.parent / plan["paths"]["inventory"]).resolve()
+        plans.setdefault(inventory, []).append(plan)
+    return [
+        (
+            tomllib.loads(path.read_text(encoding="utf-8")),
+            set().union(*(VALIDATOR["selected_refs"](plan) for plan in selecting)),
+        )
+        for path, selecting in plans.items()
+    ]
+
+
+def declared_debts(item):
+    """``[(label, record)]``: ``item`` declaring, clearing or leaving unknown each
+    verification, presence, coverage, fact, listed solid, collection and member it can
+    carry."""
+    edits = [
+        *((f"verify={flag}", {"verify": flag}) for flag in (True, False, "unknown")),
+        *((f"present={flag}", {"present": flag}) for flag in (True, False, "unknown")),
+        ("coverage", {"coverage": "verify on site"}),
+        *((f"solid verify={flag}", {"solids": solids(flag)}) for flag in (True, False, "unknown")),
+        *(
+            (f"{key}=unknown", {key: "unknown"})
+            for key in VALIDATOR["UNKNOWN_MAPS"] + VALIDATOR["UNKNOWN_LISTS"]
+            if key in item
+        ),
+    ]
+    if not any(key.startswith("body_dia") for key in item):
+        edits += [
+            (f"fact verify={flag}", {"body_dia_mm": {"value": 10.0, "verify": flag}})
+            for flag in (True, False, "unknown")
+        ]
+    result = [(label, {**item, **edit}) for label, edit in edits]
+    members = item.get("members")
+    for name, member in members.items() if isinstance(members, dict) else ():
+        edited = [("unknown", "unknown")]
+        if isinstance(member, dict):
+            edited += declared_debts({key: v for key, v in member.items() if key != "members"})
+        result += [
+            (f"member {name} {label}", {**item, "members": {**members, name: value}})
+            for label, value in edited
+        ]
+    return result
+
+
+def mutations(inventory):
+    """``(label, category, root or None, edited category)``: each category left unknown,
+    and each identity of it left unknown or carrying each of its :func:`declared_debts`."""
+    for category in CATEGORIES:
+        items = inventory.get(category, {})
+        yield f"{category}=unknown", category, None, "unknown"
+        for root, item in items.items():
+            edits = [("unknown", "unknown")]
+            edits += declared_debts(item) if isinstance(item, dict) else []
+            for label, edited in edits:
+                yield f"{root} {label}", category, root, {**items, root: edited}
+
+
+def verdicts(inventory, loaded, refs):
+    """``{ref: (validator, checker)}`` identity verdicts: error (does not resolve), unknown
+    (resolves unverified) or pass. The validator reads the ``inventory`` as authored; the
+    checker as it is ``loaded``."""
+    entries = VALIDATOR["entries_for"](inventory)
+
+    def validator(ref):
+        if not VALIDATOR["resolves"](ref, entries):
+            return "error"
+        return "unknown" if VALIDATOR["uncertain"](ref, entries) else "pass"
+
+    def checker(ref):
+        item = resolve(loaded, None, ref)
+        return "error" if item is None else "unknown" if resolved_uncertain(item) else "pass"
+
+    return {ref: (validator(ref), checker(ref)) for ref in refs}
+
+
+def test_identity_oracle_resolves_and_verifies_every_identity_as_the_checker_does():
+    """Differential: each identity of the pilots' inventory (selected, declared, member,
+    accessory, generated or undeclared) resolves through the validator's own reading to
+    the checker's verdict, as authored and with each category or identity left unknown or
+    carrying each declared, cleared or unknown verification, presence, coverage, fact,
+    listed solid, collection and member."""
+    compared, disagreements = 0, []
+    for inventory, selected in pilot_inventories():
+        base = Inventory.model_validate(inventory).model_dump(exclude_unset=True)
+        everything = {
+            root: identities(root, item)
+            for category in CATEGORIES
+            for root, item in inventory[category].items()
+        }
+        for label, category, root, edited in [(None, None, None, None), *mutations(inventory)]:
+            if root is None:
+                # The authored inventory, or a whole category left unknown: every identity.
+                scope = selected.union(*everything.values(), {"undeclared", "undeclared/x"})
+                edit = {} if category is None else {category: edited}
+            else:
+                scope = everything[root] | identities(root, edited[root])
+                edit = {category: edited}
+            loaded = {**base, **Inventory.model_validate(edit).model_dump(exclude_unset=True)}
+            found = verdicts({**inventory, **edit}, loaded, scope)
+            compared += len(found)
+            disagreements += [
+                (label, ref, ours, theirs)
+                for ref, (ours, theirs) in sorted(found.items())
+                if ours != theirs
+            ]
+    assert compared > 10_000
+    assert disagreements == []
 
 
 def saw_finding(data):
