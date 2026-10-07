@@ -1982,9 +1982,10 @@ class _Traveler:
         if _known(hold.get("jaw_above_parallels_mm")):
             facts.append(("jaw top above parallels mm", o(hold["jaw_above_parallels_mm"])))
             # The work's height above the jaw tops, from the same fields: the one source, so
-            # plan text must not restate it (consistency), and an unknown input prints "?".
+            # plan text must not restate it (consistency), and an unknown or unverified input
+            # prints "?".
             scale = {"mm": 1.0, "in": 25.4}.get(self.units)
-            jaw_top = jaw_top_z(setup, hold, scale)
+            jaw_top = jaw_top_z(self.bundle, setup, hold, scale)
             top = _mapping(setup.get("stock_state")).get("top_z")
             if jaw_top is not None and _known(top):
                 above = (top - jaw_top) * scale
@@ -1994,7 +1995,12 @@ class _Traveler:
                     else ("work top below jaw tops mm", o(-above))
                 )
             else:
-                facts.append(("work top above jaw tops mm", "? seat or stock top unknown"))
+                facts.append(
+                    (
+                        "work top above jaw tops mm",
+                        "? jaw height, parallels, seat or stock top unknown or unverified",
+                    )
+                )
         along = _text(hold.get("jaws_along")).upper()
         if _known(hold.get("jaw_center_along_mm")) and along in ("X", "Y"):
             facts.append((f"jaw centre at {along}", o(hold["jaw_center_along_mm"])))
@@ -2089,9 +2095,9 @@ class _Traveler:
         coarser = declared and abs(wanted / step - round(wanted / step)) <= 1e-9 * wanted / step
         if coarser and wanted >= step * (1 - 1e-9):
             step, decimals = wanted, places
-        # Half a grid step rounds away from zero; float noise in the quotient does not count.
-        quotient = round(value / step, 6)
-        steps = math.copysign(math.floor(abs(quotient) + 0.5), quotient)
+        from prechips.kernel.render_diagram import dro_steps
+
+        steps = dro_steps(value, step)
         printed = round(steps * step, decimals)
         moved = abs(printed - value)
         if fit and declared and step != wanted and moved > 1e-9:
@@ -6593,29 +6599,31 @@ def reference_label(bundle, reference, category=None) -> str:
     """Shop name for an inventory reference; '(not in shop list)' when it does not resolve.
     The item is the one the rules read (:func:`slot_category`): ``category``'s own first
     (``fixtures`` is a hold slot: fixtures, holders, machines), then the rest; with no
-    category, the default order. A same-key item in another category never names it."""
+    category, the default order. The selected category is authoritative: an item it lists
+    as unknown or with nothing about it (``{}``), or a category stated unknown, prints
+    ``? <category>.<key>``, and a same-key item in another category never names it. Only a
+    reference no category selects is looked for in the rest of the shop list."""
     if reference in (None, "unknown", "none", "not_applicable"):
         return _text(reference)
     if not isinstance(reference, str):
         return "?"
     slot = "workholding" if category == "fixtures" else category
-    identity_category = (
-        slot_category(bundle, reference, slot)
-        if slot
-        else inventory_category(bundle, reference.partition("/")[0])
-    ) or category
-    item = resolve(bundle, identity_category, reference)
     root, _, member = reference.partition("/")
-    raw = (
-        _mapping(_mapping(bundle.inventory.get(identity_category)).get(root))
-        if identity_category
-        else {}
-    )
-    if not raw:
-        raw_category = inventory_category(bundle, reference, tuple(bundle.inventory))
-        raw = (
-            _mapping(_mapping(bundle.inventory.get(raw_category)).get(root)) if raw_category else {}
-        )
+    selected = (
+        slot_category(bundle, reference, slot) if slot else inventory_category(bundle, root)
+    ) or category
+    # No category selects it: the shop list may still name it in a category no rule reads.
+    identity_category = selected or inventory_category(bundle, reference, tuple(bundle.inventory))
+    entries = bundle.inventory.get(identity_category) if identity_category else None
+    stated = _mapping(entries).get(root)
+    raw = _mapping(stated)
+    if (
+        entries == "unknown"
+        or stated in ("unknown", {})
+        or (member and _mapping(raw.get("members")).get(member) == "unknown")
+    ):
+        return f"? {identity_category}.{reference}"
+    item = resolve(bundle, selected, reference)
     record = item or raw
     # A member's display name is its own: a named kit does not name each of its pieces.
     own = _mapping(_mapping(raw.get("members")).get(member)) if member else {}

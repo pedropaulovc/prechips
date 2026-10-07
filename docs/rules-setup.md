@@ -357,7 +357,8 @@ number across that machine's setups), a clamp's tightening from its `tighten` /
 `torque_nm` ([plan](plan.md#hold)), the DRO ZERO's kept clamping from
 `zero.transfer.keep_clamped`, and the jaw tops and HOLD's `work top above jaw tops
 mm` from `resolution.jaw_top_z` (the seated bottom, `retained_rail_bottom_z` when
-lower, plus `jaw_above_parallels_mm`). One subject per setup (hold, clamp notes,
+lower, plus `jaw_above_parallels_mm`, from the inputs the kernel accepts for its
+vise). One subject per setup (hold, clamp notes,
 setup and stock notes, zero texts, stock heights) and one `{setup}:{op}` subject
 per op whose text the rule reads (note, `inspection_note`, `layout`,
 `inspection_methods`).
@@ -399,13 +400,31 @@ setup's or op's text names that setup's TOOLS row.
 Two checks need no prose:
 
 - A `tighten = "hand"` clamp also declares `torque_nm`.
-- `stock_state` heights are checked against the kernel's setup-entry stock box,
-  beyond its 0.001 mm stock tolerance. The box gives only the stock's highest and
-  lowest points.
-  - `top_z` is the highest point. A named `top_feature`'s `top_z` is the face it
-    touches, so it is wrong only above the whole stock.
-  - The lower of `bottom_z` and `retained_rail_bottom_z` is the lowest point. When
-    both are set, that lower one is wrong whenever it differs from the box bottom.
+- `stock_state` heights are checked against the kernel's setup-entry stock,
+  beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence
+  source its declaration names, and no other source stands in for it.
+  - A `top_z` whose `top_feature` names a feature, or a `bottom_z` whose
+    `bottom_feature` does, is that feature's +Z (or -Z) face, judged by the
+    kernel's height of that face alone. The kernel gives
+    (`setups.<id>.stock_faces_mm`) the face's finished Z and the entering stock's
+    highest point over its footprint (lowest under it). While stock stands over
+    the face, the height must be that stock's. Once the face is cut, the height
+    may sit off the face's CAD Z only as far as the feature's band allows. The
+    band counts only when the feature has one requirement with a `[low, high]`
+    band and a `_nominal`, and the kernel puts its +Z and -Z faces that nominal
+    apart. A thicker feature then moves the face outward, the other face held at
+    its CAD Z. With both faces of one feature cut, `top_z - bottom_z` must lie in
+    the band, and each face may move at most the band's span.
+  - Otherwise the box gives only the stock's highest and lowest points. `top_z`
+    is the highest point; under an `"unknown"` `top_feature` it is wrong only
+    above the whole stock.
+  - The lower of an unnamed `bottom_z` and `retained_rail_bottom_z` is the lowest
+    point. When both are set, that lower one (both, when they tie) is wrong
+    whenever it differs from the box bottom. A named seat never exempts a rail:
+    the rail keeps its own comparison.
+  - A named seat proves only its own face. When it is the lowest authored point
+    and the box shows stock below it, the stock's lowest point is not authored,
+    which is wrong.
   - A rail with no `bottom_z` is wrong only below the box bottom, since the seat
     may be the stock's lowest point.
 
@@ -415,13 +434,21 @@ A compared fact that cannot be proved is `unknown`, never `pass`:
 - a flute count for a tool with no inventory `flutes`;
 - any authored stock height that is unknown, unknown plan units, or no kernel
   stock box;
-- a `top_z` below the box top under a named or `"unknown"` `top_feature`, whose
-  face height the box does not give;
-- the higher of `bottom_z` and a rail;
+- a `top_z` below the box top under an `"unknown"` `top_feature`;
+- a `top_z` or `bottom_z` whose named face the kernel did not measure (no
+  horizontal face on that side, finished material beyond it, or a face the
+  entering stock does not carry), whatever the box shows;
+- a cut named face off its CAD Z whose feature has no band proved to be its
+  faces' separation;
+- an unnamed `bottom_z` or a rail above the lowest authored point;
 - a rail with no `bottom_z` that is not below the box bottom.
 
-An unknown rail also leaves the jaw tops unknown, and HOLD prints `work top above
-jaw tops mm` as `?`. A subject the rule reads nothing in is `not_applicable`. An op
+An unknown rail, a jaw height that is negative, not a number or flagged
+`jaw_above_parallels_mm_verify` (anything but `false`), or parallels other than
+`"none"` / `"not_applicable"` that do not resolve, are uncertain or have no
+accepted positive `height` leave the jaw tops unknown, as they leave the kernel's
+vise unplaced. HOLD then prints `work top above jaw tops mm` as `?`. A subject the
+rule reads nothing in is `not_applicable`. An op
 subject is emitted only when its text is read. Evidence: `claims`,
 `contradictions` and `unchecked`.
 

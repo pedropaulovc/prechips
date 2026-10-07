@@ -221,7 +221,10 @@ only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
 checked even when a fixture of that key is listed), the notes and record blanks
 of a shop-made holder or fixture, and every name the traveler prints for it. A
 bare key in prose that two categories list names no one item and prints as
-written; name it `<category>.<key>`. Unknown is
+written; name it `<category>.<key>`. The selected category is authoritative: an
+item it lists as `"unknown"` or with nothing about it (`{}`), or a category
+stated `"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
+it never borrows a same-key item's name or record. Unknown is
 never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
 is unknown, not listed or not verified; a `limits_mm` that is not two known
@@ -412,9 +415,11 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
   such box untrusted, HOLD prints no setting line. None of these texts creates
-  geometry or trust; `locates` only names, on a plan clamp with
-  `restraint = "locate"`, the drawn solid that must prove it bears on the work
-  (rules-geometry, `thin_wall_under_clamp`).
+  geometry or trust. On a plan clamp with `restraint = "locate"`, `locates`
+  names the drawn solid that must prove it bears on the work, and
+  `bears = "bore" | "face"` on that solid says which proof it owes: its
+  contact cylinder in a bore, or a flat face. A `locates` solid without `bears`
+  leaves the clamp unproven (rules-geometry, `thin_wall_under_clamp`).
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies

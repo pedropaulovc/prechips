@@ -516,6 +516,21 @@ def _put(path, value):
 
 
 PASSING_RECEIPT = [{"check": "condition", "gauge": "none", "accept": "no visible damage"}]
+# Slots this bare setup does not print by name (no align step due, no stop pointer, no
+# tool-touch, guide or hold-feature records): there the receipt table is the only place an
+# item is named, and an unknown item has no receipt.
+UNPRINTED_HERE = {
+    "hold.stop_fixture",
+    "hold.align.indicator",
+    "zero.z_gauge",
+    "op.holder",
+    "op.process_holds",
+    "op.guide.buttons",
+    "op.guide.template",
+    "op.guide.gauge",
+    "shop-made holder",
+    "shop-made holder, fixture decoy",
+}
 # Every way a setup reaches an inventory item: (slot, the category it selects, a category
 # the default key order reads first, the mutation using the slot, a shop-made item whose
 # record blank names the gauge). The decoy sits in that earlier category under the same key.
@@ -597,17 +612,20 @@ ITEM_LOOKUPS = [
 ]
 
 
+@pytest.mark.parametrize("state", ["listed", "unknown", "empty"])
 @pytest.mark.parametrize(
     ("slot", "real", "decoy", "use", "shop_made"),
     ITEM_LOOKUPS,
     ids=[row[0] for row in ITEM_LOOKUPS],
 )
 def test_every_item_lookup_reads_its_slots_category_never_a_same_key_decoy(
-    slot, real, decoy, use, shop_made
+    slot, real, decoy, use, shop_made, state
 ):
     """An item is its category and key. The item a slot selects has an unknown receipt and
-    is unverified; another category lists the same key with a passing receipt, verified.
-    Receipt checks, resolution and every printed name read the selected item."""
+    is unverified, or is listed as unknown, or with nothing about it (``{}``); another
+    category lists the same key with a passing receipt, verified. Receipt checks,
+    resolution and every printed name read the selected item: an unknown or empty one is
+    unknown, and prints ``? <category>.<key>``, never the other category's name."""
     from prechips.rules import purchased_tooling, tool_resolves
 
     data, _ = record_page()
@@ -627,7 +645,7 @@ def test_every_item_lookup_reads_its_slots_category_never_a_same_key_decoy(
             "solids": [cylinder("head", 0, 0, 8, 4, records=[RECORD])],
         }
         data.inventory["gauges"]["dti"]["acceptance"] = "unknown"
-    data.inventory[real]["pins"] = item
+    data.inventory[real]["pins"] = {"listed": item, "unknown": "unknown", "empty": {}}[state]
     data.inventory[decoy]["pins"] = {
         "kind": "accessory",
         "name": "DECOY",
@@ -636,12 +654,13 @@ def test_every_item_lookup_reads_its_slots_category_never_a_same_key_decoy(
     use(data.plan["setups"][0], "pins")
 
     findings = purchased_tooling.evaluate(data)
-    (receipt,) = findings
-    owners = [(row["category"], row["ref"]) for row in receipt.numbers["items"]]
-    assert receipt.status == "unknown"
-    assert (("gauges", "dti") if shop_made else (real, "pins")) in owners
+    owners = [(row["category"], row["ref"]) for f in findings for row in f.numbers["items"]]
     assert (decoy, "pins") not in owners
-    if not shop_made:
+    if state == "listed":
+        (receipt,) = findings
+        assert receipt.status == "unknown"
+        assert (("gauges", "dti") if shop_made else (real, "pins")) in owners
+    if state != "listed" or not shop_made:
         resolved = {f.subject: f.status for f in tool_resolves.evaluate(data)}
         assert "unknown" in (resolved.get("pins"), resolved.get(f"{real}.pins"))
         assert f"{decoy}.pins" not in resolved
@@ -658,8 +677,10 @@ def test_every_item_lookup_reads_its_slots_category_never_a_same_key_decoy(
         printed += traveler.touched_tool("pins", {})
     # A bare key in prose names no one item when two categories list it: never the decoy.
     printed += traveler.bench("Use the pins.", setup)
-    if not (shop_made and real == "holders"):  # here only its record's gauge is printed
+    if state == "listed" and not (shop_made and real == "holders"):  # only its gauge prints
         assert "REAL" in printed
+    if state != "listed" and slot not in UNPRINTED_HERE:
+        assert f"? {real}.pins" in printed
     assert "DECOY" not in printed
 
 

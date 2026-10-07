@@ -368,9 +368,13 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
     the most stock a file takes off its claimed faces; it has no machine cutter or holder.
     A file guided by filing buttons held in this setup names the kit's solids by their
-    kernel owner (``guide_owner``): where its cut reaches them is where the file stops."""
+    kernel owner (``guide_owner``) and the kit's declared button OD limits
+    (``guide_rim_dia_mm``): only a button of the kit, a turned solid of that OD whose rim
+    lies on the filed surface, is where the file stops."""
+    from prechips.measurements import nominal_limits_mm
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
+    from prechips.rules.resolution import resolve
 
     result = {
         "subject": subject,
@@ -395,6 +399,14 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     )
     if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
         result["guide_owner"] = owner
+        item = resolve(bundle, "fixtures", kit)
+        limits = nominal_limits_mm(item, "button_dia_limits") if isinstance(item, dict) else None
+        if (
+            isinstance(limits, list)
+            and len(limits) == 2
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in limits)
+        ):
+            result["guide_rim_dia_mm"] = sorted(limits)
     return result
 
 
@@ -608,8 +620,9 @@ def _solids(item, owner):
             primitive["label"] = caption.strip()
         locates = solid.get("locates")
         if isinstance(locates, str) and locates.strip() and locates != UNKNOWN:
-            # The locating element: a locate clamp must prove it bears on the stock.
-            primitive["locates"] = True
+            # The locating element: a locate clamp proves it bears the way it declares.
+            bears = solid.get("bears")
+            primitive["locates"] = bears if bears in ("bore", "face") else UNKNOWN
         if void:
             primitive["void"] = True
             if cuts is not None:
@@ -1079,7 +1092,7 @@ def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
     from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import evaluate as coordinate_findings
-    from prechips.rules.coordinates import revolved_located
+    from prechips.rules.coordinates import faced_aims, revolved_located
     from prechips.rules.geometry_common import (
         complete_form_subjects,
         cutting_action,
@@ -1125,8 +1138,21 @@ def build_job(bundle):
                 # measures their faces of revolution about setup Z in any setup (a turning
                 # setup measures every feature) so the axis through X0 Y0 can locate them.
                 "locate_revolved": revolved_located(setup, bundle.feature_definitions),
+                # The features whose faces stock_state's top_z / bottom_z name: the engine
+                # gives their heights and the entering stock's over them (consistency).
+                "stock_features": sorted(
+                    {
+                        name
+                        for name in (
+                            record(setup.get("stock_state")).get(key)
+                            for key in ("top_feature", "bottom_feature")
+                        )
+                        if isinstance(name, str) and name not in ("", UNKNOWN)
+                    }
+                ),
             }
         )
+    aimed = faced_aims(bundle)
     return {
         "version": 1,
         "step_path": str(Path(bundle.paths["step"]).resolve())
@@ -1140,6 +1166,8 @@ def build_job(bundle):
         "joint_features": primitives_mm(bundle),
         "process_features": process_primitives_mm(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
+        # The part the plan cuts: its faced aims move those finished faces.
+        **({"aimed_faces": aimed} if aimed else {}),
         "stock": stock_inputs(bundle),
         "setups": setups,
     }
@@ -1235,6 +1263,7 @@ _ENGINE_OP = (
     "angle_window_deg",
     "max_filing_stock_mm",
     "guide_owner",
+    "guide_rim_dia_mm",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
@@ -1336,6 +1365,7 @@ def engine_job(job):
         "joint_features": job.get("joint_features", {}),
         "process_features": job.get("process_features", {}),
         "as_is_faces": job["as_is_faces"],
+        **({"aimed_faces": job["aimed_faces"]} if job.get("aimed_faces") else {}),
         "stock": job["stock"],
         "setups": [
             {
@@ -1348,6 +1378,7 @@ def engine_job(job):
                 "machine_kind": setup["machine_kind"],
                 "locate_revolved": setup["locate_revolved"],
                 "render": setup.get("render", {}),
+                "stock_features": setup.get("stock_features", []),
             }
             for setup in job["setups"]
         ],

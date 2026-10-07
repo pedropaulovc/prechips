@@ -489,12 +489,17 @@ def named_references(bundle):
 
 def named_item(bundle, name):
     """The inventory record a :data:`NAMED_REFERENCE` ``<category>.<key>`` names, else
-    None. A whole set (``tools.reamers-metric``) is named as itself; a member is resolved."""
+    None. A whole set (``tools.reamers-metric``) is named as itself; a member is resolved.
+    An item listed as unknown or with nothing about it (``{}``), or in a category stated
+    unknown, is unknown (needs verifying), not absent."""
     category, _, reference = name.partition(".")
     if "/" in reference:
         return resolve(bundle, category, reference)
     inventory = getattr(bundle, "inventory", bundle)
-    item = record(inventory.get(category)).get(reference)
+    entries = inventory.get(category)
+    item = record(entries).get(reference)
+    if entries == UNKNOWN or item in (UNKNOWN, {}):
+        return {"kind": UNKNOWN, "verify": True}
     if not isinstance(item, dict) or item.get("present") is False:
         return None
     return item
@@ -514,11 +519,17 @@ def resolve(bundle_or_inventory, category, reference):
             unknown_category = True
             continue
         if isinstance(entries, dict) and root in entries:
-            if entries[root] == UNKNOWN:
+            # An item stated unknown, or listed with nothing about it, is unknown: never
+            # a listed item, and never one from another category or a machine's kit.
+            if entries[root] in (UNKNOWN, {}):
                 return {"kind": UNKNOWN, "verify": True}
             item = inventory_record(entries[root])
             break
     if item is None:
+        # A named category stated unknown as a whole may hold it: unknown, not a machine's
+        # accessory of the same name.
+        if category and unknown_category:
+            return {"kind": UNKNOWN, "verify": True}
         machines = inventory.get("machines", {})
         for machine in machines.values() if isinstance(machines, dict) else ():
             machine = inventory_record(machine)
@@ -656,17 +667,37 @@ def tool_numbers(bundle, setup):
     return numbers
 
 
-def jaw_top_z(setup, hold, scale):
+def jaw_top_z(bundle, setup, hold, scale):
     """The vise jaw tops' Z in ``setup``'s frame (plan units): the work's seated bottom
     (``retained_rail_bottom_z`` when lower than ``bottom_z``) plus the hold's
-    ``jaw_above_parallels_mm``, as the kernel seats its jaws. None when any of them is
-    unknown (an authored but unknown rail leaves the seat unknown) or ``scale`` (mm per
-    plan unit) is."""
+    ``jaw_above_parallels_mm``, as the kernel seats its jaws. None when any input is unknown
+    or unverified, as the kernel's vise inputs read them: a jaw height flagged
+    ``jaw_above_parallels_mm_verify`` (anything but false) or not a number at least 0;
+    parallels other than ``"none"`` / ``"not_applicable"`` that do not resolve, are
+    uncertain or lack an accepted positive ``height``; an unknown seat (an authored but
+    unknown rail included); or ``scale`` (mm per plan unit)."""
+    from prechips.measurements import length_fact
+    from prechips.rules._envelope import measurement_item
+
+    hold = record(hold)
     state = record(setup.get("stock_state"))
     bottom, rail = state.get("bottom_z"), state.get("retained_rail_bottom_z")
-    jaw = record(hold).get("jaw_above_parallels_mm")
-    if not (scale and number(bottom) and number(jaw)) or (rail is not None and not number(rail)):
+    jaw = hold.get("jaw_above_parallels_mm")
+    if not (scale and number(bottom) and number(jaw) and jaw >= 0) or (
+        rail is not None and not number(rail)
+    ):
         return None
+    if hold.get("jaw_above_parallels_mm_verify", False) is not False:
+        return None
+    parallels = hold.get("parallels")
+    if parallels not in ("none", "not_applicable"):
+        if not isinstance(parallels, str) or uncertain(resolve(bundle, "fixtures", parallels)):
+            return None
+        height = length_fact(
+            measurement_item(bundle, "fixtures", parallels), "height", require_measured=False
+        )
+        if not (height["verified"] and number(height["value"]) and height["value"] > 0):
+            return None
     return (min(bottom, rail) if rail is not None else bottom) + jaw / scale
 
 
